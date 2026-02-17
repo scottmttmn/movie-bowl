@@ -7,7 +7,7 @@ export default function ContributionStats({ stats }) {
             <tr className="text-left">
               <th>Member</th>
               <th>Total Added</th>
-              <th>Last 7 Days</th>
+              
             </tr>
           </thead>
           <tbody>
@@ -15,7 +15,6 @@ export default function ContributionStats({ stats }) {
               <tr key={s.member}>
                 <td>{s.member}</td>
                 <td>{s.totalAdded}</td>
-                <td>{s.last7Days}</td>
               </tr>
             ))}
           </tbody>
