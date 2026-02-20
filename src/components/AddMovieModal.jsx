@@ -1,6 +1,6 @@
 import React from "react";
 
-export default function AddMovieModal({ movie, onClose, onMarkWatched }) {
+export default function AddMovieModal({ movie, onClose,  }) {
   if (!movie) return null;
 
   const posterUrl = movie.poster_path
@@ -39,17 +39,13 @@ export default function AddMovieModal({ movie, onClose, onMarkWatched }) {
           </p>
         )}
 
-        {movie.overview && (
-          <p className="text-sm text-gray-700 mb-4 line-clamp-4">
-            {movie.overview}
-          </p>
-        )}
+
 
         <div className="flex gap-3 justify-center">
-          {onMarkWatched && (
+          { (
             <button
               onClick={() => {
-                onMarkWatched(movie);
+                
                 onClose();
               }}
               className="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700"

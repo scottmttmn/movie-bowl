@@ -1,4 +1,4 @@
-import { useState, useEffect } from "react";
+import { useState } from "react";
 import DrawButton from "../components/DrawButton";
 import RemainingCount from "../components/RemainingCount";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
@@ -7,6 +7,7 @@ import ContributionStats from "../components/ContributionStats";
 import useBowl from "../hooks/useBowl";
 import MovieSearch from "../components/MovieSearch";
 import { useNavigate } from "react-router-dom";
+import AddMovieModal from "../components/AddMovieModal";
 
 
 export default function BowlDashboard() {
@@ -14,6 +15,7 @@ export default function BowlDashboard() {
     const { bowl, handleDraw, handleAddMovie} = useBowl();
 
     const [showSearch, setShowSearch] = useState(false);
+    const [drawnMovie, setDrawnMovie] = useState(null);
 
     const navigate = useNavigate();
     
@@ -31,7 +33,15 @@ return (
             </header>
 
             <div className="text-center my-4">
-                <DrawButton onClick={handleDraw} disabled={bowl.remaining.length === 0} />
+                <DrawButton
+                  onClick={() => {
+                    const movie = handleDraw();
+                    if (movie) {
+                      setDrawnMovie(movie);
+                    }
+                  }}
+                  disabled={bowl.remaining.length === 0}
+                />
                 <RemainingCount count={bowl.remaining.length} />
             </div>
 
@@ -58,6 +68,12 @@ return (
             <ContributionStats
                 stats={contributionArray}
             />
+            {drawnMovie && (
+              <AddMovieModal
+                movie={drawnMovie}
+                onClose={() => setDrawnMovie(null)}
+              />
+            )}
         </div>
     );
 }

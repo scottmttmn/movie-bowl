@@ -19,7 +19,7 @@ export default function useBowl() {
   // Randomly select a movie from remaining,
   // move it to watched, and timestamp the draw.
   const handleDraw = () => {
-    if (bowl.remaining.length === 0) return;
+    if (bowl.remaining.length === 0) return null;
 
     const index = Math.floor(Math.random() * bowl.remaining.length);
     const drawn = {
@@ -27,22 +27,20 @@ export default function useBowl() {
       drawnAt: new Date().toISOString(),
     };
 
-    // Functional state update ensures we work from the latest state.
+    // Update Bowl after draw
     setBowl((prev) => ({
       ...prev,
       remaining: prev.remaining.filter((_, i) => i !== index),
       watched: [drawn, ...prev.watched],
     }));
+
+    return drawn;
   };
 
   // Add a movie to the bowl and increment the contributor's count.
   const handleAddMovie = (movie, addedBy = "You") => {
     const newMovie = {
-      id: movie.id,
-      title: movie.title,
-      poster: movie.poster_path
-        ? `https://image.tmdb.org/t/p/w200${movie.poster_path}`
-        : "https://via.placeholder.com/100",
+      ...movie,          // keep full TMDB object
       addedBy,
     };
 
