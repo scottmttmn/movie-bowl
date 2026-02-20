@@ -31,7 +31,7 @@ export default function useBowl() {
     setBowl((prev) => ({
       ...prev,
       remaining: prev.remaining.filter((_, i) => i !== index),
-      watched: [...prev.watched, drawn],
+      watched: [drawn, ...prev.watched],
     }));
   };
 

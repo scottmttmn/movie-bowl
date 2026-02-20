@@ -1,5 +1,5 @@
 // MovieSearch component handles querying TMDB and returning selectable results.
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef } from "react";
 
 // Read-only TMDB token stored in environment variables (Vite requires VITE_ prefix).
 const TMDB_TOKEN = import.meta.env.VITE_TMDB_READ_TOKEN;
@@ -9,6 +9,8 @@ export default function MovieSearch({ onAddMovie, onClose }) {
     // Controlled input state for the search field
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
+    const [highlightedIndex, setHighlightedIndex] = useState(0);
+    const inputRef = useRef(null);
 
     // Fetch movies from TMDB based on a query string
     const handleSearch = async (query) => {
@@ -43,17 +45,50 @@ export default function MovieSearch({ onAddMovie, onClose }) {
         return () => clearTimeout(timeoutId);
     }, [searchTerm]);
 
+    useEffect(() => {
+        inputRef.current?.focus();
+    }, []);
+
     // Render search UI and list of results
     return (
         <div className="mt-2">
             <input
+                ref={inputRef}
+                autoFocus
                 type="text"
                 value={searchTerm}
                 placeholder="Search movies..."
                 onChange={(e) => setSearchTerm(e.target.value)}
                 onKeyDown={(e) => {
+                    if (e.key === "ArrowDown") {
+                        e.preventDefault();
+                        if (searchResults.length > 0) {
+                            setHighlightedIndex((prev) =>
+                                prev < searchResults.length - 1 ? prev + 1 : prev
+                            );
+                        }
+                    }
+
+                    if (e.key === "ArrowUp") {
+                        e.preventDefault();
+                        if (searchResults.length > 0) {
+                            setHighlightedIndex((prev) =>
+                                prev > 0 ? prev - 1 : prev
+                            );
+                        }
+                    }
+
                     if (e.key === "Enter") {
-                        handleSearch(searchTerm);
+                        if (searchResults.length > 0) {
+                            const selectedMovie = searchResults[highlightedIndex];
+                            onAddMovie(selectedMovie);
+                            setSearchTerm("");
+                            setSearchResults([]);
+                            setHighlightedIndex(0);
+                            inputRef.current?.focus();
+                        } else {
+                            handleSearch(searchTerm);
+                        }
                     }
                 }}
             />
@@ -65,7 +100,7 @@ export default function MovieSearch({ onAddMovie, onClose }) {
             </button>
 
             <ul className="mt-3 space-y-2">
-                {searchResults.map((movie) => {
+                {searchResults.map((movie, index) => {
                     const year = movie.release_date
                         ? movie.release_date.split("-")[0]
                         : "—";
@@ -73,7 +108,9 @@ export default function MovieSearch({ onAddMovie, onClose }) {
                     return (
                         <li
                             key={movie.id}
-                            className="flex items-center justify-between p-2 border rounded"
+                            className={`flex items-center justify-between p-2 border rounded cursor-pointer ${
+                                index === highlightedIndex ? "bg-gray-200" : ""
+                            }`}
                         >
                             <div className="flex items-center gap-3">
                                 <img
@@ -102,6 +139,8 @@ export default function MovieSearch({ onAddMovie, onClose }) {
                                     onAddMovie(movie);
                                     setSearchTerm("");
                                     setSearchResults([]);
+                                    setHighlightedIndex(0);
+                                    inputRef.current?.focus();
                                 }}
                             >
                                 Add
