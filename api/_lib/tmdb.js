@@ -1,9 +1,13 @@
 const TMDB_BASE_URL = "https://api.themoviedb.org/3";
 
 function getTmdbToken() {
-  const token = process.env.TMDB_READ_ACCESS_TOKEN;
+  const token =
+    process.env.TMDB_READ_ACCESS_TOKEN ||
+    process.env.TMDB_API_KEY;
   if (!token) {
-    throw new Error("Missing TMDB_READ_ACCESS_TOKEN env var");
+    throw new Error(
+      "Missing TMDB token env var (TMDB_READ_ACCESS_TOKEN or TMDB_API_KEY)"
+    );
   }
   return token;
 }

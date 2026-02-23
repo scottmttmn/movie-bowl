@@ -4,7 +4,13 @@ export default function TopNav({ isSettingsRoute, onSignOut }) {
   return (
     <div className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
       <div className="page-container flex h-16 items-center justify-between">
-        <div className="text-2xl font-semibold tracking-tight text-slate-700">Movie Bowl</div>
+        <Link
+          to="/"
+          aria-label="Go to My Bowls"
+          className="text-2xl font-semibold tracking-tight text-slate-700 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 rounded"
+        >
+          Movie Bowl
+        </Link>
         <div className="flex items-center gap-2">
           <Link
             to="/settings"
