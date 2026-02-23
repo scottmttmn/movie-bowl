@@ -1,9 +1,10 @@
 import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { AVAILABLE_STREAMING_SERVICES, uniqueNormalizedServices } from "../utils/streamingServices";
 
 export default function UserSettings() {
-  // State to hold the user's profile data
-  const [profile, setProfile] = useState(null);
+  const navigate = useNavigate();
   // State to hold the user's selected streaming services
   const [streamingServices, setStreamingServices] = useState([]);
   // State to manage loading status
@@ -26,8 +27,7 @@ export default function UserSettings() {
 
       // If data is returned without error, update state
       if (!error && data) {
-        setProfile(data);
-        setStreamingServices(data.streaming_services || []);
+        setStreamingServices(uniqueNormalizedServices(data.streaming_services || []));
       }
 
       // Set loading to false after fetching data
@@ -47,7 +47,7 @@ export default function UserSettings() {
     // Update the user's profile with the new streaming services
     await supabase
       .from("profiles")
-      .update({ streaming_services: streamingServices })
+      .update({ streaming_services: uniqueNormalizedServices(streamingServices) })
       .eq("id", user.id);
 
     // Notify the user that their changes have been saved
@@ -67,12 +67,22 @@ export default function UserSettings() {
   if (loading) return <div>Loading...</div>;
 
   return (
-    <div>
-      <h2>User Settings</h2>
+    <div className="max-w-3xl mx-auto p-6">
+      <div className="mb-2 flex items-center justify-between">
+        <h2 className="text-2xl font-semibold">User Settings</h2>
+        <button
+          onClick={() => navigate(-1)}
+          className="px-3 py-2 rounded border border-gray-300 bg-white hover:bg-gray-50"
+        >
+          Back
+        </button>
+      </div>
+      <p className="text-sm text-gray-600 mb-4">Select all services you currently have access to.</p>
 
       {/* Render checkboxes for each streaming service */}
-      {["Netflix", "Hulu", "Disney+", "Prime Video"].map((service) => (
-        <label key={service} style={{ display: "block" }}>
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">
+      {AVAILABLE_STREAMING_SERVICES.map((service) => (
+        <label key={service} className="flex items-center gap-2 rounded border border-gray-200 px-3 py-2">
           <input
             type="checkbox"
             checked={streamingServices.includes(service)}
@@ -81,9 +91,15 @@ export default function UserSettings() {
           {service}
         </label>
       ))}
+      </div>
 
       {/* Button to save changes */}
-      <button onClick={handleSave}>Save</button>
+      <button
+        onClick={handleSave}
+        className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+      >
+        Save
+      </button>
     </div>
   );
 }

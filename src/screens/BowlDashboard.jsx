@@ -8,6 +8,7 @@ import useBowl from "../hooks/useBowl";
 import AddMovieModal from "../components/AddMovieModal";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { uniqueNormalizedServices } from "../utils/streamingServices";
 
 
 export default function BowlDashboard() {
@@ -18,6 +19,7 @@ export default function BowlDashboard() {
     const [showSearch, setShowSearch] = useState(false);
     const [drawnMovie, setDrawnMovie] = useState(null);
     const [userStreamingServices, setUserStreamingServices] = useState([]);
+    const [prioritizeStreaming, setPrioritizeStreaming] = useState(false);
 
     const navigate = useNavigate();
     
@@ -45,7 +47,7 @@ export default function BowlDashboard() {
 
         if (error || cancelled) return;
 
-        setUserStreamingServices(data?.streaming_services || []);
+        setUserStreamingServices(uniqueNormalizedServices(data?.streaming_services || []));
       };
 
       loadUserStreamingServices();
@@ -73,13 +75,30 @@ return (
             <div className="text-center my-4">
                 <DrawButton
                   onClick={async () => {
-                    const movie = await handleDraw();
+                    const movie = await handleDraw({
+                      prioritizeByServices: prioritizeStreaming,
+                      userStreamingServices,
+                    });
                     if (movie) {
                       setDrawnMovie(movie);
                     }
                   }}
                   disabled={bowl.remaining.length === 0}
                 />
+                <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-700">
+                  <input
+                    type="checkbox"
+                    checked={prioritizeStreaming}
+                    onChange={(e) => setPrioritizeStreaming(e.target.checked)}
+                    disabled={userStreamingServices.length === 0}
+                  />
+                  Prioritize my streaming services
+                </label>
+                {userStreamingServices.length === 0 && (
+                  <p className="mt-1 text-xs text-gray-500">
+                    Add services in Settings to enable prioritized draw.
+                  </p>
+                )}
                 <RemainingCount count={bowl.remaining.length} />
             </div>
 

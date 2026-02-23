@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
+import { selectDrawCandidate } from "../utils/selectDrawCandidate";
 // useBowl is the core state engine for a bowl.
 // It manages bowl state and defines how that state transitions (add + draw).
 
@@ -93,12 +94,19 @@ export default function useBowl(bowlId) {
 
   // Randomly select a movie from remaining, mark it as drawn in the DB,
   // and reload the remaining/watched lists.
-  const handleDraw = useCallback(async () => {
+  const handleDraw = useCallback(async (options = {}) => {
     if (!bowlId) return null;
     if (bowl.remaining.length === 0) return null;
 
-    const index = Math.floor(Math.random() * bowl.remaining.length);
-    const drawn = bowl.remaining[index];
+    const selected = await selectDrawCandidate(bowl.remaining, {
+      prioritizeByServices: options.prioritizeByServices,
+      userStreamingServices: options.userStreamingServices,
+      fetchProviders: (tmdbId) => fetchStreamingProviders(tmdbId, { region: "US" }),
+    });
+
+    if (!selected) return null;
+
+    const drawn = selected.movie;
 
     const { data: authData, error: authError } = await supabase.auth.getUser();
     const user = authData?.user;
@@ -119,18 +127,14 @@ export default function useBowl(bowlId) {
       return null;
     }
 
-    const { providers, region, fetchedAt } = await fetchStreamingProviders(drawn.tmdb_id, {
-      region: "US",
-    });
-
     // Reload after updating.
     await loadBowlMovies();
 
     return {
       ...drawn,
-      streamingProviders: providers,
-      streamingRegion: region,
-      streamingFetchedAt: fetchedAt,
+      streamingProviders: selected.providers || [],
+      streamingRegion: selected.region || "US",
+      streamingFetchedAt: selected.fetchedAt || null,
     };
   }, [bowlId, bowl.remaining, loadBowlMovies]);
 
