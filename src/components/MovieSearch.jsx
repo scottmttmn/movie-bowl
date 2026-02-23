@@ -5,21 +5,14 @@ import {getPosterUrl} from "../utils/getPosterUrl"
 // Read-only TMDB token stored in environment variables (Vite requires VITE_ prefix).
 const TMDB_TOKEN = import.meta.env.VITE_TMDB_READ_TOKEN;
 
-export default function MovieSearch({ onAddMovie, onClose }) {
+export default function MovieSearch({ onAddMovie }) {
     // Controlled input state for the search field
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [highlightedIndex, setHighlightedIndex] = useState(0);
     const inputRef = useRef(null);
 
-    // Helper to get poster URL or placeholder
-    // const getPosterUrl = (movie, size = "w92") => {
-    //     return movie.poster_path
-    //         ? `https://image.tmdb.org/t/p/${size}${movie.poster_path}`
-    //         : "https://via.placeholder.com/60";
-    // };
 
-    // Fetch movies from TMDB based on a query string
     const handleSearch = async (query) => {
         if (!query) return;
         try {

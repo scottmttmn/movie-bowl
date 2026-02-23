@@ -3,6 +3,7 @@ import MyBowlsScreen from "./screens/MyBowlsScreen";
 import BowlDashboard from "./screens/BowlDashboard";
 import useAuth from "./hooks/useAuth";
 import LoginPage from "./screens/LoginPage";
+import UserSettingsPage from "./components/UserSettingsPage";
 
 function Layout({ children }) {
   const { signOut } = useAuth();
@@ -40,6 +41,10 @@ function App() {
     <Router>
       <Layout>
         <Routes>
+        <Route path="/settings" element={
+          <RequireAuth><UserSettingsPage />
+          </RequireAuth>
+        } />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/" element={
             <RequireAuth>
@@ -56,11 +61,7 @@ function App() {
               <div>Bowl Settings</div>
             </RequireAuth>
           } />
-          <Route path="/settings" element={
-            <RequireAuth>
-              <div>User Settings</div>
-            </RequireAuth>
-          } />
+
         </Routes>
       </Layout>
     </Router>

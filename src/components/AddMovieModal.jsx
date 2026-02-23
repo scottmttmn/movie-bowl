@@ -1,11 +1,9 @@
 import React from "react";
-
+import { getPosterUrl } from "../utils/getPosterUrl";
 export default function AddMovieModal({ movie, onClose,  }) {
   if (!movie) return null;
 
-  const posterUrl = movie.poster_path
-    ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-    : null;
+  const posterUrl = getPosterUrl(movie)
 
   const year = movie.release_date
     ? movie.release_date.split("-")[0]

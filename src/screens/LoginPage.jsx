@@ -5,11 +5,34 @@ export default function LoginPage() {
   const { signIn } = useAuth();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [errorMessage, setErrorMessage] = useState(null);
 
+  // Submit the email to Supabase Auth to send a magic link.
   const handleSubmit = async (e) => {
     e.preventDefault();
-    await signIn(email);
-    setSent(true);
+
+    // Prevent double submissions
+    if (isSubmitting) return;
+
+    setIsSubmitting(true);
+    setErrorMessage(null);
+
+    try {
+      const { error } = await signIn(email);
+
+      if (error) {
+        setErrorMessage(error.message || "Failed to send magic link.");
+        return;
+      }
+
+      setSent(true);
+    } catch (err) {
+      setErrorMessage("Unexpected error sending magic link.");
+      console.error("[LoginPage] signIn failed", err);
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   return (
@@ -28,9 +51,16 @@ export default function LoginPage() {
             onChange={(e) => setEmail(e.target.value)}
             className="border p-2 rounded"
           />
-          <button className="bg-black text-white p-2 rounded">
-            Send Magic Link
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="bg-black text-white p-2 rounded disabled:opacity-50"
+          >
+            {isSubmitting ? "Sending..." : "Send Magic Link"}
           </button>
+          {errorMessage && (
+            <p className="text-sm text-red-600">{errorMessage}</p>
+          )}
         </form>
       )}
     </div>
