@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import DrawButton from "../components/DrawButton";
 import RemainingCount from "../components/RemainingCount";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
@@ -7,7 +7,10 @@ import ContributionStats from "../components/ContributionStats";
 import useBowl from "../hooks/useBowl";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import AddMovieModal from "../components/AddMovieModal";
+import DrawAnimationModal from "../components/DrawAnimationModal";
 import { useNavigate, useParams } from "react-router-dom";
+import { supabase } from "../lib/supabase";
+import { fetchStreamingProviders } from "../lib/streamingProviders";
 
 
 export default function BowlDashboard() {
@@ -17,7 +20,10 @@ export default function BowlDashboard() {
 
     const [showSearch, setShowSearch] = useState(false);
     const [drawnMovie, setDrawnMovie] = useState(null);
+    const [selectedWatchedMovie, setSelectedWatchedMovie] = useState(null);
     const [prioritizeStreaming, setPrioritizeStreaming] = useState(false);
+    const [isDrawing, setIsDrawing] = useState(false);
+    const [bowlName, setBowlName] = useState("My Bowl");
     const { streamingServices: userStreamingServices } = useUserStreamingServices();
 
     const navigate = useNavigate();
@@ -29,12 +35,35 @@ export default function BowlDashboard() {
       })
     );
 
+    useEffect(() => {
+      let cancelled = false;
+
+      const loadBowlName = async () => {
+        if (!bowlId) return;
+
+        const { data, error } = await supabase
+          .from("bowls")
+          .select("name")
+          .eq("id", bowlId)
+          .single();
+
+        if (error || cancelled) return;
+        setBowlName(data?.name || "My Bowl");
+      };
+
+      loadBowlName();
+
+      return () => {
+        cancelled = true;
+      };
+    }, [bowlId]);
+
 return (
-    <div className="bowl-dashboard p-4 w-screen max-w-screen overflow-hidden">
-        <header className="flex justify-between items-center mb-4 min-w-0">
-                <button onClick={() => navigate("/")}>Back</button>
-                <h2 className="truncate max-w-[60%] text-center">My Bowl</h2>
-                <button onClick={() => navigate(`/bowl/${bowlId}/settings`)}>⚙️</button>
+    <div className="bowl-dashboard page-container pb-10 pt-3 overflow-hidden">
+        <header className="mb-4 flex items-center justify-between min-w-0">
+                <button onClick={() => navigate("/")} className="btn btn-ghost px-3 py-2">Back</button>
+                <h2 className="truncate max-w-[60%] text-2xl font-semibold text-slate-800 text-center">{bowlName}</h2>
+                <button onClick={() => navigate(`/bowl/${bowlId}/settings`)} className="icon-btn" aria-label="Bowl settings">⚙️</button>
             </header>
 
             {isLoading && (
@@ -44,43 +73,79 @@ return (
               <div className="text-sm text-red-600 mb-2">{errorMessage}</div>
             )}
 
-            <div className="text-center my-4">
+            <section className="panel text-center my-4">
                 <DrawButton
                   onClick={async () => {
-                    const movie = await handleDraw({
-                      prioritizeByServices: prioritizeStreaming,
-                      userStreamingServices,
-                    });
-                    if (movie) {
-                      setDrawnMovie(movie);
+                    if (isDrawing) return;
+                    setIsDrawing(true);
+
+                    try {
+                      const minAnimationDelay = new Promise((resolve) => setTimeout(resolve, 1200));
+                      const drawPromise = handleDraw({
+                        prioritizeByServices: prioritizeStreaming,
+                        userStreamingServices,
+                      });
+
+                      const [movie] = await Promise.all([drawPromise, minAnimationDelay]);
+                      if (movie) {
+                        setDrawnMovie(movie);
+                      }
+                    } finally {
+                      setIsDrawing(false);
                     }
                   }}
+                  isLoading={isDrawing}
                   disabled={bowl.remaining.length === 0}
                 />
-                <label className="mt-3 inline-flex items-center gap-2 text-sm text-gray-700">
-                  <input
-                    type="checkbox"
-                    checked={prioritizeStreaming}
-                    onChange={(e) => setPrioritizeStreaming(e.target.checked)}
-                    disabled={userStreamingServices.length === 0}
-                  />
-                  Prioritize my streaming services
-                </label>
+                <div className="mt-3 mx-auto max-w-xl rounded-lg border border-gray-200 bg-white px-3 py-2">
+                  <div className="flex items-center justify-between gap-3">
+                    <div className="text-left">
+                      <p className="text-sm font-medium text-gray-800">Draw options</p>
+                      <p className="text-xs text-gray-500">Prefer titles on your services when possible.</p>
+                    </div>
+                    <label htmlFor="prioritize-streaming-draw" className="relative inline-flex items-center cursor-pointer">
+                      <input
+                        id="prioritize-streaming-draw"
+                        name="prioritize_streaming_draw"
+                        type="checkbox"
+                        className="peer sr-only"
+                        checked={prioritizeStreaming}
+                        onChange={(e) => setPrioritizeStreaming(e.target.checked)}
+                        disabled={userStreamingServices.length === 0}
+                      />
+                      <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-blue-600 peer-disabled:bg-gray-200" />
+                      <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+                    </label>
+                  </div>
+                </div>
                 {userStreamingServices.length === 0 && (
-                  <p className="mt-1 text-xs text-gray-500">
+                  <p className="mt-2 text-xs text-slate-500">
                     Add services in Settings to enable prioritized draw.
                   </p>
                 )}
-                <RemainingCount count={bowl.remaining.length} />
-            </div>
+                <div className="mt-2">
+                  <RemainingCount count={bowl.remaining.length} />
+                </div>
+            </section>
 
             
-            <div className="w-full max-w-full min-w-0 overflow-x-auto">
-                <WatchedMoviesStrip movies={bowl.watched} />
-            </div>
+            <section className="panel w-full max-w-full min-w-0 overflow-x-auto">
+                <WatchedMoviesStrip
+                  movies={bowl.watched}
+                  onSelectMovie={async (movie) => {
+                    const providerData = await fetchStreamingProviders(movie.tmdb_id, { region: "US" });
+                    setSelectedWatchedMovie({
+                      ...movie,
+                      streamingProviders: providerData.providers || [],
+                      streamingRegion: providerData.region || "US",
+                      streamingFetchedAt: providerData.fetchedAt || null,
+                    });
+                  }}
+                />
+            </section>
             
 
-            <div className="my-4 text-center">
+            <div className="my-5 text-center">
                 <AddMovieButton onClick={() => setShowSearch(true)} />
 
                 {showSearch && (
@@ -105,6 +170,14 @@ return (
                 onClose={() => setDrawnMovie(null)}
               />
             )}
+            {selectedWatchedMovie && (
+              <AddMovieModal
+                movie={selectedWatchedMovie}
+                userStreamingServices={userStreamingServices}
+                onClose={() => setSelectedWatchedMovie(null)}
+              />
+            )}
+            {isDrawing && <DrawAnimationModal />}
         </div>
     );
 }

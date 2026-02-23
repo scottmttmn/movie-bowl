@@ -1,13 +1,15 @@
-export default function DrawButton({ onClick, disabled }) {
+export default function DrawButton({ onClick, disabled, isLoading = false }) {
     return (
       <button
         onClick={onClick}
-        disabled={disabled}
-        className={`px-6 py-3 text-white font-bold rounded ${
-          disabled ? "bg-gray-400 cursor-not-allowed" : "bg-green-600 hover:bg-green-700"
+        disabled={disabled || isLoading}
+        className={`btn px-8 py-3 text-lg ${
+          disabled || isLoading
+            ? "bg-slate-300 text-slate-500 cursor-not-allowed"
+            : "bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-200"
         }`}
       >
-        🎲 Draw Movie
+        {isLoading ? "Drawing..." : "🎲 Draw Movie"}
       </button>
     );
   }

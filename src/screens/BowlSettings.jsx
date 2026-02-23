@@ -12,6 +12,7 @@ export default function BowlSettings() {
   const navigate = useNavigate();
 
   const [bowlName, setBowlName] = useState("Bowl Settings");
+  const [editableBowlName, setEditableBowlName] = useState("Bowl Settings");
   const [ownerId, setOwnerId] = useState(null);
 
   const [members, setMembers] = useState([]);
@@ -21,6 +22,7 @@ export default function BowlSettings() {
   const [inviteLink, setInviteLink] = useState(null);
 
   const [isLoading, setIsLoading] = useState(true);
+  const [isSavingName, setIsSavingName] = useState(false);
   const [actionMessage, setActionMessage] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
 
@@ -60,6 +62,7 @@ export default function BowlSettings() {
       }
 
       setBowlName(bowl?.name || "Bowl Settings");
+      setEditableBowlName(bowl?.name || "Bowl Settings");
       setOwnerId(bowl?.owner_id ?? null);
 
       // Load members. Join to profiles so we can show emails.
@@ -172,13 +175,55 @@ export default function BowlSettings() {
     }
   };
 
+  const handleRenameBowl = async (e) => {
+    e.preventDefault();
+
+    setActionMessage(null);
+    setErrorMessage(null);
+
+    const nextName = editableBowlName.trim();
+    if (!nextName) {
+      setErrorMessage("Bowl name cannot be empty.");
+      return;
+    }
+
+    if (nextName === bowlName) {
+      setActionMessage("Bowl name is already up to date.");
+      return;
+    }
+
+    setIsSavingName(true);
+
+    try {
+      const { error } = await supabase
+        .from("bowls")
+        .update({ name: nextName })
+        .eq("id", bowlId);
+
+      if (error) {
+        console.error("[BowlSettings] Failed to rename bowl", error);
+        setErrorMessage("Failed to update bowl name.");
+        return;
+      }
+
+      setBowlName(nextName);
+      setEditableBowlName(nextName);
+      setActionMessage("Bowl name updated.");
+    } catch (err) {
+      console.error("[BowlSettings] Unexpected error renaming bowl", err);
+      setErrorMessage("Unexpected error updating bowl name.");
+    } finally {
+      setIsSavingName(false);
+    }
+  };
+
   return (
-    <div className="p-4 max-w-2xl mx-auto">
+    <div className="page-container py-4">
       <header className="flex items-center justify-between mb-4">
-        <button onClick={() => navigate(`/bowl/${bowlId}`)} className="text-sm">
+        <button onClick={() => navigate(`/bowl/${bowlId}`)} className="btn btn-ghost px-3 py-2">
           Back
         </button>
-        <h2 className="text-lg font-semibold truncate max-w-[70%]">{bowlName}</h2>
+        <h2 className="text-2xl font-semibold text-slate-800 truncate max-w-[70%]">{bowlName}</h2>
         <div />
       </header>
 
@@ -190,8 +235,32 @@ export default function BowlSettings() {
         <div className="text-sm text-green-700 mb-2">{actionMessage}</div>
       )}
 
-      <section className="border rounded p-4">
-        <h3 className="font-semibold mb-3">Members</h3>
+      {isOwner && (
+        <section className="panel mb-4">
+          <h3 className="section-title mb-3">Bowl Name</h3>
+          <form onSubmit={handleRenameBowl} className="flex gap-2">
+            <input
+              id="bowl-name-input"
+              name="bowl_name"
+              type="text"
+              value={editableBowlName}
+              onChange={(e) => setEditableBowlName(e.target.value)}
+              className="input-field flex-1"
+              maxLength={120}
+            />
+            <button
+              type="submit"
+              disabled={isSavingName}
+              className="btn btn-secondary disabled:opacity-60"
+            >
+              {isSavingName ? "Saving..." : "Save"}
+            </button>
+          </form>
+        </section>
+      )}
+
+      <section className="panel">
+        <h3 className="section-title mb-3">Members</h3>
 
         {!isOwner && (
           <p className="text-sm text-gray-600 mb-3">
@@ -202,15 +271,17 @@ export default function BowlSettings() {
         {isOwner && (
           <form onSubmit={handleCreateInvite} className="flex gap-2 mb-4">
             <input
+              id="invite-email-input"
+              name="invite_email"
               type="email"
               value={emailToInvite}
               onChange={(e) => setEmailToInvite(e.target.value)}
               placeholder="friend@example.com"
-              className="border rounded p-2 flex-1"
+              className="input-field flex-1"
             />
             <button
               type="submit"
-              className="px-3 py-2 rounded border border-gray-300 bg-white hover:bg-gray-50"
+              className="btn btn-secondary"
             >
               Invite
             </button>
@@ -218,10 +289,16 @@ export default function BowlSettings() {
         )}
 
         {isOwner && inviteLink && (
-          <div className="mb-4 border rounded p-2 bg-gray-50">
-            <div className="text-xs text-gray-600 mb-1">Invite link</div>
+          <div className="mb-4 rounded-lg border border-slate-200 p-3 bg-slate-50">
+            <div className="text-xs text-slate-600 mb-1">Invite link</div>
             <div className="flex items-center gap-2">
-              <input readOnly value={inviteLink} className="border rounded p-2 flex-1 text-xs" />
+              <input
+                id="invite-link-input"
+                name="invite_link"
+                readOnly
+                value={inviteLink}
+                className="input-field flex-1 text-xs"
+              />
               <button
                 type="button"
                 onClick={async () => {
@@ -232,7 +309,7 @@ export default function BowlSettings() {
                     console.error("[BowlSettings] Failed to copy invite link", err);
                   }
                 }}
-                className="text-sm px-2 py-2 rounded border border-gray-300 bg-white hover:bg-gray-50"
+                className="btn btn-secondary text-sm px-3 py-2"
               >
                 Copy
               </button>
@@ -249,7 +326,7 @@ export default function BowlSettings() {
                 return (
                   <div
                     key={inv.id}
-                    className="flex items-center justify-between border rounded p-2"
+                    className="flex items-center justify-between rounded-lg border border-slate-200 p-2"
                   >
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate">{inv.invited_email}</div>
@@ -265,7 +342,7 @@ export default function BowlSettings() {
                           console.error("[BowlSettings] Failed to copy invite link", err);
                         }
                       }}
-                      className="text-sm px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50"
+                      className="btn btn-secondary text-sm px-2 py-1"
                     >
                       Copy
                     </button>
@@ -287,7 +364,7 @@ export default function BowlSettings() {
               return (
                 <div
                   key={m.user_id}
-                  className="flex items-center justify-between border rounded p-2"
+                  className="flex items-center justify-between rounded-lg border border-slate-200 p-2"
                 >
                   <div className="min-w-0">
                     <div className="text-sm font-medium truncate">{email}</div>
@@ -297,7 +374,7 @@ export default function BowlSettings() {
                   {isOwner && !isOwnerRole && (
                     <button
                       onClick={() => handleRemoveMember(m.user_id)}
-                      className="text-sm px-2 py-1 rounded border border-gray-300 bg-white hover:bg-gray-50"
+                      className="btn btn-secondary text-sm px-2 py-1"
                     >
                       Remove
                     </button>

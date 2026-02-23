@@ -119,9 +119,9 @@ export default function MyBowlsScreen() {
   };
 
   return (
-    <div className="my-bowls-screen p-6 max-w-3xl mx-auto">
+    <div className="my-bowls-screen page-container py-4">
       <header className="mb-6">
-        <h2 className="text-2xl font-semibold mb-3">My Bowls</h2>
+        <h2 className="text-2xl font-semibold text-slate-800 mb-3">My Bowls</h2>
         <div className="flex justify-start">
           <NewBowlButton onClick={handleNewBowl} />
         </div>
@@ -140,11 +140,13 @@ export default function MyBowlsScreen() {
 
       {isModalOpen && (
         <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="bg-white rounded-lg p-6 w-80 shadow-lg">
-            <h3 className="text-lg font-semibold mb-4">Create New Bowl</h3>
+          <div className="panel w-full max-w-sm">
+            <h3 className="section-title mb-4">Create New Bowl</h3>
             <input
+              id="new-bowl-name"
+              name="new_bowl_name"
               type="text"
-              className="w-full border border-gray-300 rounded px-3 py-2 mb-4 focus:outline-none focus:ring-2 focus:ring-blue-500"
+              className="input-field mb-4"
               placeholder="Bowl Name"
               value={newBowlName}
               onChange={(e) => setNewBowlName(e.target.value)}
@@ -153,13 +155,13 @@ export default function MyBowlsScreen() {
             />
             <div className="flex justify-end space-x-3">
               <button
-                className="px-4 py-2 rounded bg-gray-300 hover:bg-gray-400"
+                className="btn btn-secondary"
                 onClick={handleCloseModal}
               >
                 Cancel
               </button>
               <button
-                className="px-4 py-2 rounded bg-blue-600 text-white hover:bg-blue-700"
+                className="btn btn-primary"
                 onClick={handleCreateBowl}
               >
                 Create

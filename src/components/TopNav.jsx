@@ -2,18 +2,18 @@ import { Link } from "react-router-dom";
 
 export default function TopNav({ isSettingsRoute, onSignOut }) {
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 border-b border-gray-200 bg-white/95 backdrop-blur">
-      <div className="mx-auto flex h-14 max-w-4xl items-center justify-between px-4">
-        <div className="text-sm font-semibold tracking-wide text-gray-700">Movie Bowl</div>
+    <div className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
+      <div className="page-container flex h-16 items-center justify-between">
+        <div className="text-2xl font-semibold tracking-tight text-slate-700">Movie Bowl</div>
         <div className="flex items-center gap-2">
           <Link
             to="/settings"
             aria-label="Settings"
             title="Settings"
-            className={`inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm transition ${
+            className={`icon-btn ${
               isSettingsRoute
                 ? "pointer-events-none bg-gray-100 text-gray-500"
-                : "hover:border-gray-400 hover:bg-gray-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-gray-200"
+                : ""
             }`}
           >
             <svg
@@ -35,7 +35,7 @@ export default function TopNav({ isSettingsRoute, onSignOut }) {
             onClick={onSignOut}
             aria-label="Log out"
             title="Log out"
-            className="inline-flex h-9 w-9 items-center justify-center rounded-lg border border-gray-300 bg-white text-gray-700 shadow-sm transition hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-200"
+            className="icon-btn hover:border-red-200 hover:bg-red-50 hover:text-red-600 focus-visible:ring-red-200"
           >
             <span aria-hidden="true" className="text-lg leading-none">↪</span>
           </button>

@@ -3,6 +3,7 @@ import { useState, useEffect, useRef } from "react";
 import {getPosterUrl} from "../utils/getPosterUrl"
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { matchUserServices } from "../utils/streamingServices";
+import AddMovieModal from "./AddMovieModal";
 
 // Read-only TMDB token stored in environment variables (Vite requires VITE_ prefix).
 const TMDB_TOKEN = import.meta.env.VITE_TMDB_READ_TOKEN;
@@ -13,6 +14,7 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
     const [searchResults, setSearchResults] = useState([]);
     const [highlightedIndex, setHighlightedIndex] = useState(0);
     const [providersByMovieId, setProvidersByMovieId] = useState({});
+    const [detailMovie, setDetailMovie] = useState(null);
     const inputRef = useRef(null);
     const latestRequestRef = useRef(0);
 
@@ -62,21 +64,44 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
         }
     };
 
+    const fetchMovieDetails = async (movieId) => {
+        const response = await fetch(
+            `https://api.themoviedb.org/3/movie/${movieId}`,
+            {
+                headers: {
+                    Authorization: `Bearer ${TMDB_TOKEN}`,
+                },
+            }
+        );
+
+        if (!response.ok) {
+            throw new Error(`TMDB details request failed with ${response.status}`);
+        }
+
+        return response.json();
+    };
+
+    const buildDetailedMovie = async (movie) => {
+        const details = await fetchMovieDetails(movie.id);
+        const cachedProviders = providersByMovieId[movie.id];
+        const providerData = Array.isArray(cachedProviders)
+          ? { providers: cachedProviders, region: "US", fetchedAt: null }
+          : await fetchStreamingProviders(movie.id, { region: "US" });
+
+        return {
+            ...movie,
+            ...details,
+            streamingProviders: providerData.providers || [],
+            streamingRegion: providerData.region || "US",
+            streamingFetchedAt: providerData.fetchedAt || null,
+        };
+    };
+
     // Add movie with full details fetched inside
     const addMovie = async (movie) => {
         try {
-            const response = await fetch(
-                `https://api.themoviedb.org/3/movie/${movie.id}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${TMDB_TOKEN}`,
-                    },
-                }
-            );
-            const details = await response.json();
-            if (details) {
-                onAddMovie({ ...movie, ...details });
-            }
+            const detailedMovie = await buildDetailedMovie(movie);
+            onAddMovie(detailedMovie);
         } catch (error) {
             console.error("Failed to fetch movie details", error);
         }
@@ -84,6 +109,15 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
         setSearchResults([]);
         setHighlightedIndex(0);
         inputRef.current?.focus();
+    };
+
+    const openDetails = async (movie) => {
+        try {
+            const detailedMovie = await buildDetailedMovie(movie);
+            setDetailMovie(detailedMovie);
+        } catch (error) {
+            console.error("Failed to open movie details", error);
+        }
     };
 
     // Handle keyboard navigation and selection
@@ -132,10 +166,12 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                 <input
                     ref={inputRef}
                     autoFocus
+                    id="movie-search-input"
+                    name="movie_search"
                     type="text"
                     value={searchTerm}
                     placeholder="Search movies..."
-                    className="w-full border rounded px-3 py-2"
+                    className="input-field"
                     onChange={(e) => {
                         const value = e.target.value;
                         setSearchTerm(value);
@@ -177,12 +213,9 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                             key={movie.id}
                             role="option"
                             aria-selected={index === highlightedIndex}
-                            className={`flex items-center justify-between p-2 border rounded cursor-pointer ${
-                                index === highlightedIndex ? "bg-gray-200" : ""
+                            className={`flex items-center justify-between p-2 rounded-lg border border-slate-200 ${
+                                index === highlightedIndex ? "bg-slate-100" : "bg-white"
                             }`}
-                            onClick={async () => {
-                                await addMovie(movie);
-                            }}
                         >
                             <div className="flex items-center gap-3">
                                 <img
@@ -206,10 +239,42 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                                     )}
                                 </div>
                             </div>
+                            <div className="ml-2 flex flex-col gap-1">
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await addMovie(movie);
+                                  }}
+                                  className="btn btn-primary text-xs px-2 py-1"
+                                >
+                                  Add
+                                </button>
+                                <button
+                                  type="button"
+                                  onClick={async () => {
+                                    await openDetails(movie);
+                                  }}
+                                  className="btn btn-secondary text-xs px-2 py-1"
+                                >
+                                  Details
+                                </button>
+                            </div>
                         </li>
                     );
                 })}
             </ul>
+
+            {detailMovie && (
+              <AddMovieModal
+                movie={detailMovie}
+                userStreamingServices={userStreamingServices}
+                detailPrimaryActionLabel="Add Movie"
+                onDetailPrimaryAction={async (selectedMovie) => {
+                  await onAddMovie(selectedMovie);
+                }}
+                onClose={() => setDetailMovie(null)}
+              />
+            )}
         </div>
     );
 }

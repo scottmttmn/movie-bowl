@@ -1,9 +1,14 @@
-export default function WatchedMovieCard({ movie }) {
-  const drawnDate = movie.drawnAt ? new Date(movie.drawnAt).toLocaleDateString() : null;
+export default function WatchedMovieCard({ movie, onClick }) {
+  const drawnDate = movie.drawn_at || movie.drawnAt;
+  const drawnDateLabel = drawnDate ? new Date(drawnDate).toLocaleDateString() : null;
   
 
   return (
-    <div className="watched-movie-card flex-shrink-0 inline-flex flex-col items-center w-24 text-center">
+    <button
+      type="button"
+      onClick={() => onClick?.(movie)}
+      className="watched-movie-card flex-shrink-0 inline-flex flex-col items-center w-28 text-center bg-transparent border-0 p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-blue-300 rounded-lg transition hover:opacity-95"
+    >
       {(() => {
         const posterUrl = movie.poster_path
           ? `https://image.tmdb.org/t/p/w200${movie.poster_path}`
@@ -13,16 +18,19 @@ export default function WatchedMovieCard({ movie }) {
           <img
             src={posterUrl}
             alt={movie.title}
-            className="w-24 h-36 object-cover rounded"
+            className="w-28 h-40 object-cover rounded-lg shadow-sm"
           />
         ) : (
-          <div className="w-24 h-36 flex items-center justify-center rounded bg-gray-200 p-2">
+          <div className="w-28 h-40 flex items-center justify-center rounded-lg bg-slate-200 p-2">
             <p className="text-xs font-semibold text-center">{movie.title}</p>
           </div>
         );
       })()}
       
-      {drawnDate && <p className="text-[10px] text-gray-500 mt-1">{drawnDate}</p>}
-    </div>
+      <p className="mt-1 text-xs font-medium text-slate-700 leading-tight min-h-[2rem] overflow-hidden">
+        {movie.title}
+      </p>
+      {drawnDateLabel && <p className="text-[11px] text-slate-500">{drawnDateLabel}</p>}
+    </button>
   );
 }
