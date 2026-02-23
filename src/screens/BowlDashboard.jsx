@@ -41,13 +41,39 @@ export default function BowlDashboard() {
       const loadBowlName = async () => {
         if (!bowlId) return;
 
+        const { data: authData, error: authError } = await supabase.auth.getUser();
+        const userId = authData?.user?.id;
+        if (authError || !userId) {
+          if (!cancelled) navigate("/", { replace: true });
+          return;
+        }
+
         const { data, error } = await supabase
           .from("bowls")
-          .select("name")
+          .select("name, owner_id")
           .eq("id", bowlId)
           .single();
 
-        if (error || cancelled) return;
+        if (error || !data || cancelled) {
+          if (!cancelled) navigate("/", { replace: true });
+          return;
+        }
+
+        const isOwner = data.owner_id === userId;
+        if (!isOwner) {
+          const { data: memberRow, error: memberError } = await supabase
+            .from("bowl_members")
+            .select("user_id")
+            .eq("bowl_id", bowlId)
+            .eq("user_id", userId)
+            .maybeSingle();
+
+          if (memberError || !memberRow) {
+            if (!cancelled) navigate("/", { replace: true });
+            return;
+          }
+        }
+
         setBowlName(data?.name || "My Bowl");
       };
 
@@ -56,7 +82,7 @@ export default function BowlDashboard() {
       return () => {
         cancelled = true;
       };
-    }, [bowlId]);
+    }, [bowlId, navigate]);
 
 return (
     <div className="bowl-dashboard page-container pb-10 pt-3 overflow-hidden">

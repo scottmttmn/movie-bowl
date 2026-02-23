@@ -23,10 +23,13 @@ export default function BowlSettings() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingName, setIsSavingName] = useState(false);
+  const [deleteConfirmText, setDeleteConfirmText] = useState("");
+  const [isDeletingBowl, setIsDeletingBowl] = useState(false);
   const [actionMessage, setActionMessage] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
 
   const [currentUserId, setCurrentUserId] = useState(null);
+  const [currentUserEmail, setCurrentUserEmail] = useState("");
 
   const isOwner = useMemo(() => {
     return Boolean(ownerId && currentUserId && ownerId === currentUserId);
@@ -46,6 +49,7 @@ export default function BowlSettings() {
         console.error("[BowlSettings] Failed to get current user", authError);
       }
       setCurrentUserId(authData?.user?.id ?? null);
+      setCurrentUserEmail((authData?.user?.email || "").toLowerCase());
 
       // Load bowl basics (name + owner).
       const { data: bowl, error: bowlError } = await supabase
@@ -175,6 +179,36 @@ export default function BowlSettings() {
     }
   };
 
+  const handleRevokeInvite = async (inviteId, invitedEmail) => {
+    setActionMessage(null);
+    setErrorMessage(null);
+
+    if (!isOwner) {
+      setErrorMessage("Only the bowl owner can revoke invites.");
+      return;
+    }
+
+    try {
+      const { error } = await supabase
+        .from("bowl_invites")
+        .delete()
+        .eq("id", inviteId)
+        .eq("bowl_id", bowlId);
+
+      if (error) {
+        console.error("[BowlSettings] Failed to revoke invite", error);
+        setErrorMessage("Failed to revoke invite.");
+        return;
+      }
+
+      setActionMessage(`Invite revoked for ${invitedEmail}.`);
+      await loadBowlAndMembers();
+    } catch (err) {
+      console.error("[BowlSettings] Unexpected error revoking invite", err);
+      setErrorMessage("Unexpected error revoking invite.");
+    }
+  };
+
   const handleRenameBowl = async (e) => {
     e.preventDefault();
 
@@ -217,6 +251,138 @@ export default function BowlSettings() {
     }
   };
 
+  const handleDeleteBowl = async (e) => {
+    e.preventDefault();
+    setActionMessage(null);
+    setErrorMessage(null);
+
+    if (!isOwner) {
+      setErrorMessage("Only the bowl owner can delete this bowl.");
+      return;
+    }
+
+    if (deleteConfirmText.trim() !== "DELETE") {
+      setErrorMessage('Type "DELETE" to confirm bowl deletion.');
+      return;
+    }
+
+    setIsDeletingBowl(true);
+
+    try {
+      const { error: moviesError } = await supabase
+        .from("bowl_movies")
+        .delete()
+        .eq("bowl_id", bowlId);
+      if (moviesError) {
+        console.error("[BowlSettings] Failed to delete bowl movies", moviesError);
+        setErrorMessage("Failed to delete bowl movies.");
+        return;
+      }
+
+      const { error: invitesError } = await supabase
+        .from("bowl_invites")
+        .delete()
+        .eq("bowl_id", bowlId);
+      if (invitesError) {
+        console.error("[BowlSettings] Failed to delete bowl invites", invitesError);
+        setErrorMessage("Failed to delete bowl invites.");
+        return;
+      }
+
+      const { error: membersError } = await supabase
+        .from("bowl_members")
+        .delete()
+        .eq("bowl_id", bowlId);
+      if (membersError) {
+        console.error("[BowlSettings] Failed to delete bowl members", membersError);
+        setErrorMessage("Failed to delete bowl members.");
+        return;
+      }
+
+      const { error: bowlError } = await supabase
+        .from("bowls")
+        .delete()
+        .eq("id", bowlId);
+      if (bowlError) {
+        console.error("[BowlSettings] Failed to delete bowl", bowlError);
+        setErrorMessage("Failed to delete bowl.");
+        return;
+      }
+
+      navigate("/", { replace: true });
+    } catch (err) {
+      console.error("[BowlSettings] Unexpected error deleting bowl", err);
+      setErrorMessage("Unexpected error deleting bowl.");
+    } finally {
+      setIsDeletingBowl(false);
+    }
+  };
+
+  const handleLeaveBowl = async () => {
+    setActionMessage(null);
+    setErrorMessage(null);
+
+    if (!currentUserId || !bowlId) return;
+    if (isOwner) {
+      setErrorMessage("Owners cannot leave the bowl. Transfer ownership or delete the bowl.");
+      return;
+    }
+
+    const confirmed = window.confirm("Leave this bowl?");
+    if (!confirmed) return;
+
+    try {
+      const { error } = await supabase
+        .from("bowl_members")
+        .delete()
+        .eq("bowl_id", bowlId)
+        .eq("user_id", currentUserId);
+
+      if (error) {
+        console.error("[BowlSettings] Failed to leave bowl", error);
+        setErrorMessage(`Failed to leave bowl: ${error.message || "unknown error"}`);
+        return;
+      }
+
+      // Verify membership is truly gone (delete metadata can be ambiguous with RLS/returning settings).
+      const { data: membershipAfterDelete, error: verifyError } = await supabase
+        .from("bowl_members")
+        .select("user_id")
+        .eq("bowl_id", bowlId)
+        .eq("user_id", currentUserId)
+        .maybeSingle();
+
+      if (verifyError) {
+        console.error("[BowlSettings] Failed to verify leave result", verifyError);
+        setErrorMessage(`Failed to verify leave result: ${verifyError.message || "unknown error"}`);
+        return;
+      }
+
+      if (membershipAfterDelete) {
+        setErrorMessage("Could not leave bowl. Your membership row still exists. Ask the owner to remove you or update RLS policy.");
+        return;
+      }
+
+      // Cleanup accepted/pending invites for this user email to avoid stale list behavior.
+      if (currentUserEmail) {
+        const { error: inviteDeleteError } = await supabase
+          .from("bowl_invites")
+          .delete()
+          .eq("bowl_id", bowlId)
+          .eq("invited_email", currentUserEmail);
+
+        if (inviteDeleteError) {
+          console.error("[BowlSettings] Failed to remove invite rows after leaving", inviteDeleteError);
+        }
+      }
+
+      navigate("/", { replace: true });
+    } catch (err) {
+      console.error("[BowlSettings] Unexpected error leaving bowl", err);
+      setErrorMessage("Unexpected error leaving bowl.");
+    }
+  };
+
   return (
     <div className="page-container py-4">
       <header className="flex items-center justify-between mb-4">
@@ -256,6 +422,50 @@ export default function BowlSettings() {
               {isSavingName ? "Saving..." : "Save"}
             </button>
           </form>
+        </section>
+      )}
+
+      {isOwner && (
+        <section className="panel mb-4 border-red-200">
+          <h3 className="section-title mb-2 text-red-700">Delete Bowl</h3>
+          <p className="text-sm text-slate-600 mb-3">
+            This permanently deletes the bowl, all bowl movies, members, and pending invites.
+          </p>
+          <form onSubmit={handleDeleteBowl} className="flex flex-col sm:flex-row gap-2 sm:items-center">
+            <input
+              id="delete-bowl-confirm"
+              name="delete_bowl_confirm"
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder='Type "DELETE"'
+              className="input-field sm:flex-1"
+              autoComplete="off"
+            />
+            <button
+              type="submit"
+              disabled={isDeletingBowl}
+              className="btn border border-red-300 bg-red-50 text-red-700 hover:bg-red-100 focus-visible:ring-red-200 disabled:opacity-60"
+            >
+              {isDeletingBowl ? "Deleting..." : "Delete Bowl"}
+            </button>
+          </form>
+        </section>
+      )}
+
+      {!isOwner && (
+        <section className="panel mb-4 border-amber-200">
+          <h3 className="section-title mb-2 text-amber-700">Leave Bowl</h3>
+          <p className="text-sm text-slate-600 mb-3">
+            You will be removed from this bowl and can rejoin only by invite.
+          </p>
+          <button
+            type="button"
+            onClick={handleLeaveBowl}
+            className="btn border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 focus-visible:ring-amber-200"
+          >
+            Leave Bowl
+          </button>
         </section>
       )}
 
@@ -345,6 +555,15 @@ export default function BowlSettings() {
                       className="btn btn-secondary text-sm px-2 py-1"
                     >
                       Copy
+                    </button>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        void handleRevokeInvite(inv.id, inv.invited_email);
+                      }}
+                      className="btn border border-red-300 bg-red-50 px-2 py-1 text-sm text-red-700 hover:bg-red-100 focus-visible:ring-red-200"
+                    >
+                      Revoke
                     </button>
                   </div>
                 );

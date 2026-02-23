@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import BowlCard from "../components/BowlCard";
 import NewBowlButton from "../components/NewBowlButton";
 import { supabase } from "../lib/supabase";
+import { parseInviteEmails } from "../utils/parseInviteEmails";
 
 // Supabase client is centralized in src/lib/supabase.js
 
@@ -14,6 +15,9 @@ export default function MyBowlsScreen() {
   const [isLoading, setIsLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newBowlName, setNewBowlName] = useState("");
+  const [inviteEmails, setInviteEmails] = useState("");
+  const [createErrorMessage, setCreateErrorMessage] = useState(null);
+  const [createActionMessage, setCreateActionMessage] = useState(null);
   const navigate = useNavigate();
 
   useEffect(() => {
@@ -31,8 +35,32 @@ export default function MyBowlsScreen() {
         return;
       }
 
-      // Load bowls + counts from a single RPC.
-      // This avoids client-side counting quirks with RLS and keeps the home screen fast.
+      // Determine access from authoritative ownership + membership tables.
+      const [{ data: ownedRows, error: ownedError }, { data: memberRows, error: memberError }] =
+        await Promise.all([
+          supabase.from("bowls").select("id").eq("owner_id", user.id),
+          supabase.from("bowl_members").select("bowl_id").eq("user_id", user.id),
+        ]);
+
+      if (ownedError || memberError) {
+        console.error("Failed to load user bowl access", ownedError || memberError);
+        setBowls([]);
+        setIsLoading(false);
+        return;
+      }
+
+      const allowedBowlIds = new Set([
+        ...(ownedRows || []).map((row) => row.id),
+        ...(memberRows || []).map((row) => row.bowl_id),
+      ]);
+
+      if (allowedBowlIds.size === 0) {
+        setBowls([]);
+        setIsLoading(false);
+        return;
+      }
+
+      // Load bowl cards + counts from RPC, then filter to only accessible bowls.
       const { data: rows, error: bowlsError } = await supabase.rpc(
         "get_my_bowls_with_counts"
       );
@@ -45,13 +73,15 @@ export default function MyBowlsScreen() {
       }
 
       setBowls(
-        (rows || []).map((b) => ({
-          id: b.id,
-          name: b.name,
-          remainingCount: Number(b.remaining_count || 0),
-          memberCount: Number(b.member_count || 0),
-          role: b.owner_id === user.id ? "Owner" : "Member",
-        }))
+        (rows || [])
+          .filter((b) => allowedBowlIds.has(b.id))
+          .map((b) => ({
+            id: b.id,
+            name: b.name,
+            remainingCount: Number(b.remaining_count || 0),
+            memberCount: Number(b.member_count || 0),
+            role: b.owner_id === user.id ? "Owner" : "Member",
+          }))
       );
 
       setIsLoading(false);
@@ -66,27 +96,44 @@ export default function MyBowlsScreen() {
   };
 
   const handleNewBowl = () => {
+    setCreateErrorMessage(null);
+    setCreateActionMessage(null);
     setIsModalOpen(true);
   };
 
   const handleCreateBowl = async () => {
-    if (newBowlName.trim() === "") return;
+    setCreateErrorMessage(null);
+    setCreateActionMessage(null);
+
+    const bowlName = newBowlName.trim();
+    if (!bowlName) {
+      setCreateErrorMessage("Bowl name is required.");
+      return;
+    }
+
+    const { validEmails, invalidEmails } = parseInviteEmails(inviteEmails);
+    if (invalidEmails.length > 0) {
+      setCreateErrorMessage(`Invalid email(s): ${invalidEmails.join(", ")}`);
+      return;
+    }
 
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
       console.error("Not authenticated", userError);
+      setCreateErrorMessage("You must be signed in to create a bowl.");
       return;
     }
 
     // Insert new bowl into Supabase
     const { data: newBowl, error: bowlError } = await supabase
       .from("bowls")
-      .insert([{ owner_id:user.id ,name: newBowlName.trim() }])
+      .insert([{ owner_id:user.id ,name: bowlName }])
       .select()
       .single();
 
     if (bowlError || !newBowl) {
       console.error("Failed to create bowl", bowlError);
+      setCreateErrorMessage("Failed to create bowl.");
       return;
     }
 
@@ -97,7 +144,30 @@ export default function MyBowlsScreen() {
 
     if (memberError) {
       console.error("Failed to add owner membership", memberError);
+      setCreateErrorMessage("Failed to add owner membership.");
       return;
+    }
+
+    if (validEmails.length > 0) {
+      const inviteRows = validEmails.map((email) => ({
+        bowl_id: newBowl.id,
+        invited_email: email,
+        invited_by: user.id,
+        token: crypto.randomUUID(),
+      }));
+
+      const { error: inviteError } = await supabase
+        .from("bowl_invites")
+        .insert(inviteRows);
+
+      if (inviteError) {
+        console.error("Failed to create invites", inviteError);
+        setCreateErrorMessage("Bowl created, but invites could not be created.");
+      } else {
+        setCreateActionMessage(
+          `Bowl created with ${validEmails.length} invite${validEmails.length === 1 ? "" : "s"}.`
+        );
+      }
     }
 
     // Update local state with new bowl
@@ -110,11 +180,15 @@ export default function MyBowlsScreen() {
     };
     setBowls((prev) => [...prev,bowlToAdd]);
     setNewBowlName("");
+    setInviteEmails("");
     setIsModalOpen(false);
   };
 
   const handleCloseModal = () => {
     setNewBowlName("");
+    setInviteEmails("");
+    setCreateErrorMessage(null);
+    setCreateActionMessage(null);
     setIsModalOpen(false);
   };
 
@@ -122,6 +196,8 @@ export default function MyBowlsScreen() {
     <div className="my-bowls-screen page-container py-4">
       <header className="mb-6">
         <h2 className="text-2xl font-semibold text-slate-800 mb-3">My Bowls</h2>
+        {createErrorMessage && <div className="mb-3 text-sm text-red-600">{createErrorMessage}</div>}
+        {createActionMessage && <div className="mb-3 text-sm text-green-700">{createActionMessage}</div>}
         <div className="flex justify-start">
           <NewBowlButton onClick={handleNewBowl} />
         </div>
@@ -152,6 +228,17 @@ export default function MyBowlsScreen() {
               onChange={(e) => setNewBowlName(e.target.value)}
               onKeyDown={(e) => { if (e.key === 'Enter') handleCreateBowl(); }}
               autoFocus
+            />
+            <label htmlFor="new-bowl-invites" className="mb-1 block text-sm font-medium text-slate-700">
+              Invite emails (optional)
+            </label>
+            <textarea
+              id="new-bowl-invites"
+              name="new_bowl_invites"
+              className="input-field mb-4 min-h-20"
+              placeholder="friend1@example.com, friend2@example.com"
+              value={inviteEmails}
+              onChange={(e) => setInviteEmails(e.target.value)}
             />
             <div className="flex justify-end space-x-3">
               <button
