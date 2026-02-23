@@ -4,14 +4,13 @@ import {getPosterUrl} from "../utils/getPosterUrl"
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { matchUserServices } from "../utils/streamingServices";
 import AddMovieModal from "./AddMovieModal";
-
-// Read-only TMDB token stored in environment variables (Vite requires VITE_ prefix).
-const TMDB_TOKEN = import.meta.env.VITE_TMDB_READ_TOKEN;
+import { getTmdbMovieDetails, searchTmdbMovies } from "../lib/tmdbApi";
 
 export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) {
     // Controlled input state for the search field
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
+    const [searchError, setSearchError] = useState(null);
     const [highlightedIndex, setHighlightedIndex] = useState(0);
     const [providersByMovieId, setProvidersByMovieId] = useState({});
     const [detailMovie, setDetailMovie] = useState(null);
@@ -25,17 +24,10 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
 
         const requestId = latestRequestRef.current + 1;
         latestRequestRef.current = requestId;
+        setSearchError(null);
 
         try {
-            const response = await fetch(
-                `https://api.themoviedb.org/3/search/movie?query=${encodeURIComponent(trimmedQuery)}`,
-                {
-                    headers: {
-                        Authorization: `Bearer ${TMDB_TOKEN}`,
-                    },
-                }
-            );
-            const data = await response.json();
+            const data = await searchTmdbMovies(trimmedQuery);
             if (requestId !== latestRequestRef.current) return;
 
             const results = data.results || [];
@@ -61,24 +53,13 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
             });
         } catch (error) {
             console.error("Failed to fetch movies", error);
+            setSearchResults([]);
+            setSearchError("Movie service is unavailable right now. Please try again.");
         }
     };
 
     const fetchMovieDetails = async (movieId) => {
-        const response = await fetch(
-            `https://api.themoviedb.org/3/movie/${movieId}`,
-            {
-                headers: {
-                    Authorization: `Bearer ${TMDB_TOKEN}`,
-                },
-            }
-        );
-
-        if (!response.ok) {
-            throw new Error(`TMDB details request failed with ${response.status}`);
-        }
-
-        return response.json();
+        return getTmdbMovieDetails(movieId);
     };
 
     const buildDetailedMovie = async (movie) => {
@@ -104,6 +85,7 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
             onAddMovie(detailedMovie);
         } catch (error) {
             console.error("Failed to fetch movie details", error);
+            setSearchError("Failed to load movie details. Please try again.");
         }
         setSearchTerm("");
         setSearchResults([]);
@@ -117,6 +99,7 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
             setDetailMovie(detailedMovie);
         } catch (error) {
             console.error("Failed to open movie details", error);
+            setSearchError("Failed to open movie details. Please try again.");
         }
     };
 
@@ -178,6 +161,7 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                         if (!value.trim()) {
                             latestRequestRef.current += 1;
                             setSearchResults([]);
+                            setSearchError(null);
                             setHighlightedIndex(0);
                         }
                     }}
@@ -263,6 +247,14 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                     );
                 })}
             </ul>
+            {searchError && (
+              <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+                {searchError}
+              </div>
+            )}
+            {!searchError && searchTerm.trim() && searchResults.length === 0 && (
+              <div className="mt-2 text-sm text-slate-500">No matching movies found.</div>
+            )}
 
             {detailMovie && (
               <AddMovieModal

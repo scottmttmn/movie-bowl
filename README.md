@@ -38,13 +38,19 @@ npm install
 ```bash
 VITE_SUPABASE_URL=...
 VITE_SUPABASE_ANON_KEY=...
-VITE_TMDB_READ_TOKEN=...
+TMDB_READ_ACCESS_TOKEN=...
 ```
 
-3. Run the app:
+3. Run locally:
 
 ```bash
 npm run dev
+```
+
+For TMDB-backed features during local development, run with Vercel's local runtime so `/api/tmdb/*` routes are available:
+
+```bash
+vercel dev
 ```
 
 ## Scripts
@@ -62,6 +68,7 @@ npm run dev
 - Service names are normalized in `src/utils/streamingServices.js`.
 - Provider availability is fetched from TMDB:
   - `src/lib/streamingProviders.js`
+  - proxied through server routes in `api/tmdb/*` so the TMDB key stays server-side
   - includes in-memory caching + in-flight request deduping
 - Draw behavior:
   - if prioritize toggle is on and matches exist, draw from matches

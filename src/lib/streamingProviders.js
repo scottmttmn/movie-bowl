@@ -1,6 +1,6 @@
 import { normalizeStreamingServices } from "../utils/streamingServices";
+import { getTmdbMovieProviders } from "./tmdbApi";
 
-const TMDB_TOKEN = import.meta.env.VITE_TMDB_READ_TOKEN;
 const PROVIDER_CACHE_TTL_MS = 10 * 60 * 1000;
 const providersCache = new Map();
 const inflightRequests = new Map();
@@ -18,7 +18,7 @@ export async function fetchStreamingProviders(tmdbId, options = {}) {
   const region = options.region || "US";
   const bypassCache = Boolean(options.bypassCache);
 
-  if (!tmdbId || !TMDB_TOKEN) {
+  if (!tmdbId) {
     return { region, providers: [], fetchedAt: null };
   }
 
@@ -39,20 +39,7 @@ export async function fetchStreamingProviders(tmdbId, options = {}) {
 
   const requestPromise = (async () => {
     try {
-      const response = await fetch(
-        `https://api.themoviedb.org/3/movie/${tmdbId}/watch/providers`,
-        {
-          headers: {
-            Authorization: `Bearer ${TMDB_TOKEN}`,
-          },
-        }
-      );
-
-      if (!response.ok) {
-        throw new Error(`TMDB providers request failed with ${response.status}`);
-      }
-
-      const data = await response.json();
+      const data = await getTmdbMovieProviders(tmdbId);
       const regionData = data?.results?.[region] || {};
 
       const providerNames = [
