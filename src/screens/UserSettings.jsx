@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { supabase } from "../lib/supabase";
 
-export default function UserSettingsPage() {
+export default function UserSettings() {
   // State to hold the user's profile data
   const [profile, setProfile] = useState(null);
   // State to hold the user's selected streaming services

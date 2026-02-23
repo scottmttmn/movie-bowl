@@ -1,22 +1,34 @@
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation } from "react-router-dom";
+import React from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import MyBowlsScreen from "./screens/MyBowlsScreen";
 import BowlDashboard from "./screens/BowlDashboard";
 import useAuth from "./hooks/useAuth";
 import LoginPage from "./screens/LoginPage";
-import UserSettingsPage from "./components/UserSettingsPage";
+import UserSettings from "./screens/UserSettings";
+import BowlSettings from "./screens/BowlSettings";
+import { supabase } from "./lib/supabase";
 
 function Layout({ children }) {
   const { signOut } = useAuth();
+  const { session } = useAuth();
+  const location = useLocation();
+  const isLoginRoute = location.pathname === "/login";
 
   return (
-    <div style={{ position: "relative" }}>
-      <button 
-        onClick={signOut} 
-        style={{ position: "absolute", top: 10, right: 10 }}
-      >
-        Logout
-      </button>
-      {children}
+    <div className="min-h-screen">
+      {/* Top bar keeps Logout from overlapping page-level headers/buttons */}
+      {!isLoginRoute && session && (
+        <div className="flex justify-end p-4">
+          <button
+            onClick={signOut}
+            className="px-3 py-2 rounded border border-gray-300 bg-white hover:bg-gray-50"
+          >
+            Logout
+          </button>
+        </div>
+      )}
+
+      <div>{children}</div>
     </div>
   );
 }
@@ -36,16 +48,123 @@ function RequireAuth({ children }) {
   return children;
 }
 
+function AcceptInvite() {
+  const { token } = useParams();
+  const navigate = useNavigate();
+  const location = useLocation();
+  const { session, loading } = useAuth();
+
+  const [status, setStatus] = React.useState("loading");
+  const [message, setMessage] = React.useState("Processing invite…");
+
+  React.useEffect(() => {
+    const run = async () => {
+      if (loading) return;
+
+      // Must be logged in to accept an invite.
+      if (!session?.user) {
+        navigate("/login", { replace: true, state: { from: location } });
+        return;
+      }
+
+      if (!token) {
+        setStatus("error");
+        setMessage("Missing invite token.");
+        return;
+      }
+
+      try {
+        const userEmail = (session.user.email || "").toLowerCase();
+
+        const { data: invite, error: inviteError } = await supabase
+          .from("bowl_invites")
+          .select("id, bowl_id, invited_email, accepted_at")
+          .eq("token", token)
+          .single();
+
+        if (inviteError || !invite) {
+          console.error("[AcceptInvite] Failed to load invite", inviteError);
+          setStatus("error");
+          setMessage("Invite not found or no longer valid.");
+          return;
+        }
+
+        if (invite.accepted_at) {
+          setStatus("success");
+          setMessage("Invite already accepted. Redirecting…");
+          navigate(`/bowl/${invite.bowl_id}`, { replace: true });
+          return;
+        }
+
+        const invitedEmail = (invite.invited_email || "").toLowerCase();
+        if (!userEmail || userEmail !== invitedEmail) {
+          setStatus("error");
+          setMessage(
+            `This invite was created for ${invite.invited_email}. You are signed in as ${session.user.email}.`
+          );
+          return;
+        }
+
+        // Add membership. If already a member, continue.
+        const { error: memberError } = await supabase.from("bowl_members").insert([
+          {
+            bowl_id: invite.bowl_id,
+            user_id: session.user.id,
+            role: "Member",
+          },
+        ]);
+
+        if (memberError) {
+          const msg = (memberError.message || "").toLowerCase();
+          if (!msg.includes("duplicate")) {
+            console.error("[AcceptInvite] Failed to add member", memberError);
+            setStatus("error");
+            setMessage("Failed to add you to the bowl.");
+            return;
+          }
+        }
+
+        const { error: acceptError } = await supabase
+          .from("bowl_invites")
+          .update({ accepted_at: new Date().toISOString() })
+          .eq("id", invite.id);
+
+        if (acceptError) {
+          console.error("[AcceptInvite] Failed to mark invite accepted", acceptError);
+        }
+
+        setStatus("success");
+        setMessage("Invite accepted. Redirecting…");
+        navigate(`/bowl/${invite.bowl_id}`, { replace: true });
+      } catch (err) {
+        console.error("[AcceptInvite] Unexpected error", err);
+        setStatus("error");
+        setMessage("Unexpected error accepting invite.");
+      }
+    };
+
+    run();
+  }, [loading, session, token, navigate, location]);
+
+  return (
+    <div className="p-6 max-w-md mx-auto">
+      <h2 className="text-lg font-semibold mb-2">Accept Invite</h2>
+      <div className={status === "error" ? "text-red-600" : "text-gray-700"}>{message}</div>
+    </div>
+  );
+}
+
 function App() {
   return (
     <Router>
       <Layout>
         <Routes>
         <Route path="/settings" element={
-          <RequireAuth><UserSettingsPage />
+          <RequireAuth><UserSettings />
           </RequireAuth>
         } />
           <Route path="/login" element={<LoginPage />} />
+          <Route path="/accept-invite/:token" element={<AcceptInvite />} />
           <Route path="/" element={
             <RequireAuth>
               <MyBowlsScreen />
@@ -58,7 +177,7 @@ function App() {
           } />
           <Route path="/bowl/:bowlId/settings" element={
             <RequireAuth>
-              <div>Bowl Settings</div>
+              <BowlSettings />
             </RequireAuth>
           } />
 
@@ -67,5 +186,6 @@ function App() {
     </Router>
   );
 }
+
 
 export default App;

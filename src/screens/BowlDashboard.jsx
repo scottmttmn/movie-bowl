@@ -5,37 +5,46 @@ import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
 import AddMovieButton from "../components/AddMovieButton";
 import ContributionStats from "../components/ContributionStats";
 import useBowl from "../hooks/useBowl";
-import MovieSearch from "../components/MovieSearch";
-import { useNavigate } from "react-router-dom";
 import AddMovieModal from "../components/AddMovieModal";
+import { useNavigate, useParams } from "react-router-dom";
 
 
 export default function BowlDashboard() {
     
-    const { bowl, handleDraw, handleAddMovie} = useBowl();
+    const { bowlId } = useParams();
+    const { bowl, contributions, isLoading, errorMessage, handleDraw, handleAddMovie } = useBowl(bowlId);
 
     const [showSearch, setShowSearch] = useState(false);
     const [drawnMovie, setDrawnMovie] = useState(null);
 
     const navigate = useNavigate();
     
-    const contributionArray = Object.entries(bowl.contributions).map(([member, totalAdded]) => ({
+    const contributionArray = Object.entries(contributions || {}).map(
+      ([member, totalAdded]) => ({
         member,
         totalAdded,
-    }));
+      })
+    );
 
 return (
     <div className="bowl-dashboard p-4 w-screen max-w-screen overflow-hidden">
         <header className="flex justify-between items-center mb-4 min-w-0">
                 <button onClick={() => navigate("/")}>Back</button>
                 <h2 className="truncate max-w-[60%] text-center">My Bowl</h2>
-                <button onClick={() => console.log("Settings")}>⚙️</button>
+                <button onClick={() => navigate(`/bowl/${bowlId}/settings`)}>⚙️</button>
             </header>
+
+            {isLoading && (
+              <div className="text-sm text-gray-600 mb-2">Loading bowl…</div>
+            )}
+            {!isLoading && errorMessage && (
+              <div className="text-sm text-red-600 mb-2">{errorMessage}</div>
+            )}
 
             <div className="text-center my-4">
                 <DrawButton
-                  onClick={() => {
-                    const movie = handleDraw();
+                  onClick={async () => {
+                    const movie = await handleDraw();
                     if (movie) {
                       setDrawnMovie(movie);
                     }
@@ -55,13 +64,13 @@ return (
                 <AddMovieButton onClick={() => setShowSearch(true)} />
 
                 {showSearch && (
-                    <MovieSearch
-                        onAddMovie={(movie) => {
-                            handleAddMovie(movie);
-                            setShowSearch(false);
-                        }}
-                        onClose={() => setShowSearch(false)}
-                    />
+                  <AddMovieModal
+                    onClose={() => setShowSearch(false)}
+                    onAddMovie={async (movie) => {
+                      await handleAddMovie(movie);
+                      setShowSearch(false);
+                    }}
+                  />
                 )}
             </div>
 

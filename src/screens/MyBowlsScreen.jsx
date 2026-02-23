@@ -31,61 +31,31 @@ export default function MyBowlsScreen() {
         return;
       }
 
-      // 1) Bowls the user owns.
-      const { data: ownedBowls, error: ownedError } = await supabase
-        .from("bowls")
-        .select("id, name")
-        .eq("owner_id", user.id)
-        .order("created_at", { ascending: false });
+      // Load bowls + counts from a single RPC.
+      // This avoids client-side counting quirks with RLS and keeps the home screen fast.
+      const { data: rows, error: bowlsError } = await supabase.rpc(
+        "get_my_bowls_with_counts"
+      );
 
-      if (ownedError) {
-        console.error("Failed to load owned bowls", ownedError);
+      if (bowlsError) {
+        console.error("Failed to load bowls", bowlsError);
+        setBowls([]);
+        setIsLoading(false);
+        return;
       }
 
-      // 2) Bowls the user is a member of (including their role).
-      // We select the related bowl row via the foreign key relationship.
-      const { data: memberRows, error: memberError } = await supabase
-        .from("bowl_members")
-        .select("role, bowls ( id, name )")
-        .eq("user_id", user.id);
-
-      if (memberError) {
-        console.error("Failed to load member bowls", memberError);
-      }
-
-      // Merge owned + member bowls into a single list, deduped by bowl id.
-      const byId = new Map();
-
-      (ownedBowls || []).forEach((b) => {
-        byId.set(b.id, {
+      setBowls(
+        (rows || []).map((b) => ({
           id: b.id,
           name: b.name,
-          // TODO: replace placeholders once movies are persisted per bowl.
-          remainingCount: 0,
-          memberCount: 0,
-          role: "Owner",
-        });
-      });
+          remainingCount: Number(b.remaining_count || 0),
+          memberCount: Number(b.member_count || 0),
+          role: b.owner_id === user.id ? "Owner" : "Member",
+        }))
+      );
 
-      (memberRows || []).forEach((row) => {
-        const bowl = row.bowls;
-        if (!bowl) return;
-
-        // Prefer Owner role if both sources exist.
-        const existing = byId.get(bowl.id);
-        const role = row.role || "Member";
-
-        byId.set(bowl.id, {
-          id: bowl.id,
-          name: bowl.name,
-          remainingCount: existing?.remainingCount ?? 0,
-          memberCount: existing?.memberCount ?? 0,
-          role: existing?.role === "Owner" ? "Owner" : role,
-        });
-      });
-
-      setBowls(Array.from(byId.values()));
       setIsLoading(false);
+      return;
     };
 
     loadBowls();
@@ -150,9 +120,11 @@ export default function MyBowlsScreen() {
 
   return (
     <div className="my-bowls-screen p-6 max-w-3xl mx-auto">
-      <header className="flex justify-between items-center mb-6">
-        <h2 className="text-2xl font-semibold">My Bowls</h2>
-        <NewBowlButton onClick={handleNewBowl} />
+      <header className="mb-6">
+        <h2 className="text-2xl font-semibold mb-3">My Bowls</h2>
+        <div className="flex justify-start">
+          <NewBowlButton onClick={handleNewBowl} />
+        </div>
       </header>
       <div className="bowl-list space-y-4">
         {isLoading ? (

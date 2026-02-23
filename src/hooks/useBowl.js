@@ -1,60 +1,171 @@
-import { useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
+import { supabase } from "../lib/supabase";
 // useBowl is the core state engine for a bowl.
 // It manages bowl state and defines how that state transitions (add + draw).
 
-export default function useBowl() {
+export default function useBowl(bowlId) {
   // Primary bowl state:
-  // - remaining: movies not yet drawn
-  // - watched: movies that have been drawn
-  // - contributions: count of movies added per member
+  // - remaining: movies not yet drawn (drawn_at is null)
+  // - watched: movies that have been drawn (drawn_at is not null)
   const [bowl, setBowl] = useState({
     remaining: [],
     watched: [],
-    contributions: {
-      You: 0,
-      Partner: 0,
-    },
   });
 
-  // Randomly select a movie from remaining,
-  // move it to watched, and timestamp the draw.
-  const handleDraw = () => {
+  // Simple loading/error flags for DB-backed state.
+  const [isLoading, setIsLoading] = useState(true);
+  const [errorMessage, setErrorMessage] = useState(null);
+
+  // Contribution stats can be computed from DB-backed rows.
+  // For MVP we compute client-side; later this can be a SQL aggregate/view.
+  const contributions = useMemo(() => {
+    const counts = {};
+
+    // Count contributions across both remaining + watched.
+    [...(bowl.remaining || []), ...(bowl.watched || [])].forEach((m) => {
+      // Use the adder's email as a temporary display label until we add display names.
+      const key = m.profiles?.email || m.added_by || "Unknown";
+      counts[key] = (counts[key] || 0) + 1;
+    });
+
+    return counts;
+  }, [bowl.remaining, bowl.watched]);
+
+  const loadBowlMovies = useCallback(async () => {
+    if (!bowlId) {
+      setBowl({ remaining: [], watched: [] });
+      setIsLoading(false);
+      return;
+    }
+
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    try {
+      // Remaining movies
+      const { data: remaining, error: remainingError } = await supabase
+        .from("bowl_movies")
+        .select(
+          "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_at, drawn_at, drawn_by, snapshot_at, profiles:profiles!bowl_movies_added_by_fkey(email)"
+        )
+        .eq("bowl_id", bowlId)
+        .is("drawn_at", null)
+        .order("added_at", { ascending: true });
+
+      if (remainingError) {
+        console.error("[useBowl] Failed to load remaining movies", remainingError);
+        setErrorMessage("Failed to load remaining movies.");
+      }
+
+      // Watched movies
+      const { data: watched, error: watchedError } = await supabase
+        .from("bowl_movies")
+        .select(
+          "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_at, drawn_at, drawn_by, snapshot_at, profiles:profiles!bowl_movies_added_by_fkey(email)"
+        )
+        .eq("bowl_id", bowlId)
+        .not("drawn_at", "is", null)
+        .order("drawn_at", { ascending: false });
+
+      if (watchedError) {
+        console.error("[useBowl] Failed to load watched movies", watchedError);
+        setErrorMessage("Failed to load watched movies.");
+      }
+
+      setBowl({
+        remaining: remaining || [],
+        watched: watched || [],
+      });
+    } catch (err) {
+      console.error("[useBowl] Unexpected error loading bowl movies", err);
+      setErrorMessage("Unexpected error loading bowl movies.");
+      setBowl({ remaining: [], watched: [] });
+    } finally {
+      setIsLoading(false);
+    }
+  }, [bowlId]);
+
+  useEffect(() => {
+    // Load DB-backed bowl movies whenever the bowl changes.
+    loadBowlMovies();
+  }, [loadBowlMovies]);
+
+  // Randomly select a movie from remaining, mark it as drawn in the DB,
+  // and reload the remaining/watched lists.
+  const handleDraw = useCallback(async () => {
+    if (!bowlId) return null;
     if (bowl.remaining.length === 0) return null;
 
     const index = Math.floor(Math.random() * bowl.remaining.length);
-    const drawn = {
-      ...bowl.remaining[index],
-      drawnAt: new Date().toISOString(),
-    };
+    const drawn = bowl.remaining[index];
 
-    // Update Bowl after draw
-    setBowl((prev) => ({
-      ...prev,
-      remaining: prev.remaining.filter((_, i) => i !== index),
-      watched: [drawn, ...prev.watched],
-    }));
+    const { data: authData, error: authError } = await supabase.auth.getUser();
+    const user = authData?.user;
+
+    if (authError || !user) {
+      console.error("[useBowl] Not authenticated", authError);
+      return null;
+    }
+
+    const { error } = await supabase
+      .from("bowl_movies")
+      .update({ drawn_at: new Date().toISOString(), drawn_by: user.id })
+      .eq("id", drawn.id)
+      .eq("bowl_id", bowlId);
+
+    if (error) {
+      console.error("[useBowl] Failed to draw movie", error);
+      return null;
+    }
+
+    // Reload after updating.
+    await loadBowlMovies();
 
     return drawn;
-  };
+  }, [bowlId, bowl.remaining, loadBowlMovies]);
 
-  // Add a movie to the bowl and increment the contributor's count.
-  const handleAddMovie = (movie, addedBy = "You") => {
-    const newMovie = {
-      ...movie,          // keep full TMDB object
-      addedBy,
-    };
+  // Insert a movie into the DB for this bowl. We store snapshot fields from TMDB.
+  const handleAddMovie = useCallback(
+    async (movie) => {
+      if (!bowlId) return;
 
-    // Append movie to remaining and update contribution totals.
-    setBowl((prev) => ({
-      ...prev,
-      remaining: [...prev.remaining, newMovie],
-      contributions: {
-        ...prev.contributions,
-        [addedBy]: (prev.contributions[addedBy] || 0) + 1,
-      },
-    }));
-  };
+      const { data: authData, error: authError } = await supabase.auth.getUser();
+      const user = authData?.user;
 
+      if (authError || !user) {
+        console.error("[useBowl] Not authenticated", authError);
+        return;
+      }
 
-  return { bowl, handleDraw, handleAddMovie };
+      // Normalize genres into a simple string array.
+      const genreNames = Array.isArray(movie?.genres)
+        ? movie.genres.map((g) => g?.name).filter(Boolean)
+        : [];
+
+      const payload = {
+        bowl_id: bowlId,
+        added_by: user.id,
+        tmdb_id: movie.id,
+        title: movie.title,
+        poster_path: movie.poster_path ?? null,
+        release_date: movie.release_date ?? null,
+        runtime: movie.runtime ?? null,
+        genres: genreNames,
+        overview: movie.overview ?? null,
+        snapshot_at: new Date().toISOString(),
+      };
+
+      const { error } = await supabase.from("bowl_movies").insert([payload]);
+
+      if (error) {
+        console.error("[useBowl] Failed to add movie", error);
+        return;
+      }
+
+      await loadBowlMovies();
+    },
+    [bowlId, loadBowlMovies]
+  );
+
+  return { bowl, contributions, isLoading, errorMessage, reload: loadBowlMovies, handleDraw, handleAddMovie };
 }
