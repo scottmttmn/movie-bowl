@@ -1,7 +1,9 @@
 import React from "react";
 import MovieSearch from "./MovieSearch";
 import { getPosterUrl } from "../utils/getPosterUrl";
-export default function AddMovieModal({ movie, onClose, onAddMovie }) {
+import { matchUserServices, uniqueNormalizedServices } from "../utils/streamingServices";
+
+export default function AddMovieModal({ movie, onClose, onAddMovie, userStreamingServices = [] }) {
   // This modal is used in two contexts:
   // 1) "Add movie" flow (movie is undefined): show search UI.
   // 2) "Just drawn" flow (movie is defined): show details for the drawn movie.
@@ -21,6 +23,7 @@ export default function AddMovieModal({ movie, onClose, onAddMovie }) {
 
           {/* MovieSearch handles TMDB search + details fetch and returns a full movie object */}
           <MovieSearch
+            userStreamingServices={userStreamingServices}
             onAddMovie={async (selectedMovie) => {
               // Parent is responsible for persisting to Supabase.
               if (onAddMovie) {
@@ -40,6 +43,8 @@ export default function AddMovieModal({ movie, onClose, onAddMovie }) {
   const year = movie.release_date
     ? movie.release_date.split("-")[0]
     : "—";
+  const availableProviders = uniqueNormalizedServices(movie.streamingProviders || []);
+  const matchingProviders = matchUserServices(availableProviders, userStreamingServices);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
@@ -69,7 +74,23 @@ export default function AddMovieModal({ movie, onClose, onAddMovie }) {
           </p>
         )}
 
+        <div className="mb-4 text-sm">
+          <p className="font-semibold text-gray-800">Available on</p>
+          {availableProviders.length > 0 ? (
+            <p className="text-gray-700">{availableProviders.join(", ")}</p>
+          ) : (
+            <p className="text-gray-500">No US streaming providers found right now.</p>
+          )}
+        </div>
 
+        <div className="mb-4 text-sm">
+          <p className="font-semibold text-gray-800">Your services</p>
+          {matchingProviders.length > 0 ? (
+            <p className="text-green-700">{matchingProviders.join(", ")}</p>
+          ) : (
+            <p className="text-gray-500">None of your saved services match this title.</p>
+          )}
+        </div>
 
         <div className="flex gap-3 justify-center">
           <button

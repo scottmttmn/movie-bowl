@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { fetchStreamingProviders } from "../lib/streamingProviders";
 // useBowl is the core state engine for a bowl.
 // It manages bowl state and defines how that state transitions (add + draw).
 
@@ -118,10 +119,19 @@ export default function useBowl(bowlId) {
       return null;
     }
 
+    const { providers, region, fetchedAt } = await fetchStreamingProviders(drawn.tmdb_id, {
+      region: "US",
+    });
+
     // Reload after updating.
     await loadBowlMovies();
 
-    return drawn;
+    return {
+      ...drawn,
+      streamingProviders: providers,
+      streamingRegion: region,
+      streamingFetchedAt: fetchedAt,
+    };
   }, [bowlId, bowl.remaining, loadBowlMovies]);
 
   // Insert a movie into the DB for this bowl. We store snapshot fields from TMDB.
