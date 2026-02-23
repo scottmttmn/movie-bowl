@@ -1,7 +1,7 @@
 import React from "react";
 import MovieSearch from "./MovieSearch";
 import { getPosterUrl } from "../utils/getPosterUrl";
-import { matchUserServices, uniqueNormalizedServices } from "../utils/streamingServices";
+import { matchUserServices, normalizeStreamingServices } from "../utils/streamingServices";
 
 export default function AddMovieModal({ movie, onClose, onAddMovie, userStreamingServices = [] }) {
   // This modal is used in two contexts:
@@ -43,7 +43,7 @@ export default function AddMovieModal({ movie, onClose, onAddMovie, userStreamin
   const year = movie.release_date
     ? movie.release_date.split("-")[0]
     : "—";
-  const availableProviders = uniqueNormalizedServices(movie.streamingProviders || []);
+  const availableProviders = normalizeStreamingServices(movie.streamingProviders || []);
   const matchingProviders = matchUserServices(availableProviders, userStreamingServices);
 
   return (

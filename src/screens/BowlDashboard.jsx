@@ -1,14 +1,13 @@
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import DrawButton from "../components/DrawButton";
 import RemainingCount from "../components/RemainingCount";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
 import AddMovieButton from "../components/AddMovieButton";
 import ContributionStats from "../components/ContributionStats";
 import useBowl from "../hooks/useBowl";
+import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import AddMovieModal from "../components/AddMovieModal";
 import { useNavigate, useParams } from "react-router-dom";
-import { supabase } from "../lib/supabase";
-import { uniqueNormalizedServices } from "../utils/streamingServices";
 
 
 export default function BowlDashboard() {
@@ -18,8 +17,8 @@ export default function BowlDashboard() {
 
     const [showSearch, setShowSearch] = useState(false);
     const [drawnMovie, setDrawnMovie] = useState(null);
-    const [userStreamingServices, setUserStreamingServices] = useState([]);
     const [prioritizeStreaming, setPrioritizeStreaming] = useState(false);
+    const { streamingServices: userStreamingServices } = useUserStreamingServices();
 
     const navigate = useNavigate();
     
@@ -29,33 +28,6 @@ export default function BowlDashboard() {
         totalAdded,
       })
     );
-
-    useEffect(() => {
-      let cancelled = false;
-
-      const loadUserStreamingServices = async () => {
-        const { data: authData, error: authError } = await supabase.auth.getUser();
-        const user = authData?.user;
-
-        if (authError || !user || cancelled) return;
-
-        const { data, error } = await supabase
-          .from("profiles")
-          .select("streaming_services")
-          .eq("id", user.id)
-          .single();
-
-        if (error || cancelled) return;
-
-        setUserStreamingServices(uniqueNormalizedServices(data?.streaming_services || []));
-      };
-
-      loadUserStreamingServices();
-
-      return () => {
-        cancelled = true;
-      };
-    }, []);
 
 return (
     <div className="bowl-dashboard p-4 w-screen max-w-screen overflow-hidden">

@@ -53,7 +53,7 @@ export function normalizeServiceName(name) {
   return SERVICE_ALIASES[normalized] || name.trim();
 }
 
-export function uniqueNormalizedServices(services) {
+export function normalizeStreamingServices(services) {
   const seen = new Set();
   const result = [];
 
@@ -71,12 +71,20 @@ export function uniqueNormalizedServices(services) {
   return result;
 }
 
+export function uniqueNormalizedServices(services) {
+  return normalizeStreamingServices(services);
+}
+
+export function normalizeStreamingServicesForProfile(services) {
+  return normalizeStreamingServices(services);
+}
+
 export function matchUserServices(availableServices, userServices) {
   const normalizedUserServices = new Set(
-    uniqueNormalizedServices(userServices).map((service) => service.toLowerCase())
+    normalizeStreamingServices(userServices).map((service) => service.toLowerCase())
   );
 
-  return uniqueNormalizedServices(availableServices).filter((service) =>
+  return normalizeStreamingServices(availableServices).filter((service) =>
     normalizedUserServices.has(service.toLowerCase())
   );
 }

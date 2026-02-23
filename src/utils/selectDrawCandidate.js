@@ -1,4 +1,4 @@
-import { matchUserServices, uniqueNormalizedServices } from "./streamingServices";
+import { matchUserServices, normalizeStreamingServices } from "./streamingServices";
 
 export async function selectDrawCandidate(
   remainingMovies,
@@ -15,7 +15,7 @@ export async function selectDrawCandidate(
     throw new Error("selectDrawCandidate requires fetchProviders");
   }
 
-  const normalizedUserServices = uniqueNormalizedServices(userStreamingServices);
+  const normalizedUserServices = normalizeStreamingServices(userStreamingServices);
   const canPrioritize = prioritizeByServices && normalizedUserServices.length > 0;
 
   const pickRandom = (items) => {
