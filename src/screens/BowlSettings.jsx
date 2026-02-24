@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { parseInviteEmails } from "../utils/parseInviteEmails";
 
 // Bowl-level settings screen.
 // MVP scope: manage members + invites for a bowl.
@@ -46,12 +47,12 @@ export default function BowlSettings() {
 
     try {
       // Who am I?
-      const { data: authData, error: authError } = await supabase.auth.getUser();
+      const { data: authData, error: authError } = await supabase.auth.getSession();
       if (authError) {
         console.error("[BowlSettings] Failed to get current user", authError);
       }
-      setCurrentUserId(authData?.user?.id ?? null);
-      setCurrentUserEmail((authData?.user?.email || "").toLowerCase());
+      setCurrentUserId(authData?.session?.user?.id ?? null);
+      setCurrentUserEmail((authData?.session?.user?.email || "").toLowerCase());
 
       // Load bowl basics (name + owner).
       const { data: bowl, error: bowlError } = await supabase
@@ -132,8 +133,19 @@ export default function BowlSettings() {
     setErrorMessage(null);
     setInviteLink(null);
 
-    const email = emailToInvite.trim().toLowerCase();
-    if (!email) return;
+    const { validEmails, invalidEmails } = parseInviteEmails(emailToInvite);
+    if (invalidEmails.length > 0) {
+      setErrorMessage(`Invalid email: ${invalidEmails[0]}`);
+      return;
+    }
+
+    if (validEmails.length === 0) return;
+    if (validEmails.length > 1) {
+      setErrorMessage("Please enter one email at a time.");
+      return;
+    }
+
+    const email = validEmails[0];
 
     try {
       // Create an invite row. The invited user accepts after they log in.

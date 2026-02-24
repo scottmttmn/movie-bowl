@@ -4,6 +4,7 @@ import AddMovieButton from "../AddMovieButton";
 import AddMovieModal from "../AddMovieModal";
 import BowlCard from "../BowlCard";
 import ContributionStats from "../ContributionStats";
+import CreateBowlModal from "../CreateBowlModal";
 import DrawButton from "../DrawButton";
 import MovieSearch from "../MovieSearch";
 import NewBowlButton from "../NewBowlButton";
@@ -66,6 +67,27 @@ describe("component smoke tests", () => {
     expect(screen.getByText("Contribution Stats")).toBeInTheDocument();
     expect(screen.getByText("me@example.com")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
+  });
+
+  it("renders CreateBowlModal", () => {
+    render(
+      <CreateBowlModal
+        isOpen
+        bowlName="Friday Bowl"
+        inviteEmails="friend@example.com"
+        maxContributionLead="2"
+        onChangeBowlName={vi.fn()}
+        onChangeInviteEmails={vi.fn()}
+        onChangeMaxContributionLead={vi.fn()}
+        onCreate={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Create New Bowl")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("Friday Bowl")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("friend@example.com")).toBeInTheDocument();
+    expect(screen.getByDisplayValue("2")).toBeInTheDocument();
   });
 
   it("renders DrawButton", () => {

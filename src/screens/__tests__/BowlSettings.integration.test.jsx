@@ -81,8 +81,8 @@ const mocks = vi.hoisted(() => {
 
   const supabase = {
     auth: {
-      getUser: vi.fn(async () => ({
-        data: { user: state.authUser },
+      getSession: vi.fn(async () => ({
+        data: { session: { user: state.authUser } },
         error: null,
       })),
     },

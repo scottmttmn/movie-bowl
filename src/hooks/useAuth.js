@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { createContext, createElement, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 
 // Custom hook to manage Supabase authentication state
@@ -8,7 +8,9 @@ import { supabase } from "../lib/supabase";
 // Our app stores user preferences and app-specific data in `public.profiles`.
 // We keep a `profiles` row in sync by upserting it whenever a session/user is available.
 
-export default function useAuth() {
+const AuthContext = createContext(null);
+
+export function AuthProvider({ children }) {
   const [session, setSession] = useState(null);
   const [loading, setLoading] = useState(true);
 
@@ -109,6 +111,18 @@ export default function useAuth() {
     return res;
   };
 
-  // Expose auth state and helper functions to components
-  return { session, loading, signIn, signOut };
+  const value = useMemo(
+    () => ({ session, loading, signIn, signOut }),
+    [session, loading]
+  );
+
+  return createElement(AuthContext.Provider, { value }, children);
+}
+
+export default function useAuth() {
+  const context = useContext(AuthContext);
+  if (!context) {
+    throw new Error("useAuth must be used within an AuthProvider");
+  }
+  return context;
 }
