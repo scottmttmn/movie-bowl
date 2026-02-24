@@ -2,6 +2,7 @@ import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import BowlCard from "../components/BowlCard";
 import NewBowlButton from "../components/NewBowlButton";
+import CreateBowlModal from "../components/CreateBowlModal";
 import { supabase } from "../lib/supabase";
 import { parseInviteEmails } from "../utils/parseInviteEmails";
 
@@ -16,6 +17,7 @@ export default function MyBowlsScreen() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newBowlName, setNewBowlName] = useState("");
   const [inviteEmails, setInviteEmails] = useState("");
+  const [newBowlMaxContributionLead, setNewBowlMaxContributionLead] = useState("");
   const [createErrorMessage, setCreateErrorMessage] = useState(null);
   const [createActionMessage, setCreateActionMessage] = useState(null);
   const navigate = useNavigate();
@@ -117,6 +119,17 @@ export default function MyBowlsScreen() {
       return;
     }
 
+    const leadInput = newBowlMaxContributionLead.trim();
+    let maxContributionLead = null;
+    if (leadInput !== "") {
+      const parsedLead = Number(leadInput);
+      if (!Number.isInteger(parsedLead) || parsedLead < 1) {
+        setCreateErrorMessage("Max contribution lead must be a whole number 1 or greater.");
+        return;
+      }
+      maxContributionLead = parsedLead;
+    }
+
     const { data: { user }, error: userError } = await supabase.auth.getUser();
     if (userError || !user) {
       console.error("Not authenticated", userError);
@@ -127,7 +140,7 @@ export default function MyBowlsScreen() {
     // Insert new bowl into Supabase
     const { data: newBowl, error: bowlError } = await supabase
       .from("bowls")
-      .insert([{ owner_id:user.id ,name: bowlName }])
+      .insert([{ owner_id:user.id ,name: bowlName, max_contribution_lead: maxContributionLead }])
       .select()
       .single();
 
@@ -181,12 +194,14 @@ export default function MyBowlsScreen() {
     setBowls((prev) => [...prev,bowlToAdd]);
     setNewBowlName("");
     setInviteEmails("");
+    setNewBowlMaxContributionLead("");
     setIsModalOpen(false);
   };
 
   const handleCloseModal = () => {
     setNewBowlName("");
     setInviteEmails("");
+    setNewBowlMaxContributionLead("");
     setCreateErrorMessage(null);
     setCreateActionMessage(null);
     setIsModalOpen(false);
@@ -214,49 +229,17 @@ export default function MyBowlsScreen() {
         )}
       </div>
 
-      {isModalOpen && (
-        <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-          <div className="panel w-full max-w-sm">
-            <h3 className="section-title mb-4">Create New Bowl</h3>
-            <input
-              id="new-bowl-name"
-              name="new_bowl_name"
-              type="text"
-              className="input-field mb-4"
-              placeholder="Bowl Name"
-              value={newBowlName}
-              onChange={(e) => setNewBowlName(e.target.value)}
-              onKeyDown={(e) => { if (e.key === 'Enter') handleCreateBowl(); }}
-              autoFocus
-            />
-            <label htmlFor="new-bowl-invites" className="mb-1 block text-sm font-medium text-slate-700">
-              Invite emails (optional)
-            </label>
-            <textarea
-              id="new-bowl-invites"
-              name="new_bowl_invites"
-              className="input-field mb-4 min-h-20"
-              placeholder="friend1@example.com, friend2@example.com"
-              value={inviteEmails}
-              onChange={(e) => setInviteEmails(e.target.value)}
-            />
-            <div className="flex justify-end space-x-3">
-              <button
-                className="btn btn-secondary"
-                onClick={handleCloseModal}
-              >
-                Cancel
-              </button>
-              <button
-                className="btn btn-primary"
-                onClick={handleCreateBowl}
-              >
-                Create
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
+      <CreateBowlModal
+        isOpen={isModalOpen}
+        bowlName={newBowlName}
+        inviteEmails={inviteEmails}
+        maxContributionLead={newBowlMaxContributionLead}
+        onChangeBowlName={setNewBowlName}
+        onChangeInviteEmails={setInviteEmails}
+        onChangeMaxContributionLead={setNewBowlMaxContributionLead}
+        onCreate={handleCreateBowl}
+        onClose={handleCloseModal}
+      />
     </div>
   );
 }

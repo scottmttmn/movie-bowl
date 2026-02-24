@@ -8,6 +8,16 @@ const mocks = vi.hoisted(() => {
     authUserId: "u1",
     bowlRow: { name: "Bowl 1", owner_id: "u1", max_contribution_lead: 1 },
     memberRows: [{ user_id: "u1" }, { user_id: "u2" }],
+    bowlData: {
+      remaining: [
+        { id: "m1", added_by: "u1" },
+        { id: "m2", added_by: "u1" },
+        { id: "m3", added_by: "u1" },
+        { id: "m4", added_by: "u1" },
+      ],
+      watched: [],
+    },
+    contributions: { "owner@example.com": 4 },
   };
 
   const supabase = {
@@ -42,16 +52,8 @@ const mocks = vi.hoisted(() => {
 
 vi.mock("../../hooks/useBowl", () => ({
   default: () => ({
-    bowl: {
-      remaining: [
-        { id: "m1", added_by: "u1" },
-        { id: "m2", added_by: "u1" },
-        { id: "m3", added_by: "u1" },
-        { id: "m4", added_by: "u1" },
-      ],
-      watched: [],
-    },
-    contributions: { "owner@example.com": 4 },
+    bowl: mocks.state.bowlData,
+    contributions: mocks.state.contributions,
     isLoading: false,
     errorMessage: null,
     handleDraw: vi.fn(),
@@ -90,6 +92,16 @@ describe("BowlDashboard contribution limit UI", () => {
     mocks.state.authUserId = "u1";
     mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", max_contribution_lead: 1 };
     mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
+    mocks.state.bowlData = {
+      remaining: [
+        { id: "m1", added_by: "u1" },
+        { id: "m2", added_by: "u1" },
+        { id: "m3", added_by: "u1" },
+        { id: "m4", added_by: "u1" },
+      ],
+      watched: [],
+    };
+    mocks.state.contributions = { "owner@example.com": 4 };
   });
 
   afterEach(() => {
@@ -109,5 +121,20 @@ describe("BowlDashboard contribution limit UI", () => {
       screen.getByText(/you are at 4 contributions and the lowest active member is at 0/i)
     ).toBeInTheDocument();
   });
-});
 
+  it("keeps Add Movie enabled when only one active member exists", async () => {
+    // Simulates an invited (not accepted) user: only one active bowl_members row.
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = { remaining: [], watched: [] };
+    mocks.state.contributions = {};
+
+    render(<BowlDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Bowl 1")).toBeInTheDocument();
+    });
+
+    const addButton = screen.getByRole("button", { name: /\+ add movie/i });
+    expect(addButton).toBeEnabled();
+  });
+});
