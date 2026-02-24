@@ -175,6 +175,7 @@ describe("BowlDashboard contribution limit UI", () => {
     await waitFor(() => {
       expect(mocks.state.handleDraw).toHaveBeenCalledWith({
         prioritizeByServices: true,
+        prioritizeByServiceRank: true,
         userStreamingServices: ["Netflix", "Max"],
       });
     });
@@ -212,8 +213,85 @@ describe("BowlDashboard contribution limit UI", () => {
     await waitFor(() => {
       expect(mocks.state.handleDraw).toHaveBeenCalledWith({
         prioritizeByServices: true,
+        prioritizeByServiceRank: true,
         userStreamingServices: ["Hulu"],
       });
     });
+  });
+
+  it("can disable ranking while still prioritizing services", async () => {
+    mocks.state.streamingServices = ["Hulu", "Netflix"];
+    mocks.state.bowlData = {
+      remaining: [{ id: "m1", added_by: "u2", tmdb_id: 101, title: "Movie A" }],
+      watched: [],
+    };
+    mocks.state.contributions = { "member@example.com": 1 };
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", max_contribution_lead: null };
+    mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
+    mocks.state.authUserId = "u2";
+
+    render(<BowlDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Bowl 1")).toBeInTheDocument();
+    });
+
+    const prioritizeToggle = screen.getByRole("checkbox", { name: /prioritize streaming services/i });
+    fireEvent.click(prioritizeToggle);
+    expect(prioritizeToggle).toBeChecked();
+
+    const rankToggle = screen.getByRole("checkbox", { name: /use streaming service ranking/i });
+    fireEvent.click(rankToggle);
+    expect(rankToggle).not.toBeChecked();
+
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    await act(async () => {
+      vi.advanceTimersByTime(1200);
+    });
+    vi.useRealTimers();
+
+    await waitFor(() => {
+      expect(mocks.state.handleDraw).toHaveBeenCalledWith({
+        prioritizeByServices: true,
+        prioritizeByServiceRank: false,
+        userStreamingServices: ["Hulu", "Netflix"],
+      });
+    });
+  });
+
+  it("resets ranking toggle to on whenever prioritize streaming is turned on", async () => {
+    mocks.state.streamingServices = ["Hulu", "Netflix"];
+    mocks.state.bowlData = {
+      remaining: [{ id: "m1", added_by: "u2", tmdb_id: 101, title: "Movie A" }],
+      watched: [],
+    };
+    mocks.state.contributions = { "member@example.com": 1 };
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", max_contribution_lead: null };
+    mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
+    mocks.state.authUserId = "u2";
+
+    render(<BowlDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Bowl 1")).toBeInTheDocument();
+    });
+
+    const prioritizeToggle = screen.getByRole("checkbox", { name: /prioritize streaming services/i });
+    fireEvent.click(prioritizeToggle);
+    const rankToggle = screen.getByRole("checkbox", { name: /use streaming service ranking/i });
+    fireEvent.click(rankToggle);
+    expect(rankToggle).not.toBeChecked();
+
+    fireEvent.click(prioritizeToggle);
+    expect(prioritizeToggle).not.toBeChecked();
+
+    fireEvent.click(prioritizeToggle);
+    expect(prioritizeToggle).toBeChecked();
+
+    const rankToggleAfterReenable = screen.getByRole("checkbox", {
+      name: /use streaming service ranking/i,
+    });
+    expect(rankToggleAfterReenable).toBeChecked();
   });
 });

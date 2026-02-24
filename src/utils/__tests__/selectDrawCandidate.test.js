@@ -46,6 +46,40 @@ describe("selectDrawCandidate", () => {
     expect(fetchProviders).toHaveBeenCalledTimes(3);
   });
 
+  it("prioritizes by service rank before randomizing", async () => {
+    const fetchProviders = vi.fn(async (tmdbId) => {
+      if (tmdbId === 101) return { providers: ["Netflix"], region: "US", fetchedAt: null };
+      if (tmdbId === 202) return { providers: ["Hulu"], region: "US", fetchedAt: null };
+      return { providers: ["Netflix", "Hulu"], region: "US", fetchedAt: null };
+    });
+
+    const selected = await selectDrawCandidate(REMAINING, {
+      prioritizeByServices: true,
+      userStreamingServices: ["Hulu", "Netflix"],
+      fetchProviders,
+      randomFn: () => 0.9,
+    });
+
+    expect(["m2", "m3"]).toContain(selected.movie.id);
+  });
+
+  it("uses highest-ranked matching service when movie has multiple providers", async () => {
+    const fetchProviders = vi.fn(async (tmdbId) => {
+      if (tmdbId === 101) return { providers: ["Netflix", "Hulu"], region: "US", fetchedAt: null };
+      if (tmdbId === 202) return { providers: ["Netflix"], region: "US", fetchedAt: null };
+      return { providers: ["Max"], region: "US", fetchedAt: null };
+    });
+
+    const selected = await selectDrawCandidate(REMAINING, {
+      prioritizeByServices: true,
+      userStreamingServices: ["Hulu", "Netflix"],
+      fetchProviders,
+      randomFn: () => 0,
+    });
+
+    expect(selected.movie.id).toBe("m1");
+  });
+
   it("falls back to all titles when prioritize is on but no matches exist", async () => {
     const fetchProviders = vi.fn(async (tmdbId) => {
       if (tmdbId === 101) return { providers: ["Max"], region: "US", fetchedAt: null };
@@ -62,6 +96,24 @@ describe("selectDrawCandidate", () => {
 
     expect(selected.movie.id).toBe("m2");
     expect(fetchProviders).toHaveBeenCalledTimes(3);
+  });
+
+  it("can ignore ranking and draw from any matched service when configured", async () => {
+    const fetchProviders = vi.fn(async (tmdbId) => {
+      if (tmdbId === 101) return { providers: ["Netflix"], region: "US", fetchedAt: null };
+      if (tmdbId === 202) return { providers: ["Hulu"], region: "US", fetchedAt: null };
+      return { providers: ["Max"], region: "US", fetchedAt: null };
+    });
+
+    const selected = await selectDrawCandidate(REMAINING, {
+      prioritizeByServices: true,
+      prioritizeByServiceRank: false,
+      userStreamingServices: ["Hulu", "Netflix"],
+      fetchProviders,
+      randomFn: () => 0,
+    });
+
+    expect(["m1", "m2"]).toContain(selected.movie.id);
   });
 
   it("falls back to all titles when prioritize is on but user has no services", async () => {

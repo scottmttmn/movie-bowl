@@ -100,6 +100,7 @@ export default function useBowl(bowlId) {
 
     const selected = await selectDrawCandidate(bowl.remaining, {
       prioritizeByServices: options.prioritizeByServices,
+      prioritizeByServiceRank: options.prioritizeByServiceRank,
       userStreamingServices: options.userStreamingServices,
       fetchProviders: (tmdbId) => fetchStreamingProviders(tmdbId, { region: "US" }),
     });
