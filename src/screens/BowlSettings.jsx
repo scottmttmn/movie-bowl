@@ -12,7 +12,9 @@ export default function BowlSettings() {
   const navigate = useNavigate();
 
   const [bowlName, setBowlName] = useState("Bowl Settings");
+  const [bowlMaxContributionLead, setBowlMaxContributionLead] = useState(null);
   const [editableBowlName, setEditableBowlName] = useState("Bowl Settings");
+  const [editableMaxContributionLead, setEditableMaxContributionLead] = useState("");
   const [ownerId, setOwnerId] = useState(null);
 
   const [members, setMembers] = useState([]);
@@ -54,7 +56,7 @@ export default function BowlSettings() {
       // Load bowl basics (name + owner).
       const { data: bowl, error: bowlError } = await supabase
         .from("bowls")
-        .select("id, name, owner_id")
+        .select("id, name, owner_id, max_contribution_lead")
         .eq("id", bowlId)
         .single();
 
@@ -66,7 +68,17 @@ export default function BowlSettings() {
       }
 
       setBowlName(bowl?.name || "Bowl Settings");
+      setBowlMaxContributionLead(
+        Number.isFinite(Number(bowl?.max_contribution_lead))
+          ? Number(bowl.max_contribution_lead)
+          : null
+      );
       setEditableBowlName(bowl?.name || "Bowl Settings");
+      setEditableMaxContributionLead(
+        Number.isFinite(Number(bowl?.max_contribution_lead))
+          ? String(Number(bowl.max_contribution_lead))
+          : ""
+      );
       setOwnerId(bowl?.owner_id ?? null);
 
       // Load members. Join to profiles so we can show emails.
@@ -209,7 +221,7 @@ export default function BowlSettings() {
     }
   };
 
-  const handleRenameBowl = async (e) => {
+  const handleSaveBowlMeta = async (e) => {
     e.preventDefault();
 
     setActionMessage(null);
@@ -221,8 +233,19 @@ export default function BowlSettings() {
       return;
     }
 
-    if (nextName === bowlName) {
-      setActionMessage("Bowl name is already up to date.");
+    const leadInput = editableMaxContributionLead.trim();
+    let nextMaxLead = null;
+    if (leadInput !== "") {
+      const parsedLead = Number(leadInput);
+      if (!Number.isInteger(parsedLead) || parsedLead < 1) {
+        setErrorMessage("Max contribution lead must be a whole number 1 or greater.");
+        return;
+      }
+      nextMaxLead = parsedLead;
+    }
+
+    if (nextName === bowlName && nextMaxLead === bowlMaxContributionLead) {
+      setActionMessage("Bowl settings are already up to date.");
       return;
     }
 
@@ -231,7 +254,7 @@ export default function BowlSettings() {
     try {
       const { error } = await supabase
         .from("bowls")
-        .update({ name: nextName })
+        .update({ name: nextName, max_contribution_lead: nextMaxLead })
         .eq("id", bowlId);
 
       if (error) {
@@ -241,11 +264,13 @@ export default function BowlSettings() {
       }
 
       setBowlName(nextName);
+      setBowlMaxContributionLead(nextMaxLead);
       setEditableBowlName(nextName);
-      setActionMessage("Bowl name updated.");
+      setEditableMaxContributionLead(nextMaxLead === null ? "" : String(nextMaxLead));
+      setActionMessage("Bowl settings updated.");
     } catch (err) {
       console.error("[BowlSettings] Unexpected error renaming bowl", err);
-      setErrorMessage("Unexpected error updating bowl name.");
+      setErrorMessage("Unexpected error updating bowl settings.");
     } finally {
       setIsSavingName(false);
     }
@@ -404,16 +429,33 @@ export default function BowlSettings() {
       {isOwner && (
         <section className="panel mb-4">
           <h3 className="section-title mb-3">Bowl Name</h3>
-          <form onSubmit={handleRenameBowl} className="flex gap-2">
-            <input
-              id="bowl-name-input"
-              name="bowl_name"
-              type="text"
-              value={editableBowlName}
-              onChange={(e) => setEditableBowlName(e.target.value)}
-              className="input-field flex-1"
-              maxLength={120}
-            />
+          <form onSubmit={handleSaveBowlMeta} className="space-y-3">
+            <div className="flex gap-2">
+              <input
+                id="bowl-name-input"
+                name="bowl_name"
+                type="text"
+                value={editableBowlName}
+                onChange={(e) => setEditableBowlName(e.target.value)}
+                className="input-field flex-1"
+                maxLength={120}
+              />
+            </div>
+            <div>
+              <label htmlFor="bowl-max-contribution-lead" className="mb-1 block text-sm text-slate-700">
+                Max contribution lead (blank = no limit)
+              </label>
+              <input
+                id="bowl-max-contribution-lead"
+                name="bowl_max_contribution_lead"
+                type="number"
+                min="1"
+                step="1"
+                value={editableMaxContributionLead}
+                onChange={(e) => setEditableMaxContributionLead(e.target.value)}
+                className="input-field w-40"
+              />
+            </div>
             <button
               type="submit"
               disabled={isSavingName}

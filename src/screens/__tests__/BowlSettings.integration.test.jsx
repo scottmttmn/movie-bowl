@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => {
     bowl: { id: "bowl-1", name: "Bowl 1", owner_id: "owner-1" },
     members: [],
     invites: [],
+    operations: [],
   };
 
   function getEq(filters, key) {
@@ -87,6 +88,7 @@ const mocks = vi.hoisted(() => {
     },
     from: vi.fn((table) => {
       const queryState = { table, action: "select", filters: [] };
+      state.operations.push(queryState);
 
       const query = {
         select: vi.fn(() => {
@@ -132,6 +134,10 @@ vi.mock("react-router-dom", async () => {
 import BowlSettings from "../BowlSettings";
 
 describe("BowlSettings integration", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
   beforeEach(() => {
     mocks.state.navigate.mockReset();
     mocks.state.params = { bowlId: "bowl-1" };
@@ -151,6 +157,7 @@ describe("BowlSettings integration", () => {
         created_at: "2026-02-23T00:00:00.000Z",
       },
     ];
+    mocks.state.operations = [];
   });
 
   it("allows owner to revoke a pending invite", async () => {
@@ -185,6 +192,30 @@ describe("BowlSettings integration", () => {
     await waitFor(() => {
       expect(mocks.state.navigate).toHaveBeenCalledWith("/", { replace: true });
     });
+
+    confirmSpy.mockRestore();
+  });
+
+  it("leaving a bowl does not delete bowl movies", async () => {
+    mocks.state.authUser = { id: "member-1", email: "member@example.com" };
+
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /leave bowl/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /leave bowl/i }));
+
+    await waitFor(() => {
+      expect(mocks.state.navigate).toHaveBeenCalledWith("/", { replace: true });
+    });
+
+    const deleteOps = mocks.state.operations.filter((op) => op.action === "delete");
+    expect(deleteOps.some((op) => op.table === "bowl_members")).toBe(true);
+    expect(deleteOps.some((op) => op.table === "bowl_movies")).toBe(false);
 
     confirmSpy.mockRestore();
   });

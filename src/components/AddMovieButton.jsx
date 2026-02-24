@@ -1,8 +1,9 @@
-export default function AddMovieButton({ onClick }) {
+export default function AddMovieButton({ onClick, disabled = false }) {
     return (
       <button
         onClick={onClick}
-        className="btn btn-primary"
+        disabled={disabled}
+        className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
       >
         + Add Movie
       </button>
