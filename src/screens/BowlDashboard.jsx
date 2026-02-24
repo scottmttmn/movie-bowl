@@ -23,6 +23,7 @@ export default function BowlDashboard() {
     const [drawnMovie, setDrawnMovie] = useState(null);
     const [selectedWatchedMovie, setSelectedWatchedMovie] = useState(null);
     const [prioritizeStreaming, setPrioritizeStreaming] = useState(false);
+    const [useStreamingRank, setUseStreamingRank] = useState(true);
     const [isDrawing, setIsDrawing] = useState(false);
     const [bowlName, setBowlName] = useState("My Bowl");
     const [currentUserId, setCurrentUserId] = useState(null);
@@ -146,6 +147,7 @@ return (
                       const minAnimationDelay = new Promise((resolve) => setTimeout(resolve, 1200));
                       const drawPromise = handleDraw({
                         prioritizeByServices: prioritizeStreaming,
+                        prioritizeByServiceRank: useStreamingRank,
                         userStreamingServices,
                       });
 
@@ -163,23 +165,51 @@ return (
                 <div className="mt-3 mx-auto max-w-xl rounded-lg border border-gray-200 bg-white px-3 py-2">
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-left">
-                      <p className="text-sm font-medium text-gray-800">Draw options</p>
-                      <p className="text-xs text-gray-500">Prefer titles on your services when possible.</p>
+                      <p className="text-sm font-medium text-gray-800">Streaming Match Preferences</p>
+                      <p className="text-xs text-gray-500">
+                        Control whether draws favor titles available on your selected services.
+                      </p>
                     </div>
                     <label htmlFor="prioritize-streaming-draw" className="relative inline-flex items-center cursor-pointer">
                       <input
                         id="prioritize-streaming-draw"
                         name="prioritize_streaming_draw"
+                        aria-label="Prioritize streaming services"
                         type="checkbox"
                         className="peer sr-only"
                         checked={prioritizeStreaming}
-                        onChange={(e) => setPrioritizeStreaming(e.target.checked)}
+                        onChange={(e) => {
+                          const checked = e.target.checked;
+                          setPrioritizeStreaming(checked);
+                          if (checked) setUseStreamingRank(true);
+                        }}
                         disabled={userStreamingServices.length === 0}
                       />
                       <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-blue-600 peer-disabled:bg-gray-200" />
                       <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
                     </label>
                   </div>
+                  {prioritizeStreaming && userStreamingServices.length > 0 && (
+                    <div className="mt-2 flex items-center justify-between gap-3 border-t border-gray-100 pt-2">
+                      <div className="text-left">
+                        <p className="text-sm font-medium text-gray-800">Use my service ranking</p>
+                        <p className="text-xs text-gray-500">If off, draw randomly from any matching service.</p>
+                      </div>
+                      <label htmlFor="use-streaming-rank-draw" className="relative inline-flex items-center cursor-pointer">
+                        <input
+                          id="use-streaming-rank-draw"
+                          name="use_streaming_rank_draw"
+                          aria-label="Use streaming service ranking"
+                          type="checkbox"
+                          className="peer sr-only"
+                          checked={useStreamingRank}
+                          onChange={(e) => setUseStreamingRank(e.target.checked)}
+                        />
+                        <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-blue-600" />
+                        <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+                      </label>
+                    </div>
+                  )}
                 </div>
                 {userStreamingServices.length === 0 && (
                   <p className="mt-2 text-xs text-slate-500">
