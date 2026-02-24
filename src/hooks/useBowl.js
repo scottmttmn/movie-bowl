@@ -108,8 +108,8 @@ export default function useBowl(bowlId) {
 
     const drawn = selected.movie;
 
-    const { data: authData, error: authError } = await supabase.auth.getUser();
-    const user = authData?.user;
+    const { data: authData, error: authError } = await supabase.auth.getSession();
+    const user = authData?.session?.user;
 
     if (authError || !user) {
       console.error("[useBowl] Not authenticated", authError);
@@ -143,8 +143,8 @@ export default function useBowl(bowlId) {
     async (movie) => {
       if (!bowlId) return;
 
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      const user = authData?.user;
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      const user = authData?.session?.user;
 
       if (authError || !user) {
         console.error("[useBowl] Not authenticated", authError);

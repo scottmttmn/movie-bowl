@@ -58,8 +58,8 @@ export default function BowlDashboard() {
       const loadBowlName = async () => {
         if (!bowlId) return;
 
-        const { data: authData, error: authError } = await supabase.auth.getUser();
-        const userId = authData?.user?.id;
+        const { data: authData, error: authError } = await supabase.auth.getSession();
+        const userId = authData?.session?.user?.id;
         if (authError || !userId) {
           if (!cancelled) navigate("/", { replace: true });
           return;

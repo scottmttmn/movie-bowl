@@ -27,8 +27,8 @@ export default function MyBowlsScreen() {
     const loadBowls = async () => {
       setIsLoading(true);
 
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      const user = authData?.user;
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      const user = authData?.session?.user;
 
       if (authError || !user) {
         // If the user is not authenticated, show an empty list.
@@ -130,7 +130,8 @@ export default function MyBowlsScreen() {
       maxContributionLead = parsedLead;
     }
 
-    const { data: { user }, error: userError } = await supabase.auth.getUser();
+    const { data: authData, error: userError } = await supabase.auth.getSession();
+    const user = authData?.session?.user;
     if (userError || !user) {
       console.error("Not authenticated", userError);
       setCreateErrorMessage("You must be signed in to create a bowl.");

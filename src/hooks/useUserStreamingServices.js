@@ -14,8 +14,8 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
     setLoading(true);
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      const user = authData?.user;
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      const user = authData?.session?.user;
 
       if (authError || !user) {
         setStreamingServicesState([]);
@@ -49,8 +49,8 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
 
   const saveStreamingServices = useCallback(
     async (services = streamingServices) => {
-      const { data: authData, error: authError } = await supabase.auth.getUser();
-      const user = authData?.user;
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      const user = authData?.session?.user;
 
       if (authError || !user) {
         return { error: authError || new Error("Not authenticated") };

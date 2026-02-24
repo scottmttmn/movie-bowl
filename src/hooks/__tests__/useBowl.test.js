@@ -9,8 +9,8 @@ const mocks = vi.hoisted(() => ({
   fetchStreamingProviders: vi.fn(),
   supabase: {
     auth: {
-      getUser: vi.fn(async () => ({
-        data: { user: { id: "user-1" } },
+      getSession: vi.fn(async () => ({
+        data: { session: { user: { id: "user-1" } } },
         error: null,
       })),
     },

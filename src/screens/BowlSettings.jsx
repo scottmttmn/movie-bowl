@@ -47,12 +47,12 @@ export default function BowlSettings() {
 
     try {
       // Who am I?
-      const { data: authData, error: authError } = await supabase.auth.getUser();
+      const { data: authData, error: authError } = await supabase.auth.getSession();
       if (authError) {
         console.error("[BowlSettings] Failed to get current user", authError);
       }
-      setCurrentUserId(authData?.user?.id ?? null);
-      setCurrentUserEmail((authData?.user?.email || "").toLowerCase());
+      setCurrentUserId(authData?.session?.user?.id ?? null);
+      setCurrentUserEmail((authData?.session?.user?.email || "").toLowerCase());
 
       // Load bowl basics (name + owner).
       const { data: bowl, error: bowlError } = await supabase

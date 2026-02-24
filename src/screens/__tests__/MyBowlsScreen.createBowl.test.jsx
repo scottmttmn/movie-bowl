@@ -12,15 +12,15 @@ const mocks = vi.hoisted(() => {
 
   const supabase = {
     auth: {
-      getUser: vi.fn(async () => {
+      getSession: vi.fn(async () => {
         state.authCallCount += 1;
 
         // First call is from initial load effect; skip DB fetch branch by returning no user.
         if (state.authCallCount === 1) {
-          return { data: { user: null }, error: new Error("Not authenticated") };
+          return { data: { session: null }, error: new Error("Not authenticated") };
         }
 
-        return { data: { user: { id: "u1" } }, error: null };
+        return { data: { session: { user: { id: "u1" } } }, error: null };
       }),
     },
     rpc: vi.fn(async () => ({ data: [], error: null })),
@@ -146,4 +146,3 @@ describe("MyBowlsScreen create bowl", () => {
     });
   });
 });
-

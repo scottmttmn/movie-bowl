@@ -1,4 +1,4 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
@@ -18,12 +18,14 @@ const mocks = vi.hoisted(() => {
       watched: [],
     },
     contributions: { "owner@example.com": 4 },
+    handleDraw: vi.fn(async () => null),
+    streamingServices: [],
   };
 
   const supabase = {
     auth: {
-      getUser: vi.fn(async () => ({
-        data: { user: { id: state.authUserId } },
+      getSession: vi.fn(async () => ({
+        data: { session: { user: { id: state.authUserId } } },
         error: null,
       })),
     },
@@ -56,14 +58,14 @@ vi.mock("../../hooks/useBowl", () => ({
     contributions: mocks.state.contributions,
     isLoading: false,
     errorMessage: null,
-    handleDraw: vi.fn(),
+    handleDraw: mocks.state.handleDraw,
     handleAddMovie: vi.fn(),
   }),
 }));
 
 vi.mock("../../hooks/useUserStreamingServices", () => ({
   default: () => ({
-    streamingServices: [],
+    streamingServices: mocks.state.streamingServices,
   }),
 }));
 
@@ -102,6 +104,9 @@ describe("BowlDashboard contribution limit UI", () => {
       watched: [],
     };
     mocks.state.contributions = { "owner@example.com": 4 };
+    mocks.state.handleDraw.mockClear();
+    mocks.state.streamingServices = [];
+    vi.useRealTimers();
   });
 
   afterEach(() => {
@@ -136,5 +141,79 @@ describe("BowlDashboard contribution limit UI", () => {
 
     const addButton = screen.getByRole("button", { name: /\+ add movie/i });
     expect(addButton).toBeEnabled();
+  });
+
+  it("owner draw uses the owner's streaming services in prioritize payload", async () => {
+    mocks.state.streamingServices = ["Netflix", "Max"];
+    mocks.state.bowlData = {
+      remaining: [{ id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A" }],
+      watched: [],
+    };
+    mocks.state.contributions = { "owner@example.com": 1 };
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", max_contribution_lead: null };
+    mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
+    mocks.state.authUserId = "u1";
+
+    render(<BowlDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Bowl 1")).toBeInTheDocument();
+    });
+
+    const checkbox = screen.getByRole("checkbox");
+    expect(checkbox).toBeEnabled();
+    fireEvent.click(checkbox);
+    expect(checkbox).toBeChecked();
+
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    await act(async () => {
+      vi.advanceTimersByTime(1200);
+    });
+    vi.useRealTimers();
+
+    await waitFor(() => {
+      expect(mocks.state.handleDraw).toHaveBeenCalledWith({
+        prioritizeByServices: true,
+        userStreamingServices: ["Netflix", "Max"],
+      });
+    });
+  });
+
+  it("member draw uses the member's streaming services in prioritize payload", async () => {
+    mocks.state.streamingServices = ["Hulu"];
+    mocks.state.bowlData = {
+      remaining: [{ id: "m1", added_by: "u2", tmdb_id: 101, title: "Movie A" }],
+      watched: [],
+    };
+    mocks.state.contributions = { "member@example.com": 1 };
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", max_contribution_lead: null };
+    mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
+    mocks.state.authUserId = "u2";
+
+    render(<BowlDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Bowl 1")).toBeInTheDocument();
+    });
+
+    const checkbox = screen.getByRole("checkbox");
+    expect(checkbox).toBeEnabled();
+    fireEvent.click(checkbox);
+    expect(checkbox).toBeChecked();
+
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    await act(async () => {
+      vi.advanceTimersByTime(1200);
+    });
+    vi.useRealTimers();
+
+    await waitFor(() => {
+      expect(mocks.state.handleDraw).toHaveBeenCalledWith({
+        prioritizeByServices: true,
+        userStreamingServices: ["Hulu"],
+      });
+    });
   });
 });
