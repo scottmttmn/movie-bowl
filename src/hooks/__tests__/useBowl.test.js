@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   watchedQueue: [],
   updatePayloads: [],
   updateEqFilters: [],
+  deleteEqFilters: [],
+  deleteCalled: false,
   fetchStreamingProviders: vi.fn(),
   supabase: {
     auth: {
@@ -26,10 +28,16 @@ const mocks = vi.hoisted(() => ({
           if (state.mode === "update") {
             mocks.updateEqFilters.push({ key, value });
           }
+          if (state.mode === "delete") {
+            mocks.deleteEqFilters.push({ key, value });
+          }
           return query;
         }),
         is: vi.fn((column, value) => {
           if (column === "drawn_at" && value === null) state.kind = "remaining";
+          if (state.mode === "delete") {
+            mocks.deleteEqFilters.push({ key: column, value });
+          }
           return query;
         }),
         not: vi.fn((column, op, value) => {
@@ -58,6 +66,11 @@ const mocks = vi.hoisted(() => ({
           mocks.updatePayloads.push(payload);
           return query;
         }),
+        delete: vi.fn(() => {
+          state.mode = "delete";
+          mocks.deleteCalled = true;
+          return query;
+        }),
         then: (resolve) => resolve({ data: null, error: null }),
       };
 
@@ -79,6 +92,8 @@ describe("useBowl handleDraw integration", () => {
     mocks.watchedQueue = [];
     mocks.updatePayloads = [];
     mocks.updateEqFilters = [];
+    mocks.deleteEqFilters = [];
+    mocks.deleteCalled = false;
     mocks.fetchStreamingProviders.mockReset();
     mocks.supabase.from.mockClear();
   });
@@ -168,5 +183,36 @@ describe("useBowl handleDraw integration", () => {
     );
 
     randomSpy.mockRestore();
+  });
+
+  it("deletes only current user's undrawn movie and refreshes state", async () => {
+    const movie = { id: "m1", tmdb_id: 101, title: "Movie A", added_by: "user-1" };
+
+    mocks.remainingQueue.push([movie], []);
+    mocks.watchedQueue.push([], []);
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.bowl.remaining).toHaveLength(1);
+
+    let deleted;
+    await act(async () => {
+      deleted = await result.current.handleDeleteMovie("m1");
+    });
+
+    expect(deleted).toBe(true);
+    expect(mocks.deleteCalled).toBe(true);
+    expect(mocks.deleteEqFilters).toEqual(
+      expect.arrayContaining([
+        { key: "id", value: "m1" },
+        { key: "bowl_id", value: "bowl-1" },
+        { key: "added_by", value: "user-1" },
+        { key: "drawn_at", value: null },
+      ])
+    );
+
+    await waitFor(() => {
+      expect(result.current.bowl.remaining).toHaveLength(0);
+    });
   });
 });

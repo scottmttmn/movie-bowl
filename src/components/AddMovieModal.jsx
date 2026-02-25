@@ -70,7 +70,7 @@ export default function AddMovieModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-6 relative">
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-6 relative max-h-[90vh] overflow-y-auto">
         <button
           onClick={onClose}
           className="icon-btn absolute top-4 right-4"
@@ -80,11 +80,13 @@ export default function AddMovieModal({
         </button>
 
         {posterUrl && (
-          <img
-            src={posterUrl}
-            alt={movie.title}
-            className="w-full rounded mb-4"
-          />
+          <div className="mb-4 max-h-[46vh] rounded bg-slate-100">
+            <img
+              src={posterUrl}
+              alt={movie.title}
+              className="h-full max-h-[46vh] w-full rounded object-contain"
+            />
+          </div>
         )}
 
         <h2 className="text-2xl font-semibold text-slate-900 mb-1">

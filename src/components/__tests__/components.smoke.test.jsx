@@ -7,6 +7,7 @@ import ContributionStats from "../ContributionStats";
 import CreateBowlModal from "../CreateBowlModal";
 import DrawButton from "../DrawButton";
 import MovieSearch from "../MovieSearch";
+import MyAddedMoviesStrip from "../MyAddedMoviesStrip";
 import NewBowlButton from "../NewBowlButton";
 import RemainingCount from "../RemainingCount";
 import WatchedMovieCard from "../WatchedMovieCard";
@@ -108,6 +109,17 @@ describe("component smoke tests", () => {
     render(<NewBowlButton onClick={onClick} />);
     fireEvent.click(screen.getByRole("button", { name: /\+ new bowl/i }));
     expect(onClick).toHaveBeenCalledTimes(1);
+  });
+
+  it("renders MyAddedMoviesStrip", () => {
+    const movies = [
+      { id: "1", title: "Movie One", poster_path: "/one.jpg" },
+      { id: "2", title: "Movie Two", poster_path: "/two.jpg" },
+    ];
+    render(<MyAddedMoviesStrip movies={movies} onViewMovie={vi.fn()} onDeleteMovie={vi.fn()} />);
+    expect(screen.getByText("My Adds")).toBeInTheDocument();
+    expect(screen.getByAltText("Movie One")).toBeInTheDocument();
+    expect(screen.getAllByRole("button", { name: /details/i }).length).toBeGreaterThan(0);
   });
 
   it("renders RemainingCount", () => {

@@ -182,5 +182,45 @@ export default function useBowl(bowlId) {
     [bowlId, loadBowlMovies]
   );
 
-  return { bowl, contributions, isLoading, errorMessage, reload: loadBowlMovies, handleDraw, handleAddMovie };
+  const handleDeleteMovie = useCallback(
+    async (movieId) => {
+      if (!bowlId || !movieId) return false;
+
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      const user = authData?.session?.user;
+
+      if (authError || !user) {
+        console.error("[useBowl] Not authenticated", authError);
+        return false;
+      }
+
+      const { error } = await supabase
+        .from("bowl_movies")
+        .delete()
+        .eq("id", movieId)
+        .eq("bowl_id", bowlId)
+        .eq("added_by", user.id)
+        .is("drawn_at", null);
+
+      if (error) {
+        console.error("[useBowl] Failed to delete movie", error);
+        return false;
+      }
+
+      await loadBowlMovies();
+      return true;
+    },
+    [bowlId, loadBowlMovies]
+  );
+
+  return {
+    bowl,
+    contributions,
+    isLoading,
+    errorMessage,
+    reload: loadBowlMovies,
+    handleDraw,
+    handleAddMovie,
+    handleDeleteMovie,
+  };
 }
