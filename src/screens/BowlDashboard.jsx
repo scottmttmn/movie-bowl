@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import DrawButton from "../components/DrawButton";
 import RemainingCount from "../components/RemainingCount";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
+import MyAddedMoviesStrip from "../components/MyAddedMoviesStrip";
 import AddMovieButton from "../components/AddMovieButton";
 import ContributionStats from "../components/ContributionStats";
 import useBowl from "../hooks/useBowl";
@@ -17,11 +18,12 @@ import { checkContributionBalance } from "../utils/contributionBalance";
 export default function BowlDashboard() {
     
     const { bowlId } = useParams();
-    const { bowl, contributions, isLoading, errorMessage, handleDraw, handleAddMovie } = useBowl(bowlId);
+    const { bowl, contributions, isLoading, errorMessage, handleDraw, handleAddMovie, handleDeleteMovie } = useBowl(bowlId);
 
     const [showSearch, setShowSearch] = useState(false);
     const [drawnMovie, setDrawnMovie] = useState(null);
-    const [selectedWatchedMovie, setSelectedWatchedMovie] = useState(null);
+    const [selectedDetailMovie, setSelectedDetailMovie] = useState(null);
+    const [showMyAdds, setShowMyAdds] = useState(false);
     const [prioritizeStreaming, setPrioritizeStreaming] = useState(false);
     const [useStreamingRank, setUseStreamingRank] = useState(true);
     const [isDrawing, setIsDrawing] = useState(false);
@@ -30,6 +32,7 @@ export default function BowlDashboard() {
     const [memberIds, setMemberIds] = useState([]);
     const [maxContributionLead, setMaxContributionLead] = useState(null);
     const [addGuardMessage, setAddGuardMessage] = useState(null);
+    const [deleteErrorMessage, setDeleteErrorMessage] = useState(null);
     const { streamingServices: userStreamingServices } = useUserStreamingServices();
 
     const navigate = useNavigate();
@@ -52,6 +55,10 @@ export default function BowlDashboard() {
     }, [bowl.remaining, bowl.watched, memberIds, currentUserId, maxContributionLead]);
 
     const isAddBlockedByContributionLimit = Boolean(maxContributionLead !== null && addBalance && !addBalance.allowed);
+    const myRemainingAdds = useMemo(
+      () => (bowl.remaining || []).filter((movie) => movie.added_by === currentUserId),
+      [bowl.remaining, currentUserId]
+    );
 
     useEffect(() => {
       let cancelled = false;
@@ -227,7 +234,7 @@ return (
                   movies={bowl.watched}
                   onSelectMovie={async (movie) => {
                     const providerData = await fetchStreamingProviders(movie.tmdb_id, { region: "US" });
-                    setSelectedWatchedMovie({
+                    setSelectedDetailMovie({
                       ...movie,
                       streamingProviders: providerData.providers || [],
                       streamingRegion: providerData.region || "US",
@@ -235,6 +242,55 @@ return (
                     });
                   }}
                 />
+            </section>
+
+            <section className="panel mt-4 w-full max-w-full min-w-0">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-left">
+                  <h3 className="section-title text-base">My Added Movies</h3>
+                  <p className="text-xs text-slate-500">View and manage only movies you added.</p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowMyAdds((prev) => !prev)}
+                  className="btn btn-secondary px-3 py-2 text-sm"
+                >
+                  Show
+                </button>
+              </div>
+
+              {showMyAdds && (
+                <div className="mt-3">
+                  {myRemainingAdds.length === 0 ? (
+                    <p className="text-sm text-slate-500">You have no undrawn movies in this bowl.</p>
+                  ) : (
+                    <MyAddedMoviesStrip
+                      movies={myRemainingAdds}
+                      onViewMovie={async (movie) => {
+                        const providerData = await fetchStreamingProviders(movie.tmdb_id, { region: "US" });
+                        setSelectedDetailMovie({
+                          ...movie,
+                          streamingProviders: providerData.providers || [],
+                          streamingRegion: providerData.region || "US",
+                          streamingFetchedAt: providerData.fetchedAt || null,
+                        });
+                      }}
+                      onDeleteMovie={async (movie) => {
+                        const shouldDelete = window.confirm(
+                          `Delete "${movie.title}" from this bowl?`
+                        );
+                        if (!shouldDelete) return;
+                        setDeleteErrorMessage(null);
+                        const deleted = await handleDeleteMovie(movie.id);
+                        if (!deleted) {
+                          setDeleteErrorMessage("Could not delete this movie. Please try again.");
+                        }
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+              {deleteErrorMessage && <p className="mt-2 text-sm text-red-600">{deleteErrorMessage}</p>}
             </section>
             
 
@@ -298,11 +354,11 @@ return (
                 onClose={() => setDrawnMovie(null)}
               />
             )}
-            {selectedWatchedMovie && (
+            {selectedDetailMovie && (
               <AddMovieModal
-                movie={selectedWatchedMovie}
+                movie={selectedDetailMovie}
                 userStreamingServices={userStreamingServices}
-                onClose={() => setSelectedWatchedMovie(null)}
+                onClose={() => setSelectedDetailMovie(null)}
               />
             )}
             {isDrawing && <DrawAnimationModal />}

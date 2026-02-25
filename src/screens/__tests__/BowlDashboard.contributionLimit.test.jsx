@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => {
     },
     contributions: { "owner@example.com": 4 },
     handleDraw: vi.fn(async () => null),
+    handleDeleteMovie: vi.fn(async () => true),
     streamingServices: [],
   };
 
@@ -59,6 +60,7 @@ vi.mock("../../hooks/useBowl", () => ({
     isLoading: false,
     errorMessage: null,
     handleDraw: mocks.state.handleDraw,
+    handleDeleteMovie: mocks.state.handleDeleteMovie,
     handleAddMovie: vi.fn(),
   }),
 }));
@@ -105,6 +107,7 @@ describe("BowlDashboard contribution limit UI", () => {
     };
     mocks.state.contributions = { "owner@example.com": 4 };
     mocks.state.handleDraw.mockClear();
+    mocks.state.handleDeleteMovie.mockClear();
     mocks.state.streamingServices = [];
     vi.useRealTimers();
   });
