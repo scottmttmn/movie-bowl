@@ -1,5 +1,8 @@
 function MyAddedMovieCard({ movie, onViewMovie, onDeleteMovie }) {
   const addedAtLabel = movie.added_at ? new Date(movie.added_at).toLocaleDateString() : null;
+  const isCustomEntry = Boolean(
+    movie.isCustomEntry || movie.tmdb_id == null || Number(movie.tmdb_id) <= 0
+  );
   const posterUrl = movie.poster_path
     ? `https://image.tmdb.org/t/p/w200${movie.poster_path}`
     : movie.poster || null;
@@ -20,6 +23,11 @@ function MyAddedMovieCard({ movie, onViewMovie, onDeleteMovie }) {
       <p className="mt-2 line-clamp-2 min-h-[2.5rem] text-xs font-semibold text-slate-800">
         {movie.title}
       </p>
+      {isCustomEntry && (
+        <span className="mb-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+          Custom
+        </span>
+      )}
       {addedAtLabel && <p className="mb-2 text-[11px] text-slate-500">Added: {addedAtLabel}</p>}
       <div className="flex gap-1">
         <button

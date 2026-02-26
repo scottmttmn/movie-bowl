@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { MPAA_RATING_OPTIONS } from "../../utils/movieRatings";
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -146,6 +147,28 @@ describe("BowlDashboard contribution limit UI", () => {
     expect(addButton).toBeEnabled();
   });
 
+  it("disables Add Movie when undrawn movie limit is reached", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = {
+      remaining: Array.from({ length: 100 }, (_, index) => ({
+        id: `m-${index + 1}`,
+        added_by: "u1",
+      })),
+      watched: [],
+    };
+    mocks.state.contributions = {};
+
+    render(<BowlDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Bowl 1")).toBeInTheDocument();
+    });
+
+    const addButton = screen.getByRole("button", { name: /\+ add movie/i });
+    expect(addButton).toBeDisabled();
+    expect(screen.getByText(/undrawn movie limit \(100\)/i)).toBeInTheDocument();
+  });
+
   it("owner draw uses the owner's streaming services in prioritize payload", async () => {
     mocks.state.streamingServices = ["Netflix", "Max"];
     mocks.state.bowlData = {
@@ -163,7 +186,8 @@ describe("BowlDashboard contribution limit UI", () => {
       expect(screen.getByText("Bowl 1")).toBeInTheDocument();
     });
 
-    const checkbox = screen.getByRole("checkbox");
+    fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
+    const checkbox = screen.getByRole("checkbox", { name: /prioritize streaming services/i });
     expect(checkbox).toBeEnabled();
     fireEvent.click(checkbox);
     expect(checkbox).toBeChecked();
@@ -176,11 +200,22 @@ describe("BowlDashboard contribution limit UI", () => {
     vi.useRealTimers();
 
     await waitFor(() => {
-      expect(mocks.state.handleDraw).toHaveBeenCalledWith({
-        prioritizeByServices: true,
-        prioritizeByServiceRank: true,
-        userStreamingServices: ["Netflix", "Max"],
-      });
+      expect(mocks.state.handleDraw).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prioritizeByServices: true,
+          prioritizeByServiceRank: true,
+          userStreamingServices: ["Netflix", "Max"],
+          ratingFilter: {
+            allowedRatings: MPAA_RATING_OPTIONS,
+            includeUnknown: true,
+          },
+          runtimeFilter: {
+            mode: "max",
+            threshold: 500,
+            includeUnknown: true,
+          },
+        })
+      );
     });
   });
 
@@ -201,7 +236,8 @@ describe("BowlDashboard contribution limit UI", () => {
       expect(screen.getByText("Bowl 1")).toBeInTheDocument();
     });
 
-    const checkbox = screen.getByRole("checkbox");
+    fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
+    const checkbox = screen.getByRole("checkbox", { name: /prioritize streaming services/i });
     expect(checkbox).toBeEnabled();
     fireEvent.click(checkbox);
     expect(checkbox).toBeChecked();
@@ -214,11 +250,22 @@ describe("BowlDashboard contribution limit UI", () => {
     vi.useRealTimers();
 
     await waitFor(() => {
-      expect(mocks.state.handleDraw).toHaveBeenCalledWith({
-        prioritizeByServices: true,
-        prioritizeByServiceRank: true,
-        userStreamingServices: ["Hulu"],
-      });
+      expect(mocks.state.handleDraw).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prioritizeByServices: true,
+          prioritizeByServiceRank: true,
+          userStreamingServices: ["Hulu"],
+          ratingFilter: {
+            allowedRatings: MPAA_RATING_OPTIONS,
+            includeUnknown: true,
+          },
+          runtimeFilter: {
+            mode: "max",
+            threshold: 500,
+            includeUnknown: true,
+          },
+        })
+      );
     });
   });
 
@@ -239,6 +286,7 @@ describe("BowlDashboard contribution limit UI", () => {
       expect(screen.getByText("Bowl 1")).toBeInTheDocument();
     });
 
+    fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
     const prioritizeToggle = screen.getByRole("checkbox", { name: /prioritize streaming services/i });
     fireEvent.click(prioritizeToggle);
     expect(prioritizeToggle).toBeChecked();
@@ -255,11 +303,22 @@ describe("BowlDashboard contribution limit UI", () => {
     vi.useRealTimers();
 
     await waitFor(() => {
-      expect(mocks.state.handleDraw).toHaveBeenCalledWith({
-        prioritizeByServices: true,
-        prioritizeByServiceRank: false,
-        userStreamingServices: ["Hulu", "Netflix"],
-      });
+      expect(mocks.state.handleDraw).toHaveBeenCalledWith(
+        expect.objectContaining({
+          prioritizeByServices: true,
+          prioritizeByServiceRank: false,
+          userStreamingServices: ["Hulu", "Netflix"],
+          ratingFilter: {
+            allowedRatings: MPAA_RATING_OPTIONS,
+            includeUnknown: true,
+          },
+          runtimeFilter: {
+            mode: "max",
+            threshold: 500,
+            includeUnknown: true,
+          },
+        })
+      );
     });
   });
 
@@ -280,6 +339,7 @@ describe("BowlDashboard contribution limit UI", () => {
       expect(screen.getByText("Bowl 1")).toBeInTheDocument();
     });
 
+    fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
     const prioritizeToggle = screen.getByRole("checkbox", { name: /prioritize streaming services/i });
     fireEvent.click(prioritizeToggle);
     const rankToggle = screen.getByRole("checkbox", { name: /use streaming service ranking/i });
@@ -296,5 +356,47 @@ describe("BowlDashboard contribution limit UI", () => {
       name: /use streaming service ranking/i,
     });
     expect(rankToggleAfterReenable).toBeChecked();
+  });
+
+  it("can use long-movie runtime mode in draw payload", async () => {
+    mocks.state.streamingServices = ["Hulu"];
+    mocks.state.bowlData = {
+      remaining: [{ id: "m1", added_by: "u2", tmdb_id: 101, title: "Movie A", runtime: 180 }],
+      watched: [],
+    };
+    mocks.state.contributions = { "member@example.com": 1 };
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", max_contribution_lead: null };
+    mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
+    mocks.state.authUserId = "u2";
+
+    render(<BowlDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Bowl 1")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /advanced runtime options/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /prefer long movies/i }));
+    fireEvent.change(screen.getByLabelText(/min minutes/i), { target: { value: "170" } });
+
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    await act(async () => {
+      vi.advanceTimersByTime(1200);
+    });
+    vi.useRealTimers();
+
+    await waitFor(() => {
+      expect(mocks.state.handleDraw).toHaveBeenCalledWith(
+        expect.objectContaining({
+          runtimeFilter: {
+            mode: "min",
+            threshold: 170,
+            includeUnknown: true,
+          },
+        })
+      );
+    });
   });
 });

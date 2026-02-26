@@ -5,6 +5,8 @@ const mocks = vi.hoisted(() => {
   const state = {
     navigate: vi.fn(),
     authCallCount: 0,
+    initialAuthenticated: false,
+    rpcRows: [],
     insertedBowls: [],
     insertedMembers: [],
     insertedInvites: [],
@@ -15,15 +17,15 @@ const mocks = vi.hoisted(() => {
       getSession: vi.fn(async () => {
         state.authCallCount += 1;
 
-        // First call is from initial load effect; skip DB fetch branch by returning no user.
-        if (state.authCallCount === 1) {
+        // First call is from initial load effect.
+        if (state.authCallCount === 1 && !state.initialAuthenticated) {
           return { data: { session: null }, error: new Error("Not authenticated") };
         }
 
         return { data: { session: { user: { id: "u1" } } }, error: null };
       }),
     },
-    rpc: vi.fn(async () => ({ data: [], error: null })),
+    rpc: vi.fn(async () => ({ data: state.rpcRows, error: null })),
     from: vi.fn((table) => {
       if (table === "bowls") {
         const ctx = { insertRows: null, selectMode: false };
@@ -48,7 +50,15 @@ const mocks = vi.hoisted(() => {
             }
             return { data: null, error: null };
           }),
-          then: (resolve, reject) => Promise.resolve({ data: [], error: null }).then(resolve, reject),
+          then: (resolve, reject) => {
+            if (ctx.selectMode && !ctx.insertRows) {
+              const ownedRows = mocks.state.rpcRows
+                .filter((row) => row.owner_id === "u1")
+                .map((row) => ({ id: row.id }));
+              return Promise.resolve({ data: ownedRows, error: null }).then(resolve, reject);
+            }
+            return Promise.resolve({ data: [], error: null }).then(resolve, reject);
+          },
         };
         return query;
       }
@@ -94,6 +104,8 @@ describe("MyBowlsScreen create bowl", () => {
   beforeEach(() => {
     mocks.state.navigate.mockReset();
     mocks.state.authCallCount = 0;
+    mocks.state.initialAuthenticated = false;
+    mocks.state.rpcRows = [];
     mocks.state.insertedBowls = [];
     mocks.state.insertedMembers = [];
     mocks.state.insertedInvites = [];
@@ -144,5 +156,26 @@ describe("MyBowlsScreen create bowl", () => {
       invited_email: "friend@example.com",
       invited_by: "u1",
     });
+  });
+
+  it("disables creating new bowls when owner already has 10 bowls", async () => {
+    mocks.state.initialAuthenticated = true;
+    mocks.state.rpcRows = Array.from({ length: 10 }, (_, index) => ({
+      id: `b-${index + 1}`,
+      name: `Bowl ${index + 1}`,
+      remaining_count: 0,
+      member_count: 1,
+      owner_id: "u1",
+    }));
+
+    render(<MyBowlsScreen />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Bowl 1")).toBeInTheDocument();
+    });
+
+    const button = screen.getByRole("button", { name: /\+ new bowl/i });
+    expect(button).toBeDisabled();
+    expect(screen.getByText(/bowl limit reached \(10\)/i)).toBeInTheDocument();
   });
 });

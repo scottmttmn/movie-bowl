@@ -1,6 +1,9 @@
 export default function WatchedMovieCard({ movie, onClick }) {
   const drawnDate = movie.drawn_at || movie.drawnAt;
   const drawnDateLabel = drawnDate ? new Date(drawnDate).toLocaleDateString() : null;
+  const isCustomEntry = Boolean(
+    movie.isCustomEntry || movie.tmdb_id == null || Number(movie.tmdb_id) <= 0
+  );
   
 
   return (
@@ -30,6 +33,11 @@ export default function WatchedMovieCard({ movie, onClick }) {
       <p className="mt-1 text-xs font-medium text-slate-700 leading-tight min-h-[2rem] overflow-hidden">
         {movie.title}
       </p>
+      {isCustomEntry && (
+        <span className="rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+          Custom
+        </span>
+      )}
       {drawnDateLabel && <p className="text-[11px] text-slate-500">{drawnDateLabel}</p>}
     </button>
   );

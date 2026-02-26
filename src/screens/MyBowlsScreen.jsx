@@ -4,6 +4,7 @@ import BowlCard from "../components/BowlCard";
 import NewBowlButton from "../components/NewBowlButton";
 import CreateBowlModal from "../components/CreateBowlModal";
 import { supabase } from "../lib/supabase";
+import { MAX_BOWLS_PER_USER } from "../utils/appLimits";
 import { parseInviteEmails } from "../utils/parseInviteEmails";
 
 // Supabase client is centralized in src/lib/supabase.js
@@ -21,6 +22,8 @@ export default function MyBowlsScreen() {
   const [createErrorMessage, setCreateErrorMessage] = useState(null);
   const [createActionMessage, setCreateActionMessage] = useState(null);
   const navigate = useNavigate();
+  const ownedBowlCount = bowls.filter((b) => b.role === "Owner").length;
+  const isCreateBowlLimitReached = ownedBowlCount >= MAX_BOWLS_PER_USER;
 
   useEffect(() => {
     // Load bowls the user owns, plus bowls they are a member of.
@@ -98,6 +101,11 @@ export default function MyBowlsScreen() {
   };
 
   const handleNewBowl = () => {
+    if (isCreateBowlLimitReached) {
+      setCreateErrorMessage(`You can create up to ${MAX_BOWLS_PER_USER} bowls.`);
+      setCreateActionMessage(null);
+      return;
+    }
     setCreateErrorMessage(null);
     setCreateActionMessage(null);
     setIsModalOpen(true);
@@ -106,6 +114,11 @@ export default function MyBowlsScreen() {
   const handleCreateBowl = async () => {
     setCreateErrorMessage(null);
     setCreateActionMessage(null);
+
+    if (isCreateBowlLimitReached) {
+      setCreateErrorMessage(`You can create up to ${MAX_BOWLS_PER_USER} bowls.`);
+      return;
+    }
 
     const bowlName = newBowlName.trim();
     if (!bowlName) {
@@ -215,8 +228,13 @@ export default function MyBowlsScreen() {
         {createErrorMessage && <div className="mb-3 text-sm text-red-600">{createErrorMessage}</div>}
         {createActionMessage && <div className="mb-3 text-sm text-green-700">{createActionMessage}</div>}
         <div className="flex justify-start">
-          <NewBowlButton onClick={handleNewBowl} />
+          <NewBowlButton onClick={handleNewBowl} disabled={isCreateBowlLimitReached} />
         </div>
+        {isCreateBowlLimitReached && (
+          <div className="mt-2 text-xs text-slate-500">
+            Bowl limit reached ({MAX_BOWLS_PER_USER}).
+          </div>
+        )}
       </header>
       <div className="bowl-list space-y-4">
         {isLoading ? (

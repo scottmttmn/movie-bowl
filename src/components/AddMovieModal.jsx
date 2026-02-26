@@ -63,6 +63,9 @@ export default function AddMovieModal({
   const year = movie.release_date
     ? movie.release_date.split("-")[0]
     : "—";
+  const isCustomEntry = Boolean(
+    movie.isCustomEntry || movie.tmdb_id == null || Number(movie.tmdb_id) <= 0
+  );
   const watchedAt = movie.drawn_at || movie.drawnAt || null;
   const watchedDateLabel = watchedAt ? new Date(watchedAt).toLocaleDateString() : null;
   const availableProviders = normalizeStreamingServices(movie.streamingProviders || []);
@@ -89,9 +92,16 @@ export default function AddMovieModal({
           </div>
         )}
 
-        <h2 className="text-2xl font-semibold text-slate-900 mb-1">
-          {movie.title} ({year})
-        </h2>
+        <div className="mb-1 flex items-center gap-2">
+          <h2 className="text-2xl font-semibold text-slate-900">
+            {movie.title} ({year})
+          </h2>
+          {isCustomEntry && (
+            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+              Custom
+            </span>
+          )}
+        </div>
 
         <div className="mb-4 flex flex-wrap gap-2 text-xs">
           {movie.runtime && (
