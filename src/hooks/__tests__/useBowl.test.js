@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   remainingQueue: [],
   watchedQueue: [],
+  insertPayloads: [],
+  insertResponses: [],
   updatePayloads: [],
   updateEqFilters: [],
   deleteEqFilters: [],
@@ -35,6 +37,9 @@ const mocks = vi.hoisted(() => ({
         }),
         is: vi.fn((column, value) => {
           if (column === "drawn_at" && value === null) state.kind = "remaining";
+          if (state.mode === "update") {
+            mocks.updateEqFilters.push({ key: column, value });
+          }
           if (state.mode === "delete") {
             mocks.deleteEqFilters.push({ key: column, value });
           }
@@ -66,6 +71,14 @@ const mocks = vi.hoisted(() => ({
           mocks.updatePayloads.push(payload);
           return query;
         }),
+        insert: vi.fn((payload) => {
+          mocks.insertPayloads.push(payload);
+          const nextResponse = mocks.insertResponses.shift();
+          if (nextResponse) {
+            return Promise.resolve(nextResponse);
+          }
+          return Promise.resolve({ data: payload, error: null });
+        }),
         delete: vi.fn(() => {
           state.mode = "delete";
           mocks.deleteCalled = true;
@@ -90,6 +103,8 @@ describe("useBowl handleDraw integration", () => {
   beforeEach(() => {
     mocks.remainingQueue = [];
     mocks.watchedQueue = [];
+    mocks.insertPayloads = [];
+    mocks.insertResponses = [];
     mocks.updatePayloads = [];
     mocks.updateEqFilters = [];
     mocks.deleteEqFilters = [];
@@ -131,8 +146,9 @@ describe("useBowl handleDraw integration", () => {
     expect(typeof mocks.updatePayloads[0].drawn_at).toBe("string");
     expect(mocks.updateEqFilters).toEqual(
       expect.arrayContaining([
-        { key: "id", value: "m1" },
         { key: "bowl_id", value: "bowl-1" },
+        { key: "drawn_at", value: null },
+        { key: "tmdb_id", value: 101 },
       ])
     );
 
@@ -177,8 +193,9 @@ describe("useBowl handleDraw integration", () => {
     expect(mocks.fetchStreamingProviders).toHaveBeenCalledWith(202, { region: "US" });
     expect(mocks.updateEqFilters).toEqual(
       expect.arrayContaining([
-        { key: "id", value: "m2" },
         { key: "bowl_id", value: "bowl-1" },
+        { key: "drawn_at", value: null },
+        { key: "tmdb_id", value: 202 },
       ])
     );
 
@@ -213,6 +230,207 @@ describe("useBowl handleDraw integration", () => {
 
     await waitFor(() => {
       expect(result.current.bowl.remaining).toHaveLength(0);
+    });
+  });
+
+  it("allows adding custom entries without a TMDB id", async () => {
+    mocks.remainingQueue.push([], []);
+    mocks.watchedQueue.push([], []);
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleAddMovie({
+        title: "Wildcard",
+        genres: [],
+      });
+    });
+
+    expect(mocks.insertPayloads).toHaveLength(1);
+    expect(mocks.insertPayloads[0][0]).toEqual(
+      expect.objectContaining({
+        bowl_id: "bowl-1",
+        added_by: "user-1",
+        tmdb_id: null,
+        title: "Wildcard",
+      })
+    );
+  });
+
+  it("retries custom add with synthetic tmdb id when null tmdb_id is rejected", async () => {
+    mocks.remainingQueue.push([], []);
+    mocks.watchedQueue.push([], []);
+    mocks.insertResponses.push(
+      { data: null, error: { message: 'null value in column "tmdb_id"' } },
+      { data: [{ id: "row-1" }], error: null }
+    );
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleAddMovie({
+        title: "Wildcard",
+        genres: [],
+      });
+    });
+
+    expect(mocks.insertPayloads).toHaveLength(2);
+    expect(mocks.insertPayloads[0][0].tmdb_id).toBeNull();
+    expect(mocks.insertPayloads[1][0].tmdb_id).toEqual(expect.any(Number));
+    expect(mocks.insertPayloads[1][0].tmdb_id).toBeLessThan(0);
+  });
+
+  it("draw marks all duplicate TMDB instances as drawn", async () => {
+    const movie1 = { id: "m1", tmdb_id: 101, title: "Movie A" };
+    const movie2 = { id: "m2", tmdb_id: 101, title: "Movie A" };
+
+    mocks.remainingQueue.push([movie1, movie2], []);
+    mocks.watchedQueue.push([], [
+      { ...movie1, drawn_at: "2026-02-23T00:00:00.000Z", drawn_by: "user-1" },
+      { ...movie2, drawn_at: "2026-02-23T00:00:00.000Z", drawn_by: "user-1" },
+    ]);
+    mocks.fetchStreamingProviders.mockResolvedValue({
+      providers: ["Netflix"],
+      region: "US",
+      fetchedAt: "2026-02-23T00:00:00.000Z",
+    });
+
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleDraw();
+    });
+
+    expect(mocks.updateEqFilters).toEqual(
+      expect.arrayContaining([
+        { key: "bowl_id", value: "bowl-1" },
+        { key: "drawn_at", value: null },
+        { key: "tmdb_id", value: 101 },
+      ])
+    );
+
+    await waitFor(() => {
+      expect(result.current.bowl.remaining).toHaveLength(0);
+      expect(result.current.bowl.watched).toHaveLength(2);
+    });
+
+    randomSpy.mockRestore();
+  });
+
+  it("re-adding watched TMDB title inserts a new remaining row when duplicates are allowed", async () => {
+    const watchedMovie = {
+      id: "w1",
+      tmdb_id: 101,
+      title: "Movie A",
+      drawn_at: "2026-02-23T00:00:00.000Z",
+      drawn_by: "user-2",
+    };
+    const newRemainingRow = {
+      id: "n1",
+      tmdb_id: 101,
+      title: "Movie A",
+      drawn_at: null,
+      drawn_by: null,
+    };
+
+    mocks.remainingQueue.push([], [newRemainingRow]);
+    mocks.watchedQueue.push([watchedMovie], [watchedMovie]);
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.bowl.watched).toHaveLength(1);
+
+    await act(async () => {
+      await result.current.handleAddMovie({
+        id: 101,
+        title: "Movie A",
+        genres: [],
+      });
+    });
+
+    expect(mocks.insertPayloads).toHaveLength(1);
+    expect(mocks.updatePayloads).toHaveLength(0);
+
+    await waitFor(() => {
+      expect(result.current.bowl.remaining).toHaveLength(1);
+      expect(result.current.bowl.watched).toHaveLength(1);
+    });
+  });
+
+  it("re-adding watched custom entry inserts a new remaining row when duplicates are allowed", async () => {
+    const watchedCustom = {
+      id: "c1",
+      tmdb_id: -1234,
+      title: "Wildcard",
+      drawn_at: "2026-02-23T00:00:00.000Z",
+      drawn_by: "user-2",
+    };
+    const newRemainingCustom = {
+      id: "n-custom",
+      tmdb_id: -1234,
+      title: "Wildcard",
+      drawn_at: null,
+      drawn_by: null,
+    };
+
+    mocks.remainingQueue.push([], [newRemainingCustom]);
+    mocks.watchedQueue.push([watchedCustom], [watchedCustom]);
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.bowl.watched).toHaveLength(1);
+
+    await act(async () => {
+      await result.current.handleAddMovie({
+        title: "Wildcard",
+        genres: [],
+      });
+    });
+
+    expect(mocks.insertPayloads).toHaveLength(1);
+    expect(mocks.updatePayloads).toHaveLength(0);
+
+    await waitFor(() => {
+      expect(result.current.bowl.remaining).toHaveLength(1);
+      expect(result.current.bowl.watched).toHaveLength(1);
+    });
+  });
+
+  it("allows adding a duplicate active TMDB title when duplicates are enabled", async () => {
+    const existingRemaining = {
+      id: "r1",
+      tmdb_id: 101,
+      title: "Movie A",
+      drawn_at: null,
+      drawn_by: null,
+    };
+    const duplicateRemaining = {
+      id: "r2",
+      tmdb_id: 101,
+      title: "Movie A",
+      drawn_at: null,
+      drawn_by: null,
+    };
+
+    mocks.remainingQueue.push([existingRemaining], [existingRemaining, duplicateRemaining]);
+    mocks.watchedQueue.push([], []);
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.bowl.remaining).toHaveLength(1);
+
+    await act(async () => {
+      await result.current.handleAddMovie({ id: 101, title: "Movie A", genres: [] });
+    });
+
+    expect(mocks.insertPayloads).toHaveLength(1);
+    expect(mocks.updatePayloads).toHaveLength(0);
+    await waitFor(() => {
+      expect(result.current.bowl.remaining).toHaveLength(2);
     });
   });
 });

@@ -17,6 +17,20 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
     const inputRef = useRef(null);
     const latestRequestRef = useRef(0);
 
+    const buildCustomMovie = (title) => ({
+        id: null,
+        title,
+        release_date: null,
+        runtime: null,
+        genres: [],
+        overview: null,
+        poster_path: null,
+        streamingProviders: [],
+        streamingRegion: "US",
+        streamingFetchedAt: null,
+        isCustomEntry: true,
+    });
+
 
     const handleSearch = async (query) => {
         const trimmedQuery = query.trim();
@@ -82,11 +96,30 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
     const addMovie = async (movie) => {
         try {
             const detailedMovie = await buildDetailedMovie(movie);
-            onAddMovie(detailedMovie);
+            await onAddMovie(detailedMovie);
         } catch (error) {
             console.error("Failed to fetch movie details", error);
             setSearchError("Failed to load movie details. Please try again.");
         }
+        setSearchTerm("");
+        setSearchResults([]);
+        setHighlightedIndex(0);
+        inputRef.current?.focus();
+    };
+
+    const addCustomMovie = async () => {
+        const customTitle = searchTerm.trim();
+        if (!customTitle) return;
+
+        try {
+            await onAddMovie(buildCustomMovie(customTitle));
+        } catch (error) {
+            console.error("Failed to add custom movie", error);
+            setSearchError("Failed to add custom entry. Please try again.");
+            return;
+        }
+
+        setSearchError(null);
         setSearchTerm("");
         setSearchResults([]);
         setHighlightedIndex(0);
@@ -254,6 +287,23 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
             )}
             {!searchError && searchTerm.trim() && searchResults.length === 0 && (
               <div className="mt-2 text-sm text-slate-500">No matching movies found.</div>
+            )}
+            {searchTerm.trim() && (
+              <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+                <p className="text-sm font-medium text-slate-800">
+                  Can&apos;t find it?
+                </p>
+                <p className="mb-2 text-xs text-slate-600">
+                  Add a custom title or category for flexible draws.
+                </p>
+                <button
+                  type="button"
+                  onClick={addCustomMovie}
+                  className="btn btn-secondary px-3 py-1.5 text-xs"
+                >
+                  Add &quot;{searchTerm.trim()}&quot;
+                </button>
+              </div>
             )}
 
             {detailMovie && (

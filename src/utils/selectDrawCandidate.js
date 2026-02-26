@@ -26,10 +26,17 @@ export async function selectDrawCandidate(
     const index = Math.floor(randomFn() * items.length);
     return items[index];
   };
+  const getProvidersForMovie = async (movie) => {
+    const tmdbId = Number(movie?.tmdb_id);
+    if (!Number.isFinite(tmdbId) || tmdbId <= 0) {
+      return { providers: [], region: "US", fetchedAt: null };
+    }
+    return fetchProviders(tmdbId);
+  };
 
   if (!canPrioritize) {
     const movie = pickRandom(remainingMovies);
-    const providerData = await fetchProviders(movie.tmdb_id);
+    const providerData = await getProvidersForMovie(movie);
     return {
       movie,
       providers: providerData?.providers || [],
@@ -40,7 +47,7 @@ export async function selectDrawCandidate(
 
   const candidatesWithProviders = await Promise.all(
     remainingMovies.map(async (movie) => {
-      const providerData = await fetchProviders(movie.tmdb_id);
+      const providerData = await getProvidersForMovie(movie);
       const providers = providerData?.providers || [];
       return {
         movie,

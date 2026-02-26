@@ -2,6 +2,13 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { selectDrawCandidate } from "../utils/selectDrawCandidate";
+
+function createSyntheticTmdbId() {
+  // Keep this within signed 32-bit range to avoid common integer column overflows.
+  const min = 1;
+  const max = 2_000_000_000;
+  return -Math.floor(Math.random() * (max - min + 1)) - min;
+}
 // useBowl is the core state engine for a bowl.
 // It manages bowl state and defines how that state transitions (add + draw).
 
@@ -120,8 +127,12 @@ export default function useBowl(bowlId) {
     const { error } = await supabase
       .from("bowl_movies")
       .update({ drawn_at: new Date().toISOString(), drawn_by: user.id })
-      .eq("id", drawn.id)
-      .eq("bowl_id", bowlId);
+      .eq("bowl_id", bowlId)
+      .is("drawn_at", null)
+      .eq(
+        Number(drawn?.tmdb_id) > 0 ? "tmdb_id" : "title",
+        Number(drawn?.tmdb_id) > 0 ? drawn.tmdb_id : drawn.title
+      );
 
     if (error) {
       console.error("[useBowl] Failed to draw movie", error);
@@ -143,6 +154,7 @@ export default function useBowl(bowlId) {
   const handleAddMovie = useCallback(
     async (movie) => {
       if (!bowlId) return;
+      if (!movie?.title || !String(movie.title).trim()) return;
 
       const { data: authData, error: authError } = await supabase.auth.getSession();
       const user = authData?.session?.user;
@@ -152,6 +164,10 @@ export default function useBowl(bowlId) {
         return;
       }
 
+      const nowIso = new Date().toISOString();
+
+      const movieTmdbId = Number.isInteger(movie?.id) ? movie.id : null;
+
       // Normalize genres into a simple string array.
       const genreNames = Array.isArray(movie?.genres)
         ? movie.genres.map((g) => g?.name).filter(Boolean)
@@ -160,17 +176,28 @@ export default function useBowl(bowlId) {
       const payload = {
         bowl_id: bowlId,
         added_by: user.id,
-        tmdb_id: movie.id,
-        title: movie.title,
+        tmdb_id: movieTmdbId,
+        title: String(movie.title).trim(),
         poster_path: movie.poster_path ?? null,
         release_date: movie.release_date ?? null,
         runtime: movie.runtime ?? null,
         genres: genreNames,
         overview: movie.overview ?? null,
-        snapshot_at: new Date().toISOString(),
+        snapshot_at: nowIso,
       };
 
-      const { error } = await supabase.from("bowl_movies").insert([payload]);
+      let { error } = await supabase.from("bowl_movies").insert([payload]);
+
+      // Some deployments keep tmdb_id as NOT NULL. For custom entries, retry with
+      // a synthetic negative ID so the row can still be inserted.
+      if (error && payload.tmdb_id == null) {
+        const fallbackPayload = {
+          ...payload,
+          tmdb_id: createSyntheticTmdbId(),
+        };
+        const retryResult = await supabase.from("bowl_movies").insert([fallbackPayload]);
+        error = retryResult.error;
+      }
 
       if (error) {
         console.error("[useBowl] Failed to add movie", error);

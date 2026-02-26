@@ -233,7 +233,10 @@ return (
                 <WatchedMoviesStrip
                   movies={bowl.watched}
                   onSelectMovie={async (movie) => {
-                    const providerData = await fetchStreamingProviders(movie.tmdb_id, { region: "US" });
+                    const providerData =
+                      Number(movie.tmdb_id) > 0
+                        ? await fetchStreamingProviders(movie.tmdb_id, { region: "US" })
+                        : { providers: [], region: "US", fetchedAt: null };
                     setSelectedDetailMovie({
                       ...movie,
                       streamingProviders: providerData.providers || [],
@@ -255,7 +258,7 @@ return (
                   onClick={() => setShowMyAdds((prev) => !prev)}
                   className="btn btn-secondary px-3 py-2 text-sm"
                 >
-                  Show
+                  {showMyAdds ? "Hide" : "Show"}
                 </button>
               </div>
 
@@ -267,7 +270,10 @@ return (
                     <MyAddedMoviesStrip
                       movies={myRemainingAdds}
                       onViewMovie={async (movie) => {
-                        const providerData = await fetchStreamingProviders(movie.tmdb_id, { region: "US" });
+                        const providerData =
+                          Number(movie.tmdb_id) > 0
+                            ? await fetchStreamingProviders(movie.tmdb_id, { region: "US" })
+                            : { providers: [], region: "US", fetchedAt: null };
                         setSelectedDetailMovie({
                           ...movie,
                           streamingProviders: providerData.providers || [],

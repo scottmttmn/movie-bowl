@@ -50,6 +50,19 @@ describe("component smoke tests", () => {
     expect(screen.getByText("Netflix")).toBeInTheDocument();
   });
 
+  it("shows custom badge in AddMovieModal for non-TMDB entries", () => {
+    const movie = {
+      title: "Wildcard",
+      tmdb_id: null,
+      release_date: null,
+      runtime: null,
+      streamingProviders: [],
+    };
+
+    render(<AddMovieModal movie={movie} onClose={vi.fn()} userStreamingServices={[]} />);
+    expect(screen.getByText("Custom")).toBeInTheDocument();
+  });
+
   it("renders BowlCard", () => {
     const onSelect = vi.fn();
     render(
@@ -120,6 +133,7 @@ describe("component smoke tests", () => {
     expect(screen.getByText("My Adds")).toBeInTheDocument();
     expect(screen.getByAltText("Movie One")).toBeInTheDocument();
     expect(screen.getAllByRole("button", { name: /details/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByText("Custom").length).toBeGreaterThan(0);
   });
 
   it("renders RemainingCount", () => {
@@ -131,6 +145,11 @@ describe("component smoke tests", () => {
   it("renders WatchedMovieCard", () => {
     render(<WatchedMovieCard movie={{ id: "w1", title: "Arrival", poster_path: "/arrival.jpg" }} />);
     expect(screen.getByAltText("Arrival")).toBeInTheDocument();
+  });
+
+  it("shows custom badge on watched custom entries", () => {
+    render(<WatchedMovieCard movie={{ id: "w1", title: "Wildcard", tmdb_id: null }} />);
+    expect(screen.getByText("Custom")).toBeInTheDocument();
   });
 
   it("renders WatchedMoviesStrip", () => {

@@ -134,4 +134,26 @@ describe("selectDrawCandidate", () => {
     expect(fetchProviders).toHaveBeenCalledTimes(1);
     expect(fetchProviders).toHaveBeenCalledWith(101);
   });
+
+  it("does not call provider API for custom entries with non-positive tmdb id", async () => {
+    const fetchProviders = vi.fn(async () => ({
+      providers: ["Netflix"],
+      region: "US",
+      fetchedAt: null,
+    }));
+
+    const selected = await selectDrawCandidate(
+      [{ id: "m-custom", tmdb_id: -42, title: "Wildcard" }],
+      {
+        prioritizeByServices: false,
+        userStreamingServices: ["Netflix"],
+        fetchProviders,
+        randomFn: () => 0,
+      }
+    );
+
+    expect(selected.movie.id).toBe("m-custom");
+    expect(selected.providers).toEqual([]);
+    expect(fetchProviders).not.toHaveBeenCalled();
+  });
 });
