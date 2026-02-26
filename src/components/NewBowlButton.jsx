@@ -1,8 +1,9 @@
-export default function NewBowlButton({ onClick }) {
+export default function NewBowlButton({ onClick, disabled = false }) {
     return (
       <button
         onClick={onClick}
-        className="btn btn-primary"
+        disabled={disabled}
+        className="btn btn-primary disabled:opacity-50 disabled:cursor-not-allowed"
       >
         + New Bowl
       </button>

@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => ({
   deleteEqFilters: [],
   deleteCalled: false,
   fetchStreamingProviders: vi.fn(),
+  getTmdbMovieDetails: vi.fn(),
   supabase: {
     auth: {
       getSession: vi.fn(async () => ({
@@ -96,6 +97,9 @@ vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
 vi.mock("../../lib/streamingProviders", () => ({
   fetchStreamingProviders: mocks.fetchStreamingProviders,
 }));
+vi.mock("../../lib/tmdbApi", () => ({
+  getTmdbMovieDetails: mocks.getTmdbMovieDetails,
+}));
 
 import useBowl from "../useBowl";
 
@@ -110,6 +114,7 @@ describe("useBowl handleDraw integration", () => {
     mocks.deleteEqFilters = [];
     mocks.deleteCalled = false;
     mocks.fetchStreamingProviders.mockReset();
+    mocks.getTmdbMovieDetails.mockReset();
     mocks.supabase.from.mockClear();
   });
 
@@ -432,5 +437,182 @@ describe("useBowl handleDraw integration", () => {
     await waitFor(() => {
       expect(result.current.bowl.remaining).toHaveLength(2);
     });
+  });
+
+  it("does not add when undrawn movie limit is reached", async () => {
+    const maxedRemaining = Array.from({ length: 100 }, (_, index) => ({
+      id: `m-${index + 1}`,
+      tmdb_id: index + 1,
+      title: `Movie ${index + 1}`,
+    }));
+    mocks.remainingQueue.push(maxedRemaining);
+    mocks.watchedQueue.push([]);
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleAddMovie({
+        id: 999,
+        title: "Movie 999",
+        genres: [],
+      });
+    });
+
+    expect(mocks.insertPayloads).toHaveLength(0);
+  });
+
+  it("draw blocks with message when rating filters have no matches", async () => {
+    const movie = { id: "m1", tmdb_id: 101, title: "Movie A" };
+    mocks.remainingQueue.push([movie]);
+    mocks.watchedQueue.push([]);
+    mocks.getTmdbMovieDetails.mockResolvedValue({
+      release_dates: {
+        results: [
+          {
+            iso_3166_1: "US",
+            release_dates: [{ certification: "PG-13" }],
+          },
+        ],
+      },
+    });
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let drawn;
+    await act(async () => {
+      drawn = await result.current.handleDraw({
+        ratingFilter: {
+          allowedRatings: ["R"],
+          includeUnknown: false,
+        },
+      });
+    });
+
+    expect(drawn).toBeNull();
+    expect(result.current.errorMessage).toMatch(/no titles match your selected ratings/i);
+    expect(mocks.updatePayloads).toHaveLength(0);
+  });
+
+  it("draw filters candidates by allowed ratings", async () => {
+    const pgMovie = { id: "m1", tmdb_id: 301, title: "Movie A" };
+    const rMovie = { id: "m2", tmdb_id: 302, title: "Movie B" };
+    mocks.remainingQueue.push([pgMovie, rMovie], [pgMovie]);
+    mocks.watchedQueue.push([], [{ ...rMovie, drawn_at: "2026-02-23T00:00:00.000Z", drawn_by: "user-1" }]);
+
+    mocks.getTmdbMovieDetails.mockImplementation(async (tmdbId) => {
+      if (tmdbId === 301) {
+        return {
+          release_dates: { results: [{ iso_3166_1: "US", release_dates: [{ certification: "PG" }] }] },
+        };
+      }
+      return {
+        release_dates: { results: [{ iso_3166_1: "US", release_dates: [{ certification: "R" }] }] },
+      };
+    });
+    mocks.fetchStreamingProviders.mockResolvedValue({ providers: [], region: "US", fetchedAt: null });
+
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleDraw({
+        ratingFilter: {
+          allowedRatings: ["R"],
+          includeUnknown: false,
+        },
+      });
+    });
+
+    expect(mocks.updateEqFilters).toEqual(
+      expect.arrayContaining([
+        { key: "tmdb_id", value: 302 },
+      ])
+    );
+    randomSpy.mockRestore();
+  });
+
+  it("draw blocks with message when runtime filter has no matches", async () => {
+    const movie = { id: "m1", tmdb_id: 401, title: "Long Movie", runtime: 150 };
+    mocks.remainingQueue.push([movie]);
+    mocks.watchedQueue.push([]);
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let drawn;
+    await act(async () => {
+      drawn = await result.current.handleDraw({
+        runtimeFilter: {
+          mode: "max",
+          threshold: 90,
+          includeUnknown: false,
+        },
+      });
+    });
+
+    expect(drawn).toBeNull();
+    expect(result.current.errorMessage).toMatch(/no titles match your runtime filter/i);
+    expect(mocks.updatePayloads).toHaveLength(0);
+  });
+
+  it("draw filters candidates by max runtime", async () => {
+    const shortMovie = { id: "m1", tmdb_id: 501, title: "Short Movie", runtime: 95 };
+    const longMovie = { id: "m2", tmdb_id: 502, title: "Long Movie", runtime: 180 };
+    mocks.remainingQueue.push([shortMovie, longMovie], [longMovie]);
+    mocks.watchedQueue.push([], [{ ...shortMovie, drawn_at: "2026-02-23T00:00:00.000Z", drawn_by: "user-1" }]);
+    mocks.fetchStreamingProviders.mockResolvedValue({ providers: [], region: "US", fetchedAt: null });
+
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleDraw({
+        runtimeFilter: {
+          mode: "max",
+          threshold: 100,
+          includeUnknown: false,
+        },
+      });
+    });
+
+    expect(mocks.updateEqFilters).toEqual(
+      expect.arrayContaining([
+        { key: "tmdb_id", value: 501 },
+      ])
+    );
+    randomSpy.mockRestore();
+  });
+
+  it("draw filters candidates by minimum runtime when long mode is enabled", async () => {
+    const shortMovie = { id: "m1", tmdb_id: 601, title: "Short Movie", runtime: 95 };
+    const longMovie = { id: "m2", tmdb_id: 602, title: "Long Movie", runtime: 180 };
+    mocks.remainingQueue.push([shortMovie, longMovie], [shortMovie]);
+    mocks.watchedQueue.push([], [{ ...longMovie, drawn_at: "2026-02-23T00:00:00.000Z", drawn_by: "user-1" }]);
+    mocks.fetchStreamingProviders.mockResolvedValue({ providers: [], region: "US", fetchedAt: null });
+
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleDraw({
+        runtimeFilter: {
+          mode: "min",
+          threshold: 150,
+          includeUnknown: false,
+        },
+      });
+    });
+
+    expect(mocks.updateEqFilters).toEqual(
+      expect.arrayContaining([
+        { key: "tmdb_id", value: 602 },
+      ])
+    );
+    randomSpy.mockRestore();
   });
 });

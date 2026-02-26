@@ -13,6 +13,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { checkContributionBalance } from "../utils/contributionBalance";
+import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
+import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 
 
 export default function BowlDashboard() {
@@ -26,6 +28,14 @@ export default function BowlDashboard() {
     const [showMyAdds, setShowMyAdds] = useState(false);
     const [prioritizeStreaming, setPrioritizeStreaming] = useState(false);
     const [useStreamingRank, setUseStreamingRank] = useState(true);
+    const [selectedRatings, setSelectedRatings] = useState(MPAA_RATING_OPTIONS);
+    const [includeUnknownRatings, setIncludeUnknownRatings] = useState(true);
+    const [maxRuntimeMinutes, setMaxRuntimeMinutes] = useState(500);
+    const [includeUnknownRuntime, setIncludeUnknownRuntime] = useState(true);
+    const [showAdvancedRuntime, setShowAdvancedRuntime] = useState(false);
+    const [showDrawFilters, setShowDrawFilters] = useState(false);
+    const [preferLongMovies, setPreferLongMovies] = useState(false);
+    const [longMovieMinMinutes, setLongMovieMinMinutes] = useState(150);
     const [isDrawing, setIsDrawing] = useState(false);
     const [bowlName, setBowlName] = useState("My Bowl");
     const [currentUserId, setCurrentUserId] = useState(null);
@@ -55,6 +65,8 @@ export default function BowlDashboard() {
     }, [bowl.remaining, bowl.watched, memberIds, currentUserId, maxContributionLead]);
 
     const isAddBlockedByContributionLimit = Boolean(maxContributionLead !== null && addBalance && !addBalance.allowed);
+    const isAddBlockedByUndrawnLimit = (bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL;
+    const isAddBlocked = isAddBlockedByContributionLimit || isAddBlockedByUndrawnLimit;
     const myRemainingAdds = useMemo(
       () => (bowl.remaining || []).filter((movie) => movie.added_by === currentUserId),
       [bowl.remaining, currentUserId]
@@ -156,6 +168,15 @@ return (
                         prioritizeByServices: prioritizeStreaming,
                         prioritizeByServiceRank: useStreamingRank,
                         userStreamingServices,
+                        ratingFilter: {
+                          allowedRatings: selectedRatings,
+                          includeUnknown: includeUnknownRatings,
+                        },
+                        runtimeFilter: {
+                          mode: preferLongMovies ? "min" : "max",
+                          threshold: preferLongMovies ? longMovieMinMinutes : maxRuntimeMinutes,
+                          includeUnknown: includeUnknownRuntime,
+                        },
                       });
 
                       const [movie] = await Promise.all([drawPromise, minAnimationDelay]);
@@ -172,50 +193,196 @@ return (
                 <div className="mt-3 mx-auto max-w-xl rounded-lg border border-gray-200 bg-white px-3 py-2">
                   <div className="flex items-center justify-between gap-3">
                     <div className="text-left">
-                      <p className="text-sm font-medium text-gray-800">Streaming Match Preferences</p>
-                      <p className="text-xs text-gray-500">
-                        Control whether draws favor titles available on your selected services.
-                      </p>
+                      <p className="text-sm font-medium text-gray-800">Draw filters</p>
                     </div>
-                    <label htmlFor="prioritize-streaming-draw" className="relative inline-flex items-center cursor-pointer">
-                      <input
-                        id="prioritize-streaming-draw"
-                        name="prioritize_streaming_draw"
-                        aria-label="Prioritize streaming services"
-                        type="checkbox"
-                        className="peer sr-only"
-                        checked={prioritizeStreaming}
-                        onChange={(e) => {
-                          const checked = e.target.checked;
-                          setPrioritizeStreaming(checked);
-                          if (checked) setUseStreamingRank(true);
-                        }}
-                        disabled={userStreamingServices.length === 0}
-                      />
-                      <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-blue-600 peer-disabled:bg-gray-200" />
-                      <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
-                    </label>
+                    <button
+                      type="button"
+                      onClick={() => setShowDrawFilters((prev) => !prev)}
+                      className="btn btn-secondary px-3 py-1.5 text-xs"
+                    >
+                      {showDrawFilters ? "Hide" : "Filters"}
+                    </button>
                   </div>
-                  {prioritizeStreaming && userStreamingServices.length > 0 && (
-                    <div className="mt-2 flex items-center justify-between gap-3 border-t border-gray-100 pt-2">
-                      <div className="text-left">
-                        <p className="text-sm font-medium text-gray-800">Use my service ranking</p>
-                        <p className="text-xs text-gray-500">If off, draw randomly from any matching service.</p>
+                  {showDrawFilters && (
+                    <>
+                      <div className="mt-2 flex items-center justify-between gap-3 border-t border-gray-100 pt-2">
+                        <div className="text-left">
+                          <p className="text-sm font-medium text-gray-800">Streaming Match Preferences</p>
+                          <p className="text-xs text-gray-500">
+                            Favor titles available on your selected services.
+                          </p>
+                        </div>
+                        <label htmlFor="prioritize-streaming-draw" className="relative inline-flex items-center cursor-pointer">
+                          <input
+                            id="prioritize-streaming-draw"
+                            name="prioritize_streaming_draw"
+                            aria-label="Prioritize streaming services"
+                            type="checkbox"
+                            className="peer sr-only"
+                            checked={prioritizeStreaming}
+                            onChange={(e) => {
+                              const checked = e.target.checked;
+                              setPrioritizeStreaming(checked);
+                              if (checked) setUseStreamingRank(true);
+                            }}
+                            disabled={userStreamingServices.length === 0}
+                          />
+                          <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-blue-600 peer-disabled:bg-gray-200" />
+                          <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+                        </label>
                       </div>
-                      <label htmlFor="use-streaming-rank-draw" className="relative inline-flex items-center cursor-pointer">
-                        <input
-                          id="use-streaming-rank-draw"
-                          name="use_streaming_rank_draw"
-                          aria-label="Use streaming service ranking"
-                          type="checkbox"
-                          className="peer sr-only"
-                          checked={useStreamingRank}
-                          onChange={(e) => setUseStreamingRank(e.target.checked)}
-                        />
-                        <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-blue-600" />
-                        <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
-                      </label>
-                    </div>
+                      {prioritizeStreaming && userStreamingServices.length > 0 && (
+                        <div className="mt-2 flex items-center justify-between gap-3 border-t border-gray-100 pt-2">
+                          <div className="text-left">
+                            <p className="text-sm font-medium text-gray-800">Use my service ranking</p>
+                            <p className="text-xs text-gray-500">If off, draw randomly from any matching service.</p>
+                          </div>
+                          <label htmlFor="use-streaming-rank-draw" className="relative inline-flex items-center cursor-pointer">
+                            <input
+                              id="use-streaming-rank-draw"
+                              name="use_streaming_rank_draw"
+                              aria-label="Use streaming service ranking"
+                              type="checkbox"
+                              className="peer sr-only"
+                              checked={useStreamingRank}
+                              onChange={(e) => setUseStreamingRank(e.target.checked)}
+                            />
+                            <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-blue-600" />
+                            <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+                          </label>
+                        </div>
+                      )}
+                      <div className="mt-2 border-t border-gray-100 pt-2 text-left">
+                        <p className="text-sm font-medium text-gray-800">Rating filter</p>
+                        <p className="mb-2 text-xs text-gray-500">Only draw from selected ratings.</p>
+                        <div className="flex flex-wrap gap-x-4 gap-y-1">
+                          {MPAA_RATING_OPTIONS.map((rating) => {
+                            const key = `draw-rating-${rating.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+                            return (
+                              <label key={rating} htmlFor={key} className="inline-flex items-center gap-1.5 text-sm text-slate-700">
+                                <input
+                                  id={key}
+                                  name="draw_ratings"
+                                  type="checkbox"
+                                  checked={selectedRatings.includes(rating)}
+                                  onChange={(event) => {
+                                    setSelectedRatings((prev) => {
+                                      if (event.target.checked) {
+                                        return prev.includes(rating) ? prev : [...prev, rating];
+                                      }
+                                      return prev.filter((value) => value !== rating);
+                                    });
+                                  }}
+                                />
+                                {rating}
+                              </label>
+                            );
+                          })}
+                          <label
+                            htmlFor="draw-rating-unknown"
+                            className="inline-flex items-center gap-1.5 text-sm text-slate-700"
+                          >
+                            <input
+                              id="draw-rating-unknown"
+                              name="draw_rating_unknown"
+                              type="checkbox"
+                              checked={includeUnknownRatings}
+                              onChange={(event) => setIncludeUnknownRatings(event.target.checked)}
+                            />
+                            Unrated/Unknown
+                          </label>
+                        </div>
+                      </div>
+                      <div className="mt-2 border-t border-gray-100 pt-2 text-left">
+                        <p className="text-sm font-medium text-gray-800">Runtime filter</p>
+                        <p className="mb-2 text-xs text-gray-500">
+                          Set a maximum runtime for typical draws.
+                        </p>
+                        <div className="flex items-center gap-2">
+                          <label
+                            htmlFor="draw-runtime-max"
+                            className="text-sm text-slate-700"
+                          >
+                            Max minutes
+                          </label>
+                          <input
+                            id="draw-runtime-max"
+                            name="draw_runtime_max"
+                            type="number"
+                            min={60}
+                            max={600}
+                            value={maxRuntimeMinutes}
+                            onChange={(event) => {
+                              const value = Number.parseInt(event.target.value || "0", 10);
+                              setMaxRuntimeMinutes(Number.isFinite(value) ? Math.max(60, Math.min(600, value)) : 500);
+                            }}
+                            className="w-24 rounded border border-slate-300 px-2 py-1 text-sm"
+                            disabled={preferLongMovies}
+                          />
+                        </div>
+                        <label
+                          htmlFor="draw-runtime-unknown"
+                          className="mt-2 inline-flex items-center gap-1.5 text-sm text-slate-700"
+                        >
+                          <input
+                            id="draw-runtime-unknown"
+                            name="draw_runtime_unknown"
+                            type="checkbox"
+                            checked={includeUnknownRuntime}
+                            onChange={(event) => setIncludeUnknownRuntime(event.target.checked)}
+                          />
+                          Include unknown runtime
+                        </label>
+                        <div className="mt-2">
+                          <button
+                            type="button"
+                            onClick={() => setShowAdvancedRuntime((prev) => !prev)}
+                            className="text-xs font-medium text-blue-700 hover:text-blue-800"
+                          >
+                            {showAdvancedRuntime ? "Hide advanced runtime options" : "Advanced runtime options"}
+                          </button>
+                        </div>
+                        {showAdvancedRuntime && (
+                          <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                            <label
+                              htmlFor="draw-runtime-long-mode"
+                              className="inline-flex items-center gap-1.5 text-sm text-slate-700"
+                            >
+                              <input
+                                id="draw-runtime-long-mode"
+                                name="draw_runtime_long_mode"
+                                type="checkbox"
+                                checked={preferLongMovies}
+                                onChange={(event) => setPreferLongMovies(event.target.checked)}
+                              />
+                              Prefer long movies
+                            </label>
+                            {preferLongMovies && (
+                              <div className="mt-2 flex items-center gap-2">
+                                <label htmlFor="draw-runtime-min" className="text-sm text-slate-700">
+                                  Min minutes
+                                </label>
+                                <input
+                                  id="draw-runtime-min"
+                                  name="draw_runtime_min"
+                                  type="number"
+                                  min={60}
+                                  max={600}
+                                  value={longMovieMinMinutes}
+                                  onChange={(event) => {
+                                    const value = Number.parseInt(event.target.value || "0", 10);
+                                    setLongMovieMinMinutes(
+                                      Number.isFinite(value) ? Math.max(60, Math.min(600, value)) : 150
+                                    );
+                                  }}
+                                  className="w-24 rounded border border-slate-300 px-2 py-1 text-sm"
+                                />
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </div>
+                    </>
                   )}
                 </div>
                 {userStreamingServices.length === 0 && (
@@ -226,6 +393,33 @@ return (
                 <div className="mt-2">
                   <RemainingCount count={bowl.remaining.length} />
                 </div>
+                <div className="mt-4">
+                  <AddMovieButton
+                    disabled={isAddBlocked}
+                    onClick={() => {
+                      setAddGuardMessage(null);
+                      setShowSearch(true);
+                    }}
+                  />
+                </div>
+                {maxContributionLead !== null && (
+                  <p className="mt-2 text-xs text-slate-500">
+                    Contribution lead limit: {maxContributionLead}
+                  </p>
+                )}
+                {addGuardMessage && (
+                  <p className="mt-2 text-sm text-amber-700">{addGuardMessage}</p>
+                )}
+                {isAddBlockedByContributionLimit && (
+                  <p className="mt-2 text-sm text-amber-700">
+                    You are at {addBalance.myCount} contributions and the lowest active member is at {addBalance.minCount}.
+                  </p>
+                )}
+                {isAddBlockedByUndrawnLimit && (
+                  <p className="mt-2 text-sm text-amber-700">
+                    Bowl is at the undrawn movie limit ({MAX_UNDRAWN_MOVIES_PER_BOWL}).
+                  </p>
+                )}
             </section>
 
             
@@ -301,53 +495,38 @@ return (
             
 
             <div className="my-5 text-center">
-                <AddMovieButton
-                  disabled={isAddBlockedByContributionLimit}
-                  onClick={() => {
-                    setAddGuardMessage(null);
-                    setShowSearch(true);
+              {showSearch && (
+                <AddMovieModal
+                  userStreamingServices={userStreamingServices}
+                  onClose={() => setShowSearch(false)}
+                  onAddMovie={async (movie) => {
+                    if (maxContributionLead !== null) {
+                      const balance = checkContributionBalance({
+                        movies: [...(bowl.remaining || []), ...(bowl.watched || [])],
+                        memberIds,
+                        userId: currentUserId,
+                        maxLead: maxContributionLead,
+                      });
+
+                      if (!balance.allowed) {
+                        setAddGuardMessage(
+                          `You are at ${balance.myCount} contributions and the lowest active member is at ${balance.minCount}.`
+                        );
+                        return;
+                      }
+                    }
+                    if ((bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
+                      setAddGuardMessage(
+                        `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`
+                      );
+                      return;
+                    }
+
+                    await handleAddMovie(movie);
+                    setShowSearch(false);
                   }}
                 />
-                {maxContributionLead !== null && (
-                  <p className="mt-2 text-xs text-slate-500">
-                    Contribution lead limit: {maxContributionLead}
-                  </p>
-                )}
-                {addGuardMessage && (
-                  <p className="mt-2 text-sm text-amber-700">{addGuardMessage}</p>
-                )}
-                {isAddBlockedByContributionLimit && (
-                  <p className="mt-2 text-sm text-amber-700">
-                    You are at {addBalance.myCount} contributions and the lowest active member is at {addBalance.minCount}.
-                  </p>
-                )}
-
-                {showSearch && (
-                  <AddMovieModal
-                    userStreamingServices={userStreamingServices}
-                    onClose={() => setShowSearch(false)}
-                    onAddMovie={async (movie) => {
-                      if (maxContributionLead !== null) {
-                        const balance = checkContributionBalance({
-                          movies: [...(bowl.remaining || []), ...(bowl.watched || [])],
-                          memberIds,
-                          userId: currentUserId,
-                          maxLead: maxContributionLead,
-                        });
-
-                        if (!balance.allowed) {
-                          setAddGuardMessage(
-                            `You are at ${balance.myCount} contributions and the lowest active member is at ${balance.minCount}.`
-                          );
-                          return;
-                        }
-                      }
-
-                      await handleAddMovie(movie);
-                      setShowSearch(false);
-                    }}
-                  />
-                )}
+              )}
             </div>
 
             <ContributionStats

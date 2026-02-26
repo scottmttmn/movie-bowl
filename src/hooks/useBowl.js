@@ -1,7 +1,9 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
-import { selectDrawCandidate } from "../utils/selectDrawCandidate";
+import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
+import { getDrawSelection } from "../utils/drawSelection";
 
 function createSyntheticTmdbId() {
   // Keep this within signed 32-bit range to avoid common integer column overflows.
@@ -104,13 +106,22 @@ export default function useBowl(bowlId) {
   const handleDraw = useCallback(async (options = {}) => {
     if (!bowlId) return null;
     if (bowl.remaining.length === 0) return null;
+    setErrorMessage(null);
 
-    const selected = await selectDrawCandidate(bowl.remaining, {
+    const { selected, errorMessage: drawError } = await getDrawSelection({
+      remainingMovies: bowl.remaining,
       prioritizeByServices: options.prioritizeByServices,
       prioritizeByServiceRank: options.prioritizeByServiceRank,
       userStreamingServices: options.userStreamingServices,
+      ratingFilter: options.ratingFilter,
+      runtimeFilter: options.runtimeFilter,
       fetchProviders: (tmdbId) => fetchStreamingProviders(tmdbId, { region: "US" }),
+      fetchMovieDetails: (tmdbId) => getTmdbMovieDetails(tmdbId),
     });
+    if (drawError) {
+      setErrorMessage(drawError);
+      return null;
+    }
 
     if (!selected) return null;
 
@@ -155,6 +166,9 @@ export default function useBowl(bowlId) {
     async (movie) => {
       if (!bowlId) return;
       if (!movie?.title || !String(movie.title).trim()) return;
+      if ((bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
+        return;
+      }
 
       const { data: authData, error: authError } = await supabase.auth.getSession();
       const user = authData?.session?.user;
@@ -206,7 +220,7 @@ export default function useBowl(bowlId) {
 
       await loadBowlMovies();
     },
-    [bowlId, loadBowlMovies]
+    [bowlId, bowl.remaining, loadBowlMovies]
   );
 
   const handleDeleteMovie = useCallback(
