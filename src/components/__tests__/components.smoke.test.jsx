@@ -63,6 +63,31 @@ describe("component smoke tests", () => {
     expect(screen.getByText("Custom")).toBeInTheDocument();
   });
 
+  it("renders detail primary action in AddMovieModal only when provided", () => {
+    const movie = {
+      title: "Movie A",
+      release_date: "2024-01-01",
+      runtime: 100,
+      streamingProviders: [],
+    };
+
+    const onMove = vi.fn();
+    const { rerender } = render(
+      <AddMovieModal
+        movie={movie}
+        onClose={vi.fn()}
+        userStreamingServices={[]}
+        detailPrimaryActionLabel="Move to Bowl"
+        onDetailPrimaryAction={onMove}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /move to bowl/i })).toBeInTheDocument();
+
+    rerender(<AddMovieModal movie={movie} onClose={vi.fn()} userStreamingServices={[]} />);
+    expect(screen.queryByRole("button", { name: /move to bowl/i })).not.toBeInTheDocument();
+  });
+
   it("renders BowlCard", () => {
     const onSelect = vi.fn();
     render(

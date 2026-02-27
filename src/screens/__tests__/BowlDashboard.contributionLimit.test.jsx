@@ -21,6 +21,7 @@ const mocks = vi.hoisted(() => {
     contributions: { "owner@example.com": 4 },
     handleDraw: vi.fn(async () => null),
     handleDeleteMovie: vi.fn(async () => true),
+    handleReaddMovie: vi.fn(async () => true),
     streamingServices: [],
   };
 
@@ -62,6 +63,7 @@ vi.mock("../../hooks/useBowl", () => ({
     errorMessage: null,
     handleDraw: mocks.state.handleDraw,
     handleDeleteMovie: mocks.state.handleDeleteMovie,
+    handleReaddMovie: mocks.state.handleReaddMovie,
     handleAddMovie: vi.fn(),
   }),
 }));
@@ -109,6 +111,7 @@ describe("BowlDashboard contribution limit UI", () => {
     mocks.state.contributions = { "owner@example.com": 4 };
     mocks.state.handleDraw.mockClear();
     mocks.state.handleDeleteMovie.mockClear();
+    mocks.state.handleReaddMovie.mockClear();
     mocks.state.streamingServices = [];
     vi.useRealTimers();
   });
@@ -167,6 +170,47 @@ describe("BowlDashboard contribution limit UI", () => {
     const addButton = screen.getByRole("button", { name: /\+ add movie/i });
     expect(addButton).toBeDisabled();
     expect(screen.getByText(/undrawn movie limit \(100\)/i)).toBeInTheDocument();
+  });
+
+  it("shows re-add confirmation modal before moving watched item back to bowl", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = {
+      remaining: [],
+      watched: [
+        {
+          id: "w1",
+          tmdb_id: 101,
+          title: "Movie A",
+          drawn_at: "2026-02-23T00:00:00.000Z",
+          added_by: "u1",
+        },
+      ],
+    };
+    mocks.state.contributions = {};
+
+    render(<BowlDashboard />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Bowl 1")).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /movie a/i }));
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /move to bowl/i })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /move to bowl/i }));
+
+    expect(screen.getByText(/re-add to bowl\?/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/will be removed from the watched strip and placed back in your bowl/i)
+    ).toBeInTheDocument();
+
+    const readdButtons = screen.getAllByRole("button", { name: /^re-add$/i });
+    fireEvent.click(readdButtons[readdButtons.length - 1]);
+
+    await waitFor(() => {
+      expect(mocks.state.handleReaddMovie).toHaveBeenCalledWith("w1");
+    });
   });
 
   it("owner draw uses the owner's streaming services in prioritize payload", async () => {

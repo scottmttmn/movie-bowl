@@ -21,11 +21,12 @@ import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 export default function BowlDashboard() {
     
     const { bowlId } = useParams();
-    const { bowl, contributions, isLoading, errorMessage, handleDraw, handleAddMovie, handleDeleteMovie } = useBowl(bowlId);
+    const { bowl, contributions, isLoading, errorMessage, handleDraw, handleAddMovie, handleDeleteMovie, handleReaddMovie } = useBowl(bowlId);
 
     const [showSearch, setShowSearch] = useState(false);
     const [drawnMovie, setDrawnMovie] = useState(null);
     const [selectedDetailMovie, setSelectedDetailMovie] = useState(null);
+    const [selectedDetailContext, setSelectedDetailContext] = useState(null);
     const [showMyAdds, setShowMyAdds] = useState(false);
     const [prioritizeStreaming, setPrioritizeStreaming] = useState(false);
     const [useStreamingRank, setUseStreamingRank] = useState(true);
@@ -44,6 +45,9 @@ export default function BowlDashboard() {
     const [maxContributionLead, setMaxContributionLead] = useState(null);
     const [addGuardMessage, setAddGuardMessage] = useState(null);
     const [deleteErrorMessage, setDeleteErrorMessage] = useState(null);
+    const [readdErrorMessage, setReaddErrorMessage] = useState(null);
+    const [pendingReaddMovie, setPendingReaddMovie] = useState(null);
+    const [isReadding, setIsReadding] = useState(false);
     const { streamingServices: userStreamingServices } = useUserStreamingServices();
 
     const navigate = useNavigate();
@@ -442,6 +446,7 @@ return (
                       Number(movie.tmdb_id) > 0
                         ? await fetchStreamingProviders(movie.tmdb_id, { region: "US" })
                         : { providers: [], region: "US", fetchedAt: null };
+                    setSelectedDetailContext("watched");
                     setSelectedDetailMovie({
                       ...movie,
                       streamingProviders: providerData.providers || [],
@@ -450,6 +455,9 @@ return (
                     });
                   }}
                 />
+                {readdErrorMessage && (
+                  <p className="mt-2 text-sm text-amber-700">{readdErrorMessage}</p>
+                )}
             </section>
 
             <section className="panel mt-4 w-full max-w-full min-w-0">
@@ -479,6 +487,7 @@ return (
                           Number(movie.tmdb_id) > 0
                             ? await fetchStreamingProviders(movie.tmdb_id, { region: "US" })
                             : { providers: [], region: "US", fetchedAt: null };
+                        setSelectedDetailContext("myAdds");
                         setSelectedDetailMovie({
                           ...movie,
                           streamingProviders: providerData.providers || [],
@@ -554,8 +563,66 @@ return (
               <AddMovieModal
                 movie={selectedDetailMovie}
                 userStreamingServices={userStreamingServices}
-                onClose={() => setSelectedDetailMovie(null)}
+                detailPrimaryActionLabel={selectedDetailContext === "watched" ? "Move to Bowl" : null}
+                onDetailPrimaryAction={
+                  selectedDetailContext === "watched"
+                    ? async (movie) => {
+                        setReaddErrorMessage(null);
+                        setSelectedDetailMovie(null);
+                        setSelectedDetailContext(null);
+                        setPendingReaddMovie(movie);
+                      }
+                    : null
+                }
+                onClose={() => {
+                  setSelectedDetailMovie(null);
+                  setSelectedDetailContext(null);
+                }}
               />
+            )}
+            {pendingReaddMovie && (
+              <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 px-4">
+                <div className="panel w-full max-w-md">
+                  <h3 className="text-lg font-semibold text-slate-800">Re-add to Bowl?</h3>
+                  <p className="mt-2 text-sm text-slate-600">
+                    "{pendingReaddMovie.title}" will be removed from the watched strip and placed back in your bowl.
+                  </p>
+                  <div className="mt-4 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPendingReaddMovie(null)}
+                      className="btn btn-secondary"
+                      disabled={isReadding}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (isReadding) return;
+                        if ((bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
+                          setReaddErrorMessage(
+                            `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`
+                          );
+                          setPendingReaddMovie(null);
+                          return;
+                        }
+                        setIsReadding(true);
+                        const ok = await handleReaddMovie(pendingReaddMovie.id);
+                        setIsReadding(false);
+                        setPendingReaddMovie(null);
+                        if (!ok) {
+                          setReaddErrorMessage("Could not re-add this movie. Please try again.");
+                        }
+                      }}
+                      className="btn btn-primary"
+                      disabled={isReadding}
+                    >
+                      {isReadding ? "Re-adding..." : "Re-add"}
+                    </button>
+                  </div>
+                </div>
+              </div>
             )}
             {isDrawing && <DrawAnimationModal />}
         </div>

@@ -9,7 +9,11 @@ export default function WatchedMoviesStrip({ movies, onSelectMovie }) {
       </div>
       <div className="flex flex-nowrap overflow-x-auto gap-3 pb-1">
         {movies.map((movie) => (
-          <WatchedMovieCard key={movie.id} movie={movie} onClick={onSelectMovie} />
+          <WatchedMovieCard
+            key={movie.id}
+            movie={movie}
+            onClick={onSelectMovie}
+          />
         ))}
       </div>
     </section>

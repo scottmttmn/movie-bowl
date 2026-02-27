@@ -254,6 +254,39 @@ export default function useBowl(bowlId) {
     [bowlId, loadBowlMovies]
   );
 
+  const handleReaddMovie = useCallback(
+    async (movieId) => {
+      if (!bowlId || !movieId) return false;
+      if ((bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
+        return false;
+      }
+
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      const user = authData?.session?.user;
+
+      if (authError || !user) {
+        console.error("[useBowl] Not authenticated", authError);
+        return false;
+      }
+
+      const { error } = await supabase
+        .from("bowl_movies")
+        .update({ drawn_at: null, drawn_by: null })
+        .eq("id", movieId)
+        .eq("bowl_id", bowlId)
+        .not("drawn_at", "is", null);
+
+      if (error) {
+        console.error("[useBowl] Failed to re-add watched movie", error);
+        return false;
+      }
+
+      await loadBowlMovies();
+      return true;
+    },
+    [bowlId, bowl.remaining, loadBowlMovies]
+  );
+
   return {
     bowl,
     contributions,
@@ -263,5 +296,6 @@ export default function useBowl(bowlId) {
     handleDraw,
     handleAddMovie,
     handleDeleteMovie,
+    handleReaddMovie,
   };
 }
