@@ -114,6 +114,7 @@ export default function useBowl(bowlId) {
       prioritizeByServiceRank: options.prioritizeByServiceRank,
       userStreamingServices: options.userStreamingServices,
       ratingFilter: options.ratingFilter,
+      genreFilter: options.genreFilter,
       runtimeFilter: options.runtimeFilter,
       fetchProviders: (tmdbId) => fetchStreamingProviders(tmdbId, { region: "US" }),
       fetchMovieDetails: (tmdbId) => getTmdbMovieDetails(tmdbId),

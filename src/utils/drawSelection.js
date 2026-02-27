@@ -76,12 +76,40 @@ function filterCandidatesByRuntime(movies, runtimeFilter) {
   });
 }
 
+function normalizeGenresFromMovie(movie) {
+  if (!Array.isArray(movie?.genres)) return [];
+  return movie.genres
+    .map((genre) => {
+      if (typeof genre === "string") return genre.trim().toLowerCase();
+      if (genre?.name) return String(genre.name).trim().toLowerCase();
+      return "";
+    })
+    .filter(Boolean);
+}
+
+function filterCandidatesByGenre(movies, genreFilter) {
+  const normalizedAllowedGenres = new Set(
+    (genreFilter.allowedGenres || [])
+      .map((genre) => String(genre).trim().toLowerCase())
+      .filter(Boolean)
+  );
+  const includeUnknownGenres = genreFilter.includeUnknown !== false;
+
+  return movies.filter((movie) => {
+    const genres = normalizeGenresFromMovie(movie);
+    if (genres.length === 0) return includeUnknownGenres;
+    if (normalizedAllowedGenres.size === 0) return false;
+    return genres.some((genre) => normalizedAllowedGenres.has(genre));
+  });
+}
+
 export async function getDrawSelection({
   remainingMovies,
   prioritizeByServices = false,
   prioritizeByServiceRank = true,
   userStreamingServices = [],
   ratingFilter = null,
+  genreFilter = null,
   runtimeFilter = null,
   fetchProviders,
   fetchMovieDetails,
@@ -101,6 +129,16 @@ export async function getDrawSelection({
       return {
         selected: null,
         errorMessage: "No titles match your selected ratings. Check your filters.",
+      };
+    }
+  }
+
+  if (genreFilter) {
+    drawCandidates = filterCandidatesByGenre(drawCandidates, genreFilter);
+    if (drawCandidates.length === 0) {
+      return {
+        selected: null,
+        errorMessage: "No titles match your genre filter. Check your filters.",
       };
     }
   }

@@ -63,6 +63,19 @@ describe("component smoke tests", () => {
     expect(screen.getByText("Custom")).toBeInTheDocument();
   });
 
+  it("does not show custom badge in AddMovieModal for TMDB search movies using id", () => {
+    const movie = {
+      id: 42,
+      title: "The Answer",
+      release_date: "2024-01-01",
+      runtime: 110,
+      streamingProviders: [],
+    };
+
+    render(<AddMovieModal movie={movie} onClose={vi.fn()} userStreamingServices={[]} />);
+    expect(screen.queryByText("Custom")).not.toBeInTheDocument();
+  });
+
   it("renders detail primary action in AddMovieModal only when provided", () => {
     const movie = {
       title: "Movie A",

@@ -30,7 +30,7 @@ export default function AddMovieModal({
   if (!movie) {
     return (
       <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-        <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full mx-4 p-6 relative">
+        <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full mx-4 p-6 relative text-left">
           <button
             onClick={onClose}
             className="icon-btn absolute top-4 right-4"
@@ -63,8 +63,9 @@ export default function AddMovieModal({
   const year = movie.release_date
     ? movie.release_date.split("-")[0]
     : "—";
+  const resolvedMovieId = movie.tmdb_id ?? movie.id ?? null;
   const isCustomEntry = Boolean(
-    movie.isCustomEntry || movie.tmdb_id == null || Number(movie.tmdb_id) <= 0
+    movie.isCustomEntry || resolvedMovieId == null || Number(resolvedMovieId) <= 0
   );
   const watchedAt = movie.drawn_at || movie.drawnAt || null;
   const watchedDateLabel = watchedAt ? new Date(watchedAt).toLocaleDateString() : null;
@@ -73,7 +74,7 @@ export default function AddMovieModal({
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-6 relative max-h-[90vh] overflow-y-auto">
+      <div className="bg-white rounded-2xl shadow-xl max-w-md w-full mx-4 p-6 relative max-h-[90vh] overflow-y-auto text-left">
         <button
           onClick={onClose}
           className="icon-btn absolute top-4 right-4"
@@ -140,7 +141,7 @@ export default function AddMovieModal({
               onClick={async () => {
                 await onDetailPrimaryAction(movie);
               }}
-              className="btn btn-primary"
+              className="btn btn-secondary"
             >
               {detailPrimaryActionLabel}
             </button>
@@ -149,7 +150,11 @@ export default function AddMovieModal({
           {/* Just dismisses the modal */}
           <button
             onClick={onClose}
-            className="btn btn-secondary"
+            className={
+              onDetailPrimaryAction && detailPrimaryActionLabel
+                ? "btn btn-primary"
+                : "btn btn-secondary"
+            }
           >
             Close
           </button>

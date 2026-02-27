@@ -32,6 +32,8 @@ export default function BowlDashboard() {
     const [useStreamingRank, setUseStreamingRank] = useState(true);
     const [selectedRatings, setSelectedRatings] = useState(MPAA_RATING_OPTIONS);
     const [includeUnknownRatings, setIncludeUnknownRatings] = useState(true);
+    const [selectedGenres, setSelectedGenres] = useState(null);
+    const [includeUnknownGenres, setIncludeUnknownGenres] = useState(true);
     const [maxRuntimeMinutes, setMaxRuntimeMinutes] = useState(500);
     const [includeUnknownRuntime, setIncludeUnknownRuntime] = useState(true);
     const [showAdvancedRuntime, setShowAdvancedRuntime] = useState(false);
@@ -76,6 +78,27 @@ export default function BowlDashboard() {
       () => (bowl.remaining || []).filter((movie) => movie.added_by === currentUserId),
       [bowl.remaining, currentUserId]
     );
+    const availableDrawGenres = useMemo(() => {
+      const genreSet = new Set();
+      (bowl.remaining || []).forEach((movie) => {
+        if (!Array.isArray(movie?.genres)) return;
+        movie.genres.forEach((genre) => {
+          const value =
+            typeof genre === "string"
+              ? genre.trim()
+              : genre?.name
+                ? String(genre.name).trim()
+                : "";
+          if (value) genreSet.add(value);
+        });
+      });
+      return Array.from(genreSet).sort((a, b) => a.localeCompare(b));
+    }, [bowl.remaining]);
+    const selectedDrawGenres = useMemo(() => {
+      if (!Array.isArray(selectedGenres)) return availableDrawGenres;
+      const available = new Set(availableDrawGenres);
+      return selectedGenres.filter((genre) => available.has(genre));
+    }, [selectedGenres, availableDrawGenres]);
 
     useEffect(() => {
       let cancelled = false;
@@ -178,6 +201,10 @@ return (
                           ratingFilter: {
                             allowedRatings: selectedRatings,
                             includeUnknown: includeUnknownRatings,
+                          },
+                          genreFilter: {
+                            allowedGenres: selectedDrawGenres,
+                            includeUnknown: includeUnknownGenres,
                           },
                           runtimeFilter: {
                             mode: preferLongMovies ? "min" : "max",
@@ -319,6 +346,61 @@ return (
                             Unrated/Unknown
                           </label>
                         </div>
+                      </div>
+                      <div className="mt-3 border-t border-slate-200/70 pt-2.5 text-left">
+                        <div className="mb-1 flex items-center justify-between gap-2">
+                          <p className="text-sm font-medium text-gray-800">Genre filter</p>
+                          <button
+                            type="button"
+                            className="text-xs font-medium text-blue-700 hover:text-blue-800"
+                            onClick={() => setSelectedGenres(null)}
+                          >
+                            Select all
+                          </button>
+                        </div>
+                        <p className="mb-1.5 text-xs text-gray-500">Only draw from selected genres.</p>
+                        {availableDrawGenres.length > 0 ? (
+                          <div className="flex flex-wrap gap-x-4 gap-y-1">
+                            {availableDrawGenres.map((genre) => {
+                              const key = `draw-genre-${genre.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+                              return (
+                                <label key={genre} htmlFor={key} className="inline-flex items-center gap-1.5 text-sm text-slate-700">
+                                  <input
+                                    id={key}
+                                    name="draw_genres"
+                                    type="checkbox"
+                                    checked={selectedDrawGenres.includes(genre)}
+                                    onChange={(event) => {
+                                      setSelectedGenres((prev) => {
+                                        const base = Array.isArray(prev) ? prev : availableDrawGenres;
+                                        if (event.target.checked) {
+                                          return base.includes(genre) ? base : [...base, genre];
+                                        }
+                                        return base.filter((value) => value !== genre);
+                                      });
+                                    }}
+                                  />
+                                  {genre}
+                                </label>
+                              );
+                            })}
+                          </div>
+                        ) : (
+                          <p className="text-xs text-slate-500">No genre data available for current bowl movies.</p>
+                        )}
+                        <label
+                          htmlFor="draw-genre-unknown"
+                          className="mt-2 inline-flex items-center gap-1.5 text-sm text-slate-700"
+                        >
+                          <input
+                            id="draw-genre-unknown"
+                            name="draw_genre_unknown"
+                            type="checkbox"
+                            checked={includeUnknownGenres}
+                            onChange={(event) => setIncludeUnknownGenres(event.target.checked)}
+                          />
+                          Include uncategorized/unknown genres
+                        </label>
                       </div>
                       <div className="mt-3 border-t border-slate-200/70 pt-2.5 text-left">
                         <p className="text-sm font-medium text-gray-800">Runtime filter</p>

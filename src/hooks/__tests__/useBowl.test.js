@@ -610,4 +610,60 @@ describe("useBowl handleDraw integration", () => {
     );
     randomSpy.mockRestore();
   });
+
+  it("draw blocks with message when genre filter has no matches", async () => {
+    const movie = {
+      id: "m1",
+      tmdb_id: 701,
+      title: "Action Movie",
+      genres: ["Action"],
+    };
+    mocks.remainingQueue.push([movie]);
+    mocks.watchedQueue.push([]);
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let drawn;
+    await act(async () => {
+      drawn = await result.current.handleDraw({
+        genreFilter: {
+          allowedGenres: ["Comedy"],
+          includeUnknown: false,
+        },
+      });
+    });
+
+    expect(drawn).toBeNull();
+    expect(result.current.errorMessage).toMatch(/no titles match your genre filter/i);
+    expect(mocks.updatePayloads).toHaveLength(0);
+  });
+
+  it("draw filters candidates by selected genres", async () => {
+    const actionMovie = { id: "m1", tmdb_id: 801, title: "Action Movie", genres: ["Action"] };
+    const comedyMovie = { id: "m2", tmdb_id: 802, title: "Comedy Movie", genres: ["Comedy"] };
+    mocks.remainingQueue.push([actionMovie, comedyMovie], [actionMovie]);
+    mocks.watchedQueue.push([], [{ ...comedyMovie, drawn_at: "2026-02-23T00:00:00.000Z", drawn_by: "user-1" }]);
+    mocks.fetchStreamingProviders.mockResolvedValue({ providers: [], region: "US", fetchedAt: null });
+
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleDraw({
+        genreFilter: {
+          allowedGenres: ["Comedy"],
+          includeUnknown: false,
+        },
+      });
+    });
+
+    expect(mocks.updateEqFilters).toEqual(
+      expect.arrayContaining([
+        { key: "tmdb_id", value: 802 },
+      ])
+    );
+    randomSpy.mockRestore();
+  });
 });
