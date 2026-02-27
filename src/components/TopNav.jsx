@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import bowlImage from "../assets/bowl-illustration.png";
 
 export default function TopNav({ isSettingsRoute, onSignOut }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
@@ -34,8 +35,14 @@ export default function TopNav({ isSettingsRoute, onSignOut }) {
         <Link
           to="/"
           aria-label="Go to My Bowls"
-          className="text-2xl font-semibold tracking-tight text-slate-700 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 rounded"
+          className="inline-flex items-center gap-2 text-2xl font-semibold tracking-tight text-slate-700 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 rounded"
         >
+          <img
+            src={bowlImage}
+            alt=""
+            aria-hidden="true"
+            className="h-8 w-8 object-contain"
+          />
           Movie Bowl
         </Link>
         <div className="relative" ref={menuRef}>
