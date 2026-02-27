@@ -4,6 +4,7 @@ import RemainingCount from "../components/RemainingCount";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
 import MyAddedMoviesStrip from "../components/MyAddedMoviesStrip";
 import AddMovieButton from "../components/AddMovieButton";
+import BowlIllustration from "../components/BowlIllustration";
 import ContributionStats from "../components/ContributionStats";
 import useBowl from "../hooks/useBowl";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
@@ -156,56 +157,78 @@ return (
               <div className="text-sm text-red-600 mb-2">{errorMessage}</div>
             )}
 
-            <section className="panel text-center my-4">
-                <DrawButton
-                  onClick={async () => {
-                    if (isDrawing) return;
-                    setIsDrawing(true);
+            <section className="panel my-4">
+              <div className="mx-auto max-w-5xl">
+                <div className="mx-auto flex max-w-2xl flex-col items-center gap-3 text-center md:flex-row md:justify-center md:gap-4">
+                  <DrawButton
+                    onClick={async () => {
+                      if (isDrawing) return;
+                      setIsDrawing(true);
 
-                    try {
-                      const minAnimationDelay = new Promise((resolve) => setTimeout(resolve, 1200));
-                      const drawPromise = handleDraw({
-                        prioritizeByServices: prioritizeStreaming,
-                        prioritizeByServiceRank: useStreamingRank,
-                        userStreamingServices,
-                        ratingFilter: {
-                          allowedRatings: selectedRatings,
-                          includeUnknown: includeUnknownRatings,
-                        },
-                        runtimeFilter: {
-                          mode: preferLongMovies ? "min" : "max",
-                          threshold: preferLongMovies ? longMovieMinMinutes : maxRuntimeMinutes,
-                          includeUnknown: includeUnknownRuntime,
-                        },
-                      });
+                      try {
+                        const minAnimationDelay = new Promise((resolve) => setTimeout(resolve, 1200));
+                        const drawPromise = handleDraw({
+                          prioritizeByServices: prioritizeStreaming,
+                          prioritizeByServiceRank: useStreamingRank,
+                          userStreamingServices,
+                          ratingFilter: {
+                            allowedRatings: selectedRatings,
+                            includeUnknown: includeUnknownRatings,
+                          },
+                          runtimeFilter: {
+                            mode: preferLongMovies ? "min" : "max",
+                            threshold: preferLongMovies ? longMovieMinMinutes : maxRuntimeMinutes,
+                            includeUnknown: includeUnknownRuntime,
+                          },
+                        });
 
-                      const [movie] = await Promise.all([drawPromise, minAnimationDelay]);
-                      if (movie) {
-                        setDrawnMovie(movie);
+                        const [movie] = await Promise.all([drawPromise, minAnimationDelay]);
+                        if (movie) {
+                          setDrawnMovie(movie);
+                        }
+                      } finally {
+                        setIsDrawing(false);
                       }
-                    } finally {
-                      setIsDrawing(false);
-                    }
-                  }}
-                  isLoading={isDrawing}
-                  disabled={bowl.remaining.length === 0}
-                />
-                <div className="mt-3 mx-auto max-w-xl rounded-lg border border-gray-200 bg-white px-3 py-2">
-                  <div className="flex items-center justify-between gap-3">
-                    <div className="text-left">
-                      <p className="text-sm font-medium text-gray-800">Draw filters</p>
-                    </div>
-                    <button
-                      type="button"
-                      onClick={() => setShowDrawFilters((prev) => !prev)}
-                      className="btn btn-secondary px-3 py-1.5 text-xs"
-                    >
-                      {showDrawFilters ? "Hide" : "Filters"}
-                    </button>
-                  </div>
-                  {showDrawFilters && (
-                    <>
-                      <div className="mt-2 flex items-center justify-between gap-3 border-t border-gray-100 pt-2">
+                    }}
+                    isLoading={isDrawing}
+                    disabled={bowl.remaining.length === 0}
+                  />
+                  <AddMovieButton
+                    disabled={isAddBlocked}
+                    onClick={() => {
+                      setAddGuardMessage(null);
+                      setShowSearch(true);
+                    }}
+                  />
+                </div>
+
+                <div className="mt-4">
+                  <BowlIllustration className="mx-auto h-44 md:h-48 w-full max-w-2xl drop-shadow-md" />
+                </div>
+
+                <div className="mt-3 text-center">
+                  <RemainingCount count={bowl.remaining.length} />
+                </div>
+
+                <div className="mt-3 flex justify-center">
+                  <button
+                    type="button"
+                    onClick={() => setShowDrawFilters((prev) => !prev)}
+                    className={`icon-btn h-10 w-10 ${showDrawFilters ? "border-blue-300 text-blue-700" : ""}`}
+                    aria-label={showDrawFilters ? "Hide filters" : "Filters"}
+                    title={showDrawFilters ? "Hide filters" : "Filters"}
+                  >
+                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="M4 6h16" />
+                      <path d="M7 12h10" />
+                      <path d="M10 18h4" />
+                    </svg>
+                    <span className="sr-only">{showDrawFilters ? "Hide filters" : "Filters"}</span>
+                  </button>
+                </div>
+                {showDrawFilters && (
+                  <div className="mt-3 mx-auto max-w-xl rounded-xl border border-slate-200/70 bg-slate-50/55 px-3.5 py-3 shadow-sm">
+                      <div className="flex items-center justify-between gap-3">
                         <div className="text-left">
                           <p className="text-sm font-medium text-gray-800">Streaming Match Preferences</p>
                           <p className="text-xs text-gray-500">
@@ -232,7 +255,7 @@ return (
                         </label>
                       </div>
                       {prioritizeStreaming && userStreamingServices.length > 0 && (
-                        <div className="mt-2 flex items-center justify-between gap-3 border-t border-gray-100 pt-2">
+                        <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-200/70 pt-2.5">
                           <div className="text-left">
                             <p className="text-sm font-medium text-gray-800">Use my service ranking</p>
                             <p className="text-xs text-gray-500">If off, draw randomly from any matching service.</p>
@@ -252,9 +275,9 @@ return (
                           </label>
                         </div>
                       )}
-                      <div className="mt-2 border-t border-gray-100 pt-2 text-left">
+                      <div className="mt-3 border-t border-slate-200/70 pt-2.5 text-left">
                         <p className="text-sm font-medium text-gray-800">Rating filter</p>
-                        <p className="mb-2 text-xs text-gray-500">Only draw from selected ratings.</p>
+                        <p className="mb-1.5 text-xs text-gray-500">Only draw from selected ratings.</p>
                         <div className="flex flex-wrap gap-x-4 gap-y-1">
                           {MPAA_RATING_OPTIONS.map((rating) => {
                             const key = `draw-rating-${rating.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
@@ -293,9 +316,9 @@ return (
                           </label>
                         </div>
                       </div>
-                      <div className="mt-2 border-t border-gray-100 pt-2 text-left">
+                      <div className="mt-3 border-t border-slate-200/70 pt-2.5 text-left">
                         <p className="text-sm font-medium text-gray-800">Runtime filter</p>
-                        <p className="mb-2 text-xs text-gray-500">
+                        <p className="mb-1.5 text-xs text-gray-500">
                           Set a maximum runtime for typical draws.
                         </p>
                         <div className="flex items-center gap-2">
@@ -333,7 +356,7 @@ return (
                           />
                           Include unknown runtime
                         </label>
-                        <div className="mt-2">
+                        <div className="mt-1.5">
                           <button
                             type="button"
                             onClick={() => setShowAdvancedRuntime((prev) => !prev)}
@@ -343,7 +366,7 @@ return (
                           </button>
                         </div>
                         {showAdvancedRuntime && (
-                          <div className="mt-2 rounded-lg border border-slate-200 bg-slate-50 p-2">
+                          <div className="mt-2 rounded-lg border border-slate-200/80 bg-white/70 p-2">
                             <label
                               htmlFor="draw-runtime-long-mode"
                               className="inline-flex items-center gap-1.5 text-sm text-slate-700"
@@ -382,44 +405,32 @@ return (
                           </div>
                         )}
                       </div>
-                    </>
-                  )}
-                </div>
+                  </div>
+                )}
                 {userStreamingServices.length === 0 && (
-                  <p className="mt-2 text-xs text-slate-500">
+                  <p className="mt-2 text-center text-xs text-slate-500">
                     Add services in Settings to enable prioritized draw.
                   </p>
                 )}
-                <div className="mt-2">
-                  <RemainingCount count={bowl.remaining.length} />
-                </div>
-                <div className="mt-4">
-                  <AddMovieButton
-                    disabled={isAddBlocked}
-                    onClick={() => {
-                      setAddGuardMessage(null);
-                      setShowSearch(true);
-                    }}
-                  />
-                </div>
                 {maxContributionLead !== null && (
-                  <p className="mt-2 text-xs text-slate-500">
+                  <p className="mt-2 text-center text-xs text-slate-500">
                     Contribution lead limit: {maxContributionLead}
                   </p>
                 )}
                 {addGuardMessage && (
-                  <p className="mt-2 text-sm text-amber-700">{addGuardMessage}</p>
+                  <p className="mt-2 text-center text-sm text-amber-700">{addGuardMessage}</p>
                 )}
                 {isAddBlockedByContributionLimit && (
-                  <p className="mt-2 text-sm text-amber-700">
+                  <p className="mt-2 text-center text-sm text-amber-700">
                     You are at {addBalance.myCount} contributions and the lowest active member is at {addBalance.minCount}.
                   </p>
                 )}
                 {isAddBlockedByUndrawnLimit && (
-                  <p className="mt-2 text-sm text-amber-700">
+                  <p className="mt-2 text-center text-sm text-amber-700">
                     Bowl is at the undrawn movie limit ({MAX_UNDRAWN_MOVIES_PER_BOWL}).
                   </p>
                 )}
+              </div>
             </section>
 
             
