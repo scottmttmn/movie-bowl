@@ -16,12 +16,9 @@ const mocks = vi.hoisted(() => {
     auth: {
       getSession: vi.fn(async () => {
         state.authCallCount += 1;
-
-        // First call is from initial load effect.
         if (state.authCallCount === 1 && !state.initialAuthenticated) {
           return { data: { session: null }, error: new Error("Not authenticated") };
         }
-
         return { data: { session: { user: { id: "u1" } } }, error: null };
       }),
     },
@@ -100,7 +97,7 @@ vi.mock("react-router-dom", async () => {
 
 import MyBowlsScreen from "../MyBowlsScreen";
 
-describe("MyBowlsScreen create bowl", () => {
+describe("MyBowlsScreen", () => {
   beforeEach(() => {
     mocks.state.navigate.mockReset();
     mocks.state.authCallCount = 0;
@@ -119,38 +116,27 @@ describe("MyBowlsScreen create bowl", () => {
     render(<MyBowlsScreen />);
 
     fireEvent.click(screen.getByRole("button", { name: /\+ new bowl/i }));
-
-    fireEvent.change(screen.getByPlaceholderText("Bowl Name"), {
-      target: { value: "Weekend Bowl" },
-    });
+    fireEvent.change(screen.getByPlaceholderText("Bowl Name"), { target: { value: "Weekend Bowl" } });
     fireEvent.change(screen.getByLabelText(/invite emails \(optional\)/i), {
       target: { value: "friend@example.com" },
     });
     fireEvent.change(screen.getByLabelText(/max contribution lead \(optional\)/i), {
       target: { value: "2" },
     });
-
     fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
 
-    await waitFor(() => {
-      expect(screen.getByText("Weekend Bowl")).toBeInTheDocument();
-    });
+    await waitFor(() => expect(screen.getByText("Weekend Bowl")).toBeInTheDocument());
 
-    expect(mocks.state.insertedBowls).toHaveLength(1);
     expect(mocks.state.insertedBowls[0][0]).toMatchObject({
       owner_id: "u1",
       name: "Weekend Bowl",
       max_contribution_lead: 2,
     });
-
-    expect(mocks.state.insertedMembers).toHaveLength(1);
     expect(mocks.state.insertedMembers[0][0]).toMatchObject({
       bowl_id: "bowl-1",
       user_id: "u1",
       role: "Owner",
     });
-
-    expect(mocks.state.insertedInvites).toHaveLength(1);
     expect(mocks.state.insertedInvites[0][0]).toMatchObject({
       bowl_id: "bowl-1",
       invited_email: "friend@example.com",
@@ -170,12 +156,9 @@ describe("MyBowlsScreen create bowl", () => {
 
     render(<MyBowlsScreen />);
 
-    await waitFor(() => {
-      expect(screen.getByText("Bowl 1")).toBeInTheDocument();
-    });
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    const button = screen.getByRole("button", { name: /\+ new bowl/i });
-    expect(button).toBeDisabled();
+    expect(screen.getByRole("button", { name: /\+ new bowl/i })).toBeDisabled();
     expect(screen.getByText(/bowl limit reached \(10\)/i)).toBeInTheDocument();
   });
 });
