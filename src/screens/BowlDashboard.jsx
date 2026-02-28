@@ -16,6 +16,11 @@ import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { checkContributionBalance } from "../utils/contributionBalance";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
+import {
+  DEFAULT_DRAW_SETTINGS,
+  RUNTIME_FILTER_MAX_MINUTES,
+  RUNTIME_FILTER_MIN_MINUTES,
+} from "../utils/drawSettings";
 
 
 export default function BowlDashboard() {
@@ -34,12 +39,13 @@ export default function BowlDashboard() {
     const [includeUnknownRatings, setIncludeUnknownRatings] = useState(true);
     const [selectedGenres, setSelectedGenres] = useState(null);
     const [includeUnknownGenres, setIncludeUnknownGenres] = useState(true);
-    const [maxRuntimeMinutes, setMaxRuntimeMinutes] = useState(500);
+    const [runtimeMinMinutes, setRuntimeMinMinutes] = useState(RUNTIME_FILTER_MIN_MINUTES);
+    const [runtimeMaxMinutes, setRuntimeMaxMinutes] = useState(RUNTIME_FILTER_MAX_MINUTES);
     const [includeUnknownRuntime, setIncludeUnknownRuntime] = useState(true);
-    const [showAdvancedRuntime, setShowAdvancedRuntime] = useState(false);
     const [showDrawFilters, setShowDrawFilters] = useState(false);
-    const [preferLongMovies, setPreferLongMovies] = useState(false);
-    const [longMovieMinMinutes, setLongMovieMinMinutes] = useState(150);
+    const [showRatingFilters, setShowRatingFilters] = useState(false);
+    const [showGenreFilters, setShowGenreFilters] = useState(false);
+    const [showRuntimeFilters, setShowRuntimeFilters] = useState(false);
     const [isDrawing, setIsDrawing] = useState(false);
     const [bowlName, setBowlName] = useState("My Bowl");
     const [currentUserId, setCurrentUserId] = useState(null);
@@ -50,7 +56,12 @@ export default function BowlDashboard() {
     const [readdErrorMessage, setReaddErrorMessage] = useState(null);
     const [pendingReaddMovie, setPendingReaddMovie] = useState(null);
     const [isReadding, setIsReadding] = useState(false);
-    const { streamingServices: userStreamingServices } = useUserStreamingServices();
+    const [didApplyDefaultDrawSettings, setDidApplyDefaultDrawSettings] = useState(false);
+    const {
+      streamingServices: userStreamingServices,
+      defaultDrawSettings,
+      loading: isLoadingUserPreferences,
+    } = useUserStreamingServices();
 
     const navigate = useNavigate();
     
@@ -99,6 +110,54 @@ export default function BowlDashboard() {
       const available = new Set(availableDrawGenres);
       return selectedGenres.filter((genre) => available.has(genre));
     }, [selectedGenres, availableDrawGenres]);
+    const ratingSummary = useMemo(() => {
+      const selectedCount = selectedRatings.length;
+      if (selectedCount === MPAA_RATING_OPTIONS.length && includeUnknownRatings) return "All ratings";
+      if (selectedCount === 0 && !includeUnknownRatings) return "No ratings selected";
+      const parts = [];
+      if (selectedCount === MPAA_RATING_OPTIONS.length) {
+        parts.push("All rated");
+      } else if (selectedCount > 0) {
+        parts.push(selectedRatings.join(", "));
+      }
+      if (includeUnknownRatings) parts.push("Unknown");
+      return parts.join(" • ");
+    }, [selectedRatings, includeUnknownRatings]);
+    const genreSummary = useMemo(() => {
+      const activeGenres = Array.isArray(selectedGenres) ? selectedDrawGenres : availableDrawGenres;
+      if (activeGenres.length === 0 && !includeUnknownGenres) return "No genres selected";
+      if (!Array.isArray(selectedGenres) && includeUnknownGenres) return "All genres";
+      const parts = [];
+      if (!Array.isArray(selectedGenres)) {
+        parts.push("All listed genres");
+      } else if (activeGenres.length <= 3) {
+        parts.push(activeGenres.join(", "));
+      } else {
+        parts.push(`${activeGenres.length} genres`);
+      }
+      if (includeUnknownGenres) parts.push("Unknown");
+      return parts.filter(Boolean).join(" • ");
+    }, [selectedGenres, selectedDrawGenres, availableDrawGenres, includeUnknownGenres]);
+    const runtimeSummary = useMemo(() => {
+      const base = `${runtimeMinMinutes}-${runtimeMaxMinutes} min`;
+      return includeUnknownRuntime ? `${base} • Unknown` : base;
+    }, [runtimeMinMinutes, runtimeMaxMinutes, includeUnknownRuntime]);
+
+    useEffect(() => {
+      if (didApplyDefaultDrawSettings || isLoadingUserPreferences) return;
+
+      const defaults = defaultDrawSettings || DEFAULT_DRAW_SETTINGS;
+      setPrioritizeStreaming(Boolean(defaults.prioritizeStreaming));
+      setUseStreamingRank(Boolean(defaults.useStreamingRank));
+      setSelectedRatings(defaults.selectedRatings || MPAA_RATING_OPTIONS);
+      setIncludeUnknownRatings(Boolean(defaults.includeUnknownRatings));
+      setSelectedGenres(defaults.selectedGenres ?? null);
+      setIncludeUnknownGenres(Boolean(defaults.includeUnknownGenres));
+      setRuntimeMinMinutes(defaults.runtimeMinMinutes || DEFAULT_DRAW_SETTINGS.runtimeMinMinutes);
+      setRuntimeMaxMinutes(defaults.runtimeMaxMinutes || DEFAULT_DRAW_SETTINGS.runtimeMaxMinutes);
+      setIncludeUnknownRuntime(Boolean(defaults.includeUnknownRuntime));
+      setDidApplyDefaultDrawSettings(true);
+    }, [defaultDrawSettings, didApplyDefaultDrawSettings, isLoadingUserPreferences]);
 
     useEffect(() => {
       let cancelled = false;
@@ -207,8 +266,8 @@ return (
                             includeUnknown: includeUnknownGenres,
                           },
                           runtimeFilter: {
-                            mode: preferLongMovies ? "min" : "max",
-                            threshold: preferLongMovies ? longMovieMinMinutes : maxRuntimeMinutes,
+                            minMinutes: runtimeMinMinutes,
+                            maxMinutes: runtimeMaxMinutes,
                             includeUnknown: includeUnknownRuntime,
                           },
                         });
@@ -306,188 +365,264 @@ return (
                           </label>
                         </div>
                       )}
-                      <div className="mt-3 border-t border-slate-200/70 pt-2.5 text-left">
-                        <p className="text-sm font-medium text-gray-800">Rating filter</p>
-                        <p className="mb-1.5 text-xs text-gray-500">Only draw from selected ratings.</p>
-                        <div className="flex flex-wrap gap-x-4 gap-y-1">
-                          {MPAA_RATING_OPTIONS.map((rating) => {
-                            const key = `draw-rating-${rating.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-                            return (
-                              <label key={rating} htmlFor={key} className="inline-flex items-center gap-1.5 text-sm text-slate-700">
-                                <input
-                                  id={key}
-                                  name="draw_ratings"
-                                  type="checkbox"
-                                  checked={selectedRatings.includes(rating)}
-                                  onChange={(event) => {
-                                    setSelectedRatings((prev) => {
-                                      if (event.target.checked) {
-                                        return prev.includes(rating) ? prev : [...prev, rating];
-                                      }
-                                      return prev.filter((value) => value !== rating);
-                                    });
-                                  }}
-                                />
-                                {rating}
-                              </label>
-                            );
-                          })}
-                          <label
-                            htmlFor="draw-rating-unknown"
-                            className="inline-flex items-center gap-1.5 text-sm text-slate-700"
-                          >
-                            <input
-                              id="draw-rating-unknown"
-                              name="draw_rating_unknown"
-                              type="checkbox"
-                              checked={includeUnknownRatings}
-                              onChange={(event) => setIncludeUnknownRatings(event.target.checked)}
-                            />
-                            Unrated/Unknown
-                          </label>
-                        </div>
+                      <div className="mt-2 text-left">
+                        <button
+                          type="button"
+                          className="text-xs font-medium text-blue-700 hover:text-blue-800"
+                          onClick={() => navigate("/settings#streaming-services")}
+                        >
+                          {userStreamingServices.length > 0 ? "Edit streaming service ranking" : "Choose streaming services"}
+                        </button>
                       </div>
                       <div className="mt-3 border-t border-slate-200/70 pt-2.5 text-left">
-                        <div className="mb-1 flex items-center justify-between gap-2">
-                          <p className="text-sm font-medium text-gray-800">Genre filter</p>
-                          <button
-                            type="button"
-                            className="text-xs font-medium text-blue-700 hover:text-blue-800"
-                            onClick={() => setSelectedGenres(null)}
-                          >
-                            Select all
-                          </button>
-                        </div>
-                        <p className="mb-1.5 text-xs text-gray-500">Only draw from selected genres.</p>
-                        {availableDrawGenres.length > 0 ? (
-                          <div className="flex flex-wrap gap-x-4 gap-y-1">
-                            {availableDrawGenres.map((genre) => {
-                              const key = `draw-genre-${genre.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+                        <button
+                          type="button"
+                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200/70 bg-white/70 px-3 py-2 text-left"
+                          onClick={() => setShowRatingFilters((prev) => !prev)}
+                          aria-expanded={showRatingFilters}
+                          aria-controls="draw-rating-filter-panel"
+                        >
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">Rating filter</p>
+                            <p className="mt-0.5 text-xs text-gray-500">{ratingSummary}</p>
+                          </div>
+                          <span className="text-xs font-medium text-blue-700">
+                            {showRatingFilters ? "Hide ratings" : "Edit ratings"}
+                          </span>
+                        </button>
+                        {showRatingFilters && (
+                          <div id="draw-rating-filter-panel" className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+                            {MPAA_RATING_OPTIONS.map((rating) => {
+                              const key = `draw-rating-${rating.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
                               return (
-                                <label key={genre} htmlFor={key} className="inline-flex items-center gap-1.5 text-sm text-slate-700">
+                                <label key={rating} htmlFor={key} className="inline-flex items-center gap-1.5 text-sm text-slate-700">
                                   <input
                                     id={key}
-                                    name="draw_genres"
+                                    name="draw_ratings"
+                                    aria-label={key}
                                     type="checkbox"
-                                    checked={selectedDrawGenres.includes(genre)}
+                                    checked={selectedRatings.includes(rating)}
                                     onChange={(event) => {
-                                      setSelectedGenres((prev) => {
-                                        const base = Array.isArray(prev) ? prev : availableDrawGenres;
+                                      setSelectedRatings((prev) => {
                                         if (event.target.checked) {
-                                          return base.includes(genre) ? base : [...base, genre];
+                                          return prev.includes(rating) ? prev : [...prev, rating];
                                         }
-                                        return base.filter((value) => value !== genre);
+                                        return prev.filter((value) => value !== rating);
                                       });
                                     }}
                                   />
-                                  {genre}
+                                  {rating}
                                 </label>
                               );
                             })}
-                          </div>
-                        ) : (
-                          <p className="text-xs text-slate-500">No genre data available for current bowl movies.</p>
-                        )}
-                        <label
-                          htmlFor="draw-genre-unknown"
-                          className="mt-2 inline-flex items-center gap-1.5 text-sm text-slate-700"
-                        >
-                          <input
-                            id="draw-genre-unknown"
-                            name="draw_genre_unknown"
-                            type="checkbox"
-                            checked={includeUnknownGenres}
-                            onChange={(event) => setIncludeUnknownGenres(event.target.checked)}
-                          />
-                          Include uncategorized/unknown genres
-                        </label>
-                      </div>
-                      <div className="mt-3 border-t border-slate-200/70 pt-2.5 text-left">
-                        <p className="text-sm font-medium text-gray-800">Runtime filter</p>
-                        <p className="mb-1.5 text-xs text-gray-500">
-                          Set a maximum runtime for typical draws.
-                        </p>
-                        <div className="flex items-center gap-2">
-                          <label
-                            htmlFor="draw-runtime-max"
-                            className="text-sm text-slate-700"
-                          >
-                            Max minutes
-                          </label>
-                          <input
-                            id="draw-runtime-max"
-                            name="draw_runtime_max"
-                            type="number"
-                            min={60}
-                            max={600}
-                            value={maxRuntimeMinutes}
-                            onChange={(event) => {
-                              const value = Number.parseInt(event.target.value || "0", 10);
-                              setMaxRuntimeMinutes(Number.isFinite(value) ? Math.max(60, Math.min(600, value)) : 500);
-                            }}
-                            className="w-24 rounded border border-slate-300 px-2 py-1 text-sm"
-                            disabled={preferLongMovies}
-                          />
-                        </div>
-                        <label
-                          htmlFor="draw-runtime-unknown"
-                          className="mt-2 inline-flex items-center gap-1.5 text-sm text-slate-700"
-                        >
-                          <input
-                            id="draw-runtime-unknown"
-                            name="draw_runtime_unknown"
-                            type="checkbox"
-                            checked={includeUnknownRuntime}
-                            onChange={(event) => setIncludeUnknownRuntime(event.target.checked)}
-                          />
-                          Include unknown runtime
-                        </label>
-                        <div className="mt-1.5">
-                          <button
-                            type="button"
-                            onClick={() => setShowAdvancedRuntime((prev) => !prev)}
-                            className="text-xs font-medium text-blue-700 hover:text-blue-800"
-                          >
-                            {showAdvancedRuntime ? "Hide advanced runtime options" : "Advanced runtime options"}
-                          </button>
-                        </div>
-                        {showAdvancedRuntime && (
-                          <div className="mt-2 rounded-lg border border-slate-200/80 bg-white/70 p-2">
                             <label
-                              htmlFor="draw-runtime-long-mode"
+                              htmlFor="draw-rating-unknown"
                               className="inline-flex items-center gap-1.5 text-sm text-slate-700"
                             >
                               <input
-                                id="draw-runtime-long-mode"
-                                name="draw_runtime_long_mode"
+                                id="draw-rating-unknown"
+                                name="draw_rating_unknown"
+                                aria-label="draw-rating-unknown"
                                 type="checkbox"
-                                checked={preferLongMovies}
-                                onChange={(event) => setPreferLongMovies(event.target.checked)}
+                                checked={includeUnknownRatings}
+                                onChange={(event) => setIncludeUnknownRatings(event.target.checked)}
                               />
-                              Prefer long movies
+                              Unrated/Unknown
                             </label>
-                            {preferLongMovies && (
-                              <div className="mt-2 flex items-center gap-2">
-                                <label htmlFor="draw-runtime-min" className="text-sm text-slate-700">
-                                  Min minutes
-                                </label>
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-3 border-t border-slate-200/70 pt-2.5 text-left">
+                        <button
+                          type="button"
+                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200/70 bg-white/70 px-3 py-2 text-left"
+                          onClick={() => setShowGenreFilters((prev) => !prev)}
+                          aria-expanded={showGenreFilters}
+                          aria-controls="draw-genre-filter-panel"
+                        >
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">Genre filter</p>
+                            <p className="mt-0.5 text-xs text-gray-500">{genreSummary}</p>
+                          </div>
+                          <span className="text-xs font-medium text-blue-700">
+                            {showGenreFilters ? "Hide genres" : "Edit genres"}
+                          </span>
+                        </button>
+                        {showGenreFilters && (
+                          <div id="draw-genre-filter-panel" className="mt-2">
+                            <div className="mb-1 flex items-center justify-between gap-2">
+                              <p className="text-xs text-gray-500">Only draw from selected genres.</p>
+                              <button
+                                type="button"
+                                className="text-xs font-medium text-blue-700 hover:text-blue-800"
+                                onClick={() => setSelectedGenres(null)}
+                              >
+                                Select all
+                              </button>
+                            </div>
+                            {availableDrawGenres.length > 0 ? (
+                              <div className="flex flex-wrap gap-x-4 gap-y-1">
+                                {availableDrawGenres.map((genre) => {
+                                  const key = `draw-genre-${genre.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
+                                  return (
+                                    <label key={genre} htmlFor={key} className="inline-flex items-center gap-1.5 text-sm text-slate-700">
+                                      <input
+                                        id={key}
+                                        name="draw_genres"
+                                        aria-label={key}
+                                        type="checkbox"
+                                        checked={selectedDrawGenres.includes(genre)}
+                                        onChange={(event) => {
+                                          setSelectedGenres((prev) => {
+                                            const base = Array.isArray(prev) ? prev : availableDrawGenres;
+                                            if (event.target.checked) {
+                                              return base.includes(genre) ? base : [...base, genre];
+                                            }
+                                            return base.filter((value) => value !== genre);
+                                          });
+                                        }}
+                                      />
+                                      {genre}
+                                    </label>
+                                  );
+                                })}
+                              </div>
+                            ) : (
+                              <p className="text-xs text-slate-500">No genre data available for current bowl movies.</p>
+                            )}
+                            <label
+                              htmlFor="draw-genre-unknown"
+                              className="mt-2 inline-flex items-center gap-1.5 text-sm text-slate-700"
+                            >
+                              <input
+                                id="draw-genre-unknown"
+                                name="draw_genre_unknown"
+                                aria-label="draw-genre-unknown"
+                                type="checkbox"
+                                checked={includeUnknownGenres}
+                                onChange={(event) => setIncludeUnknownGenres(event.target.checked)}
+                              />
+                              Include uncategorized/unknown genres
+                            </label>
+                          </div>
+                        )}
+                      </div>
+                      <div className="mt-3 border-t border-slate-200/70 pt-2.5 text-left">
+                        <button
+                          type="button"
+                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200/70 bg-white/70 px-3 py-2 text-left"
+                          onClick={() => setShowRuntimeFilters((prev) => !prev)}
+                          aria-expanded={showRuntimeFilters}
+                          aria-controls="draw-runtime-filter-panel"
+                        >
+                          <div>
+                            <p className="text-sm font-medium text-gray-800">Runtime filter</p>
+                            <p className="mt-0.5 text-xs text-gray-500">{runtimeSummary}</p>
+                          </div>
+                          <span className="text-xs font-medium text-blue-700">
+                            {showRuntimeFilters ? "Hide runtime" : "Edit runtime"}
+                          </span>
+                        </button>
+                        {showRuntimeFilters && (
+                          <div id="draw-runtime-filter-panel" className="mt-2 rounded-lg border border-slate-200/80 bg-white/70 p-3">
+                            <p className="text-xs text-gray-500">
+                              Set the acceptable runtime range for this draw.
+                            </p>
+                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                              <label htmlFor="draw-runtime-min" className="text-sm text-slate-700">
+                                Minimum minutes
                                 <input
                                   id="draw-runtime-min"
                                   name="draw_runtime_min"
+                                  aria-label="draw-runtime-min"
                                   type="number"
-                                  min={60}
-                                  max={600}
-                                  value={longMovieMinMinutes}
+                                  min={RUNTIME_FILTER_MIN_MINUTES}
+                                  max={runtimeMaxMinutes}
+                                  value={runtimeMinMinutes}
                                   onChange={(event) => {
                                     const value = Number.parseInt(event.target.value || "0", 10);
-                                    setLongMovieMinMinutes(
-                                      Number.isFinite(value) ? Math.max(60, Math.min(600, value)) : 150
-                                    );
+                                    if (!Number.isFinite(value)) return;
+                                    setRuntimeMinMinutes(Math.max(RUNTIME_FILTER_MIN_MINUTES, Math.min(runtimeMaxMinutes, value)));
                                   }}
-                                  className="w-24 rounded border border-slate-300 px-2 py-1 text-sm"
+                                  className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
                                 />
-                              </div>
-                            )}
+                              </label>
+                              <label htmlFor="draw-runtime-max" className="text-sm text-slate-700">
+                                Maximum minutes
+                                <input
+                                  id="draw-runtime-max"
+                                  name="draw_runtime_max"
+                                  aria-label="draw-runtime-max"
+                                  type="number"
+                                  min={runtimeMinMinutes}
+                                  max={RUNTIME_FILTER_MAX_MINUTES}
+                                  value={runtimeMaxMinutes}
+                                  onChange={(event) => {
+                                    const value = Number.parseInt(event.target.value || "0", 10);
+                                    if (!Number.isFinite(value)) return;
+                                    setRuntimeMaxMinutes(Math.max(runtimeMinMinutes, Math.min(RUNTIME_FILTER_MAX_MINUTES, value)));
+                                  }}
+                                  className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                                />
+                              </label>
+                            </div>
+                            <div className="mt-3 space-y-3">
+                              <label htmlFor="draw-runtime-min-slider" className="block text-xs text-slate-500">
+                                Minimum runtime
+                                <input
+                                  id="draw-runtime-min-slider"
+                                  name="draw_runtime_min_slider"
+                                  aria-label="draw-runtime-min-slider"
+                                  type="range"
+                                  min={RUNTIME_FILTER_MIN_MINUTES}
+                                  max={runtimeMaxMinutes}
+                                  value={runtimeMinMinutes}
+                                  onChange={(event) =>
+                                    setRuntimeMinMinutes(
+                                      Math.max(
+                                        RUNTIME_FILTER_MIN_MINUTES,
+                                        Math.min(runtimeMaxMinutes, Number.parseInt(event.target.value || "0", 10) || RUNTIME_FILTER_MIN_MINUTES)
+                                      )
+                                    )
+                                  }
+                                  className="mt-1 w-full"
+                                />
+                              </label>
+                              <label htmlFor="draw-runtime-max-slider" className="block text-xs text-slate-500">
+                                Maximum runtime
+                                <input
+                                  id="draw-runtime-max-slider"
+                                  name="draw_runtime_max_slider"
+                                  aria-label="draw-runtime-max-slider"
+                                  type="range"
+                                  min={runtimeMinMinutes}
+                                  max={RUNTIME_FILTER_MAX_MINUTES}
+                                  value={runtimeMaxMinutes}
+                                  onChange={(event) =>
+                                    setRuntimeMaxMinutes(
+                                      Math.max(
+                                        runtimeMinMinutes,
+                                        Math.min(RUNTIME_FILTER_MAX_MINUTES, Number.parseInt(event.target.value || "0", 10) || RUNTIME_FILTER_MAX_MINUTES)
+                                      )
+                                    )
+                                  }
+                                  className="mt-1 w-full"
+                                />
+                              </label>
+                            </div>
+                            <label
+                              htmlFor="draw-runtime-unknown"
+                              className="mt-3 inline-flex items-center gap-1.5 text-sm text-slate-700"
+                            >
+                              <input
+                                id="draw-runtime-unknown"
+                                name="draw_runtime_unknown"
+                                type="checkbox"
+                                checked={includeUnknownRuntime}
+                                onChange={(event) => setIncludeUnknownRuntime(event.target.checked)}
+                              />
+                              Include unknown runtime
+                            </label>
                           </div>
                         )}
                       </div>

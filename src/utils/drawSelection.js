@@ -61,18 +61,21 @@ async function filterCandidatesByRating(movies, ratingFilter, fetchMovieDetails)
 }
 
 function filterCandidatesByRuntime(movies, runtimeFilter) {
-  const mode = runtimeFilter.mode === "min" ? "min" : "max";
-  const threshold = Number(runtimeFilter.threshold);
+  const minRuntime = Number(runtimeFilter.minMinutes);
+  const maxRuntime = Number(runtimeFilter.maxMinutes);
   const includeUnknownRuntime = runtimeFilter.includeUnknown !== false;
-  if (!Number.isFinite(threshold) || threshold <= 0) return movies;
+  if (!Number.isFinite(minRuntime) || !Number.isFinite(maxRuntime) || minRuntime <= 0 || maxRuntime <= 0) {
+    return movies;
+  }
+  const lowerBound = Math.min(minRuntime, maxRuntime);
+  const upperBound = Math.max(minRuntime, maxRuntime);
 
   return movies.filter((movie) => {
     const runtime = Number(movie?.runtime);
     if (!Number.isFinite(runtime) || runtime <= 0) {
       return includeUnknownRuntime;
     }
-    if (mode === "min") return runtime >= threshold;
-    return runtime <= threshold;
+    return runtime >= lowerBound && runtime <= upperBound;
   });
 }
 

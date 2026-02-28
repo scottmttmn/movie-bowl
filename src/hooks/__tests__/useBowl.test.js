@@ -541,8 +541,8 @@ describe("useBowl handleDraw integration", () => {
     await act(async () => {
       drawn = await result.current.handleDraw({
         runtimeFilter: {
-          mode: "max",
-          threshold: 90,
+          minMinutes: 60,
+          maxMinutes: 90,
           includeUnknown: false,
         },
       });
@@ -567,8 +567,8 @@ describe("useBowl handleDraw integration", () => {
     await act(async () => {
       await result.current.handleDraw({
         runtimeFilter: {
-          mode: "max",
-          threshold: 100,
+          minMinutes: 60,
+          maxMinutes: 100,
           includeUnknown: false,
         },
       });
@@ -582,7 +582,7 @@ describe("useBowl handleDraw integration", () => {
     randomSpy.mockRestore();
   });
 
-  it("draw filters candidates by minimum runtime when long mode is enabled", async () => {
+  it("draw filters candidates by minimum runtime range", async () => {
     const shortMovie = { id: "m1", tmdb_id: 601, title: "Short Movie", runtime: 95 };
     const longMovie = { id: "m2", tmdb_id: 602, title: "Long Movie", runtime: 180 };
     mocks.remainingQueue.push([shortMovie, longMovie], [shortMovie]);
@@ -596,8 +596,8 @@ describe("useBowl handleDraw integration", () => {
     await act(async () => {
       await result.current.handleDraw({
         runtimeFilter: {
-          mode: "min",
-          threshold: 150,
+          minMinutes: 150,
+          maxMinutes: 220,
           includeUnknown: false,
         },
       });

@@ -63,7 +63,21 @@ vi.mock("../../hooks/useBowl", () => ({
 }));
 
 vi.mock("../../hooks/useUserStreamingServices", () => ({
-  default: () => ({ streamingServices: mocks.state.streamingServices }),
+  default: () => ({
+    streamingServices: mocks.state.streamingServices,
+    defaultDrawSettings: {
+      prioritizeStreaming: false,
+      useStreamingRank: true,
+      selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
+      includeUnknownRatings: true,
+      selectedGenres: null,
+      includeUnknownGenres: true,
+      runtimeMinMinutes: 0,
+      runtimeMaxMinutes: 500,
+      includeUnknownRuntime: true,
+    },
+    loading: false,
+  }),
 }));
 
 vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));

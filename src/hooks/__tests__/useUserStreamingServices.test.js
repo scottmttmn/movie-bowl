@@ -1,11 +1,13 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import useUserStreamingServices from "../useUserStreamingServices";
+import { DEFAULT_DRAW_SETTINGS } from "../../utils/drawSettings";
 
 const mocks = vi.hoisted(() => {
   const state = {
     authUser: { id: "user-1" },
     profileStreamingServices: [" hbo max ", "Netflix", "netflix"],
+    profileDefaultDrawSettings: { prioritizeStreaming: true, runtimeMaxMinutes: 180 },
     updateError: null,
     updatedPayloads: [],
   };
@@ -35,7 +37,13 @@ const mocks = vi.hoisted(() => {
         }),
         single: vi.fn(async () => {
           if (table === "profiles") {
-            return { data: { streaming_services: state.profileStreamingServices }, error: null };
+            return {
+              data: {
+                streaming_services: state.profileStreamingServices,
+                default_draw_settings: state.profileDefaultDrawSettings,
+              },
+              error: null,
+            };
           }
           return { data: null, error: null };
         }),
@@ -62,6 +70,7 @@ describe("useUserStreamingServices", () => {
   beforeEach(() => {
     mocks.state.authUser = { id: "user-1" };
     mocks.state.profileStreamingServices = [" hbo max ", "Netflix", "netflix"];
+    mocks.state.profileDefaultDrawSettings = { prioritizeStreaming: true, runtimeMaxMinutes: 180 };
     mocks.state.updateError = null;
     mocks.state.updatedPayloads = [];
     mocks.supabase.auth.getSession.mockClear();
@@ -74,6 +83,11 @@ describe("useUserStreamingServices", () => {
     await waitFor(() => {
       expect(result.current.loading).toBe(false);
       expect(result.current.streamingServices).toEqual(["Max", "Netflix"]);
+      expect(result.current.defaultDrawSettings).toEqual({
+        ...DEFAULT_DRAW_SETTINGS,
+        prioritizeStreaming: true,
+        runtimeMaxMinutes: 180,
+      });
     });
   });
 
@@ -82,6 +96,7 @@ describe("useUserStreamingServices", () => {
 
     expect(result.current.loading).toBe(false);
     expect(result.current.streamingServices).toEqual([]);
+    expect(result.current.defaultDrawSettings).toEqual(DEFAULT_DRAW_SETTINGS);
 
     act(() => {
       result.current.setStreamingServices([" netflix ", "HBO Max"]);
@@ -108,6 +123,7 @@ describe("useUserStreamingServices", () => {
       expect(result.current.loading).toBe(false);
     });
     expect(result.current.streamingServices).toEqual([]);
+    expect(result.current.defaultDrawSettings).toEqual(DEFAULT_DRAW_SETTINGS);
   });
 
   it("saves normalized streaming services and updates local state", async () => {
@@ -136,6 +152,28 @@ describe("useUserStreamingServices", () => {
 
     expect(response.error).toBeTruthy();
     expect(mocks.state.updatedPayloads).toEqual([]);
+  });
+
+  it("saves default draw settings and updates local state", async () => {
+    const { result } = renderHook(() => useUserStreamingServices({ autoLoad: false }));
+
+    const nextSettings = {
+      ...DEFAULT_DRAW_SETTINGS,
+      prioritizeStreaming: true,
+      selectedRatings: ["PG-13", "R"],
+      runtimeMaxMinutes: 180,
+    };
+
+    let response;
+    await act(async () => {
+      response = await result.current.saveDefaultDrawSettings(nextSettings);
+    });
+
+    expect(response).toEqual({ error: null });
+    expect(mocks.state.updatedPayloads).toEqual([
+      { default_draw_settings: nextSettings },
+    ]);
+    expect(result.current.defaultDrawSettings).toEqual(nextSettings);
   });
 
   it("can reload services on demand", async () => {

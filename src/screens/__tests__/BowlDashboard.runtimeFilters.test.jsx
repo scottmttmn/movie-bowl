@@ -63,7 +63,21 @@ vi.mock("../../hooks/useBowl", () => ({
 }));
 
 vi.mock("../../hooks/useUserStreamingServices", () => ({
-  default: () => ({ streamingServices: mocks.state.streamingServices }),
+  default: () => ({
+    streamingServices: mocks.state.streamingServices,
+    defaultDrawSettings: {
+      prioritizeStreaming: false,
+      useStreamingRank: true,
+      selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
+      includeUnknownRatings: true,
+      selectedGenres: null,
+      includeUnknownGenres: true,
+      runtimeMinMinutes: 0,
+      runtimeMaxMinutes: 500,
+      includeUnknownRuntime: true,
+    },
+    loading: false,
+  }),
 }));
 
 vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
@@ -93,14 +107,14 @@ describe("BowlDashboard runtime filters", () => {
     cleanup();
   });
 
-  it("can use long-movie runtime mode in draw payload", async () => {
+  it("sends runtime min/max range in draw payload", async () => {
     render(<BowlDashboard />);
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /advanced runtime options/i }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /prefer long movies/i }));
-    fireEvent.change(screen.getByLabelText(/min minutes/i), { target: { value: "170" } });
+    fireEvent.click(screen.getByRole("button", { name: /edit runtime/i }));
+    fireEvent.change(screen.getByRole("spinbutton", { name: /draw-runtime-min/i }), { target: { value: "95" } });
+    fireEvent.change(screen.getByRole("spinbutton", { name: /draw-runtime-max/i }), { target: { value: "170" } });
 
     vi.useFakeTimers();
     fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
@@ -110,11 +124,11 @@ describe("BowlDashboard runtime filters", () => {
     vi.useRealTimers();
 
     await waitFor(() => {
-      expect(mocks.state.handleDraw).toHaveBeenCalledWith(
+        expect(mocks.state.handleDraw).toHaveBeenCalledWith(
         expect.objectContaining({
           runtimeFilter: {
-            mode: "min",
-            threshold: 170,
+            minMinutes: 95,
+            maxMinutes: 170,
             includeUnknown: true,
           },
         })

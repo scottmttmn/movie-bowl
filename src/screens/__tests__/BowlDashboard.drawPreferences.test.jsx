@@ -18,6 +18,18 @@ const mocks = vi.hoisted(() => {
     handleDeleteMovie: vi.fn(async () => true),
     handleReaddMovie: vi.fn(async () => true),
     streamingServices: [],
+    defaultDrawSettings: {
+      prioritizeStreaming: false,
+      useStreamingRank: true,
+      selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
+      includeUnknownRatings: true,
+      selectedGenres: null,
+      includeUnknownGenres: true,
+      runtimeMinMinutes: 0,
+      runtimeMaxMinutes: 500,
+      includeUnknownRuntime: true,
+    },
+    locationHash: "",
   };
 
   const supabase = {
@@ -64,7 +76,11 @@ vi.mock("../../hooks/useBowl", () => ({
 }));
 
 vi.mock("../../hooks/useUserStreamingServices", () => ({
-  default: () => ({ streamingServices: mocks.state.streamingServices }),
+  default: () => ({
+    streamingServices: mocks.state.streamingServices,
+    defaultDrawSettings: mocks.state.defaultDrawSettings,
+    loading: false,
+  }),
 }));
 
 vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
@@ -79,6 +95,7 @@ vi.mock("react-router-dom", async () => {
     ...actual,
     useNavigate: () => mocks.state.navigate,
     useParams: () => ({ bowlId: mocks.state.bowlId }),
+    useLocation: () => ({ hash: mocks.state.locationHash }),
   };
 });
 
@@ -97,6 +114,18 @@ describe("BowlDashboard draw preferences", () => {
     mocks.state.contributions = { "owner@example.com": 1 };
     mocks.state.handleDraw.mockClear();
     mocks.state.streamingServices = [];
+    mocks.state.defaultDrawSettings = {
+      prioritizeStreaming: false,
+      useStreamingRank: true,
+      selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
+      includeUnknownRatings: true,
+      selectedGenres: null,
+      includeUnknownGenres: true,
+      runtimeMinMinutes: 0,
+      runtimeMaxMinutes: 500,
+      includeUnknownRuntime: true,
+    };
+    mocks.state.locationHash = "";
     vi.useRealTimers();
   });
 
@@ -135,8 +164,8 @@ describe("BowlDashboard draw preferences", () => {
             includeUnknown: true,
           },
           runtimeFilter: {
-            mode: "max",
-            threshold: 500,
+            minMinutes: 0,
+            maxMinutes: 500,
             includeUnknown: true,
           },
         })
@@ -238,7 +267,8 @@ describe("BowlDashboard draw preferences", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
-    fireEvent.click(screen.getByLabelText(/comedy/i));
+    fireEvent.click(screen.getByRole("button", { name: /edit genres/i }));
+    fireEvent.click(screen.getByLabelText(/draw-genre-comedy/i));
 
     vi.useFakeTimers();
     fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
@@ -257,5 +287,46 @@ describe("BowlDashboard draw preferences", () => {
         })
       );
     });
+  });
+
+  it("hydrates draw controls from saved default draw settings", async () => {
+    mocks.state.streamingServices = ["Netflix"];
+    mocks.state.defaultDrawSettings = {
+      prioritizeStreaming: true,
+      useStreamingRank: false,
+      selectedRatings: ["PG-13", "R"],
+      includeUnknownRatings: false,
+      selectedGenres: ["Action"],
+      includeUnknownGenres: false,
+      runtimeMinMinutes: 0,
+      runtimeMaxMinutes: 180,
+      includeUnknownRuntime: false,
+    };
+
+    render(<BowlDashboard />);
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /edit ratings/i }));
+
+    expect(screen.getByRole("checkbox", { name: /prioritize streaming services/i })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /use streaming service ranking/i })).not.toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: /edit runtime/i }));
+    expect(screen.getByRole("spinbutton", { name: /draw-runtime-max/i })).toHaveValue(180);
+    expect(screen.getByRole("spinbutton", { name: /draw-runtime-min/i })).toHaveValue(0);
+    expect(screen.getByLabelText(/draw-rating-pg-13/i)).toBeChecked();
+    expect(screen.getByLabelText(/draw-rating-g/i)).not.toBeChecked();
+  });
+
+  it("links to streaming service ranking from draw filters", async () => {
+    mocks.state.streamingServices = ["Netflix", "Max"];
+
+    render(<BowlDashboard />);
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /edit streaming service ranking/i }));
+
+    expect(mocks.state.navigate).toHaveBeenCalledWith("/settings#streaming-services");
   });
 });
