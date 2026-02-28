@@ -17,6 +17,8 @@ describe("TopNav", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /navigation menu/i }));
     expect(screen.getByRole("menu")).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /my bowls/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /settings/i })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "Escape" });
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
