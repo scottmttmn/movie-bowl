@@ -24,6 +24,8 @@ export default function MyBowlsScreen() {
   const navigate = useNavigate();
   const ownedBowlCount = bowls.filter((b) => b.role === "Owner").length;
   const isCreateBowlLimitReached = ownedBowlCount >= MAX_BOWLS_PER_USER;
+  const ownedBowls = bowls.filter((b) => b.role === "Owner");
+  const sharedBowls = bowls.filter((b) => b.role !== "Owner");
 
   useEffect(() => {
     // Load bowls the user owns, plus bowls they are a member of.
@@ -224,27 +226,77 @@ export default function MyBowlsScreen() {
   return (
     <div className="my-bowls-screen page-container py-4">
       <header className="mb-6">
-        <h2 className="text-2xl font-semibold text-slate-800 mb-3">My Bowls</h2>
         {createErrorMessage && <div className="mb-3 text-sm text-red-600">{createErrorMessage}</div>}
         {createActionMessage && <div className="mb-3 text-sm text-green-700">{createActionMessage}</div>}
-        <div className="flex justify-start">
-          <NewBowlButton onClick={handleNewBowl} disabled={isCreateBowlLimitReached} />
+        <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
+          <div>
+            <h2 className="text-2xl font-semibold text-slate-800">My Bowls</h2>
+            <p className="mt-2 text-sm text-slate-600">
+              Jump back into a bowl or create a new one.
+            </p>
+          </div>
+          <div className="flex justify-start md:justify-end">
+            <NewBowlButton onClick={handleNewBowl} disabled={isCreateBowlLimitReached} />
+          </div>
         </div>
         {isCreateBowlLimitReached && (
-          <div className="mt-2 text-xs text-slate-500">
+          <div className="mt-3 text-xs text-slate-500">
             Bowl limit reached ({MAX_BOWLS_PER_USER}).
           </div>
         )}
       </header>
-      <div className="bowl-list space-y-4">
+      <div className="space-y-8">
         {isLoading ? (
-          <div className="text-sm text-gray-600">Loading bowls…</div>
+          <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-gray-600 shadow-sm">
+            Loading bowls…
+          </div>
         ) : bowls.length === 0 ? (
-          <div className="text-sm text-gray-600">No bowls yet. Create one to get started.</div>
+          <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-8 text-center shadow-sm">
+            <p className="text-lg font-semibold text-slate-800">No bowls yet</p>
+            <p className="mt-2 text-sm text-slate-600">Create one to get started.</p>
+          </div>
         ) : (
-          bowls.map((b) => (
-            <BowlCard key={b.id} bowl={b} onSelect={handleSelectBowl} />
-          ))
+          <>
+            <section>
+              <div className="mb-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800">Owned by you</h3>
+                  <p className="text-sm text-slate-500">Bowls you manage and can configure.</p>
+                </div>
+              </div>
+              {ownedBowls.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-5 text-sm text-slate-600">
+                  You have not created any bowls yet.
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {ownedBowls.map((bowl) => (
+                    <BowlCard key={bowl.id} bowl={bowl} onSelect={handleSelectBowl} />
+                  ))}
+                </div>
+              )}
+            </section>
+
+            <section>
+              <div className="mb-3">
+                <div>
+                  <h3 className="text-lg font-semibold text-slate-800">Shared with you</h3>
+                  <p className="text-sm text-slate-500">Bowls where you participate as a member.</p>
+                </div>
+              </div>
+              {sharedBowls.length === 0 ? (
+                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-5 text-sm text-slate-600">
+                  No shared bowls yet.
+                </div>
+              ) : (
+                <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
+                  {sharedBowls.map((bowl) => (
+                    <BowlCard key={bowl.id} bowl={bowl} onSelect={handleSelectBowl} />
+                  ))}
+                </div>
+              )}
+            </section>
+          </>
         )}
       </div>
 
