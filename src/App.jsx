@@ -14,12 +14,17 @@ function Layout({ children }) {
   const location = useLocation();
   const isLoginRoute = location.pathname === "/login";
   const isSettingsRoute = location.pathname === "/settings";
+  const userEmail = session?.user?.email ?? "";
 
   return (
     <div className="min-h-screen">
       {/* Global actions stay pinned to the top for quick access */}
       {!isLoginRoute && session && (
-        <TopNav isSettingsRoute={isSettingsRoute} onSignOut={signOut} />
+        <TopNav
+          isSettingsRoute={isSettingsRoute}
+          onSignOut={signOut}
+          userEmail={userEmail}
+        />
       )}
 
       <div className={!isLoginRoute && session ? "pt-16" : ""}>{children}</div>

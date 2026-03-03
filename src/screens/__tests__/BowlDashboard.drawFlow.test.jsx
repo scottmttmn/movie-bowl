@@ -82,6 +82,14 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
 
 vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
 
+vi.mock("../../lib/streamingProviders", () => ({
+  fetchStreamingProviders: vi.fn(async () => ({ providers: [], region: "US", fetchedAt: null })),
+}));
+
+vi.mock("../../lib/tmdbApi", () => ({
+  getTmdbMovieDetails: vi.fn(async () => ({})),
+}));
+
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
   return {
@@ -92,6 +100,7 @@ vi.mock("react-router-dom", async () => {
 });
 
 import BowlDashboard from "../BowlDashboard";
+import { getTmdbMovieDetails } from "../../lib/tmdbApi";
 
 describe("BowlDashboard draw flow", () => {
   beforeEach(() => {
@@ -150,6 +159,45 @@ describe("BowlDashboard draw flow", () => {
     expect(screen.queryByText(/drawing a title from the bowl/i)).not.toBeInTheDocument();
     expect(screen.getByText("Movie A (2020)")).toBeInTheDocument();
     vi.useRealTimers();
+  });
+
+  it("enriches a drawn TMDB movie with trailer data before opening the modal", async () => {
+    mocks.state.handleDraw.mockResolvedValue({
+      id: "m1",
+      tmdb_id: 101,
+      title: "Movie A",
+      runtime: 120,
+      release_date: "2020-01-01",
+      streamingProviders: [],
+    });
+    getTmdbMovieDetails.mockResolvedValue({
+      runtime: 123,
+      trailer: {
+        site: "YouTube",
+        key: "movie-a-trailer",
+        embedUrl: "https://www.youtube.com/embed/movie-a-trailer",
+      },
+    });
+
+    render(<BowlDashboard />);
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+
+    await act(async () => {
+      vi.advanceTimersByTime(1200);
+      await Promise.resolve();
+    });
+
+    vi.useRealTimers();
+    await waitFor(() => expect(screen.getByText("Movie A (2020)")).toBeInTheDocument());
+    expect(getTmdbMovieDetails).toHaveBeenCalledWith(101);
+    expect(screen.getByRole("button", { name: /show trailer/i })).toBeInTheDocument();
+    expect(screen.queryByTitle("Movie A trailer")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /show trailer/i }));
+    expect(screen.getByTitle("Movie A trailer")).toBeInTheDocument();
   });
 
   it("does not open a detail modal when draw returns no movie", async () => {

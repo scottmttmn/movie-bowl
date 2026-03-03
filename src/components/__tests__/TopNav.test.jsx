@@ -11,12 +11,13 @@ describe("TopNav", () => {
   it("opens and closes the navigation menu", () => {
     render(
       <MemoryRouter>
-        <TopNav isSettingsRoute={false} onSignOut={vi.fn()} />
+        <TopNav isSettingsRoute={false} onSignOut={vi.fn()} userEmail="user@example.com" />
       </MemoryRouter>
     );
 
     fireEvent.click(screen.getByRole("button", { name: /navigation menu/i }));
     expect(screen.getByRole("menu")).toBeInTheDocument();
+    expect(screen.getByLabelText(/signed in as user@example\.com/i)).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /my bowls/i })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /settings/i })).toBeInTheDocument();
 
@@ -28,7 +29,7 @@ describe("TopNav", () => {
     const onSignOut = vi.fn();
     render(
       <MemoryRouter>
-        <TopNav isSettingsRoute={false} onSignOut={onSignOut} />
+        <TopNav isSettingsRoute={false} onSignOut={onSignOut} userEmail="user@example.com" />
       </MemoryRouter>
     );
 
@@ -41,7 +42,7 @@ describe("TopNav", () => {
   it("closes the menu on outside click", () => {
     render(
       <MemoryRouter>
-        <TopNav isSettingsRoute={false} onSignOut={vi.fn()} />
+        <TopNav isSettingsRoute={false} onSignOut={vi.fn()} userEmail="user@example.com" />
       </MemoryRouter>
     );
 

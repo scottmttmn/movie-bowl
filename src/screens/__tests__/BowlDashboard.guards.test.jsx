@@ -248,4 +248,43 @@ describe("BowlDashboard guards", () => {
     fireEvent.click(screen.getByRole("button", { name: /show trailer/i }));
     expect(screen.getByTitle("Movie A trailer")).toBeInTheDocument();
   });
+
+  it("preserves the bowl row id when re-adding an enriched watched movie", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = {
+      remaining: [],
+      watched: [
+        {
+          id: "w1",
+          tmdb_id: 238,
+          title: "Movie A",
+          release_date: "2020-01-01",
+          drawn_at: "2026-02-23T00:00:00.000Z",
+          added_by: "u1",
+        },
+      ],
+    };
+    mocks.state.contributions = {};
+    mocks.getTmdbMovieDetails.mockResolvedValue({
+      id: 238,
+      runtime: 123,
+      trailer: {
+        site: "YouTube",
+        key: "movie-a-trailer",
+        embedUrl: "https://www.youtube.com/embed/movie-a-trailer",
+      },
+    });
+
+    render(<BowlDashboard />);
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /movie a/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /move to bowl/i })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /move to bowl/i }));
+
+    const readdButtons = screen.getAllByRole("button", { name: /^re-add$/i });
+    fireEvent.click(readdButtons[readdButtons.length - 1]);
+
+    await waitFor(() => expect(mocks.state.handleReaddMovie).toHaveBeenCalledWith("w1"));
+  });
 });

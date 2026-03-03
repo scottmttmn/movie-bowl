@@ -261,8 +261,8 @@ export default function BowlDashboard() {
           : { providers: [], region: "US", fetchedAt: null };
 
       return {
-        ...movie,
         ...(details || {}),
+        ...movie,
         streamingProviders: providerData.providers || [],
         streamingRegion: providerData.region || "US",
         streamingFetchedAt: providerData.fetchedAt || null,
@@ -315,7 +315,8 @@ return (
 
                         const [movie] = await Promise.all([drawPromise, minAnimationDelay]);
                         if (movie) {
-                          setDrawnMovie(movie);
+                          const detailMovie = await buildDetailMovie(movie);
+                          setDrawnMovie(detailMovie);
                         }
                       } finally {
                         setIsDrawing(false);

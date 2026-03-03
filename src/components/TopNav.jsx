@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import bowlImage from "../assets/bowl-illustration.png";
 
-export default function TopNav({ isSettingsRoute, onSignOut }) {
+export default function TopNav({ isSettingsRoute, onSignOut, userEmail = "" }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -66,6 +66,15 @@ export default function TopNav({ isSettingsRoute, onSignOut }) {
               role="menu"
               className="absolute right-0 mt-2 w-44 rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg"
             >
+              {userEmail && (
+                <div
+                  className="mb-1 truncate rounded-md px-3 py-2 text-sm text-slate-500"
+                  title={userEmail}
+                  aria-label={`Signed in as ${userEmail}`}
+                >
+                  {userEmail}
+                </div>
+              )}
               <Link
                 to="/"
                 role="menuitem"
