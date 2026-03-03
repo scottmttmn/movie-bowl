@@ -97,7 +97,12 @@ export function AuthProvider({ children }) {
 
   // Send magic link to user's email
   const signIn = async (email) => {
-    return await supabase.auth.signInWithOtp({ email });
+    return await supabase.auth.signInWithOtp({
+      email,
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
+    });
   };
 
   // Log the user out and clear session.

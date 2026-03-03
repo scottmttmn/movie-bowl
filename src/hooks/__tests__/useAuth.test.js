@@ -35,9 +35,10 @@ const mocks = vi.hoisted(() => {
           },
         };
       }),
-      signInWithOtp: vi.fn(async ({ email }) => ({
+      signInWithOtp: vi.fn(async ({ email, options }) => ({
         ...state.signInResponse,
         email,
+        options,
       })),
       signOut: vi.fn(async () => state.signOutResponse),
     },
@@ -94,7 +95,12 @@ describe("useAuth", () => {
     await act(async () => {
       signInResult = await result.current.signIn("next@example.com");
     });
-    expect(mocks.supabase.auth.signInWithOtp).toHaveBeenCalledWith({ email: "next@example.com" });
+    expect(mocks.supabase.auth.signInWithOtp).toHaveBeenCalledWith({
+      email: "next@example.com",
+      options: {
+        emailRedirectTo: window.location.origin,
+      },
+    });
     expect(signInResult).toMatchObject({ error: null });
 
     let signOutResult;
