@@ -51,7 +51,11 @@ const mocks = vi.hoisted(() => {
     }),
   };
 
-  return { state, supabase };
+  return {
+    state,
+    supabase,
+    getTmdbMovieDetails: vi.fn(async () => ({})),
+  };
 });
 
 vi.mock("../../hooks/useBowl", () => ({
@@ -91,6 +95,10 @@ vi.mock("../../lib/streamingProviders", () => ({
   fetchStreamingProviders: vi.fn(async () => ({ providers: [], region: "US", fetchedAt: null })),
 }));
 
+vi.mock("../../lib/tmdbApi", () => ({
+  getTmdbMovieDetails: mocks.getTmdbMovieDetails,
+}));
+
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
   return {
@@ -120,6 +128,8 @@ describe("BowlDashboard guards", () => {
     mocks.state.contributions = { "owner@example.com": 4 };
     mocks.state.handleReaddMovie.mockClear();
     mocks.state.streamingServices = [];
+    mocks.getTmdbMovieDetails.mockReset();
+    mocks.getTmdbMovieDetails.mockResolvedValue({});
   });
 
   afterEach(() => {
@@ -198,5 +208,44 @@ describe("BowlDashboard guards", () => {
     fireEvent.click(readdButtons[readdButtons.length - 1]);
 
     await waitFor(() => expect(mocks.state.handleReaddMovie).toHaveBeenCalledWith("w1"));
+  });
+
+  it("enriches watched TMDB details with trailer data before opening the modal", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = {
+      remaining: [],
+      watched: [
+        {
+          id: "w1",
+          tmdb_id: 101,
+          title: "Movie A",
+          release_date: "2020-01-01",
+          drawn_at: "2026-02-23T00:00:00.000Z",
+          added_by: "u1",
+        },
+      ],
+    };
+    mocks.state.contributions = {};
+    mocks.getTmdbMovieDetails.mockResolvedValue({
+      runtime: 123,
+      trailer: {
+        site: "YouTube",
+        key: "movie-a-trailer",
+        embedUrl: "https://www.youtube.com/embed/movie-a-trailer",
+      },
+    });
+
+    render(<BowlDashboard />);
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /movie a/i }));
+
+    await waitFor(() => expect(screen.getByText("Movie A (2020)")).toBeInTheDocument());
+    expect(mocks.getTmdbMovieDetails).toHaveBeenCalledWith(101);
+    expect(screen.getByRole("button", { name: /show trailer/i })).toBeInTheDocument();
+    expect(screen.queryByTitle("Movie A trailer")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /show trailer/i }));
+    expect(screen.getByTitle("Movie A trailer")).toBeInTheDocument();
   });
 });

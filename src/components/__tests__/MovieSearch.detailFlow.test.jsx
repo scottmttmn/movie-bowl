@@ -36,6 +36,11 @@ describe("MovieSearch detail flow", () => {
       runtime: 123,
       genres: [{ id: 1, name: "Action" }],
       overview: "Test overview",
+      trailer: {
+        site: "YouTube",
+        key: "movie-a-trailer",
+        embedUrl: "https://www.youtube.com/embed/movie-a-trailer",
+      },
     });
     mocks.fetchStreamingProviders.mockResolvedValue({
       providers: ["Netflix"],
@@ -55,6 +60,11 @@ describe("MovieSearch detail flow", () => {
       expect(screen.getByText("Movie A (2020)")).toBeInTheDocument();
     });
     expect(screen.getByText("Runtime: 123 minutes")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /show trailer/i })).toBeInTheDocument();
+    expect(screen.queryByTitle("Movie A trailer")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /show trailer/i }));
+    expect(screen.getByTitle("Movie A trailer")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /add movie/i }));
 
@@ -65,6 +75,9 @@ describe("MovieSearch detail flow", () => {
           title: "Movie A",
           runtime: 123,
           streamingProviders: ["Netflix"],
+          trailer: expect.objectContaining({
+            key: "movie-a-trailer",
+          }),
         })
       );
     });

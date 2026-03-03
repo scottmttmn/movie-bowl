@@ -30,6 +30,42 @@ describe("AddMovieModal", () => {
     expect(screen.getByText("Netflix")).toBeInTheDocument();
   });
 
+  it("renders a collapsed trailer toggle and expands inline trailer on demand", () => {
+    render(
+      <AddMovieModal
+        movie={{
+          title: "Dune",
+          release_date: "2021-10-22",
+          runtime: 155,
+          streamingProviders: [],
+          trailer: {
+            site: "YouTube",
+            key: "abc123",
+            embedUrl: "https://www.youtube.com/embed/abc123",
+          },
+        }}
+        onClose={vi.fn()}
+        userStreamingServices={[]}
+      />
+    );
+
+    const toggle = screen.getByRole("button", { name: /show trailer/i });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTitle("Dune trailer")).not.toBeInTheDocument();
+
+    fireEvent.click(toggle);
+
+    expect(screen.getByRole("button", { name: /hide trailer/i })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByTitle("Dune trailer")).toHaveAttribute(
+      "src",
+      "https://www.youtube.com/embed/abc123"
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /hide trailer/i }));
+    expect(screen.getByRole("button", { name: /show trailer/i })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTitle("Dune trailer")).not.toBeInTheDocument();
+  });
+
   it("shows custom badge for non-TMDB entries", () => {
     render(
       <AddMovieModal
@@ -39,6 +75,19 @@ describe("AddMovieModal", () => {
       />
     );
     expect(screen.getByText("Custom")).toBeInTheDocument();
+  });
+
+  it("does not render a trailer section when trailer data is missing", () => {
+    render(
+      <AddMovieModal
+        movie={{ title: "Dune", release_date: "2021-10-22", runtime: 155, streamingProviders: [] }}
+        onClose={vi.fn()}
+        userStreamingServices={[]}
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: /show trailer/i })).not.toBeInTheDocument();
+    expect(screen.queryByTitle("Dune trailer")).not.toBeInTheDocument();
   });
 
   it("does not show custom badge for TMDB search movies using id", () => {
@@ -83,5 +132,49 @@ describe("AddMovieModal", () => {
 
     fireEvent.keyDown(window, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(1);
+  });
+
+  it("resets trailer visibility when a different movie is shown", () => {
+    const { rerender } = render(
+      <AddMovieModal
+        movie={{
+          id: 1,
+          title: "Movie A",
+          release_date: "2024-01-01",
+          trailer: {
+            site: "YouTube",
+            key: "movie-a-trailer",
+            embedUrl: "https://www.youtube.com/embed/movie-a-trailer",
+          },
+          streamingProviders: [],
+        }}
+        onClose={vi.fn()}
+        userStreamingServices={[]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /show trailer/i }));
+    expect(screen.getByTitle("Movie A trailer")).toBeInTheDocument();
+
+    rerender(
+      <AddMovieModal
+        movie={{
+          id: 2,
+          title: "Movie B",
+          release_date: "2024-01-01",
+          trailer: {
+            site: "YouTube",
+            key: "movie-b-trailer",
+            embedUrl: "https://www.youtube.com/embed/movie-b-trailer",
+          },
+          streamingProviders: [],
+        }}
+        onClose={vi.fn()}
+        userStreamingServices={[]}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: /show trailer/i })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByTitle("Movie B trailer")).not.toBeInTheDocument();
   });
 });
