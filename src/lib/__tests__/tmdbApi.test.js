@@ -68,17 +68,57 @@ describe("tmdbApi", () => {
     global.fetch
       .mockResolvedValueOnce({
         ok: true,
-        json: async () => ({ id: 77, title: "Heat" }),
+        json: async () => ({
+          id: 77,
+          title: "Heat",
+          videos: {
+            results: [
+              {
+                site: "YouTube",
+                type: "Trailer",
+                official: true,
+                iso_639_1: "en",
+                key: "heat-trailer",
+                name: "Official Trailer",
+              },
+            ],
+          },
+        }),
       })
       .mockResolvedValueOnce({
         ok: true,
         json: async () => ({ results: { US: {} } }),
       });
 
-    await expect(getTmdbMovieDetails("77 ")).resolves.toEqual({ id: 77, title: "Heat" });
+    await expect(getTmdbMovieDetails("77 ")).resolves.toMatchObject({
+      id: 77,
+      title: "Heat",
+      trailer: {
+        key: "heat-trailer",
+        embedUrl: "https://www.youtube.com/embed/heat-trailer",
+      },
+    });
     await expect(getTmdbMovieProviders("77 ")).resolves.toEqual({ results: { US: {} } });
 
     expect(global.fetch).toHaveBeenNthCalledWith(1, "/api/tmdb/movie/details?id=77");
     expect(global.fetch).toHaveBeenNthCalledWith(2, "/api/tmdb/movie/providers?id=77");
+  });
+
+  it("returns null trailer when no official YouTube trailer exists", async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 88,
+        title: "No Trailer Movie",
+        videos: {
+          results: [{ site: "YouTube", type: "Teaser", official: true, iso_639_1: "en", key: "teaser" }],
+        },
+      }),
+    });
+
+    await expect(getTmdbMovieDetails("88")).resolves.toMatchObject({
+      id: 88,
+      trailer: null,
+    });
   });
 });

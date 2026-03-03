@@ -1,3 +1,5 @@
+import { selectOfficialTrailer } from "../utils/selectTrailer";
+
 async function apiGet(url) {
   const response = await fetch(url);
   const data = await response.json().catch(() => ({}));
@@ -18,7 +20,11 @@ export async function searchTmdbMovies(query) {
 export async function getTmdbMovieDetails(id) {
   const tmdbId = String(id || "").trim();
   if (!tmdbId) throw new Error("Missing movie id");
-  return apiGet(`/api/tmdb/movie/details?id=${encodeURIComponent(tmdbId)}`);
+  const data = await apiGet(`/api/tmdb/movie/details?id=${encodeURIComponent(tmdbId)}`);
+  return {
+    ...data,
+    trailer: selectOfficialTrailer(data?.videos?.results),
+  };
 }
 
 export async function getTmdbMovieProviders(id) {

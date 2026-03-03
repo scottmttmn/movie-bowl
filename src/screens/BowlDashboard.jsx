@@ -12,6 +12,7 @@ import AddMovieModal from "../components/AddMovieModal";
 import DrawAnimationModal from "../components/DrawAnimationModal";
 import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { checkContributionBalance } from "../utils/contributionBalance";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
@@ -227,6 +228,46 @@ export default function BowlDashboard() {
         cancelled = true;
       };
     }, [bowlId, navigate]);
+
+    const buildDetailMovie = async (movie) => {
+      const tmdbId = Number(movie?.tmdb_id ?? movie?.id);
+      const shouldFetchTmdbDetails = Number.isInteger(tmdbId) && tmdbId > 0;
+
+      if (!shouldFetchTmdbDetails) {
+        return {
+          ...movie,
+          streamingProviders: movie.streamingProviders || [],
+          streamingRegion: movie.streamingRegion || "US",
+          streamingFetchedAt: movie.streamingFetchedAt || null,
+        };
+      }
+
+      const [detailsResult, providersResult] = await Promise.allSettled([
+        getTmdbMovieDetails(tmdbId),
+        fetchStreamingProviders(tmdbId, { region: "US" }),
+      ]);
+
+      if (detailsResult.status === "rejected") {
+        console.error("[BowlDashboard] Failed to load TMDB detail enrichment", detailsResult.reason);
+      }
+      if (providersResult.status === "rejected") {
+        console.error("[BowlDashboard] Failed to load streaming provider enrichment", providersResult.reason);
+      }
+
+      const details = detailsResult.status === "fulfilled" ? detailsResult.value : null;
+      const providerData =
+        providersResult.status === "fulfilled"
+          ? providersResult.value
+          : { providers: [], region: "US", fetchedAt: null };
+
+      return {
+        ...movie,
+        ...(details || {}),
+        streamingProviders: providerData.providers || [],
+        streamingRegion: providerData.region || "US",
+        streamingFetchedAt: providerData.fetchedAt || null,
+      };
+    };
 
 return (
     <div className="bowl-dashboard page-container pb-10 pt-3 overflow-hidden">
@@ -659,17 +700,8 @@ return (
                 <WatchedMoviesStrip
                   movies={bowl.watched}
                   onSelectMovie={async (movie) => {
-                    const providerData =
-                      Number(movie.tmdb_id) > 0
-                        ? await fetchStreamingProviders(movie.tmdb_id, { region: "US" })
-                        : { providers: [], region: "US", fetchedAt: null };
                     setSelectedDetailContext("watched");
-                    setSelectedDetailMovie({
-                      ...movie,
-                      streamingProviders: providerData.providers || [],
-                      streamingRegion: providerData.region || "US",
-                      streamingFetchedAt: providerData.fetchedAt || null,
-                    });
+                    setSelectedDetailMovie(await buildDetailMovie(movie));
                   }}
                 />
                 {readdErrorMessage && (
@@ -700,17 +732,8 @@ return (
                     <MyAddedMoviesStrip
                       movies={myRemainingAdds}
                       onViewMovie={async (movie) => {
-                        const providerData =
-                          Number(movie.tmdb_id) > 0
-                            ? await fetchStreamingProviders(movie.tmdb_id, { region: "US" })
-                            : { providers: [], region: "US", fetchedAt: null };
                         setSelectedDetailContext("myAdds");
-                        setSelectedDetailMovie({
-                          ...movie,
-                          streamingProviders: providerData.providers || [],
-                          streamingRegion: providerData.region || "US",
-                          streamingFetchedAt: providerData.fetchedAt || null,
-                        });
+                        setSelectedDetailMovie(await buildDetailMovie(movie));
                       }}
                       onDeleteMovie={async (movie) => {
                         const shouldDelete = window.confirm(

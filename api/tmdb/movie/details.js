@@ -13,7 +13,7 @@ export default async function handler(req, res) {
   }
 
   try {
-    const data = await tmdbFetch(`/movie/${encodeURIComponent(id)}?append_to_response=release_dates`);
+    const data = await tmdbFetch(`/movie/${encodeURIComponent(id)}?append_to_response=release_dates,videos`);
     res.status(200).json(data);
   } catch (error) {
     const status = error?.statusCode || 500;
