@@ -3,6 +3,7 @@ import { useNavigate } from "react-router-dom";
 import BowlCard from "../components/BowlCard";
 import NewBowlButton from "../components/NewBowlButton";
 import CreateBowlModal from "../components/CreateBowlModal";
+import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import { supabase } from "../lib/supabase";
 import { MAX_BOWLS_PER_USER } from "../utils/appLimits";
 import { parseInviteEmails } from "../utils/parseInviteEmails";
@@ -22,10 +23,16 @@ export default function MyBowlsScreen() {
   const [createErrorMessage, setCreateErrorMessage] = useState(null);
   const [createActionMessage, setCreateActionMessage] = useState(null);
   const navigate = useNavigate();
+  const {
+    streamingServices,
+    loading: isStreamingServicesLoading,
+  } = useUserStreamingServices();
   const ownedBowlCount = bowls.filter((b) => b.role === "Owner").length;
   const isCreateBowlLimitReached = ownedBowlCount >= MAX_BOWLS_PER_USER;
   const ownedBowls = bowls.filter((b) => b.role === "Owner");
   const sharedBowls = bowls.filter((b) => b.role !== "Owner");
+  const hasStreamingServices = streamingServices.length > 0;
+  const shouldShowGuidedSetup = !isLoading && !isStreamingServicesLoading && bowls.length === 0;
 
   useEffect(() => {
     // Load bowls the user owns, plus bowls they are a member of.
@@ -111,6 +118,10 @@ export default function MyBowlsScreen() {
     setCreateErrorMessage(null);
     setCreateActionMessage(null);
     setIsModalOpen(true);
+  };
+
+  const handleGoToStreamingServices = () => {
+    navigate("/settings#streaming-services");
   };
 
   const handleCreateBowl = async () => {
@@ -246,14 +257,99 @@ export default function MyBowlsScreen() {
         )}
       </header>
       <div className="space-y-8">
-        {isLoading ? (
+        {isLoading || isStreamingServicesLoading ? (
           <div className="rounded-2xl border border-slate-200 bg-white p-6 text-sm text-gray-600 shadow-sm">
             Loading bowls…
           </div>
-        ) : bowls.length === 0 ? (
-          <div className="rounded-2xl border border-dashed border-slate-300 bg-slate-50/70 p-8 text-center shadow-sm">
-            <p className="text-lg font-semibold text-slate-800">No bowls yet</p>
-            <p className="mt-2 text-sm text-slate-600">Create one to get started.</p>
+        ) : shouldShowGuidedSetup ? (
+          <div className="space-y-5">
+            <section className="rounded-2xl border border-slate-200 bg-white p-6 shadow-sm">
+              <div className="max-w-2xl">
+                <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">
+                  First steps
+                </p>
+                <h3 className="mt-2 text-2xl font-semibold text-slate-900">
+                  Start your first movie bowl
+                </h3>
+                <p className="mt-3 text-sm text-slate-600">
+                  Pick your streaming services, then create a bowl for yourself or your group.
+                </p>
+              </div>
+              <div className="mt-5 flex flex-col gap-3 sm:flex-row">
+                <button className="btn btn-primary" onClick={handleNewBowl}>
+                  Create your first bowl
+                </button>
+                <button className="btn btn-secondary" onClick={handleGoToStreamingServices}>
+                  Set up streaming services
+                </button>
+              </div>
+            </section>
+
+            <section className="rounded-2xl border border-slate-200 bg-slate-50/75 p-4 shadow-sm">
+              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+                Guided setup
+              </h3>
+              <div className="mt-4 space-y-3">
+                <article className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                        Step 1
+                      </p>
+                      <h4 className="mt-1 text-base font-semibold text-slate-800">
+                        Set up your streaming services
+                      </h4>
+                      <p className="mt-1 text-sm text-slate-600">
+                        This helps prioritize movies you can actually watch.
+                      </p>
+                    </div>
+                    <span
+                      className={[
+                        "inline-flex shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold",
+                        hasStreamingServices
+                          ? "bg-emerald-100 text-emerald-700"
+                          : "bg-slate-200 text-slate-600",
+                      ].join(" ")}
+                    >
+                      {hasStreamingServices ? "Done" : "Recommended"}
+                    </span>
+                  </div>
+                  <div className="mt-4">
+                    <button
+                      type="button"
+                      onClick={handleGoToStreamingServices}
+                      className={hasStreamingServices ? "text-sm font-medium text-blue-600 hover:text-blue-700" : "btn btn-secondary"}
+                    >
+                      {hasStreamingServices ? "Edit" : "Set up services"}
+                    </button>
+                  </div>
+                </article>
+
+                <article className="rounded-xl border border-slate-200 bg-white p-4">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
+                        Step 2
+                      </p>
+                      <h4 className="mt-1 text-base font-semibold text-slate-800">
+                        Create your first bowl
+                      </h4>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Add a bowl now and start collecting movies to draw from.
+                      </p>
+                    </div>
+                    <span className="inline-flex shrink-0 rounded-full bg-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                      Next
+                    </span>
+                  </div>
+                  <div className="mt-4">
+                    <button type="button" onClick={handleNewBowl} className="btn btn-secondary">
+                      Create bowl
+                    </button>
+                  </div>
+                </article>
+              </div>
+            </section>
           </div>
         ) : (
           <>

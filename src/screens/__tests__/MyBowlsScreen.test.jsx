@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => {
     insertedBowls: [],
     insertedMembers: [],
     insertedInvites: [],
+    streamingServices: [],
+    streamingServicesLoading: false,
   };
 
   const supabase = {
@@ -87,6 +89,19 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
+vi.mock("../../hooks/useUserStreamingServices", () => ({
+  default: () => ({
+    streamingServices: mocks.state.streamingServices,
+    defaultDrawSettings: {},
+    setStreamingServices: vi.fn(),
+    setDefaultDrawSettings: vi.fn(),
+    toggleService: vi.fn(),
+    loading: mocks.state.streamingServicesLoading,
+    reloadStreamingServices: vi.fn(),
+    saveStreamingServices: vi.fn(),
+    saveDefaultDrawSettings: vi.fn(),
+  }),
+}));
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
   return {
@@ -106,14 +121,128 @@ describe("MyBowlsScreen", () => {
     mocks.state.insertedBowls = [];
     mocks.state.insertedMembers = [];
     mocks.state.insertedInvites = [];
+    mocks.state.streamingServices = [];
+    mocks.state.streamingServicesLoading = false;
   });
 
   afterEach(() => {
     cleanup();
   });
 
-  it("creates a bowl with optional contribution limit and invites", async () => {
+  it("shows guided setup when the user has no bowls", async () => {
+    mocks.state.initialAuthenticated = true;
+
     render(<MyBowlsScreen />);
+
+    expect(screen.queryByText(/start your first movie bowl/i)).not.toBeInTheDocument();
+
+    await waitFor(() => expect(screen.getByText(/start your first movie bowl/i)).toBeInTheDocument());
+
+    expect(
+      screen.getByText(/pick your streaming services, then create a bowl for yourself or your group/i)
+    ).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /create your first bowl/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /set up streaming services/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /set up services/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^create bowl$/i })).toBeInTheDocument();
+  });
+
+  it("does not show guided setup when bowls exist", async () => {
+    mocks.state.initialAuthenticated = true;
+    mocks.state.rpcRows = [
+      {
+        id: "bowl-1",
+        name: "Owned Bowl",
+        remaining_count: 3,
+        member_count: 2,
+        owner_id: "u1",
+      },
+    ];
+
+    render(<MyBowlsScreen />);
+
+    await waitFor(() => expect(screen.getByText("Owned Bowl")).toBeInTheDocument());
+
+    expect(screen.queryByText(/start your first movie bowl/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/owned by you/i)).toBeInTheDocument();
+    expect(screen.getByText(/shared with you/i)).toBeInTheDocument();
+  });
+
+  it("deep-links to streaming services from guided setup", async () => {
+    mocks.state.initialAuthenticated = true;
+
+    render(<MyBowlsScreen />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /set up streaming services/i })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /set up streaming services/i }));
+
+    expect(mocks.state.navigate).toHaveBeenCalledWith("/settings#streaming-services");
+  });
+
+  it("opens the create bowl modal from the guided setup CTA", async () => {
+    mocks.state.initialAuthenticated = true;
+
+    render(<MyBowlsScreen />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /create your first bowl/i })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /create your first bowl/i }));
+
+    expect(screen.getByText(/create new bowl/i)).toBeInTheDocument();
+  });
+
+  it("shows the streaming services step as complete when services exist", async () => {
+    mocks.state.initialAuthenticated = true;
+    mocks.state.streamingServices = ["Netflix", "Max"];
+
+    render(<MyBowlsScreen />);
+
+    await waitFor(() => expect(screen.getByText(/start your first movie bowl/i)).toBeInTheDocument());
+
+    expect(screen.getByText(/^done$/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^edit$/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^create bowl$/i })).toBeInTheDocument();
+  });
+
+  it("waits for streaming services to finish loading before showing the guided setup", async () => {
+    mocks.state.initialAuthenticated = true;
+    mocks.state.streamingServicesLoading = true;
+
+    const { rerender } = render(<MyBowlsScreen />);
+
+    await waitFor(() => expect(screen.getByText(/loading bowls/i)).toBeInTheDocument());
+    expect(screen.queryByText(/start your first movie bowl/i)).not.toBeInTheDocument();
+
+    mocks.state.streamingServicesLoading = false;
+    rerender(<MyBowlsScreen />);
+
+    await waitFor(() => expect(screen.getByText(/start your first movie bowl/i)).toBeInTheDocument());
+  });
+
+  it("removes the guided setup after creating the first bowl", async () => {
+    mocks.state.initialAuthenticated = true;
+
+    render(<MyBowlsScreen />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /create your first bowl/i })).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /create your first bowl/i }));
+    fireEvent.change(screen.getByPlaceholderText("Bowl Name"), { target: { value: "Weekend Bowl" } });
+    fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
+
+    await waitFor(() => expect(screen.getByText("Weekend Bowl")).toBeInTheDocument());
+
+    expect(screen.queryByText(/start your first movie bowl/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/owned by you/i)).toBeInTheDocument();
+  });
+
+  it("creates a bowl with optional contribution limit and invites", async () => {
+    mocks.state.initialAuthenticated = true;
+
+    render(<MyBowlsScreen />);
+
+    await waitFor(() => expect(screen.getByText(/start your first movie bowl/i)).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /\+ new bowl/i }));
     fireEvent.change(screen.getByPlaceholderText("Bowl Name"), { target: { value: "Weekend Bowl" } });
@@ -125,7 +254,7 @@ describe("MyBowlsScreen", () => {
     });
     fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
 
-    await waitFor(() => expect(screen.getByText("Weekend Bowl")).toBeInTheDocument());
+    await waitFor(() => expect(screen.queryByText(/start your first movie bowl/i)).not.toBeInTheDocument());
 
     expect(mocks.state.insertedBowls[0][0]).toMatchObject({
       owner_id: "u1",
