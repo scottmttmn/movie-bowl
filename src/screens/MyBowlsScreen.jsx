@@ -4,6 +4,7 @@ import BowlCard from "../components/BowlCard";
 import NewBowlButton from "../components/NewBowlButton";
 import CreateBowlModal from "../components/CreateBowlModal";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
+import { sendInviteEmails } from "../lib/inviteEmails";
 import { supabase } from "../lib/supabase";
 import { MAX_BOWLS_PER_USER } from "../utils/appLimits";
 import { parseInviteEmails } from "../utils/parseInviteEmails";
@@ -204,9 +205,29 @@ export default function MyBowlsScreen() {
         console.error("Failed to create invites", inviteError);
         setCreateErrorMessage("Bowl created, but invites could not be created.");
       } else {
-        setCreateActionMessage(
-          `Bowl created with ${validEmails.length} invite${validEmails.length === 1 ? "" : "s"}.`
+        const emailResult = await sendInviteEmails(
+          validEmails.map((email, index) => ({
+            bowlId: newBowl.id,
+            bowlName: newBowl.name,
+            invitedEmail: email,
+            invitedByEmail: user.email || null,
+            token: inviteRows[index].token,
+          }))
         );
+
+        if (!emailResult.error && emailResult.failed === 0) {
+          setCreateActionMessage(
+            `Bowl created and ${emailResult.sent} invite email${emailResult.sent === 1 ? "" : "s"} sent.`
+          );
+        } else if (emailResult.sent > 0) {
+          setCreateActionMessage(
+            `Bowl created, but only ${emailResult.sent} of ${validEmails.length} invite email${validEmails.length === 1 ? "" : "s"} sent.`
+          );
+        } else {
+          setCreateActionMessage(
+            "Bowl created, but invite emails could not be sent. You can still share the invite links from Bowl Settings."
+          );
+        }
       }
     }
 

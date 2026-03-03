@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import { sendInviteEmails } from "../lib/inviteEmails";
 import { supabase } from "../lib/supabase";
 import { parseInviteEmails } from "../utils/parseInviteEmails";
 
@@ -169,9 +170,24 @@ export default function BowlSettings() {
       const link = `${window.location.origin}/accept-invite/${token}`;
       setInviteLink(link);
       setEmailToInvite("");
-      setActionMessage("Invite created. Share the link with your friend.");
 
       await loadBowlAndMembers();
+
+      const emailResult = await sendInviteEmails([
+        {
+          bowlId,
+          bowlName,
+          invitedEmail: email,
+          invitedByEmail: currentUserEmail || null,
+          token,
+        },
+      ]);
+
+      if (!emailResult.error && emailResult.failed === 0) {
+        setActionMessage("Invite created and email sent.");
+      } else {
+        setActionMessage("Invite created, but email could not be sent. You can still copy the link.");
+      }
     } catch (err) {
       console.error("[BowlSettings] Unexpected error creating invite", err);
       setErrorMessage("Unexpected error creating invite.");

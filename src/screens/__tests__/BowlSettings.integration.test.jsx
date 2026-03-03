@@ -26,6 +26,7 @@ const mocks = vi.hoisted(() => {
       deleteBowl: null,
       verifyMembership: null,
     },
+    sendInviteEmailsResult: { sent: 1, failed: 0, results: [{ email: "newfriend@example.com", ok: true }], error: null },
   };
 
   function getEq(filters, key) {
@@ -213,6 +214,9 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
+vi.mock("../../lib/inviteEmails", () => ({
+  sendInviteEmails: vi.fn(async () => mocks.state.sendInviteEmailsResult),
+}));
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
   return {
@@ -264,6 +268,12 @@ describe("BowlSettings integration", () => {
       deleteBowlMembers: null,
       deleteBowl: null,
       verifyMembership: null,
+    };
+    mocks.state.sendInviteEmailsResult = {
+      sent: 1,
+      failed: 0,
+      results: [{ email: "newfriend@example.com", ok: true }],
+      error: null,
     };
   });
 
@@ -329,7 +339,40 @@ describe("BowlSettings integration", () => {
     window.confirm = originalConfirm;
   });
 
-  it("allows owner to create an invite link", async () => {
+  it("allows owner to create an invite link and sends email", async () => {
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText("friend@example.com")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("friend@example.com"), {
+      target: { value: "newfriend@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^invite$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue(/accept-invite\//i)).toBeInTheDocument();
+    });
+    expect(screen.getByText(/invite created and email sent\./i)).toBeInTheDocument();
+
+    expect(mocks.state.insertedInvites).toHaveLength(1);
+    expect(mocks.state.insertedInvites[0][0]).toMatchObject({
+      bowl_id: "bowl-1",
+      invited_email: "newfriend@example.com",
+      invited_by: "owner-1",
+    });
+    expect(screen.getByText("newfriend@example.com")).toBeInTheDocument();
+  });
+
+  it("keeps the invite link available when invite email sending fails", async () => {
+    mocks.state.sendInviteEmailsResult = {
+      sent: 0,
+      failed: 1,
+      results: [{ email: "newfriend@example.com", ok: false, error: "smtp down" }],
+      error: "smtp down",
+    };
+
     render(<BowlSettings />);
 
     await waitFor(() => {
@@ -345,13 +388,9 @@ describe("BowlSettings integration", () => {
       expect(screen.getByDisplayValue(/accept-invite\//i)).toBeInTheDocument();
     });
 
-    expect(mocks.state.insertedInvites).toHaveLength(1);
-    expect(mocks.state.insertedInvites[0][0]).toMatchObject({
-      bowl_id: "bowl-1",
-      invited_email: "newfriend@example.com",
-      invited_by: "owner-1",
-    });
-    expect(screen.getByText("newfriend@example.com")).toBeInTheDocument();
+    expect(
+      screen.getByText(/invite created, but email could not be sent\. you can still copy the link\./i)
+    ).toBeInTheDocument();
   });
 
   it("allows owner to update bowl name and contribution lead", async () => {

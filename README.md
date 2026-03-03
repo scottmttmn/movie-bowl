@@ -39,18 +39,23 @@ npm install
 VITE_SUPABASE_URL=...
 VITE_SUPABASE_ANON_KEY=...
 TMDB_READ_ACCESS_TOKEN=...
+APP_BASE_URL=https://moviebowl.app
+RESEND_API_KEY=...
+INVITE_EMAIL_FROM="Movie Bowl <invites@mail.moviebowl.app>"
 ```
 
-3. Run locally:
+3. Run locally.
 
-```bash
-npm run dev
-```
-
-For TMDB-backed features during local development, run with Vercel's local runtime so `/api/tmdb/*` routes are available:
+For full local behavior, including `/api/*` routes:
 
 ```bash
 vercel dev
+```
+
+If you only need frontend-only iteration, you can still use:
+
+```bash
+npm run dev
 ```
 
 ## Scripts
@@ -83,6 +88,62 @@ vercel dev
 - Bowl dashboard UI: `src/screens/BowlDashboard.jsx`
 - Bowl settings UI: `src/screens/BowlSettings.jsx`
 - User settings UI: `src/screens/UserSettings.jsx`
+- Invite email route: `api/invites/send.js`
+
+## Production Setup
+
+### Canonical app domain
+
+- Production app URL: `https://moviebowl.app`
+- Configure `moviebowl.app` as the primary production domain in Vercel
+- In Supabase Auth settings:
+  - `Site URL` should be `https://moviebowl.app`
+  - `Allowed Redirect URLs` should include:
+    - `https://moviebowl.app`
+    - `http://localhost:3000`
+    - optionally `http://localhost:5173`
+
+### Sending domain
+
+- Use a dedicated sending subdomain for email:
+  - `mail.moviebowl.app`
+- Verify `mail.moviebowl.app` in Resend
+- Add the DNS records Resend provides for that subdomain
+- Recommended sender:
+  - `Movie Bowl <invites@mail.moviebowl.app>`
+
+### Auth email delivery
+
+- The app still uses Supabase magic-link auth
+- To avoid the default Supabase email rate limits, configure custom SMTP in Supabase Auth
+- Recommended branded sender:
+  - `Movie Bowl <auth@mail.moviebowl.app>`
+
+### Invite email delivery
+
+- Bowl invites are stored in `bowl_invites`
+- The app sends invite emails through:
+  - `POST /api/invites/send`
+- Invite links inside those emails use:
+  - `APP_BASE_URL`
+
+## Environment Variables
+
+### Browser-visible
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+These are visible in the browser bundle by design.
+
+### Server-only
+
+- `TMDB_READ_ACCESS_TOKEN`
+- `APP_BASE_URL`
+- `RESEND_API_KEY`
+- `INVITE_EMAIL_FROM`
+
+Do not prefix server-only values with `VITE_`.
 
 ## Tests
 

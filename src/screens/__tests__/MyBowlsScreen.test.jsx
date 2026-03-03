@@ -12,6 +12,7 @@ const mocks = vi.hoisted(() => {
     insertedInvites: [],
     streamingServices: [],
     streamingServicesLoading: false,
+    sendInviteEmailsResult: { sent: 1, failed: 0, results: [{ email: "friend@example.com", ok: true }], error: null },
   };
 
   const supabase = {
@@ -89,6 +90,9 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
+vi.mock("../../lib/inviteEmails", () => ({
+  sendInviteEmails: vi.fn(async () => mocks.state.sendInviteEmailsResult),
+}));
 vi.mock("../../hooks/useUserStreamingServices", () => ({
   default: () => ({
     streamingServices: mocks.state.streamingServices,
@@ -123,6 +127,12 @@ describe("MyBowlsScreen", () => {
     mocks.state.insertedInvites = [];
     mocks.state.streamingServices = [];
     mocks.state.streamingServicesLoading = false;
+    mocks.state.sendInviteEmailsResult = {
+      sent: 1,
+      failed: 0,
+      results: [{ email: "friend@example.com", ok: true }],
+      error: null,
+    };
   });
 
   afterEach(() => {
@@ -255,6 +265,7 @@ describe("MyBowlsScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
 
     await waitFor(() => expect(screen.queryByText(/start your first movie bowl/i)).not.toBeInTheDocument());
+    expect(screen.getByText(/bowl created and 1 invite email sent\./i)).toBeInTheDocument();
 
     expect(mocks.state.insertedBowls[0][0]).toMatchObject({
       owner_id: "u1",
@@ -271,6 +282,32 @@ describe("MyBowlsScreen", () => {
       invited_email: "friend@example.com",
       invited_by: "u1",
     });
+  });
+
+  it("shows a partial failure message when invite emails cannot be sent", async () => {
+    mocks.state.initialAuthenticated = true;
+    mocks.state.sendInviteEmailsResult = {
+      sent: 0,
+      failed: 1,
+      results: [{ email: "friend@example.com", ok: false, error: "resend down" }],
+      error: "resend down",
+    };
+
+    render(<MyBowlsScreen />);
+
+    await waitFor(() => expect(screen.getByText(/start your first movie bowl/i)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /\+ new bowl/i }));
+    fireEvent.change(screen.getByPlaceholderText("Bowl Name"), { target: { value: "Weekend Bowl" } });
+    fireEvent.change(screen.getByLabelText(/invite emails \(optional\)/i), {
+      target: { value: "friend@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
+
+    await waitFor(() => expect(screen.queryByText(/start your first movie bowl/i)).not.toBeInTheDocument());
+    expect(
+      screen.getByText(/bowl created, but invite emails could not be sent\. you can still share the invite links from bowl settings\./i)
+    ).toBeInTheDocument();
   });
 
   it("disables creating new bowls when owner already has 10 bowls", async () => {
