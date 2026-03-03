@@ -103,6 +103,16 @@ describe("useAuth", () => {
     });
     expect(signInResult).toMatchObject({ error: null });
 
+    await act(async () => {
+      await result.current.signIn("next@example.com", "https://moviebowl.app/accept-invite/token-1");
+    });
+    expect(mocks.supabase.auth.signInWithOtp).toHaveBeenLastCalledWith({
+      email: "next@example.com",
+      options: {
+        emailRedirectTo: "https://moviebowl.app/accept-invite/token-1",
+      },
+    });
+
     let signOutResult;
     await act(async () => {
       signOutResult = await result.current.signOut();

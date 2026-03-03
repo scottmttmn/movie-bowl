@@ -3,6 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   signIn: vi.fn(),
+  locationState: null,
 }));
 
 vi.mock("../../hooks/useAuth", () => ({
@@ -11,6 +12,16 @@ vi.mock("../../hooks/useAuth", () => ({
   }),
 }));
 
+vi.mock("react-router-dom", async () => {
+  const actual = await vi.importActual("react-router-dom");
+  return {
+    ...actual,
+    useLocation: () => ({
+      state: mocks.locationState,
+    }),
+  };
+});
+
 import LoginPage from "../LoginPage";
 
 describe("LoginPage", () => {
@@ -18,6 +29,7 @@ describe("LoginPage", () => {
     vi.restoreAllMocks();
     mocks.signIn.mockReset();
     mocks.signIn.mockResolvedValue({ error: null });
+    mocks.locationState = null;
   });
 
   afterEach(() => {
@@ -33,8 +45,32 @@ describe("LoginPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /send magic link/i }));
 
     await waitFor(() => {
-      expect(mocks.signIn).toHaveBeenCalledWith("user@example.com");
+      expect(mocks.signIn).toHaveBeenCalledWith("user@example.com", window.location.origin);
       expect(screen.getByText(/check your email for a magic link/i)).toBeInTheDocument();
+    });
+  });
+
+  it("uses the preserved route as the magic-link redirect target when present", async () => {
+    mocks.locationState = {
+      from: {
+        pathname: "/accept-invite/token-123",
+        search: "",
+        hash: "",
+      },
+    };
+
+    render(<LoginPage />);
+
+    fireEvent.change(screen.getByPlaceholderText("Email"), {
+      target: { value: "user@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /send magic link/i }));
+
+    await waitFor(() => {
+      expect(mocks.signIn).toHaveBeenCalledWith(
+        "user@example.com",
+        `${window.location.origin}/accept-invite/token-123`
+      );
     });
   });
 

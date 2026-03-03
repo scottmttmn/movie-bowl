@@ -96,11 +96,11 @@ export function AuthProvider({ children }) {
   }, []);
 
   // Send magic link to user's email
-  const signIn = async (email) => {
+  const signIn = async (email, redirectTo = window.location.origin) => {
     return await supabase.auth.signInWithOtp({
       email,
       options: {
-        emailRedirectTo: window.location.origin,
+        emailRedirectTo: redirectTo,
       },
     });
   };

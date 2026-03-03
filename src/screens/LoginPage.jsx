@@ -1,12 +1,19 @@
 import { useState } from "react";
+import { useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 
 export default function LoginPage() {
   const { signIn } = useAuth();
+  const location = useLocation();
   const [email, setEmail] = useState("");
   const [sent, setSent] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [errorMessage, setErrorMessage] = useState(null);
+
+  const from = location.state?.from;
+  const redirectTo = from?.pathname
+    ? `${window.location.origin}${from.pathname}${from.search || ""}${from.hash || ""}`
+    : window.location.origin;
 
   // Submit the email to Supabase Auth to send a magic link.
   const handleSubmit = async (e) => {
@@ -19,7 +26,7 @@ export default function LoginPage() {
     setErrorMessage(null);
 
     try {
-      const { error } = await signIn(email);
+      const { error } = await signIn(email, redirectTo);
 
       if (error) {
         setErrorMessage(error.message || "Failed to send magic link.");
