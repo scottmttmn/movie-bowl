@@ -143,19 +143,46 @@ export default function useBowl(bowlId) {
       return null;
     }
 
-    const { error } = await supabase
+    const matchesDrawnMovie = (movie) => {
+      if (Number(drawn?.tmdb_id) > 0) {
+        return Number(movie?.tmdb_id) === Number(drawn.tmdb_id);
+      }
+      return String(movie?.title || "").trim() === String(drawn?.title || "").trim();
+    };
+
+    const matchingUndrawnRows = (bowl.remaining || []).filter(matchesDrawnMovie);
+    const canonicalRow = matchingUndrawnRows[0] || drawn;
+    const duplicateRows = matchingUndrawnRows.slice(1);
+
+    const { error: updateError } = await supabase
       .from("bowl_movies")
       .update({ drawn_at: new Date().toISOString(), drawn_by: user.id })
       .eq("bowl_id", bowlId)
       .is("drawn_at", null)
-      .eq(
-        Number(drawn?.tmdb_id) > 0 ? "tmdb_id" : "title",
-        Number(drawn?.tmdb_id) > 0 ? drawn.tmdb_id : drawn.title
-      );
+      .eq("id", canonicalRow.id);
 
-    if (error) {
-      console.error("[useBowl] Failed to draw movie", error);
+    if (updateError) {
+      console.error("[useBowl] Failed to draw movie", updateError);
       return null;
+    }
+
+    if (duplicateRows.length > 0) {
+      const duplicateIds = duplicateRows.map((movie) => movie.id).filter(Boolean);
+      if (duplicateIds.length > 0) {
+        const { error: deleteError } = await supabase
+          .from("bowl_movies")
+          .delete()
+          .eq("bowl_id", bowlId)
+          .is("drawn_at", null)
+          .in("id", duplicateIds);
+
+        if (deleteError) {
+          console.error("[useBowl] Failed to remove duplicate undrawn rows after draw", deleteError);
+          setErrorMessage("Could not finalize draw because duplicate cleanup failed.");
+          await loadBowlMovies();
+          return null;
+        }
+      }
     }
 
     // Reload after updating.

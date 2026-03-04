@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   updatePayloads: [],
   updateEqFilters: [],
   deleteEqFilters: [],
+  deleteInFilters: [],
   deleteCalled: false,
   fetchStreamingProviders: vi.fn(),
   getTmdbMovieDetails: vi.fn(),
@@ -85,6 +86,12 @@ const mocks = vi.hoisted(() => ({
           mocks.deleteCalled = true;
           return query;
         }),
+        in: vi.fn((key, values) => {
+          if (state.mode === "delete") {
+            mocks.deleteInFilters.push({ key, values });
+          }
+          return query;
+        }),
         then: (resolve) => resolve({ data: null, error: null }),
       };
 
@@ -112,6 +119,7 @@ describe("useBowl handleDraw integration", () => {
     mocks.updatePayloads = [];
     mocks.updateEqFilters = [];
     mocks.deleteEqFilters = [];
+    mocks.deleteInFilters = [];
     mocks.deleteCalled = false;
     mocks.fetchStreamingProviders.mockReset();
     mocks.getTmdbMovieDetails.mockReset();
@@ -153,7 +161,7 @@ describe("useBowl handleDraw integration", () => {
       expect.arrayContaining([
         { key: "bowl_id", value: "bowl-1" },
         { key: "drawn_at", value: null },
-        { key: "tmdb_id", value: 101 },
+        { key: "id", value: "m1" },
       ])
     );
 
@@ -200,7 +208,7 @@ describe("useBowl handleDraw integration", () => {
       expect.arrayContaining([
         { key: "bowl_id", value: "bowl-1" },
         { key: "drawn_at", value: null },
-        { key: "tmdb_id", value: 202 },
+        { key: "id", value: "m2" },
       ])
     );
 
@@ -287,14 +295,13 @@ describe("useBowl handleDraw integration", () => {
     expect(mocks.insertPayloads[1][0].tmdb_id).toBeLessThan(0);
   });
 
-  it("draw marks all duplicate TMDB instances as drawn", async () => {
+  it("draw keeps one watched instance and deletes duplicate TMDB undrawn rows", async () => {
     const movie1 = { id: "m1", tmdb_id: 101, title: "Movie A" };
     const movie2 = { id: "m2", tmdb_id: 101, title: "Movie A" };
 
     mocks.remainingQueue.push([movie1, movie2], []);
     mocks.watchedQueue.push([], [
       { ...movie1, drawn_at: "2026-02-23T00:00:00.000Z", drawn_by: "user-1" },
-      { ...movie2, drawn_at: "2026-02-23T00:00:00.000Z", drawn_by: "user-1" },
     ]);
     mocks.fetchStreamingProviders.mockResolvedValue({
       providers: ["Netflix"],
@@ -314,13 +321,66 @@ describe("useBowl handleDraw integration", () => {
       expect.arrayContaining([
         { key: "bowl_id", value: "bowl-1" },
         { key: "drawn_at", value: null },
-        { key: "tmdb_id", value: 101 },
+        { key: "id", value: "m1" },
+      ])
+    );
+    expect(mocks.deleteCalled).toBe(true);
+    expect(mocks.deleteEqFilters).toEqual(
+      expect.arrayContaining([
+        { key: "bowl_id", value: "bowl-1" },
+        { key: "drawn_at", value: null },
+      ])
+    );
+    expect(mocks.deleteInFilters).toEqual(
+      expect.arrayContaining([
+        { key: "id", values: ["m2"] },
       ])
     );
 
     await waitFor(() => {
       expect(result.current.bowl.remaining).toHaveLength(0);
-      expect(result.current.bowl.watched).toHaveLength(2);
+      expect(result.current.bowl.watched).toHaveLength(1);
+    });
+
+    randomSpy.mockRestore();
+  });
+
+  it("draw keeps one watched instance and deletes duplicate custom-title undrawn rows", async () => {
+    const customA = { id: "c1", tmdb_id: -111, title: "Wildcard Night" };
+    const customB = { id: "c2", tmdb_id: -222, title: "Wildcard Night" };
+
+    mocks.remainingQueue.push([customA, customB], []);
+    mocks.watchedQueue.push([], [
+      { ...customA, drawn_at: "2026-02-23T00:00:00.000Z", drawn_by: "user-1" },
+    ]);
+    mocks.fetchStreamingProviders.mockResolvedValue({
+      providers: [],
+      region: "US",
+      fetchedAt: "2026-02-23T00:00:00.000Z",
+    });
+
+    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleDraw();
+    });
+
+    expect(mocks.updateEqFilters).toEqual(
+      expect.arrayContaining([
+        { key: "id", value: "c1" },
+      ])
+    );
+    expect(mocks.deleteInFilters).toEqual(
+      expect.arrayContaining([
+        { key: "id", values: ["c2"] },
+      ])
+    );
+
+    await waitFor(() => {
+      expect(result.current.bowl.remaining).toHaveLength(0);
+      expect(result.current.bowl.watched).toHaveLength(1);
     });
 
     randomSpy.mockRestore();
@@ -523,7 +583,7 @@ describe("useBowl handleDraw integration", () => {
 
     expect(mocks.updateEqFilters).toEqual(
       expect.arrayContaining([
-        { key: "tmdb_id", value: 302 },
+        { key: "id", value: "m2" },
       ])
     );
     randomSpy.mockRestore();
@@ -576,7 +636,7 @@ describe("useBowl handleDraw integration", () => {
 
     expect(mocks.updateEqFilters).toEqual(
       expect.arrayContaining([
-        { key: "tmdb_id", value: 501 },
+        { key: "id", value: "m1" },
       ])
     );
     randomSpy.mockRestore();
@@ -605,7 +665,7 @@ describe("useBowl handleDraw integration", () => {
 
     expect(mocks.updateEqFilters).toEqual(
       expect.arrayContaining([
-        { key: "tmdb_id", value: 602 },
+        { key: "id", value: "m2" },
       ])
     );
     randomSpy.mockRestore();
@@ -661,7 +721,7 @@ describe("useBowl handleDraw integration", () => {
 
     expect(mocks.updateEqFilters).toEqual(
       expect.arrayContaining([
-        { key: "tmdb_id", value: 802 },
+        { key: "id", value: "m2" },
       ])
     );
     randomSpy.mockRestore();
