@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { RokuDeviceProvider } from "../../context/RokuDeviceContext";
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
@@ -41,6 +42,14 @@ vi.mock("react-router-dom", async () => {
 
 import UserSettings from "../UserSettings";
 
+function renderSettings() {
+  return render(
+    <RokuDeviceProvider>
+      <UserSettings />
+    </RokuDeviceProvider>
+  );
+}
+
 describe("UserSettings", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -75,7 +84,7 @@ describe("UserSettings", () => {
   it("shows loading state while streaming services are loading", () => {
     mocks.hook.loading = true;
 
-    render(<UserSettings />);
+    renderSettings();
 
     expect(screen.getByText("Loading...")).toBeInTheDocument();
   });
@@ -83,7 +92,7 @@ describe("UserSettings", () => {
   it("saves services and alerts on success", async () => {
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
 
-    render(<UserSettings />);
+    renderSettings();
 
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
@@ -98,7 +107,7 @@ describe("UserSettings", () => {
     mocks.hook.saveStreamingServices.mockResolvedValue({ error: new Error("nope") });
     const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
 
-    render(<UserSettings />);
+    renderSettings();
 
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
@@ -110,7 +119,7 @@ describe("UserSettings", () => {
   });
 
   it("supports search, selection shortcuts, reordering, removal, and back navigation", () => {
-    render(<UserSettings />);
+    renderSettings();
 
     fireEvent.change(screen.getByPlaceholderText("Search services..."), {
       target: { value: "crunch" },
@@ -155,7 +164,7 @@ describe("UserSettings", () => {
   });
 
   it("updates default draw settings controls", () => {
-    render(<UserSettings />);
+    renderSettings();
 
     fireEvent.click(screen.getByLabelText(/default prioritize streaming services/i));
     expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
@@ -218,7 +227,7 @@ describe("UserSettings", () => {
   });
 
   it("shows an empty state when search finds no services", () => {
-    render(<UserSettings />);
+    renderSettings();
 
     fireEvent.change(screen.getByPlaceholderText("Search services..."), {
       target: { value: "zzz" },
