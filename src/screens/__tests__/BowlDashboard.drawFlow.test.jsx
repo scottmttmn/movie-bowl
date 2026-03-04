@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { RokuDeviceProvider } from "../../context/RokuDeviceContext";
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -102,6 +103,14 @@ vi.mock("react-router-dom", async () => {
 import BowlDashboard from "../BowlDashboard";
 import { getTmdbMovieDetails } from "../../lib/tmdbApi";
 
+function renderDashboard() {
+  return render(
+    <RokuDeviceProvider>
+      <BowlDashboard />
+    </RokuDeviceProvider>
+  );
+}
+
 describe("BowlDashboard draw flow", () => {
   beforeEach(() => {
     mocks.state.navigate.mockReset();
@@ -135,7 +144,7 @@ describe("BowlDashboard draw flow", () => {
       streamingProviders: [],
     });
 
-    render(<BowlDashboard />);
+    renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     vi.useFakeTimers();
@@ -179,7 +188,7 @@ describe("BowlDashboard draw flow", () => {
       },
     });
 
-    render(<BowlDashboard />);
+    renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     vi.useFakeTimers();
@@ -203,7 +212,7 @@ describe("BowlDashboard draw flow", () => {
   it("does not open a detail modal when draw returns no movie", async () => {
     mocks.state.handleDraw.mockResolvedValue(null);
 
-    render(<BowlDashboard />);
+    renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     vi.useFakeTimers();

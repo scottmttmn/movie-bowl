@@ -6,6 +6,7 @@ import useAuth from "./hooks/useAuth";
 import LoginPage from "./screens/LoginPage";
 import UserSettings from "./screens/UserSettings";
 import BowlSettings from "./screens/BowlSettings";
+import RokuPocScreen from "./screens/RokuPocScreen";
 import TopNav from "./components/TopNav";
 import { supabase } from "./lib/supabase";
 
@@ -14,12 +15,13 @@ function Layout({ children }) {
   const location = useLocation();
   const isLoginRoute = location.pathname === "/login";
   const isSettingsRoute = location.pathname === "/settings";
+  const isRokuPocRoute = location.pathname === "/roku-poc";
   const userEmail = session?.user?.email ?? "";
 
   return (
     <div className="min-h-screen">
       {/* Global actions stay pinned to the top for quick access */}
-      {!isLoginRoute && session && (
+      {!isLoginRoute && !isRokuPocRoute && session && (
         <TopNav
           isSettingsRoute={isSettingsRoute}
           onSignOut={signOut}
@@ -27,7 +29,7 @@ function Layout({ children }) {
         />
       )}
 
-      <div className={!isLoginRoute && session ? "pt-16" : ""}>{children}</div>
+      <div className={!isLoginRoute && !isRokuPocRoute && session ? "pt-16" : ""}>{children}</div>
     </div>
   );
 }
@@ -158,10 +160,11 @@ function App() {
     <Router>
       <Layout>
         <Routes>
-        <Route path="/settings" element={
-          <RequireAuth><UserSettings />
-          </RequireAuth>
-        } />
+          <Route path="/roku-poc" element={<RokuPocScreen />} />
+          <Route path="/settings" element={
+            <RequireAuth><UserSettings />
+            </RequireAuth>
+          } />
           <Route path="/login" element={<LoginPage />} />
           <Route path="/accept-invite/:token" element={<AcceptInvite />} />
           <Route path="/" element={

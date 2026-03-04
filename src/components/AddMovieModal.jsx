@@ -10,6 +10,11 @@ export default function AddMovieModal({
   userStreamingServices = [],
   detailPrimaryActionLabel = null,
   onDetailPrimaryAction = null,
+  preferredLaunchCandidate = null,
+  preferredLaunchUnavailableReason = "",
+  isLaunchingPreferredService = false,
+  onLaunchPreferredService = null,
+  rokuLaunchStatus = null,
 }) {
   const [isTrailerVisible, setIsTrailerVisible] = useState(false);
 
@@ -175,6 +180,50 @@ export default function AddMovieModal({
             <p className="text-sm text-slate-500">None of your saved services match this title.</p>
           )}
         </div>
+
+        {(preferredLaunchCandidate || preferredLaunchUnavailableReason || rokuLaunchStatus) && (
+          <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
+            <p className="mb-1 text-sm font-semibold text-slate-800">Open on Roku</p>
+            {preferredLaunchCandidate ? (
+              <>
+                <p className="mb-3 text-sm text-slate-600">
+                  Using your highest-ranked installed match: {preferredLaunchCandidate.serviceName}.
+                </p>
+                <button
+                  type="button"
+                  onClick={onLaunchPreferredService}
+                  disabled={isLaunchingPreferredService}
+                  className="btn btn-primary"
+                >
+                  {isLaunchingPreferredService
+                    ? `Opening ${preferredLaunchCandidate.serviceName}...`
+                    : `Open on Roku in ${preferredLaunchCandidate.serviceName}`}
+                </button>
+              </>
+            ) : (
+              preferredLaunchUnavailableReason && (
+                <p className="text-sm text-slate-600">{preferredLaunchUnavailableReason}</p>
+              )
+            )}
+
+            {rokuLaunchStatus && (
+              <div
+                className={`mt-3 rounded-lg px-3 py-2 text-sm ${
+                  rokuLaunchStatus.ok ? "bg-emerald-50 text-emerald-900" : "bg-red-50 text-red-900"
+                }`}
+              >
+                <p className="font-medium">{rokuLaunchStatus.message}</p>
+                {Array.isArray(rokuLaunchStatus.details) && rokuLaunchStatus.details.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {rokuLaunchStatus.details.map((detail) => (
+                      <li key={detail}>{detail}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+          </div>
+        )}
 
         <div className="flex gap-3 justify-end">
           {onDetailPrimaryAction && detailPrimaryActionLabel && (

@@ -10,6 +10,7 @@ import {
   RUNTIME_FILTER_MIN_MINUTES,
 } from "../utils/drawSettings";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
+import { useRokuDevice } from "../context/RokuDeviceContext";
 
 const MAJOR_STREAMING_SERVICES = [
   "Netflix",
@@ -31,6 +32,7 @@ export default function UserSettings() {
   const [showDefaultRatings, setShowDefaultRatings] = useState(false);
   const [showDefaultGenres, setShowDefaultGenres] = useState(false);
   const [showDefaultRuntime, setShowDefaultRuntime] = useState(false);
+  const [manualRokuIp, setManualRokuIp] = useState("");
   const streamingServicesRef = useRef(null);
   const {
     streamingServices,
@@ -43,6 +45,18 @@ export default function UserSettings() {
     saveDefaultDrawSettings,
   } =
     useUserStreamingServices();
+  const {
+    devices: rokuDevices,
+    selectedRoku,
+    selectedRokuIp,
+    setSelectedRokuIp,
+    setupSteps: rokuSetupSteps,
+    deviceError: rokuDeviceError,
+    setDeviceError: setRokuDeviceError,
+    discoveryLoading: isDiscoveringRokus,
+    discoverDevices,
+    validateManualIp,
+  } = useRokuDevice();
 
   const appendMissingServices = (base, additions) => {
     const next = [...base];
@@ -442,6 +456,111 @@ export default function UserSettings() {
                 <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-blue-600" />
                 <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
               </label>
+            </div>
+          )}
+
+          <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
+            <div className="text-left">
+              <p className="text-sm font-medium text-gray-800">Open preferred Roku app for drawn movies</p>
+              <p className="text-xs text-gray-500">Quietly show a Roku launch button only when a preferred installed app is available.</p>
+            </div>
+            <label htmlFor="enable-preferred-roku-app-launch" className="relative inline-flex items-center cursor-pointer">
+              <input
+                id="enable-preferred-roku-app-launch"
+                name="enable_preferred_roku_app_launch"
+                aria-label="Enable preferred Roku app launch"
+                type="checkbox"
+                className="peer sr-only"
+                checked={defaultDrawSettings.enablePreferredRokuAppLaunch}
+                onChange={(event) =>
+                  setDefaultDrawSettings({
+                    ...defaultDrawSettings,
+                    enablePreferredRokuAppLaunch: event.target.checked,
+                  })
+                }
+                disabled={streamingServices.length === 0}
+              />
+              <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-blue-600 peer-disabled:bg-gray-200" />
+              <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+            </label>
+          </div>
+
+          {defaultDrawSettings.enablePreferredRokuAppLaunch && (
+            <div className="border-t border-slate-200 pt-4">
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <div className="text-left">
+                  <p className="text-sm font-medium text-gray-800">
+                    Preferred Roku: {selectedRoku ? `${selectedRoku.name} (${selectedRoku.ip})` : "Not selected"}
+                  </p>
+                  <p className="text-xs text-gray-500">
+                    This device will be used quietly from the bowl page when possible.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary"
+                  onClick={() => discoverDevices()}
+                  disabled={isDiscoveringRokus}
+                >
+                  {isDiscoveringRokus ? "Scanning..." : "Rescan Rokus"}
+                </button>
+              </div>
+
+              {rokuDevices.length > 0 && (
+                <div className="mt-3 space-y-2">
+                  {rokuDevices.map((device) => (
+                    <label
+                      key={`${device.ip}:${device.port}`}
+                      className={`flex cursor-pointer items-start justify-between gap-3 rounded-xl border px-3 py-2 text-left transition ${
+                        selectedRokuIp === device.ip
+                          ? "border-blue-500 bg-blue-50"
+                          : "border-slate-200 bg-white hover:border-slate-300"
+                      }`}
+                    >
+                      <div>
+                        <div className="font-medium text-slate-900">{device.name}</div>
+                        <div className="text-xs text-slate-500">{device.ip}:{device.port}</div>
+                      </div>
+                      <input
+                        type="radio"
+                        name="preferred-roku-device"
+                        checked={selectedRokuIp === device.ip}
+                        onChange={() => setSelectedRokuIp(device.ip)}
+                      />
+                    </label>
+                  ))}
+                </div>
+              )}
+
+              <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                <input
+                  type="text"
+                  value={manualRokuIp}
+                  onChange={(event) => setManualRokuIp(event.target.value)}
+                  placeholder="Manual Roku IP"
+                  className="input-field"
+                />
+                <button
+                  type="button"
+                  className="btn btn-secondary sm:min-w-40"
+                  onClick={async () => {
+                    setRokuDeviceError("");
+                    await validateManualIp(manualRokuIp);
+                  }}
+                  disabled={isDiscoveringRokus}
+                >
+                  Validate Roku
+                </button>
+              </div>
+
+              {rokuDeviceError && <p className="mt-2 text-sm text-red-600">{rokuDeviceError}</p>}
+              {rokuSetupSteps.length > 0 && (
+                <ul className="mt-2 space-y-1 text-xs text-slate-500">
+                  {rokuSetupSteps.map((step) => (
+                    <li key={step}>{step}</li>
+                  ))}
+                </ul>
+              )}
             </div>
           )}
 

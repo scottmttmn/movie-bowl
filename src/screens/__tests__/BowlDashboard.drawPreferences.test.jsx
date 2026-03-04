@@ -1,6 +1,7 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MPAA_RATING_OPTIONS } from "../../utils/movieRatings";
+import { RokuDeviceProvider } from "../../context/RokuDeviceContext";
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -101,6 +102,14 @@ vi.mock("react-router-dom", async () => {
 
 import BowlDashboard from "../BowlDashboard";
 
+function renderDashboard() {
+  return render(
+    <RokuDeviceProvider>
+      <BowlDashboard />
+    </RokuDeviceProvider>
+  );
+}
+
 describe("BowlDashboard draw preferences", () => {
   beforeEach(() => {
     mocks.state.navigate.mockReset();
@@ -136,7 +145,7 @@ describe("BowlDashboard draw preferences", () => {
   it("owner draw uses the owner's streaming services in prioritize payload", async () => {
     mocks.state.streamingServices = ["Netflix", "Max"];
 
-    render(<BowlDashboard />);
+    renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
@@ -181,7 +190,7 @@ describe("BowlDashboard draw preferences", () => {
       watched: [],
     };
 
-    render(<BowlDashboard />);
+    renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
@@ -208,7 +217,7 @@ describe("BowlDashboard draw preferences", () => {
   it("can disable ranking while still prioritizing services", async () => {
     mocks.state.streamingServices = ["Hulu", "Netflix"];
 
-    render(<BowlDashboard />);
+    renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
@@ -238,7 +247,7 @@ describe("BowlDashboard draw preferences", () => {
   it("resets ranking toggle to on whenever prioritize streaming is turned on", async () => {
     mocks.state.streamingServices = ["Hulu", "Netflix"];
 
-    render(<BowlDashboard />);
+    renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
@@ -263,7 +272,7 @@ describe("BowlDashboard draw preferences", () => {
       watched: [],
     };
 
-    render(<BowlDashboard />);
+    renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
@@ -303,7 +312,7 @@ describe("BowlDashboard draw preferences", () => {
       includeUnknownRuntime: false,
     };
 
-    render(<BowlDashboard />);
+    renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
@@ -321,7 +330,7 @@ describe("BowlDashboard draw preferences", () => {
   it("links to streaming service ranking from draw filters", async () => {
     mocks.state.streamingServices = ["Netflix", "Max"];
 
-    render(<BowlDashboard />);
+    renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
