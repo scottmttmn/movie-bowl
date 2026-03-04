@@ -1,5 +1,6 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { RokuDeviceProvider } from "../../context/RokuDeviceContext";
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -110,6 +111,14 @@ vi.mock("react-router-dom", async () => {
 
 import BowlDashboard from "../BowlDashboard";
 
+function renderDashboard() {
+  return render(
+    <RokuDeviceProvider>
+      <BowlDashboard />
+    </RokuDeviceProvider>
+  );
+}
+
 describe("BowlDashboard guards", () => {
   beforeEach(() => {
     mocks.state.navigate.mockReset();
@@ -137,7 +146,7 @@ describe("BowlDashboard guards", () => {
   });
 
   it("disables Add Movie when user is over the contribution lead limit", async () => {
-    render(<BowlDashboard />);
+    renderDashboard();
 
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
@@ -152,7 +161,7 @@ describe("BowlDashboard guards", () => {
     mocks.state.bowlData = { remaining: [], watched: [] };
     mocks.state.contributions = {};
 
-    render(<BowlDashboard />);
+    renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     expect(screen.getByRole("button", { name: /\+ add movie/i })).toBeEnabled();
@@ -169,7 +178,7 @@ describe("BowlDashboard guards", () => {
     };
     mocks.state.contributions = {};
 
-    render(<BowlDashboard />);
+    renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     expect(screen.getByRole("button", { name: /\+ add movie/i })).toBeDisabled();
@@ -192,7 +201,7 @@ describe("BowlDashboard guards", () => {
     };
     mocks.state.contributions = {};
 
-    render(<BowlDashboard />);
+    renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /movie a/i }));
@@ -235,7 +244,7 @@ describe("BowlDashboard guards", () => {
       },
     });
 
-    render(<BowlDashboard />);
+    renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /movie a/i }));
@@ -275,7 +284,7 @@ describe("BowlDashboard guards", () => {
       },
     });
 
-    render(<BowlDashboard />);
+    renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /movie a/i }));

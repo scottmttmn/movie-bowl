@@ -1,4 +1,4 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MovieSearch from "../MovieSearch";
 
@@ -25,6 +25,7 @@ describe("MovieSearch detail flow", () => {
   });
 
   afterEach(() => {
+    cleanup();
     vi.restoreAllMocks();
   });
 
@@ -80,6 +81,52 @@ describe("MovieSearch detail flow", () => {
           }),
         })
       );
+    });
+  });
+
+  it("prevents duplicate add submits when add is clicked twice quickly", async () => {
+    mocks.searchTmdbMovies.mockResolvedValue({
+      results: [{ id: 101, title: "Movie A", release_date: "2020-01-01", poster_path: "/a.jpg" }],
+    });
+    mocks.getTmdbMovieDetails.mockResolvedValue({
+      runtime: 123,
+      genres: [{ id: 1, name: "Action" }],
+      overview: "Test overview",
+      trailer: null,
+    });
+    mocks.fetchStreamingProviders.mockResolvedValue({
+      providers: ["Netflix"],
+      region: "US",
+      fetchedAt: null,
+    });
+
+    let resolveAdd;
+    const onAddMovie = vi.fn(
+      () =>
+        new Promise((resolve) => {
+          resolveAdd = resolve;
+        })
+    );
+
+    render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={["Netflix"]} />);
+    fireEvent.change(screen.getByPlaceholderText("Search movies..."), { target: { value: "Movie A" } });
+
+    await screen.findByText("Movie A");
+    const addButton = screen.getByRole("button", { name: /^add$/i });
+
+    fireEvent.click(addButton);
+    fireEvent.click(addButton);
+
+    await waitFor(() => {
+      expect(onAddMovie).toHaveBeenCalledTimes(1);
+    });
+    expect(addButton).toBeDisabled();
+    expect(addButton).toHaveTextContent("Adding...");
+
+    resolveAdd();
+
+    await waitFor(() => {
+      expect(screen.queryByText("Movie A")).not.toBeInTheDocument();
     });
   });
 });

@@ -14,6 +14,7 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
     const [highlightedIndex, setHighlightedIndex] = useState(0);
     const [providersByMovieId, setProvidersByMovieId] = useState({});
     const [detailMovie, setDetailMovie] = useState(null);
+    const [isAdding, setIsAdding] = useState(false);
     const inputRef = useRef(null);
     const latestRequestRef = useRef(0);
 
@@ -94,12 +95,16 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
 
     // Add movie with full details fetched inside
     const addMovie = async (movie) => {
+        if (isAdding) return;
+        setIsAdding(true);
         try {
             const detailedMovie = await buildDetailedMovie(movie);
             await onAddMovie(detailedMovie);
         } catch (error) {
             console.error("Failed to fetch movie details", error);
             setSearchError("Failed to load movie details. Please try again.");
+        } finally {
+            setIsAdding(false);
         }
         setSearchTerm("");
         setSearchResults([]);
@@ -109,13 +114,15 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
 
     const addCustomMovie = async () => {
         const customTitle = searchTerm.trim();
-        if (!customTitle) return;
+        if (!customTitle || isAdding) return;
+        setIsAdding(true);
 
         try {
             await onAddMovie(buildCustomMovie(customTitle));
         } catch (error) {
             console.error("Failed to add custom movie", error);
             setSearchError("Failed to add custom entry. Please try again.");
+            setIsAdding(false);
             return;
         }
 
@@ -124,6 +131,7 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
         setSearchResults([]);
         setHighlightedIndex(0);
         inputRef.current?.focus();
+        setIsAdding(false);
     };
 
     const openDetails = async (movie) => {
@@ -151,6 +159,7 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                 setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : prev));
             }
         } else if (e.key === "Enter") {
+            if (isAdding) return;
             if (searchResults.length > 0) {
                 const selectedMovie = searchResults[highlightedIndex];
                 await addMovie(selectedMovie);
@@ -263,8 +272,9 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                                     await addMovie(movie);
                                   }}
                                   className="btn btn-primary text-xs px-2 py-1"
+                                  disabled={isAdding}
                                 >
-                                  Add
+                                  {isAdding ? "Adding..." : "Add"}
                                 </button>
                                 <button
                                   type="button"
@@ -272,6 +282,7 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                                     await openDetails(movie);
                                   }}
                                   className="btn btn-secondary text-xs px-2 py-1"
+                                  disabled={isAdding}
                                 >
                                   Details
                                 </button>
@@ -300,8 +311,9 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                   type="button"
                   onClick={addCustomMovie}
                   className="btn btn-secondary px-3 py-1.5 text-xs"
+                  disabled={isAdding}
                 >
-                  Add &quot;{searchTerm.trim()}&quot;
+                  {isAdding ? "Adding..." : `Add "${searchTerm.trim()}"`}
                 </button>
               </div>
             )}
@@ -312,7 +324,13 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                 userStreamingServices={userStreamingServices}
                 detailPrimaryActionLabel="Add Movie"
                 onDetailPrimaryAction={async (selectedMovie) => {
-                  await onAddMovie(selectedMovie);
+                  if (isAdding) return;
+                  setIsAdding(true);
+                  try {
+                    await onAddMovie(selectedMovie);
+                  } finally {
+                    setIsAdding(false);
+                  }
                 }}
                 onClose={() => setDetailMovie(null)}
               />

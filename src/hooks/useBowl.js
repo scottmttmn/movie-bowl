@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
@@ -10,6 +10,12 @@ function createSyntheticTmdbId() {
   const min = 1;
   const max = 2_000_000_000;
   return -Math.floor(Math.random() * (max - min + 1)) - min;
+}
+
+function looksLikeUuid(value) {
+  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
+    String(value || "").trim()
+  );
 }
 // useBowl is the core state engine for a bowl.
 // It manages bowl state and defines how that state transitions (add + draw).
@@ -26,6 +32,7 @@ export default function useBowl(bowlId) {
   // Simple loading/error flags for DB-backed state.
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState(null);
+  const addRequestsInFlightRef = useRef(new Set());
 
   // Contribution stats can be computed from DB-backed rows.
   // For MVP we compute client-side; later this can be a SQL aggregate/view.
@@ -171,55 +178,67 @@ export default function useBowl(bowlId) {
         return;
       }
 
-      const { data: authData, error: authError } = await supabase.auth.getSession();
-      const user = authData?.session?.user;
-
-      if (authError || !user) {
-        console.error("[useBowl] Not authenticated", authError);
-        return;
-      }
-
-      const nowIso = new Date().toISOString();
-
+      const normalizedTitle = String(movie.title).trim().toLowerCase();
       const movieTmdbId = Number.isInteger(movie?.id) ? movie.id : null;
+      const addLockKey =
+        movieTmdbId && movieTmdbId > 0 ? `tmdb:${movieTmdbId}` : `custom:${normalizedTitle}`;
 
-      // Normalize genres into a simple string array.
-      const genreNames = Array.isArray(movie?.genres)
-        ? movie.genres.map((g) => g?.name).filter(Boolean)
-        : [];
-
-      const payload = {
-        bowl_id: bowlId,
-        added_by: user.id,
-        tmdb_id: movieTmdbId,
-        title: String(movie.title).trim(),
-        poster_path: movie.poster_path ?? null,
-        release_date: movie.release_date ?? null,
-        runtime: movie.runtime ?? null,
-        genres: genreNames,
-        overview: movie.overview ?? null,
-        snapshot_at: nowIso,
-      };
-
-      let { error } = await supabase.from("bowl_movies").insert([payload]);
-
-      // Some deployments keep tmdb_id as NOT NULL. For custom entries, retry with
-      // a synthetic negative ID so the row can still be inserted.
-      if (error && payload.tmdb_id == null) {
-        const fallbackPayload = {
-          ...payload,
-          tmdb_id: createSyntheticTmdbId(),
-        };
-        const retryResult = await supabase.from("bowl_movies").insert([fallbackPayload]);
-        error = retryResult.error;
-      }
-
-      if (error) {
-        console.error("[useBowl] Failed to add movie", error);
+      if (addRequestsInFlightRef.current.has(addLockKey)) {
         return;
       }
+      addRequestsInFlightRef.current.add(addLockKey);
 
-      await loadBowlMovies();
+      try {
+        const { data: authData, error: authError } = await supabase.auth.getSession();
+        const user = authData?.session?.user;
+
+        if (authError || !user) {
+          console.error("[useBowl] Not authenticated", authError);
+          return;
+        }
+
+        const nowIso = new Date().toISOString();
+
+        // Normalize genres into a simple string array.
+        const genreNames = Array.isArray(movie?.genres)
+          ? movie.genres.map((g) => g?.name).filter(Boolean)
+          : [];
+
+        const payload = {
+          bowl_id: bowlId,
+          added_by: user.id,
+          tmdb_id: movieTmdbId,
+          title: String(movie.title).trim(),
+          poster_path: movie.poster_path ?? null,
+          release_date: movie.release_date ?? null,
+          runtime: movie.runtime ?? null,
+          genres: genreNames,
+          overview: movie.overview ?? null,
+          snapshot_at: nowIso,
+        };
+
+        let { error } = await supabase.from("bowl_movies").insert([payload]);
+
+        // Some deployments keep tmdb_id as NOT NULL. For custom entries, retry with
+        // a synthetic negative ID so the row can still be inserted.
+        if (error && payload.tmdb_id == null) {
+          const fallbackPayload = {
+            ...payload,
+            tmdb_id: createSyntheticTmdbId(),
+          };
+          const retryResult = await supabase.from("bowl_movies").insert([fallbackPayload]);
+          error = retryResult.error;
+        }
+
+        if (error) {
+          console.error("[useBowl] Failed to add movie", error);
+          return;
+        }
+
+        await loadBowlMovies();
+      } finally {
+        addRequestsInFlightRef.current.delete(addLockKey);
+      }
     },
     [bowlId, bowl.remaining, loadBowlMovies]
   );
@@ -262,6 +281,34 @@ export default function useBowl(bowlId) {
         return false;
       }
 
+      // Defensive fallback: if a TMDB id slips through from enriched UI data,
+      // map it back to the corresponding watched bowl row UUID.
+      let targetRowId = movieId;
+      if (!looksLikeUuid(movieId)) {
+        const movieIdNumber = Number(movieId);
+        if (Number.isFinite(movieIdNumber)) {
+          const matchedWatchedRow = (bowl.watched || []).find(
+            (movie) => Number(movie?.tmdb_id) === movieIdNumber
+          );
+          if (matchedWatchedRow?.id) {
+            targetRowId = matchedWatchedRow.id;
+          }
+        }
+      }
+
+      if (!looksLikeUuid(targetRowId)) {
+        const matchesExistingRowId = (bowl.watched || []).some(
+          (movie) => String(movie?.id || "") === String(targetRowId)
+        );
+        if (matchesExistingRowId) {
+          // Test fixtures and some local mocks may use non-UUID ids.
+          // If the id maps to an existing watched row, allow it.
+        } else {
+          console.error("[useBowl] Invalid re-add movie id", { movieId, targetRowId });
+          return false;
+        }
+      }
+
       const { data: authData, error: authError } = await supabase.auth.getSession();
       const user = authData?.session?.user;
 
@@ -273,7 +320,7 @@ export default function useBowl(bowlId) {
       const { error } = await supabase
         .from("bowl_movies")
         .update({ drawn_at: null, drawn_by: null })
-        .eq("id", movieId)
+        .eq("id", targetRowId)
         .eq("bowl_id", bowlId)
         .not("drawn_at", "is", null);
 

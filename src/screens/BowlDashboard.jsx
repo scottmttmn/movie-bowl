@@ -305,6 +305,7 @@ export default function BowlDashboard() {
       return {
         ...(details || {}),
         ...movie,
+        bowlMovieId: movie?.id ?? null,
         streamingProviders: providerData.providers || [],
         streamingRegion: providerData.region || "US",
         streamingFetchedAt: providerData.fetchedAt || null,
@@ -931,7 +932,8 @@ return (
                           return;
                         }
                         setIsReadding(true);
-                        const ok = await handleReaddMovie(pendingReaddMovie.id);
+                        const rowId = pendingReaddMovie?.bowlMovieId ?? pendingReaddMovie?.id;
+                        const ok = await handleReaddMovie(rowId);
                         setIsReadding(false);
                         setPendingReaddMovie(null);
                         if (!ok) {
