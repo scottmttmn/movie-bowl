@@ -18,6 +18,7 @@ describe("TopNav", () => {
     fireEvent.click(screen.getByRole("button", { name: /navigation menu/i }));
     expect(screen.getByRole("menu")).toBeInTheDocument();
     expect(screen.getByLabelText(/signed in as user@example\.com/i)).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /about/i })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /my bowls/i })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /settings/i })).toBeInTheDocument();
 
@@ -51,5 +52,21 @@ describe("TopNav", () => {
 
     fireEvent.pointerDown(document.body);
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+  });
+
+  it("shows only About and Log in options when logged out", () => {
+    render(
+      <MemoryRouter>
+        <TopNav isSettingsRoute={false} onSignOut={vi.fn()} isAuthenticated={false} />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /navigation menu/i }));
+
+    expect(screen.getByRole("menuitem", { name: /about/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /log in/i })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /settings/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /log out/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/signed in as/i)).not.toBeInTheDocument();
   });
 });

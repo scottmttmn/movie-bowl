@@ -2,7 +2,7 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import bowlImage from "../assets/bowl-illustration.png";
 
-export default function TopNav({ isSettingsRoute, onSignOut, userEmail = "" }) {
+export default function TopNav({ isSettingsRoute, onSignOut, userEmail = "", isAuthenticated = true }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -76,34 +76,55 @@ export default function TopNav({ isSettingsRoute, onSignOut, userEmail = "" }) {
                 </div>
               )}
               <Link
-                to="/"
+                to="/about"
                 role="menuitem"
                 onClick={() => setIsMenuOpen(false)}
                 className="flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
               >
-                My Bowls
+                About
               </Link>
-              <Link
-                to="/settings"
-                role="menuitem"
-                onClick={() => setIsMenuOpen(false)}
-                className={`flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 ${
-                  isSettingsRoute ? "bg-slate-100 text-slate-500 pointer-events-none" : ""
-                }`}
-              >
-                Settings
-              </Link>
-              <button
-                type="button"
-                role="menuitem"
-                onClick={() => {
-                  setIsMenuOpen(false);
-                  onSignOut?.();
-                }}
-                className="mt-1 flex w-full items-center rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50"
-              >
-                Log out
-              </button>
+              {isAuthenticated ? (
+                <>
+                  <Link
+                    to="/"
+                    role="menuitem"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                  >
+                    My Bowls
+                  </Link>
+                  <Link
+                    to="/settings"
+                    role="menuitem"
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 ${
+                      isSettingsRoute ? "bg-slate-100 text-slate-500 pointer-events-none" : ""
+                    }`}
+                  >
+                    Settings
+                  </Link>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => {
+                      setIsMenuOpen(false);
+                      onSignOut?.();
+                    }}
+                    className="mt-1 flex w-full items-center rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                  >
+                    Log out
+                  </button>
+                </>
+              ) : (
+                <Link
+                  to="/login"
+                  role="menuitem"
+                  onClick={() => setIsMenuOpen(false)}
+                  className="mt-1 flex w-full items-center rounded-md px-3 py-2 text-sm text-blue-700 hover:bg-blue-50"
+                >
+                  Log in
+                </Link>
+              )}
             </div>
           )}
         </div>
