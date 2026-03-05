@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
   insertPayloads: [],
   insertResponses: [],
   updatePayloads: [],
+  updateResponses: [],
   updateEqFilters: [],
   deleteEqFilters: [],
   deleteInFilters: [],
@@ -92,7 +93,12 @@ const mocks = vi.hoisted(() => ({
           }
           return query;
         }),
-        then: (resolve) => resolve({ data: null, error: null }),
+        then: (resolve) => {
+          if (state.mode === "update" && mocks.updateResponses.length > 0) {
+            return resolve(mocks.updateResponses.shift());
+          }
+          return resolve({ data: null, error: null });
+        },
       };
 
       return query;
@@ -117,6 +123,7 @@ describe("useBowl handleDraw integration", () => {
     mocks.insertPayloads = [];
     mocks.insertResponses = [];
     mocks.updatePayloads = [];
+    mocks.updateResponses = [];
     mocks.updateEqFilters = [];
     mocks.deleteEqFilters = [];
     mocks.deleteInFilters = [];
@@ -587,6 +594,32 @@ describe("useBowl handleDraw integration", () => {
       ])
     );
     randomSpy.mockRestore();
+  });
+
+  it("shows a friendly message when draw is blocked by RLS", async () => {
+    const movie = { id: "m1", tmdb_id: 101, title: "Movie A" };
+    mocks.remainingQueue.push([movie]);
+    mocks.watchedQueue.push([]);
+    mocks.fetchStreamingProviders.mockResolvedValue({
+      providers: [],
+      region: "US",
+      fetchedAt: null,
+    });
+    mocks.updateResponses.push({
+      data: null,
+      error: { code: "42501", message: "permission denied for table bowl_movies" },
+    });
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let drawn;
+    await act(async () => {
+      drawn = await result.current.handleDraw();
+    });
+
+    expect(drawn).toBeNull();
+    expect(result.current.errorMessage).toMatch(/don't have permission to draw/i);
   });
 
   it("draw blocks with message when runtime filter has no matches", async () => {

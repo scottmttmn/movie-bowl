@@ -7,8 +7,9 @@ const mocks = vi.hoisted(() => {
     bowlId: "bowl-1",
     navigate: vi.fn(),
     authUserId: "u1",
-    bowlRow: { name: "Bowl 1", owner_id: "u1", max_contribution_lead: 1 },
+    bowlRow: { name: "Bowl 1", owner_id: "u1", max_contribution_lead: 1, draw_access_mode: "all_members" },
     memberRows: [{ user_id: "u1" }, { user_id: "u2" }],
+    drawPermissionRows: [],
     bowlData: {
       remaining: [
         { id: "m1", added_by: "u1" },
@@ -44,6 +45,9 @@ const mocks = vi.hoisted(() => {
         then: (resolve, reject) => {
           if (table === "bowl_members") {
             return Promise.resolve({ data: state.memberRows, error: null }).then(resolve, reject);
+          }
+          if (table === "bowl_draw_permissions") {
+            return Promise.resolve({ data: state.drawPermissionRows, error: null }).then(resolve, reject);
           }
           return Promise.resolve({ data: [], error: null }).then(resolve, reject);
         },
@@ -123,8 +127,9 @@ describe("BowlDashboard guards", () => {
   beforeEach(() => {
     mocks.state.navigate.mockReset();
     mocks.state.authUserId = "u1";
-    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", max_contribution_lead: 1 };
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", max_contribution_lead: 1, draw_access_mode: "all_members" };
     mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
+    mocks.state.drawPermissionRows = [];
     mocks.state.bowlData = {
       remaining: [
         { id: "m1", added_by: "u1" },
@@ -295,5 +300,62 @@ describe("BowlDashboard guards", () => {
     fireEvent.click(readdButtons[readdButtons.length - 1]);
 
     await waitFor(() => expect(mocks.state.handleReaddMovie).toHaveBeenCalledWith("w1"));
+  });
+
+  it("disables draw for a non-selected member in selected-members mode", async () => {
+    mocks.state.authUserId = "u2";
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", max_contribution_lead: null, draw_access_mode: "selected_members" };
+    mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
+    mocks.state.drawPermissionRows = [{ user_id: "u3" }];
+    mocks.state.bowlData = { remaining: [{ id: "m1", added_by: "u1" }], watched: [] };
+    mocks.state.contributions = {};
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    expect(screen.getByRole("button", { name: /draw movie/i })).toBeDisabled();
+    expect(screen.getByText(/only selected members can draw in this bowl/i)).toBeInTheDocument();
+  });
+
+  it("allows draw for selected member in selected-members mode", async () => {
+    mocks.state.authUserId = "u2";
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", max_contribution_lead: null, draw_access_mode: "selected_members" };
+    mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
+    mocks.state.drawPermissionRows = [{ user_id: "u2" }];
+    mocks.state.bowlData = { remaining: [{ id: "m1", added_by: "u1" }], watched: [] };
+    mocks.state.contributions = {};
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    expect(screen.getByRole("button", { name: /draw movie/i })).toBeEnabled();
+  });
+
+  it("owner can draw in selected-members mode even if not listed", async () => {
+    mocks.state.authUserId = "u1";
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", max_contribution_lead: null, draw_access_mode: "selected_members" };
+    mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
+    mocks.state.drawPermissionRows = [];
+    mocks.state.bowlData = { remaining: [{ id: "m1", added_by: "u2" }], watched: [] };
+    mocks.state.contributions = {};
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    expect(screen.getByRole("button", { name: /draw movie/i })).toBeEnabled();
+  });
+
+  it("keeps draw enabled for members in all-members mode", async () => {
+    mocks.state.authUserId = "u2";
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", max_contribution_lead: null, draw_access_mode: "all_members" };
+    mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
+    mocks.state.drawPermissionRows = [];
+    mocks.state.bowlData = { remaining: [{ id: "m1", added_by: "u1" }], watched: [] };
+    mocks.state.contributions = {};
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    expect(screen.getByRole("button", { name: /draw movie/i })).toBeEnabled();
   });
 });

@@ -163,6 +163,13 @@ export default function useBowl(bowlId) {
 
     if (updateError) {
       console.error("[useBowl] Failed to draw movie", updateError);
+      const errorCode = String(updateError?.code || "");
+      const errorMessageText = String(updateError?.message || "").toLowerCase();
+      const isPermissionDenied =
+        errorCode === "42501" || errorMessageText.includes("permission denied");
+      if (isPermissionDenied) {
+        setErrorMessage("You don't have permission to draw in this bowl.");
+      }
       return null;
     }
 

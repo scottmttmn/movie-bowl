@@ -9,17 +9,23 @@ const mocks = vi.hoisted(() => {
     bowl: { id: "bowl-1", name: "Bowl 1", owner_id: "owner-1" },
     members: [],
     invites: [],
+    drawPermissions: [],
     operations: [],
     insertedInvites: [],
+    insertedDrawPermissions: [],
     updatedBowls: [],
     errors: {
       loadBowl: null,
       loadMembers: null,
       loadInvites: null,
+      loadDrawPermissions: null,
       insertInvite: null,
+      insertDrawPermissions: null,
       updateBowl: null,
+      updateDrawAccessMode: null,
       deleteInvite: null,
       deleteMember: null,
+      deleteDrawPermissions: null,
       deleteMovies: null,
       deleteBowlInvites: null,
       deleteBowlMembers: null,
@@ -70,6 +76,15 @@ const mocks = vi.hoisted(() => {
       return { data: rows, error: null };
     }
 
+    if (queryState.action === "select" && table === "bowl_draw_permissions" && terminal === "then") {
+      if (state.errors.loadDrawPermissions) return { data: null, error: state.errors.loadDrawPermissions };
+      const bowlId = getEq(queryState.filters, "bowl_id");
+      const rows = state.drawPermissions
+        .filter((permission) => permission.bowl_id === bowlId)
+        .map((permission) => ({ user_id: permission.user_id }));
+      return { data: rows, error: null };
+    }
+
     if (queryState.action === "delete" && table === "bowl_invites" && terminal === "then") {
       const id = getEq(queryState.filters, "id");
       const bowlId = getEq(queryState.filters, "bowl_id");
@@ -109,6 +124,15 @@ const mocks = vi.hoisted(() => {
       return { data: [], error: null };
     }
 
+    if (queryState.action === "delete" && table === "bowl_draw_permissions" && terminal === "then") {
+      if (state.errors.deleteDrawPermissions) {
+        return { data: null, error: state.errors.deleteDrawPermissions };
+      }
+      const bowlId = getEq(queryState.filters, "bowl_id");
+      state.drawPermissions = state.drawPermissions.filter((permission) => permission.bowl_id !== bowlId);
+      return { data: [], error: null };
+    }
+
     if (queryState.action === "delete" && table === "bowl_movies" && terminal === "then") {
       if (state.errors.deleteMovies) {
         return { data: null, error: state.errors.deleteMovies };
@@ -143,7 +167,24 @@ const mocks = vi.hoisted(() => {
       return { data: rows, error: null };
     }
 
+    if (queryState.action === "insert" && table === "bowl_draw_permissions" && terminal === "then") {
+      if (state.errors.insertDrawPermissions) {
+        return { data: null, error: state.errors.insertDrawPermissions };
+      }
+      const rows = queryState.payload || [];
+      state.insertedDrawPermissions.push(rows);
+      state.drawPermissions = [...state.drawPermissions, ...rows];
+      return { data: rows, error: null };
+    }
+
     if (queryState.action === "update" && table === "bowls" && terminal === "then") {
+      if (
+        queryState.payload &&
+        Object.prototype.hasOwnProperty.call(queryState.payload, "draw_access_mode") &&
+        state.errors.updateDrawAccessMode
+      ) {
+        return { data: null, error: state.errors.updateDrawAccessMode };
+      }
       if (state.errors.updateBowl) {
         return { data: null, error: state.errors.updateBowl };
       }
@@ -242,6 +283,7 @@ describe("BowlSettings integration", () => {
       { bowl_id: "bowl-1", user_id: "owner-1", role: "Owner", email: "owner@example.com" },
       { bowl_id: "bowl-1", user_id: "member-1", role: "Member", email: "member@example.com" },
     ];
+    mocks.state.drawPermissions = [];
     mocks.state.invites = [
       {
         id: "inv-1",
@@ -254,15 +296,20 @@ describe("BowlSettings integration", () => {
     ];
     mocks.state.operations = [];
     mocks.state.insertedInvites = [];
+    mocks.state.insertedDrawPermissions = [];
     mocks.state.updatedBowls = [];
     mocks.state.errors = {
       loadBowl: null,
       loadMembers: null,
       loadInvites: null,
+      loadDrawPermissions: null,
       insertInvite: null,
+      insertDrawPermissions: null,
       updateBowl: null,
+      updateDrawAccessMode: null,
       deleteInvite: null,
       deleteMember: null,
+      deleteDrawPermissions: null,
       deleteMovies: null,
       deleteBowlInvites: null,
       deleteBowlMembers: null,
@@ -296,8 +343,7 @@ describe("BowlSettings integration", () => {
   it("allows non-owner member to leave and navigates home", async () => {
     mocks.state.authUser = { id: "member-1", email: "member@example.com" };
 
-    const originalConfirm = window.confirm;
-    window.confirm = vi.fn(() => true);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
 
     render(<BowlSettings />);
 
@@ -308,17 +354,17 @@ describe("BowlSettings integration", () => {
     fireEvent.click(screen.getByRole("button", { name: /leave bowl/i }));
 
     await waitFor(() => {
+      expect(confirmSpy).toHaveBeenCalled();
       expect(mocks.state.navigate).toHaveBeenCalledWith("/", { replace: true });
     }, { timeout: 3000 });
 
-    window.confirm = originalConfirm;
+    confirmSpy.mockRestore();
   });
 
   it("leaving a bowl does not delete bowl movies", async () => {
     mocks.state.authUser = { id: "member-1", email: "member@example.com" };
 
-    const originalConfirm = window.confirm;
-    window.confirm = vi.fn(() => true);
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
 
     render(<BowlSettings />);
 
@@ -336,7 +382,7 @@ describe("BowlSettings integration", () => {
     expect(deleteOps.some((op) => op.table === "bowl_members")).toBe(true);
     expect(deleteOps.some((op) => op.table === "bowl_movies")).toBe(false);
 
-    window.confirm = originalConfirm;
+    confirmSpy.mockRestore();
   });
 
   it("allows owner to create an invite link and sends email", async () => {
@@ -399,6 +445,7 @@ describe("BowlSettings integration", () => {
       name: "Bowl 1",
       owner_id: "owner-1",
       max_contribution_lead: 1,
+      draw_access_mode: "all_members",
     };
 
     render(<BowlSettings />);
@@ -427,6 +474,131 @@ describe("BowlSettings integration", () => {
         }),
       ])
     );
+  });
+
+  it("shows draw access controls for owner and defaults to everyone", async () => {
+    mocks.state.bowl = {
+      id: "bowl-1",
+      name: "Bowl 1",
+      owner_id: "owner-1",
+      draw_access_mode: "all_members",
+    };
+
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /draw access/i })).toBeInTheDocument();
+    });
+    expect(screen.getByLabelText(/everyone in bowl/i)).toBeChecked();
+  });
+
+  it("owner can switch to selected members and save draw permissions", async () => {
+    mocks.state.bowl = {
+      id: "bowl-1",
+      name: "Bowl 1",
+      owner_id: "owner-1",
+      draw_access_mode: "all_members",
+    };
+    mocks.state.members = [
+      { bowl_id: "bowl-1", user_id: "owner-1", role: "Owner", email: "owner@example.com" },
+      { bowl_id: "bowl-1", user_id: "member-1", role: "Member", email: "member@example.com" },
+      { bowl_id: "bowl-1", user_id: "member-2", role: "Member", email: "member2@example.com" },
+    ];
+
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/only selected members/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText(/only selected members/i));
+    fireEvent.click(screen.getByLabelText(/member@example.com/i));
+    fireEvent.click(screen.getByRole("button", { name: /save draw access/i }));
+
+    await waitFor(() => {
+      expect(
+        mocks.state.updatedBowls.some((row) => row.draw_access_mode === "selected_members")
+      ).toBe(true);
+    });
+
+    expect(mocks.state.updatedBowls).toEqual(
+      expect.arrayContaining([expect.objectContaining({ draw_access_mode: "selected_members" })])
+    );
+    expect(mocks.state.insertedDrawPermissions).toEqual(
+      expect.arrayContaining([
+        [expect.objectContaining({ bowl_id: "bowl-1", user_id: "member-1" })],
+      ])
+    );
+  });
+
+  it("owner can switch back to everyone and clear selected draw permissions", async () => {
+    mocks.state.bowl = {
+      id: "bowl-1",
+      name: "Bowl 1",
+      owner_id: "owner-1",
+      draw_access_mode: "selected_members",
+    };
+    mocks.state.drawPermissions = [{ bowl_id: "bowl-1", user_id: "member-1" }];
+
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/everyone in bowl/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText(/everyone in bowl/i));
+    fireEvent.click(screen.getByRole("button", { name: /save draw access/i }));
+
+    await waitFor(() => {
+      expect(
+        mocks.state.updatedBowls.some((row) => row.draw_access_mode === "all_members")
+      ).toBe(true);
+    });
+
+    expect(mocks.state.updatedBowls).toEqual(
+      expect.arrayContaining([expect.objectContaining({ draw_access_mode: "all_members" })])
+    );
+    expect(mocks.state.drawPermissions).toEqual([]);
+  });
+
+  it("hides draw access controls for non-owner", async () => {
+    mocks.state.authUser = { id: "member-1", email: "member@example.com" };
+    mocks.state.bowl = {
+      id: "bowl-1",
+      name: "Bowl 1",
+      owner_id: "owner-1",
+      draw_access_mode: "selected_members",
+    };
+
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Bowl 1")).toBeInTheDocument();
+    });
+
+    expect(screen.queryByRole("heading", { name: /draw access/i })).not.toBeInTheDocument();
+  });
+
+  it("shows error when saving draw access fails", async () => {
+    mocks.state.bowl = {
+      id: "bowl-1",
+      name: "Bowl 1",
+      owner_id: "owner-1",
+      draw_access_mode: "all_members",
+    };
+    mocks.state.errors.updateDrawAccessMode = { message: "rls" };
+
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /save draw access/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /save draw access/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/failed to update draw access mode\./i)).toBeInTheDocument();
+    });
   });
 
   it("validates invite input errors before creating an invite", async () => {

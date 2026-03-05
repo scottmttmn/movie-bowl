@@ -166,11 +166,30 @@ export default function MyBowlsScreen() {
     }
 
     // Insert new bowl into Supabase
-    const { data: newBowl, error: bowlError } = await supabase
+    let { data: newBowl, error: bowlError } = await supabase
       .from("bowls")
-      .insert([{ owner_id:user.id ,name: bowlName, max_contribution_lead: maxContributionLead }])
+      .insert([{
+        owner_id: user.id,
+        name: bowlName,
+        max_contribution_lead: maxContributionLead,
+        draw_access_mode: "all_members",
+      }])
       .select()
       .single();
+
+    if (bowlError && String(bowlError?.message || "").toLowerCase().includes("draw_access_mode")) {
+      const fallback = await supabase
+        .from("bowls")
+        .insert([{
+          owner_id: user.id,
+          name: bowlName,
+          max_contribution_lead: maxContributionLead,
+        }])
+        .select()
+        .single();
+      newBowl = fallback.data;
+      bowlError = fallback.error;
+    }
 
     if (bowlError || !newBowl) {
       console.error("Failed to create bowl", bowlError);

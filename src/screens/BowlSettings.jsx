@@ -10,11 +10,16 @@ import { parseInviteEmails } from "../utils/parseInviteEmails";
 // - Owner can remove non-owner members.
 // - Members can view the membership list.
 export default function BowlSettings() {
+  const DRAW_ACCESS_MODE_ALL = "all_members";
+  const DRAW_ACCESS_MODE_SELECTED = "selected_members";
+
   const { bowlId } = useParams();
   const navigate = useNavigate();
 
   const [bowlName, setBowlName] = useState("Bowl Settings");
   const [bowlMaxContributionLead, setBowlMaxContributionLead] = useState(null);
+  const [drawAccessMode, setDrawAccessMode] = useState(DRAW_ACCESS_MODE_ALL);
+  const [drawAllowedUserIds, setDrawAllowedUserIds] = useState([]);
   const [editableBowlName, setEditableBowlName] = useState("Bowl Settings");
   const [editableMaxContributionLead, setEditableMaxContributionLead] = useState("");
   const [ownerId, setOwnerId] = useState(null);
@@ -27,6 +32,7 @@ export default function BowlSettings() {
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingName, setIsSavingName] = useState(false);
+  const [isSavingDrawAccess, setIsSavingDrawAccess] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isDeletingBowl, setIsDeletingBowl] = useState(false);
   const [actionMessage, setActionMessage] = useState(null);
@@ -47,6 +53,13 @@ export default function BowlSettings() {
     setActionMessage(null);
 
     try {
+      const isMissingDrawAccessColumn = (error) =>
+        String(error?.message || "").toLowerCase().includes("draw_access_mode");
+      const isMissingDrawPermissionsTable = (error) => {
+        const text = String(error?.message || "").toLowerCase();
+        return text.includes("bowl_draw_permissions") && text.includes("does not exist");
+      };
+
       // Who am I?
       const { data: authData, error: authError } = await supabase.auth.getSession();
       if (authError) {
@@ -56,11 +69,21 @@ export default function BowlSettings() {
       setCurrentUserEmail((authData?.session?.user?.email || "").toLowerCase());
 
       // Load bowl basics (name + owner).
-      const { data: bowl, error: bowlError } = await supabase
+      let { data: bowl, error: bowlError } = await supabase
         .from("bowls")
-        .select("id, name, owner_id, max_contribution_lead")
+        .select("id, name, owner_id, max_contribution_lead, draw_access_mode")
         .eq("id", bowlId)
         .single();
+
+      if (bowlError && isMissingDrawAccessColumn(bowlError)) {
+        const fallback = await supabase
+          .from("bowls")
+          .select("id, name, owner_id, max_contribution_lead")
+          .eq("id", bowlId)
+          .single();
+        bowl = fallback.data;
+        bowlError = fallback.error;
+      }
 
       if (bowlError) {
         console.error("[BowlSettings] Failed to load bowl", bowlError);
@@ -81,6 +104,11 @@ export default function BowlSettings() {
           ? String(Number(bowl.max_contribution_lead))
           : ""
       );
+      setDrawAccessMode(
+        bowl?.draw_access_mode === DRAW_ACCESS_MODE_SELECTED
+          ? DRAW_ACCESS_MODE_SELECTED
+          : DRAW_ACCESS_MODE_ALL
+      );
       setOwnerId(bowl?.owner_id ?? null);
 
       // Load members. Join to profiles so we can show emails.
@@ -99,6 +127,20 @@ export default function BowlSettings() {
       }
 
       setMembers(memberRows || []);
+
+      const { data: permissionRows, error: permissionsError } = await supabase
+        .from("bowl_draw_permissions")
+        .select("user_id")
+        .eq("bowl_id", bowlId);
+
+      if (permissionsError) {
+        if (!isMissingDrawPermissionsTable(permissionsError)) {
+          console.error("[BowlSettings] Failed to load draw permissions", permissionsError);
+        }
+        setDrawAllowedUserIds([]);
+      } else {
+        setDrawAllowedUserIds((permissionRows || []).map((row) => row.user_id).filter(Boolean));
+      }
 
       // Load pending invites (unaccepted) so the owner can copy/share links.
       const { data: invites, error: invitesError } = await supabase
@@ -304,6 +346,95 @@ export default function BowlSettings() {
     }
   };
 
+  const handleSaveDrawAccess = async (e) => {
+    e.preventDefault();
+    setActionMessage(null);
+    setErrorMessage(null);
+
+    if (!isOwner) {
+      setErrorMessage("Only the bowl owner can update draw access.");
+      return;
+    }
+
+    const nextMode =
+      drawAccessMode === DRAW_ACCESS_MODE_SELECTED ? DRAW_ACCESS_MODE_SELECTED : DRAW_ACCESS_MODE_ALL;
+    const allowedMemberIdSet = new Set(
+      members
+        .map((member) => member?.user_id)
+        .filter((id) => Boolean(id && id !== ownerId))
+    );
+    const nextAllowedUserIds = [...new Set(drawAllowedUserIds)].filter((id) => allowedMemberIdSet.has(id));
+
+    setIsSavingDrawAccess(true);
+    try {
+      const isMissingDrawAccessColumn = (error) =>
+        String(error?.message || "").toLowerCase().includes("draw_access_mode");
+      const isMissingDrawPermissionsTable = (error) => {
+        const text = String(error?.message || "").toLowerCase();
+        return text.includes("bowl_draw_permissions") && text.includes("does not exist");
+      };
+
+      const { error: modeError } = await supabase
+        .from("bowls")
+        .update({ draw_access_mode: nextMode })
+        .eq("id", bowlId);
+
+      if (modeError) {
+        if (isMissingDrawAccessColumn(modeError)) {
+          setErrorMessage("Draw access requires the latest database migration. Please run it and try again.");
+          return;
+        }
+        console.error("[BowlSettings] Failed to save draw access mode", modeError);
+        setErrorMessage("Failed to update draw access mode.");
+        return;
+      }
+
+      const { error: clearError } = await supabase
+        .from("bowl_draw_permissions")
+        .delete()
+        .eq("bowl_id", bowlId);
+
+      if (clearError) {
+        if (isMissingDrawPermissionsTable(clearError)) {
+          setErrorMessage("Draw access requires the latest database migration. Please run it and try again.");
+          return;
+        }
+        console.error("[BowlSettings] Failed to reset draw permissions", clearError);
+        setErrorMessage("Failed to update draw permissions.");
+        return;
+      }
+
+      if (nextMode === DRAW_ACCESS_MODE_SELECTED && nextAllowedUserIds.length > 0) {
+        const permissionRows = nextAllowedUserIds.map((userId) => ({
+          bowl_id: bowlId,
+          user_id: userId,
+        }));
+
+        const { error: insertError } = await supabase
+          .from("bowl_draw_permissions")
+          .insert(permissionRows);
+
+        if (insertError) {
+          if (isMissingDrawPermissionsTable(insertError)) {
+            setErrorMessage("Draw access requires the latest database migration. Please run it and try again.");
+            return;
+          }
+          console.error("[BowlSettings] Failed to save draw permissions", insertError);
+          setErrorMessage("Failed to save allowed members for drawing.");
+          return;
+        }
+      }
+
+      setActionMessage("Draw access updated.");
+      await loadBowlAndMembers();
+    } catch (err) {
+      console.error("[BowlSettings] Unexpected error saving draw access", err);
+      setErrorMessage("Unexpected error updating draw access.");
+    } finally {
+      setIsSavingDrawAccess(false);
+    }
+  };
+
   const handleDeleteBowl = async (e) => {
     e.preventDefault();
     setActionMessage(null);
@@ -490,6 +621,93 @@ export default function BowlSettings() {
               className="btn btn-secondary disabled:opacity-60"
             >
               {isSavingName ? "Saving..." : "Save"}
+            </button>
+          </form>
+        </section>
+      )}
+
+      {isOwner && (
+        <section className="panel mb-4">
+          <h3 className="section-title mb-2">Draw Access</h3>
+          <p className="text-sm text-slate-600 mb-3">
+            Set who can draw movies from this bowl. Owner is always allowed.
+          </p>
+          <form onSubmit={handleSaveDrawAccess} className="space-y-3">
+            <div className="flex flex-wrap gap-4">
+              <label htmlFor="draw-access-all-members" className="inline-flex items-center gap-2 text-sm text-slate-800">
+                <input
+                  id="draw-access-all-members"
+                  name="draw_access_mode"
+                  type="radio"
+                  value={DRAW_ACCESS_MODE_ALL}
+                  checked={drawAccessMode === DRAW_ACCESS_MODE_ALL}
+                  onChange={(e) => setDrawAccessMode(e.target.value)}
+                />
+                Everyone in bowl
+              </label>
+              <label htmlFor="draw-access-selected-members" className="inline-flex items-center gap-2 text-sm text-slate-800">
+                <input
+                  id="draw-access-selected-members"
+                  name="draw_access_mode"
+                  type="radio"
+                  value={DRAW_ACCESS_MODE_SELECTED}
+                  checked={drawAccessMode === DRAW_ACCESS_MODE_SELECTED}
+                  onChange={(e) => setDrawAccessMode(e.target.value)}
+                />
+                Only selected members
+              </label>
+            </div>
+
+            {drawAccessMode === DRAW_ACCESS_MODE_SELECTED && (
+              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
+                <p className="text-xs text-slate-600 mb-2">
+                  Only selected members can draw. Owner can always draw.
+                </p>
+                <div className="space-y-2">
+                  {members
+                    .filter((member) => member?.user_id === ownerId)
+                    .map((member) => {
+                      const email = member.profiles?.email || member.user_id;
+                      return (
+                        <div key={member.user_id} className="text-sm text-slate-700">
+                          {email} <span className="text-xs text-slate-500">(Always allowed)</span>
+                        </div>
+                      );
+                    })}
+                  {members
+                    .filter((member) => member?.user_id && member.user_id !== ownerId)
+                    .map((member) => {
+                      const email = member.profiles?.email || member.user_id;
+                      const checkboxId = `draw-access-member-${member.user_id}`;
+                      return (
+                        <label key={member.user_id} htmlFor={checkboxId} className="inline-flex w-full items-center gap-2 text-sm text-slate-800">
+                          <input
+                            id={checkboxId}
+                            name="draw_access_allowed_members"
+                            type="checkbox"
+                            checked={drawAllowedUserIds.includes(member.user_id)}
+                            onChange={(event) => {
+                              const checked = event.target.checked;
+                              setDrawAllowedUserIds((prev) => {
+                                if (checked) return prev.includes(member.user_id) ? prev : [...prev, member.user_id];
+                                return prev.filter((id) => id !== member.user_id);
+                              });
+                            }}
+                          />
+                          {email}
+                        </label>
+                      );
+                    })}
+                </div>
+              </div>
+            )}
+
+            <button
+              type="submit"
+              disabled={isSavingDrawAccess}
+              className="btn btn-secondary disabled:opacity-60"
+            >
+              {isSavingDrawAccess ? "Saving..." : "Save Draw Access"}
             </button>
           </form>
         </section>

@@ -167,5 +167,7 @@ npm run test:run
   - `bowl_movies`
   - `bowl_members`
   - `bowl_invites`
+- Draw-access control migration SQL is provided at:
+  - `output/add_bowl_draw_access_controls.sql`
 - There is also an RPC used on the home screen:
   - `get_my_bowls_with_counts`

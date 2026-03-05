@@ -28,6 +28,8 @@ import { useRokuDevice } from "../context/RokuDeviceContext";
 
 
 export default function BowlDashboard() {
+    const DRAW_ACCESS_MODE_ALL = "all_members";
+    const DRAW_ACCESS_MODE_SELECTED = "selected_members";
     
     const { bowlId } = useParams();
     const { bowl, contributions, isLoading, errorMessage, handleDraw, handleAddMovie, handleDeleteMovie, handleReaddMovie } = useBowl(bowlId);
@@ -52,6 +54,9 @@ export default function BowlDashboard() {
     const [showRuntimeFilters, setShowRuntimeFilters] = useState(false);
     const [isDrawing, setIsDrawing] = useState(false);
     const [bowlName, setBowlName] = useState("My Bowl");
+    const [bowlOwnerId, setBowlOwnerId] = useState(null);
+    const [drawAccessMode, setDrawAccessMode] = useState(DRAW_ACCESS_MODE_ALL);
+    const [drawAllowedUserIds, setDrawAllowedUserIds] = useState([]);
     const [currentUserId, setCurrentUserId] = useState(null);
     const [memberIds, setMemberIds] = useState([]);
     const [maxContributionLead, setMaxContributionLead] = useState(null);
@@ -96,6 +101,24 @@ export default function BowlDashboard() {
     const isAddBlockedByContributionLimit = Boolean(maxContributionLead !== null && addBalance && !addBalance.allowed);
     const isAddBlockedByUndrawnLimit = (bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL;
     const isAddBlocked = isAddBlockedByContributionLimit || isAddBlockedByUndrawnLimit;
+    const isCurrentUserOwner = Boolean(currentUserId && bowlOwnerId && currentUserId === bowlOwnerId);
+    const isCurrentUserMember = Boolean(currentUserId && memberIds.includes(currentUserId));
+    const canCurrentUserDraw = useMemo(() => {
+      if (!currentUserId) return false;
+      if (isCurrentUserOwner) return true;
+      if (!isCurrentUserMember) return false;
+      if (drawAccessMode === DRAW_ACCESS_MODE_SELECTED) {
+        return drawAllowedUserIds.includes(currentUserId);
+      }
+      return true;
+    }, [currentUserId, isCurrentUserOwner, isCurrentUserMember, drawAccessMode, drawAllowedUserIds]);
+    const drawGuardMessage = useMemo(() => {
+      if (!currentUserId || canCurrentUserDraw) return null;
+      if (drawAccessMode === DRAW_ACCESS_MODE_SELECTED) {
+        return "Only selected members can draw in this bowl. Ask the owner to update draw access.";
+      }
+      return "You do not have permission to draw from this bowl.";
+    }, [currentUserId, canCurrentUserDraw, drawAccessMode]);
     const myRemainingAdds = useMemo(
       () => (bowl.remaining || []).filter((movie) => movie.added_by === currentUserId),
       [bowl.remaining, currentUserId]
@@ -205,6 +228,13 @@ export default function BowlDashboard() {
     useEffect(() => {
       let cancelled = false;
 
+      const isMissingDrawAccessColumn = (error) =>
+        String(error?.message || "").toLowerCase().includes("draw_access_mode");
+      const isMissingDrawPermissionsTable = (error) => {
+        const text = String(error?.message || "").toLowerCase();
+        return text.includes("bowl_draw_permissions") && text.includes("does not exist");
+      };
+
       const loadBowlName = async () => {
         if (!bowlId) return;
 
@@ -216,11 +246,21 @@ export default function BowlDashboard() {
         }
         if (!cancelled) setCurrentUserId(userId);
 
-        const { data, error } = await supabase
+        let { data, error } = await supabase
           .from("bowls")
-          .select("name, owner_id, max_contribution_lead")
+          .select("name, owner_id, max_contribution_lead, draw_access_mode")
           .eq("id", bowlId)
           .single();
+
+        if (error && isMissingDrawAccessColumn(error)) {
+          const fallback = await supabase
+            .from("bowls")
+            .select("name, owner_id, max_contribution_lead")
+            .eq("id", bowlId)
+            .single();
+          data = fallback.data;
+          error = fallback.error;
+        }
 
         if (error || !data || cancelled) {
           if (!cancelled) navigate("/", { replace: true });
@@ -255,7 +295,27 @@ export default function BowlDashboard() {
           setMemberIds((memberRows || []).map((row) => row.user_id).filter(Boolean));
         }
 
+        const { data: drawPermissionRows, error: drawPermissionsError } = await supabase
+          .from("bowl_draw_permissions")
+          .select("user_id")
+          .eq("bowl_id", bowlId);
+
+        if (drawPermissionsError) {
+          if (!isMissingDrawPermissionsTable(drawPermissionsError)) {
+            console.error("[BowlDashboard] Failed to load draw permissions", drawPermissionsError);
+          }
+          if (!cancelled) setDrawAllowedUserIds([]);
+        } else if (!cancelled) {
+          setDrawAllowedUserIds((drawPermissionRows || []).map((row) => row.user_id).filter(Boolean));
+        }
+
         setBowlName(data?.name || "My Bowl");
+        setBowlOwnerId(data?.owner_id || null);
+        setDrawAccessMode(
+          data?.draw_access_mode === DRAW_ACCESS_MODE_SELECTED
+            ? DRAW_ACCESS_MODE_SELECTED
+            : DRAW_ACCESS_MODE_ALL
+        );
         const loadedLead = Number(data?.max_contribution_lead);
         setMaxContributionLead(
           Number.isInteger(loadedLead) && loadedLead >= 1
@@ -359,7 +419,7 @@ return (
                 <div className="mx-auto flex max-w-2xl flex-col items-center gap-3 text-center md:flex-row md:justify-center md:gap-4">
                   <DrawButton
                     onClick={async () => {
-                      if (isDrawing) return;
+                      if (isDrawing || !canCurrentUserDraw) return;
                       setIsDrawing(true);
 
                       try {
@@ -393,7 +453,7 @@ return (
                       }
                     }}
                     isLoading={isDrawing}
-                    disabled={bowl.remaining.length === 0}
+                    disabled={!canCurrentUserDraw || bowl.remaining.length === 0}
                   />
                   <AddMovieButton
                     disabled={isAddBlocked}
@@ -411,6 +471,9 @@ return (
                 <div className="mt-3 text-center">
                   <RemainingCount count={bowl.remaining.length} />
                 </div>
+                {drawGuardMessage && (
+                  <p className="mt-2 text-center text-sm text-amber-700">{drawGuardMessage}</p>
+                )}
 
                 <div className="mt-3 flex justify-center">
                   <button
