@@ -77,10 +77,24 @@ const mocks = vi.hoisted(() => ({
         insert: vi.fn((payload) => {
           mocks.insertPayloads.push(payload);
           const nextResponse = mocks.insertResponses.shift();
-          if (nextResponse) {
-            return Promise.resolve(nextResponse);
-          }
-          return Promise.resolve({ data: payload, error: null });
+          const response =
+            nextResponse ||
+            {
+              data: {
+                ...payload[0],
+                id: `ins-${mocks.insertPayloads.length}`,
+                added_at: payload[0]?.snapshot_at || "2026-01-01T00:00:00.000Z",
+                drawn_at: null,
+                drawn_by: null,
+              },
+              error: null,
+            };
+          return {
+            select: vi.fn(() => ({
+              single: vi.fn(async () => response),
+            })),
+            then: (resolve, reject) => Promise.resolve(response).then(resolve, reject),
+          };
         }),
         delete: vi.fn(() => {
           state.mode = "delete";
@@ -300,6 +314,174 @@ describe("useBowl handleDraw integration", () => {
     expect(mocks.insertPayloads[0][0].tmdb_id).toBeNull();
     expect(mocks.insertPayloads[1][0].tmdb_id).toEqual(expect.any(Number));
     expect(mocks.insertPayloads[1][0].tmdb_id).toBeLessThan(0);
+  });
+
+  it("optimistically adds a syncing row immediately and finalizes it after insert success", async () => {
+    mocks.remainingQueue.push([], []);
+    mocks.watchedQueue.push([], []);
+
+    let resolveInsert;
+    const insertPromise = new Promise((resolve) => {
+      resolveInsert = resolve;
+    });
+    mocks.insertResponses.push(insertPromise);
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let queued = false;
+    await act(async () => {
+      queued = await result.current.handleAddMovie({
+        id: 101,
+        title: "Movie A",
+        genres: [{ name: "Action" }],
+      });
+    });
+
+    expect(queued).toBe(true);
+    expect(result.current.bowl.remaining).toHaveLength(1);
+    expect(result.current.bowl.remaining[0]).toEqual(
+      expect.objectContaining({
+        title: "Movie A",
+        local_status: "syncing",
+        local_temp_id: expect.stringContaining("temp:"),
+      })
+    );
+
+    await act(async () => {
+      resolveInsert({
+        data: {
+          id: "db-1",
+          bowl_id: "bowl-1",
+          tmdb_id: 101,
+          title: "Movie A",
+          added_by: "user-1",
+          added_at: "2026-03-06T12:00:00.000Z",
+          snapshot_at: "2026-03-06T12:00:00.000Z",
+          drawn_at: null,
+          drawn_by: null,
+        },
+        error: null,
+      });
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(result.current.bowl.remaining[0]).toEqual(
+        expect.objectContaining({
+          id: "db-1",
+          local_status: null,
+          local_temp_id: null,
+        })
+      );
+    });
+  });
+
+  it("rolls back optimistic add and sets error message when insert fails", async () => {
+    mocks.remainingQueue.push([], []);
+    mocks.watchedQueue.push([], []);
+    mocks.insertResponses.push({ data: null, error: { message: "insert failed" } });
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleAddMovie({
+        id: 101,
+        title: "Movie A",
+        genres: [],
+      });
+    });
+
+    await waitFor(() => {
+      expect(result.current.bowl.remaining).toHaveLength(0);
+      expect(result.current.errorMessage).toMatch(/could not add this movie/i);
+    });
+  });
+
+  it("prevents duplicate in-flight add for the same title but allows different titles", async () => {
+    mocks.remainingQueue.push([], []);
+    mocks.watchedQueue.push([], []);
+
+    let resolveFirstInsert;
+    const firstInsertPromise = new Promise((resolve) => {
+      resolveFirstInsert = resolve;
+    });
+    mocks.insertResponses.push(
+      firstInsertPromise,
+      {
+        data: {
+          id: "db-2",
+          bowl_id: "bowl-1",
+          tmdb_id: 202,
+          title: "Movie B",
+          added_by: "user-1",
+          added_at: "2026-03-06T12:00:01.000Z",
+          snapshot_at: "2026-03-06T12:00:01.000Z",
+          drawn_at: null,
+          drawn_by: null,
+        },
+        error: null,
+      }
+    );
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let firstQueued = false;
+    let duplicateQueued = false;
+    let secondTitleQueued = false;
+
+    await act(async () => {
+      firstQueued = await result.current.handleAddMovie({
+        id: 101,
+        title: "Movie A",
+        genres: [],
+      });
+      duplicateQueued = await result.current.handleAddMovie({
+        id: 101,
+        title: "Movie A",
+        genres: [],
+      });
+      secondTitleQueued = await result.current.handleAddMovie({
+        id: 202,
+        title: "Movie B",
+        genres: [],
+      });
+    });
+
+    expect(firstQueued).toBe(true);
+    expect(duplicateQueued).toBe(false);
+    expect(secondTitleQueued).toBe(true);
+    expect(mocks.insertPayloads).toHaveLength(2);
+    expect(result.current.bowl.remaining).toHaveLength(2);
+    expect(
+      result.current.bowl.remaining.filter((movie) => movie.local_status === "syncing")
+    ).toHaveLength(1);
+
+    await act(async () => {
+      resolveFirstInsert({
+        data: {
+          id: "db-1",
+          bowl_id: "bowl-1",
+          tmdb_id: 101,
+          title: "Movie A",
+          added_by: "user-1",
+          added_at: "2026-03-06T12:00:00.000Z",
+          snapshot_at: "2026-03-06T12:00:00.000Z",
+          drawn_at: null,
+          drawn_by: null,
+        },
+        error: null,
+      });
+      await Promise.resolve();
+    });
+
+    await waitFor(() => {
+      expect(
+        result.current.bowl.remaining.map((movie) => movie.id)
+      ).toEqual(expect.arrayContaining(["db-1", "db-2"]));
+    });
   });
 
   it("draw keeps one watched instance and deletes duplicate TMDB undrawn rows", async () => {

@@ -28,6 +28,26 @@ describe("movie strip components", () => {
     expect(onDeleteMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "1" }));
   });
 
+  it("shows syncing state and disables actions for optimistic rows", () => {
+    const onViewMovie = vi.fn();
+    const onDeleteMovie = vi.fn();
+    const movies = [
+      {
+        id: "temp:1",
+        local_temp_id: "temp:1",
+        local_status: "syncing",
+        title: "Movie Pending",
+        added_at: "2026-03-06T00:00:00.000Z",
+      },
+    ];
+
+    render(<MyAddedMoviesStrip movies={movies} onViewMovie={onViewMovie} onDeleteMovie={onDeleteMovie} />);
+
+    expect(screen.getByText(/syncing\.\.\./i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /details/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /delete/i })).toBeDisabled();
+  });
+
   it("renders WatchedMovieCard and forwards click", () => {
     const onClick = vi.fn();
     render(<WatchedMovieCard movie={{ id: "w1", title: "Arrival", poster_path: "/arrival.jpg" }} onClick={onClick} />);
