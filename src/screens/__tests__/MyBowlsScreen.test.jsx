@@ -6,10 +6,16 @@ const mocks = vi.hoisted(() => {
     navigate: vi.fn(),
     authCallCount: 0,
     initialAuthenticated: false,
+    sessionUser: { id: "u1", email: "user@example.com" },
     rpcRows: [],
+    pendingInvites: [],
+    profileRows: [],
     insertedBowls: [],
     insertedMembers: [],
     insertedInvites: [],
+    updatedInvites: [],
+    deletedInvites: [],
+    memberInsertError: null,
     streamingServices: [],
     streamingServicesLoading: false,
     sendInviteEmailsResult: { sent: 1, failed: 0, results: [{ email: "friend@example.com", ok: true }], error: null },
@@ -22,13 +28,13 @@ const mocks = vi.hoisted(() => {
         if (state.authCallCount === 1 && !state.initialAuthenticated) {
           return { data: { session: null }, error: new Error("Not authenticated") };
         }
-        return { data: { session: { user: { id: "u1" } } }, error: null };
+        return { data: { session: { user: state.sessionUser } }, error: null };
       }),
     },
     rpc: vi.fn(async () => ({ data: state.rpcRows, error: null })),
     from: vi.fn((table) => {
       if (table === "bowls") {
-        const ctx = { insertRows: null, selectMode: false };
+        const ctx = { insertRows: null, selectMode: false, eqFilters: [], inFilter: null };
         const query = {
           insert: vi.fn((rows) => {
             ctx.insertRows = rows;
@@ -39,7 +45,14 @@ const mocks = vi.hoisted(() => {
             ctx.selectMode = true;
             return query;
           }),
-          eq: vi.fn(() => query),
+          eq: vi.fn((key, value) => {
+            ctx.eqFilters.push({ key, value });
+            return query;
+          }),
+          in: vi.fn((key, values) => {
+            ctx.inFilter = { key, values };
+            return query;
+          }),
           single: vi.fn(async () => {
             if (ctx.insertRows && ctx.selectMode) {
               const row = ctx.insertRows[0];
@@ -51,6 +64,13 @@ const mocks = vi.hoisted(() => {
             return { data: null, error: null };
           }),
           then: (resolve, reject) => {
+            if (ctx.selectMode && ctx.inFilter?.key === "id") {
+              const values = new Set(ctx.inFilter.values || []);
+              const bowlRows = mocks.state.rpcRows
+                .filter((row) => values.has(row.id))
+                .map((row) => ({ id: row.id, name: row.name }));
+              return Promise.resolve({ data: bowlRows, error: null }).then(resolve, reject);
+            }
             if (ctx.selectMode && !ctx.insertRows) {
               const ownedRows = mocks.state.rpcRows
                 .filter((row) => row.owner_id === "u1")
@@ -64,22 +84,109 @@ const mocks = vi.hoisted(() => {
       }
 
       if (table === "bowl_members") {
+        const ctx = { selectMode: false, eqFilters: [] };
         return {
           insert: vi.fn(async (rows) => {
             mocks.state.insertedMembers.push(rows);
-            return { error: null };
+            return { error: mocks.state.memberInsertError };
           }),
-          select: vi.fn(() => ({ eq: vi.fn(() => Promise.resolve({ data: [], error: null })) })),
+          select: vi.fn(() => {
+            ctx.selectMode = true;
+            return {
+              eq: vi.fn((key, value) => {
+                ctx.eqFilters.push({ key, value });
+                return Promise.resolve({ data: [], error: null });
+              }),
+            };
+          }),
         };
       }
 
       if (table === "bowl_invites") {
+        const ctx = { mode: null, filters: [] };
         return {
           insert: vi.fn(async (rows) => {
             mocks.state.insertedInvites.push(rows);
             return { error: null };
           }),
+          select: vi.fn(() => {
+            ctx.mode = "select";
+            return {
+              is: vi.fn((key, value) => {
+                ctx.filters.push({ type: "is", key, value });
+                return {
+                  ilike: vi.fn((field, email) => {
+                    ctx.filters.push({ type: "ilike", key: field, value: email });
+                    return {
+                      order: vi.fn(async () => {
+                        const target = String(email || "").toLowerCase();
+                        const rows = mocks.state.pendingInvites.filter(
+                          (invite) =>
+                            String(invite.invited_email || "").toLowerCase() === target &&
+                            invite.accepted_at == null
+                        );
+                        return { data: rows, error: null };
+                      }),
+                    };
+                  }),
+                };
+              }),
+            };
+          }),
+          update: vi.fn((payload) => {
+            ctx.mode = "update";
+            ctx.payload = payload;
+            return {
+              eq: vi.fn((key, value) => {
+                ctx.filters.push({ type: "eq", key, value });
+                return {
+                  ilike: vi.fn((field, email) => {
+                    ctx.filters.push({ type: "ilike", key: field, value: email });
+                    const row = { payload, filters: [...ctx.filters] };
+                    mocks.state.updatedInvites.push(row);
+                    return Promise.resolve({ data: null, error: null });
+                  }),
+                };
+              }),
+            };
+          }),
+          delete: vi.fn(() => {
+            ctx.mode = "delete";
+            return {
+              eq: vi.fn((key, value) => {
+                ctx.filters.push({ type: "eq", key, value });
+                return {
+                  ilike: vi.fn((field, email) => {
+                    ctx.filters.push({ type: "ilike", key: field, value: email });
+                    const row = { filters: [...ctx.filters] };
+                    mocks.state.deletedInvites.push(row);
+                    return Promise.resolve({ data: null, error: null });
+                  }),
+                };
+              }),
+            };
+          }),
         };
+      }
+
+      if (table === "profiles") {
+        const ctx = { inFilter: null };
+        const query = {
+          select: vi.fn(() => query),
+          in: vi.fn((key, values) => {
+            ctx.inFilter = { key, values };
+            return query;
+          }),
+          then: (resolve, reject) => {
+            if (ctx.inFilter?.key === "id") {
+              const values = new Set(ctx.inFilter.values || []);
+              const rows = mocks.state.profileRows.filter((row) => values.has(row.id));
+              return Promise.resolve({ data: rows, error: null }).then(resolve, reject);
+            }
+            return Promise.resolve({ data: [], error: null }).then(resolve, reject);
+          },
+        };
+        return query;
       }
 
       throw new Error(`Unexpected table: ${table}`);
@@ -121,10 +228,16 @@ describe("MyBowlsScreen", () => {
     mocks.state.navigate.mockReset();
     mocks.state.authCallCount = 0;
     mocks.state.initialAuthenticated = false;
+    mocks.state.sessionUser = { id: "u1", email: "user@example.com" };
     mocks.state.rpcRows = [];
+    mocks.state.pendingInvites = [];
+    mocks.state.profileRows = [];
     mocks.state.insertedBowls = [];
     mocks.state.insertedMembers = [];
     mocks.state.insertedInvites = [];
+    mocks.state.updatedInvites = [];
+    mocks.state.deletedInvites = [];
+    mocks.state.memberInsertError = null;
     mocks.state.streamingServices = [];
     mocks.state.streamingServicesLoading = false;
     mocks.state.sendInviteEmailsResult = {
@@ -326,5 +439,140 @@ describe("MyBowlsScreen", () => {
 
     expect(screen.getByRole("button", { name: /\+ new bowl/i })).toBeDisabled();
     expect(screen.getByText(/bowl limit reached \(10\)/i)).toBeInTheDocument();
+  });
+
+  it("renders invite panel when pending invites exist for signed-in user", async () => {
+    mocks.state.initialAuthenticated = true;
+    mocks.state.pendingInvites = [
+      {
+        id: "inv-1",
+        bowl_id: "bowl-2",
+        invited_email: "user@example.com",
+        invited_by: "owner-1",
+        accepted_at: null,
+        created_at: "2026-03-01T00:00:00.000Z",
+      },
+    ];
+    mocks.state.profileRows = [{ id: "owner-1", email: "owner@example.com" }];
+    mocks.state.rpcRows = [{ id: "bowl-2", name: "Friday Bowl", remaining_count: 0, member_count: 1, owner_id: "owner-1" }];
+
+    render(<MyBowlsScreen />);
+
+    await waitFor(() => expect(screen.getByRole("heading", { name: /^invites$/i })).toBeInTheDocument());
+    expect(screen.getByText("Friday Bowl")).toBeInTheDocument();
+    expect(screen.getByText(/invited by owner@example.com/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /accept/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /decline/i })).toBeInTheDocument();
+  });
+
+  it("does not render invite panel when there are no pending invites", async () => {
+    mocks.state.initialAuthenticated = true;
+    mocks.state.pendingInvites = [];
+
+    render(<MyBowlsScreen />);
+
+    await waitFor(() => expect(screen.getByText(/start your first movie bowl/i)).toBeInTheDocument());
+    expect(screen.queryByText(/^invites$/i)).not.toBeInTheDocument();
+  });
+
+  it("accepts invite, inserts membership, marks accepted, and navigates to bowl", async () => {
+    mocks.state.initialAuthenticated = true;
+    mocks.state.pendingInvites = [
+      {
+        id: "inv-1",
+        bowl_id: "bowl-2",
+        invited_email: "user@example.com",
+        invited_by: "owner-1",
+        accepted_at: null,
+        created_at: "2026-03-01T00:00:00.000Z",
+      },
+    ];
+    mocks.state.profileRows = [{ id: "owner-1", email: "owner@example.com" }];
+    mocks.state.rpcRows = [{ id: "bowl-2", name: "Friday Bowl", remaining_count: 0, member_count: 1, owner_id: "owner-1" }];
+
+    render(<MyBowlsScreen />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /accept/i })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /accept/i }));
+
+    await waitFor(() => expect(mocks.state.navigate).toHaveBeenCalledWith("/bowl/bowl-2"));
+    expect(mocks.state.insertedMembers).toEqual(
+      expect.arrayContaining([
+        [expect.objectContaining({ bowl_id: "bowl-2", user_id: "u1", role: "Member" })],
+      ])
+    );
+    expect(mocks.state.updatedInvites).toHaveLength(1);
+    expect(screen.queryByText("Friday Bowl")).not.toBeInTheDocument();
+  });
+
+  it("accept invite tolerates duplicate-member error and still marks accepted", async () => {
+    mocks.state.initialAuthenticated = true;
+    mocks.state.memberInsertError = { message: "duplicate key value violates unique constraint" };
+    mocks.state.pendingInvites = [
+      {
+        id: "inv-1",
+        bowl_id: "bowl-2",
+        invited_email: "user@example.com",
+        invited_by: "owner-1",
+        accepted_at: null,
+        created_at: "2026-03-01T00:00:00.000Z",
+      },
+    ];
+    mocks.state.profileRows = [{ id: "owner-1", email: "owner@example.com" }];
+    mocks.state.rpcRows = [{ id: "bowl-2", name: "Friday Bowl", remaining_count: 0, member_count: 1, owner_id: "owner-1" }];
+
+    render(<MyBowlsScreen />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /accept/i })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /accept/i }));
+
+    await waitFor(() => expect(mocks.state.updatedInvites).toHaveLength(1));
+    expect(mocks.state.navigate).toHaveBeenCalledWith("/bowl/bowl-2");
+  });
+
+  it("declines invite by deleting row and removes it from UI", async () => {
+    mocks.state.initialAuthenticated = true;
+    mocks.state.pendingInvites = [
+      {
+        id: "inv-1",
+        bowl_id: "bowl-2",
+        invited_email: "user@example.com",
+        invited_by: "owner-1",
+        accepted_at: null,
+        created_at: "2026-03-01T00:00:00.000Z",
+      },
+    ];
+    mocks.state.profileRows = [{ id: "owner-1", email: "owner@example.com" }];
+    mocks.state.rpcRows = [{ id: "bowl-2", name: "Friday Bowl", remaining_count: 0, member_count: 1, owner_id: "owner-1" }];
+
+    render(<MyBowlsScreen />);
+
+    await waitFor(() => expect(screen.getByRole("button", { name: /decline/i })).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /decline/i }));
+
+    await waitFor(() => expect(mocks.state.deletedInvites).toHaveLength(1));
+    expect(screen.queryByText("Friday Bowl")).not.toBeInTheDocument();
+  });
+
+  it("scopes invite inbox to current signed-in email", async () => {
+    mocks.state.initialAuthenticated = true;
+    mocks.state.pendingInvites = [
+      {
+        id: "inv-1",
+        bowl_id: "bowl-2",
+        invited_email: "other@example.com",
+        invited_by: "owner-1",
+        accepted_at: null,
+        created_at: "2026-03-01T00:00:00.000Z",
+      },
+    ];
+    mocks.state.profileRows = [{ id: "owner-1", email: "owner@example.com" }];
+    mocks.state.rpcRows = [{ id: "bowl-2", name: "Friday Bowl", remaining_count: 0, member_count: 1, owner_id: "owner-1" }];
+
+    render(<MyBowlsScreen />);
+
+    await waitFor(() => expect(screen.getByText(/start your first movie bowl/i)).toBeInTheDocument());
+    expect(screen.queryByText("Friday Bowl")).not.toBeInTheDocument();
+    expect(screen.queryByText(/^invites$/i)).not.toBeInTheDocument();
   });
 });

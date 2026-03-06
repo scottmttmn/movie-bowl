@@ -14,6 +14,7 @@ import { parseInviteEmails } from "../utils/parseInviteEmails";
 export default function MyBowlsScreen() {
   // Bowls shown on the home screen. Loaded from Supabase for the logged-in user.
   const [bowls, setBowls] = useState([]);
+  const [pendingInvites, setPendingInvites] = useState([]);
 
   // Simple loading flag so we can avoid flashing mock content.
   const [isLoading, setIsLoading] = useState(true);
@@ -23,6 +24,8 @@ export default function MyBowlsScreen() {
   const [newBowlMaxContributionLead, setNewBowlMaxContributionLead] = useState("");
   const [createErrorMessage, setCreateErrorMessage] = useState(null);
   const [createActionMessage, setCreateActionMessage] = useState(null);
+  const [inviteActionMessage, setInviteActionMessage] = useState(null);
+  const [inviteErrorMessage, setInviteErrorMessage] = useState(null);
   const navigate = useNavigate();
   const {
     streamingServices,
@@ -33,7 +36,68 @@ export default function MyBowlsScreen() {
   const ownedBowls = bowls.filter((b) => b.role === "Owner");
   const sharedBowls = bowls.filter((b) => b.role !== "Owner");
   const hasStreamingServices = streamingServices.length > 0;
-  const shouldShowGuidedSetup = !isLoading && !isStreamingServicesLoading && bowls.length === 0;
+  const shouldShowGuidedSetup =
+    !isLoading &&
+    !isStreamingServicesLoading &&
+    bowls.length === 0 &&
+    pendingInvites.length === 0;
+
+  const loadInviteInbox = async (user) => {
+    const userEmail = String(user?.email || "").trim().toLowerCase();
+    if (!userEmail) {
+      setPendingInvites([]);
+      return;
+    }
+
+    const { data: inviteRows, error: inviteError } = await supabase
+      .from("bowl_invites")
+      .select("id, bowl_id, invited_email, invited_by, created_at, token")
+      .is("accepted_at", null)
+      .ilike("invited_email", userEmail)
+      .order("created_at", { ascending: false });
+
+    if (inviteError) {
+      console.error("Failed to load pending invites", inviteError);
+      setPendingInvites([]);
+      return;
+    }
+
+    const invites = inviteRows || [];
+    if (invites.length === 0) {
+      setPendingInvites([]);
+      return;
+    }
+
+    const bowlIds = [...new Set(invites.map((row) => row.bowl_id).filter(Boolean))];
+    const inviterIds = [...new Set(invites.map((row) => row.invited_by).filter(Boolean))];
+
+    const [bowlLookup, inviterLookup] = await Promise.all([
+      bowlIds.length > 0
+        ? supabase.from("bowls").select("id, name").in("id", bowlIds)
+        : Promise.resolve({ data: [], error: null }),
+      inviterIds.length > 0
+        ? supabase.from("profiles").select("id, email").in("id", inviterIds)
+        : Promise.resolve({ data: [], error: null }),
+    ]);
+
+    if (bowlLookup.error) {
+      console.error("Failed to load invite bowl names", bowlLookup.error);
+    }
+    if (inviterLookup.error) {
+      console.error("Failed to load invite sender emails", inviterLookup.error);
+    }
+
+    const bowlNameById = new Map((bowlLookup.data || []).map((row) => [row.id, row.name]));
+    const inviterEmailById = new Map((inviterLookup.data || []).map((row) => [row.id, row.email]));
+
+    setPendingInvites(
+      invites.map((invite) => ({
+        ...invite,
+        bowl_name: bowlNameById.get(invite.bowl_id) || "Movie Bowl Invite",
+        invited_by_email: inviterEmailById.get(invite.invited_by) || null,
+      }))
+    );
+  };
 
   useEffect(() => {
     // Load bowls the user owns, plus bowls they are a member of.
@@ -46,6 +110,7 @@ export default function MyBowlsScreen() {
       if (authError || !user) {
         // If the user is not authenticated, show an empty list.
         setBowls([]);
+        setPendingInvites([]);
         setIsLoading(false);
         return;
       }
@@ -60,6 +125,7 @@ export default function MyBowlsScreen() {
       if (ownedError || memberError) {
         console.error("Failed to load user bowl access", ownedError || memberError);
         setBowls([]);
+        await loadInviteInbox(user);
         setIsLoading(false);
         return;
       }
@@ -71,6 +137,7 @@ export default function MyBowlsScreen() {
 
       if (allowedBowlIds.size === 0) {
         setBowls([]);
+        await loadInviteInbox(user);
         setIsLoading(false);
         return;
       }
@@ -83,6 +150,7 @@ export default function MyBowlsScreen() {
       if (bowlsError) {
         console.error("Failed to load bowls", bowlsError);
         setBowls([]);
+        await loadInviteInbox(user);
         setIsLoading(false);
         return;
       }
@@ -99,12 +167,90 @@ export default function MyBowlsScreen() {
           }))
       );
 
+      await loadInviteInbox(user);
+
       setIsLoading(false);
       return;
     };
 
     loadBowls();
   }, []);
+
+  const handleAcceptInvite = async (invite) => {
+    setInviteActionMessage(null);
+    setInviteErrorMessage(null);
+
+    const { data: authData, error: authError } = await supabase.auth.getSession();
+    const user = authData?.session?.user;
+    const userEmail = String(user?.email || "").trim().toLowerCase();
+
+    if (authError || !user || !userEmail) {
+      setInviteErrorMessage("You must be signed in to accept invites.");
+      return;
+    }
+
+    const { error: memberError } = await supabase.from("bowl_members").insert([
+      {
+        bowl_id: invite.bowl_id,
+        user_id: user.id,
+        role: "Member",
+      },
+    ]);
+
+    if (memberError) {
+      const memberMessage = String(memberError.message || "").toLowerCase();
+      if (!memberMessage.includes("duplicate")) {
+        console.error("Failed to accept invite membership", memberError);
+        setInviteErrorMessage("Failed to join bowl from invite.");
+        return;
+      }
+    }
+
+    const { error: acceptError } = await supabase
+      .from("bowl_invites")
+      .update({ accepted_at: new Date().toISOString() })
+      .eq("id", invite.id)
+      .ilike("invited_email", userEmail);
+
+    if (acceptError) {
+      console.error("Failed to mark invite as accepted", acceptError);
+      setInviteErrorMessage("Joined bowl, but failed to finalize invite acceptance.");
+      return;
+    }
+
+    setPendingInvites((prev) => prev.filter((row) => row.id !== invite.id));
+    setInviteActionMessage("Invite accepted.");
+    navigate(`/bowl/${invite.bowl_id}`);
+  };
+
+  const handleDeclineInvite = async (invite) => {
+    setInviteActionMessage(null);
+    setInviteErrorMessage(null);
+
+    const { data: authData, error: authError } = await supabase.auth.getSession();
+    const user = authData?.session?.user;
+    const userEmail = String(user?.email || "").trim().toLowerCase();
+
+    if (authError || !user || !userEmail) {
+      setInviteErrorMessage("You must be signed in to manage invites.");
+      return;
+    }
+
+    const { error: deleteError } = await supabase
+      .from("bowl_invites")
+      .delete()
+      .eq("id", invite.id)
+      .ilike("invited_email", userEmail);
+
+    if (deleteError) {
+      console.error("Failed to decline invite", deleteError);
+      setInviteErrorMessage("Failed to decline invite.");
+      return;
+    }
+
+    setPendingInvites((prev) => prev.filter((row) => row.id !== invite.id));
+    setInviteActionMessage("Invite declined.");
+  };
 
   const handleSelectBowl = (bowlId) => {
     navigate(`/bowl/${bowlId}`);
@@ -279,6 +425,8 @@ export default function MyBowlsScreen() {
       <header className="mb-6">
         {createErrorMessage && <div className="mb-3 text-sm text-red-600">{createErrorMessage}</div>}
         {createActionMessage && <div className="mb-3 text-sm text-green-700">{createActionMessage}</div>}
+        {inviteErrorMessage && <div className="mb-3 text-sm text-red-600">{inviteErrorMessage}</div>}
+        {inviteActionMessage && <div className="mb-3 text-sm text-green-700">{inviteActionMessage}</div>}
         <div className="flex flex-col gap-4 rounded-2xl border border-slate-200 bg-white p-5 shadow-sm md:flex-row md:items-center md:justify-between">
           <div>
             <h2 className="text-2xl font-semibold text-slate-800">My Bowls</h2>
@@ -393,6 +541,46 @@ export default function MyBowlsScreen() {
           </div>
         ) : (
           <>
+            {pendingInvites.length > 0 && (
+              <section>
+                <div className="mb-3">
+                  <h3 className="text-lg font-semibold text-slate-800">Invites</h3>
+                  <p className="text-sm text-slate-500">Pending invites for your account.</p>
+                </div>
+                <div className="space-y-3">
+                  {pendingInvites.map((invite) => (
+                    <article key={invite.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                      <h4 className="text-base font-semibold text-slate-800">{invite.bowl_name || "Movie Bowl Invite"}</h4>
+                      <p className="mt-1 text-sm text-slate-600">
+                        Invited
+                        {invite.invited_by_email ? ` by ${invite.invited_by_email}` : ""}
+                        {invite.created_at ? ` on ${new Date(invite.created_at).toLocaleDateString()}` : ""}.
+                      </p>
+                      <div className="mt-3 flex flex-wrap gap-2">
+                        <button
+                          type="button"
+                          className="btn btn-secondary"
+                          onClick={() => {
+                            void handleAcceptInvite(invite);
+                          }}
+                        >
+                          Accept
+                        </button>
+                        <button
+                          type="button"
+                          className="btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                          onClick={() => {
+                            void handleDeclineInvite(invite);
+                          }}
+                        >
+                          Decline
+                        </button>
+                      </div>
+                    </article>
+                  ))}
+                </div>
+              </section>
+            )}
             <section>
               <div className="mb-3">
                 <div>
