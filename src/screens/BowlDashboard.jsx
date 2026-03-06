@@ -19,6 +19,7 @@ import { checkContributionBalance } from "../utils/contributionBalance";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 import { matchUserServices } from "../utils/streamingServices";
+import { resolvePreferredWebLaunchCandidate } from "../utils/webLaunch";
 import {
   DEFAULT_DRAW_SETTINGS,
   RUNTIME_FILTER_MAX_MINUTES,
@@ -68,6 +69,7 @@ export default function BowlDashboard() {
     const [didApplyDefaultDrawSettings, setDidApplyDefaultDrawSettings] = useState(false);
     const [isLaunchingPreferredService, setIsLaunchingPreferredService] = useState(false);
     const [rokuLaunchStatus, setRokuLaunchStatus] = useState(null);
+    const [webLaunchStatus, setWebLaunchStatus] = useState(null);
     const [hasAttemptedPreferredLaunch, setHasAttemptedPreferredLaunch] = useState(false);
     const {
       streamingServices: userStreamingServices,
@@ -189,6 +191,23 @@ export default function BowlDashboard() {
             : null,
       [hasAttemptedPreferredLaunch, rokuLaunchStatus, selectedRoku, drawnMovieMatchingProviders]
     );
+    const preferredWebLaunchCandidate = useMemo(() => {
+      if (!drawnMovie || !defaultDrawSettings.enablePreferredWebLaunch) return null;
+      if (drawnMovieMatchingProviders.length === 0) return null;
+
+      const year = drawnMovie?.release_date ? String(drawnMovie.release_date).split("-")[0] : "";
+      return resolvePreferredWebLaunchCandidate({
+        userServices: userStreamingServices,
+        movieProviders: drawnMovie.streamingProviders || [],
+        title: drawnMovie.title || "",
+        year,
+      });
+    }, [
+      drawnMovie,
+      defaultDrawSettings.enablePreferredWebLaunch,
+      drawnMovieMatchingProviders,
+      userStreamingServices,
+    ]);
     const preferredLaunchUnavailableReason = useMemo(() => {
       if (!drawnMovie) return "";
       if ((drawnMovie.streamingProviders || []).length === 0) {
@@ -397,6 +416,26 @@ export default function BowlDashboard() {
       } finally {
         setIsLaunchingPreferredService(false);
       }
+    };
+
+    const handleLaunchPreferredWeb = () => {
+      if (!defaultDrawSettings.enablePreferredWebLaunch || !preferredWebLaunchCandidate?.url) return;
+      setWebLaunchStatus(null);
+      const popup = window.open(preferredWebLaunchCandidate.url, "_blank", "noopener,noreferrer");
+
+      if (!popup) {
+        setWebLaunchStatus({
+          ok: false,
+          message: "Your browser blocked opening the streaming site.",
+          details: ["Allow pop-ups for this site and try again."],
+        });
+        return;
+      }
+
+      setWebLaunchStatus({
+        ok: true,
+        message: `Opened ${preferredWebLaunchCandidate.serviceName} in a new tab.`,
+      });
     };
 
 return (
@@ -936,12 +975,20 @@ return (
                     : null
                 }
                 preferredLaunchUnavailableReason={preferredLaunchUnavailableReason}
+                webLaunchCandidate={
+                  defaultDrawSettings.enablePreferredWebLaunch
+                    ? preferredWebLaunchCandidate
+                    : null
+                }
+                webLaunchStatus={webLaunchStatus}
                 isLaunchingPreferredService={isLaunchingPreferredService}
                 onLaunchPreferredService={() => handleLaunchPreferredService(drawnMovie)}
+                onLaunchPreferredWeb={handleLaunchPreferredWeb}
                 rokuLaunchStatus={rokuLaunchStatus}
                 onClose={() => {
                   setDrawnMovie(null);
                   setRokuLaunchStatus(null);
+                  setWebLaunchStatus(null);
                   setHasAttemptedPreferredLaunch(false);
                 }}
               />

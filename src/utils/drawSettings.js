@@ -29,6 +29,7 @@ export const DEFAULT_DRAW_SETTINGS = {
   prioritizeStreaming: false,
   useStreamingRank: true,
   enablePreferredRokuAppLaunch: false,
+  enablePreferredWebLaunch: false,
   selectedRatings: MPAA_RATING_OPTIONS,
   includeUnknownRatings: true,
   selectedGenres: null,
@@ -92,6 +93,10 @@ export function normalizeDefaultDrawSettings(value) {
       source.enablePreferredRokuAppLaunch === undefined
         ? DEFAULT_DRAW_SETTINGS.enablePreferredRokuAppLaunch
         : Boolean(source.enablePreferredRokuAppLaunch),
+    enablePreferredWebLaunch:
+      source.enablePreferredWebLaunch === undefined
+        ? DEFAULT_DRAW_SETTINGS.enablePreferredWebLaunch
+        : Boolean(source.enablePreferredWebLaunch),
     selectedRatings: normalizeSelectedRatings(source.selectedRatings),
     includeUnknownRatings:
       source.includeUnknownRatings === undefined

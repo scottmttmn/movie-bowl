@@ -18,9 +18,24 @@ const mocks = vi.hoisted(() => {
     handleDeleteMovie: vi.fn(async () => true),
     handleReaddMovie: vi.fn(async () => true),
     streamingServices: [],
+    defaultDrawSettings: {
+      prioritizeStreaming: false,
+      useStreamingRank: true,
+      enablePreferredRokuAppLaunch: false,
+      enablePreferredWebLaunch: false,
+      selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
+      includeUnknownRatings: true,
+      selectedGenres: null,
+      includeUnknownGenres: true,
+      runtimeMinMinutes: 0,
+      runtimeMaxMinutes: 500,
+      includeUnknownRuntime: true,
+    },
   };
 
-  const supabase = {
+  return {
+    state,
+    supabase: {
     auth: {
       getSession: vi.fn(async () => ({
         data: { session: { user: { id: state.authUserId } } },
@@ -45,9 +60,10 @@ const mocks = vi.hoisted(() => {
       };
       return query;
     }),
+    },
+    getTmdbMovieDetails: vi.fn(async () => ({})),
+    fetchStreamingProviders: vi.fn(async () => ({ providers: [], region: "US", fetchedAt: null })),
   };
-
-  return { state, supabase };
 });
 
 vi.mock("../../hooks/useBowl", () => ({
@@ -66,17 +82,7 @@ vi.mock("../../hooks/useBowl", () => ({
 vi.mock("../../hooks/useUserStreamingServices", () => ({
   default: () => ({
     streamingServices: mocks.state.streamingServices,
-    defaultDrawSettings: {
-      prioritizeStreaming: false,
-      useStreamingRank: true,
-      selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
-      includeUnknownRatings: true,
-      selectedGenres: null,
-      includeUnknownGenres: true,
-      runtimeMinMinutes: 0,
-      runtimeMaxMinutes: 500,
-      includeUnknownRuntime: true,
-    },
+    defaultDrawSettings: mocks.state.defaultDrawSettings,
     loading: false,
   }),
 }));
@@ -84,11 +90,11 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
 vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
 
 vi.mock("../../lib/streamingProviders", () => ({
-  fetchStreamingProviders: vi.fn(async () => ({ providers: [], region: "US", fetchedAt: null })),
+  fetchStreamingProviders: mocks.fetchStreamingProviders,
 }));
 
 vi.mock("../../lib/tmdbApi", () => ({
-  getTmdbMovieDetails: vi.fn(async () => ({})),
+  getTmdbMovieDetails: mocks.getTmdbMovieDetails,
 }));
 
 vi.mock("react-router-dom", async () => {
@@ -102,6 +108,7 @@ vi.mock("react-router-dom", async () => {
 
 import BowlDashboard from "../BowlDashboard";
 import { getTmdbMovieDetails } from "../../lib/tmdbApi";
+import { fetchStreamingProviders } from "../../lib/streamingProviders";
 
 function renderDashboard() {
   return render(
@@ -126,6 +133,23 @@ describe("BowlDashboard draw flow", () => {
     mocks.state.handleReaddMovie.mockClear();
     mocks.state.handleDraw.mockReset();
     mocks.state.streamingServices = [];
+    mocks.state.defaultDrawSettings = {
+      prioritizeStreaming: false,
+      useStreamingRank: true,
+      enablePreferredRokuAppLaunch: false,
+      enablePreferredWebLaunch: false,
+      selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
+      includeUnknownRatings: true,
+      selectedGenres: null,
+      includeUnknownGenres: true,
+      runtimeMinMinutes: 0,
+      runtimeMaxMinutes: 500,
+      includeUnknownRuntime: true,
+    };
+    mocks.getTmdbMovieDetails.mockReset();
+    mocks.getTmdbMovieDetails.mockResolvedValue({});
+    mocks.fetchStreamingProviders.mockReset();
+    mocks.fetchStreamingProviders.mockResolvedValue({ providers: [], region: "US", fetchedAt: null });
     vi.useRealTimers();
   });
 
@@ -228,5 +252,82 @@ describe("BowlDashboard draw flow", () => {
     expect(screen.queryByText(/drawing a title from the bowl/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^close$/i })).not.toBeInTheDocument();
     vi.useRealTimers();
+  });
+
+  it("shows web launch only in drawn modal and opens provider site in a new tab", async () => {
+    const openSpy = vi.spyOn(window, "open").mockReturnValue({});
+    mocks.state.streamingServices = ["Netflix", "Hulu"];
+    mocks.state.defaultDrawSettings.enablePreferredWebLaunch = true;
+    mocks.state.handleDraw.mockResolvedValue({
+      id: "m1",
+      tmdb_id: 101,
+      title: "Movie A",
+      runtime: 120,
+      release_date: "2020-01-01",
+      streamingProviders: [],
+    });
+    getTmdbMovieDetails.mockResolvedValue({ runtime: 120 });
+    fetchStreamingProviders.mockResolvedValue({
+      providers: ["Hulu", "Netflix"],
+      region: "US",
+      fetchedAt: null,
+    });
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    await act(async () => {
+      vi.advanceTimersByTime(1200);
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
+
+    const webButton = await screen.findByRole("button", { name: /open on web in netflix/i });
+    fireEvent.click(webButton);
+
+    expect(openSpy).toHaveBeenCalledWith(
+      "https://www.netflix.com/search?q=Movie%20A%202020",
+      "_blank",
+      "noopener,noreferrer"
+    );
+    expect(screen.getByText(/opened netflix in a new tab/i)).toBeInTheDocument();
+    openSpy.mockRestore();
+  });
+
+  it("shows a web launch error when popup is blocked", async () => {
+    const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
+    mocks.state.streamingServices = ["Netflix"];
+    mocks.state.defaultDrawSettings.enablePreferredWebLaunch = true;
+    mocks.state.handleDraw.mockResolvedValue({
+      id: "m1",
+      tmdb_id: 101,
+      title: "Movie A",
+      runtime: 120,
+      release_date: "2020-01-01",
+      streamingProviders: [],
+    });
+    getTmdbMovieDetails.mockResolvedValue({ runtime: 120 });
+    fetchStreamingProviders.mockResolvedValue({
+      providers: ["Netflix"],
+      region: "US",
+      fetchedAt: null,
+    });
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    await act(async () => {
+      vi.advanceTimersByTime(1200);
+      await Promise.resolve();
+    });
+    vi.useRealTimers();
+
+    fireEvent.click(await screen.findByRole("button", { name: /open on web in netflix/i }));
+    expect(screen.getByText(/your browser blocked opening the streaming site/i)).toBeInTheDocument();
+    openSpy.mockRestore();
   });
 });

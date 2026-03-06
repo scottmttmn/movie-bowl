@@ -62,6 +62,7 @@ describe("MovieSearch detail flow", () => {
     });
     expect(screen.getByText("Runtime: 123 minutes")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /show trailer/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /open on web in/i })).not.toBeInTheDocument();
     expect(screen.queryByTitle("Movie A trailer")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /show trailer/i }));

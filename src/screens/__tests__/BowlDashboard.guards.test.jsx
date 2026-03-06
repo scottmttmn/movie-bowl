@@ -82,6 +82,8 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
     defaultDrawSettings: {
       prioritizeStreaming: false,
       useStreamingRank: true,
+      enablePreferredRokuAppLaunch: false,
+      enablePreferredWebLaunch: false,
       selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
       includeUnknownRatings: true,
       selectedGenres: null,
@@ -257,10 +259,11 @@ describe("BowlDashboard guards", () => {
     await waitFor(() => expect(screen.getByText("Movie A (2020)")).toBeInTheDocument());
     expect(mocks.getTmdbMovieDetails).toHaveBeenCalledWith(101);
     expect(screen.getByRole("button", { name: /show trailer/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /open on web in/i })).not.toBeInTheDocument();
     expect(screen.queryByTitle("Movie A trailer")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /show trailer/i }));
-    expect(screen.getByTitle("Movie A trailer")).toBeInTheDocument();
+    await waitFor(() => expect(screen.getByTitle("Movie A trailer")).toBeInTheDocument());
   });
 
   it("preserves the bowl row id when re-adding an enriched watched movie", async () => {
