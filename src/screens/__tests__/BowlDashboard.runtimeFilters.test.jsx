@@ -14,9 +14,12 @@ const mocks = vi.hoisted(() => {
       watched: [],
     },
     contributions: { "member@example.com": 1 },
+    queueData: { pending: [], promoted: [] },
     handleDraw: vi.fn(async () => null),
     handleDeleteMovie: vi.fn(async () => true),
     handleReaddMovie: vi.fn(async () => true),
+    handleQueueMovie: vi.fn(async () => true),
+    handleRemoveQueuedMovie: vi.fn(async () => true),
     streamingServices: ["Hulu"],
   };
 
@@ -56,9 +59,13 @@ vi.mock("../../hooks/useBowl", () => ({
     contributions: mocks.state.contributions,
     isLoading: false,
     errorMessage: null,
+    queueMessage: null,
+    queue: mocks.state.queueData,
     handleDraw: mocks.state.handleDraw,
     handleDeleteMovie: mocks.state.handleDeleteMovie,
     handleReaddMovie: mocks.state.handleReaddMovie,
+    handleQueueMovie: mocks.state.handleQueueMovie,
+    handleRemoveQueuedMovie: mocks.state.handleRemoveQueuedMovie,
     handleAddMovie: vi.fn(),
   }),
 }));
@@ -109,6 +116,9 @@ function renderDashboard() {
 describe("BowlDashboard runtime filters", () => {
   beforeEach(() => {
     mocks.state.handleDraw.mockClear();
+    mocks.state.handleQueueMovie.mockClear();
+    mocks.state.handleRemoveQueuedMovie.mockClear();
+    mocks.state.queueData = { pending: [], promoted: [] };
     vi.useRealTimers();
   });
 

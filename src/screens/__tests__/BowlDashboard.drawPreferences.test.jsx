@@ -15,9 +15,12 @@ const mocks = vi.hoisted(() => {
       watched: [],
     },
     contributions: { "owner@example.com": 1 },
+    queueData: { pending: [], promoted: [] },
     handleDraw: vi.fn(async () => null),
     handleDeleteMovie: vi.fn(async () => true),
     handleReaddMovie: vi.fn(async () => true),
+    handleQueueMovie: vi.fn(async () => true),
+    handleRemoveQueuedMovie: vi.fn(async () => true),
     streamingServices: [],
     defaultDrawSettings: {
       prioritizeStreaming: false,
@@ -69,9 +72,13 @@ vi.mock("../../hooks/useBowl", () => ({
     contributions: mocks.state.contributions,
     isLoading: false,
     errorMessage: null,
+    queueMessage: null,
+    queue: mocks.state.queueData,
     handleDraw: mocks.state.handleDraw,
     handleDeleteMovie: mocks.state.handleDeleteMovie,
     handleReaddMovie: mocks.state.handleReaddMovie,
+    handleQueueMovie: mocks.state.handleQueueMovie,
+    handleRemoveQueuedMovie: mocks.state.handleRemoveQueuedMovie,
     handleAddMovie: vi.fn(),
   }),
 }));
@@ -121,7 +128,10 @@ describe("BowlDashboard draw preferences", () => {
       watched: [],
     };
     mocks.state.contributions = { "owner@example.com": 1 };
+    mocks.state.queueData = { pending: [], promoted: [] };
     mocks.state.handleDraw.mockClear();
+    mocks.state.handleQueueMovie.mockClear();
+    mocks.state.handleRemoveQueuedMovie.mockClear();
     mocks.state.streamingServices = [];
     mocks.state.defaultDrawSettings = {
       prioritizeStreaming: false,

@@ -33,13 +33,27 @@ export default function BowlDashboard() {
     const DRAW_ACCESS_MODE_SELECTED = "selected_members";
     
     const { bowlId } = useParams();
-    const { bowl, contributions, isLoading, errorMessage, handleDraw, handleAddMovie, handleDeleteMovie, handleReaddMovie } = useBowl(bowlId);
+    const {
+      bowl,
+      queue,
+      contributions,
+      isLoading,
+      errorMessage,
+      queueMessage,
+      handleDraw,
+      handleAddMovie,
+      handleQueueMovie,
+      handleRemoveQueuedMovie,
+      handleDeleteMovie,
+      handleReaddMovie,
+    } = useBowl(bowlId);
 
     const [showSearch, setShowSearch] = useState(false);
     const [drawnMovie, setDrawnMovie] = useState(null);
     const [selectedDetailMovie, setSelectedDetailMovie] = useState(null);
     const [selectedDetailContext, setSelectedDetailContext] = useState(null);
     const [showMyAdds, setShowMyAdds] = useState(false);
+    const [showMyQueue, setShowMyQueue] = useState(false);
     const [prioritizeStreaming, setPrioritizeStreaming] = useState(false);
     const [useStreamingRank, setUseStreamingRank] = useState(true);
     const [selectedRatings, setSelectedRatings] = useState(MPAA_RATING_OPTIONS);
@@ -63,6 +77,7 @@ export default function BowlDashboard() {
     const [maxContributionLead, setMaxContributionLead] = useState(null);
     const [addGuardMessage, setAddGuardMessage] = useState(null);
     const [deleteErrorMessage, setDeleteErrorMessage] = useState(null);
+    const [queueErrorMessage, setQueueErrorMessage] = useState(null);
     const [readdErrorMessage, setReaddErrorMessage] = useState(null);
     const [pendingReaddMovie, setPendingReaddMovie] = useState(null);
     const [isReadding, setIsReadding] = useState(false);
@@ -102,7 +117,7 @@ export default function BowlDashboard() {
 
     const isAddBlockedByContributionLimit = Boolean(maxContributionLead !== null && addBalance && !addBalance.allowed);
     const isAddBlockedByUndrawnLimit = (bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL;
-    const isAddBlocked = isAddBlockedByContributionLimit || isAddBlockedByUndrawnLimit;
+    const isAddBlocked = isAddBlockedByUndrawnLimit;
     const isCurrentUserOwner = Boolean(currentUserId && bowlOwnerId && currentUserId === bowlOwnerId);
     const isCurrentUserMember = Boolean(currentUserId && memberIds.includes(currentUserId));
     const canCurrentUserDraw = useMemo(() => {
@@ -857,8 +872,11 @@ return (
                 )}
                 {isAddBlockedByContributionLimit && (
                   <p className="mt-2 text-center text-sm text-amber-700">
-                    You are at {addBalance.myCount} contributions and the lowest active member is at {addBalance.minCount}.
+                    You are at {addBalance.myCount} contributions and the lowest active member is at {addBalance.minCount}. New adds will go to your queue until you're eligible.
                   </p>
+                )}
+                {queueMessage && (
+                  <p className="mt-2 text-center text-sm text-emerald-700">{queueMessage}</p>
                 )}
                 {isAddBlockedByUndrawnLimit && (
                   <p className="mt-2 text-center text-sm text-amber-700">
@@ -880,6 +898,82 @@ return (
                 {readdErrorMessage && (
                   <p className="mt-2 text-sm text-amber-700">{readdErrorMessage}</p>
                 )}
+            </section>
+
+            <section className="panel mt-4 w-full max-w-full min-w-0">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-left">
+                  <h3 className="section-title text-base">My Queue</h3>
+                  <p className="text-xs text-slate-500">
+                    Contribution-limit overflow goes here and auto-adds when eligible.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowMyQueue((prev) => !prev)}
+                  className="btn btn-secondary px-3 py-2 text-sm"
+                >
+                  {showMyQueue ? "Hide" : "Show"}
+                </button>
+              </div>
+              {showMyQueue && (
+                <div className="mt-3 space-y-3">
+                  {(queue.pending || []).length === 0 && (queue.promoted || []).length === 0 && (
+                    <p className="text-sm text-slate-500">Your queue is empty.</p>
+                  )}
+
+                  {(queue.pending || []).length > 0 && (
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Pending</p>
+                      <div className="space-y-2">
+                        {queue.pending.map((item) => (
+                          <article
+                            key={item.id}
+                            className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2"
+                          >
+                            <div className="min-w-0">
+                              <p className="truncate text-sm font-semibold text-slate-800">{item.title}</p>
+                              <p className="text-xs text-slate-500">
+                                Queued {item.queued_at ? new Date(item.queued_at).toLocaleString() : "just now"}
+                              </p>
+                            </div>
+                            <button
+                              type="button"
+                              className="btn border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700 hover:bg-red-100"
+                              onClick={async () => {
+                                setQueueErrorMessage(null);
+                                const removed = await handleRemoveQueuedMovie(item.id);
+                                if (!removed) {
+                                  setQueueErrorMessage("Could not remove this queued movie.");
+                                }
+                              }}
+                            >
+                              Remove
+                            </button>
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+
+                  {(queue.promoted || []).length > 0 && (
+                    <div>
+                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Recently added from queue</p>
+                      <div className="space-y-2">
+                        {queue.promoted.map((item) => (
+                          <article key={item.id} className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
+                            <p className="text-sm font-semibold text-emerald-900">{item.title}</p>
+                            <p className="text-xs text-emerald-700">
+                              Added {item.promoted_at ? new Date(item.promoted_at).toLocaleString() : "recently"}
+                            </p>
+                          </article>
+                        ))}
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+              {queueErrorMessage && <p className="mt-2 text-sm text-red-600">{queueErrorMessage}</p>}
             </section>
 
             <section className="panel mt-4 w-full max-w-full min-w-0">
@@ -933,6 +1027,13 @@ return (
                   userStreamingServices={userStreamingServices}
                   onClose={() => setShowSearch(false)}
                   onAddMovie={async (movie) => {
+                    if ((bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
+                      setAddGuardMessage(
+                        `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`
+                      );
+                      return;
+                    }
+
                     if (maxContributionLead !== null) {
                       const balance = checkContributionBalance({
                         movies: [...(bowl.remaining || []), ...(bowl.watched || [])],
@@ -942,21 +1043,22 @@ return (
                       });
 
                       if (!balance.allowed) {
-                        setAddGuardMessage(
-                          `You are at ${balance.myCount} contributions and the lowest active member is at ${balance.minCount}.`
-                        );
+                        const queued = await handleQueueMovie(movie);
+                        if (queued) {
+                          setShowSearch(false);
+                        } else {
+                          setAddGuardMessage(
+                            `You are at ${balance.myCount} contributions and the lowest active member is at ${balance.minCount}.`
+                          );
+                        }
                         return;
                       }
                     }
-                    if ((bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
-                      setAddGuardMessage(
-                        `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`
-                      );
-                      return;
-                    }
 
-                    await handleAddMovie(movie);
-                    setShowSearch(false);
+                    const added = await handleAddMovie(movie);
+                    if (added) {
+                      setShowSearch(false);
+                    }
                   }}
                 />
               )}

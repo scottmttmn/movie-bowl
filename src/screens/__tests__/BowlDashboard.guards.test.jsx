@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RokuDeviceProvider } from "../../context/RokuDeviceContext";
 
@@ -20,9 +20,13 @@ const mocks = vi.hoisted(() => {
       watched: [],
     },
     contributions: { "owner@example.com": 4 },
+    queueData: { pending: [], promoted: [] },
     handleDraw: vi.fn(async () => null),
+    handleAddMovie: vi.fn(async () => true),
     handleDeleteMovie: vi.fn(async () => true),
     handleReaddMovie: vi.fn(async () => true),
+    handleQueueMovie: vi.fn(async () => true),
+    handleRemoveQueuedMovie: vi.fn(async () => true),
     streamingServices: [],
   };
 
@@ -69,10 +73,14 @@ vi.mock("../../hooks/useBowl", () => ({
     contributions: mocks.state.contributions,
     isLoading: false,
     errorMessage: null,
+    queueMessage: null,
+    queue: mocks.state.queueData,
     handleDraw: mocks.state.handleDraw,
+    handleAddMovie: mocks.state.handleAddMovie,
     handleDeleteMovie: mocks.state.handleDeleteMovie,
     handleReaddMovie: mocks.state.handleReaddMovie,
-    handleAddMovie: vi.fn(),
+    handleQueueMovie: mocks.state.handleQueueMovie,
+    handleRemoveQueuedMovie: mocks.state.handleRemoveQueuedMovie,
   }),
 }));
 
@@ -142,7 +150,11 @@ describe("BowlDashboard guards", () => {
       watched: [],
     };
     mocks.state.contributions = { "owner@example.com": 4 };
+    mocks.state.queueData = { pending: [], promoted: [] };
     mocks.state.handleReaddMovie.mockClear();
+    mocks.state.handleAddMovie.mockClear();
+    mocks.state.handleQueueMovie.mockClear();
+    mocks.state.handleRemoveQueuedMovie.mockClear();
     mocks.state.streamingServices = [];
     mocks.getTmdbMovieDetails.mockReset();
     mocks.getTmdbMovieDetails.mockResolvedValue({});
@@ -152,15 +164,67 @@ describe("BowlDashboard guards", () => {
     cleanup();
   });
 
-  it("disables Add Movie when user is over the contribution lead limit", async () => {
+  it("keeps Add Movie enabled when user is over the contribution lead limit", async () => {
     renderDashboard();
 
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    expect(screen.getByRole("button", { name: /\+ add movie/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /\+ add movie/i })).toBeEnabled();
     expect(
       screen.getByText(/you are at 4 contributions and the lowest active member is at 0/i)
     ).toBeInTheDocument();
+  });
+
+  it("queues a custom add when blocked by contribution limit", async () => {
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /\+ add movie/i }));
+    fireEvent.change(screen.getByPlaceholderText(/search movies/i), { target: { value: "Wildcard Night" } });
+    fireEvent.click(screen.getByRole("button", { name: /add "wildcard night"/i }));
+
+    await waitFor(() => {
+      expect(mocks.state.handleQueueMovie).toHaveBeenCalledWith(
+        expect.objectContaining({
+          title: "Wildcard Night",
+        })
+      );
+    });
+    expect(mocks.state.handleAddMovie).not.toHaveBeenCalled();
+  });
+
+  it("shows queue rows and allows removing a pending queued movie", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = { remaining: [], watched: [] };
+    mocks.state.contributions = {};
+    mocks.state.queueData = {
+      pending: [
+        {
+          id: "q1",
+          title: "Movie Pending",
+          queued_at: "2026-03-06T12:00:00.000Z",
+        },
+      ],
+      promoted: [
+        {
+          id: "q2",
+          title: "Movie Done",
+          promoted_at: "2026-03-06T12:10:00.000Z",
+        },
+      ],
+    };
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    const myQueueSection = screen.getByRole("heading", { name: /my queue/i }).closest("section");
+    expect(myQueueSection).toBeTruthy();
+    fireEvent.click(within(myQueueSection).getByRole("button", { name: /^show$/i }));
+    expect(screen.getByText(/movie pending/i)).toBeInTheDocument();
+    expect(screen.getByText(/movie done/i)).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /remove/i }));
+    await waitFor(() => expect(mocks.state.handleRemoveQueuedMovie).toHaveBeenCalledWith("q1"));
   });
 
   it("keeps Add Movie enabled when only one active member exists", async () => {
