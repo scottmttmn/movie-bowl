@@ -1,63 +1,4 @@
-function MyAddedMovieCard({ movie, onViewMovie, onDeleteMovie }) {
-  const addedAtLabel = movie.added_at ? new Date(movie.added_at).toLocaleDateString() : null;
-  const isCustomEntry = Boolean(
-    movie.isCustomEntry || movie.tmdb_id == null || Number(movie.tmdb_id) <= 0
-  );
-  const posterUrl = movie.poster_path
-    ? `https://image.tmdb.org/t/p/w200${movie.poster_path}`
-    : movie.poster || null;
-  const isSyncing = movie.local_status === "syncing";
-
-  return (
-    <article
-      className={`w-32 flex-shrink-0 rounded-lg border border-slate-200 bg-white p-2 ${
-        isSyncing ? "opacity-80" : ""
-      }`}
-    >
-      {posterUrl ? (
-        <img
-          src={posterUrl}
-          alt={movie.title}
-          className="h-40 w-full rounded-md object-cover"
-        />
-      ) : (
-        <div className="h-40 w-full rounded-md bg-slate-200 p-2 flex items-center justify-center">
-          <p className="text-xs text-center font-semibold text-slate-700">{movie.title}</p>
-        </div>
-      )}
-      <p className="mt-2 line-clamp-2 min-h-[2.5rem] text-xs font-semibold text-slate-800">
-        {movie.title}
-      </p>
-      {isCustomEntry && (
-        <span className="mb-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
-          Custom
-        </span>
-      )}
-      {addedAtLabel && <p className="mb-2 text-[11px] text-slate-500">Added: {addedAtLabel}</p>}
-      {isSyncing && (
-        <p className="mb-2 text-[11px] font-medium text-blue-700">Syncing...</p>
-      )}
-      <div className="flex gap-1">
-        <button
-          type="button"
-          onClick={() => onViewMovie?.(movie)}
-          className="btn btn-secondary px-2 py-1 text-xs"
-          disabled={isSyncing}
-        >
-          Details
-        </button>
-        <button
-          type="button"
-          onClick={() => onDeleteMovie?.(movie)}
-          className="btn border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700 hover:bg-red-100"
-          disabled={isSyncing}
-        >
-          Delete
-        </button>
-      </div>
-    </article>
-  );
-}
+import MovieActionCard from "./MovieActionCard";
 
 export default function MyAddedMoviesStrip({ movies, onViewMovie, onDeleteMovie }) {
   return (
@@ -68,11 +9,15 @@ export default function MyAddedMoviesStrip({ movies, onViewMovie, onDeleteMovie 
       </div>
       <div className="flex flex-nowrap gap-3 overflow-x-auto pb-1">
         {movies.map((movie) => (
-          <MyAddedMovieCard
+          <MovieActionCard
             key={movie.id}
             movie={movie}
-            onViewMovie={onViewMovie}
-            onDeleteMovie={onDeleteMovie}
+            dateLabelPrefix="Added"
+            dateValue={movie.added_at}
+            primaryActionLabel="Details"
+            secondaryActionLabel="Delete"
+            onPrimaryAction={onViewMovie}
+            onSecondaryAction={onDeleteMovie}
           />
         ))}
       </div>

@@ -3,6 +3,7 @@ import DrawButton from "../components/DrawButton";
 import RemainingCount from "../components/RemainingCount";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
 import MyAddedMoviesStrip from "../components/MyAddedMoviesStrip";
+import QueueMoviesStrip from "../components/QueueMoviesStrip";
 import AddMovieButton from "../components/AddMovieButton";
 import BowlIllustration from "../components/BowlIllustration";
 import ContributionStats from "../components/ContributionStats";
@@ -917,59 +918,24 @@ return (
                 </button>
               </div>
               {showMyQueue && (
-                <div className="mt-3 space-y-3">
-                  {(queue.pending || []).length === 0 && (queue.promoted || []).length === 0 && (
+                <div className="mt-3">
+                  {(queue.pending || []).length === 0 ? (
                     <p className="text-sm text-slate-500">Your queue is empty.</p>
-                  )}
-
-                  {(queue.pending || []).length > 0 && (
-                    <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Pending</p>
-                      <div className="space-y-2">
-                        {queue.pending.map((item) => (
-                          <article
-                            key={item.id}
-                            className="flex items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white px-3 py-2"
-                          >
-                            <div className="min-w-0">
-                              <p className="truncate text-sm font-semibold text-slate-800">{item.title}</p>
-                              <p className="text-xs text-slate-500">
-                                Queued {item.queued_at ? new Date(item.queued_at).toLocaleString() : "just now"}
-                              </p>
-                            </div>
-                            <button
-                              type="button"
-                              className="btn border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700 hover:bg-red-100"
-                              onClick={async () => {
-                                setQueueErrorMessage(null);
-                                const removed = await handleRemoveQueuedMovie(item.id);
-                                if (!removed) {
-                                  setQueueErrorMessage("Could not remove this queued movie.");
-                                }
-                              }}
-                            >
-                              Remove
-                            </button>
-                          </article>
-                        ))}
-                      </div>
-                    </div>
-                  )}
-
-                  {(queue.promoted || []).length > 0 && (
-                    <div>
-                      <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-slate-500">Recently added from queue</p>
-                      <div className="space-y-2">
-                        {queue.promoted.map((item) => (
-                          <article key={item.id} className="rounded-lg border border-emerald-200 bg-emerald-50 px-3 py-2">
-                            <p className="text-sm font-semibold text-emerald-900">{item.title}</p>
-                            <p className="text-xs text-emerald-700">
-                              Added {item.promoted_at ? new Date(item.promoted_at).toLocaleString() : "recently"}
-                            </p>
-                          </article>
-                        ))}
-                      </div>
-                    </div>
+                  ) : (
+                    <QueueMoviesStrip
+                      movies={queue.pending || []}
+                      onViewMovie={async (movie) => {
+                        setSelectedDetailContext("queue");
+                        setSelectedDetailMovie(await buildDetailMovie(movie));
+                      }}
+                      onRemoveMovie={async (movie) => {
+                        setQueueErrorMessage(null);
+                        const removed = await handleRemoveQueuedMovie(movie.id);
+                        if (!removed) {
+                          setQueueErrorMessage("Could not remove this queued movie.");
+                        }
+                      }}
+                    />
                   )}
                 </div>
               )}

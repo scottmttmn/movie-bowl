@@ -193,7 +193,7 @@ describe("BowlDashboard guards", () => {
     expect(mocks.state.handleAddMovie).not.toHaveBeenCalled();
   });
 
-  it("shows queue rows and allows removing a pending queued movie", async () => {
+  it("shows pending queue cards, hides promoted rows, and allows removing a queued movie", async () => {
     mocks.state.memberRows = [{ user_id: "u1" }];
     mocks.state.bowlData = { remaining: [], watched: [] };
     mocks.state.contributions = {};
@@ -220,8 +220,8 @@ describe("BowlDashboard guards", () => {
     const myQueueSection = screen.getByRole("heading", { name: /my queue/i }).closest("section");
     expect(myQueueSection).toBeTruthy();
     fireEvent.click(within(myQueueSection).getByRole("button", { name: /^show$/i }));
-    expect(screen.getByText(/movie pending/i)).toBeInTheDocument();
-    expect(screen.getByText(/movie done/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/movie pending/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/movie done/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /remove/i }));
     await waitFor(() => expect(mocks.state.handleRemoveQueuedMovie).toHaveBeenCalledWith("q1"));
