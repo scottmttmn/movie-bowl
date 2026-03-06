@@ -145,6 +145,43 @@ These are visible in the browser bundle by design.
 
 Do not prefix server-only values with `VITE_`.
 
+## Supabase Schema & Policies (Git-tracked)
+
+Store all Supabase schema and RLS/policy changes in:
+
+- `supabase/migrations/`
+
+Quick workflow:
+
+1. Link CLI to your existing project:
+
+```bash
+supabase login
+supabase link --project-ref YOUR_PROJECT_REF
+```
+
+2. Pull current remote DB as baseline migration (one-time):
+
+```bash
+supabase db pull
+```
+
+3. Add new changes:
+
+```bash
+supabase migration new short_description
+```
+
+4. Apply to Supabase:
+
+```bash
+supabase db push
+```
+
+5. Commit migrations to git.
+
+See `supabase/README.md` for details.
+
 ## Tests
 
 Current tests include:
