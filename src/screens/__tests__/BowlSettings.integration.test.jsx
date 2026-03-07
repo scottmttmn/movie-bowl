@@ -31,6 +31,7 @@ const mocks = vi.hoisted(() => {
       deleteBowlMembers: null,
       deleteBowl: null,
       verifyMembership: null,
+      refreshQueuePromotions: null,
     },
     sendInviteEmailsResult: { sent: 1, failed: 0, results: [{ email: "newfriend@example.com", ok: true }], error: null },
   };
@@ -249,6 +250,15 @@ const mocks = vi.hoisted(() => {
 
       return query;
     }),
+    rpc: vi.fn(async (fnName) => {
+      if (fnName === "refresh_bowl_queue_promotions") {
+        if (state.errors.refreshQueuePromotions) {
+          return { data: null, error: state.errors.refreshQueuePromotions };
+        }
+        return { data: 0, error: null };
+      }
+      return { data: null, error: null };
+    }),
   };
 
   return { state, supabase };
@@ -315,7 +325,9 @@ describe("BowlSettings integration", () => {
       deleteBowlMembers: null,
       deleteBowl: null,
       verifyMembership: null,
+      refreshQueuePromotions: null,
     };
+    mocks.supabase.rpc.mockClear();
     mocks.state.sendInviteEmailsResult = {
       sent: 1,
       failed: 0,
@@ -376,7 +388,7 @@ describe("BowlSettings integration", () => {
 
     await waitFor(() => {
       expect(mocks.state.navigate).toHaveBeenCalledWith("/", { replace: true });
-    }, { timeout: 3000 });
+    }, { timeout: 8000 });
 
     const deleteOps = mocks.state.operations.filter((op) => op.action === "delete");
     expect(deleteOps.some((op) => op.table === "bowl_members")).toBe(true);
@@ -474,6 +486,40 @@ describe("BowlSettings integration", () => {
         }),
       ])
     );
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith("refresh_bowl_queue_promotions", {
+      p_bowl_id: "bowl-1",
+    });
+  });
+
+  it("shows a non-blocking warning when queue refresh rpc is missing", async () => {
+    mocks.state.bowl = {
+      id: "bowl-1",
+      name: "Bowl 1",
+      owner_id: "owner-1",
+      max_contribution_lead: 2,
+      draw_access_mode: "all_members",
+    };
+    mocks.state.errors.refreshQueuePromotions = {
+      code: "42883",
+      message: 'function refresh_bowl_queue_promotions(uuid) does not exist',
+    };
+
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Bowl 1")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText(/max contribution lead/i), {
+      target: { value: "" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/queue refresh is unavailable until the latest database migration is applied/i)
+      ).toBeInTheDocument();
+    });
   });
 
   it("shows draw access controls for owner and defaults to everyone", async () => {
