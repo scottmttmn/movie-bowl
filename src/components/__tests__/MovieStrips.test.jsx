@@ -1,7 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import MyAddedMoviesStrip from "../MyAddedMoviesStrip";
-import QueueMoviesStrip from "../QueueMoviesStrip";
+import MyMoviesStrip from "../MyMoviesStrip";
 import WatchedMovieCard from "../WatchedMovieCard";
 import WatchedMoviesStrip from "../WatchedMoviesStrip";
 
@@ -10,20 +9,19 @@ describe("movie strip components", () => {
     cleanup();
   });
 
-  it("renders MyAddedMoviesStrip and forwards detail/delete actions", () => {
+  it("renders MyMoviesStrip and forwards detail/delete actions for added items", () => {
     const onViewMovie = vi.fn();
     const onDeleteMovie = vi.fn();
     const movies = [
-      { id: "1", title: "Movie One", poster_path: "/one.jpg", added_at: "2026-02-23T00:00:00.000Z" },
-      { id: "2", title: "Wildcard", tmdb_id: null, poster_path: null },
+      { id: "1", source: "added", title: "Movie One", poster_path: "/one.jpg", added_at: "2026-02-23T00:00:00.000Z" },
+      { id: "2", source: "added", title: "Wildcard", tmdb_id: null, poster_path: null },
     ];
 
-    render(<MyAddedMoviesStrip movies={movies} onViewMovie={onViewMovie} onDeleteMovie={onDeleteMovie} />);
+    render(<MyMoviesStrip movies={movies} onViewMovie={onViewMovie} onDeleteMovie={onDeleteMovie} />);
 
     fireEvent.click(screen.getAllByRole("button", { name: /details/i })[0]);
     fireEvent.click(screen.getAllByRole("button", { name: /delete/i })[0]);
 
-    expect(screen.getByText("My Adds")).toBeInTheDocument();
     expect(screen.getAllByText("Custom").length).toBeGreaterThan(0);
     expect(onViewMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "1" }));
     expect(onDeleteMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "1" }));
@@ -38,34 +36,52 @@ describe("movie strip components", () => {
         local_temp_id: "temp:1",
         local_status: "syncing",
         title: "Movie Pending",
+        source: "added",
         added_at: "2026-03-06T00:00:00.000Z",
       },
     ];
 
-    render(<MyAddedMoviesStrip movies={movies} onViewMovie={onViewMovie} onDeleteMovie={onDeleteMovie} />);
+    render(<MyMoviesStrip movies={movies} onViewMovie={onViewMovie} onDeleteMovie={onDeleteMovie} />);
 
     expect(screen.getByText(/syncing\.\.\./i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /details/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: /delete/i })).toBeDisabled();
   });
 
-  it("renders QueueMoviesStrip cards and forwards detail/remove actions", () => {
+  it("renders queued card variant and still forwards delete handler", () => {
     const onViewMovie = vi.fn();
     const onRemoveMovie = vi.fn();
     const movies = [
-      { id: "q1", title: "Movie Pending", poster_path: "/pending.jpg", queued_at: "2026-03-06T00:00:00.000Z" },
-      { id: "q2", title: "Wildcard Queue", tmdb_id: null, poster_path: null },
+      { id: "q1", source: "queue", title: "Movie Pending", poster_path: "/pending.jpg", queued_at: "2026-03-06T00:00:00.000Z" },
+      { id: "q2", source: "queue", title: "Wildcard Queue", tmdb_id: null, poster_path: null },
     ];
 
-    render(<QueueMoviesStrip movies={movies} onViewMovie={onViewMovie} onRemoveMovie={onRemoveMovie} />);
+    render(<MyMoviesStrip movies={movies} onViewMovie={onViewMovie} onDeleteMovie={onRemoveMovie} />);
 
     fireEvent.click(screen.getAllByRole("button", { name: /details/i })[0]);
-    fireEvent.click(screen.getAllByRole("button", { name: /remove/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /delete/i })[0]);
 
     expect(screen.getByText(/Queued:/i)).toBeInTheDocument();
+    const queuedCard = screen.getAllByText(/Movie Pending/i)[0].closest("article");
+    expect(queuedCard).toHaveClass("border-sky-200");
+    expect(queuedCard).toHaveClass("bg-sky-50");
+    expect(screen.queryByText(/^Pending$/i)).not.toBeInTheDocument();
     expect(screen.getAllByText("Custom").length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /details/i }).length).toBeGreaterThan(0);
+    expect(screen.getAllByRole("button", { name: /delete/i }).length).toBeGreaterThan(0);
     expect(onViewMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "q1" }));
     expect(onRemoveMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "q1" }));
+  });
+
+  it("does not render pending badge for added items", () => {
+    const movies = [
+      { id: "a1", source: "added", title: "Added Title", added_at: "2026-03-06T00:00:00.000Z" },
+    ];
+    render(<MyMoviesStrip movies={movies} onViewMovie={vi.fn()} onDeleteMovie={vi.fn()} />);
+    const addedCard = screen.getAllByText(/Added Title/i)[0].closest("article");
+    expect(addedCard).toHaveClass("border-slate-200");
+    expect(addedCard).toHaveClass("bg-white");
+    expect(screen.queryByText(/pending/i)).not.toBeInTheDocument();
   });
 
   it("renders WatchedMovieCard and forwards click", () => {

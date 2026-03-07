@@ -193,7 +193,7 @@ describe("BowlDashboard guards", () => {
     expect(mocks.state.handleAddMovie).not.toHaveBeenCalled();
   });
 
-  it("shows pending queue cards, hides promoted rows, and allows removing a queued movie", async () => {
+  it("shows pending queue cards in My Movies, hides promoted rows, and allows deleting a queued movie", async () => {
     mocks.state.memberRows = [{ user_id: "u1" }];
     mocks.state.bowlData = { remaining: [], watched: [] };
     mocks.state.contributions = {};
@@ -217,14 +217,60 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    const myQueueSection = screen.getByRole("heading", { name: /my queue/i }).closest("section");
-    expect(myQueueSection).toBeTruthy();
-    fireEvent.click(within(myQueueSection).getByRole("button", { name: /^show$/i }));
+    const myMoviesSection = screen.getByRole("heading", { name: /my movies/i }).closest("section");
+    expect(myMoviesSection).toBeTruthy();
+    fireEvent.click(within(myMoviesSection).getByRole("button", { name: /^show$/i }));
     expect(screen.getAllByText(/movie pending/i).length).toBeGreaterThan(0);
+    const pendingCard = screen.getAllByText(/movie pending/i)[0].closest("article");
+    expect(pendingCard).toHaveClass("border-sky-200");
+    expect(pendingCard).toHaveClass("bg-sky-50");
+    expect(screen.queryByText(/^pending$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/movie done/i)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /remove/i }));
+    fireEvent.click(screen.getByRole("button", { name: /delete/i }));
     await waitFor(() => expect(mocks.state.handleRemoveQueuedMovie).toHaveBeenCalledWith("q1"));
+  });
+
+  it("keeps pending items first and routes delete to bowl delete for added items", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = {
+      remaining: [
+        { id: "m-added-1", title: "Added Movie", added_by: "u1", added_at: "2026-03-06T12:30:00.000Z" },
+      ],
+      watched: [],
+    };
+    mocks.state.contributions = {};
+    mocks.state.queueData = {
+      pending: [
+        {
+          id: "q-pending-1",
+          title: "Pending Movie",
+          queued_at: "2026-03-06T12:00:00.000Z",
+        },
+      ],
+      promoted: [],
+    };
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    const myMoviesSection = screen.getByRole("heading", { name: /my movies/i }).closest("section");
+    expect(myMoviesSection).toBeTruthy();
+    fireEvent.click(within(myMoviesSection).getByRole("button", { name: /^show$/i }));
+
+    const cards = myMoviesSection.querySelectorAll("article");
+    expect(cards.length).toBe(2);
+    expect(cards[0].textContent).toMatch(/pending/i);
+    expect(cards[1].textContent).not.toMatch(/pending/i);
+
+    const deleteButtons = within(myMoviesSection).getAllByRole("button", { name: /delete/i });
+    fireEvent.click(deleteButtons[1]);
+
+    await waitFor(() => expect(mocks.state.handleDeleteMovie).toHaveBeenCalledWith("m-added-1"));
+    expect(confirmSpy).toHaveBeenCalledWith('Delete "Added Movie" from this bowl?');
+    expect(mocks.state.handleRemoveQueuedMovie).not.toHaveBeenCalledWith("m-added-1");
+    confirmSpy.mockRestore();
   });
 
   it("keeps Add Movie enabled when only one active member exists", async () => {

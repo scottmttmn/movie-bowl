@@ -2,6 +2,7 @@ export default function MovieActionCard({
   movie,
   dateLabelPrefix,
   dateValue,
+  variant = "default",
   primaryActionLabel = "Details",
   secondaryActionLabel,
   onPrimaryAction,
@@ -18,9 +19,14 @@ export default function MovieActionCard({
   const isSyncing = movie.local_status === "syncing";
   const disableActions = disableWhileSyncing && isSyncing;
 
+  const cardToneClass =
+    variant === "queued" ? "border-sky-200 bg-sky-50" : "border-slate-200 bg-white";
+
   return (
     <article
-      className={`w-32 flex-shrink-0 rounded-lg border border-slate-200 bg-white p-2 ${
+      className={`w-32 flex-shrink-0 rounded-lg border p-2 ${
+        cardToneClass
+      } ${
         isSyncing ? "opacity-80" : ""
       }`}
     >
@@ -51,11 +57,11 @@ export default function MovieActionCard({
       {isSyncing && (
         <p className="mb-2 text-[11px] font-medium text-blue-700">Syncing...</p>
       )}
-      <div className="flex gap-1">
+      <div className="mt-auto grid grid-cols-2 gap-1">
         <button
           type="button"
           onClick={() => onPrimaryAction?.(movie)}
-          className="btn btn-secondary px-2 py-1 text-xs"
+          className="btn btn-secondary w-full px-2 py-1 text-xs"
           disabled={disableActions}
         >
           {primaryActionLabel}
@@ -64,7 +70,7 @@ export default function MovieActionCard({
           <button
             type="button"
             onClick={() => onSecondaryAction?.(movie)}
-            className="btn border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700 hover:bg-red-100"
+            className="btn w-full border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700 hover:bg-red-100"
             disabled={disableActions}
           >
             {secondaryActionLabel}

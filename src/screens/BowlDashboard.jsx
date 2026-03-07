@@ -2,8 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import DrawButton from "../components/DrawButton";
 import RemainingCount from "../components/RemainingCount";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
-import MyAddedMoviesStrip from "../components/MyAddedMoviesStrip";
-import QueueMoviesStrip from "../components/QueueMoviesStrip";
+import MyMoviesStrip from "../components/MyMoviesStrip";
 import AddMovieButton from "../components/AddMovieButton";
 import BowlIllustration from "../components/BowlIllustration";
 import ContributionStats from "../components/ContributionStats";
@@ -53,8 +52,7 @@ export default function BowlDashboard() {
     const [drawnMovie, setDrawnMovie] = useState(null);
     const [selectedDetailMovie, setSelectedDetailMovie] = useState(null);
     const [selectedDetailContext, setSelectedDetailContext] = useState(null);
-    const [showMyAdds, setShowMyAdds] = useState(false);
-    const [showMyQueue, setShowMyQueue] = useState(false);
+    const [showMyMovies, setShowMyMovies] = useState(false);
     const [prioritizeStreaming, setPrioritizeStreaming] = useState(false);
     const [useStreamingRank, setUseStreamingRank] = useState(true);
     const [selectedRatings, setSelectedRatings] = useState(MPAA_RATING_OPTIONS);
@@ -77,8 +75,7 @@ export default function BowlDashboard() {
     const [memberIds, setMemberIds] = useState([]);
     const [maxContributionLead, setMaxContributionLead] = useState(null);
     const [addGuardMessage, setAddGuardMessage] = useState(null);
-    const [deleteErrorMessage, setDeleteErrorMessage] = useState(null);
-    const [queueErrorMessage, setQueueErrorMessage] = useState(null);
+    const [myMoviesErrorMessage, setMyMoviesErrorMessage] = useState(null);
     const [readdErrorMessage, setReaddErrorMessage] = useState(null);
     const [pendingReaddMovie, setPendingReaddMovie] = useState(null);
     const [isReadding, setIsReadding] = useState(false);
@@ -141,6 +138,17 @@ export default function BowlDashboard() {
       () => (bowl.remaining || []).filter((movie) => movie.added_by === currentUserId),
       [bowl.remaining, currentUserId]
     );
+    const myMovies = useMemo(() => {
+      const pendingMovies = (queue.pending || []).map((movie) => ({
+        ...movie,
+        source: "queue",
+      }));
+      const addedMovies = myRemainingAdds.map((movie) => ({
+        ...movie,
+        source: "added",
+      }));
+      return [...pendingMovies, ...addedMovies];
+    }, [queue.pending, myRemainingAdds]);
     const availableDrawGenres = useMemo(() => {
       const genreSet = new Set();
       (bowl.remaining || []).forEach((movie) => {
@@ -904,86 +912,51 @@ return (
             <section className="panel mt-4 w-full max-w-full min-w-0">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-left">
-                  <h3 className="section-title text-base">My Queue</h3>
-                  <p className="text-xs text-slate-500">
-                    Contribution-limit overflow goes here and auto-adds when eligible.
-                  </p>
+                  <h3 className="section-title text-base">My Movies</h3>
+                  <p className="text-xs text-slate-500">Pending queue items appear first and are marked.</p>
                 </div>
                 <button
                   type="button"
-                  onClick={() => setShowMyQueue((prev) => !prev)}
+                  onClick={() => setShowMyMovies((prev) => !prev)}
                   className="btn btn-secondary px-3 py-2 text-sm"
                 >
-                  {showMyQueue ? "Hide" : "Show"}
-                </button>
-              </div>
-              {showMyQueue && (
-                <div className="mt-3">
-                  {(queue.pending || []).length === 0 ? (
-                    <p className="text-sm text-slate-500">Your queue is empty.</p>
-                  ) : (
-                    <QueueMoviesStrip
-                      movies={queue.pending || []}
-                      onViewMovie={async (movie) => {
-                        setSelectedDetailContext("queue");
-                        setSelectedDetailMovie(await buildDetailMovie(movie));
-                      }}
-                      onRemoveMovie={async (movie) => {
-                        setQueueErrorMessage(null);
-                        const removed = await handleRemoveQueuedMovie(movie.id);
-                        if (!removed) {
-                          setQueueErrorMessage("Could not remove this queued movie.");
-                        }
-                      }}
-                    />
-                  )}
-                </div>
-              )}
-              {queueErrorMessage && <p className="mt-2 text-sm text-red-600">{queueErrorMessage}</p>}
-            </section>
-
-            <section className="panel mt-4 w-full max-w-full min-w-0">
-              <div className="flex items-center justify-between gap-3">
-                <div className="text-left">
-                  <h3 className="section-title text-base">My Added Movies</h3>
-                  <p className="text-xs text-slate-500">View and manage only movies you added.</p>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => setShowMyAdds((prev) => !prev)}
-                  className="btn btn-secondary px-3 py-2 text-sm"
-                >
-                  {showMyAdds ? "Hide" : "Show"}
+                  {showMyMovies ? "Hide" : "Show"}
                 </button>
               </div>
 
-              {showMyAdds && (
+              {showMyMovies && (
                 <div className="mt-3">
-                  {myRemainingAdds.length === 0 ? (
-                    <p className="text-sm text-slate-500">You have no undrawn movies in this bowl.</p>
+                  {myMovies.length === 0 ? (
+                    <p className="text-sm text-slate-500">You have no movies in this section.</p>
                   ) : (
-                    <MyAddedMoviesStrip
-                      movies={myRemainingAdds}
+                    <MyMoviesStrip
+                      movies={myMovies}
                       onViewMovie={async (movie) => {
-                        setSelectedDetailContext("myAdds");
+                        setSelectedDetailContext(movie.source === "queue" ? "queue" : "myAdds");
                         setSelectedDetailMovie(await buildDetailMovie(movie));
                       }}
                       onDeleteMovie={async (movie) => {
-                        const shouldDelete = window.confirm(
-                          `Delete "${movie.title}" from this bowl?`
-                        );
+                        setMyMoviesErrorMessage(null);
+                        if (movie.source === "queue") {
+                          const removed = await handleRemoveQueuedMovie(movie.id);
+                          if (!removed) {
+                            setMyMoviesErrorMessage("Could not delete this queued movie.");
+                          }
+                          return;
+                        }
+
+                        const shouldDelete = window.confirm(`Delete "${movie.title}" from this bowl?`);
                         if (!shouldDelete) return;
-                        setDeleteErrorMessage(null);
                         const deleted = await handleDeleteMovie(movie.id);
                         if (!deleted) {
-                          setDeleteErrorMessage("Could not delete this movie. Please try again.");
+                          setMyMoviesErrorMessage("Could not delete this movie. Please try again.");
                         }
                       }}
                     />
                   )}
                 </div>
               )}
-              {deleteErrorMessage && <p className="mt-2 text-sm text-red-600">{deleteErrorMessage}</p>}
+              {myMoviesErrorMessage && <p className="mt-2 text-sm text-red-600">{myMoviesErrorMessage}</p>}
             </section>
             
 
