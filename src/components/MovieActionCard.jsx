@@ -70,7 +70,7 @@ export default function MovieActionCard({
           <button
             type="button"
             onClick={() => onSecondaryAction?.(movie)}
-            className="btn w-full border border-red-200 bg-red-50 px-2 py-1 text-xs text-red-700 hover:bg-red-100"
+            className="btn btn-danger w-full px-2 py-1 text-xs"
             disabled={disableActions}
           >
             {secondaryActionLabel}

@@ -49,31 +49,43 @@
   }
 
   .panel {
-    @apply rounded-xl border border-slate-200 bg-white p-4 shadow-sm;
+    @apply rounded-xl border border-slate-200/80 bg-white/95 p-4 shadow-sm;
+  }
+
+  .panel-muted {
+    @apply rounded-xl border border-slate-200/70 bg-slate-50/70 p-4;
   }
 
   .section-title {
     @apply text-lg font-semibold text-slate-800;
   }
 
+  .section-stack {
+    @apply space-y-6;
+  }
+
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 font-semibold transition focus-visible:outline-none focus-visible:ring-2;
+    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 font-medium transition focus-visible:outline-none focus-visible:ring-2;
   }
 
   .btn-primary {
-    @apply bg-blue-600 text-white hover:bg-blue-700 focus-visible:ring-blue-200;
+    @apply bg-blue-600 text-white shadow-sm hover:bg-blue-700 focus-visible:ring-blue-200;
   }
 
   .btn-secondary {
-    @apply border border-slate-300 bg-white text-slate-700 hover:bg-slate-50 focus-visible:ring-slate-200;
+    @apply border border-slate-200 bg-slate-50 text-slate-700 hover:bg-white focus-visible:ring-slate-200;
   }
 
   .btn-ghost {
-    @apply text-slate-700 hover:bg-slate-100;
+    @apply text-slate-600 hover:bg-slate-100 hover:text-slate-900;
+  }
+
+  .btn-danger {
+    @apply border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 focus-visible:ring-red-200;
   }
 
   .icon-btn {
-    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-300 bg-white text-slate-700 shadow-sm transition hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200;
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200;
   }
 
   .input-field {

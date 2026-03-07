@@ -175,7 +175,7 @@ export default function UserSettings() {
 
   return (
     <div className="page-container py-4">
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-4 flex items-center justify-between">
         <h2 className="text-2xl font-semibold text-slate-800">User Settings</h2>
         <div className="flex items-center gap-2">
           <button
@@ -193,15 +193,15 @@ export default function UserSettings() {
         </div>
       </div>
 
-      <section className="panel">
+      <section className="panel section-stack">
       <div
         id="streaming-services"
         ref={streamingServicesRef}
         className="scroll-mt-24"
       >
         <h3 className="mb-2 text-lg font-semibold text-slate-800">Streaming Services</h3>
-        <p className="mb-4 text-sm text-slate-600">
-          Select all services you currently have access to.
+        <p className="mb-3 text-sm text-slate-600">
+          Choose your services, then rank them for draw priority.
         </p>
       </div>
       <div className="mb-4">
@@ -216,14 +216,14 @@ export default function UserSettings() {
         />
       </div>
 
-      <div className="mb-4 flex flex-wrap gap-2">
+      <div className="mb-3 flex flex-wrap gap-1.5">
         <button
           type="button"
           onClick={() => {
             const next = appendMissingServices(streamingServices, AVAILABLE_STREAMING_SERVICES);
             setStreamingServices(next);
           }}
-          className="btn btn-secondary text-sm px-3 py-1.5"
+          className="btn btn-ghost text-sm px-2.5 py-1.5"
         >
           Select all services
         </button>
@@ -232,7 +232,7 @@ export default function UserSettings() {
           onClick={() => {
             setStreamingServices([]);
           }}
-          className="btn btn-secondary text-sm px-3 py-1.5"
+          className="btn btn-ghost text-sm px-2.5 py-1.5"
         >
           Clear
         </button>
@@ -245,7 +245,7 @@ export default function UserSettings() {
             const next = appendMissingServices(existingMajorServices, MAJOR_STREAMING_SERVICES);
             setStreamingServices(next);
           }}
-          className="btn btn-secondary text-sm px-3 py-1.5"
+          className="btn btn-ghost text-sm px-2.5 py-1.5"
         >
           Only major
         </button>
@@ -388,7 +388,7 @@ export default function UserSettings() {
       {filteredServices.length === 0 && (
         <div className="text-sm text-slate-500 mb-6">No matching services.</div>
       )}
-      <div className="mb-5 border-b border-slate-200 pb-5">
+      <div className="panel-muted border-b border-slate-200/80 pb-5">
         <div className="mb-2 flex items-center justify-between gap-3">
           <h3 className="text-lg font-semibold text-slate-800">Default Draw Settings</h3>
           <button
