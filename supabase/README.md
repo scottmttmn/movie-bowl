@@ -40,3 +40,8 @@ supabase db push
 ## Drift rule
 
 Avoid dashboard-only schema/policy changes. If an emergency dashboard edit happens, immediately backfill it into a migration file and commit.
+
+## Queue removal policy note
+
+`public.bowl_movie_queue` user removals are canonical hard deletes (`DELETE`), not `UPDATE removed_at`.
+The `removed_at` column remains for compatibility with older rows/queries.

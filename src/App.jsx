@@ -1,15 +1,16 @@
-import React from "react";
+import React, { Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
-import MyBowlsScreen from "./screens/MyBowlsScreen";
-import BowlDashboard from "./screens/BowlDashboard";
 import useAuth from "./hooks/useAuth";
-import LoginPage from "./screens/LoginPage";
-import UserSettings from "./screens/UserSettings";
-import BowlSettings from "./screens/BowlSettings";
-import RokuPocScreen from "./screens/RokuPocScreen";
-import AboutPage from "./screens/AboutPage";
 import TopNav from "./components/TopNav";
 import { supabase } from "./lib/supabase";
+
+const MyBowlsScreen = React.lazy(() => import("./screens/MyBowlsScreen"));
+const BowlDashboard = React.lazy(() => import("./screens/BowlDashboard"));
+const LoginPage = React.lazy(() => import("./screens/LoginPage"));
+const UserSettings = React.lazy(() => import("./screens/UserSettings"));
+const BowlSettings = React.lazy(() => import("./screens/BowlSettings"));
+const RokuPocScreen = React.lazy(() => import("./screens/RokuPocScreen"));
+const AboutPage = React.lazy(() => import("./screens/AboutPage"));
 
 function Layout({ children }) {
   const { session, signOut } = useAuth();
@@ -163,32 +164,34 @@ function App() {
   return (
     <Router>
       <Layout>
-        <Routes>
-          <Route path="/roku-poc" element={<RokuPocScreen />} />
-          <Route path="/settings" element={
-            <RequireAuth><UserSettings />
-            </RequireAuth>
-          } />
-          <Route path="/login" element={<LoginPage />} />
-          <Route path="/about" element={<AboutPage />} />
-          <Route path="/accept-invite/:token" element={<AcceptInvite />} />
-          <Route path="/" element={
-            <RequireAuth>
-              <MyBowlsScreen />
-            </RequireAuth>
-          } />
-          <Route path="/bowl/:bowlId" element={
-            <RequireAuth>
-              <BowlDashboard />
-            </RequireAuth>
-          } />
-          <Route path="/bowl/:bowlId/settings" element={
-            <RequireAuth>
-              <BowlSettings />
-            </RequireAuth>
-          } />
+        <Suspense fallback={<div className="page-container py-6 text-sm text-slate-600">Loading…</div>}>
+          <Routes>
+            <Route path="/roku-poc" element={<RokuPocScreen />} />
+            <Route path="/settings" element={
+              <RequireAuth><UserSettings />
+              </RequireAuth>
+            } />
+            <Route path="/login" element={<LoginPage />} />
+            <Route path="/about" element={<AboutPage />} />
+            <Route path="/accept-invite/:token" element={<AcceptInvite />} />
+            <Route path="/" element={
+              <RequireAuth>
+                <MyBowlsScreen />
+              </RequireAuth>
+            } />
+            <Route path="/bowl/:bowlId" element={
+              <RequireAuth>
+                <BowlDashboard />
+              </RequireAuth>
+            } />
+            <Route path="/bowl/:bowlId/settings" element={
+              <RequireAuth>
+                <BowlSettings />
+              </RequireAuth>
+            } />
 
-        </Routes>
+          </Routes>
+        </Suspense>
       </Layout>
     </Router>
   );

@@ -463,11 +463,11 @@ export default function BowlDashboard() {
     };
 
 return (
-    <div className="bowl-dashboard page-container pb-10 pt-3 overflow-hidden">
-        <header className="mb-4 flex items-center justify-between min-w-0">
+    <div className="bowl-dashboard page-container overflow-hidden pb-10 pt-3">
+        <header className="mb-3 flex min-w-0 items-center justify-between">
                 <button onClick={() => navigate("/")} className="btn btn-ghost px-3 py-2">Back</button>
-                <h2 className="truncate max-w-[60%] text-2xl font-semibold text-slate-800 text-center">{bowlName}</h2>
-                <button onClick={() => navigate(`/bowl/${bowlId}/settings`)} className="icon-btn" aria-label="Bowl settings">⚙️</button>
+                <h2 className="max-w-[60%] truncate text-center text-2xl font-semibold text-slate-800">{bowlName}</h2>
+                <button onClick={() => navigate(`/bowl/${bowlId}/settings`)} className="icon-btn h-8 w-8" aria-label="Bowl settings">⚙️</button>
             </header>
 
             {isLoading && (
@@ -477,9 +477,9 @@ return (
               <div className="text-sm text-red-600 mb-2">{errorMessage}</div>
             )}
 
-            <section className="panel my-4">
+            <section className="panel my-3">
               <div className="mx-auto max-w-5xl">
-                <div className="mx-auto flex max-w-2xl flex-col items-center gap-3 text-center md:flex-row md:justify-center md:gap-4">
+                <div className="panel-muted mx-auto flex max-w-2xl flex-col items-center gap-2.5 text-center md:flex-row md:justify-center md:gap-3">
                   <DrawButton
                     onClick={async () => {
                       if (isDrawing || !canCurrentUserDraw) return;
@@ -519,6 +519,7 @@ return (
                     disabled={!canCurrentUserDraw || bowl.remaining.length === 0}
                   />
                   <AddMovieButton
+                    variant="secondary"
                     disabled={isAddBlocked}
                     onClick={() => {
                       setAddGuardMessage(null);
@@ -531,18 +532,18 @@ return (
                   <BowlIllustration className="mx-auto h-44 md:h-48 w-full max-w-2xl drop-shadow-md" />
                 </div>
 
-                <div className="mt-3 text-center">
+                <div className="mt-2 text-center">
                   <RemainingCount count={bowl.remaining.length} />
                 </div>
                 {drawGuardMessage && (
                   <p className="mt-2 text-center text-sm text-amber-700">{drawGuardMessage}</p>
                 )}
 
-                <div className="mt-3 flex justify-center">
+                <div className="mt-2.5 flex justify-center">
                   <button
                     type="button"
                     onClick={() => setShowDrawFilters((prev) => !prev)}
-                    className={`icon-btn h-10 w-10 ${showDrawFilters ? "border-blue-300 text-blue-700" : ""}`}
+                    className={`icon-btn h-9 w-9 ${showDrawFilters ? "border-blue-300 text-blue-700" : ""}`}
                     aria-label={showDrawFilters ? "Hide filters" : "Filters"}
                     title={showDrawFilters ? "Hide filters" : "Filters"}
                   >
@@ -555,7 +556,7 @@ return (
                   </button>
                 </div>
                 {showDrawFilters && (
-                  <div className="mt-3 mx-auto max-w-xl rounded-xl border border-slate-200/70 bg-slate-50/55 px-3.5 py-3 shadow-sm">
+                  <div className="panel-muted mx-auto mt-3 max-w-xl px-3.5 py-3">
                       <div className="flex items-center justify-between gap-3">
                         <div className="text-left">
                           <p className="text-sm font-medium text-gray-800">Streaming Match Preferences</p>
@@ -867,12 +868,12 @@ return (
                   </div>
                 )}
                 {userStreamingServices.length === 0 && (
-                  <p className="mt-2 text-center text-xs text-slate-500">
+                  <p className="mt-2 text-center text-xs text-slate-400">
                     Add services in Settings to enable prioritized draw.
                   </p>
                 )}
                 {maxContributionLead !== null && (
-                  <p className="mt-2 text-center text-xs text-slate-500">
+                  <p className="mt-2 text-center text-xs text-slate-400">
                     Contribution lead limit: {maxContributionLead}
                   </p>
                 )}
@@ -913,12 +914,12 @@ return (
               <div className="flex items-center justify-between gap-3">
                 <div className="text-left">
                   <h3 className="section-title text-base">My Movies</h3>
-                  <p className="text-xs text-slate-500">Pending queue items appear first and are marked.</p>
+                  <p className="text-xs text-slate-500">Pending queue items appear first.</p>
                 </div>
                 <button
                   type="button"
                   onClick={() => setShowMyMovies((prev) => !prev)}
-                  className="btn btn-secondary px-3 py-2 text-sm"
+                  className="btn btn-ghost px-3 py-2 text-sm"
                 >
                   {showMyMovies ? "Hide" : "Show"}
                 </button>

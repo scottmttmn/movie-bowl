@@ -516,7 +516,7 @@ export default function useBowl(bowlId) {
 
       const { error } = await supabase
         .from("bowl_movie_queue")
-        .update({ removed_at: new Date().toISOString() })
+        .delete()
         .eq("id", queueId)
         .eq("bowl_id", bowlId)
         .eq("queued_by", user.id)

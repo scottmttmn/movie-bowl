@@ -20,7 +20,7 @@ export default function BowlCard({ bowl, onSelect }) {
           </div>
           <h3 className="mt-3 truncate text-lg font-semibold text-slate-800">{bowl.name}</h3>
         </div>
-        <span className="text-sm font-medium text-blue-700">Open</span>
+        <span className="text-sm font-medium text-slate-500">Open</span>
       </div>
 
       <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
