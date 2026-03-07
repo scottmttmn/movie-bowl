@@ -314,7 +314,9 @@ export default function BowlSettings() {
       nextMaxLead = parsedLead;
     }
 
-    if (nextName === bowlName && nextMaxLead === bowlMaxContributionLead) {
+    const leadChanged = nextMaxLead !== bowlMaxContributionLead;
+
+    if (nextName === bowlName && !leadChanged) {
       setActionMessage("Bowl settings are already up to date.");
       return;
     }
@@ -333,11 +335,32 @@ export default function BowlSettings() {
         return;
       }
 
+      let refreshWarning = null;
+      if (leadChanged) {
+        const { error: refreshError } = await supabase.rpc("refresh_bowl_queue_promotions", {
+          p_bowl_id: bowlId,
+        });
+        if (refreshError) {
+          const message = String(refreshError?.message || "").toLowerCase();
+          const isMissingRefreshFunction =
+            refreshError?.code === "42883" ||
+            (message.includes("refresh_bowl_queue_promotions") && message.includes("does not exist"));
+          if (isMissingRefreshFunction) {
+            refreshWarning =
+              "Bowl settings updated. Queue refresh is unavailable until the latest database migration is applied.";
+          } else {
+            console.error("[BowlSettings] Failed to refresh queue promotions", refreshError);
+            refreshWarning =
+              "Bowl settings updated. Queue promotions may take a moment to appear.";
+          }
+        }
+      }
+
       setBowlName(nextName);
       setBowlMaxContributionLead(nextMaxLead);
       setEditableBowlName(nextName);
       setEditableMaxContributionLead(nextMaxLead === null ? "" : String(nextMaxLead));
-      setActionMessage("Bowl settings updated.");
+      setActionMessage(refreshWarning || "Bowl settings updated.");
     } catch (err) {
       console.error("[BowlSettings] Unexpected error renaming bowl", err);
       setErrorMessage("Unexpected error updating bowl settings.");
