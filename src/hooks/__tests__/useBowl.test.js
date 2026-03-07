@@ -13,6 +13,8 @@ const mocks = vi.hoisted(() => ({
   updateResponses: [],
   queueUpdatePayloads: [],
   queueUpdateResponses: [],
+  queueDeleteCalled: false,
+  queueDeleteEqFilters: [],
   updateEqFilters: [],
   deleteEqFilters: [],
   deleteInFilters: [],
@@ -33,6 +35,9 @@ const mocks = vi.hoisted(() => ({
           select: vi.fn(() => query),
           eq: vi.fn((key, value) => {
             state.filters.push({ key, value });
+            if (state.mode === "delete") {
+              mocks.queueDeleteEqFilters.push({ key, value });
+            }
             return query;
           }),
           is: vi.fn((key, value) => {
@@ -67,11 +72,19 @@ const mocks = vi.hoisted(() => ({
             mocks.queueUpdatePayloads.push(payload);
             return query;
           }),
+          delete: vi.fn(() => {
+            state.mode = "delete";
+            mocks.queueDeleteCalled = true;
+            return query;
+          }),
           single: vi.fn(async () => ({ data: null, error: null })),
           then: (resolve, reject) => {
             if (state.mode === "update") {
               const nextResponse = mocks.queueUpdateResponses.shift() || { data: null, error: null };
               return Promise.resolve(nextResponse).then(resolve, reject);
+            }
+            if (state.mode === "delete") {
+              return Promise.resolve({ data: null, error: null }).then(resolve, reject);
             }
             return Promise.resolve({ data: null, error: null }).then(resolve, reject);
           },
@@ -200,6 +213,8 @@ describe("useBowl handleDraw integration", () => {
     mocks.updateResponses = [];
     mocks.queueUpdatePayloads = [];
     mocks.queueUpdateResponses = [];
+    mocks.queueDeleteCalled = false;
+    mocks.queueDeleteEqFilters = [];
     mocks.updateEqFilters = [];
     mocks.deleteEqFilters = [];
     mocks.deleteInFilters = [];
@@ -433,7 +448,7 @@ describe("useBowl handleDraw integration", () => {
     expect(result.current.queueMessage).toMatch(/added to your queue/i);
   });
 
-  it("removes a pending queue row via removed_at update", async () => {
+  it("removes a pending queue row via hard delete", async () => {
     mocks.remainingQueue.push([]);
     mocks.watchedQueue.push([]);
     mocks.queueRows = [
@@ -450,11 +465,12 @@ describe("useBowl handleDraw integration", () => {
     });
 
     expect(removed).toBe(true);
-    expect(mocks.queueUpdatePayloads).toEqual(
+    expect(mocks.queueDeleteCalled).toBe(true);
+    expect(mocks.queueDeleteEqFilters).toEqual(
       expect.arrayContaining([
-        expect.objectContaining({
-          removed_at: expect.any(String),
-        }),
+        { key: "id", value: "q1" },
+        { key: "bowl_id", value: "bowl-1" },
+        { key: "queued_by", value: "user-1" },
       ])
     );
     expect(result.current.queue.pending).toHaveLength(0);
