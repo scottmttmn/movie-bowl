@@ -3,6 +3,7 @@ import DrawButton from "../components/DrawButton";
 import RemainingCount from "../components/RemainingCount";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
 import MyAddedMoviesStrip from "../components/MyAddedMoviesStrip";
+import QueueMoviesStrip from "../components/QueueMoviesStrip";
 import AddMovieButton from "../components/AddMovieButton";
 import BowlIllustration from "../components/BowlIllustration";
 import ContributionStats from "../components/ContributionStats";
@@ -19,6 +20,7 @@ import { checkContributionBalance } from "../utils/contributionBalance";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 import { matchUserServices } from "../utils/streamingServices";
+import { resolvePreferredWebLaunchCandidate } from "../utils/webLaunch";
 import {
   DEFAULT_DRAW_SETTINGS,
   RUNTIME_FILTER_MAX_MINUTES,
@@ -32,13 +34,27 @@ export default function BowlDashboard() {
     const DRAW_ACCESS_MODE_SELECTED = "selected_members";
     
     const { bowlId } = useParams();
-    const { bowl, contributions, isLoading, errorMessage, handleDraw, handleAddMovie, handleDeleteMovie, handleReaddMovie } = useBowl(bowlId);
+    const {
+      bowl,
+      queue,
+      contributions,
+      isLoading,
+      errorMessage,
+      queueMessage,
+      handleDraw,
+      handleAddMovie,
+      handleQueueMovie,
+      handleRemoveQueuedMovie,
+      handleDeleteMovie,
+      handleReaddMovie,
+    } = useBowl(bowlId);
 
     const [showSearch, setShowSearch] = useState(false);
     const [drawnMovie, setDrawnMovie] = useState(null);
     const [selectedDetailMovie, setSelectedDetailMovie] = useState(null);
     const [selectedDetailContext, setSelectedDetailContext] = useState(null);
     const [showMyAdds, setShowMyAdds] = useState(false);
+    const [showMyQueue, setShowMyQueue] = useState(false);
     const [prioritizeStreaming, setPrioritizeStreaming] = useState(false);
     const [useStreamingRank, setUseStreamingRank] = useState(true);
     const [selectedRatings, setSelectedRatings] = useState(MPAA_RATING_OPTIONS);
@@ -62,12 +78,14 @@ export default function BowlDashboard() {
     const [maxContributionLead, setMaxContributionLead] = useState(null);
     const [addGuardMessage, setAddGuardMessage] = useState(null);
     const [deleteErrorMessage, setDeleteErrorMessage] = useState(null);
+    const [queueErrorMessage, setQueueErrorMessage] = useState(null);
     const [readdErrorMessage, setReaddErrorMessage] = useState(null);
     const [pendingReaddMovie, setPendingReaddMovie] = useState(null);
     const [isReadding, setIsReadding] = useState(false);
     const [didApplyDefaultDrawSettings, setDidApplyDefaultDrawSettings] = useState(false);
     const [isLaunchingPreferredService, setIsLaunchingPreferredService] = useState(false);
     const [rokuLaunchStatus, setRokuLaunchStatus] = useState(null);
+    const [webLaunchStatus, setWebLaunchStatus] = useState(null);
     const [hasAttemptedPreferredLaunch, setHasAttemptedPreferredLaunch] = useState(false);
     const {
       streamingServices: userStreamingServices,
@@ -100,7 +118,7 @@ export default function BowlDashboard() {
 
     const isAddBlockedByContributionLimit = Boolean(maxContributionLead !== null && addBalance && !addBalance.allowed);
     const isAddBlockedByUndrawnLimit = (bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL;
-    const isAddBlocked = isAddBlockedByContributionLimit || isAddBlockedByUndrawnLimit;
+    const isAddBlocked = isAddBlockedByUndrawnLimit;
     const isCurrentUserOwner = Boolean(currentUserId && bowlOwnerId && currentUserId === bowlOwnerId);
     const isCurrentUserMember = Boolean(currentUserId && memberIds.includes(currentUserId));
     const canCurrentUserDraw = useMemo(() => {
@@ -189,6 +207,23 @@ export default function BowlDashboard() {
             : null,
       [hasAttemptedPreferredLaunch, rokuLaunchStatus, selectedRoku, drawnMovieMatchingProviders]
     );
+    const preferredWebLaunchCandidate = useMemo(() => {
+      if (!drawnMovie || !defaultDrawSettings.enablePreferredWebLaunch) return null;
+      if (drawnMovieMatchingProviders.length === 0) return null;
+
+      const year = drawnMovie?.release_date ? String(drawnMovie.release_date).split("-")[0] : "";
+      return resolvePreferredWebLaunchCandidate({
+        userServices: userStreamingServices,
+        movieProviders: drawnMovie.streamingProviders || [],
+        title: drawnMovie.title || "",
+        year,
+      });
+    }, [
+      drawnMovie,
+      defaultDrawSettings.enablePreferredWebLaunch,
+      drawnMovieMatchingProviders,
+      userStreamingServices,
+    ]);
     const preferredLaunchUnavailableReason = useMemo(() => {
       if (!drawnMovie) return "";
       if ((drawnMovie.streamingProviders || []).length === 0) {
@@ -397,6 +432,26 @@ export default function BowlDashboard() {
       } finally {
         setIsLaunchingPreferredService(false);
       }
+    };
+
+    const handleLaunchPreferredWeb = () => {
+      if (!defaultDrawSettings.enablePreferredWebLaunch || !preferredWebLaunchCandidate?.url) return;
+      setWebLaunchStatus(null);
+      const popup = window.open(preferredWebLaunchCandidate.url, "_blank", "noopener,noreferrer");
+
+      if (!popup) {
+        setWebLaunchStatus({
+          ok: false,
+          message: "Your browser blocked opening the streaming site.",
+          details: ["Allow pop-ups for this site and try again."],
+        });
+        return;
+      }
+
+      setWebLaunchStatus({
+        ok: true,
+        message: `Opened ${preferredWebLaunchCandidate.serviceName} in a new tab.`,
+      });
     };
 
 return (
@@ -818,8 +873,11 @@ return (
                 )}
                 {isAddBlockedByContributionLimit && (
                   <p className="mt-2 text-center text-sm text-amber-700">
-                    You are at {addBalance.myCount} contributions and the lowest active member is at {addBalance.minCount}.
+                    You are at {addBalance.myCount} contributions and the lowest active member is at {addBalance.minCount}. New adds will go to your queue until you're eligible.
                   </p>
+                )}
+                {queueMessage && (
+                  <p className="mt-2 text-center text-sm text-emerald-700">{queueMessage}</p>
                 )}
                 {isAddBlockedByUndrawnLimit && (
                   <p className="mt-2 text-center text-sm text-amber-700">
@@ -841,6 +899,47 @@ return (
                 {readdErrorMessage && (
                   <p className="mt-2 text-sm text-amber-700">{readdErrorMessage}</p>
                 )}
+            </section>
+
+            <section className="panel mt-4 w-full max-w-full min-w-0">
+              <div className="flex items-center justify-between gap-3">
+                <div className="text-left">
+                  <h3 className="section-title text-base">My Queue</h3>
+                  <p className="text-xs text-slate-500">
+                    Contribution-limit overflow goes here and auto-adds when eligible.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={() => setShowMyQueue((prev) => !prev)}
+                  className="btn btn-secondary px-3 py-2 text-sm"
+                >
+                  {showMyQueue ? "Hide" : "Show"}
+                </button>
+              </div>
+              {showMyQueue && (
+                <div className="mt-3">
+                  {(queue.pending || []).length === 0 ? (
+                    <p className="text-sm text-slate-500">Your queue is empty.</p>
+                  ) : (
+                    <QueueMoviesStrip
+                      movies={queue.pending || []}
+                      onViewMovie={async (movie) => {
+                        setSelectedDetailContext("queue");
+                        setSelectedDetailMovie(await buildDetailMovie(movie));
+                      }}
+                      onRemoveMovie={async (movie) => {
+                        setQueueErrorMessage(null);
+                        const removed = await handleRemoveQueuedMovie(movie.id);
+                        if (!removed) {
+                          setQueueErrorMessage("Could not remove this queued movie.");
+                        }
+                      }}
+                    />
+                  )}
+                </div>
+              )}
+              {queueErrorMessage && <p className="mt-2 text-sm text-red-600">{queueErrorMessage}</p>}
             </section>
 
             <section className="panel mt-4 w-full max-w-full min-w-0">
@@ -894,6 +993,13 @@ return (
                   userStreamingServices={userStreamingServices}
                   onClose={() => setShowSearch(false)}
                   onAddMovie={async (movie) => {
+                    if ((bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
+                      setAddGuardMessage(
+                        `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`
+                      );
+                      return;
+                    }
+
                     if (maxContributionLead !== null) {
                       const balance = checkContributionBalance({
                         movies: [...(bowl.remaining || []), ...(bowl.watched || [])],
@@ -903,21 +1009,22 @@ return (
                       });
 
                       if (!balance.allowed) {
-                        setAddGuardMessage(
-                          `You are at ${balance.myCount} contributions and the lowest active member is at ${balance.minCount}.`
-                        );
+                        const queued = await handleQueueMovie(movie);
+                        if (queued) {
+                          setShowSearch(false);
+                        } else {
+                          setAddGuardMessage(
+                            `You are at ${balance.myCount} contributions and the lowest active member is at ${balance.minCount}.`
+                          );
+                        }
                         return;
                       }
                     }
-                    if ((bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
-                      setAddGuardMessage(
-                        `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`
-                      );
-                      return;
-                    }
 
-                    await handleAddMovie(movie);
-                    setShowSearch(false);
+                    const added = await handleAddMovie(movie);
+                    if (added) {
+                      setShowSearch(false);
+                    }
                   }}
                 />
               )}
@@ -936,12 +1043,20 @@ return (
                     : null
                 }
                 preferredLaunchUnavailableReason={preferredLaunchUnavailableReason}
+                webLaunchCandidate={
+                  defaultDrawSettings.enablePreferredWebLaunch
+                    ? preferredWebLaunchCandidate
+                    : null
+                }
+                webLaunchStatus={webLaunchStatus}
                 isLaunchingPreferredService={isLaunchingPreferredService}
                 onLaunchPreferredService={() => handleLaunchPreferredService(drawnMovie)}
+                onLaunchPreferredWeb={handleLaunchPreferredWeb}
                 rokuLaunchStatus={rokuLaunchStatus}
                 onClose={() => {
                   setDrawnMovie(null);
                   setRokuLaunchStatus(null);
+                  setWebLaunchStatus(null);
                   setHasAttemptedPreferredLaunch(false);
                 }}
               />

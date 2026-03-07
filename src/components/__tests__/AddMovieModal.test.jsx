@@ -177,4 +177,20 @@ describe("AddMovieModal", () => {
     expect(screen.getByRole("button", { name: /show trailer/i })).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByTitle("Movie B trailer")).not.toBeInTheDocument();
   });
+
+  it("renders web launch action when a web launch candidate is provided", () => {
+    const onLaunchPreferredWeb = vi.fn();
+    render(
+      <AddMovieModal
+        movie={{ title: "Dune", release_date: "2021-10-22", runtime: 155, streamingProviders: ["Netflix"] }}
+        onClose={vi.fn()}
+        userStreamingServices={["Netflix"]}
+        webLaunchCandidate={{ serviceName: "Netflix", url: "https://www.netflix.com/search?q=Dune%202021" }}
+        onLaunchPreferredWeb={onLaunchPreferredWeb}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /open on web in netflix/i }));
+    expect(onLaunchPreferredWeb).toHaveBeenCalledTimes(1);
+  });
 });

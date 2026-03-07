@@ -10,6 +10,8 @@ const mocks = vi.hoisted(() => ({
     defaultDrawSettings: {
       prioritizeStreaming: false,
       useStreamingRank: true,
+      enablePreferredRokuAppLaunch: false,
+      enablePreferredWebLaunch: false,
       selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
       includeUnknownRatings: true,
       selectedGenres: null,
@@ -59,6 +61,8 @@ describe("UserSettings", () => {
     mocks.hook.defaultDrawSettings = {
       prioritizeStreaming: false,
       useStreamingRank: true,
+      enablePreferredRokuAppLaunch: false,
+      enablePreferredWebLaunch: false,
       selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
       includeUnknownRatings: true,
       selectedGenres: null,
@@ -216,6 +220,8 @@ describe("UserSettings", () => {
     expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith({
       prioritizeStreaming: false,
       useStreamingRank: true,
+      enablePreferredRokuAppLaunch: false,
+      enablePreferredWebLaunch: false,
       selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
       includeUnknownRatings: true,
       selectedGenres: null,
@@ -224,6 +230,13 @@ describe("UserSettings", () => {
       runtimeMaxMinutes: 500,
       includeUnknownRuntime: true,
     });
+
+    fireEvent.click(screen.getByLabelText(/enable preferred web launch/i));
+    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        enablePreferredWebLaunch: true,
+      })
+    );
   });
 
   it("shows an empty state when search finds no services", () => {

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import MyAddedMoviesStrip from "../MyAddedMoviesStrip";
+import QueueMoviesStrip from "../QueueMoviesStrip";
 import WatchedMovieCard from "../WatchedMovieCard";
 import WatchedMoviesStrip from "../WatchedMoviesStrip";
 
@@ -26,6 +27,45 @@ describe("movie strip components", () => {
     expect(screen.getAllByText("Custom").length).toBeGreaterThan(0);
     expect(onViewMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "1" }));
     expect(onDeleteMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "1" }));
+  });
+
+  it("shows syncing state and disables actions for optimistic rows", () => {
+    const onViewMovie = vi.fn();
+    const onDeleteMovie = vi.fn();
+    const movies = [
+      {
+        id: "temp:1",
+        local_temp_id: "temp:1",
+        local_status: "syncing",
+        title: "Movie Pending",
+        added_at: "2026-03-06T00:00:00.000Z",
+      },
+    ];
+
+    render(<MyAddedMoviesStrip movies={movies} onViewMovie={onViewMovie} onDeleteMovie={onDeleteMovie} />);
+
+    expect(screen.getByText(/syncing\.\.\./i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /details/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /delete/i })).toBeDisabled();
+  });
+
+  it("renders QueueMoviesStrip cards and forwards detail/remove actions", () => {
+    const onViewMovie = vi.fn();
+    const onRemoveMovie = vi.fn();
+    const movies = [
+      { id: "q1", title: "Movie Pending", poster_path: "/pending.jpg", queued_at: "2026-03-06T00:00:00.000Z" },
+      { id: "q2", title: "Wildcard Queue", tmdb_id: null, poster_path: null },
+    ];
+
+    render(<QueueMoviesStrip movies={movies} onViewMovie={onViewMovie} onRemoveMovie={onRemoveMovie} />);
+
+    fireEvent.click(screen.getAllByRole("button", { name: /details/i })[0]);
+    fireEvent.click(screen.getAllByRole("button", { name: /remove/i })[0]);
+
+    expect(screen.getByText(/Queued:/i)).toBeInTheDocument();
+    expect(screen.getAllByText("Custom").length).toBeGreaterThan(0);
+    expect(onViewMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "q1" }));
+    expect(onRemoveMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "q1" }));
   });
 
   it("renders WatchedMovieCard and forwards click", () => {

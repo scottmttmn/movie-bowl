@@ -12,8 +12,11 @@ export default function AddMovieModal({
   onDetailPrimaryAction = null,
   preferredLaunchCandidate = null,
   preferredLaunchUnavailableReason = "",
+  webLaunchCandidate = null,
+  webLaunchStatus = null,
   isLaunchingPreferredService = false,
   onLaunchPreferredService = null,
+  onLaunchPreferredWeb = null,
   rokuLaunchStatus = null,
 }) {
   const [isTrailerVisible, setIsTrailerVisible] = useState(false);
@@ -89,6 +92,12 @@ export default function AddMovieModal({
   const trailerRegionId = resolvedMovieId != null
     ? `movie-trailer-${String(resolvedMovieId).replace(/[^a-zA-Z0-9_-]+/g, "-")}`
     : "movie-trailer";
+  const hasLaunchSection =
+    Boolean(preferredLaunchCandidate) ||
+    Boolean(webLaunchCandidate) ||
+    Boolean(preferredLaunchUnavailableReason) ||
+    Boolean(rokuLaunchStatus) ||
+    Boolean(webLaunchStatus);
 
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
@@ -181,9 +190,9 @@ export default function AddMovieModal({
           )}
         </div>
 
-        {(preferredLaunchCandidate || preferredLaunchUnavailableReason || rokuLaunchStatus) && (
+        {hasLaunchSection && (
           <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p className="mb-1 text-sm font-semibold text-slate-800">Open on Roku</p>
+            <p className="mb-1 text-sm font-semibold text-slate-800">Open to watch</p>
             {preferredLaunchCandidate ? (
               <>
                 <p className="mb-3 text-sm text-slate-600">
@@ -206,6 +215,21 @@ export default function AddMovieModal({
               )
             )}
 
+            {webLaunchCandidate && (
+              <div className={preferredLaunchCandidate ? "mt-3 border-t border-slate-200 pt-3" : "mt-2"}>
+                <p className="mb-2 text-sm text-slate-600">
+                  Web launch match: {webLaunchCandidate.serviceName}.
+                </p>
+                <button
+                  type="button"
+                  onClick={onLaunchPreferredWeb}
+                  className="btn btn-secondary"
+                >
+                  {`Open on Web in ${webLaunchCandidate.serviceName}`}
+                </button>
+              </div>
+            )}
+
             {rokuLaunchStatus && (
               <div
                 className={`mt-3 rounded-lg px-3 py-2 text-sm ${
@@ -216,6 +240,23 @@ export default function AddMovieModal({
                 {Array.isArray(rokuLaunchStatus.details) && rokuLaunchStatus.details.length > 0 && (
                   <ul className="mt-2 space-y-1">
                     {rokuLaunchStatus.details.map((detail) => (
+                      <li key={detail}>{detail}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {webLaunchStatus && (
+              <div
+                className={`mt-3 rounded-lg px-3 py-2 text-sm ${
+                  webLaunchStatus.ok ? "bg-emerald-50 text-emerald-900" : "bg-red-50 text-red-900"
+                }`}
+              >
+                <p className="font-medium">{webLaunchStatus.message}</p>
+                {Array.isArray(webLaunchStatus.details) && webLaunchStatus.details.length > 0 && (
+                  <ul className="mt-2 space-y-1">
+                    {webLaunchStatus.details.map((detail) => (
                       <li key={detail}>{detail}</li>
                     ))}
                   </ul>

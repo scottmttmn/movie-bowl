@@ -485,6 +485,32 @@ export default function UserSettings() {
             </label>
           </div>
 
+          <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
+            <div className="text-left">
+              <p className="text-sm font-medium text-gray-800">Open preferred streaming website for drawn movies</p>
+              <p className="text-xs text-gray-500">Show a web launch button when a ranked service match supports direct search links.</p>
+            </div>
+            <label htmlFor="enable-preferred-web-launch" className="relative inline-flex items-center cursor-pointer">
+              <input
+                id="enable-preferred-web-launch"
+                name="enable_preferred_web_launch"
+                aria-label="Enable preferred web launch"
+                type="checkbox"
+                className="peer sr-only"
+                checked={defaultDrawSettings.enablePreferredWebLaunch}
+                onChange={(event) =>
+                  setDefaultDrawSettings({
+                    ...defaultDrawSettings,
+                    enablePreferredWebLaunch: event.target.checked,
+                  })
+                }
+                disabled={streamingServices.length === 0}
+              />
+              <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-blue-600 peer-disabled:bg-gray-200" />
+              <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+            </label>
+          </div>
+
           {defaultDrawSettings.enablePreferredRokuAppLaunch && (
             <div className="border-t border-slate-200 pt-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
