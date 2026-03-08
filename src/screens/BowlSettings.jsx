@@ -591,22 +591,18 @@ export default function BowlSettings() {
   };
 
   return (
-    <div className="page-container py-4">
-      <header className="flex items-center justify-between mb-4">
+    <div className="page-container py-5">
+      <header className="mb-5 flex items-center justify-between">
         <button onClick={() => navigate(`/bowl/${bowlId}`)} className="btn btn-ghost px-3 py-2">
           Back
         </button>
-        <h2 className="text-2xl font-semibold text-slate-800 truncate max-w-[70%]">{bowlName}</h2>
+        <h2 className="max-w-[70%] truncate text-2xl font-semibold text-slate-100">{bowlName}</h2>
         <div />
       </header>
 
       {isLoading && <div className="text-sm text-gray-600">Loading…</div>}
-      {!isLoading && errorMessage && (
-        <div className="text-sm text-red-600 mb-2">{errorMessage}</div>
-      )}
-      {!isLoading && actionMessage && (
-        <div className="text-sm text-green-700 mb-2">{actionMessage}</div>
-      )}
+      {!isLoading && errorMessage && <div className="mb-2 text-sm text-red-400">{errorMessage}</div>}
+      {!isLoading && actionMessage && <div className="mb-2 text-sm text-emerald-300">{actionMessage}</div>}
 
       {isOwner && (
         <section className="panel mb-4">
@@ -736,36 +732,8 @@ export default function BowlSettings() {
         </section>
       )}
 
-      {isOwner && (
-        <section className="panel mb-4 border-red-200">
-          <h3 className="section-title mb-2 text-red-700">Delete Bowl</h3>
-          <p className="text-sm text-slate-600 mb-3">
-            This permanently deletes the bowl, all bowl movies, members, and pending invites.
-          </p>
-          <form onSubmit={handleDeleteBowl} className="flex flex-col sm:flex-row gap-2 sm:items-center">
-            <input
-              id="delete-bowl-confirm"
-              name="delete_bowl_confirm"
-              type="text"
-              value={deleteConfirmText}
-              onChange={(e) => setDeleteConfirmText(e.target.value)}
-              placeholder='Type "DELETE"'
-              className="input-field sm:flex-1"
-              autoComplete="off"
-            />
-            <button
-              type="submit"
-              disabled={isDeletingBowl}
-              className="btn border border-red-300 bg-red-50 text-red-700 hover:bg-red-100 focus-visible:ring-red-200 disabled:opacity-60"
-            >
-              {isDeletingBowl ? "Deleting..." : "Delete Bowl"}
-            </button>
-          </form>
-        </section>
-      )}
-
-      {!isOwner && (
-        <section className="panel mb-4 border-amber-200">
+      {!isOwner && currentUserId && (
+        <section className="panel mb-4 border-amber-900/60">
           <h3 className="section-title mb-2 text-amber-700">Leave Bowl</h3>
           <p className="text-sm text-slate-600 mb-3">
             You will be removed from this bowl and can rejoin only by invite.
@@ -773,7 +741,7 @@ export default function BowlSettings() {
           <button
             type="button"
             onClick={handleLeaveBowl}
-            className="btn border border-amber-300 bg-amber-50 text-amber-800 hover:bg-amber-100 focus-visible:ring-amber-200"
+            className="btn border border-amber-800 bg-amber-950/40 text-amber-300 hover:bg-amber-900/40 focus-visible:ring-amber-900/40"
           >
             Leave Bowl
           </button>
@@ -915,6 +883,35 @@ export default function BowlSettings() {
           )}
         </div>
       </section>
+
+      {isOwner && (
+        <section className="panel-muted mt-5 border border-red-900/60">
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-[0.16em] text-red-400">Danger zone</h3>
+          <h4 className="section-title mb-2 text-base">Delete Bowl</h4>
+          <p className="mb-3 text-sm text-slate-400">
+            Permanently deletes this bowl, including movies, members, and pending invites.
+          </p>
+          <form onSubmit={handleDeleteBowl} className="flex flex-col gap-2 sm:flex-row sm:items-center">
+            <input
+              id="delete-bowl-confirm"
+              name="delete_bowl_confirm"
+              type="text"
+              value={deleteConfirmText}
+              onChange={(e) => setDeleteConfirmText(e.target.value)}
+              placeholder='Type "DELETE"'
+              className="input-field sm:flex-1"
+              autoComplete="off"
+            />
+            <button
+              type="submit"
+              disabled={isDeletingBowl}
+              className="btn btn-danger disabled:opacity-60"
+            >
+              {isDeletingBowl ? "Deleting..." : "Delete Bowl"}
+            </button>
+          </form>
+        </section>
+      )}
     </div>
   );
 }

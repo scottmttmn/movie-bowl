@@ -421,16 +421,17 @@ export default function MyBowlsScreen() {
   };
 
   return (
-    <div className="my-bowls-screen page-container py-4">
-      <header className="mb-5">
+    <div className="my-bowls-screen page-container py-5">
+      <header className="mb-6">
         {createErrorMessage && <div className="mb-3 text-sm text-red-600">{createErrorMessage}</div>}
         {createActionMessage && <div className="mb-3 text-sm text-green-700">{createActionMessage}</div>}
         {inviteErrorMessage && <div className="mb-3 text-sm text-red-600">{inviteErrorMessage}</div>}
         {inviteActionMessage && <div className="mb-3 text-sm text-green-700">{inviteActionMessage}</div>}
         <div className="panel flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
           <div>
-            <h2 className="text-2xl font-semibold text-slate-800">My Bowls</h2>
-            <p className="mt-1.5 text-sm text-slate-600">
+            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Home</p>
+            <h2 className="mt-1 text-2xl font-semibold text-slate-800">My Bowls</h2>
+            <p className="mt-1 text-sm text-slate-600">
               Open an existing bowl or start a new one.
             </p>
           </div>

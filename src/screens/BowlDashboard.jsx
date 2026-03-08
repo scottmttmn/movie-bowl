@@ -469,8 +469,8 @@ export default function BowlDashboard() {
     };
 
 return (
-    <div className="bowl-dashboard page-container overflow-hidden pb-10 pt-3">
-        <header className="mb-3 flex min-w-0 items-center justify-between">
+    <div className="bowl-dashboard page-container overflow-hidden pb-10 pt-4">
+        <header className="mb-4 flex min-w-0 items-center justify-between">
                 <button onClick={() => navigate("/")} className="btn btn-ghost px-3 py-2">Back</button>
                 <h2 className="max-w-[60%] truncate text-center text-2xl font-semibold text-slate-800">{bowlName}</h2>
                 <button onClick={() => navigate(`/bowl/${bowlId}/settings`)} className="icon-btn h-8 w-8" aria-label="Bowl settings">⚙️</button>
@@ -545,7 +545,7 @@ return (
                   <p className="mt-2 text-center text-sm text-amber-700">{drawGuardMessage}</p>
                 )}
 
-                <div className="mt-2.5 flex justify-center">
+                <div className="mt-3 flex justify-center">
                   <button
                     type="button"
                     onClick={() => setShowDrawFilters((prev) => !prev)}

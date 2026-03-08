@@ -27,6 +27,7 @@ const MAJOR_STREAMING_SERVICES = [
 export default function UserSettings() {
   const navigate = useNavigate();
   const location = useLocation();
+  const [servicesTab, setServicesTab] = useState("manage");
   const [searchTerm, setSearchTerm] = useState("");
   const [draggedService, setDraggedService] = useState(null);
   const [dropIndex, setDropIndex] = useState(null);
@@ -155,6 +156,7 @@ export default function UserSettings() {
   useEffect(() => {
     if (location.hash !== "#streaming-services") return;
     streamingServicesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    setServicesTab("manage");
   }, [location.hash]);
 
   // Function to save the updated streaming services to the database
@@ -172,12 +174,15 @@ export default function UserSettings() {
   };
 
   // Show loading indicator while fetching data
-  if (loading) return <div>Loading...</div>;
+  if (loading) return <div className="page-container py-6 text-sm text-slate-400">Loading...</div>;
 
   return (
-    <div className="page-container py-4">
-      <div className="mb-4 flex items-center justify-between">
-        <h2 className="text-2xl font-semibold text-slate-800">User Settings</h2>
+    <div className="page-container py-5">
+      <div className="mb-5 flex items-center justify-between">
+        <div>
+          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Profile</p>
+          <h2 className="mt-1 text-2xl font-semibold text-slate-800">User Settings</h2>
+        </div>
         <div className="flex items-center gap-2">
           <button
             onClick={() => navigate(-1)}
@@ -201,193 +206,231 @@ export default function UserSettings() {
         className="scroll-mt-24"
       >
         <h3 className="mb-2 text-lg font-semibold text-slate-800">Streaming Services</h3>
-        <p className="mb-3 text-sm text-slate-600">
+        <p className="mb-3 text-base text-slate-500">
           Choose your services, then rank them for draw priority.
         </p>
+        <p className="mb-4 text-sm text-slate-400">
+          Selected services: {streamingServices.length}
+        </p>
       </div>
-      <div className="mb-4">
-        <input
-          id="streaming-services-search"
-          name="streaming_services_search"
-          type="text"
-          value={searchTerm}
-          onChange={(e) => setSearchTerm(e.target.value)}
-          placeholder="Search services..."
-          className="input-field"
-        />
-      </div>
-
-      <div className="mb-3 flex flex-wrap gap-1.5">
+      <div className="mb-4 inline-flex rounded-xl border border-slate-700 bg-slate-900 p-1">
         <button
           type="button"
-          onClick={() => {
-            const next = appendMissingServices(streamingServices, AVAILABLE_STREAMING_SERVICES);
-            setStreamingServices(next);
-          }}
-          className="btn btn-ghost text-sm px-2.5 py-1.5"
+          onClick={() => setServicesTab("manage")}
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+            servicesTab === "manage" ? "bg-slate-700 text-slate-100" : "text-slate-400 hover:text-slate-200"
+          }`}
         >
-          Select all services
+          Manage services
         </button>
         <button
           type="button"
-          onClick={() => {
-            setStreamingServices([]);
-          }}
-          className="btn btn-ghost text-sm px-2.5 py-1.5"
+          onClick={() => setServicesTab("rank")}
+          className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
+            servicesTab === "rank" ? "bg-slate-700 text-slate-100" : "text-slate-400 hover:text-slate-200"
+          }`}
         >
-          Clear
-        </button>
-        <button
-          type="button"
-          onClick={() => {
-            const existingMajorServices = streamingServices.filter((service) =>
-              MAJOR_STREAMING_SERVICES.includes(service)
-            );
-            const next = appendMissingServices(existingMajorServices, MAJOR_STREAMING_SERVICES);
-            setStreamingServices(next);
-          }}
-          className="btn btn-ghost text-sm px-2.5 py-1.5"
-        >
-          Only major
+          Rank services
         </button>
       </div>
 
-      {streamingServices.length > 0 && (
-        <div className="mb-5">
-          <p className="text-sm font-medium text-slate-700 mb-2">Priority order for draw</p>
-          <p className="text-xs text-slate-500 mb-2">
-            Drag to reorder. Higher items are prioritized first.
-          </p>
-          <div className="space-y-2">
-            <div
-              className={dropIndex === 0 ? "h-3 rounded-full bg-blue-500" : "h-3"}
-              onDragOver={(event) => {
-                event.preventDefault();
-                setDropIndex(0);
-              }}
-              onDrop={(event) => {
-                event.preventDefault();
-                const next = moveServiceToIndex(draggedService, 0);
-                setDraggedService(null);
-                setDropIndex(null);
-                if (!next) return;
+      {servicesTab === "manage" && (
+        <>
+          <div className="mb-4">
+            <input
+              id="streaming-services-search"
+              name="streaming_services_search"
+              type="text"
+              value={searchTerm}
+              onChange={(e) => setSearchTerm(e.target.value)}
+              placeholder="Search services..."
+              className="input-field"
+            />
+          </div>
+
+          <div className="mb-3 flex flex-wrap items-center gap-3 text-sm">
+            <button
+              type="button"
+              onClick={() => {
+                const next = appendMissingServices(streamingServices, AVAILABLE_STREAMING_SERVICES);
                 setStreamingServices(next);
               }}
-            />
-            {streamingServices.map((service, index) => (
-              <div key={service}>
-                <div
-                  draggable
-                  onDragStart={(event) => {
-                    setDraggedService(service);
-                    setDropIndex(index);
-                    event.dataTransfer.setData("text/plain", String(index));
-                    event.dataTransfer.effectAllowed = "move";
-                  }}
-                  onDragEnd={() => {
-                    setDraggedService(null);
-                    setDropIndex(null);
-                  }}
-                  onDragOver={(event) => {
-                    event.preventDefault();
-                    const rect = event.currentTarget.getBoundingClientRect();
-                    const nextDropIndex = event.clientY < rect.top + rect.height / 2 ? index : index + 1;
-                    setDropIndex(nextDropIndex);
-                  }}
-                  onDrop={(event) => {
-                    event.preventDefault();
-                    const rect = event.currentTarget.getBoundingClientRect();
-                    const nextDropIndex = event.clientY < rect.top + rect.height / 2 ? index : index + 1;
-                    const next = moveServiceToIndex(draggedService, nextDropIndex);
-                    setDraggedService(null);
-                    setDropIndex(null);
-                    if (!next) return;
-                    setStreamingServices(next);
-                  }}
-                  className={[
-                    "flex items-center justify-between rounded-lg border border-slate-200 px-3 py-2 bg-white transition",
-                    draggedService === service ? "opacity-60" : "",
-                  ].join(" ")}
+              className="text-slate-300 underline decoration-slate-600 underline-offset-2 hover:text-slate-100"
+            >
+              Select all
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                setStreamingServices([]);
+              }}
+              className="text-slate-300 underline decoration-slate-600 underline-offset-2 hover:text-slate-100"
+            >
+              Clear
+            </button>
+            <button
+              type="button"
+              onClick={() => {
+                const existingMajorServices = streamingServices.filter((service) =>
+                  MAJOR_STREAMING_SERVICES.includes(service)
+                );
+                const next = appendMissingServices(existingMajorServices, MAJOR_STREAMING_SERVICES);
+                setStreamingServices(next);
+              }}
+              className="text-slate-300 underline decoration-slate-600 underline-offset-2 hover:text-slate-100"
+            >
+              Only major
+            </button>
+          </div>
+
+          <div className="mb-6 grid grid-cols-1 gap-2 sm:grid-cols-2">
+            {filteredServices.map((service) => {
+              const serviceKey = service.toLowerCase().replace(/[^a-z0-9]+/g, "_");
+              return (
+                <label
+                  key={service}
+                  htmlFor={`streaming-service-${serviceKey}`}
+                  className="flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-slate-200 hover:bg-slate-800"
                 >
-                  <div className="flex items-center gap-3">
-                    <span className="text-xs font-semibold text-slate-500 w-6 text-right">
-                      {index + 1}
-                    </span>
-                    <span className="text-slate-800">{service}</span>
-                  </div>
-                  <div className="flex items-center gap-2">
-                    <button
-                      type="button"
-                      onClick={() => moveServiceByOffset(service, -1)}
-                      disabled={index === 0}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
-                      aria-label={`Move ${service} up`}
-                      title={`Move ${service} up`}
-                    >
-                      ↑
-                    </button>
-                    <button
-                      type="button"
-                      onClick={() => moveServiceByOffset(service, 1)}
-                      disabled={index === streamingServices.length - 1}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
-                      aria-label={`Move ${service} down`}
-                      title={`Move ${service} down`}
-                    >
-                      ↓
-                    </button>
-                    <span className="text-slate-400 cursor-grab" aria-hidden="true">⋮⋮</span>
-                    <button
-                      type="button"
-                      onClick={() => toggleService(service)}
-                      className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-500 hover:bg-slate-100"
-                      aria-label={`Remove ${service}`}
-                      title={`Remove ${service}`}
-                    >
-                      ×
-                    </button>
-                  </div>
-                </div>
+                  <input
+                    id={`streaming-service-${serviceKey}`}
+                    name="streaming_services"
+                    type="checkbox"
+                    checked={streamingServices.includes(service)}
+                    onChange={() => toggleService(service)}
+                  />
+                  {service}
+                </label>
+              );
+            })}
+          </div>
+          {filteredServices.length === 0 && (
+            <div className="mb-6 text-base text-slate-400">No matching services.</div>
+          )}
+        </>
+      )}
+
+      {servicesTab === "rank" && (
+        <div className="mb-6">
+          {streamingServices.length === 0 ? (
+            <p className="rounded-xl border border-slate-700 bg-slate-900 p-4 text-base text-slate-400">
+              Select services in Manage services before ranking.
+            </p>
+          ) : (
+            <>
+              <p className="mb-2 text-base font-medium text-slate-300">Priority order for draw</p>
+              <p className="mb-2 text-sm text-slate-400">
+                Drag to reorder. Higher items are prioritized first.
+              </p>
+              <div className="space-y-2">
                 <div
-                  className={dropIndex === index + 1 ? "mt-1 h-3 rounded-full bg-blue-500" : "mt-1 h-3"}
+                  className={dropIndex === 0 ? "h-3 rounded-full bg-red-500" : "h-3"}
                   onDragOver={(event) => {
                     event.preventDefault();
-                    setDropIndex(index + 1);
+                    setDropIndex(0);
                   }}
                   onDrop={(event) => {
                     event.preventDefault();
-                    const next = moveServiceToIndex(draggedService, index + 1);
+                    const next = moveServiceToIndex(draggedService, 0);
                     setDraggedService(null);
                     setDropIndex(null);
                     if (!next) return;
                     setStreamingServices(next);
                   }}
                 />
+                {streamingServices.map((service, index) => (
+                  <div key={service}>
+                    <div
+                      draggable
+                      onDragStart={(event) => {
+                        setDraggedService(service);
+                        setDropIndex(index);
+                        event.dataTransfer.setData("text/plain", String(index));
+                        event.dataTransfer.effectAllowed = "move";
+                      }}
+                      onDragEnd={() => {
+                        setDraggedService(null);
+                        setDropIndex(null);
+                      }}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        const nextDropIndex = event.clientY < rect.top + rect.height / 2 ? index : index + 1;
+                        setDropIndex(nextDropIndex);
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const rect = event.currentTarget.getBoundingClientRect();
+                        const nextDropIndex = event.clientY < rect.top + rect.height / 2 ? index : index + 1;
+                        const next = moveServiceToIndex(draggedService, nextDropIndex);
+                        setDraggedService(null);
+                        setDropIndex(null);
+                        if (!next) return;
+                        setStreamingServices(next);
+                      }}
+                      className={[
+                        "flex items-center justify-between rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 transition",
+                        draggedService === service ? "opacity-60" : "",
+                      ].join(" ")}
+                    >
+                      <div className="flex items-center gap-3">
+                        <span className="w-6 text-right text-xs font-semibold text-slate-400">{index + 1}</span>
+                        <span className="text-slate-200">{service}</span>
+                      </div>
+                      <div className="flex items-center gap-2">
+                        <button
+                          type="button"
+                          onClick={() => moveServiceByOffset(service, -1)}
+                          disabled={index === 0}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                          aria-label={`Move ${service} up`}
+                          title={`Move ${service} up`}
+                        >
+                          ↑
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => moveServiceByOffset(service, 1)}
+                          disabled={index === streamingServices.length - 1}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-slate-800 disabled:cursor-not-allowed disabled:opacity-40"
+                          aria-label={`Move ${service} down`}
+                          title={`Move ${service} down`}
+                        >
+                          ↓
+                        </button>
+                        <span className="cursor-grab text-slate-500" aria-hidden="true">⋮⋮</span>
+                        <button
+                          type="button"
+                          onClick={() => toggleService(service)}
+                          className="inline-flex h-7 w-7 items-center justify-center rounded-full text-slate-400 hover:bg-slate-800"
+                          aria-label={`Remove ${service}`}
+                          title={`Remove ${service}`}
+                        >
+                          ×
+                        </button>
+                      </div>
+                    </div>
+                    <div
+                      className={dropIndex === index + 1 ? "mt-1 h-3 rounded-full bg-red-500" : "mt-1 h-3"}
+                      onDragOver={(event) => {
+                        event.preventDefault();
+                        setDropIndex(index + 1);
+                      }}
+                      onDrop={(event) => {
+                        event.preventDefault();
+                        const next = moveServiceToIndex(draggedService, index + 1);
+                        setDraggedService(null);
+                        setDropIndex(null);
+                        if (!next) return;
+                        setStreamingServices(next);
+                      }}
+                    />
+                  </div>
+                ))}
               </div>
-            ))}
-          </div>
+            </>
+          )}
         </div>
-      )}
-
-      {/* Render checkboxes for each streaming service */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 mb-6">
-      {filteredServices.map((service) => {
-        const serviceKey = service.toLowerCase().replace(/[^a-z0-9]+/g, "_");
-        return (
-        <label key={service} htmlFor={`streaming-service-${serviceKey}`} className="flex items-center gap-2 rounded-lg border border-slate-200 px-3 py-2 hover:bg-slate-50">
-          <input
-            id={`streaming-service-${serviceKey}`}
-            name="streaming_services"
-            type="checkbox"
-            checked={streamingServices.includes(service)}
-            onChange={() => toggleService(service)}
-          />
-          {service}
-        </label>
-      )})}
-      </div>
-      {filteredServices.length === 0 && (
-        <div className="text-sm text-slate-500 mb-6">No matching services.</div>
       )}
       <div className="panel-muted border-b border-slate-200/80 pb-5">
         <div className="mb-2 flex items-center justify-between gap-3">
@@ -400,15 +443,15 @@ export default function UserSettings() {
             Reset to defaults
           </button>
         </div>
-        <p className="mb-4 text-sm text-slate-600">
+        <p className="mb-4 text-base text-slate-300">
           These settings prefill the draw filters when you open a bowl.
         </p>
 
         <div className="space-y-4">
           <div className="flex items-center justify-between gap-3">
             <div className="text-left">
-              <p className="text-sm font-medium text-gray-800">Prioritize my streaming services</p>
-              <p className="text-xs text-gray-500">Prefer titles available on your saved services.</p>
+              <p className="text-base font-semibold text-slate-100">Prioritize my streaming services</p>
+              <p className="text-sm text-slate-300">Prefer titles available on your saved services.</p>
             </div>
             <label htmlFor="default-prioritize-streaming" className="relative inline-flex items-center cursor-pointer">
               <input
@@ -436,8 +479,8 @@ export default function UserSettings() {
           {defaultDrawSettings.prioritizeStreaming && streamingServices.length > 0 && (
             <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
               <div className="text-left">
-                <p className="text-sm font-medium text-gray-800">Use my service ranking</p>
-                <p className="text-xs text-gray-500">If off, matching services are treated equally.</p>
+                <p className="text-base font-semibold text-slate-100">Use my service ranking</p>
+                <p className="text-sm text-slate-300">If off, matching services are treated equally.</p>
               </div>
               <label htmlFor="default-use-streaming-rank" className="relative inline-flex items-center cursor-pointer">
                 <input
@@ -462,8 +505,8 @@ export default function UserSettings() {
 
           <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
             <div className="text-left">
-              <p className="text-sm font-medium text-gray-800">Open preferred Roku app for drawn movies</p>
-              <p className="text-xs text-gray-500">Quietly show a Roku launch button only when a preferred installed app is available.</p>
+              <p className="text-base font-semibold text-slate-100">Open preferred Roku app for drawn movies</p>
+              <p className="text-sm text-slate-300">Quietly show a Roku launch button only when a preferred installed app is available.</p>
             </div>
             <label htmlFor="enable-preferred-roku-app-launch" className="relative inline-flex items-center cursor-pointer">
               <input
@@ -488,8 +531,8 @@ export default function UserSettings() {
 
           <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
             <div className="text-left">
-              <p className="text-sm font-medium text-gray-800">Open preferred streaming website for drawn movies</p>
-              <p className="text-xs text-gray-500">Show a web launch button when a ranked service match supports direct search links.</p>
+              <p className="text-base font-semibold text-slate-100">Open preferred streaming website for drawn movies</p>
+              <p className="text-sm text-slate-300">Show a web launch button when a ranked service match supports direct search links.</p>
             </div>
             <label htmlFor="enable-preferred-web-launch" className="relative inline-flex items-center cursor-pointer">
               <input
@@ -516,10 +559,10 @@ export default function UserSettings() {
             <div className="border-t border-slate-200 pt-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-left">
-                  <p className="text-sm font-medium text-gray-800">
+                  <p className="text-base font-semibold text-slate-100">
                     Preferred Roku: {selectedRoku ? `${selectedRoku.name} (${selectedRoku.ip})` : "Not selected"}
                   </p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm text-slate-300">
                     This device will be used quietly from the bowl page when possible.
                   </p>
                 </div>
@@ -546,7 +589,7 @@ export default function UserSettings() {
                     >
                       <div>
                         <div className="font-medium text-slate-900">{device.name}</div>
-                        <div className="text-xs text-slate-500">{device.ip}:{device.port}</div>
+                        <div className="text-sm text-slate-300">{device.ip}:{device.port}</div>
                       </div>
                       <input
                         type="radio"
@@ -582,7 +625,7 @@ export default function UserSettings() {
 
               {rokuDeviceError && <p className="mt-2 text-sm text-red-600">{rokuDeviceError}</p>}
               {rokuSetupSteps.length > 0 && (
-                <ul className="mt-2 space-y-1 text-xs text-slate-500">
+                <ul className="mt-2 space-y-1 text-sm text-slate-300">
                   {rokuSetupSteps.map((step) => (
                     <li key={step}>{step}</li>
                   ))}
@@ -600,8 +643,8 @@ export default function UserSettings() {
               aria-controls="default-rating-settings-panel"
             >
               <div>
-                <p className="text-sm font-medium text-gray-800">Default ratings</p>
-                <p className="mt-0.5 text-xs text-gray-500">{defaultRatingSummary}</p>
+                <p className="text-base font-semibold text-slate-100">Default ratings</p>
+                <p className="mt-0.5 text-sm text-slate-300">{defaultRatingSummary}</p>
               </div>
               <span className="text-xs font-medium text-blue-700">
                 {showDefaultRatings ? "Hide ratings" : "Edit ratings"}
@@ -662,8 +705,8 @@ export default function UserSettings() {
               aria-controls="default-genre-settings-panel"
             >
               <div>
-                <p className="text-sm font-medium text-gray-800">Default genres</p>
-                <p className="mt-0.5 text-xs text-gray-500">{defaultGenreSummary}</p>
+                <p className="text-base font-semibold text-slate-100">Default genres</p>
+                <p className="mt-0.5 text-sm text-slate-300">{defaultGenreSummary}</p>
               </div>
               <span className="text-xs font-medium text-blue-700">
                 {showDefaultGenres ? "Hide genres" : "Edit genres"}
@@ -671,7 +714,7 @@ export default function UserSettings() {
             </button>
             {showDefaultGenres && (
               <div id="default-genre-settings-panel" className="mt-2">
-                <p className="mb-2 text-xs text-gray-500">Choose which genres should be included by default.</p>
+                <p className="mb-2 text-sm text-slate-300">Choose which genres should be included by default.</p>
                 <FilterChipSelect
                   ariaLabel="Default genre controls"
                   options={DRAW_GENRE_OPTIONS}
@@ -728,8 +771,8 @@ export default function UserSettings() {
               aria-controls="default-runtime-settings-panel"
             >
               <div>
-                <p className="text-sm font-medium text-gray-800">Default runtime filter</p>
-                <p className="mt-0.5 text-xs text-gray-500">{defaultRuntimeSummary}</p>
+                <p className="text-base font-semibold text-slate-100">Default runtime filter</p>
+                <p className="mt-0.5 text-sm text-slate-300">{defaultRuntimeSummary}</p>
               </div>
               <span className="text-xs font-medium text-blue-700">
                 {showDefaultRuntime ? "Hide runtime" : "Edit runtime"}
@@ -737,7 +780,7 @@ export default function UserSettings() {
             </button>
             {showDefaultRuntime && (
               <div id="default-runtime-settings-panel" className="mt-2 rounded-lg border border-slate-200 bg-slate-50/70 p-3">
-                <p className="text-xs text-gray-500">
+                <p className="text-sm text-slate-300">
                   Set the acceptable runtime range to prefill bowl draw filters.
                 </p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
@@ -791,7 +834,7 @@ export default function UserSettings() {
                   </label>
                 </div>
                 <div className="mt-3 space-y-3">
-                  <label htmlFor="default-draw-runtime-min-slider" className="block text-xs text-slate-500">
+                  <label htmlFor="default-draw-runtime-min-slider" className="block text-sm text-slate-300">
                     Minimum runtime
                     <input
                       id="default-draw-runtime-min-slider"
@@ -816,7 +859,7 @@ export default function UserSettings() {
                       className="mt-1 w-full"
                     />
                   </label>
-                  <label htmlFor="default-draw-runtime-max-slider" className="block text-xs text-slate-500">
+                  <label htmlFor="default-draw-runtime-max-slider" className="block text-sm text-slate-300">
                     Maximum runtime
                     <input
                       id="default-draw-runtime-max-slider"

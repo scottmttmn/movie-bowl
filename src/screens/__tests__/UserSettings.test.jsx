@@ -131,7 +131,7 @@ describe("UserSettings", () => {
     expect(screen.getByText("Crunchyroll")).toBeInTheDocument();
     expect(screen.queryByLabelText("streaming-service-netflix")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /select all services/i }));
+    fireEvent.click(screen.getByRole("button", { name: /select all/i }));
     expect(mocks.hook.setStreamingServices).toHaveBeenCalledWith(
       expect.arrayContaining(["Netflix", "Hulu", "Crunchyroll"])
     );
@@ -151,6 +151,8 @@ describe("UserSettings", () => {
       "Peacock",
     ]);
 
+    fireEvent.click(screen.getByRole("button", { name: /rank services/i }));
+
     fireEvent.click(screen.getByRole("button", { name: /move hulu up/i }));
     expect(mocks.hook.setStreamingServices).toHaveBeenCalledWith(["Hulu", "Netflix"]);
 
@@ -160,6 +162,7 @@ describe("UserSettings", () => {
     fireEvent.click(screen.getByRole("button", { name: /remove netflix/i }));
     expect(mocks.hook.toggleService).toHaveBeenCalledWith("Netflix");
 
+    fireEvent.click(screen.getByRole("button", { name: /manage services/i }));
     fireEvent.click(screen.getByLabelText("Crunchyroll"));
     expect(mocks.hook.toggleService).toHaveBeenCalledWith("Crunchyroll");
 
