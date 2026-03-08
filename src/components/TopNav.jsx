@@ -30,12 +30,12 @@ export default function TopNav({ isSettingsRoute, onSignOut, userEmail = "", isA
   }, [isMenuOpen]);
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 border-b border-slate-200 bg-white/95 backdrop-blur">
+    <div className="fixed top-0 left-0 right-0 z-50 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
       <div className="page-container flex h-16 items-center justify-between">
         <Link
           to="/"
           aria-label="Go to My Bowls"
-          className="inline-flex items-center gap-2 text-2xl font-semibold tracking-tight text-slate-700 hover:text-slate-900 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200 rounded"
+          className="inline-flex items-center gap-2 text-2xl font-semibold tracking-tight text-slate-100 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-700 rounded"
         >
           <img
             src={bowlImage}
@@ -64,11 +64,11 @@ export default function TopNav({ isSettingsRoute, onSignOut, userEmail = "", isA
           {isMenuOpen && (
             <div
               role="menu"
-              className="absolute right-0 mt-2 w-44 rounded-lg border border-slate-200 bg-white p-1.5 shadow-lg"
+              className="absolute right-0 mt-2 w-52 rounded-xl border border-slate-700 bg-slate-900 p-1.5 shadow-xl shadow-black/30"
             >
               {userEmail && (
                 <div
-                  className="mb-1 truncate rounded-md px-3 py-2 text-sm text-slate-500"
+                  className="mb-1 truncate rounded-md px-3 py-2 text-sm text-slate-400"
                   title={userEmail}
                   aria-label={`Signed in as ${userEmail}`}
                 >
@@ -79,7 +79,7 @@ export default function TopNav({ isSettingsRoute, onSignOut, userEmail = "", isA
                 to="/about"
                 role="menuitem"
                 onClick={() => setIsMenuOpen(false)}
-                className="flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                className="flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
               >
                 About
               </Link>
@@ -89,7 +89,7 @@ export default function TopNav({ isSettingsRoute, onSignOut, userEmail = "", isA
                     to="/"
                     role="menuitem"
                     onClick={() => setIsMenuOpen(false)}
-                    className="flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50"
+                    className="flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
                   >
                     My Bowls
                   </Link>
@@ -97,8 +97,8 @@ export default function TopNav({ isSettingsRoute, onSignOut, userEmail = "", isA
                     to="/settings"
                     role="menuitem"
                     onClick={() => setIsMenuOpen(false)}
-                    className={`flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-700 hover:bg-slate-50 ${
-                      isSettingsRoute ? "bg-slate-100 text-slate-500 pointer-events-none" : ""
+                    className={`flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 ${
+                      isSettingsRoute ? "bg-slate-800 text-slate-400 pointer-events-none" : ""
                     }`}
                   >
                     Settings
@@ -110,7 +110,7 @@ export default function TopNav({ isSettingsRoute, onSignOut, userEmail = "", isA
                       setIsMenuOpen(false);
                       onSignOut?.();
                     }}
-                    className="mt-1 flex w-full items-center rounded-md px-3 py-2 text-sm text-red-600 hover:bg-red-50"
+                    className="mt-1 flex w-full items-center rounded-md px-3 py-2 text-sm text-red-300 hover:bg-red-950/60"
                   >
                     Log out
                   </button>
@@ -120,7 +120,7 @@ export default function TopNav({ isSettingsRoute, onSignOut, userEmail = "", isA
                   to="/login"
                   role="menuitem"
                   onClick={() => setIsMenuOpen(false)}
-                  className="mt-1 flex w-full items-center rounded-md px-3 py-2 text-sm text-blue-700 hover:bg-blue-50"
+                  className="mt-1 flex w-full items-center rounded-md px-3 py-2 text-sm text-red-300 hover:bg-red-950/60"
                 >
                   Log in
                 </Link>

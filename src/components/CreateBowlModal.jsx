@@ -12,8 +12,8 @@ export default function CreateBowlModal({
   if (!isOpen) return null;
 
   return (
-    <div className="fixed inset-0 bg-black bg-opacity-50 flex justify-center items-center z-50">
-      <div className="panel w-full max-w-sm">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 backdrop-blur-sm">
+      <div className="panel w-full max-w-xl p-8">
         <h3 className="section-title mb-4">Create New Bowl</h3>
         <input
           id="new-bowl-name"
@@ -28,7 +28,7 @@ export default function CreateBowlModal({
           }}
           autoFocus
         />
-        <label htmlFor="new-bowl-invites" className="mb-1 block text-sm font-medium text-slate-700">
+        <label htmlFor="new-bowl-invites" className="mb-1 block text-sm font-medium text-slate-300">
           Invite emails (optional)
         </label>
         <textarea
@@ -39,7 +39,7 @@ export default function CreateBowlModal({
           value={inviteEmails}
           onChange={(e) => onChangeInviteEmails(e.target.value)}
         />
-        <label htmlFor="new-bowl-max-contribution-lead" className="mb-1 block text-sm font-medium text-slate-700">
+        <label htmlFor="new-bowl-max-contribution-lead" className="mb-1 block text-sm font-medium text-slate-300">
           Max contribution lead (optional)
         </label>
         <input
@@ -65,4 +65,3 @@ export default function CreateBowlModal({
     </div>
   );
 }
-

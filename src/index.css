@@ -5,11 +5,11 @@
 
 @layer base {
   :root {
-    font-family: "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
+    font-family: "Manrope", "Inter", "Segoe UI", "Helvetica Neue", Arial, sans-serif;
     line-height: 1.5;
     font-weight: 400;
-    color: #0f172a;
-    background-color: #f1f5f9;
+    color: #e2e8f0;
+    background-color: #020617;
     font-synthesis: none;
     text-rendering: optimizeLegibility;
     -webkit-font-smoothing: antialiased;
@@ -24,8 +24,8 @@
     margin: 0;
     min-width: 320px;
     min-height: 100vh;
-    background: radial-gradient(circle at top, #f8fafc 0%, #eef2ff 52%, #e2e8f0 100%);
-    color: #0f172a;
+    background: radial-gradient(circle at top, #0f172a 0%, #020617 55%, #000000 100%);
+    color: #e2e8f0;
   }
 
   #root {
@@ -49,15 +49,15 @@
   }
 
   .panel {
-    @apply rounded-xl border border-slate-200/80 bg-white/95 p-4 shadow-sm;
+    @apply rounded-2xl border border-slate-800/90 bg-slate-900/95 p-4 shadow-lg shadow-black/30;
   }
 
   .panel-muted {
-    @apply rounded-xl border border-slate-200/70 bg-slate-50/70 p-4;
+    @apply rounded-2xl border border-slate-800/80 bg-slate-900/70 p-4;
   }
 
   .section-title {
-    @apply text-lg font-semibold text-slate-800;
+    @apply text-lg font-semibold text-slate-100;
   }
 
   .section-stack {
@@ -65,33 +65,70 @@
   }
 
   .btn {
-    @apply inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 font-medium transition focus-visible:outline-none focus-visible:ring-2;
+    @apply inline-flex items-center justify-center gap-2 rounded-xl px-4 py-2 font-semibold transition focus-visible:outline-none focus-visible:ring-2;
   }
 
   .btn-primary {
-    @apply bg-blue-600 text-white shadow-sm hover:bg-blue-700 focus-visible:ring-blue-200;
+    @apply border border-red-600 bg-red-600 text-white shadow-sm shadow-red-950/40 hover:bg-red-500 hover:border-red-500 focus-visible:ring-red-900/60;
   }
 
   .btn-secondary {
-    @apply border border-slate-200 bg-slate-50 text-slate-700 hover:bg-white focus-visible:ring-slate-200;
+    @apply border border-slate-700 bg-slate-800 text-slate-200 hover:bg-slate-700 focus-visible:ring-slate-700;
   }
 
   .btn-ghost {
-    @apply text-slate-600 hover:bg-slate-100 hover:text-slate-900;
+    @apply text-slate-400 hover:bg-slate-800 hover:text-slate-100;
   }
 
   .btn-danger {
-    @apply border border-red-200 bg-red-50 text-red-700 hover:bg-red-100 focus-visible:ring-red-200;
+    @apply border border-red-700 bg-red-950/40 text-red-300 hover:bg-red-900/50 focus-visible:ring-red-900/50;
   }
 
   .icon-btn {
-    @apply inline-flex h-9 w-9 items-center justify-center rounded-lg border border-slate-200 bg-white text-slate-600 shadow-sm transition hover:border-slate-300 hover:bg-slate-50 hover:text-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-200;
+    @apply inline-flex h-9 w-9 items-center justify-center rounded-xl border border-slate-700 bg-slate-900 text-slate-300 shadow-sm transition hover:border-slate-600 hover:bg-slate-800 hover:text-slate-100 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-700;
   }
 
   .input-field {
-    @apply w-full rounded-lg border border-slate-300 bg-white px-3 py-2 text-slate-900 placeholder:text-slate-400 focus:outline-none focus:ring-2 focus:ring-blue-200;
+    @apply w-full rounded-xl border border-slate-700 bg-slate-800 px-3 py-2 text-slate-100 placeholder:text-slate-500 focus:outline-none focus:ring-2 focus:ring-red-900/60 focus:border-red-500;
   }
 }
+
+/* Dark token remaps for legacy utility usage in core screens */
+.text-slate-900 { color: #f8fafc !important; }
+.text-slate-800 { color: #f1f5f9 !important; }
+.text-slate-700 { color: #cbd5e1 !important; }
+.text-slate-600,
+.text-gray-600 { color: #94a3b8 !important; }
+.text-slate-500,
+.text-gray-500 { color: #64748b !important; }
+.text-slate-400 { color: #475569 !important; }
+
+.bg-white,
+.bg-white\/95,
+.bg-white\/70 { background-color: #0f172a !important; }
+.bg-slate-50,
+.bg-slate-50\/70 { background-color: #1e293b !important; }
+.bg-slate-100 { background-color: #1f2937 !important; }
+.bg-slate-200 { background-color: #334155 !important; }
+
+.border-slate-200,
+.border-slate-200\/70,
+.border-slate-200\/80,
+.border-slate-300 { border-color: #334155 !important; }
+.border-slate-700 { border-color: #334155 !important; }
+
+.focus-visible\:ring-blue-200:focus-visible { --tw-ring-color: rgba(127, 29, 29, 0.45) !important; }
+.text-blue-700,
+.text-blue-600 { color: #f87171 !important; }
+.hover\:text-blue-800:hover,
+.hover\:text-blue-700:hover { color: #fb7185 !important; }
+.bg-blue-600,
+.bg-blue-700 { background-color: #dc2626 !important; }
+.hover\:bg-blue-700:hover { background-color: #ef4444 !important; }
+.border-blue-300,
+.border-blue-500 { border-color: #b91c1c !important; }
+
+.page-container { color: #e2e8f0; }
 
 .draw-animation-overlay {
   position: fixed;

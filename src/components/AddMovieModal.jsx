@@ -43,8 +43,8 @@ export default function AddMovieModal({
   // 2) "Just drawn" flow (movie is defined): show details for the drawn movie.
   if (!movie) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-        <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full mx-4 p-6 relative text-left">
+      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm">
+        <div className="w-full max-w-4xl rounded-3xl border border-slate-700 bg-slate-900 p-6 text-left shadow-2xl shadow-black/40">
           <button
             onClick={onClose}
             className="icon-btn absolute top-4 right-4"
@@ -53,7 +53,7 @@ export default function AddMovieModal({
             ✕
           </button>
 
-          <h2 className="text-2xl font-semibold mb-4 text-slate-800">Add a movie</h2>
+          <h2 className="mb-4 text-2xl font-semibold text-slate-100">Search Movies</h2>
 
           {/* MovieSearch handles TMDB search + details fetch and returns a full movie object */}
           <MovieSearch
@@ -100,8 +100,8 @@ export default function AddMovieModal({
     Boolean(webLaunchStatus);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black bg-opacity-60">
-      <div className="bg-white rounded-2xl shadow-xl max-w-2xl w-full mx-4 p-6 relative max-h-[90vh] overflow-y-auto text-left">
+    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm">
+      <div className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-6 text-left shadow-2xl shadow-black/40">
         <button
           onClick={onClose}
           className="icon-btn absolute top-4 right-4"
@@ -111,7 +111,7 @@ export default function AddMovieModal({
         </button>
 
         {posterUrl && (
-          <div className="mb-4 max-h-[46vh] rounded bg-slate-100">
+          <div className="mb-4 max-h-[46vh] rounded-xl bg-slate-950">
             <img
               src={posterUrl}
               alt={movie.title}
@@ -121,11 +121,11 @@ export default function AddMovieModal({
         )}
 
         <div className="mb-1 flex items-center gap-2">
-          <h2 className="text-2xl font-semibold text-slate-900">
+          <h2 className="text-2xl font-semibold text-slate-100">
             {movie.title} ({year})
           </h2>
           {isCustomEntry && (
-            <span className="rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-800">
+            <span className="rounded-full border border-amber-700/70 bg-amber-950/50 px-2 py-0.5 text-xs font-semibold text-amber-300">
               Custom
             </span>
           )}
@@ -133,12 +133,12 @@ export default function AddMovieModal({
 
         <div className="mb-4 flex flex-wrap gap-2 text-xs">
           {movie.runtime && (
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-700">
+            <span className="rounded-full border border-slate-700 bg-slate-800 px-2.5 py-1 text-slate-300">
               Runtime: {movie.runtime} minutes
             </span>
           )}
           {watchedDateLabel && (
-            <span className="rounded-full bg-slate-100 px-2.5 py-1 text-slate-700">
+            <span className="rounded-full border border-slate-700 bg-slate-800 px-2.5 py-1 text-slate-300">
               Watched on: {watchedDateLabel}
             </span>
           )}
@@ -158,7 +158,7 @@ export default function AddMovieModal({
             {isTrailerVisible && (
               <div
                 id={trailerRegionId}
-                className="mt-3 aspect-video overflow-hidden rounded-xl border border-slate-200 bg-slate-100"
+                className="mt-3 aspect-video overflow-hidden rounded-xl border border-slate-700 bg-slate-950"
               >
                 <iframe
                   src={movie.trailer.embedUrl}
@@ -173,29 +173,29 @@ export default function AddMovieModal({
         )}
 
         <div className="mb-4">
-          <p className="mb-1 text-sm font-semibold text-slate-800">Available on</p>
+          <p className="mb-1 text-sm font-semibold text-slate-100">Available on</p>
           {availableProviders.length > 0 ? (
-            <p className="text-sm text-slate-700">{availableProviders.join(", ")}</p>
+            <p className="text-sm text-slate-300">{availableProviders.join(", ")}</p>
           ) : (
             <p className="text-sm text-slate-500">No US streaming providers found right now.</p>
           )}
         </div>
 
         <div className="mb-5">
-          <p className="mb-1 text-sm font-semibold text-slate-800">Your services</p>
+          <p className="mb-1 text-sm font-semibold text-slate-100">Your services</p>
           {matchingProviders.length > 0 ? (
-            <p className="text-sm text-green-700">{matchingProviders.join(", ")}</p>
+            <p className="text-sm text-emerald-300">{matchingProviders.join(", ")}</p>
           ) : (
             <p className="text-sm text-slate-500">None of your saved services match this title.</p>
           )}
         </div>
 
         {hasLaunchSection && (
-          <div className="mb-5 rounded-xl border border-slate-200 bg-slate-50 p-4">
-            <p className="mb-1 text-sm font-semibold text-slate-800">Open to watch</p>
+          <div className="mb-5 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
+            <p className="mb-1 text-sm font-semibold text-slate-100">Open to watch</p>
             {preferredLaunchCandidate ? (
               <>
-                <p className="mb-3 text-sm text-slate-600">
+                <p className="mb-3 text-sm text-slate-400">
                   Using your highest-ranked installed match: {preferredLaunchCandidate.serviceName}.
                 </p>
                 <button
@@ -211,13 +211,13 @@ export default function AddMovieModal({
               </>
             ) : (
               preferredLaunchUnavailableReason && (
-                <p className="text-sm text-slate-600">{preferredLaunchUnavailableReason}</p>
+                <p className="text-sm text-slate-400">{preferredLaunchUnavailableReason}</p>
               )
             )}
 
             {webLaunchCandidate && (
-              <div className={preferredLaunchCandidate ? "mt-3 border-t border-slate-200 pt-3" : "mt-2"}>
-                <p className="mb-2 text-sm text-slate-600">
+              <div className={preferredLaunchCandidate ? "mt-3 border-t border-slate-700 pt-3" : "mt-2"}>
+                <p className="mb-2 text-sm text-slate-400">
                   Web launch match: {webLaunchCandidate.serviceName}.
                 </p>
                 <button
@@ -233,7 +233,7 @@ export default function AddMovieModal({
             {rokuLaunchStatus && (
               <div
                 className={`mt-3 rounded-lg px-3 py-2 text-sm ${
-                  rokuLaunchStatus.ok ? "bg-emerald-50 text-emerald-900" : "bg-red-50 text-red-900"
+                  rokuLaunchStatus.ok ? "bg-emerald-950/50 text-emerald-300" : "bg-red-950/50 text-red-300"
                 }`}
               >
                 <p className="font-medium">{rokuLaunchStatus.message}</p>
@@ -250,7 +250,7 @@ export default function AddMovieModal({
             {webLaunchStatus && (
               <div
                 className={`mt-3 rounded-lg px-3 py-2 text-sm ${
-                  webLaunchStatus.ok ? "bg-emerald-50 text-emerald-900" : "bg-red-50 text-red-900"
+                  webLaunchStatus.ok ? "bg-emerald-950/50 text-emerald-300" : "bg-red-950/50 text-red-300"
                 }`}
               >
                 <p className="font-medium">{webLaunchStatus.message}</p>

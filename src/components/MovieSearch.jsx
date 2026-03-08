@@ -187,7 +187,7 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
     // Render search UI and list of results
     return (
         <div className="mt-2">
-            <div className="sticky top-0 z-10 bg-white pb-2">
+            <div className="sticky top-0 z-10 bg-slate-900 pb-2">
                 <input
                     ref={inputRef}
                     autoFocus
@@ -239,8 +239,8 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                             key={movie.id}
                             role="option"
                             aria-selected={index === highlightedIndex}
-                            className={`flex items-center justify-between p-2 rounded-lg border border-slate-200 ${
-                                index === highlightedIndex ? "bg-slate-100" : "bg-white"
+                            className={`flex items-center justify-between rounded-xl border border-slate-700 p-2 ${
+                                index === highlightedIndex ? "bg-slate-800" : "bg-slate-900"
                             }`}
                         >
                             <div className="flex items-center gap-3">
@@ -252,14 +252,14 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
 
                                 <div className="text-left">
                                     <div className="font-semibold">{movie.title}</div>
-                                    <div className="text-sm text-gray-500">{year}</div>
-                                    <div className="text-xs text-gray-500">
+                                    <div className="text-sm text-slate-400">{year}</div>
+                                    <div className="text-xs text-slate-400">
                                         {Array.isArray(providers) && providers.length > 0
                                             ? `Available on: ${providers.join(", ")}`
                                             : "Available on: no US providers found"}
                                     </div>
                                     {matchingProviders.length > 0 && (
-                                      <div className="text-xs text-green-700">
+                                      <div className="text-xs text-emerald-300">
                                         Your services: {matchingProviders.join(", ")}
                                       </div>
                                     )}
@@ -292,7 +292,7 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                 })}
             </ul>
             {searchError && (
-              <div className="mt-2 rounded-lg border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">
+              <div className="mt-2 rounded-lg border border-red-900/60 bg-red-950/50 px-3 py-2 text-sm text-red-300">
                 {searchError}
               </div>
             )}
@@ -300,7 +300,7 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
               <div className="mt-2 text-sm text-slate-500">No matching movies found.</div>
             )}
             {searchTerm.trim() && (
-              <div className="mt-3 rounded-lg border border-slate-200 bg-slate-50 px-3 py-3">
+              <div className="mt-3 rounded-xl border border-slate-700 bg-slate-900 px-3 py-3">
                 <p className="text-sm font-medium text-slate-800">
                   Can&apos;t find it?
                 </p>

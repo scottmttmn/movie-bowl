@@ -9,7 +9,7 @@ describe("AddMovieModal", () => {
 
   it("renders add mode with search input", () => {
     render(<AddMovieModal onClose={vi.fn()} onAddMovie={vi.fn()} userStreamingServices={["Netflix"]} />);
-    expect(screen.getByText("Add a movie")).toBeInTheDocument();
+    expect(screen.getByText("Search Movies")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search movies...")).toBeInTheDocument();
   });
 

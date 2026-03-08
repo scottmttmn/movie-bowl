@@ -20,11 +20,11 @@ export default function MovieActionCard({
   const disableActions = disableWhileSyncing && isSyncing;
 
   const cardToneClass =
-    variant === "queued" ? "border-sky-200 bg-sky-50" : "border-slate-200 bg-white";
+    variant === "queued" ? "border-red-900/80 bg-red-950/30" : "border-slate-700 bg-slate-900";
 
   return (
     <article
-      className={`w-32 flex-shrink-0 rounded-lg border p-2 ${
+      className={`w-32 flex-shrink-0 rounded-xl border p-2 ${
         cardToneClass
       } ${
         isSyncing ? "opacity-80" : ""
@@ -37,15 +37,15 @@ export default function MovieActionCard({
           className="h-40 w-full rounded-md object-cover"
         />
       ) : (
-        <div className="h-40 w-full rounded-md bg-slate-200 p-2 flex items-center justify-center">
-          <p className="text-xs text-center font-semibold text-slate-700">{movie.title}</p>
+        <div className="flex h-40 w-full items-center justify-center rounded-md bg-slate-800 p-2">
+          <p className="text-center text-xs font-semibold text-slate-200">{movie.title}</p>
         </div>
       )}
-      <p className="mt-2 line-clamp-2 min-h-[2.5rem] text-xs font-semibold text-slate-800">
+      <p className="mt-2 min-h-[2.5rem] line-clamp-2 text-xs font-semibold text-slate-100">
         {movie.title}
       </p>
       {isCustomEntry && (
-        <span className="mb-1 inline-flex rounded-full bg-amber-100 px-2 py-0.5 text-[10px] font-semibold text-amber-800">
+        <span className="mb-1 inline-flex rounded-full border border-amber-700/70 bg-amber-950/50 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
           Custom
         </span>
       )}
@@ -54,9 +54,7 @@ export default function MovieActionCard({
           {dateLabelPrefix}: {dateLabel}
         </p>
       )}
-      {isSyncing && (
-        <p className="mb-2 text-[11px] font-medium text-blue-700">Syncing...</p>
-      )}
+      {isSyncing && <p className="mb-2 text-[11px] font-medium text-red-300">Syncing...</p>}
       <div className="mt-auto grid grid-cols-2 gap-1">
         <button
           type="button"

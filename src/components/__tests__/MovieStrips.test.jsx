@@ -63,8 +63,8 @@ describe("movie strip components", () => {
 
     expect(screen.getByText(/Queued:/i)).toBeInTheDocument();
     const queuedCard = screen.getAllByText(/Movie Pending/i)[0].closest("article");
-    expect(queuedCard).toHaveClass("border-sky-200");
-    expect(queuedCard).toHaveClass("bg-sky-50");
+    expect(queuedCard).toHaveClass("border-red-900/80");
+    expect(queuedCard).toHaveClass("bg-red-950/30");
     expect(screen.queryByText(/^Pending$/i)).not.toBeInTheDocument();
     expect(screen.getAllByText("Custom").length).toBeGreaterThan(0);
     expect(screen.getAllByRole("button", { name: /details/i }).length).toBeGreaterThan(0);
@@ -79,8 +79,8 @@ describe("movie strip components", () => {
     ];
     render(<MyMoviesStrip movies={movies} onViewMovie={vi.fn()} onDeleteMovie={vi.fn()} />);
     const addedCard = screen.getAllByText(/Added Title/i)[0].closest("article");
-    expect(addedCard).toHaveClass("border-slate-200");
-    expect(addedCard).toHaveClass("bg-white");
+    expect(addedCard).toHaveClass("border-slate-700");
+    expect(addedCard).toHaveClass("bg-slate-900");
     expect(screen.queryByText(/pending/i)).not.toBeInTheDocument();
   });
 

@@ -222,8 +222,8 @@ describe("BowlDashboard guards", () => {
     fireEvent.click(within(myMoviesSection).getByRole("button", { name: /^show$/i }));
     expect(screen.getAllByText(/movie pending/i).length).toBeGreaterThan(0);
     const pendingCard = screen.getAllByText(/movie pending/i)[0].closest("article");
-    expect(pendingCard).toHaveClass("border-sky-200");
-    expect(pendingCard).toHaveClass("bg-sky-50");
+    expect(pendingCard).toHaveClass("border-red-900/80");
+    expect(pendingCard).toHaveClass("bg-red-950/30");
     expect(screen.queryByText(/^pending$/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/movie done/i)).not.toBeInTheDocument();
 
