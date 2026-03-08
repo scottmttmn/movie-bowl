@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RokuDeviceProvider } from "../../context/RokuDeviceContext";
 
@@ -179,20 +179,47 @@ describe("UserSettings", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /edit ratings/i }));
-    fireEvent.click(screen.getByLabelText(/default rating PG-13/i));
+    fireEvent.click(screen.getByRole("button", { name: /default rating PG-13/i }));
     expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
       expect.objectContaining({
         selectedRatings: ["G", "PG", "R", "NC-17"],
       })
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /edit genres/i }));
-    fireEvent.click(screen.getByRole("button", { name: /select all genres/i }));
+    const ratingsPanel = screen.getByRole("region", { name: /default rating controls/i });
+    fireEvent.click(within(ratingsPanel).getByRole("button", { name: /clear/i }));
+    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selectedRatings: [],
+      })
+    );
 
-    fireEvent.click(screen.getByLabelText(/default genre Action/i));
+    fireEvent.click(within(ratingsPanel).getByRole("button", { name: /all/i }));
+    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
+      })
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /only PG-13/i }));
+    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selectedRatings: ["PG-13"],
+      })
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /edit genres/i }));
+    fireEvent.click(screen.getByRole("button", { name: /default genre Action/i }));
     expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
       expect.objectContaining({
         selectedGenres: expect.not.arrayContaining(["Action"]),
+      })
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /only Comedy/i }));
+    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        selectedGenres: ["Comedy"],
       })
     );
 

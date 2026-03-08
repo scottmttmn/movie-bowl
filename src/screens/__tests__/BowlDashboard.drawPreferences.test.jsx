@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MPAA_RATING_OPTIONS } from "../../utils/movieRatings";
 import { RokuDeviceProvider } from "../../context/RokuDeviceContext";
@@ -287,7 +287,7 @@ describe("BowlDashboard draw preferences", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
     fireEvent.click(screen.getByRole("button", { name: /edit genres/i }));
-    fireEvent.click(screen.getByLabelText(/draw-genre-comedy/i));
+    fireEvent.click(screen.getByRole("button", { name: /draw genre Comedy/i }));
 
     vi.useFakeTimers();
     fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
@@ -333,8 +333,44 @@ describe("BowlDashboard draw preferences", () => {
     fireEvent.click(screen.getByRole("button", { name: /edit runtime/i }));
     expect(screen.getByRole("spinbutton", { name: /draw-runtime-max/i })).toHaveValue(180);
     expect(screen.getByRole("spinbutton", { name: /draw-runtime-min/i })).toHaveValue(0);
-    expect(screen.getByLabelText(/draw-rating-pg-13/i)).toBeChecked();
-    expect(screen.getByLabelText(/draw-rating-g/i)).not.toBeChecked();
+    const ratingControls = screen.getByRole("region", { name: /draw rating controls/i });
+    expect(within(ratingControls).getByRole("button", { name: /only PG-13/i })).toBeInTheDocument();
+    expect(within(ratingControls).queryByRole("button", { name: /only G/i })).not.toBeInTheDocument();
+  });
+
+  it("supports one-tap only action for genre chips", async () => {
+    mocks.state.bowlData = {
+      remaining: [
+        { id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A", genres: ["Action"] },
+        { id: "m2", added_by: "u1", tmdb_id: 102, title: "Movie B", genres: ["Comedy"] },
+      ],
+      watched: [],
+    };
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /edit genres/i }));
+    fireEvent.click(screen.getByRole("button", { name: /only Comedy/i }));
+
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    await act(async () => {
+      vi.advanceTimersByTime(1200);
+    });
+    vi.useRealTimers();
+
+    await waitFor(() => {
+      expect(mocks.state.handleDraw).toHaveBeenCalledWith(
+        expect.objectContaining({
+          genreFilter: {
+            allowedGenres: ["Comedy"],
+            includeUnknown: true,
+          },
+        })
+      );
+    });
   });
 
   it("links to streaming service ranking from draw filters", async () => {

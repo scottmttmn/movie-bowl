@@ -4,6 +4,7 @@ import RemainingCount from "../components/RemainingCount";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
 import MyMoviesStrip from "../components/MyMoviesStrip";
 import AddMovieButton from "../components/AddMovieButton";
+import FilterChipSelect from "../components/FilterChipSelect";
 import BowlIllustration from "../components/BowlIllustration";
 import ContributionStats from "../components/ContributionStats";
 import useBowl from "../hooks/useBowl";
@@ -170,6 +171,11 @@ export default function BowlDashboard() {
       const available = new Set(availableDrawGenres);
       return selectedGenres.filter((genre) => available.has(genre));
     }, [selectedGenres, availableDrawGenres]);
+    const activeRatingSelections = useMemo(
+      () =>
+        selectedRatings.filter((rating) => MPAA_RATING_OPTIONS.includes(rating)),
+      [selectedRatings]
+    );
     const ratingSummary = useMemo(() => {
       const selectedCount = selectedRatings.length;
       if (selectedCount === MPAA_RATING_OPTIONS.length && includeUnknownRatings) return "All ratings";
@@ -630,44 +636,26 @@ return (
                           </span>
                         </button>
                         {showRatingFilters && (
-                          <div id="draw-rating-filter-panel" className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
-                            {MPAA_RATING_OPTIONS.map((rating) => {
-                              const key = `draw-rating-${rating.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-                              return (
-                                <label key={rating} htmlFor={key} className="inline-flex items-center gap-1.5 text-sm text-slate-700">
-                                  <input
-                                    id={key}
-                                    name="draw_ratings"
-                                    aria-label={key}
-                                    type="checkbox"
-                                    checked={selectedRatings.includes(rating)}
-                                    onChange={(event) => {
-                                      setSelectedRatings((prev) => {
-                                        if (event.target.checked) {
-                                          return prev.includes(rating) ? prev : [...prev, rating];
-                                        }
-                                        return prev.filter((value) => value !== rating);
-                                      });
-                                    }}
-                                  />
-                                  {rating}
-                                </label>
-                              );
-                            })}
-                            <label
-                              htmlFor="draw-rating-unknown"
-                              className="inline-flex items-center gap-1.5 text-sm text-slate-700"
-                            >
-                              <input
-                                id="draw-rating-unknown"
-                                name="draw_rating_unknown"
-                                aria-label="draw-rating-unknown"
-                                type="checkbox"
-                                checked={includeUnknownRatings}
-                                onChange={(event) => setIncludeUnknownRatings(event.target.checked)}
-                              />
-                              Unrated/Unknown
-                            </label>
+                          <div id="draw-rating-filter-panel" className="mt-2">
+                            <FilterChipSelect
+                              ariaLabel="Draw rating controls"
+                              options={MPAA_RATING_OPTIONS}
+                              selectedValues={activeRatingSelections}
+                              optionAriaLabelPrefix="Draw rating"
+                              onToggle={(rating) =>
+                                setSelectedRatings((prev) =>
+                                  prev.includes(rating)
+                                    ? prev.filter((value) => value !== rating)
+                                    : [...prev, rating]
+                                )
+                              }
+                              onOnly={(rating) => setSelectedRatings([rating])}
+                              onSelectAll={() => setSelectedRatings(MPAA_RATING_OPTIONS)}
+                              onClear={() => setSelectedRatings([])}
+                              unknownEnabled={includeUnknownRatings}
+                              unknownLabel="Unrated/Unknown"
+                              onToggleUnknown={setIncludeUnknownRatings}
+                            />
                           </div>
                         )}
                       </div>
@@ -689,60 +677,30 @@ return (
                         </button>
                         {showGenreFilters && (
                           <div id="draw-genre-filter-panel" className="mt-2">
-                            <div className="mb-1 flex items-center justify-between gap-2">
-                              <p className="text-xs text-gray-500">Only draw from selected genres.</p>
-                              <button
-                                type="button"
-                                className="text-xs font-medium text-blue-700 hover:text-blue-800"
-                                onClick={() => setSelectedGenres(null)}
-                              >
-                                Select all
-                              </button>
-                            </div>
                             {availableDrawGenres.length > 0 ? (
-                              <div className="flex flex-wrap gap-x-4 gap-y-1">
-                                {availableDrawGenres.map((genre) => {
-                                  const key = `draw-genre-${genre.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-                                  return (
-                                    <label key={genre} htmlFor={key} className="inline-flex items-center gap-1.5 text-sm text-slate-700">
-                                      <input
-                                        id={key}
-                                        name="draw_genres"
-                                        aria-label={key}
-                                        type="checkbox"
-                                        checked={selectedDrawGenres.includes(genre)}
-                                        onChange={(event) => {
-                                          setSelectedGenres((prev) => {
-                                            const base = Array.isArray(prev) ? prev : availableDrawGenres;
-                                            if (event.target.checked) {
-                                              return base.includes(genre) ? base : [...base, genre];
-                                            }
-                                            return base.filter((value) => value !== genre);
-                                          });
-                                        }}
-                                      />
-                                      {genre}
-                                    </label>
-                                  );
-                                })}
-                              </div>
+                              <FilterChipSelect
+                                ariaLabel="Draw genre controls"
+                                options={availableDrawGenres}
+                                selectedValues={selectedDrawGenres}
+                                optionAriaLabelPrefix="Draw genre"
+                                onToggle={(genre) =>
+                                  setSelectedGenres((prev) => {
+                                    const base = Array.isArray(prev) ? prev : availableDrawGenres;
+                                    return base.includes(genre)
+                                      ? base.filter((value) => value !== genre)
+                                      : [...base, genre];
+                                  })
+                                }
+                                onOnly={(genre) => setSelectedGenres([genre])}
+                                onSelectAll={() => setSelectedGenres(null)}
+                                onClear={() => setSelectedGenres([])}
+                                unknownEnabled={includeUnknownGenres}
+                                unknownLabel="Uncategorized/Unknown"
+                                onToggleUnknown={setIncludeUnknownGenres}
+                              />
                             ) : (
                               <p className="text-xs text-slate-500">No genre data available for current bowl movies.</p>
                             )}
-                            <label
-                              htmlFor="draw-genre-unknown"
-                              className="mt-2 inline-flex items-center gap-1.5 text-sm text-slate-700"
-                            >
-                              <input
-                                id="draw-genre-unknown"
-                                name="draw_genre_unknown"
-                                aria-label="draw-genre-unknown"
-                                type="checkbox"
-                                checked={includeUnknownGenres}
-                                onChange={(event) => setIncludeUnknownGenres(event.target.checked)}
-                              />
-                              Include uncategorized/unknown genres
-                            </label>
                           </div>
                         )}
                       </div>

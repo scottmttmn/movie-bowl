@@ -56,7 +56,7 @@ function normalizeNonNegativeInteger(value, fallback) {
 function normalizeSelectedRatings(value) {
   if (!Array.isArray(value)) return DEFAULT_DRAW_SETTINGS.selectedRatings;
   const normalized = value.filter((rating) => MPAA_RATING_OPTIONS.includes(rating));
-  return normalized.length > 0 ? [...new Set(normalized)] : DEFAULT_DRAW_SETTINGS.selectedRatings;
+  return [...new Set(normalized)];
 }
 
 function normalizeSelectedGenres(value) {

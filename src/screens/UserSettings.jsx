@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
+import FilterChipSelect from "../components/FilterChipSelect";
 import { AVAILABLE_STREAMING_SERVICES } from "../utils/streamingServices";
 import {
   DEFAULT_DRAW_SETTINGS,
@@ -607,46 +608,47 @@ export default function UserSettings() {
               </span>
             </button>
             {showDefaultRatings && (
-              <div id="default-rating-settings-panel" className="mt-2 flex flex-wrap gap-x-4 gap-y-2">
-                {MPAA_RATING_OPTIONS.map((rating) => {
-                  const key = `default-draw-rating-${rating.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-                  return (
-                    <label key={rating} htmlFor={key} className="inline-flex items-center gap-1.5 text-sm text-slate-700">
-                      <input
-                        id={key}
-                        name="default_draw_ratings"
-                        aria-label={`Default rating ${rating}`}
-                        type="checkbox"
-                        checked={defaultDrawSettings.selectedRatings.includes(rating)}
-                        onChange={(event) =>
-                          setDefaultDrawSettings({
-                            ...defaultDrawSettings,
-                            selectedRatings: event.target.checked
-                              ? [...defaultDrawSettings.selectedRatings, rating]
-                              : defaultDrawSettings.selectedRatings.filter((value) => value !== rating),
-                          })
-                        }
-                      />
-                      {rating}
-                    </label>
-                  );
-                })}
-                <label htmlFor="default-draw-rating-unknown" className="inline-flex items-center gap-1.5 text-sm text-slate-700">
-                  <input
-                    id="default-draw-rating-unknown"
-                    name="default_draw_rating_unknown"
-                    aria-label="Default include unrated or unknown"
-                    type="checkbox"
-                    checked={defaultDrawSettings.includeUnknownRatings}
-                    onChange={(event) =>
-                      setDefaultDrawSettings({
-                        ...defaultDrawSettings,
-                        includeUnknownRatings: event.target.checked,
-                      })
-                    }
-                  />
-                  Unrated/Unknown
-                </label>
+              <div id="default-rating-settings-panel" className="mt-2">
+                <FilterChipSelect
+                  ariaLabel="Default rating controls"
+                  options={MPAA_RATING_OPTIONS}
+                  selectedValues={defaultDrawSettings.selectedRatings}
+                  optionAriaLabelPrefix="Default rating"
+                  onToggle={(rating) =>
+                    setDefaultDrawSettings({
+                      ...defaultDrawSettings,
+                      selectedRatings: defaultDrawSettings.selectedRatings.includes(rating)
+                        ? defaultDrawSettings.selectedRatings.filter((value) => value !== rating)
+                        : [...defaultDrawSettings.selectedRatings, rating],
+                    })
+                  }
+                  onOnly={(rating) =>
+                    setDefaultDrawSettings({
+                      ...defaultDrawSettings,
+                      selectedRatings: [rating],
+                    })
+                  }
+                  onSelectAll={() =>
+                    setDefaultDrawSettings({
+                      ...defaultDrawSettings,
+                      selectedRatings: MPAA_RATING_OPTIONS,
+                    })
+                  }
+                  onClear={() =>
+                    setDefaultDrawSettings({
+                      ...defaultDrawSettings,
+                      selectedRatings: [],
+                    })
+                  }
+                  unknownEnabled={defaultDrawSettings.includeUnknownRatings}
+                  unknownLabel="Unrated/Unknown"
+                  onToggleUnknown={(value) =>
+                    setDefaultDrawSettings({
+                      ...defaultDrawSettings,
+                      includeUnknownRatings: value,
+                    })
+                  }
+                />
               </div>
             )}
           </div>
@@ -669,65 +671,50 @@ export default function UserSettings() {
             </button>
             {showDefaultGenres && (
               <div id="default-genre-settings-panel" className="mt-2">
-                <div className="mb-2 flex items-center justify-between gap-2">
-                  <p className="text-xs text-gray-500">Choose which genres should be included by default.</p>
-                  <button
-                    type="button"
-                    className="text-xs font-medium text-blue-700 hover:text-blue-800"
-                    onClick={() =>
-                      setDefaultDrawSettings({
-                        ...defaultDrawSettings,
-                        selectedGenres: null,
-                      })
-                    }
-                  >
-                    Select all genres
-                  </button>
-                </div>
-                <div className="flex flex-wrap gap-x-4 gap-y-2">
-                  {DRAW_GENRE_OPTIONS.map((genre) => {
-                    const key = `default-draw-genre-${genre.toLowerCase().replace(/[^a-z0-9]+/g, "-")}`;
-                    return (
-                      <label key={genre} htmlFor={key} className="inline-flex items-center gap-1.5 text-sm text-slate-700">
-                        <input
-                          id={key}
-                          name="default_draw_genres"
-                          aria-label={`Default genre ${genre}`}
-                          type="checkbox"
-                          checked={selectedDefaultGenres.includes(genre)}
-                          onChange={(event) => {
-                            const base = Array.isArray(defaultDrawSettings.selectedGenres)
-                              ? defaultDrawSettings.selectedGenres
-                              : DRAW_GENRE_OPTIONS;
-                            setDefaultDrawSettings({
-                              ...defaultDrawSettings,
-                              selectedGenres: event.target.checked
-                                ? [...base, genre]
-                                : base.filter((value) => value !== genre),
-                            });
-                          }}
-                        />
-                        {genre}
-                      </label>
-                    );
-                  })}
-                </div>
-                <label htmlFor="default-draw-genre-unknown" className="mt-3 inline-flex items-center gap-1.5 text-sm text-slate-700">
-                  <input
-                    id="default-draw-genre-unknown"
-                    name="default_draw_genre_unknown"
-                    aria-label="Default include unknown genres"
-                    type="checkbox"
-                    checked={defaultDrawSettings.includeUnknownGenres}
-                    onChange={(event) =>
-                      setDefaultDrawSettings({
-                        ...defaultDrawSettings,
-                        includeUnknownGenres: event.target.checked,
-                      })
-                    }
-                  />
-                  Include uncategorized/unknown genres
-                </label>
+                <p className="mb-2 text-xs text-gray-500">Choose which genres should be included by default.</p>
+                <FilterChipSelect
+                  ariaLabel="Default genre controls"
+                  options={DRAW_GENRE_OPTIONS}
+                  selectedValues={selectedDefaultGenres}
+                  optionAriaLabelPrefix="Default genre"
+                  onToggle={(genre) => {
+                    const base = Array.isArray(defaultDrawSettings.selectedGenres)
+                      ? defaultDrawSettings.selectedGenres
+                      : DRAW_GENRE_OPTIONS;
+                    setDefaultDrawSettings({
+                      ...defaultDrawSettings,
+                      selectedGenres: base.includes(genre)
+                        ? base.filter((value) => value !== genre)
+                        : [...base, genre],
+                    });
+                  }}
+                  onOnly={(genre) =>
+                    setDefaultDrawSettings({
+                      ...defaultDrawSettings,
+                      selectedGenres: [genre],
+                    })
+                  }
+                  onSelectAll={() =>
+                    setDefaultDrawSettings({
+                      ...defaultDrawSettings,
+                      selectedGenres: null,
+                    })
+                  }
+                  onClear={() =>
+                    setDefaultDrawSettings({
+                      ...defaultDrawSettings,
+                      selectedGenres: [],
+                    })
+                  }
+                  unknownEnabled={defaultDrawSettings.includeUnknownGenres}
+                  unknownLabel="Uncategorized/Unknown"
+                  onToggleUnknown={(value) =>
+                    setDefaultDrawSettings({
+                      ...defaultDrawSettings,
+                      includeUnknownGenres: value,
+                    })
+                  }
+                />
               </div>
             )}
           </div>
