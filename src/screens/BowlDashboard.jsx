@@ -565,8 +565,8 @@ return (
                   <div className="panel-muted mx-auto mt-3 max-w-xl px-3.5 py-3">
                       <div className="flex items-center justify-between gap-3">
                         <div className="text-left">
-                          <p className="text-sm font-medium text-gray-800">Streaming Match Preferences</p>
-                          <p className="text-xs text-gray-500">
+                          <p className="text-base font-semibold text-slate-100">Streaming Match Preferences</p>
+                          <p className="text-sm text-slate-300">
                             Favor titles available on your selected services.
                           </p>
                         </div>
@@ -592,8 +592,8 @@ return (
                       {prioritizeStreaming && userStreamingServices.length > 0 && (
                         <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-200/70 pt-2.5">
                           <div className="text-left">
-                            <p className="text-sm font-medium text-gray-800">Use my service ranking</p>
-                            <p className="text-xs text-gray-500">If off, draw randomly from any matching service.</p>
+                            <p className="text-base font-semibold text-slate-100">Use my service ranking</p>
+                            <p className="text-sm text-slate-300">If off, draw randomly from any matching service.</p>
                           </div>
                           <label htmlFor="use-streaming-rank-draw" className="relative inline-flex items-center cursor-pointer">
                             <input
@@ -613,7 +613,7 @@ return (
                       <div className="mt-2 text-left">
                         <button
                           type="button"
-                          className="text-xs font-medium text-blue-700 hover:text-blue-800"
+                          className="text-sm font-medium text-red-300 hover:text-red-200"
                           onClick={() => navigate("/settings#streaming-services")}
                         >
                           {userStreamingServices.length > 0 ? "Edit streaming service ranking" : "Choose streaming services"}
@@ -622,16 +622,16 @@ return (
                       <div className="mt-3 border-t border-slate-200/70 pt-2.5 text-left">
                         <button
                           type="button"
-                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200/70 bg-white/70 px-3 py-2 text-left"
+                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-left"
                           onClick={() => setShowRatingFilters((prev) => !prev)}
                           aria-expanded={showRatingFilters}
                           aria-controls="draw-rating-filter-panel"
                         >
                           <div>
-                            <p className="text-sm font-medium text-gray-800">Rating filter</p>
-                            <p className="mt-0.5 text-xs text-gray-500">{ratingSummary}</p>
+                            <p className="text-base font-semibold text-slate-100">Rating filter</p>
+                            <p className="mt-0.5 text-sm text-slate-300">{ratingSummary}</p>
                           </div>
-                          <span className="text-xs font-medium text-blue-700">
+                          <span className="text-sm font-medium text-red-300">
                             {showRatingFilters ? "Hide ratings" : "Edit ratings"}
                           </span>
                         </button>
@@ -662,16 +662,16 @@ return (
                       <div className="mt-3 border-t border-slate-200/70 pt-2.5 text-left">
                         <button
                           type="button"
-                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200/70 bg-white/70 px-3 py-2 text-left"
+                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-left"
                           onClick={() => setShowGenreFilters((prev) => !prev)}
                           aria-expanded={showGenreFilters}
                           aria-controls="draw-genre-filter-panel"
                         >
                           <div>
-                            <p className="text-sm font-medium text-gray-800">Genre filter</p>
-                            <p className="mt-0.5 text-xs text-gray-500">{genreSummary}</p>
+                            <p className="text-base font-semibold text-slate-100">Genre filter</p>
+                            <p className="mt-0.5 text-sm text-slate-300">{genreSummary}</p>
                           </div>
-                          <span className="text-xs font-medium text-blue-700">
+                          <span className="text-sm font-medium text-red-300">
                             {showGenreFilters ? "Hide genres" : "Edit genres"}
                           </span>
                         </button>
@@ -707,22 +707,22 @@ return (
                       <div className="mt-3 border-t border-slate-200/70 pt-2.5 text-left">
                         <button
                           type="button"
-                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200/70 bg-white/70 px-3 py-2 text-left"
+                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-left"
                           onClick={() => setShowRuntimeFilters((prev) => !prev)}
                           aria-expanded={showRuntimeFilters}
                           aria-controls="draw-runtime-filter-panel"
                         >
                           <div>
-                            <p className="text-sm font-medium text-gray-800">Runtime filter</p>
-                            <p className="mt-0.5 text-xs text-gray-500">{runtimeSummary}</p>
+                            <p className="text-base font-semibold text-slate-100">Runtime filter</p>
+                            <p className="mt-0.5 text-sm text-slate-300">{runtimeSummary}</p>
                           </div>
-                          <span className="text-xs font-medium text-blue-700">
+                          <span className="text-sm font-medium text-red-300">
                             {showRuntimeFilters ? "Hide runtime" : "Edit runtime"}
                           </span>
                         </button>
                         {showRuntimeFilters && (
-                          <div id="draw-runtime-filter-panel" className="mt-2 rounded-lg border border-slate-200/80 bg-white/70 p-3">
-                            <p className="text-xs text-gray-500">
+                          <div id="draw-runtime-filter-panel" className="mt-2 rounded-lg border border-slate-700 bg-slate-900 p-3">
+                            <p className="text-sm text-slate-300">
                               Set the acceptable runtime range for this draw.
                             </p>
                             <div className="mt-3 grid gap-3 sm:grid-cols-2">
