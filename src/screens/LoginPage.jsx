@@ -43,35 +43,37 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="p-4 max-w-md mx-auto">
-      <h2 className="text-xl font-bold mb-4">Login</h2>
+    <div className="page-container py-8">
+      <div className="panel mx-auto max-w-md">
+        <h2 className="mb-4 text-2xl font-semibold text-slate-100">Login</h2>
 
-      {sent ? (
-        <p>Check your email for a magic link.</p>
-      ) : (
-        <form onSubmit={handleSubmit} className="flex flex-col gap-3">
-          <input
-            id="login-email"
-            name="email"
-            type="email"
-            required
-            placeholder="Email"
-            value={email}
-            onChange={(e) => setEmail(e.target.value)}
-            className="border p-2 rounded"
-          />
-          <button
-            type="submit"
-            disabled={isSubmitting}
-            className="bg-black text-white p-2 rounded disabled:opacity-50"
-          >
-            {isSubmitting ? "Sending..." : "Send Magic Link"}
-          </button>
-          {errorMessage && (
-            <p className="text-sm text-red-600">{errorMessage}</p>
-          )}
-        </form>
-      )}
+        {sent ? (
+          <p className="text-base text-slate-200">Check your email for a magic link.</p>
+        ) : (
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+            <input
+              id="login-email"
+              name="email"
+              type="email"
+              required
+              placeholder="Email"
+              value={email}
+              onChange={(e) => setEmail(e.target.value)}
+              className="input-field"
+            />
+            <button
+              type="submit"
+              disabled={isSubmitting}
+              className="btn btn-primary disabled:opacity-50"
+            >
+              {isSubmitting ? "Sending..." : "Send Magic Link"}
+            </button>
+            {errorMessage && (
+              <p className="text-sm text-red-400">{errorMessage}</p>
+            )}
+          </form>
+        )}
+      </div>
     </div>
   );
 }

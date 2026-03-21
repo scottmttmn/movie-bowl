@@ -741,7 +741,7 @@ return (
                                     if (!Number.isFinite(value)) return;
                                     setRuntimeMinMinutes(Math.max(RUNTIME_FILTER_MIN_MINUTES, Math.min(runtimeMaxMinutes, value)));
                                   }}
-                                  className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                                  className="input-field mt-1 w-full text-sm"
                                 />
                               </label>
                               <label htmlFor="draw-runtime-max" className="text-sm text-slate-700">
@@ -759,7 +759,7 @@ return (
                                     if (!Number.isFinite(value)) return;
                                     setRuntimeMaxMinutes(Math.max(runtimeMinMinutes, Math.min(RUNTIME_FILTER_MAX_MINUTES, value)));
                                   }}
-                                  className="mt-1 w-full rounded border border-slate-300 px-2 py-1 text-sm"
+                                  className="input-field mt-1 w-full text-sm"
                                 />
                               </label>
                             </div>
