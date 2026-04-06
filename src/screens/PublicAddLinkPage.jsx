@@ -50,7 +50,6 @@ export default function PublicAddLinkPage() {
 
   const statusText = useMemo(() => {
     if (metadata.status === "loading") return "Loading add link…";
-    if (metadata.status === "revoked") return "This add link has been revoked.";
     if (metadata.status === "exhausted") return "This add link has already been used up.";
     if (metadata.status === "not_found") return "This add link is not valid.";
     return null;
@@ -83,8 +82,6 @@ export default function PublicAddLinkPage() {
       const normalized = message.toLowerCase();
       if (normalized.includes("exhausted")) {
         setMetadata((prev) => ({ ...prev, status: "exhausted", remainingAdds: 0 }));
-      } else if (normalized.includes("revoked")) {
-        setMetadata((prev) => ({ ...prev, status: "revoked", remainingAdds: 0 }));
       } else if (normalized.includes("not found")) {
         setMetadata((prev) => ({ ...prev, status: "not_found", remainingAdds: 0 }));
       }

@@ -310,28 +310,27 @@ export default function BowlSettings() {
     }
   };
 
-  const handleRevokeAddLink = async (linkId) => {
+  const handleDeleteAddLink = async (linkId) => {
     setActionMessage(null);
     setErrorMessage(null);
 
     try {
       const { error } = await supabase
         .from("bowl_add_links")
-        .update({ revoked_at: new Date().toISOString() })
-        .eq("id", linkId)
-        .is("revoked_at", null);
+        .delete()
+        .eq("id", linkId);
 
       if (error) {
-        console.error("[BowlSettings] Failed to revoke add link", error);
-        setErrorMessage("Failed to revoke add link.");
+        console.error("[BowlSettings] Failed to delete add link", error);
+        setErrorMessage("Failed to delete add link.");
         return;
       }
 
       await loadBowlAndMembers();
-      setActionMessage("Add link revoked.");
+      setActionMessage("Add link deleted.");
     } catch (err) {
-      console.error("[BowlSettings] Unexpected error revoking add link", err);
-      setErrorMessage("Unexpected error revoking add link.");
+      console.error("[BowlSettings] Unexpected error deleting add link", err);
+      setErrorMessage("Unexpected error deleting add link.");
     }
   };
 
@@ -1081,7 +1080,6 @@ export default function BowlSettings() {
             <div className="space-y-2">
               {addLinks.map((link) => {
                 const remainingAdds = Math.max(0, Number(link.max_adds || 0) - Number(link.adds_used || 0));
-                const isRevoked = Boolean(link.revoked_at);
                 const linkUrl = buildAddLinkUrl(link.token);
                 return (
                   <div
@@ -1094,7 +1092,7 @@ export default function BowlSettings() {
                           {remainingAdds} of {link.max_adds} adds remaining
                         </div>
                         <div className="text-xs text-slate-400">
-                          {isRevoked ? "Revoked" : remainingAdds === 0 ? "Exhausted" : "Active"}
+                          {Boolean(link.revoked_at) ? "Revoked" : remainingAdds === 0 ? "Exhausted" : "Active"}
                         </div>
                         <div className="mt-1 text-xs text-slate-400">
                           Default label: {link.default_contributor_name || "Link Guest"}
@@ -1116,17 +1114,15 @@ export default function BowlSettings() {
                         >
                           Copy
                         </button>
-                        {!isRevoked && (
-                          <button
-                            type="button"
-                            onClick={() => {
-                              void handleRevokeAddLink(link.id);
-                            }}
-                            className="btn border border-red-900/70 bg-red-950/40 px-3 py-2 text-sm text-red-300 hover:bg-red-900/40 focus-visible:ring-red-900/40"
-                          >
-                            Revoke
-                          </button>
-                        )}
+                        <button
+                          type="button"
+                          onClick={() => {
+                            void handleDeleteAddLink(link.id);
+                          }}
+                          className="btn border border-red-900/70 bg-red-950/40 px-3 py-2 text-sm text-red-300 hover:bg-red-900/40 focus-visible:ring-red-900/40"
+                        >
+                          Delete
+                        </button>
                       </div>
                     </div>
                     <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">

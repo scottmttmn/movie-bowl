@@ -51,11 +51,7 @@ export default async function handler(req, res) {
 
     if (error) {
       const message = String(error?.message || "");
-      if (
-        message.toLowerCase().includes("not found") ||
-        message.toLowerCase().includes("revoked") ||
-        message.toLowerCase().includes("exhausted")
-      ) {
+      if (message.toLowerCase().includes("not found") || message.toLowerCase().includes("exhausted")) {
         res.status(400).json({ error: message });
         return;
       }

@@ -114,4 +114,41 @@ describe("api/add-links/consume", () => {
     expect(res.statusCode).toBe(400);
     expect(res.body).toEqual({ error: "Add link is exhausted" });
   });
+
+  it("returns a final success with zero remaining adds when the last add consumes the link", async () => {
+    rpcMock.mockResolvedValue({
+      data: [
+        {
+          bowl_id: "bowl-1",
+          bowl_name: "Weekend Bowl",
+          remaining_adds: 0,
+          link_id: "link-1",
+          movie_id: "movie-1",
+          added_by_name: "Dad",
+        },
+      ],
+      error: null,
+    });
+
+    const res = createRes();
+    await handler(
+      {
+        method: "POST",
+        body: {
+          token: "token-1",
+          contributorName: "Dad",
+          movie: { title: "Jaws" },
+        },
+      },
+      res
+    );
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({
+      ok: true,
+      remainingAdds: 0,
+      bowlName: "Weekend Bowl",
+      addedByName: "Dad",
+    });
+  });
 });

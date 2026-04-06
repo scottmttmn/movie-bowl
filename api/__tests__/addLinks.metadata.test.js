@@ -63,7 +63,6 @@ describe("api/add-links/[token]", () => {
       bowlName: "Weekend Bowl",
       remainingAdds: 2,
       defaultContributorName: "Dad",
-      revokedAt: null,
     });
   });
 
@@ -75,6 +74,30 @@ describe("api/add-links/[token]", () => {
 
     const res = createRes();
     await handler({ method: "GET", query: { token: "missing" } }, res);
+
+    expect(res.statusCode).toBe(404);
+    expect(res.body).toEqual({
+      status: "not_found",
+      bowlName: null,
+      remainingAdds: 0,
+    });
+  });
+
+  it("treats legacy revoked links as not_found", async () => {
+    singleMock.mockResolvedValue({
+      data: {
+        bowl_id: "bowl-1",
+        max_adds: 3,
+        adds_used: 1,
+        revoked_at: "2026-04-06T00:00:00.000Z",
+        default_contributor_name: "Dad",
+        bowls: { name: "Weekend Bowl" },
+      },
+      error: null,
+    });
+
+    const res = createRes();
+    await handler({ method: "GET", query: { token: "token-1" } }, res);
 
     expect(res.statusCode).toBe(404);
     expect(res.body).toEqual({

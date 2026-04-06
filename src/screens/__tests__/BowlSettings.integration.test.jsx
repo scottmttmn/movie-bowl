@@ -26,8 +26,9 @@ const mocks = vi.hoisted(() => {
       insertAddLink: null,
       insertDrawPermissions: null,
       updateBowl: null,
+      updateAddLink: null,
       updateDrawAccessMode: null,
-      revokeAddLink: null,
+      deleteAddLink: null,
       deleteInvite: null,
       deleteMember: null,
       deleteDrawPermissions: null,
@@ -121,6 +122,24 @@ const mocks = vi.hoisted(() => {
         );
       }
 
+      return { data: [], error: null };
+    }
+
+    if (queryState.action === "delete" && table === "bowl_add_links" && terminal === "then") {
+      const linkId = getEq(queryState.filters, "id");
+      const link = state.addLinks.find((entry) => entry.id === linkId);
+      const isOwner = state.bowl.owner_id === state.authUser.id;
+      const isCreator = link?.created_by === state.authUser.id;
+
+      if (state.errors.deleteAddLink) {
+        return { data: null, error: state.errors.deleteAddLink };
+      }
+
+      if (!link || (!isOwner && !isCreator)) {
+        return { data: null, error: { message: "rls" } };
+      }
+
+      state.addLinks = state.addLinks.filter((entry) => entry.id !== linkId);
       return { data: [], error: null };
     }
 
@@ -236,8 +255,8 @@ const mocks = vi.hoisted(() => {
     }
 
     if (queryState.action === "update" && table === "bowl_add_links" && terminal === "then") {
-      if (state.errors.revokeAddLink) {
-        return { data: null, error: state.errors.revokeAddLink };
+      if (state.errors.updateAddLink) {
+        return { data: null, error: state.errors.updateAddLink };
       }
       const linkId = getEq(queryState.filters, "id");
       state.addLinks = state.addLinks.map((link) =>
@@ -366,8 +385,9 @@ describe("BowlSettings integration", () => {
       insertAddLink: null,
       insertDrawPermissions: null,
       updateBowl: null,
+      updateAddLink: null,
       updateDrawAccessMode: null,
-      revokeAddLink: null,
+      deleteAddLink: null,
       deleteInvite: null,
       deleteMember: null,
       deleteDrawPermissions: null,
@@ -474,7 +494,7 @@ describe("BowlSettings integration", () => {
     expect(screen.getByText("newfriend@example.com")).toBeInTheDocument();
   });
 
-  it("allows a member to create and revoke an add link", async () => {
+  it("allows a member to create and delete their own add link", async () => {
     mocks.state.authUser = { id: "member-1", email: "member@example.com" };
 
     render(<BowlSettings />);
@@ -502,10 +522,69 @@ describe("BowlSettings integration", () => {
       default_contributor_name: "Dad",
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /revoke/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/add link revoked\./i)).toBeInTheDocument();
+      expect(screen.getByText(/add link deleted\./i)).toBeInTheDocument();
+    });
+  });
+
+  it("prevents a member from deleting another member's add link", async () => {
+    mocks.state.authUser = { id: "member-1", email: "member@example.com" };
+    mocks.state.addLinks = [
+      {
+        id: "link-1",
+        bowl_id: "bowl-1",
+        token: "token-1",
+        max_adds: 3,
+        adds_used: 0,
+        default_contributor_name: null,
+        revoked_at: null,
+        created_at: "2026-04-06T00:00:00.000Z",
+        created_by: "owner-1",
+      },
+    ];
+
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^delete$/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/failed to delete add link\./i)).toBeInTheDocument();
+    });
+
+    expect(screen.getByText(/3 of 3 adds remaining/i)).toBeInTheDocument();
+  });
+
+  it("allows deleting an exhausted add link", async () => {
+    mocks.state.addLinks = [
+      {
+        id: "link-1",
+        bowl_id: "bowl-1",
+        token: "token-1",
+        max_adds: 3,
+        adds_used: 3,
+        default_contributor_name: "Dad",
+        revoked_at: null,
+        created_at: "2026-04-06T00:00:00.000Z",
+        created_by: "owner-1",
+      },
+    ];
+
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByText(/exhausted/i)).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/no add links yet\./i)).toBeInTheDocument();
     });
   });
 
