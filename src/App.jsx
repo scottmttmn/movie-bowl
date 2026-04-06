@@ -11,6 +11,7 @@ const UserSettings = React.lazy(() => import("./screens/UserSettings"));
 const BowlSettings = React.lazy(() => import("./screens/BowlSettings"));
 const RokuPocScreen = React.lazy(() => import("./screens/RokuPocScreen"));
 const AboutPage = React.lazy(() => import("./screens/AboutPage"));
+const PublicAddLinkPage = React.lazy(() => import("./screens/PublicAddLinkPage"));
 
 function Layout({ children }) {
   const { session, signOut } = useAuth();
@@ -19,7 +20,9 @@ function Layout({ children }) {
   const isSettingsRoute = location.pathname === "/settings";
   const isRokuPocRoute = location.pathname === "/roku-poc";
   const isAboutRoute = location.pathname === "/about";
-  const shouldShowTopNav = !isLoginRoute && !isRokuPocRoute && (Boolean(session) || isAboutRoute);
+  const isPublicAddRoute = location.pathname.startsWith("/add-to-bowl/");
+  const shouldShowTopNav =
+    !isLoginRoute && !isRokuPocRoute && !isPublicAddRoute && (Boolean(session) || isAboutRoute);
   const userEmail = session?.user?.email ?? "";
 
   return (
@@ -174,6 +177,7 @@ function App() {
             <Route path="/login" element={<LoginPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/accept-invite/:token" element={<AcceptInvite />} />
+            <Route path="/add-to-bowl/:token" element={<PublicAddLinkPage />} />
             <Route path="/" element={
               <RequireAuth>
                 <MyBowlsScreen />

@@ -26,9 +26,14 @@ export default function BowlSettings() {
 
   const [members, setMembers] = useState([]);
   const [pendingInvites, setPendingInvites] = useState([]);
+  const [addLinks, setAddLinks] = useState([]);
 
   const [emailToInvite, setEmailToInvite] = useState("");
   const [inviteLink, setInviteLink] = useState(null);
+  const [newAddLinkMaxAdds, setNewAddLinkMaxAdds] = useState("3");
+  const [newAddLinkDefaultContributorName, setNewAddLinkDefaultContributorName] = useState("");
+  const [generatedAddLink, setGeneratedAddLink] = useState(null);
+  const [editingAddLinkNames, setEditingAddLinkNames] = useState({});
 
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingName, setIsSavingName] = useState(false);
@@ -58,6 +63,10 @@ export default function BowlSettings() {
       const isMissingDrawPermissionsTable = (error) => {
         const text = String(error?.message || "").toLowerCase();
         return text.includes("bowl_draw_permissions") && text.includes("does not exist");
+      };
+      const isMissingAddLinksTable = (error) => {
+        const text = String(error?.message || "").toLowerCase();
+        return text.includes("bowl_add_links") && text.includes("does not exist");
       };
 
       // Who am I?
@@ -156,6 +165,27 @@ export default function BowlSettings() {
       } else {
         setPendingInvites(invites || []);
       }
+
+      const { data: addLinkRows, error: addLinksError } = await supabase
+        .from("bowl_add_links")
+        .select("id, token, max_adds, adds_used, revoked_at, created_at, created_by, default_contributor_name")
+        .eq("bowl_id", bowlId)
+        .order("created_at", { ascending: false });
+
+      if (addLinksError) {
+        if (!isMissingAddLinksTable(addLinksError)) {
+          console.error("[BowlSettings] Failed to load add links", addLinksError);
+          setErrorMessage("Failed to load bowl add links.");
+        }
+        setAddLinks([]);
+      } else {
+        setAddLinks(addLinkRows || []);
+        setEditingAddLinkNames(
+          Object.fromEntries(
+            (addLinkRows || []).map((row) => [row.id, row.default_contributor_name || ""])
+          )
+        );
+      }
     } catch (err) {
       console.error("[BowlSettings] Unexpected error", err);
       setErrorMessage("Unexpected error loading bowl settings.");
@@ -175,6 +205,7 @@ export default function BowlSettings() {
     setActionMessage(null);
     setErrorMessage(null);
     setInviteLink(null);
+    setGeneratedAddLink(null);
 
     const { validEmails, invalidEmails } = parseInviteEmails(emailToInvite);
     if (invalidEmails.length > 0) {
@@ -235,6 +266,101 @@ export default function BowlSettings() {
       setErrorMessage("Unexpected error creating invite.");
     }
   };
+
+  const handleCreateAddLink = async (event) => {
+    event.preventDefault();
+
+    setActionMessage(null);
+    setErrorMessage(null);
+    setInviteLink(null);
+    setGeneratedAddLink(null);
+
+    const parsedMaxAdds = Number.parseInt(newAddLinkMaxAdds, 10);
+    if (!Number.isInteger(parsedMaxAdds) || parsedMaxAdds < 1) {
+      setErrorMessage("Enter a valid number of allowed adds.");
+      return;
+    }
+
+    try {
+      const token = crypto.randomUUID();
+      const { error } = await supabase.from("bowl_add_links").insert([
+        {
+          bowl_id: bowlId,
+          created_by: currentUserId,
+          token,
+          max_adds: parsedMaxAdds,
+          default_contributor_name: newAddLinkDefaultContributorName.trim() || null,
+        },
+      ]);
+
+      if (error) {
+        console.error("[BowlSettings] Failed to create add link", error);
+        setErrorMessage("Failed to create add link.");
+        return;
+      }
+
+      const link = `${window.location.origin}/add-to-bowl/${token}`;
+      setGeneratedAddLink(link);
+      setNewAddLinkDefaultContributorName("");
+      setActionMessage("Add link created.");
+      await loadBowlAndMembers();
+    } catch (err) {
+      console.error("[BowlSettings] Unexpected error creating add link", err);
+      setErrorMessage("Unexpected error creating add link.");
+    }
+  };
+
+  const handleRevokeAddLink = async (linkId) => {
+    setActionMessage(null);
+    setErrorMessage(null);
+
+    try {
+      const { error } = await supabase
+        .from("bowl_add_links")
+        .update({ revoked_at: new Date().toISOString() })
+        .eq("id", linkId)
+        .is("revoked_at", null);
+
+      if (error) {
+        console.error("[BowlSettings] Failed to revoke add link", error);
+        setErrorMessage("Failed to revoke add link.");
+        return;
+      }
+
+      await loadBowlAndMembers();
+      setActionMessage("Add link revoked.");
+    } catch (err) {
+      console.error("[BowlSettings] Unexpected error revoking add link", err);
+      setErrorMessage("Unexpected error revoking add link.");
+    }
+  };
+
+  const handleSaveAddLinkName = async (linkId) => {
+    setActionMessage(null);
+    setErrorMessage(null);
+
+    try {
+      const nextName = String(editingAddLinkNames[linkId] || "").trim();
+      const { error } = await supabase
+        .from("bowl_add_links")
+        .update({ default_contributor_name: nextName || null })
+        .eq("id", linkId);
+
+      if (error) {
+        console.error("[BowlSettings] Failed to save add link label", error);
+        setErrorMessage("Failed to save add link label.");
+        return;
+      }
+
+      await loadBowlAndMembers();
+      setActionMessage("Add link label updated.");
+    } catch (err) {
+      console.error("[BowlSettings] Unexpected error saving add link label", err);
+      setErrorMessage("Unexpected error saving add link label.");
+    }
+  };
+
+  const buildAddLinkUrl = (token) => `${window.location.origin}/add-to-bowl/${token}`;
 
   const handleRemoveMember = async (userIdToRemove) => {
     setActionMessage(null);
@@ -883,6 +1009,162 @@ export default function BowlSettings() {
           )}
         </div>
       </section>
+
+      {currentUserId && (
+        <section className="panel mt-4">
+          <h3 className="section-title mb-3">Add Links</h3>
+          <p className="mb-3 text-sm text-slate-300">
+            Generate a public link that lets anyone add a fixed number of movies without joining the bowl.
+          </p>
+
+          <form onSubmit={handleCreateAddLink} className="mb-4 flex flex-col gap-2 sm:flex-row sm:items-end">
+            <div>
+              <label htmlFor="add-link-max-adds" className="mb-1 block text-sm text-slate-300">
+                Allowed adds
+              </label>
+              <input
+                id="add-link-max-adds"
+                name="add_link_max_adds"
+                type="number"
+                min="1"
+                step="1"
+                value={newAddLinkMaxAdds}
+                onChange={(e) => setNewAddLinkMaxAdds(e.target.value)}
+                className="input-field w-36"
+              />
+            </div>
+            <div className="sm:flex-1">
+              <label htmlFor="add-link-default-contributor-name" className="mb-1 block text-sm text-slate-300">
+                Default contributor label
+              </label>
+              <input
+                id="add-link-default-contributor-name"
+                name="add_link_default_contributor_name"
+                type="text"
+                value={newAddLinkDefaultContributorName}
+                onChange={(e) => setNewAddLinkDefaultContributorName(e.target.value)}
+                placeholder="Dad"
+                className="input-field"
+              />
+            </div>
+            <button type="submit" className="btn btn-secondary">
+              Create Add Link
+            </button>
+          </form>
+
+          {generatedAddLink && (
+            <div className="mb-4 rounded-lg border border-slate-700 bg-slate-950/50 p-3">
+              <div className="mb-1 text-xs text-slate-400">New add link</div>
+              <div className="flex items-center gap-2">
+                <input readOnly value={generatedAddLink} className="input-field flex-1 text-xs" />
+                <button
+                  type="button"
+                  onClick={async () => {
+                    try {
+                      await navigator.clipboard.writeText(generatedAddLink);
+                      setActionMessage("Add link copied.");
+                    } catch (err) {
+                      console.error("[BowlSettings] Failed to copy add link", err);
+                    }
+                  }}
+                  className="btn btn-secondary text-sm px-3 py-2"
+                >
+                  Copy
+                </button>
+              </div>
+            </div>
+          )}
+
+          {addLinks.length === 0 ? (
+            <div className="text-sm text-slate-400">No add links yet.</div>
+          ) : (
+            <div className="space-y-2">
+              {addLinks.map((link) => {
+                const remainingAdds = Math.max(0, Number(link.max_adds || 0) - Number(link.adds_used || 0));
+                const isRevoked = Boolean(link.revoked_at);
+                const linkUrl = buildAddLinkUrl(link.token);
+                return (
+                  <div
+                    key={link.id}
+                    className="rounded-lg border border-slate-700 bg-slate-950/50 p-3"
+                  >
+                    <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                      <div className="min-w-0">
+                        <div className="text-sm font-medium text-slate-100">
+                          {remainingAdds} of {link.max_adds} adds remaining
+                        </div>
+                        <div className="text-xs text-slate-400">
+                          {isRevoked ? "Revoked" : remainingAdds === 0 ? "Exhausted" : "Active"}
+                        </div>
+                        <div className="mt-1 text-xs text-slate-400">
+                          Default label: {link.default_contributor_name || "Link Guest"}
+                        </div>
+                        <div className="mt-2 truncate text-xs text-slate-500">{linkUrl}</div>
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={async () => {
+                            try {
+                              await navigator.clipboard.writeText(linkUrl);
+                              setActionMessage("Add link copied.");
+                            } catch (err) {
+                              console.error("[BowlSettings] Failed to copy add link", err);
+                            }
+                          }}
+                          className="btn btn-secondary text-sm px-3 py-2"
+                        >
+                          Copy
+                        </button>
+                        {!isRevoked && (
+                          <button
+                            type="button"
+                            onClick={() => {
+                              void handleRevokeAddLink(link.id);
+                            }}
+                            className="btn border border-red-900/70 bg-red-950/40 px-3 py-2 text-sm text-red-300 hover:bg-red-900/40 focus-visible:ring-red-900/40"
+                          >
+                            Revoke
+                          </button>
+                        )}
+                      </div>
+                    </div>
+                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
+                      <div className="sm:flex-1">
+                        <label htmlFor={`add-link-label-${link.id}`} className="mb-1 block text-xs text-slate-400">
+                          Contributor label
+                        </label>
+                        <input
+                          id={`add-link-label-${link.id}`}
+                          type="text"
+                          value={editingAddLinkNames[link.id] ?? ""}
+                          onChange={(event) =>
+                            setEditingAddLinkNames((prev) => ({
+                              ...prev,
+                              [link.id]: event.target.value,
+                            }))
+                          }
+                          placeholder="Dad"
+                          className="input-field text-sm"
+                        />
+                      </div>
+                      <button
+                        type="button"
+                        onClick={() => {
+                          void handleSaveAddLinkName(link.id);
+                        }}
+                        className="btn btn-secondary text-sm px-3 py-2"
+                      >
+                        Save Label
+                      </button>
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </section>
+      )}
 
       {isOwner && (
         <section className="panel-muted mt-5 border border-red-900/60">

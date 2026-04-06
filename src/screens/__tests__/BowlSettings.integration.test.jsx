@@ -9,9 +9,11 @@ const mocks = vi.hoisted(() => {
     bowl: { id: "bowl-1", name: "Bowl 1", owner_id: "owner-1" },
     members: [],
     invites: [],
+    addLinks: [],
     drawPermissions: [],
     operations: [],
     insertedInvites: [],
+    insertedAddLinks: [],
     insertedDrawPermissions: [],
     updatedBowls: [],
     errors: {
@@ -19,10 +21,13 @@ const mocks = vi.hoisted(() => {
       loadMembers: null,
       loadInvites: null,
       loadDrawPermissions: null,
+      loadAddLinks: null,
       insertInvite: null,
+      insertAddLink: null,
       insertDrawPermissions: null,
       updateBowl: null,
       updateDrawAccessMode: null,
+      revokeAddLink: null,
       deleteInvite: null,
       deleteMember: null,
       deleteDrawPermissions: null,
@@ -74,6 +79,13 @@ const mocks = vi.hoisted(() => {
       if (state.errors.loadInvites) return { data: null, error: state.errors.loadInvites };
       const bowlId = getEq(queryState.filters, "bowl_id");
       const rows = state.invites.filter((i) => i.bowl_id === bowlId);
+      return { data: rows, error: null };
+    }
+
+    if (queryState.action === "select" && table === "bowl_add_links" && terminal === "order") {
+      if (state.errors.loadAddLinks) return { data: null, error: state.errors.loadAddLinks };
+      const bowlId = getEq(queryState.filters, "bowl_id");
+      const rows = state.addLinks.filter((link) => link.bowl_id === bowlId);
       return { data: rows, error: null };
     }
 
@@ -168,6 +180,29 @@ const mocks = vi.hoisted(() => {
       return { data: rows, error: null };
     }
 
+    if (queryState.action === "insert" && table === "bowl_add_links" && terminal === "then") {
+      if (state.errors.insertAddLink) {
+        return { data: null, error: state.errors.insertAddLink };
+      }
+      const rows = queryState.payload || [];
+      state.insertedAddLinks.push(rows);
+      state.addLinks = [
+        ...rows.map((row, index) => ({
+          id: `link-${index + 1}`,
+          bowl_id: row.bowl_id,
+          token: row.token,
+          max_adds: row.max_adds,
+          adds_used: 0,
+          default_contributor_name: row.default_contributor_name || null,
+          revoked_at: null,
+          created_at: "2026-04-06T00:00:00.000Z",
+          created_by: row.created_by,
+        })),
+        ...state.addLinks,
+      ];
+      return { data: rows, error: null };
+    }
+
     if (queryState.action === "insert" && table === "bowl_draw_permissions" && terminal === "then") {
       if (state.errors.insertDrawPermissions) {
         return { data: null, error: state.errors.insertDrawPermissions };
@@ -197,6 +232,17 @@ const mocks = vi.hoisted(() => {
           ...queryState.payload,
         };
       }
+      return { data: [], error: null };
+    }
+
+    if (queryState.action === "update" && table === "bowl_add_links" && terminal === "then") {
+      if (state.errors.revokeAddLink) {
+        return { data: null, error: state.errors.revokeAddLink };
+      }
+      const linkId = getEq(queryState.filters, "id");
+      state.addLinks = state.addLinks.map((link) =>
+        link.id === linkId ? { ...link, ...queryState.payload } : link
+      );
       return { data: [], error: null };
     }
 
@@ -293,6 +339,7 @@ describe("BowlSettings integration", () => {
       { bowl_id: "bowl-1", user_id: "owner-1", role: "Owner", email: "owner@example.com" },
       { bowl_id: "bowl-1", user_id: "member-1", role: "Member", email: "member@example.com" },
     ];
+    mocks.state.addLinks = [];
     mocks.state.drawPermissions = [];
     mocks.state.invites = [
       {
@@ -306,6 +353,7 @@ describe("BowlSettings integration", () => {
     ];
     mocks.state.operations = [];
     mocks.state.insertedInvites = [];
+    mocks.state.insertedAddLinks = [];
     mocks.state.insertedDrawPermissions = [];
     mocks.state.updatedBowls = [];
     mocks.state.errors = {
@@ -313,10 +361,13 @@ describe("BowlSettings integration", () => {
       loadMembers: null,
       loadInvites: null,
       loadDrawPermissions: null,
+      loadAddLinks: null,
       insertInvite: null,
+      insertAddLink: null,
       insertDrawPermissions: null,
       updateBowl: null,
       updateDrawAccessMode: null,
+      revokeAddLink: null,
       deleteInvite: null,
       deleteMember: null,
       deleteDrawPermissions: null,
@@ -421,6 +472,77 @@ describe("BowlSettings integration", () => {
       invited_by: "owner-1",
     });
     expect(screen.getByText("newfriend@example.com")).toBeInTheDocument();
+  });
+
+  it("allows a member to create and revoke an add link", async () => {
+    mocks.state.authUser = { id: "member-1", email: "member@example.com" };
+
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/allowed adds/i)).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByLabelText(/allowed adds/i), {
+      target: { value: "4" },
+    });
+    fireEvent.change(screen.getByLabelText(/default contributor label/i), {
+      target: { value: "Dad" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /create add link/i }));
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue(/add-to-bowl\//i)).toBeInTheDocument();
+    });
+
+    expect(mocks.state.insertedAddLinks[0][0]).toMatchObject({
+      bowl_id: "bowl-1",
+      created_by: "member-1",
+      max_adds: 4,
+      default_contributor_name: "Dad",
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /revoke/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/add link revoked\./i)).toBeInTheDocument();
+    });
+  });
+
+  it("allows updating an add link contributor label without mutating prior rows", async () => {
+    mocks.state.addLinks = [
+      {
+        id: "link-1",
+        bowl_id: "bowl-1",
+        token: "token-1",
+        max_adds: 3,
+        adds_used: 1,
+        default_contributor_name: "Dad",
+        revoked_at: null,
+        created_at: "2026-04-06T00:00:00.000Z",
+        created_by: "owner-1",
+      },
+    ];
+
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Dad")).toBeInTheDocument();
+    });
+
+    const labelInputs = screen.getAllByDisplayValue("Dad");
+    fireEvent.change(labelInputs[labelInputs.length - 1], {
+      target: { value: "Grandpa" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save label/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/add link label updated/i)).toBeInTheDocument();
+    });
+
+    expect(
+      mocks.state.addLinks.find((link) => link.id === "link-1")?.default_contributor_name
+    ).toBe("Grandpa");
   });
 
   it("keeps the invite link available when invite email sending fails", async () => {

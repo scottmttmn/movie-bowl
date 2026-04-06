@@ -20,11 +20,14 @@ describe("AddMovieModal", () => {
       runtime: 155,
       poster_path: "/abc.jpg",
       streamingProviders: ["Netflix", "Prime Video"],
+      added_by_name: "Dad",
     };
 
     render(<AddMovieModal movie={movie} onClose={vi.fn()} userStreamingServices={["Netflix"]} />);
     expect(screen.getByText("Dune (2021)")).toBeInTheDocument();
     expect(screen.getByText("Runtime: 155 minutes")).toBeInTheDocument();
+    expect(screen.getByText("Added by")).toBeInTheDocument();
+    expect(screen.getByText("Dad")).toBeInTheDocument();
     expect(screen.getByText("Available on")).toBeInTheDocument();
     expect(screen.getByText("Your services")).toBeInTheDocument();
     expect(screen.getByText("Netflix")).toBeInTheDocument();

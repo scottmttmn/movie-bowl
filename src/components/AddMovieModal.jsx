@@ -83,6 +83,7 @@ export default function AddMovieModal({
   );
   const watchedAt = movie.drawn_at || movie.drawnAt || null;
   const watchedDateLabel = watchedAt ? new Date(watchedAt).toLocaleDateString() : null;
+  const addedByLabel = movie.added_by_name || null;
   const availableProviders = normalizeStreamingServices(movie.streamingProviders || []);
   const matchingProviders = matchUserServices(availableProviders, userStreamingServices);
   const hasTrailer = useMemo(
@@ -143,6 +144,13 @@ export default function AddMovieModal({
             </span>
           )}
         </div>
+
+        {addedByLabel && (
+          <div className="mb-4">
+            <p className="text-sm font-semibold text-slate-100">Added by</p>
+            <p className="text-sm text-slate-300">{addedByLabel}</p>
+          </div>
+        )}
 
         {hasTrailer && (
           <div className="mb-4">

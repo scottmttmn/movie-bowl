@@ -66,6 +66,7 @@ export default function useBowl(bowlId) {
 
     // Count contributions across both remaining + watched.
     [...(bowl.remaining || []), ...(bowl.watched || [])].forEach((m) => {
+      if (!m?.added_by) return;
       // Use the adder's email as a temporary display label until we add display names.
       const key = m.profiles?.email || m.added_by || "Unknown";
       counts[key] = (counts[key] || 0) + 1;
@@ -99,7 +100,7 @@ export default function useBowl(bowlId) {
       const { data: remaining, error: remainingError } = await supabase
         .from("bowl_movies")
         .select(
-          "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_at, drawn_at, drawn_by, snapshot_at, profiles:profiles!bowl_movies_added_by_fkey(email)"
+          "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at, profiles:profiles!bowl_movies_added_by_fkey(email)"
         )
         .eq("bowl_id", bowlId)
         .is("drawn_at", null)
@@ -114,7 +115,7 @@ export default function useBowl(bowlId) {
       const { data: watched, error: watchedError } = await supabase
         .from("bowl_movies")
         .select(
-          "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_at, drawn_at, drawn_by, snapshot_at, profiles:profiles!bowl_movies_added_by_fkey(email)"
+          "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at, profiles:profiles!bowl_movies_added_by_fkey(email)"
         )
         .eq("bowl_id", bowlId)
         .not("drawn_at", "is", null)
@@ -358,7 +359,7 @@ export default function useBowl(bowlId) {
           .from("bowl_movies")
           .insert([rowPayload])
           .select(
-            "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_at, drawn_at, drawn_by, snapshot_at, profiles:profiles!bowl_movies_added_by_fkey(email)"
+            "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at, profiles:profiles!bowl_movies_added_by_fkey(email)"
           )
           .single();
       };
