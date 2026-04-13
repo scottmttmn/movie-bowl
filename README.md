@@ -6,15 +6,19 @@ Movie Bowl is a collaborative app for maintaining a shared movie list and random
 
 - Create and join bowls.
 - Add movies from TMDB search.
+- Add custom/manual movie entries.
 - Draw a random movie from the remaining list.
 - Optionally prioritize draws to titles available on your streaming services.
+- Queue adds automatically when contribution-balance rules block a member from adding right now.
 - Track watched titles in a horizontal history strip.
 - Open full movie details from:
   - a newly drawn movie
   - search results (`Details`)
   - watched movie cards
+- Watch official TMDB trailers inline from movie detail views.
 - Manage bowl members and invite links.
-- Owner can rename bowl in Bowl Settings.
+- Manage draw access by bowl.
+- Create public add links that allow a fixed number of anonymous/movie-guest adds.
 - Store user streaming service preferences.
 
 ## Tech Stack
@@ -39,10 +43,14 @@ npm install
 VITE_SUPABASE_URL=...
 VITE_SUPABASE_ANON_KEY=...
 TMDB_READ_ACCESS_TOKEN=...
+SUPABASE_URL=...
+SUPABASE_SERVICE_ROLE_KEY=...
 APP_BASE_URL=https://moviebowl.app
 RESEND_API_KEY=...
 INVITE_EMAIL_FROM="Movie Bowl <invites@mail.moviebowl.app>"
 ```
+
+`SUPABASE_URL` should match `VITE_SUPABASE_URL`.
 
 3. Run locally.
 
@@ -89,6 +97,7 @@ npm run dev
 - Bowl settings UI: `src/screens/BowlSettings.jsx`
 - User settings UI: `src/screens/UserSettings.jsx`
 - Invite email route: `api/invites/send.js`
+- Public add-link routes: `api/add-links/*`
 
 ## Production Setup
 
@@ -127,6 +136,16 @@ npm run dev
 - Invite links inside those emails use:
   - `APP_BASE_URL`
 
+### Public add-link delivery
+
+- Bowl members can create public add links in Bowl Settings.
+- Public add-link page:
+  - `/add-to-bowl/:token`
+- These routes use the Supabase service role on the server:
+  - `GET /api/add-links/:token`
+  - `POST /api/add-links/consume`
+- Link users do not need to sign in.
+
 ## Environment Variables
 
 ### Browser-visible
@@ -139,6 +158,8 @@ These are visible in the browser bundle by design.
 ### Server-only
 
 - `TMDB_READ_ACCESS_TOKEN`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
 - `APP_BASE_URL`
 - `RESEND_API_KEY`
 - `INVITE_EMAIL_FROM`
@@ -160,7 +181,7 @@ supabase login
 supabase link --project-ref YOUR_PROJECT_REF
 ```
 
-2. Pull current remote DB as baseline migration (one-time):
+2. Pull current remote DB as baseline migration (one-time, if needed):
 
 ```bash
 supabase db pull
@@ -186,9 +207,11 @@ See `supabase/README.md` for details.
 
 Current tests include:
 
-- Component smoke tests (`src/components/__tests__/components.smoke.test.jsx`)
+- Bowl/dashboard flow tests
+- Bowl settings and invite integration tests
+- Public add-link API and page tests
 - Draw selection unit tests (`src/utils/__tests__/selectDrawCandidate.test.js`)
-- Hook-level draw integration tests (`src/hooks/__tests__/useBowl.test.js`)
+- Hook-level bowl integration tests (`src/hooks/__tests__/useBowl.test.js`)
 
 Run all tests:
 
@@ -204,7 +227,9 @@ npm run test:run
   - `bowl_movies`
   - `bowl_members`
   - `bowl_invites`
-- Draw-access control migration SQL is provided at:
-  - `output/add_bowl_draw_access_controls.sql`
+  - `bowl_draw_permissions`
+  - `bowl_movie_queue`
+  - `bowl_add_links`
 - There is also an RPC used on the home screen:
   - `get_my_bowls_with_counts`
+- Public add-link lifecycle and attribution are migration-backed. If you add new DB behavior, keep it in `supabase/migrations` rather than making dashboard-only edits.

@@ -176,6 +176,7 @@ describe("BowlDashboard draw flow", () => {
       runtime: 120,
       release_date: "2020-01-01",
       streamingProviders: [],
+      profiles: { email: "owner@example.com" },
     });
 
     renderDashboard();
@@ -201,6 +202,8 @@ describe("BowlDashboard draw flow", () => {
 
     expect(screen.queryByText(/drawing a title from the bowl/i)).not.toBeInTheDocument();
     expect(screen.getByText("Movie A (2020)")).toBeInTheDocument();
+    expect(screen.getByText("Added by")).toBeInTheDocument();
+    expect(screen.getByText("owner")).toBeInTheDocument();
     vi.useRealTimers();
   });
 

@@ -3,6 +3,14 @@ import MovieSearch from "./MovieSearch";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { matchUserServices, normalizeStreamingServices } from "../utils/streamingServices";
 
+function getEmailLocalPart(email) {
+  const normalized = String(email || "").trim();
+  const atIndex = normalized.indexOf("@");
+
+  if (atIndex <= 0) return null;
+  return normalized.slice(0, atIndex);
+}
+
 export default function AddMovieModal({
   movie,
   onClose,
@@ -83,7 +91,7 @@ export default function AddMovieModal({
   );
   const watchedAt = movie.drawn_at || movie.drawnAt || null;
   const watchedDateLabel = watchedAt ? new Date(watchedAt).toLocaleDateString() : null;
-  const addedByLabel = movie.added_by_name || null;
+  const addedByLabel = movie.added_by_name || getEmailLocalPart(movie?.profiles?.email);
   const availableProviders = normalizeStreamingServices(movie.streamingProviders || []);
   const matchingProviders = matchUserServices(availableProviders, userStreamingServices);
   const hasTrailer = useMemo(

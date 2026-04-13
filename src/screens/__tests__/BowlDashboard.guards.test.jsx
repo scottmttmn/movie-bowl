@@ -348,6 +348,7 @@ describe("BowlDashboard guards", () => {
           release_date: "2020-01-01",
           drawn_at: "2026-02-23T00:00:00.000Z",
           added_by: "u1",
+          profiles: { email: "owner@example.com" },
         },
       ],
     };
@@ -368,6 +369,8 @@ describe("BowlDashboard guards", () => {
 
     await waitFor(() => expect(screen.getByText("Movie A (2020)")).toBeInTheDocument());
     expect(mocks.getTmdbMovieDetails).toHaveBeenCalledWith(101);
+    expect(screen.getByText("Added by")).toBeInTheDocument();
+    expect(screen.getByText("owner")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /show trailer/i })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /open on web in/i })).not.toBeInTheDocument();
     expect(screen.queryByTitle("Movie A trailer")).not.toBeInTheDocument();

@@ -33,6 +33,38 @@ describe("AddMovieModal", () => {
     expect(screen.getByText("Netflix")).toBeInTheDocument();
   });
 
+  it("falls back to the local-part of profiles.email for member-added movies", () => {
+    const movie = {
+      title: "Dune",
+      release_date: "2021-10-22",
+      runtime: 155,
+      poster_path: "/abc.jpg",
+      streamingProviders: ["Netflix"],
+      profiles: {
+        email: "scottmttmn@gmail.com",
+      },
+    };
+
+    render(<AddMovieModal movie={movie} onClose={vi.fn()} userStreamingServices={["Netflix"]} />);
+    expect(screen.getByText("Added by")).toBeInTheDocument();
+    expect(screen.getByText("scottmttmn")).toBeInTheDocument();
+  });
+
+  it("hides the attribution block when there is no usable adder label", () => {
+    const movie = {
+      title: "Dune",
+      release_date: "2021-10-22",
+      runtime: 155,
+      streamingProviders: ["Netflix"],
+      profiles: {
+        email: "not-an-email",
+      },
+    };
+
+    render(<AddMovieModal movie={movie} onClose={vi.fn()} userStreamingServices={["Netflix"]} />);
+    expect(screen.queryByText("Added by")).not.toBeInTheDocument();
+  });
+
   it("renders a collapsed trailer toggle and expands inline trailer on demand", () => {
     render(
       <AddMovieModal
