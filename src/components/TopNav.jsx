@@ -2,7 +2,13 @@ import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
 import bowlImage from "../assets/bowl-illustration.png";
 
-export default function TopNav({ isSettingsRoute, onSignOut, userEmail = "", isAuthenticated = true }) {
+export default function TopNav({
+  isSettingsRoute,
+  isWatchListRoute = false,
+  onSignOut,
+  userEmail = "",
+  isAuthenticated = true,
+}) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -92,6 +98,16 @@ export default function TopNav({ isSettingsRoute, onSignOut, userEmail = "", isA
                     className="flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
                   >
                     My Bowls
+                  </Link>
+                  <Link
+                    to="/watch-list"
+                    role="menuitem"
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 ${
+                      isWatchListRoute ? "bg-slate-800 text-slate-400 pointer-events-none" : ""
+                    }`}
+                  >
+                    Watch List
                   </Link>
                   <Link
                     to="/settings"
