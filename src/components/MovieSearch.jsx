@@ -11,12 +11,26 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [searchError, setSearchError] = useState(null);
+    const [voiceError, setVoiceError] = useState(null);
+    const [isVoiceSupported, setIsVoiceSupported] = useState(false);
+    const [isListening, setIsListening] = useState(false);
+    const [voiceStatusMessage, setVoiceStatusMessage] = useState("");
     const [highlightedIndex, setHighlightedIndex] = useState(0);
     const [providersByMovieId, setProvidersByMovieId] = useState({});
     const [detailMovie, setDetailMovie] = useState(null);
     const [isAdding, setIsAdding] = useState(false);
     const inputRef = useRef(null);
     const latestRequestRef = useRef(0);
+    const recognitionRef = useRef(null);
+    const isMountedRef = useRef(true);
+    const suppressNextAutoSearchRef = useRef(false);
+    const finalTranscriptRef = useRef("");
+
+    const stopRecognition = () => {
+        if (recognitionRef.current) {
+            recognitionRef.current.stop();
+        }
+    };
 
     const buildCustomMovie = (title) => ({
         id: null,
@@ -172,6 +186,10 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
     // Debounce search: wait 400ms after user stops typing before calling API
     useEffect(() => {
         if (!searchTerm.trim()) return;
+        if (suppressNextAutoSearchRef.current) {
+            suppressNextAutoSearchRef.current = false;
+            return;
+        }
 
         const timeoutId = setTimeout(() => {
             handleSearch(searchTerm);
@@ -184,40 +202,180 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
         inputRef.current?.focus();
     }, []);
 
+    useEffect(() => {
+        isMountedRef.current = true;
+        const SpeechRecognitionCtor =
+            typeof window !== "undefined"
+                ? window.SpeechRecognition || window.webkitSpeechRecognition
+                : null;
+
+        if (!SpeechRecognitionCtor) {
+            setIsVoiceSupported(false);
+            recognitionRef.current = null;
+            return () => {
+                isMountedRef.current = false;
+            };
+        }
+
+        setIsVoiceSupported(true);
+        const recognition = new SpeechRecognitionCtor();
+        recognition.lang = typeof navigator !== "undefined" && navigator.language ? navigator.language : "en-US";
+        recognition.interimResults = false;
+        recognition.maxAlternatives = 1;
+
+        recognition.onstart = () => {
+            if (!isMountedRef.current) return;
+            setVoiceError(null);
+            setIsListening(true);
+            setVoiceStatusMessage("Listening for a movie title…");
+            finalTranscriptRef.current = "";
+        };
+
+        recognition.onresult = (event) => {
+            if (!isMountedRef.current) return;
+            const transcript = Array.from(event.results || [])
+                .filter((result) => result?.isFinal)
+                .map((result) => result[0]?.transcript || "")
+                .join(" ")
+                .trim();
+
+            if (transcript) {
+                finalTranscriptRef.current = transcript;
+                suppressNextAutoSearchRef.current = true;
+                setSearchTerm(transcript);
+                setSearchResults([]);
+                setHighlightedIndex(0);
+                setSearchError(null);
+                latestRequestRef.current += 1;
+            }
+        };
+
+        recognition.onerror = (event) => {
+            if (!isMountedRef.current) return;
+            const errorCode = String(event?.error || "");
+            if (errorCode === "aborted") return;
+            if (errorCode === "not-allowed" || errorCode === "service-not-allowed") {
+                setVoiceError("Microphone access was blocked. You can still type your search.");
+                return;
+            }
+            setVoiceError("Voice input is unavailable right now. You can still type your search.");
+        };
+
+        recognition.onend = () => {
+            if (!isMountedRef.current) return;
+            setIsListening(false);
+            const transcript = finalTranscriptRef.current.trim();
+            if (transcript) {
+                setVoiceStatusMessage(`Searching for "${transcript}"...`);
+                finalTranscriptRef.current = "";
+                handleSearch(transcript);
+            } else {
+                setVoiceStatusMessage("");
+            }
+        };
+
+        recognitionRef.current = recognition;
+
+        return () => {
+            isMountedRef.current = false;
+            recognition.onstart = null;
+            recognition.onresult = null;
+            recognition.onerror = null;
+            recognition.onend = null;
+            recognition.stop();
+            recognitionRef.current = null;
+        };
+    }, []);
+
+    const toggleVoiceInput = () => {
+        if (!recognitionRef.current) return;
+
+        if (isListening) {
+            stopRecognition();
+            return;
+        }
+
+        setVoiceError(null);
+        setVoiceStatusMessage("");
+        try {
+            recognitionRef.current.start();
+        } catch (error) {
+            console.error("Failed to start voice input", error);
+            setVoiceError("Voice input is unavailable right now. You can still type your search.");
+            setIsListening(false);
+        }
+    };
+
     // Render search UI and list of results
     return (
         <div className="mt-2">
             <div className="sticky top-0 z-10 bg-slate-900 pb-2">
-                <input
-                    ref={inputRef}
-                    autoFocus
-                    id="movie-search-input"
-                    name="movie_search"
-                    type="text"
-                    value={searchTerm}
-                    placeholder="Search movies..."
-                    className="input-field"
-                    onChange={(e) => {
-                        const value = e.target.value;
-                        setSearchTerm(value);
-                        if (!value.trim()) {
-                            latestRequestRef.current += 1;
-                            setSearchResults([]);
-                            setSearchError(null);
-                            setHighlightedIndex(0);
+                <div className="flex items-start gap-2">
+                    <input
+                        ref={inputRef}
+                        autoFocus
+                        id="movie-search-input"
+                        name="movie_search"
+                        type="text"
+                        value={searchTerm}
+                        placeholder="Search movies..."
+                        className="input-field flex-1"
+                        onChange={(e) => {
+                            const value = e.target.value;
+                            setSearchTerm(value);
+                            setVoiceError(null);
+                            setVoiceStatusMessage("");
+                            if (!value.trim()) {
+                                latestRequestRef.current += 1;
+                                setSearchResults([]);
+                                setSearchError(null);
+                                setHighlightedIndex(0);
+                            }
+                        }}
+                        onKeyDown={handleKeyDown}
+                        aria-activedescendant={
+                            searchResults.length > 0
+                                ? `movie-option-${searchResults[highlightedIndex].id}`
+                                : undefined
                         }
-                    }}
-                    onKeyDown={handleKeyDown}
-                    aria-activedescendant={
-                        searchResults.length > 0
-                            ? `movie-option-${searchResults[highlightedIndex].id}`
-                            : undefined
-                    }
-                    role="combobox"
-                    aria-expanded={searchResults.length > 0}
-                    aria-haspopup="listbox"
-                    aria-owns="movie-search-listbox"
-                />
+                        role="combobox"
+                        aria-expanded={searchResults.length > 0}
+                        aria-haspopup="listbox"
+                        aria-owns="movie-search-listbox"
+                    />
+                    {isVoiceSupported && (
+                        <button
+                            type="button"
+                            onClick={toggleVoiceInput}
+                            className={`icon-btn h-11 w-11 flex-shrink-0 ${isListening ? "animate-pulse border-red-500 bg-red-950/50 text-red-200 shadow-lg shadow-red-950/30" : ""}`}
+                            aria-label={isListening ? "Stop voice input" : "Start voice input"}
+                            aria-pressed={isListening}
+                        >
+                            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                                <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 1 1-6 0V6a3 3 0 0 1 3-3Z" />
+                                <path d="M19 11a7 7 0 0 1-14 0" />
+                                <path d="M12 18v3" />
+                            </svg>
+                        </button>
+                    )}
+                </div>
+                {isVoiceSupported && !isListening && !voiceStatusMessage && !voiceError && (
+                    <p className="mt-2 text-sm text-slate-400">Speak a movie title or type to search.</p>
+                )}
+                {isListening && (
+                    <div className="mt-2 flex items-center gap-2 text-sm text-red-300">
+                        <span className="h-2.5 w-2.5 rounded-full bg-red-400 animate-ping" aria-hidden="true" />
+                        <span>{voiceStatusMessage || "Listening… tap the mic again to stop."}</span>
+                    </div>
+                )}
+                {!isListening && voiceStatusMessage && !voiceError && (
+                    <p className="mt-2 text-sm text-slate-300">{voiceStatusMessage}</p>
+                )}
+                {voiceError && (
+                    <div className="mt-2 rounded-lg border border-red-900/60 bg-red-950/50 px-3 py-2 text-sm text-red-300">
+                        {voiceError}
+                    </div>
+                )}
             </div>
 
             <ul
