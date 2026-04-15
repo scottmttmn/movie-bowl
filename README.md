@@ -219,6 +219,8 @@ Run all tests:
 npm run test:run
 ```
 
+For ongoing reliability guardrails and a release smoke checklist, see `STABILITY.md`.
+
 ## Notes
 
 - The app currently expects a Supabase schema with tables like:
