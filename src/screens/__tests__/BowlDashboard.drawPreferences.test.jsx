@@ -117,6 +117,12 @@ function renderDashboard() {
   );
 }
 
+function confirmDraw() {
+  fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+  expect(screen.getByText(/reveal a movie\?/i)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /reveal movie/i }));
+}
+
 describe("BowlDashboard draw preferences", () => {
   beforeEach(() => {
     mocks.state.navigate.mockReset();
@@ -162,7 +168,7 @@ describe("BowlDashboard draw preferences", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
 
     vi.useFakeTimers();
-    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    confirmDraw();
     await act(async () => {
       vi.advanceTimersByTime(1200);
     });
@@ -207,7 +213,7 @@ describe("BowlDashboard draw preferences", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
 
     vi.useFakeTimers();
-    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    confirmDraw();
     await act(async () => {
       vi.advanceTimersByTime(1200);
     });
@@ -237,7 +243,7 @@ describe("BowlDashboard draw preferences", () => {
     expect(rankToggle).not.toBeChecked();
 
     vi.useFakeTimers();
-    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    confirmDraw();
     await act(async () => {
       vi.advanceTimersByTime(1200);
     });
@@ -290,7 +296,7 @@ describe("BowlDashboard draw preferences", () => {
     fireEvent.click(screen.getByRole("button", { name: /draw genre Comedy/i }));
 
     vi.useFakeTimers();
-    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    confirmDraw();
     await act(async () => {
       vi.advanceTimersByTime(1200);
     });
@@ -355,7 +361,7 @@ describe("BowlDashboard draw preferences", () => {
     fireEvent.click(screen.getByRole("button", { name: /only Comedy/i }));
 
     vi.useFakeTimers();
-    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    confirmDraw();
     await act(async () => {
       vi.advanceTimersByTime(1200);
     });

@@ -1,0 +1,64 @@
+<svg width="512" height="512" viewBox="0 0 512 512" fill="none" xmlns="http://www.w3.org/2000/svg">
+  <defs>
+    <radialGradient id="bgGlow" cx="0" cy="0" r="1" gradientUnits="userSpaceOnUse" gradientTransform="translate(256 232) rotate(90) scale(240 240)">
+      <stop offset="0" stop-color="#34161A"/>
+      <stop offset="0.48" stop-color="#130A17"/>
+      <stop offset="1" stop-color="#060714"/>
+    </radialGradient>
+    <linearGradient id="bowlFill" x1="256" y1="244" x2="256" y2="416" gradientUnits="userSpaceOnUse">
+      <stop stop-color="#F9FBF7"/>
+      <stop offset="1" stop-color="#D8E0DC"/>
+    </linearGradient>
+    <linearGradient id="ticketFillA" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#F28578"/>
+      <stop offset="1" stop-color="#D65C51"/>
+    </linearGradient>
+    <linearGradient id="ticketFillB" x1="0" y1="0" x2="0" y2="1">
+      <stop stop-color="#EA7A6E"/>
+      <stop offset="1" stop-color="#C94F44"/>
+    </linearGradient>
+    <filter id="softShadow" x="62" y="86" width="388" height="329" filterUnits="userSpaceOnUse" color-interpolation-filters="sRGB">
+      <feDropShadow dx="0" dy="10" stdDeviation="14" flood-color="#000000" flood-opacity="0.28"/>
+    </filter>
+  </defs>
+
+  <rect width="512" height="512" rx="110" fill="url(#bgGlow)"/>
+  <ellipse cx="256" cy="230" rx="118" ry="74" fill="#A43F38" opacity="0.28"/>
+
+  <g filter="url(#softShadow)">
+    <g stroke="#2C1011" stroke-width="3.5" stroke-linejoin="round">
+      <g transform="translate(88 150) rotate(-12 110 34)">
+        <rect x="0" y="0" width="220" height="68" rx="10" fill="url(#ticketFillA)"/>
+        <line x1="28" y1="10" x2="28" y2="58" stroke-opacity="0.45"/>
+        <line x1="192" y1="10" x2="192" y2="58" stroke-opacity="0.45"/>
+      </g>
+      <g transform="translate(206 122) rotate(2 110 34)">
+        <rect x="0" y="0" width="220" height="68" rx="10" fill="url(#ticketFillB)"/>
+        <line x1="28" y1="10" x2="28" y2="58" stroke-opacity="0.45"/>
+        <line x1="192" y1="10" x2="192" y2="58" stroke-opacity="0.45"/>
+      </g>
+      <g transform="translate(60 212) rotate(10 110 34)">
+        <rect x="0" y="0" width="236" height="72" rx="10" fill="url(#ticketFillB)"/>
+        <line x1="30" y1="10" x2="30" y2="62" stroke-opacity="0.45"/>
+        <line x1="206" y1="10" x2="206" y2="62" stroke-opacity="0.45"/>
+      </g>
+      <g transform="translate(214 210) rotate(-8 110 34)">
+        <rect x="0" y="0" width="238" height="72" rx="10" fill="url(#ticketFillA)"/>
+        <line x1="30" y1="10" x2="30" y2="62" stroke-opacity="0.45"/>
+        <line x1="208" y1="10" x2="208" y2="62" stroke-opacity="0.45"/>
+      </g>
+      <g transform="translate(136 270) rotate(4 110 34)">
+        <rect x="0" y="0" width="244" height="74" rx="10" fill="url(#ticketFillA)"/>
+        <line x1="32" y1="10" x2="32" y2="64" stroke-opacity="0.45"/>
+        <line x1="212" y1="10" x2="212" y2="64" stroke-opacity="0.45"/>
+      </g>
+    </g>
+
+    <path d="M102 268C102 219.399 171.395 180 256 180C340.605 180 410 219.399 410 268V291H102V268Z" fill="#1E2230"/>
+    <path d="M104 270C104 221.503 172.948 182 256 182C339.052 182 408 221.503 408 270V321C408 380.646 340.611 426 256 426C171.389 426 104 380.646 104 321V270Z" fill="url(#bowlFill)" stroke="#24303A" stroke-width="5"/>
+    <path d="M118 269C118 228.144 180.233 195 256 195C331.767 195 394 228.144 394 269" stroke="#FEFFFD" stroke-width="5" stroke-linecap="round"/>
+    <path d="M148 311C148 281.729 195.905 258 255 258C314.095 258 362 281.729 362 311V329C362 371.526 314.095 406 255 406C195.905 406 148 371.526 148 329V311Z" fill="#C8D0CD" opacity="0.78"/>
+    <path d="M126 246C126 246 162 224 207 214" stroke="#FFFFFF" stroke-opacity="0.6" stroke-width="14" stroke-linecap="round"/>
+    <path d="M140 350C162 382 204 400 255 400C311 400 358 379 381 345" stroke="#394A55" stroke-opacity="0.5" stroke-width="3" stroke-linecap="round"/>
+  </g>
+</svg>

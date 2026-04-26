@@ -1,0 +1,2026 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Movie Bowl - Late Night Ticket Bowl Prototype</title>
+  <style>
+    :root {
+      --bg: #070814;
+      --bg-deep: #04040d;
+      --plum: #151223;
+      --panel: rgba(17, 17, 29, 0.82);
+      --panel-strong: #110f1d;
+      --amber: #d76d48;
+      --amber-soft: #f2b49d;
+      --copper: #cf5f3d;
+      --rust: #9f3d28;
+      --cream: #f4ead5;
+      --cream-dark: #dbcaa6;
+      --ink: #1f1b17;
+      --muted: #938aa3;
+      --muted-2: #675f78;
+      --line: rgba(214, 96, 70, 0.22);
+      --ticket-red: #9d3725;
+      --ticket-red-2: #c95638;
+      --ticket-shadow: rgba(0, 0, 0, 0.45);
+      --success: #7ca16b;
+    }
+
+    * {
+      box-sizing: border-box;
+    }
+
+    html, body {
+      margin: 0;
+      min-height: 100%;
+      background:
+        radial-gradient(circle at top, rgba(240, 181, 74, 0.14), transparent 28%),
+        radial-gradient(circle at 20% 20%, rgba(159, 61, 40, 0.18), transparent 24%),
+        linear-gradient(180deg, #0b0c19 0%, #070814 42%, #04040d 100%);
+      color: var(--cream);
+      font-family: "Avenir Next", "Segoe UI", Helvetica, Arial, sans-serif;
+    }
+
+    body {
+      padding: 40px 24px 56px;
+    }
+
+    .page {
+      max-width: 1440px;
+      margin: 0 auto;
+    }
+
+    .eyebrow {
+      font-size: 12px;
+      letter-spacing: 0.34em;
+      text-transform: uppercase;
+      color: var(--amber);
+      font-weight: 700;
+      margin-bottom: 16px;
+    }
+
+    h1 {
+      margin: 0;
+      max-width: 980px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: clamp(40px, 5vw, 68px);
+      line-height: 0.96;
+      letter-spacing: -0.04em;
+      color: #f5efdf;
+    }
+
+    .intro {
+      margin-top: 18px;
+      max-width: 780px;
+      font-size: 18px;
+      line-height: 1.6;
+      color: #ccc2d8;
+    }
+
+    .chips {
+      display: flex;
+      flex-wrap: wrap;
+      gap: 10px;
+      margin-top: 24px;
+    }
+
+    .chip {
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      border-radius: 999px;
+      padding: 10px 14px;
+      color: #d7cfe1;
+      font-size: 13px;
+      background: rgba(255, 255, 255, 0.04);
+    }
+
+    .chip.active {
+      border-color: rgba(214, 96, 70, 0.4);
+      background: rgba(214, 96, 70, 0.14);
+      color: var(--amber-soft);
+    }
+
+    .design-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(320px, 1fr));
+      gap: 28px;
+      margin-top: 44px;
+      align-items: start;
+    }
+
+    .frame-wrap {
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .frame-label {
+      font-size: 12px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: var(--amber);
+      font-weight: 700;
+    }
+
+    .frame-note {
+      font-size: 14px;
+      line-height: 1.55;
+      color: #b8afc7;
+      min-height: 44px;
+    }
+
+    .phone {
+      position: relative;
+      width: 390px;
+      max-width: 100%;
+      aspect-ratio: 390 / 844;
+      border-radius: 34px;
+      overflow: hidden;
+      background:
+        radial-gradient(circle at 50% 15%, rgba(240, 181, 74, 0.12), transparent 26%),
+        linear-gradient(180deg, #0f1020 0%, #070814 56%, #05050d 100%);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      box-shadow:
+        0 30px 70px rgba(0, 0, 0, 0.45),
+        inset 0 1px 0 rgba(255, 255, 255, 0.08),
+        0 0 0 1px rgba(240, 181, 74, 0.05);
+      margin: 0 auto;
+    }
+
+    .phone::before {
+      content: "";
+      position: absolute;
+      top: 10px;
+      left: 50%;
+      width: 128px;
+      height: 26px;
+      transform: translateX(-50%);
+      border-radius: 0 0 16px 16px;
+      background: rgba(0, 0, 0, 0.45);
+      z-index: 20;
+    }
+
+    .screen {
+      position: absolute;
+      inset: 0;
+      padding: 58px 20px 24px;
+    }
+
+    .ambient {
+      position: absolute;
+      inset: 0;
+      background:
+        radial-gradient(circle at 50% 22%, rgba(240, 181, 74, 0.18), transparent 24%),
+        radial-gradient(circle at 20% 72%, rgba(159, 61, 40, 0.14), transparent 28%);
+      pointer-events: none;
+    }
+
+    .topbar {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+
+    .topbtn {
+      min-width: 34px;
+      padding: 7px 11px;
+      border-radius: 999px;
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      color: var(--muted);
+      background: rgba(255, 255, 255, 0.05);
+      font-size: 13px;
+      text-align: center;
+    }
+
+    .hero {
+      margin-top: 24px;
+      text-align: center;
+    }
+
+    .kicker {
+      font-size: 11px;
+      letter-spacing: 0.34em;
+      text-transform: uppercase;
+      color: var(--amber);
+      font-weight: 800;
+      text-shadow: 0 0 12px rgba(240, 181, 74, 0.35);
+    }
+
+    .logo {
+      margin-top: 10px;
+      font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+      text-transform: uppercase;
+      font-size: 56px;
+      line-height: 0.9;
+      letter-spacing: 0.03em;
+      color: #f7f0df;
+      text-shadow: 0 0 26px rgba(240, 181, 74, 0.16);
+    }
+
+    .hero-sub {
+      margin-top: 12px;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.04em;
+    }
+
+    .bowl-stage {
+      position: relative;
+      margin-top: 26px;
+      height: 244px;
+      display: flex;
+      justify-content: center;
+      align-items: flex-end;
+      overflow: visible;
+      cursor: pointer;
+    }
+
+    .bowl-stage::after {
+      content: "Tap bowl to draw";
+      position: absolute;
+      left: 50%;
+      bottom: 24px;
+      transform: translateX(-50%);
+      color: rgba(242, 180, 157, 0.82);
+      font-size: 9px;
+      font-weight: 800;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      white-space: nowrap;
+      text-shadow: 0 0 12px rgba(214, 96, 70, 0.28);
+      transition: opacity 220ms ease, transform 220ms ease;
+    }
+
+    .ticket-bowl {
+      position: relative;
+      width: 294px;
+      height: 250px;
+      transform-origin: center bottom;
+    }
+
+    .ticket-bowl img {
+      display: block;
+      width: 100%;
+      height: auto;
+      object-fit: contain;
+      mix-blend-mode: screen;
+      filter: brightness(1.06) contrast(1.04) drop-shadow(0 10px 18px rgba(0, 0, 0, 0.18));
+    }
+
+    .draw-transition {
+      position: absolute;
+      inset: -48px 0 0;
+      pointer-events: none;
+      z-index: 3;
+    }
+
+    .draw-transition-flare {
+      position: absolute;
+      left: 50%;
+      top: 14px;
+      width: 228px;
+      height: 228px;
+      margin-left: -114px;
+      border-radius: 50%;
+      background:
+        radial-gradient(circle, rgba(242, 180, 157, 0.32) 0%, rgba(214, 96, 70, 0.2) 26%, transparent 68%);
+      opacity: 0;
+      transform: scale(0.64);
+      filter: blur(6px);
+    }
+
+    .draw-lift-ticket,
+    .draw-result-ticket {
+      position: absolute;
+      left: 50%;
+      opacity: 0;
+      transform-origin: center center;
+      will-change: transform, opacity;
+    }
+
+    .draw-lift-ticket {
+      top: 94px;
+      width: 134px;
+      height: 228px;
+      margin-left: -67px;
+      border-radius: 18px;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.16), transparent 18%),
+        linear-gradient(180deg, #cf6243 0%, #9a3122 100%);
+      border: 1px solid rgba(255, 236, 205, 0.18);
+      box-shadow:
+        0 0 36px rgba(214, 96, 70, 0.24),
+        0 16px 34px rgba(0, 0, 0, 0.34);
+    }
+
+    .draw-lift-ticket::before,
+    .draw-lift-ticket::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      width: 22px;
+      height: 22px;
+      margin-left: -11px;
+      border-radius: 50%;
+      background: var(--bg-deep);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+    }
+
+    .draw-lift-ticket::before { top: -11px; }
+    .draw-lift-ticket::after { bottom: -11px; }
+
+    .draw-lift-foil {
+      height: 18px;
+      background: linear-gradient(90deg, rgba(255, 220, 210, 0.88), rgba(214, 96, 70, 0.24), rgba(255, 220, 210, 0.88));
+    }
+
+    .draw-lift-inner {
+      padding: 15px 14px 12px;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .draw-lift-kicker {
+      text-align: center;
+      font-size: 9px;
+      letter-spacing: 0.24em;
+      text-transform: uppercase;
+      color: rgba(247, 240, 223, 0.92);
+      font-weight: 800;
+    }
+
+    .draw-lift-dash {
+      height: 1px;
+      border-top: 1px dashed rgba(247, 240, 223, 0.68);
+    }
+
+    .draw-lift-bars {
+      display: grid;
+      gap: 6px;
+    }
+
+    .draw-lift-bars div {
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(247, 240, 223, 0.8);
+    }
+
+    .draw-lift-bars div:nth-child(2),
+    .draw-lift-bars div:nth-child(4) {
+      width: 72%;
+      opacity: 0.56;
+    }
+
+    .draw-lift-small {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 7px;
+      margin-top: 4px;
+    }
+
+    .draw-lift-small div {
+      height: 20px;
+      border-radius: 8px;
+      border: 1px solid rgba(247, 240, 223, 0.2);
+      background: rgba(18, 14, 12, 0.18);
+    }
+
+    .draw-result-ticket {
+      top: 36px;
+      width: 226px;
+      margin-left: -113px;
+      border-radius: 18px;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.16), transparent 7%),
+        linear-gradient(180deg, #f0e4cb 0%, #ead9b5 100%);
+      color: var(--ink);
+      box-shadow:
+        0 22px 52px rgba(0, 0, 0, 0.34),
+        0 0 42px rgba(214, 96, 70, 0.14);
+    }
+
+    .draw-result-ticket::before,
+    .draw-result-ticket::after {
+      content: "";
+      position: absolute;
+      top: 72%;
+      width: 20px;
+      height: 20px;
+      margin-top: -10px;
+      border-radius: 50%;
+      background: var(--bg);
+    }
+
+    .draw-result-ticket::before { left: -10px; }
+    .draw-result-ticket::after { right: -10px; }
+
+    .draw-result-top {
+      padding: 11px 14px 9px;
+      background:
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 12px),
+        linear-gradient(180deg, rgba(166, 63, 43, 0.98), rgba(142, 51, 35, 0.98));
+      color: #fff5eb;
+      border-bottom: 2px dashed rgba(255, 245, 235, 0.34);
+    }
+
+    .draw-result-meta {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 8px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+
+    .draw-result-title {
+      margin-top: 8px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 27px;
+      line-height: 0.92;
+      letter-spacing: -0.05em;
+      text-transform: uppercase;
+    }
+
+    .draw-result-sub {
+      margin-top: 6px;
+      font-size: 10px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      opacity: 0.9;
+    }
+
+    .draw-result-body {
+      padding: 12px 14px 14px;
+    }
+
+    .draw-result-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 9px 8px;
+      padding-top: 10px;
+      border-top: 1px dashed rgba(31, 27, 23, 0.24);
+    }
+
+    .draw-result-block small {
+      display: block;
+      font-size: 8px;
+      letter-spacing: 0.15em;
+      text-transform: uppercase;
+      color: #7d6b56;
+      font-weight: 800;
+    }
+
+    .draw-result-block strong {
+      display: block;
+      margin-top: 3px;
+      font-size: 12px;
+      line-height: 1.1;
+      color: var(--ink);
+    }
+
+    .draw-result-barcode {
+      height: 42px;
+      margin-top: 10px;
+      border-radius: 10px;
+      background:
+        rgba(31, 27, 23, 0.06),
+        repeating-linear-gradient(
+          90deg,
+          #1a1512 0 2px,
+          transparent 2px 4px,
+          #1a1512 4px 5px,
+          transparent 5px 8px,
+          #1a1512 8px 12px,
+          transparent 12px 14px
+        );
+      border: 1px solid rgba(31, 27, 23, 0.1);
+      opacity: 0.86;
+    }
+
+    .draw-demo-screen.is-animating .ticket-bowl {
+      animation: bowl-rustle 1100ms ease-in-out 0s 1;
+    }
+
+    .draw-demo-screen.is-animating .bowl-stage::after {
+      opacity: 0.18;
+      transform: translateX(-50%) translateY(8px);
+    }
+
+    .draw-demo-screen.is-animating .draw-transition-flare {
+      animation: draw-flare 1900ms ease-out forwards;
+    }
+
+    .draw-demo-screen.is-animating .draw-lift-ticket {
+      animation: lift-ticket 2200ms cubic-bezier(.18,.78,.24,1) forwards;
+    }
+
+    .draw-demo-screen.is-animating .draw-result-ticket {
+      animation: reveal-ticket 3600ms cubic-bezier(.17,.86,.23,1) forwards;
+    }
+
+    @keyframes bowl-rustle {
+      0%, 100% { transform: translate3d(0, 0, 0) rotate(0deg); }
+      12% { transform: translate3d(-2px, 0, 0) rotate(-1.1deg); }
+      25% { transform: translate3d(3px, -1px, 0) rotate(1.2deg); }
+      38% { transform: translate3d(-4px, 1px, 0) rotate(-1.6deg); }
+      52% { transform: translate3d(4px, -1px, 0) rotate(1.4deg); }
+      66% { transform: translate3d(-2px, 0, 0) rotate(-0.7deg); }
+      82% { transform: translate3d(1px, 0, 0) rotate(0.4deg); }
+    }
+
+    @keyframes draw-flare {
+      0% { opacity: 0; transform: scale(0.64); }
+      24% { opacity: 0.84; transform: scale(0.94); }
+      52% { opacity: 0.58; transform: scale(1.04); }
+      100% { opacity: 0; transform: scale(1.1); }
+    }
+
+    @keyframes lift-ticket {
+      0% {
+        opacity: 0;
+        transform: translate(-50%, 68px) rotate(-10deg) scale(0.56);
+        filter: blur(3px);
+      }
+      14% {
+        opacity: 1;
+        transform: translate(-50%, 34px) rotate(-9deg) scale(0.82);
+        filter: blur(0);
+      }
+      38% {
+        opacity: 1;
+        transform: translate(-50%, -62px) rotate(-4deg) scale(1);
+      }
+      60% {
+        opacity: 1;
+        transform: translate(-50%, -96px) rotate(-2deg) scale(1.02);
+      }
+      100% {
+        opacity: 0;
+        transform: translate(-50%, -132px) rotate(1deg) scale(0.92);
+      }
+    }
+
+    @keyframes reveal-ticket {
+      0%, 42% {
+        opacity: 0;
+        transform: translate(-50%, 54px) scale(0.64) rotate(-8deg);
+        filter: blur(6px);
+      }
+      58% {
+        opacity: 1;
+        transform: translate(-50%, -2px) scale(0.84) rotate(-3deg);
+        filter: blur(0);
+      }
+      74% {
+        opacity: 1;
+        transform: translate(-50%, -28px) scale(1.02) rotate(0deg);
+      }
+      100% {
+        opacity: 1;
+        transform: translate(-50%, -18px) scale(1) rotate(0deg);
+      }
+    }
+
+    .primary-cta {
+      margin-top: 20px;
+      width: 100%;
+      padding: 13px 18px 12px;
+      border: 1px solid rgba(214, 96, 70, 0.46);
+      background:
+        linear-gradient(180deg, rgba(214, 96, 70, 0.14), rgba(173, 59, 38, 0.08)),
+        rgba(255, 255, 255, 0.02);
+      color: #f2b49d;
+      border-radius: 15px;
+      text-transform: uppercase;
+      font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+      font-size: 16px;
+      letter-spacing: 0.18em;
+      box-shadow:
+        0 8px 18px rgba(0, 0, 0, 0.16),
+        inset 0 1px 0 rgba(255,255,255,0.08);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+
+    .utility-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 8px;
+      margin-top: 10px;
+    }
+
+    .secondary-btn {
+      padding: 11px 12px;
+      border-radius: 14px;
+      border: 1px solid rgba(255, 255, 255, 0.1);
+      background: rgba(255, 255, 255, 0.04);
+      color: var(--muted);
+      text-transform: uppercase;
+      font-size: 11px;
+      letter-spacing: 0.12em;
+      text-align: center;
+      font-weight: 700;
+    }
+
+    .secondary-btn.full {
+      grid-column: 1 / -1;
+    }
+
+    .inline-filters {
+      margin-top: 18px;
+      display: flex;
+      gap: 8px;
+      overflow: hidden;
+    }
+
+    .inline-filters .filter {
+      white-space: nowrap;
+      padding: 7px 12px;
+      border-radius: 999px;
+      border: 1px solid rgba(255,255,255,0.08);
+      color: var(--muted);
+      font-size: 11px;
+      background: rgba(255,255,255,0.04);
+    }
+
+    .inline-filters .filter.active {
+      color: var(--amber-soft);
+      background: rgba(214, 96, 70, 0.12);
+      border-color: rgba(214, 96, 70, 0.36);
+    }
+
+    .section {
+      margin-top: 24px;
+    }
+
+    .section-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      margin-bottom: 12px;
+    }
+
+    .section-title {
+      font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+      text-transform: uppercase;
+      font-size: 22px;
+      letter-spacing: 0.08em;
+      color: #f4eedc;
+    }
+
+    .section-meta {
+      font-size: 10px;
+      color: var(--muted);
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+    }
+
+    .queue-row {
+      display: flex;
+      gap: 10px;
+      overflow: hidden;
+    }
+
+    .queue-card {
+      width: 110px;
+      flex: 0 0 auto;
+    }
+
+    .queue-poster {
+      position: relative;
+      width: 110px;
+      height: 158px;
+      border-radius: 10px;
+      overflow: hidden;
+      box-shadow: 0 10px 22px rgba(0, 0, 0, 0.28);
+      background: linear-gradient(160deg, #694a39, #211926 58%, #12111a);
+    }
+
+    .queue-poster::before {
+      content: attr(data-badge);
+      position: absolute;
+      top: 8px;
+      left: 8px;
+      padding: 4px 6px;
+      border-radius: 999px;
+      background: rgba(4, 4, 13, 0.76);
+      color: var(--amber);
+      font-size: 9px;
+      letter-spacing: 0.08em;
+      font-weight: 700;
+    }
+
+    .queue-poster .poster-title {
+      position: absolute;
+      left: 10px;
+      right: 10px;
+      bottom: 12px;
+      font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+      font-size: 22px;
+      line-height: 0.95;
+      text-transform: uppercase;
+      color: #f7f1e0;
+      text-shadow: 0 2px 14px rgba(0, 0, 0, 0.72);
+    }
+
+    .queue-poster.w1 { background: linear-gradient(180deg, #826043, #2d2335 72%); }
+    .queue-poster.w2 { background: linear-gradient(180deg, #40556f, #1d1828 70%); }
+    .queue-poster.w3 { background: linear-gradient(180deg, #8a4934, #1b1420 74%); }
+
+    .queue-copy {
+      margin-top: 8px;
+    }
+
+    .queue-copy strong {
+      display: block;
+      font-size: 12px;
+      line-height: 1.2;
+      color: #f1ecde;
+    }
+
+    .queue-copy span {
+      display: block;
+      margin-top: 3px;
+      font-size: 10px;
+      color: var(--muted);
+    }
+
+    .stub-list {
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+    }
+
+    .stub-card {
+      display: grid;
+      grid-template-columns: 72px 1fr;
+      min-height: 78px;
+      border-radius: 18px;
+      overflow: hidden;
+      background: rgba(244, 234, 213, 0.95);
+      box-shadow: 0 10px 24px rgba(0, 0, 0, 0.22);
+      color: var(--ink);
+    }
+
+    .stub-poster {
+      position: relative;
+      background: linear-gradient(160deg, #876042, #392738 70%);
+      border-right: 2px dashed rgba(31, 27, 23, 0.42);
+    }
+
+    .stub-info {
+      padding: 10px 14px;
+      position: relative;
+    }
+
+    .stub-info::after {
+      content: "";
+      position: absolute;
+      top: 50%;
+      right: -10px;
+      width: 20px;
+      height: 20px;
+      margin-top: -10px;
+      border-radius: 50%;
+      background: var(--bg-deep);
+    }
+
+    .stub-meta {
+      font-size: 9px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      color: var(--rust);
+      font-weight: 800;
+    }
+
+    .stub-title {
+      margin-top: 4px;
+      font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+      text-transform: uppercase;
+      font-size: 15px;
+      line-height: 1.02;
+    }
+
+    .stub-footer {
+      margin-top: 6px;
+      font-size: 10px;
+      color: #5f5346;
+    }
+
+    .overlay {
+      display: flex;
+      flex-direction: column;
+      justify-content: center;
+      align-items: center;
+      text-align: center;
+    }
+
+    .overlay-copy {
+      position: relative;
+      z-index: 2;
+      font-size: 10px;
+      letter-spacing: 0.34em;
+      text-transform: uppercase;
+      color: var(--amber);
+      font-weight: 800;
+      text-shadow: 0 0 14px rgba(240, 181, 74, 0.38);
+    }
+
+    .draw-zone {
+      position: relative;
+      width: 186px;
+      height: 314px;
+      margin-top: 22px;
+      z-index: 2;
+    }
+
+    .light-cone {
+      position: absolute;
+      inset: 0;
+      transform: translateY(-34px);
+      background:
+        radial-gradient(circle at 50% 20%, rgba(242, 180, 157, 0.18), transparent 32%),
+        linear-gradient(180deg, rgba(242, 180, 157, 0.18), rgba(242, 180, 157, 0.02) 42%, transparent 72%);
+      clip-path: polygon(50% 0%, 88% 8%, 100% 100%, 0% 100%, 12% 8%);
+      filter: blur(4px);
+    }
+
+    .picked-ticket {
+      position: absolute;
+      left: 50%;
+      top: 18px;
+      width: 164px;
+      height: 280px;
+      margin-left: -82px;
+      border-radius: 20px;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.16), transparent 20%),
+        linear-gradient(180deg, #ca5d40 0%, #972f20 100%);
+      border: 1px solid rgba(255, 236, 205, 0.18);
+      box-shadow:
+        0 0 48px rgba(214, 96, 70, 0.34),
+        0 20px 48px rgba(0, 0, 0, 0.38);
+      transform: rotate(-4deg);
+    }
+
+    .picked-ticket::before,
+    .picked-ticket::after {
+      content: "";
+      position: absolute;
+      left: 50%;
+      width: 26px;
+      height: 26px;
+      margin-left: -13px;
+      border-radius: 50%;
+      background: var(--bg-deep);
+      box-shadow: inset 0 0 0 1px rgba(255,255,255,0.05);
+    }
+
+    .picked-ticket::before { top: -13px; }
+    .picked-ticket::after { bottom: -13px; }
+
+    .picked-foil {
+      height: 24px;
+      background: linear-gradient(90deg, rgba(255, 220, 210, 0.88), rgba(214, 96, 70, 0.24), rgba(255, 220, 210, 0.88));
+    }
+
+    .picked-inner {
+      padding: 18px 16px 14px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+
+    .picked-header {
+      text-align: center;
+      font-size: 10px;
+      letter-spacing: 0.28em;
+      text-transform: uppercase;
+      color: rgba(247, 240, 223, 0.92);
+      font-weight: 800;
+    }
+
+    .picked-dash {
+      height: 1px;
+      border-top: 1px dashed rgba(247, 240, 223, 0.74);
+    }
+
+    .picked-bars {
+      display: grid;
+      gap: 7px;
+    }
+
+    .picked-bars div {
+      height: 4px;
+      border-radius: 999px;
+      background: rgba(247, 240, 223, 0.82);
+    }
+
+    .picked-bars div:nth-child(2),
+    .picked-bars div:nth-child(4) {
+      width: 72%;
+      opacity: 0.6;
+    }
+
+    .picked-small {
+      display: grid;
+      grid-template-columns: repeat(3, 1fr);
+      gap: 8px;
+      margin-top: 4px;
+    }
+
+    .picked-small div {
+      height: 22px;
+      border-radius: 8px;
+      border: 1px solid rgba(247, 240, 223, 0.22);
+      background: rgba(18, 14, 12, 0.2);
+    }
+
+    .ticket-stage-copy {
+      margin-top: 14px;
+      font-size: 13px;
+      line-height: 1.55;
+      color: #cbc2d8;
+      max-width: 280px;
+      z-index: 2;
+    }
+
+    .winner-screen {
+      display: flex;
+      flex-direction: column;
+    }
+
+    .winner-header {
+      position: absolute;
+      inset: 0 0 auto 0;
+      height: 162px;
+      background:
+        radial-gradient(circle at 50% 36%, rgba(214, 96, 70, 0.26), transparent 38%),
+        linear-gradient(180deg, rgba(0,0,0,0.08), rgba(0,0,0,0));
+      pointer-events: none;
+    }
+
+    .winner-ticket {
+      position: relative;
+      margin-top: 110px;
+      border-radius: 22px;
+      overflow: hidden;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.16), transparent 7%),
+        linear-gradient(180deg, #f0e4cb 0%, #ead9b5 100%);
+      color: var(--ink);
+      box-shadow:
+        0 26px 60px rgba(0, 0, 0, 0.35),
+        0 0 46px rgba(214, 96, 70, 0.16);
+    }
+
+    .winner-ticket::before,
+    .winner-ticket::after {
+      content: "";
+      position: absolute;
+      top: 74%;
+      width: 26px;
+      height: 26px;
+      margin-top: -13px;
+      border-radius: 50%;
+      background: var(--bg);
+    }
+
+    .winner-ticket::before { left: -13px; }
+    .winner-ticket::after { right: -13px; }
+
+    .winner-top {
+      padding: 12px 18px 10px;
+      background:
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 12px),
+        linear-gradient(180deg, rgba(166, 63, 43, 0.98), rgba(142, 51, 35, 0.98));
+      color: #fff5eb;
+      border-bottom: 2px dashed rgba(255, 245, 235, 0.38);
+    }
+
+    .winner-top-row {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 12px;
+      font-size: 9px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+
+    .winner-title {
+      margin-top: 10px;
+      font-family: Georgia, "Times New Roman", serif;
+      font-size: 32px;
+      line-height: 0.94;
+      letter-spacing: -0.05em;
+      text-transform: uppercase;
+    }
+
+    .winner-sub {
+      margin-top: 8px;
+      font-size: 12px;
+      opacity: 0.88;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+    }
+
+    .winner-body {
+      padding: 14px 18px 18px;
+    }
+
+    .ticket-grid {
+      display: grid;
+      grid-template-columns: 1fr;
+      gap: 14px;
+      align-items: start;
+    }
+
+    .ticket-ledger {
+      display: grid;
+      grid-template-columns: 1.15fr 0.85fr;
+      gap: 14px;
+      align-items: stretch;
+    }
+
+    .barcode {
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(31, 27, 23, 0.06);
+      border: 1px solid rgba(31, 27, 23, 0.1);
+    }
+
+    .barcode-bars {
+      height: 64px;
+      background:
+        repeating-linear-gradient(
+          90deg,
+          #1a1512 0 2px,
+          transparent 2px 4px,
+          #1a1512 4px 5px,
+          transparent 5px 8px,
+          #1a1512 8px 12px,
+          transparent 12px 14px
+        );
+      opacity: 0.85;
+    }
+
+    .barcode-id {
+      margin-top: 12px;
+      font-size: 11px;
+      letter-spacing: 0.18em;
+      color: #695a49;
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+
+    .era-card {
+      border-radius: 14px;
+      padding: 12px;
+      background: rgba(159, 61, 40, 0.07);
+      border: 1px solid rgba(159, 61, 40, 0.16);
+      color: #4d4338;
+    }
+
+    .era-card small {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 0.16em;
+      text-transform: uppercase;
+      color: var(--rust);
+      font-weight: 800;
+    }
+
+    .era-card strong {
+      display: block;
+      margin-top: 6px;
+      font-size: 18px;
+      line-height: 1.1;
+    }
+
+    .era-card p {
+      margin: 8px 0 0;
+      font-size: 12px;
+      line-height: 1.45;
+    }
+
+    .meta-grid {
+      display: grid;
+      grid-template-columns: repeat(2, minmax(0, 1fr));
+      gap: 12px 10px;
+      margin-top: 16px;
+      padding-top: 14px;
+      border-top: 1px dashed rgba(31, 27, 23, 0.28);
+    }
+
+    .meta-block small {
+      display: block;
+      font-size: 10px;
+      letter-spacing: 0.18em;
+      text-transform: uppercase;
+      color: #7d6b56;
+      font-weight: 800;
+    }
+
+    .meta-block strong {
+      display: block;
+      margin-top: 4px;
+      font-size: 16px;
+      line-height: 1.15;
+      color: var(--ink);
+    }
+
+    .pill-row {
+      margin-top: 14px;
+      display: flex;
+      flex-wrap: wrap;
+      gap: 8px;
+    }
+
+    .pill {
+      padding: 7px 10px;
+      border-radius: 999px;
+      border: 1px solid rgba(31, 27, 23, 0.12);
+      background: rgba(31, 27, 23, 0.05);
+      color: #56483d;
+      font-size: 11px;
+      font-weight: 700;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+    }
+
+    .winner-actions {
+      display: grid;
+      grid-template-columns: 1fr auto;
+      gap: 10px;
+      margin-top: 18px;
+    }
+
+    .watch-btn {
+      padding: 15px 18px;
+      border-radius: 16px;
+      border: 0;
+      background: linear-gradient(180deg, #f0b54a 0%, #d59529 100%);
+      color: #110e08;
+      text-transform: uppercase;
+      font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+      font-size: 20px;
+      letter-spacing: 0.1em;
+      box-shadow: inset 0 1px 0 rgba(255,255,255,0.4);
+    }
+
+    .ghost-btn {
+      padding: 15px 16px;
+      border-radius: 16px;
+      border: 1px solid rgba(31, 27, 23, 0.16);
+      background: rgba(255,255,255,0.42);
+      color: #453a31;
+      font-size: 11px;
+      letter-spacing: 0.14em;
+      text-transform: uppercase;
+      font-weight: 800;
+    }
+
+    .microcopy {
+      margin-top: 12px;
+      padding-top: 12px;
+      border-top: 1px dashed rgba(31, 27, 23, 0.22);
+      font-size: 12px;
+      line-height: 1.6;
+      color: #4d4338;
+    }
+
+    .notes {
+      margin-top: 42px;
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .note-card {
+      border-radius: 22px;
+      padding: 20px 20px 18px;
+      background: rgba(255, 255, 255, 0.05);
+      border: 1px solid rgba(255, 255, 255, 0.08);
+      backdrop-filter: blur(10px);
+    }
+
+    .note-card h2 {
+      margin: 0 0 10px;
+      font-size: 18px;
+      color: #f4eedc;
+    }
+
+    .note-card p,
+    .note-card li {
+      font-size: 14px;
+      line-height: 1.6;
+      color: #c6bcce;
+    }
+
+    .note-card ul {
+      margin: 0;
+      padding-left: 18px;
+    }
+
+    .ticket-variants {
+      margin-top: 34px;
+      display: grid;
+      gap: 16px;
+    }
+
+    .variant-head {
+      display: flex;
+      align-items: baseline;
+      justify-content: space-between;
+      gap: 12px;
+    }
+
+    .variant-head h2 {
+      margin: 0;
+      font-size: 24px;
+      color: #f4eedc;
+      letter-spacing: -0.02em;
+    }
+
+    .variant-head p {
+      margin: 0;
+      font-size: 13px;
+      color: #bdb4c8;
+    }
+
+    .variant-grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fit, minmax(260px, 1fr));
+      gap: 16px;
+    }
+
+    .variant-grid.secondary {
+      grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+      margin-top: 8px;
+    }
+
+    .variant-card {
+      border-radius: 24px;
+      padding: 16px;
+      background: rgba(255,255,255,0.04);
+      border: 1px solid rgba(255,255,255,0.08);
+      backdrop-filter: blur(10px);
+    }
+
+    .variant-card h3 {
+      margin: 0 0 4px;
+      font-size: 18px;
+      color: #f4eedc;
+    }
+
+    .variant-card p {
+      margin: 0 0 14px;
+      font-size: 13px;
+      line-height: 1.55;
+      color: #bcb3c8;
+    }
+
+    .variant-card.featured {
+      padding: 18px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.06), rgba(255,255,255,0.03)),
+        rgba(255,255,255,0.04);
+      border-color: rgba(214, 96, 70, 0.22);
+      box-shadow: 0 20px 40px rgba(0,0,0,0.18);
+    }
+
+    .variant-card.muted {
+      opacity: 0.82;
+    }
+
+    .variant-card.featured .mini-ticket {
+      min-height: 300px;
+      transform: scale(1.01);
+      transform-origin: center top;
+    }
+
+    .variant-card.featured .mini-ticket.style-80s {
+      max-width: 180px;
+      margin: 0 auto;
+    }
+
+    .mini-ticket {
+      position: relative;
+      border-radius: 14px;
+      overflow: hidden;
+      min-height: 192px;
+      box-shadow: 0 16px 30px rgba(0,0,0,0.28);
+    }
+
+    .mini-ticket::before,
+    .mini-ticket::after {
+      content: "";
+      position: absolute;
+      top: 70%;
+      width: 18px;
+      height: 18px;
+      margin-top: -9px;
+      border-radius: 50%;
+      background: var(--bg);
+      z-index: 2;
+    }
+
+    .mini-ticket::before { left: -9px; }
+    .mini-ticket::after { right: -9px; }
+
+    .mini-top {
+      padding: 10px 14px 9px;
+      border-bottom: 1px dashed rgba(255,255,255,0.34);
+      position: relative;
+      z-index: 1;
+    }
+
+    .mini-kicker {
+      font-size: 7px;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      font-weight: 800;
+      opacity: 0.9;
+    }
+
+    .mini-title {
+      margin-top: 7px;
+      font-size: 22px;
+      line-height: 0.9;
+      text-transform: uppercase;
+      font-weight: 900;
+    }
+
+    .mini-body {
+      padding: 10px 14px 12px;
+      display: grid;
+      gap: 8px;
+      position: relative;
+      z-index: 1;
+    }
+
+    .mini-strip {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      gap: 8px;
+      font-size: 8px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-weight: 800;
+      opacity: 0.82;
+    }
+
+    .mini-strip span:last-child {
+      opacity: 0.7;
+    }
+
+    .mini-meta {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 6px;
+      font-size: 10px;
+    }
+
+    .mini-meta div {
+      padding: 7px 8px;
+      border-radius: 8px;
+      background: rgba(0,0,0,0.06);
+    }
+
+    .mini-meta small {
+      display: block;
+      font-size: 7px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      opacity: 0.72;
+      margin-bottom: 3px;
+    }
+
+    .mini-barcode {
+      height: 26px;
+      border-radius: 8px;
+      background:
+        linear-gradient(180deg, rgba(255,255,255,0.08), rgba(255,255,255,0)),
+        repeating-linear-gradient(
+          90deg,
+          currentColor 0 2px,
+          transparent 2px 4px,
+          currentColor 4px 5px,
+          transparent 5px 8px,
+          currentColor 8px 12px,
+          transparent 12px 14px
+        );
+      opacity: 0.34;
+    }
+
+    .mini-footer {
+      display: flex;
+      justify-content: space-between;
+      gap: 10px;
+      font-size: 8px;
+      letter-spacing: 0.06em;
+      text-transform: uppercase;
+      font-weight: 800;
+      opacity: 0.78;
+    }
+
+    .mini-ticket.style-70s .mini-body,
+    .mini-ticket.style-80s .mini-body,
+    .mini-ticket.style-90s .mini-body,
+    .mini-ticket.style-2020s .mini-body {
+      grid-template-rows: auto auto auto auto;
+    }
+
+    .mini-ticket.style-70s {
+      background: linear-gradient(180deg, #ebc17c 0%, #d98a4d 100%);
+      color: #45210d;
+      font-family: "Arial Narrow", Arial, sans-serif;
+      border: 2px solid rgba(86, 38, 18, 0.45);
+    }
+
+    .mini-ticket.style-70s .mini-top {
+      background: linear-gradient(180deg, rgba(255,255,255,0.14), rgba(132, 55, 22, 0.08));
+    }
+
+    .mini-ticket.style-70s .mini-title {
+      font-family: Impact, Haettenschweiler, "Arial Narrow Bold", sans-serif;
+      letter-spacing: 0.02em;
+    }
+
+    .mini-ticket.style-80s {
+      background:
+        repeating-linear-gradient(0deg, rgba(44,33,30,0.025) 0 1px, transparent 1px 5px),
+        #efc7b5;
+      color: #2c211e;
+      border: 2px solid rgba(54, 38, 34, 0.42);
+      box-shadow:
+        0 0 0 1px rgba(255,255,255,0.12),
+        0 16px 30px rgba(0,0,0,0.28);
+      min-height: 300px;
+      font-family: Arial, Helvetica, sans-serif;
+    }
+
+    .mini-ticket.style-80s .mini-top {
+      background: rgba(255,255,255,0.12);
+      color: #2c211e;
+      border-bottom-color: rgba(44, 33, 30, 0.42);
+    }
+
+    .mini-ticket.style-80s .mini-title {
+      font-family: Arial, Helvetica, sans-serif;
+      letter-spacing: 0.02em;
+      font-size: 21px;
+      line-height: 1;
+      font-weight: 700;
+    }
+
+    .mini-ticket.style-80s .mini-meta div {
+      background: transparent;
+      border: 1px solid rgba(44, 33, 30, 0.2);
+      border-radius: 0;
+    }
+
+    .mini-ticket.style-80s .mini-barcode {
+      opacity: 0.42;
+    }
+
+    .mini-ticket.style-80s .mini-footer {
+      color: #2c211e;
+    }
+
+    .mini-ticket.style-80s .mini-top {
+      padding: 14px 14px 18px;
+    }
+
+    .mini-ticket.style-80s .mini-body {
+      gap: 12px;
+      padding: 13px 14px 14px;
+    }
+
+    .mini-tearoff {
+      margin-top: 8px;
+      padding-top: 13px;
+      border-top: 2px dashed rgba(44, 33, 30, 0.34);
+      display: grid;
+      gap: 8px;
+    }
+
+    .mini-tearoff .mini-meta {
+      grid-template-columns: 1fr 1fr;
+    }
+
+    .mini-ticket.style-90s {
+      background: linear-gradient(180deg, #efe5d1 0%, #e2d2b3 100%);
+      color: #2d241c;
+      border: 2px solid rgba(112, 83, 52, 0.22);
+    }
+
+    .mini-ticket.style-90s .mini-top {
+      background: linear-gradient(180deg, rgba(166, 63, 43, 0.95), rgba(122, 42, 29, 0.95));
+      color: #fff4ea;
+    }
+
+    .mini-ticket.style-90s .mini-title {
+      font-family: "Arial Black", Impact, sans-serif;
+      letter-spacing: 0.01em;
+    }
+
+    .mini-ticket.style-2020s {
+      background: linear-gradient(180deg, #f1e4ca 0%, #ead6b6 100%);
+      color: #231b16;
+      border: 2px solid rgba(92, 62, 39, 0.16);
+    }
+
+    .mini-ticket.style-2020s .mini-top {
+      background:
+        repeating-linear-gradient(90deg, rgba(255,255,255,0.06) 0 2px, transparent 2px 12px),
+        linear-gradient(180deg, rgba(166, 63, 43, 0.98), rgba(142, 51, 35, 0.98));
+      color: #fff5eb;
+    }
+
+    .mini-ticket.style-2020s .mini-title {
+      font-family: Georgia, "Times New Roman", serif;
+      font-weight: 700;
+      letter-spacing: -0.03em;
+    }
+
+    @media (max-width: 920px) {
+      body {
+        padding: 28px 18px 48px;
+      }
+
+      .intro {
+        font-size: 16px;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class="page">
+    <div class="eyebrow">Exploration v06 · Late Night Ticket Bowl</div>
+    <h1>Keep the amber-glow late-night mood, but make the bowl feel physical: stacked admission tickets before the draw, one realistic movie ticket after it lands.</h1>
+    <p class="intro">
+      This direction combines the atmosphere and typography energy of the late-night concept with the stronger ritual from the ticket explorations. The bowl now holds anonymous ticket stock, so suspense stays intact until the selected ticket is drawn and printed with the movie's metadata.
+    </p>
+    <div class="chips">
+      <div class="chip active">Late-night marquee mood</div>
+      <div class="chip active">Tickets inside the bowl</div>
+      <div class="chip active">Anonymous before draw</div>
+      <div class="chip active">Metadata-rich winner ticket</div>
+      <div class="chip">Not implemented in app yet</div>
+    </div>
+
+    <div class="design-grid">
+      <div class="frame-wrap">
+        <div class="frame-label">A · Populated Dashboard</div>
+        <div class="frame-note">The bowl shows layered ticket stock instead of posters. The rest of the screen keeps the late-night cinema atmosphere and queue browsing.</div>
+        <div class="phone">
+          <div class="ambient"></div>
+          <div class="screen draw-demo-screen">
+            <div class="topbar">
+              <div class="topbtn">←</div>
+              <div></div>
+              <div class="topbtn">⚙</div>
+            </div>
+
+            <div class="hero">
+              <div class="kicker">Movie Bowl</div>
+              <div class="logo">Friday Night<br />Club</div>
+              <div class="hero-sub">12 movies · 4 members</div>
+            </div>
+
+            <div class="bowl-stage">
+              <div class="ticket-bowl">
+                <img src="ticket-bowl-hero.png" alt="White bowl filled with red movie tickets" />
+              </div>
+              <div class="draw-transition" aria-hidden="true">
+                <div class="draw-transition-flare"></div>
+                <div class="draw-lift-ticket">
+                  <div class="draw-lift-foil"></div>
+                  <div class="draw-lift-inner">
+                    <div class="draw-lift-kicker">Selecting</div>
+                    <div class="draw-lift-dash"></div>
+                    <div class="draw-lift-bars">
+                      <div></div>
+                      <div></div>
+                      <div></div>
+                      <div></div>
+                    </div>
+                    <div class="draw-lift-small">
+                      <div></div>
+                      <div></div>
+                      <div></div>
+                    </div>
+                    <div class="draw-lift-dash"></div>
+                    <div class="draw-lift-bars">
+                      <div></div>
+                      <div></div>
+                      <div></div>
+                    </div>
+                  </div>
+                </div>
+                <div class="draw-result-ticket">
+                  <div class="draw-result-top">
+                    <div class="draw-result-meta">
+                      <span>Movie Bowl Cinema</span>
+                      <span>2020s Premium</span>
+                    </div>
+                    <div class="draw-result-title">Past<br />Lives</div>
+                    <div class="draw-result-sub">Friday Feature Selection · Draw #014</div>
+                  </div>
+                  <div class="draw-result-body">
+                    <div class="draw-result-grid">
+                      <div class="draw-result-block"><small>Added By</small><strong>Jules</strong></div>
+                      <div class="draw-result-block"><small>Service</small><strong>Netflix</strong></div>
+                      <div class="draw-result-block"><small>Year</small><strong>2023</strong></div>
+                      <div class="draw-result-block"><small>Runtime</small><strong>106 min</strong></div>
+                    </div>
+                    <div class="draw-result-barcode"></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <button class="primary-cta">
+              <span>Add Movie</span>
+            </button>
+
+            <div class="utility-row">
+              <div class="secondary-btn full">Filters (3)</div>
+            </div>
+
+            <div class="inline-filters">
+              <div class="filter active">On my services</div>
+              <div class="filter">Under 2h</div>
+              <div class="filter">PG-13 · R</div>
+            </div>
+
+            <div class="section">
+              <div class="section-head">
+                <div class="section-title">On the Bill</div>
+                <div class="section-meta">12 loaded</div>
+              </div>
+              <div class="queue-row">
+                <div class="queue-card">
+                  <div class="queue-poster w1" data-badge="A24">
+                    <div class="poster-title">Past<br />Lives</div>
+                  </div>
+                  <div class="queue-copy"><strong>Past Lives</strong><span>Celine · Added by Jules</span></div>
+                </div>
+                <div class="queue-card">
+                  <div class="queue-poster w2" data-badge="Sci-Fi">
+                    <div class="poster-title">After<br />Yang</div>
+                  </div>
+                  <div class="queue-copy"><strong>After Yang</strong><span>96 min · Hulu</span></div>
+                </div>
+                <div class="queue-card">
+                  <div class="queue-poster w3" data-badge="Thriller">
+                    <div class="poster-title">Burning</div>
+                  </div>
+                  <div class="queue-copy"><strong>Burning</strong><span>148 min · Mubi</span></div>
+                </div>
+              </div>
+            </div>
+
+            <div class="section">
+              <div class="section-head">
+                <div class="section-title">Ticket Stubs</div>
+                <div class="section-meta">Recent watches</div>
+              </div>
+              <div class="stub-list">
+                <div class="stub-card">
+                  <div class="stub-poster"></div>
+                  <div class="stub-info">
+                    <div class="stub-meta">Seen · Mar 28</div>
+                    <div class="stub-title">Perfect Days</div>
+                    <div class="stub-footer">★★★★☆ · Added by Scott</div>
+                  </div>
+                </div>
+                <div class="stub-card">
+                  <div class="stub-poster" style="background:linear-gradient(160deg,#46627d,#251d2d 70%)"></div>
+                  <div class="stub-info">
+                    <div class="stub-meta">Seen · Mar 14</div>
+                    <div class="stub-title">The Holdovers</div>
+                    <div class="stub-footer">★★★★☆ · Added by Kathryn</div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="frame-label">B · Draw Moment</div>
+        <div class="frame-note">The selected ticket rises into a spotlight. It still reads as anonymous paper stock here, so the reveal stays dramatic until the ticket is fully printed.</div>
+        <div class="phone">
+          <div class="ambient"></div>
+          <div class="screen overlay">
+            <div class="light-cone"></div>
+            <div class="overlay-copy">Now Printing</div>
+            <div class="draw-zone">
+              <div class="picked-ticket">
+                <div class="picked-foil"></div>
+                <div class="picked-inner">
+                  <div class="picked-header">Admit One</div>
+                  <div class="picked-dash"></div>
+                  <div class="picked-bars">
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                  </div>
+                  <div class="picked-small">
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                  </div>
+                  <div class="picked-dash"></div>
+                  <div class="picked-bars">
+                    <div></div>
+                    <div></div>
+                    <div></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+            <div class="ticket-stage-copy">
+              The bowl rustles below, one ticket clears the rim, and the app transitions from secret stock to a single physical object that feels worth keeping.
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="frame-wrap">
+        <div class="frame-label">C · Winner Ticket</div>
+        <div class="frame-note">After selection, the movie metadata is printed onto a realistic theater ticket instead of a generic poster card. This is the main payoff screen for the draw.</div>
+        <div class="phone">
+          <div class="ambient"></div>
+          <div class="winner-header"></div>
+          <div class="screen winner-screen">
+            <div class="topbar">
+              <div class="topbtn">←</div>
+              <div></div>
+              <div class="topbtn">⋯</div>
+            </div>
+
+            <div class="winner-ticket">
+              <div class="winner-top">
+                <div class="winner-top-row">
+                  <span>Movie Bowl Cinema</span>
+                  <span>2020s Premium Stock</span>
+                </div>
+                <div class="winner-title">Past<br />Lives</div>
+                <div class="winner-sub">Admit One · Friday Feature Selection · Draw #014</div>
+              </div>
+
+              <div class="winner-body">
+                <div class="ticket-grid">
+                  <div class="ticket-ledger">
+                    <div class="barcode">
+                      <div class="barcode-bars"></div>
+                      <div class="barcode-id">MB-2026-0419-014</div>
+                    </div>
+                    <div class="era-card">
+                      <small>Decade Treatment</small>
+                      <strong>2020s Premium</strong>
+                      <p>Cleaner stock, sharper typography, and service metadata. Older films could swap to 70s grindhouse, 80s multiplex, or 90s glossy ticket formats.</p>
+                    </div>
+                  </div>
+                </div>
+
+                <div class="meta-grid">
+                  <div class="meta-block">
+                    <small>Auditorium</small>
+                    <strong>Bowl 03</strong>
+                  </div>
+                  <div class="meta-block">
+                    <small>Seat</small>
+                    <strong>F14</strong>
+                  </div>
+                  <div class="meta-block">
+                    <small>Year</small>
+                    <strong>2023</strong>
+                  </div>
+                  <div class="meta-block">
+                    <small>Runtime</small>
+                    <strong>106 min</strong>
+                  </div>
+                  <div class="meta-block">
+                    <small>Rating</small>
+                    <strong>PG-13</strong>
+                  </div>
+                  <div class="meta-block">
+                    <small>Added By</small>
+                    <strong>Jules</strong>
+                  </div>
+                  <div class="meta-block">
+                    <small>Service</small>
+                    <strong>Netflix</strong>
+                  </div>
+                  <div class="meta-block">
+                    <small>Showtime</small>
+                    <strong>8:30 PM</strong>
+                  </div>
+                </div>
+
+                <div class="pill-row">
+                  <div class="pill">Romance</div>
+                  <div class="pill">Drama</div>
+                  <div class="pill">Priority Match</div>
+                </div>
+
+                <div class="microcopy">
+                  Drawn from Jules' queue after 12 anonymous tickets were loaded into the bowl. The reveal becomes a theater-style keepsake rather than a plain winner card.
+                </div>
+
+                <div class="winner-actions">
+                  <button class="watch-btn">Watch Ticket</button>
+                  <button class="ghost-btn">Redraw</button>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="notes">
+      <div class="note-card" style="grid-column: 1 / -1;">
+        <div class="variant-head">
+          <h2>Release-Date Ticket Views</h2>
+          <p>The winner ticket can shift visual language based on the film's release decade, but the 1980s multiplex stub is the strongest direction right now.</p>
+        </div>
+        <div class="ticket-variants">
+          <div class="variant-grid">
+            <div class="variant-card featured">
+              <h3>1980s</h3>
+              <p>Focus direction: a believable multiplex admission stub with just enough period flavor in the color bands and type.</p>
+              <div class="mini-ticket style-80s">
+                <div class="mini-top">
+                  <div class="mini-kicker">ADMIT ONE · METRO CINEMA</div>
+                  <div class="mini-title">Blade Runner</div>
+                </div>
+                <div class="mini-body">
+                  <div class="mini-strip"><span>SAT 06/25/82</span><span>09:15 PM</span></div>
+                  <div class="mini-meta">
+                    <div><small>Theatre</small>05</div>
+                    <div><small>Seat</small>E-07</div>
+                  </div>
+                  <div class="mini-barcode"></div>
+                  <div class="mini-footer"><span>ADULT</span><span>117 MIN</span><span>R</span></div>
+                  <div class="mini-tearoff">
+                    <div class="mini-meta">
+                      <div><small>Row</small>E</div>
+                      <div><small>No.</small>271563</div>
+                    </div>
+                    <div class="mini-strip"><span>KEEP THIS STUB</span><span>ADMIT ONE</span></div>
+                  </div>
+                </div>
+              </div>
+            </div>
+          </div>
+          <div class="variant-grid secondary">
+            <div class="variant-card muted">
+              <h3>1970s</h3>
+              <p>Reference only. Warmer stock and a more repertory-house feel for older catalog picks.</p>
+              <div class="mini-ticket style-70s">
+                <div class="mini-top">
+                  <div class="mini-kicker">Repertory Cinema Admission</div>
+                  <div class="mini-title">Alien</div>
+                </div>
+                <div class="mini-body">
+                  <div class="mini-strip"><span>Fri Oct 19</span><span>7:30 PM</span></div>
+                  <div class="mini-meta">
+                    <div><small>Theater</small>Aud 2</div>
+                    <div><small>Seat</small>G12</div>
+                    <div><small>Row</small>G</div>
+                    <div><small>Ticket</small>938472</div>
+                  </div>
+                  <div class="mini-barcode"></div>
+                  <div class="mini-footer"><span>1979</span><span>117 min</span><span>R</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="variant-card muted">
+              <h3>1990s</h3>
+              <p>Reference only. More chain-theater and red-stub, but less distinctive than the 80s option.</p>
+              <div class="mini-ticket style-90s">
+                <div class="mini-top">
+                  <div class="mini-kicker">Cineplex Admit One</div>
+                  <div class="mini-title">Heat</div>
+                </div>
+                <div class="mini-body">
+                  <div class="mini-strip"><span>Thu Dec 21</span><span>8:45 PM</span></div>
+                  <div class="mini-meta">
+                    <div><small>Theater</small>House 7</div>
+                    <div><small>Seat</small>D14</div>
+                    <div><small>Row</small>D</div>
+                    <div><small>Ticket</small>615204</div>
+                  </div>
+                  <div class="mini-barcode"></div>
+                  <div class="mini-footer"><span>1995</span><span>170 min</span><span>R</span></div>
+                </div>
+              </div>
+            </div>
+            <div class="variant-card muted">
+              <h3>2020s</h3>
+              <p>Reference only. Cleaner premium stock, but less charming than the multiplex stub direction.</p>
+              <div class="mini-ticket style-2020s">
+                <div class="mini-top">
+                  <div class="mini-kicker">Movie Bowl Premium Ticket</div>
+                  <div class="mini-title">Past Lives</div>
+                </div>
+                <div class="mini-body">
+                  <div class="mini-strip"><span>Fri Apr 19</span><span>8:30 PM</span></div>
+                  <div class="mini-meta">
+                    <div><small>Theater</small>Bowl 03</div>
+                    <div><small>Seat</small>F14</div>
+                    <div><small>Row</small>F</div>
+                    <div><small>Ticket</small>014-2026</div>
+                  </div>
+                  <div class="mini-barcode"></div>
+                  <div class="mini-footer"><span>2023</span><span>106 min</span><span>PG-13</span></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="note-card">
+        <h2>Reuse from Existing Prototypes</h2>
+        <ul>
+          <li>The late-night direction contributes the reddish marquee glow, stacked uppercase title treatment, and cinematic darkness.</li>
+          <li>The ticket explorations contribute the perforation language, admission-stock silhouette, and ticket-stub archive metaphor.</li>
+          <li>The bowl remains literal instead of abstract, but its contents switch from posters to anonymous ticket stock.</li>
+        </ul>
+      </div>
+
+      <div class="note-card">
+        <h2>What Changed</h2>
+        <ul>
+          <li>The draw CTA is now about drawing a movie, not rolling a reel or unfurling paper.</li>
+          <li>The in-bowl objects do not reveal titles before selection.</li>
+          <li>The winner state is no longer poster-first. Metadata lives directly on a collectible-looking ticket.</li>
+        </ul>
+      </div>
+
+      <div class="note-card">
+        <h2>Design Intent</h2>
+        <p>The product ritual gets stronger when the object before draw and the object after draw are the same family. This concept keeps suspense high, gives the bowl more physical believability, and turns the selected movie into a more memorable artifact than a plain modal card.</p>
+      </div>
+    </div>
+  </div>
+  <script>
+    (() => {
+      const demoScreen = document.querySelector(".draw-demo-screen");
+      const bowlStage = demoScreen?.querySelector(".bowl-stage");
+
+      if (!demoScreen || !bowlStage) return;
+
+      let clearTimer = null;
+      let loopTimer = null;
+
+      const resetDemo = () => {
+        demoScreen.classList.remove("is-animating");
+        if (clearTimer) {
+          window.clearTimeout(clearTimer);
+          clearTimer = null;
+        }
+      };
+
+      const playDemo = () => {
+        resetDemo();
+        void demoScreen.offsetWidth;
+        demoScreen.classList.add("is-animating");
+        clearTimer = window.setTimeout(() => {
+          demoScreen.classList.remove("is-animating");
+          clearTimer = null;
+        }, 5200);
+      };
+
+      bowlStage.addEventListener("click", () => {
+        playDemo();
+        if (loopTimer) {
+          window.clearInterval(loopTimer);
+        }
+        loopTimer = window.setInterval(playDemo, 9000);
+      });
+
+      window.setTimeout(playDemo, 1200);
+      loopTimer = window.setInterval(playDemo, 9000);
+    })();
+  </script>
+</body>
+</html>
