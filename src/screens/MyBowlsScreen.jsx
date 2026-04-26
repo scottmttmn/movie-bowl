@@ -7,6 +7,7 @@ import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import { sendInviteEmails } from "../lib/inviteEmails";
 import { supabase } from "../lib/supabase";
 import { MAX_BOWLS_PER_USER } from "../utils/appLimits";
+import { formatRelativeDateLabel } from "../utils/formatRelativeDate";
 import { parseInviteEmails } from "../utils/parseInviteEmails";
 
 // Supabase client is centralized in src/lib/supabase.js
@@ -36,6 +37,7 @@ export default function MyBowlsScreen() {
   const ownedBowls = bowls.filter((b) => b.role === "Owner");
   const sharedBowls = bowls.filter((b) => b.role !== "Owner");
   const hasStreamingServices = streamingServices.length > 0;
+  const inviteCountLabel = `${pendingInvites.length} pending invite${pendingInvites.length === 1 ? "" : "s"}`;
   const shouldShowGuidedSetup =
     !isLoading &&
     !isStreamingServicesLoading &&
@@ -546,17 +548,30 @@ export default function MyBowlsScreen() {
               <section className="space-y-3">
                 <div className="mb-3">
                   <h3 className="text-lg font-semibold text-slate-800">Invites</h3>
-                  <p className="text-sm text-slate-500">Pending invites for your account.</p>
+                  <p className="text-sm text-slate-500">{inviteCountLabel} waiting for your response.</p>
                 </div>
                 <div className="space-y-3">
                   {pendingInvites.map((invite) => (
                     <article key={invite.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-                      <h4 className="text-base font-semibold text-slate-800">{invite.bowl_name || "Movie Bowl Invite"}</h4>
-                      <p className="mt-1 text-sm text-slate-600">
-                        Invited
-                        {invite.invited_by_email ? ` by ${invite.invited_by_email}` : ""}
-                        {invite.created_at ? ` on ${new Date(invite.created_at).toLocaleDateString()}` : ""}.
-                      </p>
+                      <div className="flex flex-wrap items-start justify-between gap-3">
+                        <div>
+                          <h4 className="text-base font-semibold text-slate-800">
+                            {invite.bowl_name || "Movie Bowl Invite"}
+                          </h4>
+                          <p className="mt-1 text-sm text-slate-600">
+                            Invited
+                            {invite.invited_by_email ? ` by ${invite.invited_by_email}` : ""}
+                            {invite.created_at
+                              ? ` • ${formatRelativeDateLabel(invite.created_at)}`
+                              : ""}.
+                          </p>
+                        </div>
+                        {invite.created_at ? (
+                          <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                            {formatRelativeDateLabel(invite.created_at)}
+                          </span>
+                        ) : null}
+                      </div>
                       <div className="mt-3 flex flex-wrap gap-2">
                         <button
                           type="button"

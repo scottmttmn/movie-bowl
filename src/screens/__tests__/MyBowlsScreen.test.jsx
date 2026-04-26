@@ -225,6 +225,8 @@ import MyBowlsScreen from "../MyBowlsScreen";
 
 describe("MyBowlsScreen", () => {
   beforeEach(() => {
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    vi.setSystemTime(new Date("2026-04-25T18:00:00.000Z"));
     mocks.state.navigate.mockReset();
     mocks.state.authCallCount = 0;
     mocks.state.initialAuthenticated = false;
@@ -250,6 +252,7 @@ describe("MyBowlsScreen", () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
   });
 
   it("shows guided setup when the user has no bowls", async () => {
@@ -450,7 +453,7 @@ describe("MyBowlsScreen", () => {
         invited_email: "user@example.com",
         invited_by: "owner-1",
         accepted_at: null,
-        created_at: "2026-03-01T00:00:00.000Z",
+        created_at: "2026-04-24T12:00:00.000Z",
       },
     ];
     mocks.state.profileRows = [{ id: "owner-1", email: "owner@example.com" }];
@@ -461,8 +464,43 @@ describe("MyBowlsScreen", () => {
     await waitFor(() => expect(screen.getByRole("heading", { name: /^invites$/i })).toBeInTheDocument());
     expect(screen.getByText("Friday Bowl")).toBeInTheDocument();
     expect(screen.getByText(/invited by owner@example.com/i)).toBeInTheDocument();
+    expect(screen.getByText(/1 pending invite waiting for your response/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/yesterday/i)).toHaveLength(2);
     expect(screen.getByRole("button", { name: /accept/i })).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /decline/i })).toBeInTheDocument();
+  });
+
+  it("shows a plural invite summary and absolute date badge for older invites", async () => {
+    mocks.state.initialAuthenticated = true;
+    mocks.state.pendingInvites = [
+      {
+        id: "inv-1",
+        bowl_id: "bowl-2",
+        invited_email: "user@example.com",
+        invited_by: "owner-1",
+        accepted_at: null,
+        created_at: "2026-04-20T00:00:00.000Z",
+      },
+      {
+        id: "inv-2",
+        bowl_id: "bowl-3",
+        invited_email: "user@example.com",
+        invited_by: "owner-1",
+        accepted_at: null,
+        created_at: "2026-04-25T12:00:00.000Z",
+      },
+    ];
+    mocks.state.profileRows = [{ id: "owner-1", email: "owner@example.com" }];
+    mocks.state.rpcRows = [
+      { id: "bowl-2", name: "Friday Bowl", remaining_count: 0, member_count: 1, owner_id: "owner-1" },
+      { id: "bowl-3", name: "Saturday Bowl", remaining_count: 0, member_count: 1, owner_id: "owner-1" },
+    ];
+
+    render(<MyBowlsScreen />);
+
+    await waitFor(() => expect(screen.getByText(/2 pending invites waiting for your response/i)).toBeInTheDocument());
+    expect(screen.getByText(/^today$/i)).toBeInTheDocument();
+    expect(screen.getAllByText(/2026/).length).toBeGreaterThan(0);
   });
 
   it("does not render invite panel when there are no pending invites", async () => {
