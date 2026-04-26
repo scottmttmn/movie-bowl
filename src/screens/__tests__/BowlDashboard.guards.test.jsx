@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { RokuDeviceProvider } from "../../context/RokuDeviceContext";
 
@@ -375,8 +375,12 @@ describe("BowlDashboard guards", () => {
     expect(screen.queryByRole("button", { name: /open on web in/i })).not.toBeInTheDocument();
     expect(screen.queryByTitle("Movie A trailer")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /show trailer/i }));
-    await waitFor(() => expect(screen.getByTitle("Movie A trailer")).toBeInTheDocument());
+    const trailerButton = screen.getByRole("button", { name: /show trailer/i });
+    act(() => {
+      fireEvent.click(trailerButton);
+    });
+    await waitFor(() => expect(trailerButton).toHaveAttribute("aria-expanded", "true"));
+    expect(screen.getByTitle("Movie A trailer")).toBeInTheDocument();
   });
 
   it("preserves the bowl row id when re-adding an enriched watched movie", async () => {

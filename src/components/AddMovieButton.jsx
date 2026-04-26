@@ -5,7 +5,7 @@ export default function AddMovieButton({ onClick, disabled = false, variant = "s
       <button
         onClick={onClick}
         disabled={disabled}
-        className={`${buttonClass} disabled:opacity-50 disabled:cursor-not-allowed`}
+        className={`${buttonClass} min-w-40 disabled:opacity-50 disabled:cursor-not-allowed`}
       >
         + Add Movie
       </button>

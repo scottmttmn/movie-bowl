@@ -113,6 +113,12 @@ function renderDashboard() {
   );
 }
 
+function confirmDraw() {
+  fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+  expect(screen.getByText(/reveal a movie\?/i)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /reveal movie/i }));
+}
+
 describe("BowlDashboard runtime filters", () => {
   beforeEach(() => {
     mocks.state.handleDraw.mockClear();
@@ -136,7 +142,7 @@ describe("BowlDashboard runtime filters", () => {
     fireEvent.change(screen.getByRole("spinbutton", { name: /draw-runtime-max/i }), { target: { value: "170" } });
 
     vi.useFakeTimers();
-    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    confirmDraw();
     await act(async () => {
       vi.advanceTimersByTime(1200);
     });

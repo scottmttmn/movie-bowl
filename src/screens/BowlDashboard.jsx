@@ -68,6 +68,7 @@ export default function BowlDashboard() {
     const [showGenreFilters, setShowGenreFilters] = useState(false);
     const [showRuntimeFilters, setShowRuntimeFilters] = useState(false);
     const [isDrawing, setIsDrawing] = useState(false);
+    const [showDrawConfirm, setShowDrawConfirm] = useState(false);
     const [bowlName, setBowlName] = useState("My Bowl");
     const [bowlOwnerId, setBowlOwnerId] = useState(null);
     const [drawAccessMode, setDrawAccessMode] = useState(DRAW_ACCESS_MODE_ALL);
@@ -468,6 +469,42 @@ export default function BowlDashboard() {
       });
     };
 
+    const handleConfirmedDraw = async () => {
+      if (isDrawing || !canCurrentUserDraw || bowl.remaining.length === 0) return;
+      setShowDrawConfirm(false);
+      setIsDrawing(true);
+
+      try {
+        const minAnimationDelay = new Promise((resolve) => setTimeout(resolve, 1200));
+        const drawPromise = handleDraw({
+          prioritizeByServices: prioritizeStreaming,
+          prioritizeByServiceRank: useStreamingRank,
+          userStreamingServices,
+          ratingFilter: {
+            allowedRatings: selectedRatings,
+            includeUnknown: includeUnknownRatings,
+          },
+          genreFilter: {
+            allowedGenres: selectedDrawGenres,
+            includeUnknown: includeUnknownGenres,
+          },
+          runtimeFilter: {
+            minMinutes: runtimeMinMinutes,
+            maxMinutes: runtimeMaxMinutes,
+            includeUnknown: includeUnknownRuntime,
+          },
+        });
+
+        const [movie] = await Promise.all([drawPromise, minAnimationDelay]);
+        if (movie) {
+          const detailMovie = await buildDetailMovie(movie);
+          setDrawnMovie(detailMovie);
+        }
+      } finally {
+        setIsDrawing(false);
+      }
+    };
+
 return (
     <div className="bowl-dashboard page-container overflow-hidden pb-10 pt-4">
         <header className="mb-4 flex min-w-0 items-center justify-between">
@@ -486,51 +523,21 @@ return (
             <section className="panel my-3">
               <div className="mx-auto max-w-5xl">
                 <div className="panel-muted mx-auto flex max-w-2xl flex-col items-center gap-2.5 text-center md:flex-row md:justify-center md:gap-3">
-                  <DrawButton
-                    onClick={async () => {
-                      if (isDrawing || !canCurrentUserDraw) return;
-                      setIsDrawing(true);
-
-                      try {
-                        const minAnimationDelay = new Promise((resolve) => setTimeout(resolve, 1200));
-                        const drawPromise = handleDraw({
-                          prioritizeByServices: prioritizeStreaming,
-                          prioritizeByServiceRank: useStreamingRank,
-                          userStreamingServices,
-                          ratingFilter: {
-                            allowedRatings: selectedRatings,
-                            includeUnknown: includeUnknownRatings,
-                          },
-                          genreFilter: {
-                            allowedGenres: selectedDrawGenres,
-                            includeUnknown: includeUnknownGenres,
-                          },
-                          runtimeFilter: {
-                            minMinutes: runtimeMinMinutes,
-                            maxMinutes: runtimeMaxMinutes,
-                            includeUnknown: includeUnknownRuntime,
-                          },
-                        });
-
-                        const [movie] = await Promise.all([drawPromise, minAnimationDelay]);
-                        if (movie) {
-                          const detailMovie = await buildDetailMovie(movie);
-                          setDrawnMovie(detailMovie);
-                        }
-                      } finally {
-                        setIsDrawing(false);
-                      }
-                    }}
-                    isLoading={isDrawing}
-                    disabled={!canCurrentUserDraw || bowl.remaining.length === 0}
-                  />
                   <AddMovieButton
-                    variant="secondary"
+                    variant="primary"
                     disabled={isAddBlocked}
                     onClick={() => {
                       setAddGuardMessage(null);
                       setShowSearch(true);
                     }}
+                  />
+                  <DrawButton
+                    onClick={() => {
+                      if (isDrawing || !canCurrentUserDraw || bowl.remaining.length === 0) return;
+                      setShowDrawConfirm(true);
+                    }}
+                    isLoading={isDrawing}
+                    disabled={!canCurrentUserDraw || bowl.remaining.length === 0}
                   />
                 </div>
 
@@ -965,6 +972,34 @@ return (
             <ContributionStats
                 stats={contributionArray}
             />
+            {showDrawConfirm && (
+              <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 px-4">
+                <div className="panel w-full max-w-md">
+                  <h3 className="text-lg font-semibold text-slate-800">Reveal a movie?</h3>
+                  <p className="mt-2 text-sm text-slate-600">
+                    Drawing will reveal one hidden title from this bowl to everyone here.
+                  </p>
+                  <div className="mt-4 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setShowDrawConfirm(false)}
+                      className="btn btn-secondary"
+                      disabled={isDrawing}
+                    >
+                      Cancel
+                    </button>
+                    <button
+                      type="button"
+                      onClick={handleConfirmedDraw}
+                      className="btn btn-danger"
+                      disabled={isDrawing}
+                    >
+                      {isDrawing ? "Drawing..." : "Reveal Movie"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
             {drawnMovie && (
               <AddMovieModal
                 movie={drawnMovie}

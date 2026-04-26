@@ -125,6 +125,12 @@ function renderDashboard() {
   );
 }
 
+function confirmDraw() {
+  fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+  expect(screen.getByText(/reveal a movie\?/i)).toBeInTheDocument();
+  fireEvent.click(screen.getByRole("button", { name: /reveal movie/i }));
+}
+
 describe("BowlDashboard draw flow", () => {
   beforeEach(() => {
     mocks.state.navigate.mockReset();
@@ -183,7 +189,7 @@ describe("BowlDashboard draw flow", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     vi.useFakeTimers();
-    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    confirmDraw();
 
     expect(screen.getByText(/drawing a title from the bowl/i)).toBeInTheDocument();
     expect(screen.queryByText("Movie A (2020)")).not.toBeInTheDocument();
@@ -229,7 +235,7 @@ describe("BowlDashboard draw flow", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     vi.useFakeTimers();
-    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    confirmDraw();
 
     await act(async () => {
       vi.advanceTimersByTime(1200);
@@ -253,7 +259,7 @@ describe("BowlDashboard draw flow", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     vi.useFakeTimers();
-    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    confirmDraw();
 
     expect(screen.getByText(/drawing a title from the bowl/i)).toBeInTheDocument();
 
@@ -290,7 +296,7 @@ describe("BowlDashboard draw flow", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     vi.useFakeTimers();
-    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    confirmDraw();
     await act(async () => {
       vi.advanceTimersByTime(1200);
       await Promise.resolve();
@@ -332,7 +338,7 @@ describe("BowlDashboard draw flow", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     vi.useFakeTimers();
-    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    confirmDraw();
     await act(async () => {
       vi.advanceTimersByTime(1200);
       await Promise.resolve();
