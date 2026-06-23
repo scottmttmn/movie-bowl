@@ -4,6 +4,7 @@ import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { getDrawSelection } from "../utils/drawSelection";
+import { buildDrawOddsStats } from "../utils/drawBuckets";
 
 function createSyntheticTmdbId() {
   // Keep this within signed 32-bit range to avoid common integer column overflows.
@@ -26,17 +27,10 @@ function sortByAddedAtAscending(movies = []) {
   });
 }
 
-function sortByQueuedAtAscending(rows = []) {
-  return [...rows].sort((a, b) => {
-    const aTime = new Date(a?.queued_at || 0).getTime();
-    const bTime = new Date(b?.queued_at || 0).getTime();
-    return aTime - bTime;
-  });
-}
-
 function createLocalTempId() {
   return `temp:${Date.now()}:${Math.random().toString(36).slice(2, 9)}`;
 }
+
 // useBowl is the core state engine for a bowl.
 // It manages bowl state and defines how that state transitions (add + draw).
 
@@ -48,37 +42,17 @@ export default function useBowl(bowlId) {
     remaining: [],
     watched: [],
   });
-  const [queue, setQueue] = useState({
-    pending: [],
-    promoted: [],
-  });
 
   // Simple loading/error flags for DB-backed state.
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState(null);
-  const [queueMessage, setQueueMessage] = useState(null);
   const addRequestsInFlightRef = useRef(new Set());
 
-  // Contribution stats can be computed from DB-backed rows.
-  // For MVP we compute client-side; later this can be a SQL aggregate/view.
-  const contributions = useMemo(() => {
-    const counts = {};
-
-    // Count contributions across both remaining + watched.
-    [...(bowl.remaining || []), ...(bowl.watched || [])].forEach((m) => {
-      if (!m?.added_by) return;
-      // Use the adder's email as a temporary display label until we add display names.
-      const key = m.profiles?.email || m.added_by || "Unknown";
-      counts[key] = (counts[key] || 0) + 1;
-    });
-
-    return counts;
-  }, [bowl.remaining, bowl.watched]);
+  const drawOdds = useMemo(() => buildDrawOddsStats(bowl.remaining || []), [bowl.remaining]);
 
   const loadBowlMovies = useCallback(async () => {
     if (!bowlId) {
       setBowl({ remaining: [], watched: [] });
-      setQueue({ pending: [], promoted: [] });
       setIsLoading(false);
       return;
     }
@@ -92,7 +66,6 @@ export default function useBowl(bowlId) {
 
       if (authError || !user) {
         setBowl({ remaining: [], watched: [] });
-        setQueue({ pending: [], promoted: [] });
         return;
       }
 
@@ -147,36 +120,10 @@ export default function useBowl(bowlId) {
           watched: watched || [],
         };
       });
-
-      const { data: queuedRows, error: queueError } = await supabase
-        .from("bowl_movie_queue")
-        .select(
-          "id, bowl_id, queued_by, tmdb_id, title, poster_path, release_date, runtime, genres, overview, snapshot_at, queued_at, promoted_at, removed_at"
-        )
-        .eq("bowl_id", bowlId)
-        .eq("queued_by", user.id)
-        .is("removed_at", null)
-        .order("queued_at", { ascending: true });
-
-      if (queueError) {
-        const message = String(queueError?.message || "").toLowerCase();
-        const isMissingQueueTable = message.includes("bowl_movie_queue") && message.includes("does not exist");
-        if (!isMissingQueueTable) {
-          console.error("[useBowl] Failed to load queue rows", queueError);
-        }
-        setQueue({ pending: [], promoted: [] });
-      } else {
-        const rows = queuedRows || [];
-        setQueue({
-          pending: rows.filter((row) => !row.promoted_at),
-          promoted: rows.filter((row) => Boolean(row.promoted_at)),
-        });
-      }
     } catch (err) {
       console.error("[useBowl] Unexpected error loading bowl movies", err);
       setErrorMessage("Unexpected error loading bowl movies.");
       setBowl({ remaining: [], watched: [] });
-      setQueue({ pending: [], promoted: [] });
     } finally {
       setIsLoading(false);
     }
@@ -207,6 +154,7 @@ export default function useBowl(bowlId) {
       runtimeFilter: options.runtimeFilter,
       fetchProviders: (tmdbId) => fetchStreamingProviders(tmdbId, { region: "US" }),
       fetchMovieDetails: (tmdbId) => getTmdbMovieDetails(tmdbId),
+      randomFn: options.randomFn,
     });
     if (drawError) {
       setErrorMessage(drawError);
@@ -225,23 +173,12 @@ export default function useBowl(bowlId) {
       return null;
     }
 
-    const matchesDrawnMovie = (movie) => {
-      if (Number(drawn?.tmdb_id) > 0) {
-        return Number(movie?.tmdb_id) === Number(drawn.tmdb_id);
-      }
-      return String(movie?.title || "").trim() === String(drawn?.title || "").trim();
-    };
-
-    const matchingUndrawnRows = drawableRemaining.filter(matchesDrawnMovie);
-    const canonicalRow = matchingUndrawnRows[0] || drawn;
-    const duplicateRows = matchingUndrawnRows.slice(1);
-
     const { error: updateError } = await supabase
       .from("bowl_movies")
       .update({ drawn_at: new Date().toISOString(), drawn_by: user.id })
       .eq("bowl_id", bowlId)
       .is("drawn_at", null)
-      .eq("id", canonicalRow.id);
+      .eq("id", drawn.id);
 
     if (updateError) {
       console.error("[useBowl] Failed to draw movie", updateError);
@@ -253,25 +190,6 @@ export default function useBowl(bowlId) {
         setErrorMessage("You don't have permission to draw in this bowl.");
       }
       return null;
-    }
-
-    if (duplicateRows.length > 0) {
-      const duplicateIds = duplicateRows.map((movie) => movie.id).filter(Boolean);
-      if (duplicateIds.length > 0) {
-        const { error: deleteError } = await supabase
-          .from("bowl_movies")
-          .delete()
-          .eq("bowl_id", bowlId)
-          .is("drawn_at", null)
-          .in("id", duplicateIds);
-
-        if (deleteError) {
-          console.error("[useBowl] Failed to remove duplicate undrawn rows after draw", deleteError);
-          setErrorMessage("Could not finalize draw because duplicate cleanup failed.");
-          await loadBowlMovies();
-          return null;
-        }
-      }
     }
 
     // Reload after updating.
@@ -417,127 +335,6 @@ export default function useBowl(bowlId) {
     [bowlId, bowl.remaining]
   );
 
-  const handleQueueMovie = useCallback(
-    async (movie) => {
-      if (!bowlId) return false;
-      if (!movie?.title || !String(movie.title).trim()) return false;
-      const normalizedTitle = String(movie.title).trim().toLowerCase();
-      const movieTmdbId = Number.isInteger(movie?.id) ? movie.id : null;
-      const queueLockKey =
-        movieTmdbId && movieTmdbId > 0 ? `queue:tmdb:${movieTmdbId}` : `queue:custom:${normalizedTitle}`;
-
-      if (addRequestsInFlightRef.current.has(queueLockKey)) return false;
-      addRequestsInFlightRef.current.add(queueLockKey);
-      setQueueMessage(null);
-
-      try {
-        const { data: authData, error: authError } = await supabase.auth.getSession();
-        const user = authData?.session?.user;
-
-        if (authError || !user) {
-          console.error("[useBowl] Not authenticated", authError);
-          setErrorMessage("You must be signed in to queue movies.");
-          return false;
-        }
-
-        const nowIso = new Date().toISOString();
-        const genreNames = Array.isArray(movie?.genres)
-          ? movie.genres
-            .map((g) => (typeof g === "string" ? g : g?.name))
-            .filter(Boolean)
-          : [];
-
-        let payload = {
-          bowl_id: bowlId,
-          queued_by: user.id,
-          tmdb_id: movieTmdbId,
-          title: String(movie.title).trim(),
-          poster_path: movie.poster_path ?? null,
-          release_date: movie.release_date ?? null,
-          runtime: movie.runtime ?? null,
-          genres: genreNames,
-          overview: movie.overview ?? null,
-          snapshot_at: nowIso,
-        };
-
-        let { data, error } = await supabase
-          .from("bowl_movie_queue")
-          .insert([payload])
-          .select(
-            "id, bowl_id, queued_by, tmdb_id, title, poster_path, release_date, runtime, genres, overview, snapshot_at, queued_at, promoted_at, removed_at"
-          )
-          .single();
-
-        if (error && payload.tmdb_id == null) {
-          payload = {
-            ...payload,
-            tmdb_id: createSyntheticTmdbId(),
-          };
-          const retry = await supabase
-            .from("bowl_movie_queue")
-            .insert([payload])
-            .select(
-              "id, bowl_id, queued_by, tmdb_id, title, poster_path, release_date, runtime, genres, overview, snapshot_at, queued_at, promoted_at, removed_at"
-            )
-            .single();
-          data = retry.data;
-          error = retry.error;
-        }
-
-        if (error) {
-          console.error("[useBowl] Failed to queue movie", error);
-          setErrorMessage("Could not queue this movie. Please try again.");
-          return false;
-        }
-
-        setQueue((prev) => ({
-          ...prev,
-          pending: sortByQueuedAtAscending([...(prev.pending || []), data]),
-        }));
-        setQueueMessage("Added to your queue. It will auto-add when you're eligible.");
-        return true;
-      } finally {
-        addRequestsInFlightRef.current.delete(queueLockKey);
-      }
-    },
-    [bowlId]
-  );
-
-  const handleRemoveQueuedMovie = useCallback(
-    async (queueId) => {
-      if (!bowlId || !queueId) return false;
-
-      const { data: authData, error: authError } = await supabase.auth.getSession();
-      const user = authData?.session?.user;
-
-      if (authError || !user) {
-        console.error("[useBowl] Not authenticated", authError);
-        return false;
-      }
-
-      const { error } = await supabase
-        .from("bowl_movie_queue")
-        .delete()
-        .eq("id", queueId)
-        .eq("bowl_id", bowlId)
-        .eq("queued_by", user.id)
-        .is("promoted_at", null)
-        .is("removed_at", null);
-
-      if (error) {
-        console.error("[useBowl] Failed to remove queued movie", error);
-        return false;
-      }
-
-      setQueue((prev) => ({
-        ...prev,
-        pending: (prev.pending || []).filter((row) => row.id !== queueId),
-      }));
-      return true;
-    },
-    [bowlId]
-  );
-
   const handleDeleteMovie = useCallback(
     async (movieId) => {
       if (!bowlId || !movieId) return false;
@@ -632,16 +429,12 @@ export default function useBowl(bowlId) {
 
   return {
     bowl,
-    queue,
-    contributions,
+    drawOdds,
     isLoading,
     errorMessage,
-    queueMessage,
     reload: loadBowlMovies,
     handleDraw,
     handleAddMovie,
-    handleQueueMovie,
-    handleRemoveQueuedMovie,
     handleDeleteMovie,
     handleReaddMovie,
   };

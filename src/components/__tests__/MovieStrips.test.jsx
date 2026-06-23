@@ -48,31 +48,6 @@ describe("movie strip components", () => {
     expect(screen.getByRole("button", { name: /delete/i })).toBeDisabled();
   });
 
-  it("renders queued card variant and still forwards delete handler", () => {
-    const onViewMovie = vi.fn();
-    const onRemoveMovie = vi.fn();
-    const movies = [
-      { id: "q1", source: "queue", title: "Movie Pending", poster_path: "/pending.jpg", queued_at: "2026-03-06T00:00:00.000Z" },
-      { id: "q2", source: "queue", title: "Wildcard Queue", tmdb_id: null, poster_path: null },
-    ];
-
-    render(<MyMoviesStrip movies={movies} onViewMovie={onViewMovie} onDeleteMovie={onRemoveMovie} />);
-
-    fireEvent.click(screen.getAllByRole("button", { name: /details/i })[0]);
-    fireEvent.click(screen.getAllByRole("button", { name: /delete/i })[0]);
-
-    expect(screen.getByText(/Queued:/i)).toBeInTheDocument();
-    const queuedCard = screen.getAllByText(/Movie Pending/i)[0].closest("article");
-    expect(queuedCard).toHaveClass("border-red-900/80");
-    expect(queuedCard).toHaveClass("bg-red-950/30");
-    expect(screen.queryByText(/^Pending$/i)).not.toBeInTheDocument();
-    expect(screen.getAllByText("Custom").length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /details/i }).length).toBeGreaterThan(0);
-    expect(screen.getAllByRole("button", { name: /delete/i }).length).toBeGreaterThan(0);
-    expect(onViewMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "q1" }));
-    expect(onRemoveMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "q1" }));
-  });
-
   it("does not render pending badge for added items", () => {
     const movies = [
       { id: "a1", source: "added", title: "Added Title", added_at: "2026-03-06T00:00:00.000Z" },

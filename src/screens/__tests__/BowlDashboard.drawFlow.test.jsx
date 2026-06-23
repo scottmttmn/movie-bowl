@@ -7,19 +7,16 @@ const mocks = vi.hoisted(() => {
     bowlId: "bowl-1",
     navigate: vi.fn(),
     authUserId: "u1",
-    bowlRow: { name: "Bowl 1", owner_id: "u1", max_contribution_lead: null },
+    bowlRow: { name: "Bowl 1", owner_id: "u1" },
     memberRows: [{ user_id: "u1" }],
     bowlData: {
       remaining: [{ id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A", genres: ["Action"], runtime: 120 }],
       watched: [],
     },
-    contributions: { "owner@example.com": 1 },
-    queueData: { pending: [], promoted: [] },
+    drawOdds: [{ bucketKey: "user:u1", member: "owner@example.com", movieCount: 1, drawOdds: 1 }],
     handleDraw: vi.fn(),
     handleDeleteMovie: vi.fn(async () => true),
     handleReaddMovie: vi.fn(async () => true),
-    handleQueueMovie: vi.fn(async () => true),
-    handleRemoveQueuedMovie: vi.fn(async () => true),
     streamingServices: [],
     defaultDrawSettings: {
       prioritizeStreaming: false,
@@ -72,16 +69,12 @@ const mocks = vi.hoisted(() => {
 vi.mock("../../hooks/useBowl", () => ({
   default: () => ({
     bowl: mocks.state.bowlData,
-    contributions: mocks.state.contributions,
+    drawOdds: mocks.state.drawOdds,
     isLoading: false,
     errorMessage: null,
-    queueMessage: null,
-    queue: mocks.state.queueData,
     handleDraw: mocks.state.handleDraw,
     handleDeleteMovie: mocks.state.handleDeleteMovie,
     handleReaddMovie: mocks.state.handleReaddMovie,
-    handleQueueMovie: mocks.state.handleQueueMovie,
-    handleRemoveQueuedMovie: mocks.state.handleRemoveQueuedMovie,
     handleAddMovie: vi.fn(),
   }),
 }));
@@ -135,18 +128,15 @@ describe("BowlDashboard draw flow", () => {
   beforeEach(() => {
     mocks.state.navigate.mockReset();
     mocks.state.authUserId = "u1";
-    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", max_contribution_lead: null };
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1" };
     mocks.state.memberRows = [{ user_id: "u1" }];
     mocks.state.bowlData = {
       remaining: [{ id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A", genres: ["Action"], runtime: 120 }],
       watched: [],
     };
-    mocks.state.contributions = { "owner@example.com": 1 };
-    mocks.state.queueData = { pending: [], promoted: [] };
+    mocks.state.drawOdds = [{ bucketKey: "user:u1", member: "owner@example.com", movieCount: 1, drawOdds: 1 }];
     mocks.state.handleDeleteMovie.mockClear();
     mocks.state.handleReaddMovie.mockClear();
-    mocks.state.handleQueueMovie.mockClear();
-    mocks.state.handleRemoveQueuedMovie.mockClear();
     mocks.state.handleDraw.mockReset();
     mocks.state.streamingServices = [];
     mocks.state.defaultDrawSettings = {

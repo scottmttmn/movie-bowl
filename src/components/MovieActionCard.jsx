@@ -2,7 +2,6 @@ export default function MovieActionCard({
   movie,
   dateLabelPrefix,
   dateValue,
-  variant = "default",
   primaryActionLabel = "Details",
   secondaryActionLabel,
   onPrimaryAction,
@@ -19,14 +18,9 @@ export default function MovieActionCard({
   const isSyncing = movie.local_status === "syncing";
   const disableActions = disableWhileSyncing && isSyncing;
 
-  const cardToneClass =
-    variant === "queued" ? "border-red-900/80 bg-red-950/30" : "border-slate-700 bg-slate-900";
-
   return (
     <article
-      className={`w-32 flex-shrink-0 rounded-xl border p-2 ${
-        cardToneClass
-      } ${
+      className={`w-32 flex-shrink-0 rounded-xl border border-slate-700 bg-slate-900 p-2 ${
         isSyncing ? "opacity-80" : ""
       }`}
     >

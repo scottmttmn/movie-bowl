@@ -7,19 +7,16 @@ const mocks = vi.hoisted(() => {
     bowlId: "bowl-1",
     navigate: vi.fn(),
     authUserId: "u1",
-    bowlRow: { name: "Bowl 1", owner_id: "u1", max_contribution_lead: null },
+    bowlRow: { name: "Bowl 1", owner_id: "u1" },
     memberRows: [{ user_id: "u1" }, { user_id: "u2" }],
     bowlData: {
       remaining: [{ id: "m1", added_by: "u2", tmdb_id: 101, title: "Movie A", runtime: 180, genres: ["Action"] }],
       watched: [],
     },
-    contributions: { "member@example.com": 1 },
-    queueData: { pending: [], promoted: [] },
+    drawOdds: [{ bucketKey: "user:u2", member: "member@example.com", movieCount: 1, drawOdds: 1 }],
     handleDraw: vi.fn(async () => null),
     handleDeleteMovie: vi.fn(async () => true),
     handleReaddMovie: vi.fn(async () => true),
-    handleQueueMovie: vi.fn(async () => true),
-    handleRemoveQueuedMovie: vi.fn(async () => true),
     streamingServices: ["Hulu"],
   };
 
@@ -56,16 +53,12 @@ const mocks = vi.hoisted(() => {
 vi.mock("../../hooks/useBowl", () => ({
   default: () => ({
     bowl: mocks.state.bowlData,
-    contributions: mocks.state.contributions,
+    drawOdds: mocks.state.drawOdds,
     isLoading: false,
     errorMessage: null,
-    queueMessage: null,
-    queue: mocks.state.queueData,
     handleDraw: mocks.state.handleDraw,
     handleDeleteMovie: mocks.state.handleDeleteMovie,
     handleReaddMovie: mocks.state.handleReaddMovie,
-    handleQueueMovie: mocks.state.handleQueueMovie,
-    handleRemoveQueuedMovie: mocks.state.handleRemoveQueuedMovie,
     handleAddMovie: vi.fn(),
   }),
 }));
@@ -122,9 +115,6 @@ function confirmDraw() {
 describe("BowlDashboard runtime filters", () => {
   beforeEach(() => {
     mocks.state.handleDraw.mockClear();
-    mocks.state.handleQueueMovie.mockClear();
-    mocks.state.handleRemoveQueuedMovie.mockClear();
-    mocks.state.queueData = { pending: [], promoted: [] };
     vi.useRealTimers();
   });
 

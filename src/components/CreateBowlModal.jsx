@@ -2,10 +2,8 @@ export default function CreateBowlModal({
   isOpen,
   bowlName,
   inviteEmails,
-  maxContributionLead,
   onChangeBowlName,
   onChangeInviteEmails,
-  onChangeMaxContributionLead,
   onCreate,
   onClose,
 }) {
@@ -38,20 +36,6 @@ export default function CreateBowlModal({
           placeholder="friend1@example.com, friend2@example.com"
           value={inviteEmails}
           onChange={(e) => onChangeInviteEmails(e.target.value)}
-        />
-        <label htmlFor="new-bowl-max-contribution-lead" className="mb-1 block text-sm font-medium text-slate-300">
-          Max contribution lead (optional)
-        </label>
-        <input
-          id="new-bowl-max-contribution-lead"
-          name="new_bowl_max_contribution_lead"
-          type="number"
-          min="1"
-          step="1"
-          className="input-field mb-4"
-          placeholder="Leave blank for no limit"
-          value={maxContributionLead}
-          onChange={(e) => onChangeMaxContributionLead(e.target.value)}
         />
         <div className="flex justify-end space-x-3">
           <button className="btn btn-secondary" onClick={onClose}>

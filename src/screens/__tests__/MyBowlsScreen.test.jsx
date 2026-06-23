@@ -363,7 +363,7 @@ describe("MyBowlsScreen", () => {
     expect(screen.getByText(/owned by you/i)).toBeInTheDocument();
   });
 
-  it("creates a bowl with optional contribution limit and invites", async () => {
+  it("creates a bowl with invites", async () => {
     mocks.state.initialAuthenticated = true;
 
     render(<MyBowlsScreen />);
@@ -375,9 +375,6 @@ describe("MyBowlsScreen", () => {
     fireEvent.change(screen.getByLabelText(/invite emails \(optional\)/i), {
       target: { value: "friend@example.com" },
     });
-    fireEvent.change(screen.getByLabelText(/max contribution lead \(optional\)/i), {
-      target: { value: "2" },
-    });
     fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
 
     await waitFor(() => expect(screen.queryByText(/start your first movie bowl/i)).not.toBeInTheDocument());
@@ -386,8 +383,12 @@ describe("MyBowlsScreen", () => {
     expect(mocks.state.insertedBowls[0][0]).toMatchObject({
       owner_id: "u1",
       name: "Weekend Bowl",
-      max_contribution_lead: 2,
     });
+    expect(Object.keys(mocks.state.insertedBowls[0][0])).toEqual([
+      "owner_id",
+      "name",
+      "draw_access_mode",
+    ]);
     expect(mocks.state.insertedMembers[0][0]).toMatchObject({
       bowl_id: "bowl-1",
       user_id: "u1",

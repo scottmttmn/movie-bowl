@@ -6,7 +6,7 @@ import MyMoviesStrip from "../components/MyMoviesStrip";
 import AddMovieButton from "../components/AddMovieButton";
 import FilterChipSelect from "../components/FilterChipSelect";
 import BowlIllustration from "../components/BowlIllustration";
-import ContributionStats from "../components/ContributionStats";
+import DrawOddsStats from "../components/DrawOddsStats";
 import useBowl from "../hooks/useBowl";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import AddMovieModal from "../components/AddMovieModal";
@@ -16,7 +16,6 @@ import { supabase } from "../lib/supabase";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { launchPreferredStreamingApp } from "../lib/rokuApi";
-import { checkContributionBalance } from "../utils/contributionBalance";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 import { matchUserServices } from "../utils/streamingServices";
@@ -36,15 +35,11 @@ export default function BowlDashboard() {
     const { bowlId } = useParams();
     const {
       bowl,
-      queue,
-      contributions,
+      drawOdds,
       isLoading,
       errorMessage,
-      queueMessage,
       handleDraw,
       handleAddMovie,
-      handleQueueMovie,
-      handleRemoveQueuedMovie,
       handleDeleteMovie,
       handleReaddMovie,
     } = useBowl(bowlId);
@@ -75,7 +70,6 @@ export default function BowlDashboard() {
     const [drawAllowedUserIds, setDrawAllowedUserIds] = useState([]);
     const [currentUserId, setCurrentUserId] = useState(null);
     const [memberIds, setMemberIds] = useState([]);
-    const [maxContributionLead, setMaxContributionLead] = useState(null);
     const [addGuardMessage, setAddGuardMessage] = useState(null);
     const [myMoviesErrorMessage, setMyMoviesErrorMessage] = useState(null);
     const [readdErrorMessage, setReaddErrorMessage] = useState(null);
@@ -97,25 +91,7 @@ export default function BowlDashboard() {
     } = useRokuDevice();
 
     const navigate = useNavigate();
-    
-    const contributionArray = Object.entries(contributions || {}).map(
-      ([member, totalAdded]) => ({
-        member,
-        totalAdded,
-      })
-    );
 
-    const addBalance = useMemo(() => {
-      if (maxContributionLead === null) return null;
-      return checkContributionBalance({
-        movies: [...(bowl.remaining || []), ...(bowl.watched || [])],
-        memberIds,
-        userId: currentUserId,
-        maxLead: maxContributionLead,
-      });
-    }, [bowl.remaining, bowl.watched, memberIds, currentUserId, maxContributionLead]);
-
-    const isAddBlockedByContributionLimit = Boolean(maxContributionLead !== null && addBalance && !addBalance.allowed);
     const isAddBlockedByUndrawnLimit = (bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL;
     const isAddBlocked = isAddBlockedByUndrawnLimit;
     const isCurrentUserOwner = Boolean(currentUserId && bowlOwnerId && currentUserId === bowlOwnerId);
@@ -140,17 +116,13 @@ export default function BowlDashboard() {
       () => (bowl.remaining || []).filter((movie) => movie.added_by === currentUserId),
       [bowl.remaining, currentUserId]
     );
-    const myMovies = useMemo(() => {
-      const pendingMovies = (queue.pending || []).map((movie) => ({
-        ...movie,
-        source: "queue",
-      }));
-      const addedMovies = myRemainingAdds.map((movie) => ({
+    const myMovies = useMemo(
+      () => myRemainingAdds.map((movie) => ({
         ...movie,
         source: "added",
-      }));
-      return [...pendingMovies, ...addedMovies];
-    }, [queue.pending, myRemainingAdds]);
+      })),
+      [myRemainingAdds]
+    );
     const availableDrawGenres = useMemo(() => {
       const genreSet = new Set();
       (bowl.remaining || []).forEach((movie) => {
@@ -298,14 +270,14 @@ export default function BowlDashboard() {
 
         let { data, error } = await supabase
           .from("bowls")
-          .select("name, owner_id, max_contribution_lead, draw_access_mode")
+          .select("name, owner_id, draw_access_mode")
           .eq("id", bowlId)
           .single();
 
         if (error && isMissingDrawAccessColumn(error)) {
           const fallback = await supabase
             .from("bowls")
-            .select("name, owner_id, max_contribution_lead")
+            .select("name, owner_id")
             .eq("id", bowlId)
             .single();
           data = fallback.data;
@@ -365,12 +337,6 @@ export default function BowlDashboard() {
           data?.draw_access_mode === DRAW_ACCESS_MODE_SELECTED
             ? DRAW_ACCESS_MODE_SELECTED
             : DRAW_ACCESS_MODE_ALL
-        );
-        const loadedLead = Number(data?.max_contribution_lead);
-        setMaxContributionLead(
-          Number.isInteger(loadedLead) && loadedLead >= 1
-            ? loadedLead
-            : null
         );
       };
 
@@ -837,21 +803,8 @@ return (
                     Add services in Settings to enable prioritized draw.
                   </p>
                 )}
-                {maxContributionLead !== null && (
-                  <p className="mt-2 text-center text-xs text-slate-400">
-                    Contribution lead limit: {maxContributionLead}
-                  </p>
-                )}
                 {addGuardMessage && (
                   <p className="mt-2 text-center text-sm text-amber-700">{addGuardMessage}</p>
-                )}
-                {isAddBlockedByContributionLimit && (
-                  <p className="mt-2 text-center text-sm text-amber-700">
-                    You are at {addBalance.myCount} contributions and the lowest active member is at {addBalance.minCount}. New adds will go to your queue until you're eligible.
-                  </p>
-                )}
-                {queueMessage && (
-                  <p className="mt-2 text-center text-sm text-emerald-700">{queueMessage}</p>
                 )}
                 {isAddBlockedByUndrawnLimit && (
                   <p className="mt-2 text-center text-sm text-amber-700">
@@ -879,7 +832,7 @@ return (
               <div className="flex items-center justify-between gap-3">
                 <div className="text-left">
                   <h3 className="section-title text-base">My Movies</h3>
-                  <p className="text-xs text-slate-500">Pending queue items appear first.</p>
+                  <p className="text-xs text-slate-500">Your undrawn picks in this bowl.</p>
                 </div>
                 <button
                   type="button"
@@ -898,19 +851,11 @@ return (
                     <MyMoviesStrip
                       movies={myMovies}
                       onViewMovie={async (movie) => {
-                        setSelectedDetailContext(movie.source === "queue" ? "queue" : "myAdds");
+                        setSelectedDetailContext("myAdds");
                         setSelectedDetailMovie(await buildDetailMovie(movie));
                       }}
                       onDeleteMovie={async (movie) => {
                         setMyMoviesErrorMessage(null);
-                        if (movie.source === "queue") {
-                          const removed = await handleRemoveQueuedMovie(movie.id);
-                          if (!removed) {
-                            setMyMoviesErrorMessage("Could not delete this queued movie.");
-                          }
-                          return;
-                        }
-
                         const shouldDelete = window.confirm(`Delete "${movie.title}" from this bowl?`);
                         if (!shouldDelete) return;
                         const deleted = await handleDeleteMovie(movie.id);
@@ -939,27 +884,6 @@ return (
                       return;
                     }
 
-                    if (maxContributionLead !== null) {
-                      const balance = checkContributionBalance({
-                        movies: [...(bowl.remaining || []), ...(bowl.watched || [])],
-                        memberIds,
-                        userId: currentUserId,
-                        maxLead: maxContributionLead,
-                      });
-
-                      if (!balance.allowed) {
-                        const queued = await handleQueueMovie(movie);
-                        if (queued) {
-                          setShowSearch(false);
-                        } else {
-                          setAddGuardMessage(
-                            `You are at ${balance.myCount} contributions and the lowest active member is at ${balance.minCount}.`
-                          );
-                        }
-                        return;
-                      }
-                    }
-
                     const added = await handleAddMovie(movie);
                     if (added) {
                       setShowSearch(false);
@@ -969,9 +893,7 @@ return (
               )}
             </div>
 
-            <ContributionStats
-                stats={contributionArray}
-            />
+            <DrawOddsStats stats={drawOdds || []} />
             {showDrawConfirm && (
               <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 px-4">
                 <div className="panel w-full max-w-md">

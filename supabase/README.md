@@ -41,10 +41,10 @@ supabase db push
 
 Avoid dashboard-only schema/policy changes. If an emergency dashboard edit happens, immediately backfill it into a migration file and commit.
 
-## Queue removal policy note
+## Legacy queue table note
 
-`public.bowl_movie_queue` user removals are canonical hard deletes (`DELETE`), not `UPDATE removed_at`.
-The `removed_at` column remains for compatibility with older rows/queries.
+`public.bowl_movie_queue` remains for compatibility with older migrations and rows, but active app code no longer writes to it.
+The equal-probability contributor draw migration promotes pending queue rows into `public.bowl_movies`.
 
 ## Public add links note
 

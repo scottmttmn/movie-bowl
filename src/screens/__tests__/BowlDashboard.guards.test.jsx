@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => {
     bowlId: "bowl-1",
     navigate: vi.fn(),
     authUserId: "u1",
-    bowlRow: { name: "Bowl 1", owner_id: "u1", max_contribution_lead: 1, draw_access_mode: "all_members" },
+    bowlRow: { name: "Bowl 1", owner_id: "u1", draw_access_mode: "all_members" },
     memberRows: [{ user_id: "u1" }, { user_id: "u2" }],
     drawPermissionRows: [],
     bowlData: {
@@ -19,14 +19,11 @@ const mocks = vi.hoisted(() => {
       ],
       watched: [],
     },
-    contributions: { "owner@example.com": 4 },
-    queueData: { pending: [], promoted: [] },
+    drawOdds: [{ bucketKey: "user:u1", member: "owner@example.com", movieCount: 4, drawOdds: 1 }],
     handleDraw: vi.fn(async () => null),
     handleAddMovie: vi.fn(async () => true),
     handleDeleteMovie: vi.fn(async () => true),
     handleReaddMovie: vi.fn(async () => true),
-    handleQueueMovie: vi.fn(async () => true),
-    handleRemoveQueuedMovie: vi.fn(async () => true),
     streamingServices: [],
   };
 
@@ -70,17 +67,13 @@ const mocks = vi.hoisted(() => {
 vi.mock("../../hooks/useBowl", () => ({
   default: () => ({
     bowl: mocks.state.bowlData,
-    contributions: mocks.state.contributions,
+    drawOdds: mocks.state.drawOdds,
     isLoading: false,
     errorMessage: null,
-    queueMessage: null,
-    queue: mocks.state.queueData,
     handleDraw: mocks.state.handleDraw,
     handleAddMovie: mocks.state.handleAddMovie,
     handleDeleteMovie: mocks.state.handleDeleteMovie,
     handleReaddMovie: mocks.state.handleReaddMovie,
-    handleQueueMovie: mocks.state.handleQueueMovie,
-    handleRemoveQueuedMovie: mocks.state.handleRemoveQueuedMovie,
   }),
 }));
 
@@ -137,7 +130,7 @@ describe("BowlDashboard guards", () => {
   beforeEach(() => {
     mocks.state.navigate.mockReset();
     mocks.state.authUserId = "u1";
-    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", max_contribution_lead: 1, draw_access_mode: "all_members" };
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", draw_access_mode: "all_members" };
     mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
     mocks.state.drawPermissionRows = [];
     mocks.state.bowlData = {
@@ -149,12 +142,9 @@ describe("BowlDashboard guards", () => {
       ],
       watched: [],
     };
-    mocks.state.contributions = { "owner@example.com": 4 };
-    mocks.state.queueData = { pending: [], promoted: [] };
+    mocks.state.drawOdds = [{ bucketKey: "user:u1", member: "owner@example.com", movieCount: 4, drawOdds: 1 }];
     mocks.state.handleReaddMovie.mockClear();
     mocks.state.handleAddMovie.mockClear();
-    mocks.state.handleQueueMovie.mockClear();
-    mocks.state.handleRemoveQueuedMovie.mockClear();
     mocks.state.streamingServices = [];
     mocks.getTmdbMovieDetails.mockReset();
     mocks.getTmdbMovieDetails.mockResolvedValue({});
@@ -164,18 +154,19 @@ describe("BowlDashboard guards", () => {
     cleanup();
   });
 
-  it("keeps Add Movie enabled when user is over the contribution lead limit", async () => {
+  it("keeps Add Movie enabled and shows draw odds instead of lead warnings", async () => {
     renderDashboard();
 
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     expect(screen.getByRole("button", { name: /\+ add movie/i })).toBeEnabled();
-    expect(
-      screen.getByText(/you are at 4 contributions and the lowest active member is at 0/i)
-    ).toBeInTheDocument();
+    expect(screen.queryByText(/lowest active member/i)).not.toBeInTheDocument();
+    expect(screen.getAllByText("Draw Odds").length).toBeGreaterThan(0);
+    expect(screen.getByText("owner@example.com")).toBeInTheDocument();
+    expect(screen.getByText("100%")).toBeInTheDocument();
   });
 
-  it("queues a custom add when blocked by contribution limit", async () => {
+  it("adds a custom movie directly", async () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
@@ -184,34 +175,22 @@ describe("BowlDashboard guards", () => {
     fireEvent.click(screen.getByRole("button", { name: /add "wildcard night"/i }));
 
     await waitFor(() => {
-      expect(mocks.state.handleQueueMovie).toHaveBeenCalledWith(
+      expect(mocks.state.handleAddMovie).toHaveBeenCalledWith(
         expect.objectContaining({
           title: "Wildcard Night",
         })
       );
     });
-    expect(mocks.state.handleAddMovie).not.toHaveBeenCalled();
   });
 
-  it("shows pending queue cards in My Movies, hides promoted rows, and allows deleting a queued movie", async () => {
+  it("shows only current user's undrawn picks in My Movies", async () => {
     mocks.state.memberRows = [{ user_id: "u1" }];
-    mocks.state.bowlData = { remaining: [], watched: [] };
-    mocks.state.contributions = {};
-    mocks.state.queueData = {
-      pending: [
-        {
-          id: "q1",
-          title: "Movie Pending",
-          queued_at: "2026-03-06T12:00:00.000Z",
-        },
+    mocks.state.bowlData = {
+      remaining: [
+        { id: "m1", title: "My Movie", added_by: "u1", added_at: "2026-03-06T12:00:00.000Z" },
+        { id: "m2", title: "Friend Movie", added_by: "u2", added_at: "2026-03-06T12:10:00.000Z" },
       ],
-      promoted: [
-        {
-          id: "q2",
-          title: "Movie Done",
-          promoted_at: "2026-03-06T12:10:00.000Z",
-        },
-      ],
+      watched: [],
     };
 
     renderDashboard();
@@ -220,18 +199,11 @@ describe("BowlDashboard guards", () => {
     const myMoviesSection = screen.getByRole("heading", { name: /my movies/i }).closest("section");
     expect(myMoviesSection).toBeTruthy();
     fireEvent.click(within(myMoviesSection).getByRole("button", { name: /^show$/i }));
-    expect(screen.getAllByText(/movie pending/i).length).toBeGreaterThan(0);
-    const pendingCard = screen.getAllByText(/movie pending/i)[0].closest("article");
-    expect(pendingCard).toHaveClass("border-red-900/80");
-    expect(pendingCard).toHaveClass("bg-red-950/30");
-    expect(screen.queryByText(/^pending$/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/movie done/i)).not.toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /delete/i }));
-    await waitFor(() => expect(mocks.state.handleRemoveQueuedMovie).toHaveBeenCalledWith("q1"));
+    expect(screen.getAllByText(/^My Movie$/i).length).toBeGreaterThan(0);
+    expect(screen.queryByText(/friend movie/i)).not.toBeInTheDocument();
   });
 
-  it("keeps pending items first and routes delete to bowl delete for added items", async () => {
+  it("routes My Movies delete to bowl delete for added items", async () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     mocks.state.memberRows = [{ user_id: "u1" }];
     mocks.state.bowlData = {
@@ -239,17 +211,6 @@ describe("BowlDashboard guards", () => {
         { id: "m-added-1", title: "Added Movie", added_by: "u1", added_at: "2026-03-06T12:30:00.000Z" },
       ],
       watched: [],
-    };
-    mocks.state.contributions = {};
-    mocks.state.queueData = {
-      pending: [
-        {
-          id: "q-pending-1",
-          title: "Pending Movie",
-          queued_at: "2026-03-06T12:00:00.000Z",
-        },
-      ],
-      promoted: [],
     };
 
     renderDashboard();
@@ -260,24 +221,19 @@ describe("BowlDashboard guards", () => {
     fireEvent.click(within(myMoviesSection).getByRole("button", { name: /^show$/i }));
 
     const cards = myMoviesSection.querySelectorAll("article");
-    expect(cards.length).toBe(2);
-    expect(cards[0].textContent).toMatch(/pending/i);
-    expect(cards[1].textContent).not.toMatch(/pending/i);
+    expect(cards.length).toBe(1);
 
     const deleteButtons = within(myMoviesSection).getAllByRole("button", { name: /delete/i });
-    fireEvent.click(deleteButtons[1]);
+    fireEvent.click(deleteButtons[0]);
 
     await waitFor(() => expect(mocks.state.handleDeleteMovie).toHaveBeenCalledWith("m-added-1"));
     expect(confirmSpy).toHaveBeenCalledWith('Delete "Added Movie" from this bowl?');
-    expect(mocks.state.handleRemoveQueuedMovie).not.toHaveBeenCalledWith("m-added-1");
     confirmSpy.mockRestore();
   });
 
   it("keeps Add Movie enabled when only one active member exists", async () => {
     mocks.state.memberRows = [{ user_id: "u1" }];
     mocks.state.bowlData = { remaining: [], watched: [] };
-    mocks.state.contributions = {};
-
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
@@ -293,8 +249,6 @@ describe("BowlDashboard guards", () => {
       })),
       watched: [],
     };
-    mocks.state.contributions = {};
-
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
@@ -316,8 +270,6 @@ describe("BowlDashboard guards", () => {
         },
       ],
     };
-    mocks.state.contributions = {};
-
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
@@ -352,7 +304,6 @@ describe("BowlDashboard guards", () => {
         },
       ],
     };
-    mocks.state.contributions = {};
     mocks.getTmdbMovieDetails.mockResolvedValue({
       runtime: 123,
       trailer: {
@@ -398,7 +349,6 @@ describe("BowlDashboard guards", () => {
         },
       ],
     };
-    mocks.state.contributions = {};
     mocks.getTmdbMovieDetails.mockResolvedValue({
       id: 238,
       runtime: 123,
@@ -424,12 +374,10 @@ describe("BowlDashboard guards", () => {
 
   it("disables draw for a non-selected member in selected-members mode", async () => {
     mocks.state.authUserId = "u2";
-    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", max_contribution_lead: null, draw_access_mode: "selected_members" };
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", draw_access_mode: "selected_members" };
     mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
     mocks.state.drawPermissionRows = [{ user_id: "u3" }];
     mocks.state.bowlData = { remaining: [{ id: "m1", added_by: "u1" }], watched: [] };
-    mocks.state.contributions = {};
-
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
@@ -439,12 +387,10 @@ describe("BowlDashboard guards", () => {
 
   it("allows draw for selected member in selected-members mode", async () => {
     mocks.state.authUserId = "u2";
-    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", max_contribution_lead: null, draw_access_mode: "selected_members" };
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", draw_access_mode: "selected_members" };
     mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
     mocks.state.drawPermissionRows = [{ user_id: "u2" }];
     mocks.state.bowlData = { remaining: [{ id: "m1", added_by: "u1" }], watched: [] };
-    mocks.state.contributions = {};
-
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
@@ -453,12 +399,10 @@ describe("BowlDashboard guards", () => {
 
   it("owner can draw in selected-members mode even if not listed", async () => {
     mocks.state.authUserId = "u1";
-    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", max_contribution_lead: null, draw_access_mode: "selected_members" };
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", draw_access_mode: "selected_members" };
     mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
     mocks.state.drawPermissionRows = [];
     mocks.state.bowlData = { remaining: [{ id: "m1", added_by: "u2" }], watched: [] };
-    mocks.state.contributions = {};
-
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
@@ -467,12 +411,10 @@ describe("BowlDashboard guards", () => {
 
   it("keeps draw enabled for members in all-members mode", async () => {
     mocks.state.authUserId = "u2";
-    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", max_contribution_lead: null, draw_access_mode: "all_members" };
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", draw_access_mode: "all_members" };
     mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
     mocks.state.drawPermissionRows = [];
     mocks.state.bowlData = { remaining: [{ id: "m1", added_by: "u1" }], watched: [] };
-    mocks.state.contributions = {};
-
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 

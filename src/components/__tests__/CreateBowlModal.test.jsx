@@ -13,10 +13,8 @@ describe("CreateBowlModal", () => {
         isOpen={false}
         bowlName=""
         inviteEmails=""
-        maxContributionLead=""
         onChangeBowlName={vi.fn()}
         onChangeInviteEmails={vi.fn()}
-        onChangeMaxContributionLead={vi.fn()}
         onCreate={vi.fn()}
         onClose={vi.fn()}
       />
@@ -28,17 +26,14 @@ describe("CreateBowlModal", () => {
   it("renders values and forwards field changes", () => {
     const onChangeBowlName = vi.fn();
     const onChangeInviteEmails = vi.fn();
-    const onChangeMaxContributionLead = vi.fn();
 
     render(
       <CreateBowlModal
         isOpen
         bowlName="Friday Bowl"
         inviteEmails="friend@example.com"
-        maxContributionLead="2"
         onChangeBowlName={onChangeBowlName}
         onChangeInviteEmails={onChangeInviteEmails}
-        onChangeMaxContributionLead={onChangeMaxContributionLead}
         onCreate={vi.fn()}
         onClose={vi.fn()}
       />
@@ -46,11 +41,9 @@ describe("CreateBowlModal", () => {
 
     fireEvent.change(screen.getByPlaceholderText("Bowl Name"), { target: { value: "Weekend Bowl" } });
     fireEvent.change(screen.getByLabelText(/invite emails \(optional\)/i), { target: { value: "a@example.com" } });
-    fireEvent.change(screen.getByLabelText(/max contribution lead \(optional\)/i), { target: { value: "3" } });
 
     expect(onChangeBowlName).toHaveBeenCalledWith("Weekend Bowl");
     expect(onChangeInviteEmails).toHaveBeenCalledWith("a@example.com");
-    expect(onChangeMaxContributionLead).toHaveBeenCalledWith("3");
   });
 
   it("calls create on button click and enter key, and cancel on close", () => {
@@ -62,10 +55,8 @@ describe("CreateBowlModal", () => {
         isOpen
         bowlName="Friday Bowl"
         inviteEmails=""
-        maxContributionLead=""
         onChangeBowlName={vi.fn()}
         onChangeInviteEmails={vi.fn()}
-        onChangeMaxContributionLead={vi.fn()}
         onCreate={onCreate}
         onClose={onClose}
       />

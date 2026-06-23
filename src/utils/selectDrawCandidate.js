@@ -1,4 +1,5 @@
 import { matchUserServices, normalizeStreamingServices } from "./streamingServices";
+import { getContributorBucketKey } from "./drawBuckets";
 
 export async function selectDrawCandidate(
   remainingMovies,
@@ -26,6 +27,19 @@ export async function selectDrawCandidate(
     const index = Math.floor(randomFn() * items.length);
     return items[index];
   };
+  const pickRandomByContributor = (items) => {
+    const buckets = new Map();
+    items.forEach((item) => {
+      const movie = item?.movie || item;
+      const bucketKey = getContributorBucketKey(movie);
+      if (!buckets.has(bucketKey)) buckets.set(bucketKey, []);
+      buckets.get(bucketKey).push(item);
+    });
+
+    const bucketList = Array.from(buckets.values()).filter((bucket) => bucket.length > 0);
+    const bucket = pickRandom(bucketList);
+    return pickRandom(bucket);
+  };
   const getProvidersForMovie = async (movie) => {
     const tmdbId = Number(movie?.tmdb_id);
     if (!Number.isFinite(tmdbId) || tmdbId <= 0) {
@@ -35,7 +49,7 @@ export async function selectDrawCandidate(
   };
 
   if (!canPrioritize) {
-    const movie = pickRandom(remainingMovies);
+    const movie = pickRandomByContributor(remainingMovies);
     const providerData = await getProvidersForMovie(movie);
     return {
       movie,
@@ -90,5 +104,5 @@ export async function selectDrawCandidate(
     return rankedCandidates.filter((candidate) => candidate.bestRank === topRank);
   })();
 
-  return pickRandom(drawPool);
+  return pickRandomByContributor(drawPool);
 }

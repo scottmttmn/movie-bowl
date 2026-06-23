@@ -37,7 +37,6 @@ const mocks = vi.hoisted(() => {
       deleteBowlMembers: null,
       deleteBowl: null,
       verifyMembership: null,
-      refreshQueuePromotions: null,
     },
     sendInviteEmailsResult: { sent: 1, failed: 0, results: [{ email: "newfriend@example.com", ok: true }], error: null },
   };
@@ -315,15 +314,7 @@ const mocks = vi.hoisted(() => {
 
       return query;
     }),
-    rpc: vi.fn(async (fnName) => {
-      if (fnName === "refresh_bowl_queue_promotions") {
-        if (state.errors.refreshQueuePromotions) {
-          return { data: null, error: state.errors.refreshQueuePromotions };
-        }
-        return { data: 0, error: null };
-      }
-      return { data: null, error: null };
-    }),
+    rpc: vi.fn(async () => ({ data: null, error: null })),
   };
 
   return { state, supabase };
@@ -652,12 +643,11 @@ describe("BowlSettings integration", () => {
     ).toBeInTheDocument();
   });
 
-  it("allows owner to update bowl name and contribution lead", async () => {
+  it("allows owner to update bowl name", async () => {
     mocks.state.bowl = {
       id: "bowl-1",
       name: "Bowl 1",
       owner_id: "owner-1",
-      max_contribution_lead: 1,
       draw_access_mode: "all_members",
     };
 
@@ -670,9 +660,6 @@ describe("BowlSettings integration", () => {
     fireEvent.change(screen.getByDisplayValue("Bowl 1"), {
       target: { value: "Renamed Bowl" },
     });
-    fireEvent.change(screen.getByLabelText(/max contribution lead/i), {
-      target: { value: "3" },
-    });
     fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
 
     await waitFor(() => {
@@ -683,44 +670,10 @@ describe("BowlSettings integration", () => {
       expect.arrayContaining([
         expect.objectContaining({
           name: "Renamed Bowl",
-          max_contribution_lead: 3,
         }),
       ])
     );
-    expect(mocks.supabase.rpc).toHaveBeenCalledWith("refresh_bowl_queue_promotions", {
-      p_bowl_id: "bowl-1",
-    });
-  });
-
-  it("shows a non-blocking warning when queue refresh rpc is missing", async () => {
-    mocks.state.bowl = {
-      id: "bowl-1",
-      name: "Bowl 1",
-      owner_id: "owner-1",
-      max_contribution_lead: 2,
-      draw_access_mode: "all_members",
-    };
-    mocks.state.errors.refreshQueuePromotions = {
-      code: "42883",
-      message: 'function refresh_bowl_queue_promotions(uuid) does not exist',
-    };
-
-    render(<BowlSettings />);
-
-    await waitFor(() => {
-      expect(screen.getByDisplayValue("Bowl 1")).toBeInTheDocument();
-    });
-
-    fireEvent.change(screen.getByLabelText(/max contribution lead/i), {
-      target: { value: "" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/queue refresh is unavailable until the latest database migration is applied/i)
-      ).toBeInTheDocument();
-    });
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled();
   });
 
   it("shows draw access controls for owner and defaults to everyone", async () => {

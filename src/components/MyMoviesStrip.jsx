@@ -8,14 +8,13 @@ export default function MyMoviesStrip({ movies, onViewMovie, onDeleteMovie }) {
           <MovieActionCard
             key={`${movie.source}:${movie.id}`}
             movie={movie}
-            dateLabelPrefix={movie.source === "queue" ? "Queued" : "Added"}
-            dateValue={movie.source === "queue" ? movie.queued_at : movie.added_at}
-            variant={movie.source === "queue" ? "queued" : "default"}
+            dateLabelPrefix="Added"
+            dateValue={movie.added_at}
             primaryActionLabel="Details"
             secondaryActionLabel="Delete"
             onPrimaryAction={onViewMovie}
             onSecondaryAction={onDeleteMovie}
-            disableWhileSyncing={movie.source !== "queue"}
+            disableWhileSyncing
           />
         ))}
       </div>

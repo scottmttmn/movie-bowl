@@ -4,17 +4,10 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   remainingQueue: [],
   watchedQueue: [],
-  queueRows: [],
   insertPayloads: [],
   insertResponses: [],
-  queueInsertPayloads: [],
-  queueInsertResponses: [],
   updatePayloads: [],
   updateResponses: [],
-  queueUpdatePayloads: [],
-  queueUpdateResponses: [],
-  queueDeleteCalled: false,
-  queueDeleteEqFilters: [],
   updateEqFilters: [],
   deleteEqFilters: [],
   deleteInFilters: [],
@@ -29,69 +22,6 @@ const mocks = vi.hoisted(() => ({
       })),
     },
     from: vi.fn((table) => {
-      if (table === "bowl_movie_queue") {
-        const state = { mode: "select", filters: [] };
-        const query = {
-          select: vi.fn(() => query),
-          eq: vi.fn((key, value) => {
-            state.filters.push({ key, value });
-            if (state.mode === "delete") {
-              mocks.queueDeleteEqFilters.push({ key, value });
-            }
-            return query;
-          }),
-          is: vi.fn((key, value) => {
-            state.filters.push({ key, value });
-            return query;
-          }),
-          order: vi.fn(async () => ({ data: mocks.queueRows, error: null })),
-          insert: vi.fn((payload) => {
-            mocks.queueInsertPayloads.push(payload);
-            const nextResponse = mocks.queueInsertResponses.shift();
-            const response =
-              nextResponse ||
-              {
-                data: {
-                  ...payload[0],
-                  id: `q-${mocks.queueInsertPayloads.length}`,
-                  queued_at: payload[0]?.snapshot_at || "2026-01-01T00:00:00.000Z",
-                  promoted_at: null,
-                  removed_at: null,
-                },
-                error: null,
-              };
-            return {
-              select: vi.fn(() => ({
-                single: vi.fn(async () => response),
-              })),
-              then: (resolve, reject) => Promise.resolve(response).then(resolve, reject),
-            };
-          }),
-          update: vi.fn((payload) => {
-            state.mode = "update";
-            mocks.queueUpdatePayloads.push(payload);
-            return query;
-          }),
-          delete: vi.fn(() => {
-            state.mode = "delete";
-            mocks.queueDeleteCalled = true;
-            return query;
-          }),
-          single: vi.fn(async () => ({ data: null, error: null })),
-          then: (resolve, reject) => {
-            if (state.mode === "update") {
-              const nextResponse = mocks.queueUpdateResponses.shift() || { data: null, error: null };
-              return Promise.resolve(nextResponse).then(resolve, reject);
-            }
-            if (state.mode === "delete") {
-              return Promise.resolve({ data: null, error: null }).then(resolve, reject);
-            }
-            return Promise.resolve({ data: null, error: null }).then(resolve, reject);
-          },
-        };
-        return query;
-      }
-
       if (table !== "bowl_movies") {
         throw new Error(`Unexpected table: ${table}`);
       }
@@ -204,17 +134,10 @@ describe("useBowl handleDraw integration", () => {
   beforeEach(() => {
     mocks.remainingQueue = [];
     mocks.watchedQueue = [];
-    mocks.queueRows = [];
     mocks.insertPayloads = [];
     mocks.insertResponses = [];
-    mocks.queueInsertPayloads = [];
-    mocks.queueInsertResponses = [];
     mocks.updatePayloads = [];
     mocks.updateResponses = [];
-    mocks.queueUpdatePayloads = [];
-    mocks.queueUpdateResponses = [];
-    mocks.queueDeleteCalled = false;
-    mocks.queueDeleteEqFilters = [];
     mocks.updateEqFilters = [];
     mocks.deleteEqFilters = [];
     mocks.deleteInFilters = [];
@@ -313,6 +236,50 @@ describe("useBowl handleDraw integration", () => {
     randomSpy.mockRestore();
   });
 
+  it("groups guest add-link rows into the inviter draw bucket", async () => {
+    mocks.remainingQueue.push([
+      {
+        id: "m1",
+        title: "Guest Pick",
+        added_by: "user-1",
+        added_by_name: "Dad",
+        profiles: { email: "owner@example.com" },
+      },
+      {
+        id: "m2",
+        title: "Member Pick",
+        added_by: "user-1",
+        profiles: { email: "owner@example.com" },
+      },
+      {
+        id: "m3",
+        title: "Other Member Pick",
+        added_by: "user-2",
+        profiles: { email: "friend@example.com" },
+      },
+    ]);
+    mocks.watchedQueue.push([]);
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.drawOdds).toEqual([
+      {
+        bucketKey: "user:user-2",
+        member: "friend@example.com",
+        movieCount: 1,
+        drawOdds: 0.5,
+      },
+      {
+        bucketKey: "user:user-1",
+        member: "owner@example.com",
+        movieCount: 2,
+        drawOdds: 0.5,
+      },
+    ]);
+  });
+
   it("deletes only current user's undrawn movie and refreshes state", async () => {
     const movie = { id: "m1", tmdb_id: 101, title: "Movie A", added_by: "user-1" };
 
@@ -393,89 +360,6 @@ describe("useBowl handleDraw integration", () => {
     expect(mocks.insertPayloads[1][0].tmdb_id).toBeLessThan(0);
   });
 
-  it("loads queue rows and splits pending vs promoted", async () => {
-    mocks.remainingQueue.push([]);
-    mocks.watchedQueue.push([]);
-    mocks.queueRows = [
-      { id: "q1", title: "Movie Pending", queued_at: "2026-03-06T10:00:00.000Z", promoted_at: null, removed_at: null },
-      { id: "q2", title: "Movie Done", queued_at: "2026-03-06T09:00:00.000Z", promoted_at: "2026-03-06T11:00:00.000Z", removed_at: null },
-    ];
-
-    const { result } = renderHook(() => useBowl("bowl-1"));
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    expect(result.current.queue.pending).toHaveLength(1);
-    expect(result.current.queue.promoted).toHaveLength(1);
-    expect(result.current.queue.pending[0].id).toBe("q1");
-    expect(result.current.queue.promoted[0].id).toBe("q2");
-  });
-
-  it("queues a movie with snapshot fields", async () => {
-    mocks.remainingQueue.push([]);
-    mocks.watchedQueue.push([]);
-    mocks.queueRows = [];
-
-    const { result } = renderHook(() => useBowl("bowl-1"));
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-
-    let queued = false;
-    await act(async () => {
-      queued = await result.current.handleQueueMovie({
-        id: 101,
-        title: "Movie A",
-        genres: [{ name: "Action" }],
-      });
-    });
-
-    expect(queued).toBe(true);
-    expect(mocks.queueInsertPayloads).toHaveLength(1);
-    expect(mocks.queueInsertPayloads[0][0]).toEqual(
-      expect.objectContaining({
-        bowl_id: "bowl-1",
-        queued_by: "user-1",
-        tmdb_id: 101,
-        title: "Movie A",
-      })
-    );
-    expect(result.current.queue.pending).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          title: "Movie A",
-          promoted_at: null,
-        }),
-      ])
-    );
-    expect(result.current.queueMessage).toMatch(/added to your queue/i);
-  });
-
-  it("removes a pending queue row via hard delete", async () => {
-    mocks.remainingQueue.push([]);
-    mocks.watchedQueue.push([]);
-    mocks.queueRows = [
-      { id: "q1", bowl_id: "bowl-1", queued_by: "user-1", title: "Movie Pending", queued_at: "2026-03-06T10:00:00.000Z", promoted_at: null, removed_at: null },
-    ];
-
-    const { result } = renderHook(() => useBowl("bowl-1"));
-    await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.queue.pending).toHaveLength(1);
-
-    let removed = false;
-    await act(async () => {
-      removed = await result.current.handleRemoveQueuedMovie("q1");
-    });
-
-    expect(removed).toBe(true);
-    expect(mocks.queueDeleteCalled).toBe(true);
-    expect(mocks.queueDeleteEqFilters).toEqual(
-      expect.arrayContaining([
-        { key: "id", value: "q1" },
-        { key: "bowl_id", value: "bowl-1" },
-        { key: "queued_by", value: "user-1" },
-      ])
-    );
-    expect(result.current.queue.pending).toHaveLength(0);
-  });
-
   it("optimistically adds a syncing row immediately and finalizes it after insert success", async () => {
     mocks.remainingQueue.push([], []);
     mocks.watchedQueue.push([], []);
@@ -489,16 +373,16 @@ describe("useBowl handleDraw integration", () => {
     const { result } = renderHook(() => useBowl("bowl-1"));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    let queued = false;
+    let added = false;
     await act(async () => {
-      queued = await result.current.handleAddMovie({
+      added = await result.current.handleAddMovie({
         id: 101,
         title: "Movie A",
         genres: [{ name: "Action" }],
       });
     });
 
-    expect(queued).toBe(true);
+    expect(added).toBe(true);
     expect(result.current.bowl.remaining).toHaveLength(1);
     expect(result.current.bowl.remaining[0]).toEqual(
       expect.objectContaining({
@@ -644,11 +528,11 @@ describe("useBowl handleDraw integration", () => {
     });
   });
 
-  it("draw keeps one watched instance and deletes duplicate TMDB undrawn rows", async () => {
-    const movie1 = { id: "m1", tmdb_id: 101, title: "Movie A" };
-    const movie2 = { id: "m2", tmdb_id: 101, title: "Movie A" };
+  it("draw updates only the selected duplicate TMDB row", async () => {
+    const movie1 = { id: "m1", tmdb_id: 101, title: "Movie A", added_by: "user-1" };
+    const movie2 = { id: "m2", tmdb_id: 101, title: "Movie A", added_by: "user-1" };
 
-    mocks.remainingQueue.push([movie1, movie2], []);
+    mocks.remainingQueue.push([movie1, movie2], [movie2]);
     mocks.watchedQueue.push([], [
       { ...movie1, drawn_at: "2026-02-23T00:00:00.000Z", drawn_by: "user-1" },
     ]);
@@ -658,12 +542,11 @@ describe("useBowl handleDraw integration", () => {
       fetchedAt: "2026-02-23T00:00:00.000Z",
     });
 
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     const { result } = renderHook(() => useBowl("bowl-1"));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
-      await result.current.handleDraw();
+      await result.current.handleDraw({ randomFn: () => 0 });
     });
 
     expect(mocks.updateEqFilters).toEqual(
@@ -673,32 +556,20 @@ describe("useBowl handleDraw integration", () => {
         { key: "id", value: "m1" },
       ])
     );
-    expect(mocks.deleteCalled).toBe(true);
-    expect(mocks.deleteEqFilters).toEqual(
-      expect.arrayContaining([
-        { key: "bowl_id", value: "bowl-1" },
-        { key: "drawn_at", value: null },
-      ])
-    );
-    expect(mocks.deleteInFilters).toEqual(
-      expect.arrayContaining([
-        { key: "id", values: ["m2"] },
-      ])
-    );
+    expect(mocks.deleteCalled).toBe(false);
+    expect(mocks.deleteInFilters).toEqual([]);
 
     await waitFor(() => {
-      expect(result.current.bowl.remaining).toHaveLength(0);
+      expect(result.current.bowl.remaining.map((movie) => movie.id)).toEqual(["m2"]);
       expect(result.current.bowl.watched).toHaveLength(1);
     });
-
-    randomSpy.mockRestore();
   });
 
-  it("draw keeps one watched instance and deletes duplicate custom-title undrawn rows", async () => {
-    const customA = { id: "c1", tmdb_id: -111, title: "Wildcard Night" };
-    const customB = { id: "c2", tmdb_id: -222, title: "Wildcard Night" };
+  it("draw updates only the selected duplicate custom-title row", async () => {
+    const customA = { id: "c1", tmdb_id: -111, title: "Wildcard Night", added_by: "user-1" };
+    const customB = { id: "c2", tmdb_id: -222, title: "Wildcard Night", added_by: "user-1" };
 
-    mocks.remainingQueue.push([customA, customB], []);
+    mocks.remainingQueue.push([customA, customB], [customB]);
     mocks.watchedQueue.push([], [
       { ...customA, drawn_at: "2026-02-23T00:00:00.000Z", drawn_by: "user-1" },
     ]);
@@ -708,12 +579,11 @@ describe("useBowl handleDraw integration", () => {
       fetchedAt: "2026-02-23T00:00:00.000Z",
     });
 
-    const randomSpy = vi.spyOn(Math, "random").mockReturnValue(0);
     const { result } = renderHook(() => useBowl("bowl-1"));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     await act(async () => {
-      await result.current.handleDraw();
+      await result.current.handleDraw({ randomFn: () => 0 });
     });
 
     expect(mocks.updateEqFilters).toEqual(
@@ -721,18 +591,43 @@ describe("useBowl handleDraw integration", () => {
         { key: "id", value: "c1" },
       ])
     );
-    expect(mocks.deleteInFilters).toEqual(
-      expect.arrayContaining([
-        { key: "id", values: ["c2"] },
-      ])
-    );
+    expect(mocks.deleteCalled).toBe(false);
+    expect(mocks.deleteInFilters).toEqual([]);
 
     await waitFor(() => {
-      expect(result.current.bowl.remaining).toHaveLength(0);
+      expect(result.current.bowl.remaining.map((movie) => movie.id)).toEqual(["c2"]);
       expect(result.current.bowl.watched).toHaveLength(1);
     });
+  });
 
-    randomSpy.mockRestore();
+  it("does not delete another contributor's duplicate ticket during draw", async () => {
+    const movie1 = { id: "m1", tmdb_id: 101, title: "Movie A", added_by: "user-1" };
+    const movie2 = { id: "m2", tmdb_id: 101, title: "Movie A", added_by: "user-2" };
+
+    mocks.remainingQueue.push([movie1, movie2], [movie2]);
+    mocks.watchedQueue.push([], [
+      { ...movie1, drawn_at: "2026-02-23T00:00:00.000Z", drawn_by: "user-1" },
+    ]);
+    mocks.fetchStreamingProviders.mockResolvedValue({
+      providers: ["Netflix"],
+      region: "US",
+      fetchedAt: "2026-02-23T00:00:00.000Z",
+    });
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleDraw({ randomFn: () => 0 });
+    });
+
+    expect(mocks.deleteCalled).toBe(false);
+    expect(mocks.deleteInFilters).toEqual([]);
+
+    await waitFor(() => {
+      expect(result.current.bowl.remaining.map((movie) => movie.id)).toEqual(["m2"]);
+      expect(result.current.bowl.watched).toHaveLength(1);
+    });
   });
 
   it("re-adding a watched TMDB title moves it back to remaining", async () => {

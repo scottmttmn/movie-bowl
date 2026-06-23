@@ -22,7 +22,6 @@ export default function MyBowlsScreen() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newBowlName, setNewBowlName] = useState("");
   const [inviteEmails, setInviteEmails] = useState("");
-  const [newBowlMaxContributionLead, setNewBowlMaxContributionLead] = useState("");
   const [createErrorMessage, setCreateErrorMessage] = useState(null);
   const [createActionMessage, setCreateActionMessage] = useState(null);
   const [inviteActionMessage, setInviteActionMessage] = useState(null);
@@ -294,17 +293,6 @@ export default function MyBowlsScreen() {
       return;
     }
 
-    const leadInput = newBowlMaxContributionLead.trim();
-    let maxContributionLead = null;
-    if (leadInput !== "") {
-      const parsedLead = Number(leadInput);
-      if (!Number.isInteger(parsedLead) || parsedLead < 1) {
-        setCreateErrorMessage("Max contribution lead must be a whole number 1 or greater.");
-        return;
-      }
-      maxContributionLead = parsedLead;
-    }
-
     const { data: authData, error: userError } = await supabase.auth.getSession();
     const user = authData?.session?.user;
     if (userError || !user) {
@@ -319,7 +307,6 @@ export default function MyBowlsScreen() {
       .insert([{
         owner_id: user.id,
         name: bowlName,
-        max_contribution_lead: maxContributionLead,
         draw_access_mode: "all_members",
       }])
       .select()
@@ -331,7 +318,6 @@ export default function MyBowlsScreen() {
         .insert([{
           owner_id: user.id,
           name: bowlName,
-          max_contribution_lead: maxContributionLead,
         }])
         .select()
         .single();
@@ -409,14 +395,12 @@ export default function MyBowlsScreen() {
     setBowls((prev) => [...prev,bowlToAdd]);
     setNewBowlName("");
     setInviteEmails("");
-    setNewBowlMaxContributionLead("");
     setIsModalOpen(false);
   };
 
   const handleCloseModal = () => {
     setNewBowlName("");
     setInviteEmails("");
-    setNewBowlMaxContributionLead("");
     setCreateErrorMessage(null);
     setCreateActionMessage(null);
     setIsModalOpen(false);
@@ -644,10 +628,8 @@ export default function MyBowlsScreen() {
         isOpen={isModalOpen}
         bowlName={newBowlName}
         inviteEmails={inviteEmails}
-        maxContributionLead={newBowlMaxContributionLead}
         onChangeBowlName={setNewBowlName}
         onChangeInviteEmails={setInviteEmails}
-        onChangeMaxContributionLead={setNewBowlMaxContributionLead}
         onCreate={handleCreateBowl}
         onClose={handleCloseModal}
       />

@@ -2,7 +2,7 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import AddMovieButton from "../AddMovieButton";
 import BowlCard from "../BowlCard";
-import ContributionStats from "../ContributionStats";
+import DrawOddsStats from "../DrawOddsStats";
 import DrawButton from "../DrawButton";
 import NewBowlButton from "../NewBowlButton";
 import RemainingCount from "../RemainingCount";
@@ -46,11 +46,16 @@ describe("button and card components", () => {
     expect(onSelect).toHaveBeenCalledWith("b1");
   });
 
-  it("renders ContributionStats", () => {
-    render(<ContributionStats stats={[{ member: "me@example.com", totalAdded: 3 }]} />);
-    expect(screen.getByText("Contribution Stats")).toBeInTheDocument();
+  it("renders DrawOddsStats", () => {
+    render(
+      <DrawOddsStats
+        stats={[{ bucketKey: "user:me", member: "me@example.com", movieCount: 3, drawOdds: 0.5 }]}
+      />
+    );
+    expect(screen.getAllByText("Draw Odds").length).toBeGreaterThan(0);
     expect(screen.getByText("me@example.com")).toBeInTheDocument();
     expect(screen.getByText("3")).toBeInTheDocument();
+    expect(screen.getByText("50%")).toBeInTheDocument();
   });
 
   it("renders RemainingCount", () => {

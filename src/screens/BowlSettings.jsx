@@ -17,11 +17,9 @@ export default function BowlSettings() {
   const navigate = useNavigate();
 
   const [bowlName, setBowlName] = useState("Bowl Settings");
-  const [bowlMaxContributionLead, setBowlMaxContributionLead] = useState(null);
   const [drawAccessMode, setDrawAccessMode] = useState(DRAW_ACCESS_MODE_ALL);
   const [drawAllowedUserIds, setDrawAllowedUserIds] = useState([]);
   const [editableBowlName, setEditableBowlName] = useState("Bowl Settings");
-  const [editableMaxContributionLead, setEditableMaxContributionLead] = useState("");
   const [ownerId, setOwnerId] = useState(null);
 
   const [members, setMembers] = useState([]);
@@ -80,14 +78,14 @@ export default function BowlSettings() {
       // Load bowl basics (name + owner).
       let { data: bowl, error: bowlError } = await supabase
         .from("bowls")
-        .select("id, name, owner_id, max_contribution_lead, draw_access_mode")
+        .select("id, name, owner_id, draw_access_mode")
         .eq("id", bowlId)
         .single();
 
       if (bowlError && isMissingDrawAccessColumn(bowlError)) {
         const fallback = await supabase
           .from("bowls")
-          .select("id, name, owner_id, max_contribution_lead")
+          .select("id, name, owner_id")
           .eq("id", bowlId)
           .single();
         bowl = fallback.data;
@@ -102,17 +100,7 @@ export default function BowlSettings() {
       }
 
       setBowlName(bowl?.name || "Bowl Settings");
-      setBowlMaxContributionLead(
-        Number.isFinite(Number(bowl?.max_contribution_lead))
-          ? Number(bowl.max_contribution_lead)
-          : null
-      );
       setEditableBowlName(bowl?.name || "Bowl Settings");
-      setEditableMaxContributionLead(
-        Number.isFinite(Number(bowl?.max_contribution_lead))
-          ? String(Number(bowl.max_contribution_lead))
-          : ""
-      );
       setDrawAccessMode(
         bowl?.draw_access_mode === DRAW_ACCESS_MODE_SELECTED
           ? DRAW_ACCESS_MODE_SELECTED
@@ -428,20 +416,7 @@ export default function BowlSettings() {
       return;
     }
 
-    const leadInput = editableMaxContributionLead.trim();
-    let nextMaxLead = null;
-    if (leadInput !== "") {
-      const parsedLead = Number(leadInput);
-      if (!Number.isInteger(parsedLead) || parsedLead < 1) {
-        setErrorMessage("Max contribution lead must be a whole number 1 or greater.");
-        return;
-      }
-      nextMaxLead = parsedLead;
-    }
-
-    const leadChanged = nextMaxLead !== bowlMaxContributionLead;
-
-    if (nextName === bowlName && !leadChanged) {
+    if (nextName === bowlName) {
       setActionMessage("Bowl settings are already up to date.");
       return;
     }
@@ -451,7 +426,7 @@ export default function BowlSettings() {
     try {
       const { error } = await supabase
         .from("bowls")
-        .update({ name: nextName, max_contribution_lead: nextMaxLead })
+        .update({ name: nextName })
         .eq("id", bowlId);
 
       if (error) {
@@ -460,32 +435,9 @@ export default function BowlSettings() {
         return;
       }
 
-      let refreshWarning = null;
-      if (leadChanged) {
-        const { error: refreshError } = await supabase.rpc("refresh_bowl_queue_promotions", {
-          p_bowl_id: bowlId,
-        });
-        if (refreshError) {
-          const message = String(refreshError?.message || "").toLowerCase();
-          const isMissingRefreshFunction =
-            refreshError?.code === "42883" ||
-            (message.includes("refresh_bowl_queue_promotions") && message.includes("does not exist"));
-          if (isMissingRefreshFunction) {
-            refreshWarning =
-              "Bowl settings updated. Queue refresh is unavailable until the latest database migration is applied.";
-          } else {
-            console.error("[BowlSettings] Failed to refresh queue promotions", refreshError);
-            refreshWarning =
-              "Bowl settings updated. Queue promotions may take a moment to appear.";
-          }
-        }
-      }
-
       setBowlName(nextName);
-      setBowlMaxContributionLead(nextMaxLead);
       setEditableBowlName(nextName);
-      setEditableMaxContributionLead(nextMaxLead === null ? "" : String(nextMaxLead));
-      setActionMessage(refreshWarning || "Bowl settings updated.");
+      setActionMessage("Bowl settings updated.");
     } catch (err) {
       console.error("[BowlSettings] Unexpected error renaming bowl", err);
       setErrorMessage("Unexpected error updating bowl settings.");
@@ -742,21 +694,6 @@ export default function BowlSettings() {
                 onChange={(e) => setEditableBowlName(e.target.value)}
                 className="input-field flex-1"
                 maxLength={120}
-              />
-            </div>
-            <div>
-              <label htmlFor="bowl-max-contribution-lead" className="mb-1 block text-sm text-slate-700">
-                Max contribution lead (blank = no limit)
-              </label>
-              <input
-                id="bowl-max-contribution-lead"
-                name="bowl_max_contribution_lead"
-                type="number"
-                min="1"
-                step="1"
-                value={editableMaxContributionLead}
-                onChange={(e) => setEditableMaxContributionLead(e.target.value)}
-                className="input-field w-40"
               />
             </div>
             <button

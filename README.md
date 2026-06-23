@@ -7,9 +7,9 @@ Movie Bowl is a collaborative app for maintaining a shared movie list and random
 - Create and join bowls.
 - Add movies from TMDB search.
 - Add custom/manual movie entries.
-- Draw a random movie from the remaining list.
+- Draw a random movie by first choosing an eligible contributor bucket uniformly, then choosing one movie from that bucket.
 - Optionally prioritize draws to titles available on your streaming services.
-- Queue adds automatically when contribution-balance rules block a member from adding right now.
+- Show per-contributor draw odds and remaining eligible movie counts.
 - Track watched titles in a horizontal history strip.
 - Open full movie details from:
   - a newly drawn movie
@@ -230,7 +230,7 @@ For ongoing reliability guardrails and a release smoke checklist, see `STABILITY
   - `bowl_members`
   - `bowl_invites`
   - `bowl_draw_permissions`
-  - `bowl_movie_queue`
+  - `bowl_movie_queue` (legacy compatibility table; active adds go directly to `bowl_movies`)
   - `bowl_add_links`
 - There is also an RPC used on the home screen:
   - `get_my_bowls_with_counts`
