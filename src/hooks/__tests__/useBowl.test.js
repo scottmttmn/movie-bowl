@@ -129,6 +129,7 @@ vi.mock("../../lib/tmdbApi", () => ({
 }));
 
 import useBowl from "../useBowl";
+import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../../utils/appLimits";
 
 describe("useBowl handleDraw integration", () => {
   beforeEach(() => {
@@ -681,7 +682,7 @@ describe("useBowl handleDraw integration", () => {
       drawn_at: "2026-02-23T00:00:00.000Z",
       drawn_by: "user-2",
     };
-    const maxedRemaining = Array.from({ length: 100 }, (_, index) => ({
+    const maxedRemaining = Array.from({ length: MAX_UNDRAWN_MOVIES_PER_BOWL }, (_, index) => ({
       id: `m-${index + 1}`,
       tmdb_id: index + 1,
       title: `Movie ${index + 1}`,
@@ -692,7 +693,7 @@ describe("useBowl handleDraw integration", () => {
 
     const { result } = renderHook(() => useBowl("bowl-1"));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
-    expect(result.current.bowl.remaining).toHaveLength(100);
+    expect(result.current.bowl.remaining).toHaveLength(MAX_UNDRAWN_MOVIES_PER_BOWL);
 
     let readdResult = false;
     await act(async () => {
@@ -739,7 +740,7 @@ describe("useBowl handleDraw integration", () => {
   });
 
   it("does not add when undrawn movie limit is reached", async () => {
-    const maxedRemaining = Array.from({ length: 100 }, (_, index) => ({
+    const maxedRemaining = Array.from({ length: MAX_UNDRAWN_MOVIES_PER_BOWL }, (_, index) => ({
       id: `m-${index + 1}`,
       tmdb_id: index + 1,
       title: `Movie ${index + 1}`,

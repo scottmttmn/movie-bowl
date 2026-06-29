@@ -117,6 +117,7 @@ vi.mock("react-router-dom", async () => {
 });
 
 import BowlDashboard from "../BowlDashboard";
+import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../../utils/appLimits";
 
 function renderDashboard() {
   return render(
@@ -243,7 +244,7 @@ describe("BowlDashboard guards", () => {
   it("disables Add Movie when undrawn movie limit is reached", async () => {
     mocks.state.memberRows = [{ user_id: "u1" }];
     mocks.state.bowlData = {
-      remaining: Array.from({ length: 100 }, (_, index) => ({
+      remaining: Array.from({ length: MAX_UNDRAWN_MOVIES_PER_BOWL }, (_, index) => ({
         id: `m-${index + 1}`,
         added_by: "u1",
       })),
@@ -253,7 +254,9 @@ describe("BowlDashboard guards", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     expect(screen.getByRole("button", { name: /\+ add movie/i })).toBeDisabled();
-    expect(screen.getByText(/undrawn movie limit \(100\)/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(new RegExp(`undrawn movie limit \\(${MAX_UNDRAWN_MOVIES_PER_BOWL}\\)`, "i"))
+    ).toBeInTheDocument();
   });
 
   it("shows re-add confirmation modal before moving watched item back to bowl", async () => {
