@@ -92,6 +92,15 @@ vi.mock("../../components/AddMovieModal", () => ({
 
 import WatchListPage from "../WatchListPage";
 
+function formatLocalDate(value) {
+  const date = new Date(value);
+  return [
+    date.getFullYear(),
+    String(date.getMonth() + 1).padStart(2, "0"),
+    String(date.getDate()).padStart(2, "0"),
+  ].join("-");
+}
+
 describe("WatchListPage", () => {
   beforeEach(() => {
     mocks.state.sessionUser = { id: "user-1", email: "owner@example.com" };
@@ -150,6 +159,8 @@ describe("WatchListPage", () => {
 
   afterEach(() => {
     cleanup();
+    vi.restoreAllMocks();
+    vi.unstubAllGlobals();
   });
 
   it("loads watched movies across owned and member bowls and shows duplicates", async () => {
@@ -170,6 +181,8 @@ describe("WatchListPage", () => {
     expect(screen.getByText("Shared Bowl")).toBeInTheDocument();
     expect(screen.getAllByText("Owned Bowl")).toHaveLength(2);
     expect(screen.getAllByText(/Watched on /i)).toHaveLength(3);
+    expect(screen.getByRole("button", { name: /export csv/i })).toBeEnabled();
+    expect(screen.getByText("2 exportable, 1 skipped")).toBeInTheDocument();
   });
 
   it("shows an empty state when no watched movies are available", async () => {
@@ -180,6 +193,90 @@ describe("WatchListPage", () => {
     await waitFor(() => {
       expect(screen.getByText(/no watched movies yet/i)).toBeInTheDocument();
     });
+    expect(screen.getByRole("button", { name: /export csv/i })).toBeDisabled();
+  });
+
+  it("disables Letterboxd export while the watch list is loading", () => {
+    render(<WatchListPage />);
+
+    expect(screen.getByRole("button", { name: /export csv/i })).toBeDisabled();
+  });
+
+  it("downloads a Letterboxd CSV for exportable watched movies", async () => {
+    const createObjectURL = vi.fn(() => "blob:letterboxd-watch-list");
+    const revokeObjectURL = vi.fn();
+    const originalCreateObjectURL = URL.createObjectURL;
+    const originalRevokeObjectURL = URL.revokeObjectURL;
+    let createdAnchor = null;
+    const anchorClick = vi.fn();
+    const originalCreateElement = document.createElement.bind(document);
+    class TestBlob {
+      constructor(parts, options) {
+        this.parts = parts;
+        this.options = options;
+      }
+    }
+
+    vi.stubGlobal("Blob", TestBlob);
+    Object.defineProperty(URL, "createObjectURL", {
+      configurable: true,
+      value: createObjectURL,
+    });
+    Object.defineProperty(URL, "revokeObjectURL", {
+      configurable: true,
+      value: revokeObjectURL,
+    });
+    vi.spyOn(document, "createElement").mockImplementation((tagName, options) => {
+      const element = originalCreateElement(tagName, options);
+      if (String(tagName).toLowerCase() === "a") {
+        createdAnchor = element;
+        element.click = anchorClick;
+      }
+      return element;
+    });
+
+    try {
+      render(<WatchListPage />);
+
+      await waitFor(() => {
+        expect(screen.getByRole("button", { name: /export csv/i })).toBeEnabled();
+      });
+
+      fireEvent.click(screen.getByRole("button", { name: /export csv/i }));
+
+      expect(createObjectURL).toHaveBeenCalledTimes(1);
+      expect(anchorClick).toHaveBeenCalledTimes(1);
+      expect(revokeObjectURL).toHaveBeenCalledWith("blob:letterboxd-watch-list");
+      expect(createdAnchor.download).toMatch(/^movie-bowl-letterboxd-watched-\d{4}-\d{2}-\d{2}\.csv$/);
+
+      const blob = createObjectURL.mock.calls[0][0];
+      expect(blob.options).toEqual({ type: "text/csv;charset=utf-8" });
+      expect(blob.parts).toEqual([
+        [
+          "tmdbID,Title,Year,WatchedDate",
+          `102,Shared Favorite,2004,${formatLocalDate("2026-04-10T12:00:00.000Z")}`,
+          `101,Owned Favorite,2001,${formatLocalDate("2026-04-12T18:30:00.000Z")}`,
+        ].join("\n"),
+      ]);
+    } finally {
+      if (originalCreateObjectURL) {
+        Object.defineProperty(URL, "createObjectURL", {
+          configurable: true,
+          value: originalCreateObjectURL,
+        });
+      } else {
+        delete URL.createObjectURL;
+      }
+
+      if (originalRevokeObjectURL) {
+        Object.defineProperty(URL, "revokeObjectURL", {
+          configurable: true,
+          value: originalRevokeObjectURL,
+        });
+      } else {
+        delete URL.revokeObjectURL;
+      }
+    }
   });
 
   it("opens a read-only enriched detail modal when a TMDB watched movie is clicked", async () => {

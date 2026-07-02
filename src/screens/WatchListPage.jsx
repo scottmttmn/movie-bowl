@@ -4,6 +4,10 @@ import { getPosterUrl } from "../utils/getPosterUrl";
 import { supabase } from "../lib/supabase";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
+import {
+  buildLetterboxdWatchedCsv,
+  getLetterboxdWatchedExportFileName,
+} from "../utils/letterboxdExport";
 
 function formatWatchedDate(value) {
   return value ? new Date(value).toLocaleDateString() : null;
@@ -150,16 +154,51 @@ export default function WatchListPage() {
       })),
     [movies]
   );
+  const letterboxdExport = useMemo(() => buildLetterboxdWatchedCsv(movies), [movies]);
+  const canExportLetterboxd =
+    !isLoading && !errorMessage && letterboxdExport.exportedCount > 0;
+
+  const handleExportLetterboxd = () => {
+    if (!canExportLetterboxd) return;
+
+    const blob = new Blob([letterboxdExport.csv], { type: "text/csv;charset=utf-8" });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+
+    link.href = url;
+    link.download = getLetterboxdWatchedExportFileName();
+    document.body.appendChild(link);
+    link.click();
+    link.remove();
+    URL.revokeObjectURL(url);
+  };
 
   return (
     <div className="page-container py-6">
       <section className="panel max-w-5xl mx-auto">
-        <div className="mb-5">
-          <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">History</p>
-          <h1 className="mt-1 text-3xl font-semibold text-slate-100">Watch List</h1>
-          <p className="mt-2 text-base text-slate-300">
-            Watched movies from every bowl you currently own or belong to.
-          </p>
+        <div className="mb-5 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+          <div>
+            <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">History</p>
+            <h1 className="mt-1 text-3xl font-semibold text-slate-100">Watch List</h1>
+            <p className="mt-2 text-base text-slate-300">
+              Watched movies from every bowl you currently own or belong to.
+            </p>
+          </div>
+          <div className="flex flex-col items-start gap-1 sm:items-end">
+            <button
+              type="button"
+              className="btn btn-secondary whitespace-nowrap disabled:cursor-not-allowed disabled:border-slate-800 disabled:bg-slate-900 disabled:text-slate-500 disabled:shadow-none"
+              onClick={handleExportLetterboxd}
+              disabled={!canExportLetterboxd}
+            >
+              Export CSV
+            </button>
+            {!isLoading && !errorMessage && rows.length > 0 && letterboxdExport.skippedCount > 0 && (
+              <p className="text-xs text-slate-400">
+                {letterboxdExport.exportedCount} exportable, {letterboxdExport.skippedCount} skipped
+              </p>
+            )}
+          </div>
         </div>
 
         {isLoading ? (
