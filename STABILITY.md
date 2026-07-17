@@ -34,6 +34,25 @@ Before merging meaningful product changes, make sure these flows still work:
 - public add links
 - watch list
 
+## Iteration Cycle
+
+Use this lightweight loop for product changes:
+
+1. Define the behavior in one or two sentences, including what should not change.
+2. Implement narrowly enough that the change can be reviewed and manually tested.
+3. Run focused automated checks for the touched behavior, plus a production build for UI/app changes.
+4. Manually QA the changed flow before committing.
+5. Commit only the scoped change after automated checks and manual QA pass.
+
+For UI changes, manual QA should usually include:
+
+- relevant logged-in/logged-out states
+- empty and populated states
+- primary action behavior
+- narrow/mobile-ish viewport
+- obvious layout wrapping or overlap
+- browser console errors
+
 ## Required Engineering Guardrails
 
 ### 1. Validate before merging
