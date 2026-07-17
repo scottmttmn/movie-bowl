@@ -79,7 +79,13 @@ describe("movie strip components", () => {
       { id: "2", title: "Movie Two", poster_path: "/two.jpg" },
     ];
     render(<WatchedMoviesStrip movies={movies} />);
+    expect(screen.getByText("2 watched")).toBeInTheDocument();
     expect(screen.getByAltText("Movie One")).toBeInTheDocument();
     expect(screen.getByAltText("Movie Two")).toBeInTheDocument();
+  });
+
+  it("shows zero watched count for an empty watched strip", () => {
+    render(<WatchedMoviesStrip movies={[]} />);
+    expect(screen.getByText("0 watched")).toBeInTheDocument();
   });
 });

@@ -180,6 +180,7 @@ describe("WatchListPage", () => {
     expect(screen.getAllByText("Shared Favorite")).toHaveLength(2);
     expect(screen.getByText("Shared Bowl")).toBeInTheDocument();
     expect(screen.getAllByText("Owned Bowl")).toHaveLength(2);
+    expect(screen.getByText("3 watched movies")).toBeInTheDocument();
     expect(screen.getAllByText(/Watched on /i)).toHaveLength(3);
     expect(screen.getByRole("button", { name: /export csv/i })).toBeEnabled();
     expect(screen.getByText("2 exportable, 1 skipped")).toBeInTheDocument();
@@ -193,6 +194,7 @@ describe("WatchListPage", () => {
     await waitFor(() => {
       expect(screen.getByText(/no watched movies yet/i)).toBeInTheDocument();
     });
+    expect(screen.getByText("0 watched movies")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /export csv/i })).toBeDisabled();
   });
 

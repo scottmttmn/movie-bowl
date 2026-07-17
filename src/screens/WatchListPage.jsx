@@ -157,6 +157,7 @@ export default function WatchListPage() {
   const letterboxdExport = useMemo(() => buildLetterboxdWatchedCsv(movies), [movies]);
   const canExportLetterboxd =
     !isLoading && !errorMessage && letterboxdExport.exportedCount > 0;
+  const watchedCountLabel = rows.length === 1 ? "1 watched movie" : `${rows.length} watched movies`;
 
   const handleExportLetterboxd = () => {
     if (!canExportLetterboxd) return;
@@ -183,6 +184,9 @@ export default function WatchListPage() {
             <p className="mt-2 text-base text-slate-300">
               Watched movies from every bowl you currently own or belong to.
             </p>
+            {!isLoading && !errorMessage && (
+              <p className="mt-2 text-sm font-semibold text-slate-400">{watchedCountLabel}</p>
+            )}
           </div>
           <div className="flex flex-col items-start gap-1 sm:items-end">
             <button
