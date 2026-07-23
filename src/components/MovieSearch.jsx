@@ -18,6 +18,7 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
     const [highlightedIndex, setHighlightedIndex] = useState(0);
     const [providersByMovieId, setProvidersByMovieId] = useState({});
     const [detailMovie, setDetailMovie] = useState(null);
+    const [detailActionError, setDetailActionError] = useState("");
     const [isAdding, setIsAdding] = useState(false);
     const inputRef = useRef(null);
     const latestRequestRef = useRef(0);
@@ -107,23 +108,47 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
         };
     };
 
+    const normalizeAddResult = (result) => {
+        if (result?.ok === false) {
+            return {
+                ok: false,
+                message: result.message || "Could not add this movie. Please try again.",
+            };
+        }
+        if (result === false) {
+            return { ok: false, message: "Could not add this movie. Please try again." };
+        }
+        return { ok: true, message: null };
+    };
+
+    const resetAfterSuccessfulAdd = () => {
+        setSearchError(null);
+        setDetailActionError("");
+        setDetailMovie(null);
+        setSearchTerm("");
+        setSearchResults([]);
+        setHighlightedIndex(0);
+        inputRef.current?.focus();
+    };
+
     // Add movie with full details fetched inside
     const addMovie = async (movie) => {
         if (isAdding) return;
         setIsAdding(true);
         try {
             const detailedMovie = await buildDetailedMovie(movie);
-            await onAddMovie(detailedMovie);
+            const result = normalizeAddResult(await onAddMovie(detailedMovie));
+            if (!result.ok) {
+                setSearchError(result.message);
+                return;
+            }
+            resetAfterSuccessfulAdd();
         } catch (error) {
             console.error("Failed to fetch movie details", error);
             setSearchError("Failed to load movie details. Please try again.");
         } finally {
             setIsAdding(false);
         }
-        setSearchTerm("");
-        setSearchResults([]);
-        setHighlightedIndex(0);
-        inputRef.current?.focus();
     };
 
     const addCustomMovie = async () => {
@@ -132,25 +157,24 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
         setIsAdding(true);
 
         try {
-            await onAddMovie(buildCustomMovie(customTitle));
+            const result = normalizeAddResult(await onAddMovie(buildCustomMovie(customTitle)));
+            if (!result.ok) {
+                setSearchError(result.message);
+                return;
+            }
+            resetAfterSuccessfulAdd();
         } catch (error) {
             console.error("Failed to add custom movie", error);
             setSearchError("Failed to add custom entry. Please try again.");
+        } finally {
             setIsAdding(false);
-            return;
         }
-
-        setSearchError(null);
-        setSearchTerm("");
-        setSearchResults([]);
-        setHighlightedIndex(0);
-        inputRef.current?.focus();
-        setIsAdding(false);
     };
 
     const openDetails = async (movie) => {
         try {
             const detailedMovie = await buildDetailedMovie(movie);
+            setDetailActionError("");
             setDetailMovie(detailedMovie);
         } catch (error) {
             console.error("Failed to open movie details", error);
@@ -450,7 +474,10 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                 })}
             </ul>
             {searchError && (
-              <div className="mt-2 rounded-lg border border-rose-900/60 bg-rose-950/50 px-3 py-2 text-sm text-rose-300">
+              <div
+                className="mt-2 rounded-lg border border-rose-900/60 bg-rose-950/50 px-3 py-2 text-sm text-rose-300"
+                role="alert"
+              >
                 {searchError}
               </div>
             )}
@@ -481,16 +508,27 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                 movie={detailMovie}
                 userStreamingServices={userStreamingServices}
                 detailPrimaryActionLabel="Add Movie"
+                detailPrimaryActionError={detailActionError}
+                isDetailPrimaryActionLoading={isAdding}
                 onDetailPrimaryAction={async (selectedMovie) => {
                   if (isAdding) return;
                   setIsAdding(true);
+                  setDetailActionError("");
                   try {
-                    await onAddMovie(selectedMovie);
+                    const result = normalizeAddResult(await onAddMovie(selectedMovie));
+                    if (!result.ok) {
+                      setDetailActionError(result.message);
+                      return;
+                    }
+                    resetAfterSuccessfulAdd();
                   } finally {
                     setIsAdding(false);
                   }
                 }}
-                onClose={() => setDetailMovie(null)}
+                onClose={() => {
+                  setDetailActionError("");
+                  setDetailMovie(null);
+                }}
               />
             )}
         </div>

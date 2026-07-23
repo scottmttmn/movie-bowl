@@ -130,4 +130,74 @@ describe("MovieSearch detail flow", () => {
       expect(screen.queryByText("Movie A")).not.toBeInTheDocument();
     });
   });
+
+  it("keeps movie details open and shows an inline duplicate error", async () => {
+    mocks.searchTmdbMovies.mockResolvedValue({
+      results: [{ id: 101, title: "Movie A", release_date: "2020-01-01", poster_path: "/a.jpg" }],
+    });
+    mocks.getTmdbMovieDetails.mockResolvedValue({
+      runtime: 123,
+      genres: [{ id: 1, name: "Action" }],
+      overview: "Test overview",
+      trailer: null,
+    });
+    mocks.fetchStreamingProviders.mockResolvedValue({
+      providers: ["Netflix"],
+      region: "US",
+      fetchedAt: null,
+    });
+    const onAddMovie = vi.fn(async () => ({
+      ok: false,
+      code: "duplicate_movie",
+      message: "This movie is already in the bowl.",
+    }));
+
+    render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={["Netflix"]} />);
+    fireEvent.change(screen.getByPlaceholderText("Search movies..."), {
+      target: { value: "Movie A" },
+    });
+
+    await screen.findByText("Movie A");
+    fireEvent.click(screen.getByRole("button", { name: /details/i }));
+    await screen.findByText("Movie A (2020)");
+    fireEvent.click(screen.getByRole("button", { name: /add movie/i }));
+
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      "This movie is already in the bowl."
+    );
+    expect(screen.getByText("Movie A (2020)")).toBeInTheDocument();
+  });
+
+  it("keeps search results open after a duplicate add is rejected", async () => {
+    mocks.searchTmdbMovies.mockResolvedValue({
+      results: [{ id: 101, title: "Movie A", release_date: "2020-01-01", poster_path: "/a.jpg" }],
+    });
+    mocks.getTmdbMovieDetails.mockResolvedValue({
+      runtime: 123,
+      genres: [{ id: 1, name: "Action" }],
+      overview: "Test overview",
+      trailer: null,
+    });
+    mocks.fetchStreamingProviders.mockResolvedValue({
+      providers: ["Netflix"],
+      region: "US",
+      fetchedAt: null,
+    });
+    const onAddMovie = vi.fn(async () => ({
+      ok: false,
+      code: "duplicate_movie",
+      message: "This movie is already in the bowl.",
+    }));
+
+    render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={["Netflix"]} />);
+    const searchInput = screen.getByPlaceholderText("Search movies...");
+    fireEvent.change(searchInput, { target: { value: "Movie A" } });
+
+    await screen.findByText("Movie A");
+    fireEvent.click(screen.getByRole("button", { name: /^add$/i }));
+
+    expect(await screen.findByText("This movie is already in the bowl.")).toBeInTheDocument();
+    expect(searchInput).toHaveValue("Movie A");
+    expect(screen.getByText("Movie A")).toBeInTheDocument();
+  });
 });

@@ -75,7 +75,7 @@ export default function PublicAddLinkPage() {
           ? `Movie added as ${result.addedByName}. ${result.remainingAdds} add${result.remainingAdds === 1 ? "" : "s"} remaining.`
           : `Movie added as ${result.addedByName}. This link is now used up.`
       );
-      return true;
+      return { ok: true };
     } catch (error) {
       const message = error?.message || "Failed to add movie through link.";
       setErrorMessage(message);
@@ -85,7 +85,11 @@ export default function PublicAddLinkPage() {
       } else if (normalized.includes("not found")) {
         setMetadata((prev) => ({ ...prev, status: "not_found", remainingAdds: 0 }));
       }
-      return false;
+      return {
+        ok: false,
+        code: error?.code || "add_failed",
+        message,
+      };
     }
   };
 

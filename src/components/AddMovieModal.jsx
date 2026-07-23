@@ -11,6 +11,8 @@ export default function AddMovieModal({
   userStreamingServices = [],
   detailPrimaryActionLabel = null,
   onDetailPrimaryAction = null,
+  detailPrimaryActionError = "",
+  isDetailPrimaryActionLoading = false,
   preferredLaunchCandidate = null,
   preferredLaunchUnavailableReason = "",
   webLaunchCandidate = null,
@@ -64,8 +66,9 @@ export default function AddMovieModal({
             onAddMovie={async (selectedMovie) => {
               // Parent is responsible for persisting to Supabase.
               if (onAddMovie) {
-                await onAddMovie(selectedMovie);
+                return onAddMovie(selectedMovie);
               }
+              return { ok: false, message: "Could not add this movie. Please try again." };
             }}
             onClose={onClose}
           />
@@ -274,6 +277,15 @@ export default function AddMovieModal({
           </div>
         )}
 
+        {detailPrimaryActionError && (
+          <div
+            className="mb-3 rounded-lg border border-rose-900/60 bg-rose-950/50 px-3 py-2 text-sm text-rose-300"
+            role="alert"
+          >
+            {detailPrimaryActionError}
+          </div>
+        )}
+
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           {onDetailPrimaryAction && detailPrimaryActionLabel && (
             <button
@@ -281,8 +293,9 @@ export default function AddMovieModal({
                 await onDetailPrimaryAction(movie);
               }}
               className="btn btn-secondary"
+              disabled={isDetailPrimaryActionLoading}
             >
-              {detailPrimaryActionLabel}
+              {isDetailPrimaryActionLoading ? "Adding..." : detailPrimaryActionLabel}
             </button>
           )}
 

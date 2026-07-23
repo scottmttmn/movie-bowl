@@ -25,7 +25,10 @@ export async function consumeAddLink(token, movie, contributorName = "") {
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {
-    throw new Error(data?.error || "Failed to add movie through link.");
+    const error = new Error(data?.error || "Failed to add movie through link.");
+    error.code = data?.code || null;
+    error.status = response.status;
+    throw error;
   }
 
   return data;

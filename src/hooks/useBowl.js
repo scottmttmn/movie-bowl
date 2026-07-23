@@ -6,6 +6,8 @@ import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { getDrawSelection } from "../utils/drawSelection";
 import { buildDrawOddsStats } from "../utils/drawBuckets";
 
+const DUPLICATE_MOVIE_MESSAGE = "This movie is already in the bowl.";
+
 function createSyntheticTmdbId() {
   // Keep this within signed 32-bit range to avoid common integer column overflows.
   const min = 1;
@@ -29,6 +31,24 @@ function sortByAddedAtAscending(movies = []) {
 
 function createLocalTempId() {
   return `temp:${Date.now()}:${Math.random().toString(36).slice(2, 9)}`;
+}
+
+function getPositiveTmdbId(movie) {
+  const numericId = Number(movie?.tmdb_id ?? movie?.id);
+  return Number.isInteger(numericId) && numericId > 0 ? numericId : null;
+}
+
+function isDuplicateMovieError(error) {
+  const code = String(error?.code || "");
+  const text = `${error?.message || ""} ${error?.details || ""}`.toLowerCase();
+  return (
+    code === "23505" &&
+    (text.includes("already in the bowl") || text.includes("bowl_active_tmdb_movies"))
+  );
+}
+
+function addResult(ok, code = null, message = null) {
+  return { ok, code, message };
 }
 
 // useBowl is the core state engine for a bowl.
@@ -206,19 +226,33 @@ export default function useBowl(bowlId) {
   // Insert a movie into the DB for this bowl. We store snapshot fields from TMDB.
   const handleAddMovie = useCallback(
     async (movie) => {
-      if (!bowlId) return false;
-      if (!movie?.title || !String(movie.title).trim()) return false;
+      if (!bowlId || !movie?.title || !String(movie.title).trim()) {
+        return addResult(false, "invalid_movie", "Choose a movie to add.");
+      }
       if ((bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
-        return false;
+        return addResult(
+          false,
+          "limit_reached",
+          `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`
+        );
       }
 
       const normalizedTitle = String(movie.title).trim().toLowerCase();
-      const movieTmdbId = Number.isInteger(movie?.id) ? movie.id : null;
+      const movieTmdbId = getPositiveTmdbId(movie);
       const addLockKey =
         movieTmdbId && movieTmdbId > 0 ? `tmdb:${movieTmdbId}` : `custom:${normalizedTitle}`;
 
+      const isActiveDuplicate =
+        movieTmdbId != null &&
+        (bowl.remaining || []).some(
+          (existingMovie) => getPositiveTmdbId(existingMovie) === movieTmdbId
+        );
+      if (isActiveDuplicate) {
+        return addResult(false, "duplicate_movie", DUPLICATE_MOVIE_MESSAGE);
+      }
+
       if (addRequestsInFlightRef.current.has(addLockKey)) {
-        return false;
+        return addResult(false, "duplicate_movie", DUPLICATE_MOVIE_MESSAGE);
       }
       addRequestsInFlightRef.current.add(addLockKey);
 
@@ -228,7 +262,7 @@ export default function useBowl(bowlId) {
       if (authError || !user) {
         console.error("[useBowl] Not authenticated", authError);
         addRequestsInFlightRef.current.delete(addLockKey);
-        return false;
+        return addResult(false, "not_authenticated", "You must be signed in to add a movie.");
       }
 
       setErrorMessage(null);
@@ -282,55 +316,62 @@ export default function useBowl(bowlId) {
           .single();
       };
 
-      const persistInsert = async () => {
-        try {
-          let { data, error } = await insertMovieRow(payload);
+      try {
+        let { data, error } = await insertMovieRow(payload);
 
-          // Some deployments keep tmdb_id as NOT NULL. For custom entries, retry with
-          // a synthetic negative ID so the row can still be inserted.
-          if (error && payload.tmdb_id == null) {
-            const fallbackPayload = {
-              ...payload,
-              tmdb_id: createSyntheticTmdbId(),
-            };
-            const retryResult = await insertMovieRow(fallbackPayload);
-            data = retryResult.data;
-            error = retryResult.error;
-          }
-
-          if (error) {
-            throw error;
-          }
-
-          const persistedMovie = Array.isArray(data) ? data[0] : data;
-          setBowl((prev) => ({
-            ...prev,
-            remaining: sortByAddedAtAscending(
-              (prev.remaining || []).map((item) => {
-                if (item?.local_temp_id !== localTempId) return item;
-                return {
-                  ...(persistedMovie || item),
-                  id: persistedMovie?.id || item.id,
-                  local_temp_id: null,
-                  local_status: null,
-                };
-              })
-            ),
-          }));
-        } catch (error) {
-          console.error("[useBowl] Failed to add movie", error);
-          setBowl((prev) => ({
-            ...prev,
-            remaining: (prev.remaining || []).filter((item) => item?.local_temp_id !== localTempId),
-          }));
-          setErrorMessage("Could not add this movie. Please try again.");
-        } finally {
-          addRequestsInFlightRef.current.delete(addLockKey);
+        // Some deployments keep tmdb_id as NOT NULL. For custom entries, retry with
+        // a synthetic negative ID so the row can still be inserted.
+        if (error && payload.tmdb_id == null) {
+          const fallbackPayload = {
+            ...payload,
+            tmdb_id: createSyntheticTmdbId(),
+          };
+          const retryResult = await insertMovieRow(fallbackPayload);
+          data = retryResult.data;
+          error = retryResult.error;
         }
-      };
 
-      void persistInsert();
-      return true;
+        if (error) {
+          throw error;
+        }
+
+        const persistedMovie = Array.isArray(data) ? data[0] : data;
+        setBowl((prev) => ({
+          ...prev,
+          remaining: sortByAddedAtAscending(
+            (prev.remaining || []).map((item) => {
+              if (item?.local_temp_id !== localTempId) return item;
+              return {
+                ...(persistedMovie || item),
+                id: persistedMovie?.id || item.id,
+                local_temp_id: null,
+                local_status: null,
+              };
+            })
+          ),
+        }));
+        return addResult(true);
+      } catch (error) {
+        const duplicateMovie = isDuplicateMovieError(error);
+        if (!duplicateMovie) {
+          console.error("[useBowl] Failed to add movie", error);
+        }
+        setBowl((prev) => ({
+          ...prev,
+          remaining: (prev.remaining || []).filter((item) => item?.local_temp_id !== localTempId),
+        }));
+        const message = duplicateMovie
+          ? DUPLICATE_MOVIE_MESSAGE
+          : "Could not add this movie. Please try again.";
+        setErrorMessage(message);
+        return addResult(
+          false,
+          duplicateMovie ? "duplicate_movie" : "add_failed",
+          message
+        );
+      } finally {
+        addRequestsInFlightRef.current.delete(addLockKey);
+      }
     },
     [bowlId, bowl.remaining]
   );
@@ -368,9 +409,15 @@ export default function useBowl(bowlId) {
 
   const handleReaddMovie = useCallback(
     async (movieId) => {
-      if (!bowlId || !movieId) return false;
+      if (!bowlId || !movieId) {
+        return addResult(false, "invalid_movie", "Choose a movie to re-add.");
+      }
       if ((bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
-        return false;
+        return addResult(
+          false,
+          "limit_reached",
+          `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`
+        );
       }
 
       // Defensive fallback: if a TMDB id slips through from enriched UI data,
@@ -397,8 +444,21 @@ export default function useBowl(bowlId) {
           // If the id maps to an existing watched row, allow it.
         } else {
           console.error("[useBowl] Invalid re-add movie id", { movieId, targetRowId });
-          return false;
+          return addResult(false, "invalid_movie", "Could not re-add this movie.");
         }
+      }
+
+      const targetMovie = (bowl.watched || []).find(
+        (movie) => String(movie?.id || "") === String(targetRowId)
+      );
+      const targetTmdbId = getPositiveTmdbId(targetMovie);
+      const hasActiveDuplicate =
+        targetTmdbId != null &&
+        (bowl.remaining || []).some(
+          (movie) => getPositiveTmdbId(movie) === targetTmdbId
+        );
+      if (hasActiveDuplicate) {
+        return addResult(false, "duplicate_movie", DUPLICATE_MOVIE_MESSAGE);
       }
 
       const { data: authData, error: authError } = await supabase.auth.getSession();
@@ -406,7 +466,7 @@ export default function useBowl(bowlId) {
 
       if (authError || !user) {
         console.error("[useBowl] Not authenticated", authError);
-        return false;
+        return addResult(false, "not_authenticated", "You must be signed in to re-add a movie.");
       }
 
       const { error } = await supabase
@@ -417,12 +477,19 @@ export default function useBowl(bowlId) {
         .not("drawn_at", "is", null);
 
       if (error) {
-        console.error("[useBowl] Failed to re-add watched movie", error);
-        return false;
+        const duplicateMovie = isDuplicateMovieError(error);
+        if (!duplicateMovie) {
+          console.error("[useBowl] Failed to re-add watched movie", error);
+        }
+        return addResult(
+          false,
+          duplicateMovie ? "duplicate_movie" : "add_failed",
+          duplicateMovie ? DUPLICATE_MOVIE_MESSAGE : "Could not re-add this movie. Please try again."
+        );
       }
 
       await loadBowlMovies();
-      return true;
+      return addResult(true);
     },
     // `loadBowlMovies` refreshes the watched collection after the mutation.
     // eslint-disable-next-line react-hooks/exhaustive-deps

@@ -1,5 +1,5 @@
-import { fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   params: { token: "token-1" },
@@ -14,11 +14,15 @@ const mocks = vi.hoisted(() => ({
     remainingAdds: 1,
     addedByName: "Dad",
   },
+  consumeError: null,
 }));
 
 vi.mock("../../lib/addLinks", () => ({
   getAddLinkMetadata: vi.fn(async () => mocks.metadata),
-  consumeAddLink: vi.fn(async () => mocks.consumeResult),
+  consumeAddLink: vi.fn(async () => {
+    if (mocks.consumeError) throw mocks.consumeError;
+    return mocks.consumeResult;
+  }),
 }));
 
 vi.mock("../../components/MovieSearch", () => ({
@@ -55,6 +59,11 @@ describe("PublicAddLinkPage", () => {
       remainingAdds: 1,
       addedByName: "Dad",
     };
+    mocks.consumeError = null;
+  });
+
+  afterEach(() => {
+    cleanup();
   });
 
   it("loads the token metadata and shows the search UI", async () => {
@@ -105,5 +114,22 @@ describe("PublicAddLinkPage", () => {
     await waitFor(() => {
       expect(screen.getByText(/already been used up/i)).toBeInTheDocument();
     });
+  });
+
+  it("shows a duplicate error without consuming a link use", async () => {
+    mocks.consumeError = Object.assign(
+      new Error("This movie is already in the bowl."),
+      { code: "duplicate_movie", status: 409 }
+    );
+    render(<PublicAddLinkPage />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /add via search/i })).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /add via search/i }));
+
+    expect(await screen.findByText("This movie is already in the bowl.")).toBeInTheDocument();
+    expect(screen.getByText("2")).toBeInTheDocument();
+    expect(screen.queryByText(/movie added as/i)).not.toBeInTheDocument();
   });
 });

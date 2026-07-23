@@ -26,6 +26,15 @@ function buildMoviePayload(movie) {
   };
 }
 
+function isDuplicateMovieError(error) {
+  const code = String(error?.code || "");
+  const text = `${error?.message || ""} ${error?.details || ""}`.toLowerCase();
+  return (
+    code === "23505" &&
+    (text.includes("already in the bowl") || text.includes("bowl_active_tmdb_movies"))
+  );
+}
+
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
@@ -51,6 +60,13 @@ export default async function handler(req, res) {
 
     if (error) {
       const message = String(error?.message || "");
+      if (isDuplicateMovieError(error)) {
+        res.status(409).json({
+          code: "duplicate_movie",
+          error: "This movie is already in the bowl.",
+        });
+        return;
+      }
       if (message.toLowerCase().includes("not found") || message.toLowerCase().includes("exhausted")) {
         res.status(400).json({ error: message });
         return;

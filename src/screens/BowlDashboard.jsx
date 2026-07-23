@@ -892,16 +892,18 @@ return (
                   onClose={() => setShowSearch(false)}
                   onAddMovie={async (movie) => {
                     if ((bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
-                      setAddGuardMessage(
-                        `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`
-                      );
-                      return;
+                      const message =
+                        `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`;
+                      setAddGuardMessage(message);
+                      return { ok: false, code: "limit_reached", message };
                     }
 
-                    const added = await handleAddMovie(movie);
-                    if (added) {
+                    const result = await handleAddMovie(movie);
+                    const ok = result === true || result?.ok === true;
+                    if (ok) {
                       setShowSearch(false);
                     }
+                    return result === true ? { ok: true } : result;
                   }}
                 />
               )}
@@ -1014,11 +1016,14 @@ return (
                         }
                         setIsReadding(true);
                         const rowId = pendingReaddMovie?.bowlMovieId ?? pendingReaddMovie?.id;
-                        const ok = await handleReaddMovie(rowId);
+                        const result = await handleReaddMovie(rowId);
                         setIsReadding(false);
                         setPendingReaddMovie(null);
+                        const ok = result === true || result?.ok === true;
                         if (!ok) {
-                          setReaddErrorMessage("Could not re-add this movie. Please try again.");
+                          setReaddErrorMessage(
+                            result?.message || "Could not re-add this movie. Please try again."
+                          );
                         }
                       }}
                       className="btn btn-primary"

@@ -46,6 +46,13 @@ Avoid dashboard-only schema/policy changes. If an emergency dashboard edit happe
 `public.bowl_movie_queue` remains for compatibility with older migrations and rows, but active app code no longer writes to it.
 The equal-probability contributor draw migration promotes pending queue rows into `public.bowl_movies`.
 
+## Active movie uniqueness note
+
+`20260723200000_prevent_duplicate_active_movies.sql` prevents new duplicate
+positive TMDB IDs among a bowl's undrawn movies. Its private registry preserves
+pre-existing duplicate rows while blocking additional copies. Custom entries
+and watched movies are not included in the uniqueness rule.
+
 ## Public add links note
 
 Public add links are introduced by:

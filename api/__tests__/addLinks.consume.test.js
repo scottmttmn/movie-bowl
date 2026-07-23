@@ -115,6 +115,35 @@ describe("api/add-links/consume", () => {
     expect(res.body).toEqual({ error: "Add link is exhausted" });
   });
 
+  it("returns a conflict for an active duplicate", async () => {
+    rpcMock.mockResolvedValue({
+      data: null,
+      error: {
+        code: "23505",
+        message: "This movie is already in the bowl.",
+        details: "bowl_active_tmdb_movies_pkey",
+      },
+    });
+
+    const res = createRes();
+    await handler(
+      {
+        method: "POST",
+        body: {
+          token: "token-1",
+          movie: { id: 123, title: "Jaws" },
+        },
+      },
+      res
+    );
+
+    expect(res.statusCode).toBe(409);
+    expect(res.body).toEqual({
+      code: "duplicate_movie",
+      error: "This movie is already in the bowl.",
+    });
+  });
+
   it("returns a final success with zero remaining adds when the last add consumes the link", async () => {
     rpcMock.mockResolvedValue({
       data: [

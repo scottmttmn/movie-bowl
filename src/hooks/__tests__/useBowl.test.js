@@ -374,17 +374,16 @@ describe("useBowl handleDraw integration", () => {
     const { result } = renderHook(() => useBowl("bowl-1"));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    let added = false;
-    await act(async () => {
-      added = await result.current.handleAddMovie({
+    let addPromise;
+    act(() => {
+      addPromise = result.current.handleAddMovie({
         id: 101,
         title: "Movie A",
         genres: [{ name: "Action" }],
       });
     });
 
-    expect(added).toBe(true);
-    expect(result.current.bowl.remaining).toHaveLength(1);
+    await waitFor(() => expect(result.current.bowl.remaining).toHaveLength(1));
     expect(result.current.bowl.remaining[0]).toEqual(
       expect.objectContaining({
         title: "Movie A",
@@ -393,6 +392,7 @@ describe("useBowl handleDraw integration", () => {
       })
     );
 
+    let added;
     await act(async () => {
       resolveInsert({
         data: {
@@ -408,9 +408,10 @@ describe("useBowl handleDraw integration", () => {
         },
         error: null,
       });
-      await Promise.resolve();
+      added = await addPromise;
     });
 
+    expect(added).toEqual(expect.objectContaining({ ok: true }));
     await waitFor(() => {
       expect(result.current.bowl.remaining[0]).toEqual(
         expect.objectContaining({
@@ -444,6 +445,39 @@ describe("useBowl handleDraw integration", () => {
     });
   });
 
+  it("returns a duplicate result and rolls back when the database rejects a racing add", async () => {
+    mocks.remainingQueue.push([]);
+    mocks.watchedQueue.push([]);
+    mocks.insertResponses.push({
+      data: null,
+      error: {
+        code: "23505",
+        message: "This movie is already in the bowl.",
+        details: "bowl_active_tmdb_movies_pkey",
+      },
+    });
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let addMovieResult;
+    await act(async () => {
+      addMovieResult = await result.current.handleAddMovie({
+        id: 101,
+        title: "Movie A",
+        genres: [],
+      });
+    });
+
+    expect(addMovieResult).toEqual({
+      ok: false,
+      code: "duplicate_movie",
+      message: "This movie is already in the bowl.",
+    });
+    expect(result.current.bowl.remaining).toHaveLength(0);
+    expect(result.current.errorMessage).toBe("This movie is already in the bowl.");
+  });
+
   it("prevents duplicate in-flight add for the same title but allows different titles", async () => {
     mocks.remainingQueue.push([], []);
     mocks.watchedQueue.push([], []);
@@ -473,16 +507,19 @@ describe("useBowl handleDraw integration", () => {
     const { result } = renderHook(() => useBowl("bowl-1"));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    let firstQueued = false;
-    let duplicateQueued = false;
-    let secondTitleQueued = false;
-
-    await act(async () => {
-      firstQueued = await result.current.handleAddMovie({
+    let firstAddPromise;
+    act(() => {
+      firstAddPromise = result.current.handleAddMovie({
         id: 101,
         title: "Movie A",
         genres: [],
       });
+    });
+    await waitFor(() => expect(result.current.bowl.remaining).toHaveLength(1));
+
+    let duplicateQueued;
+    let secondTitleQueued;
+    await act(async () => {
       duplicateQueued = await result.current.handleAddMovie({
         id: 101,
         title: "Movie A",
@@ -495,15 +532,17 @@ describe("useBowl handleDraw integration", () => {
       });
     });
 
-    expect(firstQueued).toBe(true);
-    expect(duplicateQueued).toBe(false);
-    expect(secondTitleQueued).toBe(true);
+    expect(duplicateQueued).toEqual(
+      expect.objectContaining({ ok: false, code: "duplicate_movie" })
+    );
+    expect(secondTitleQueued).toEqual(expect.objectContaining({ ok: true }));
     expect(mocks.insertPayloads).toHaveLength(2);
     expect(result.current.bowl.remaining).toHaveLength(2);
     expect(
       result.current.bowl.remaining.filter((movie) => movie.local_status === "syncing")
     ).toHaveLength(1);
 
+    let firstQueued;
     await act(async () => {
       resolveFirstInsert({
         data: {
@@ -519,9 +558,10 @@ describe("useBowl handleDraw integration", () => {
         },
         error: null,
       });
-      await Promise.resolve();
+      firstQueued = await firstAddPromise;
     });
 
+    expect(firstQueued).toEqual(expect.objectContaining({ ok: true }));
     await waitFor(() => {
       expect(
         result.current.bowl.remaining.map((movie) => movie.id)
@@ -674,6 +714,39 @@ describe("useBowl handleDraw integration", () => {
     });
   });
 
+  it("rejects re-adding a watched TMDB movie when an active copy exists", async () => {
+    const activeMovie = {
+      id: "r1",
+      tmdb_id: 101,
+      title: "Movie A",
+      drawn_at: null,
+    };
+    const watchedMovie = {
+      id: "w1",
+      tmdb_id: 101,
+      title: "Movie A",
+      drawn_at: "2026-02-23T00:00:00.000Z",
+    };
+
+    mocks.remainingQueue.push([activeMovie]);
+    mocks.watchedQueue.push([watchedMovie]);
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let readdResult;
+    await act(async () => {
+      readdResult = await result.current.handleReaddMovie("w1");
+    });
+
+    expect(readdResult).toEqual({
+      ok: false,
+      code: "duplicate_movie",
+      message: "This movie is already in the bowl.",
+    });
+    expect(mocks.updatePayloads).toHaveLength(0);
+  });
+
   it("does not re-add watched titles when undrawn movie limit is reached", async () => {
     const watchedCustom = {
       id: "c1",
@@ -695,17 +768,17 @@ describe("useBowl handleDraw integration", () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.bowl.remaining).toHaveLength(MAX_UNDRAWN_MOVIES_PER_BOWL);
 
-    let readdResult = false;
+    let readdResult;
     await act(async () => {
       readdResult = await result.current.handleReaddMovie("c1");
     });
 
-    expect(readdResult).toBe(false);
+    expect(readdResult).toEqual(expect.objectContaining({ ok: false, code: "limit_reached" }));
     expect(mocks.insertPayloads).toHaveLength(0);
     expect(mocks.updatePayloads).toHaveLength(0);
   });
 
-  it("allows adding a duplicate active TMDB title when duplicates are enabled", async () => {
+  it("rejects an active TMDB duplicate without inserting another row", async () => {
     const existingRemaining = {
       id: "r1",
       tmdb_id: 101,
@@ -713,30 +786,56 @@ describe("useBowl handleDraw integration", () => {
       drawn_at: null,
       drawn_by: null,
     };
-    const duplicateRemaining = {
-      id: "r2",
-      tmdb_id: 101,
-      title: "Movie A",
-      drawn_at: null,
-      drawn_by: null,
-    };
-
-    mocks.remainingQueue.push([existingRemaining], [existingRemaining, duplicateRemaining]);
-    mocks.watchedQueue.push([], []);
+    mocks.remainingQueue.push([existingRemaining]);
+    mocks.watchedQueue.push([]);
 
     const { result } = renderHook(() => useBowl("bowl-1"));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.bowl.remaining).toHaveLength(1);
 
+    let addDuplicateResult;
     await act(async () => {
-      await result.current.handleAddMovie({ id: 101, title: "Movie A", genres: [] });
+      addDuplicateResult = await result.current.handleAddMovie({
+        id: 101,
+        title: "Movie A",
+        genres: [],
+      });
     });
 
-    expect(mocks.insertPayloads).toHaveLength(1);
-    expect(mocks.updatePayloads).toHaveLength(0);
-    await waitFor(() => {
-      expect(result.current.bowl.remaining).toHaveLength(2);
+    expect(addDuplicateResult).toEqual({
+      ok: false,
+      code: "duplicate_movie",
+      message: "This movie is already in the bowl.",
     });
+    expect(mocks.insertPayloads).toHaveLength(0);
+    expect(mocks.updatePayloads).toHaveLength(0);
+    expect(result.current.bowl.remaining).toEqual([existingRemaining]);
+  });
+
+  it("allows repeated custom titles", async () => {
+    const existingCustom = {
+      id: "c1",
+      tmdb_id: -101,
+      title: "Wildcard Night",
+      drawn_at: null,
+    };
+    mocks.remainingQueue.push([existingCustom]);
+    mocks.watchedQueue.push([]);
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let addCustomResult;
+    await act(async () => {
+      addCustomResult = await result.current.handleAddMovie({
+        title: "Wildcard Night",
+        genres: [],
+      });
+    });
+
+    expect(addCustomResult).toEqual(expect.objectContaining({ ok: true }));
+    expect(mocks.insertPayloads).toHaveLength(1);
+    expect(mocks.insertPayloads[0][0].tmdb_id).toBeNull();
   });
 
   it("does not add when undrawn movie limit is reached", async () => {
