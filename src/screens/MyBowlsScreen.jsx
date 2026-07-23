@@ -12,6 +12,19 @@ import { parseInviteEmails } from "../utils/parseInviteEmails";
 
 // Supabase client is centralized in src/lib/supabase.js
 
+function getBowlActivityTime(bowl) {
+  const time = new Date(bowl?.lastActivityAt || 0).getTime();
+  return Number.isFinite(time) ? time : 0;
+}
+
+function sortBowlsByRecentActivity(bowls) {
+  return [...bowls].sort((a, b) => {
+    const activityDifference = getBowlActivityTime(b) - getBowlActivityTime(a);
+    if (activityDifference !== 0) return activityDifference;
+    return String(a?.name || "").localeCompare(String(b?.name || ""));
+  });
+}
+
 export default function MyBowlsScreen() {
   // Bowls shown on the home screen. Loaded from Supabase for the logged-in user.
   const [bowls, setBowls] = useState([]);
@@ -33,8 +46,8 @@ export default function MyBowlsScreen() {
   } = useUserStreamingServices();
   const ownedBowlCount = bowls.filter((b) => b.role === "Owner").length;
   const isCreateBowlLimitReached = ownedBowlCount >= MAX_BOWLS_PER_USER;
-  const ownedBowls = bowls.filter((b) => b.role === "Owner");
-  const sharedBowls = bowls.filter((b) => b.role !== "Owner");
+  const ownedBowls = sortBowlsByRecentActivity(bowls.filter((b) => b.role === "Owner"));
+  const sharedBowls = sortBowlsByRecentActivity(bowls.filter((b) => b.role !== "Owner"));
   const hasStreamingServices = streamingServices.length > 0;
   const inviteCountLabel = `${pendingInvites.length} pending invite${pendingInvites.length === 1 ? "" : "s"}`;
   const shouldShowGuidedSetup =
@@ -165,6 +178,7 @@ export default function MyBowlsScreen() {
             remainingCount: Number(b.remaining_count || 0),
             memberCount: Number(b.member_count || 0),
             role: b.owner_id === user.id ? "Owner" : "Member",
+            lastActivityAt: b.last_activity_at || b.updated_at || b.created_at || null,
           }))
       );
 
@@ -391,8 +405,9 @@ export default function MyBowlsScreen() {
       remainingCount: 0,
       memberCount: 1,
       role: "Owner",
+      lastActivityAt: newBowl.last_activity_at || newBowl.updated_at || newBowl.created_at || new Date().toISOString(),
     };
-    setBowls((prev) => [...prev,bowlToAdd]);
+    setBowls((prev) => [...prev, bowlToAdd]);
     setNewBowlName("");
     setInviteEmails("");
     setIsModalOpen(false);

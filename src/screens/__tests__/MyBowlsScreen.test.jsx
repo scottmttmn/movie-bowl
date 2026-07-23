@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
     initialAuthenticated: false,
     sessionUser: { id: "u1", email: "user@example.com" },
     rpcRows: [],
+    memberRows: [],
     pendingInvites: [],
     profileRows: [],
     insertedBowls: [],
@@ -95,7 +96,10 @@ const mocks = vi.hoisted(() => {
             return {
               eq: vi.fn((key, value) => {
                 ctx.eqFilters.push({ key, value });
-                return Promise.resolve({ data: [], error: null });
+                const rows = mocks.state.memberRows
+                  .filter((row) => key !== "user_id" || row.user_id === value)
+                  .map((row) => ({ bowl_id: row.bowl_id }));
+                return Promise.resolve({ data: rows, error: null });
               }),
             };
           }),
@@ -232,6 +236,7 @@ describe("MyBowlsScreen", () => {
     mocks.state.initialAuthenticated = false;
     mocks.state.sessionUser = { id: "u1", email: "user@example.com" };
     mocks.state.rpcRows = [];
+    mocks.state.memberRows = [];
     mocks.state.pendingInvites = [];
     mocks.state.profileRows = [];
     mocks.state.insertedBowls = [];
@@ -292,6 +297,96 @@ describe("MyBowlsScreen", () => {
     expect(screen.queryByText(/start your first movie bowl/i)).not.toBeInTheDocument();
     expect(screen.getByText(/owned by you/i)).toBeInTheDocument();
     expect(screen.getByText(/shared with you/i)).toBeInTheDocument();
+  });
+
+  it("orders owned and shared bowls by most recent activity", async () => {
+    mocks.state.initialAuthenticated = true;
+    mocks.state.memberRows = [
+      { bowl_id: "shared-old", user_id: "u1" },
+      { bowl_id: "shared-new", user_id: "u1" },
+    ];
+    mocks.state.rpcRows = [
+      {
+        id: "owned-old",
+        name: "Owned Old",
+        remaining_count: 3,
+        member_count: 2,
+        owner_id: "u1",
+        last_activity_at: "2026-04-20T12:00:00.000Z",
+      },
+      {
+        id: "shared-old",
+        name: "Shared Old",
+        remaining_count: 1,
+        member_count: 2,
+        owner_id: "owner-1",
+        last_activity_at: "2026-04-19T12:00:00.000Z",
+      },
+      {
+        id: "owned-new",
+        name: "Owned New",
+        remaining_count: 5,
+        member_count: 3,
+        owner_id: "u1",
+        last_activity_at: "2026-04-24T12:00:00.000Z",
+      },
+      {
+        id: "shared-new",
+        name: "Shared New",
+        remaining_count: 7,
+        member_count: 4,
+        owner_id: "owner-2",
+        last_activity_at: "2026-04-25T12:00:00.000Z",
+      },
+    ];
+
+    render(<MyBowlsScreen />);
+
+    await waitFor(() => expect(screen.getByText("Owned New")).toBeInTheDocument());
+
+    const ownedSection = screen.getByRole("heading", { name: /owned by you/i }).closest("section");
+    const sharedSection = screen.getByRole("heading", { name: /shared with you/i }).closest("section");
+
+    expect(Array.from(ownedSection.querySelectorAll(".bowl-card h3")).map((el) => el.textContent)).toEqual([
+      "Owned New",
+      "Owned Old",
+    ]);
+    expect(Array.from(sharedSection.querySelectorAll(".bowl-card h3")).map((el) => el.textContent)).toEqual([
+      "Shared New",
+      "Shared Old",
+    ]);
+  });
+
+  it("uses the bowl name as a stable fallback when activity timestamps match", async () => {
+    mocks.state.initialAuthenticated = true;
+    mocks.state.rpcRows = [
+      {
+        id: "bowl-2",
+        name: "Zulu Bowl",
+        remaining_count: 3,
+        member_count: 2,
+        owner_id: "u1",
+        last_activity_at: "2026-04-20T12:00:00.000Z",
+      },
+      {
+        id: "bowl-1",
+        name: "Alpha Bowl",
+        remaining_count: 1,
+        member_count: 2,
+        owner_id: "u1",
+        last_activity_at: "2026-04-20T12:00:00.000Z",
+      },
+    ];
+
+    render(<MyBowlsScreen />);
+
+    await waitFor(() => expect(screen.getByText("Alpha Bowl")).toBeInTheDocument());
+
+    const ownedSection = screen.getByRole("heading", { name: /owned by you/i }).closest("section");
+    expect(Array.from(ownedSection.querySelectorAll(".bowl-card h3")).map((el) => el.textContent)).toEqual([
+      "Alpha Bowl",
+      "Zulu Bowl",
+    ]);
   });
 
   it("deep-links to streaming services from guided setup", async () => {
