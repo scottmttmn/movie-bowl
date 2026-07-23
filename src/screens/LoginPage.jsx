@@ -46,7 +46,7 @@ export default function LoginPage() {
   return (
     <div className="page-container flex min-h-screen items-center py-10">
       <div className="page-hero mx-auto w-full max-w-md text-center">
-        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl border border-rose-900/50 bg-rose-950/30 shadow-xl shadow-black/25">
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center">
           <img src={bowlImage} alt="" aria-hidden="true" className="h-16 w-16 object-contain" />
         </div>
         <p className="eyebrow text-rose-300">Movie Bowl</p>
