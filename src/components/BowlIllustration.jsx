@@ -1,4 +1,4 @@
-import bowlImage from "../assets/bowl-illustration.png";
+import bowlImage from "../assets/bowl-illustration-v3.png";
 
 export default function BowlIllustration({ className = "" }) {
   return (
