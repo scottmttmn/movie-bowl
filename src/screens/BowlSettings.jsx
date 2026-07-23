@@ -668,18 +668,20 @@ export default function BowlSettings() {
   };
 
   return (
-    <div className="page-container py-5">
-      <header className="mb-5 flex items-center justify-between">
+    <div className="page-container py-6 sm:py-8">
+      <header className="page-hero mb-6 flex items-center justify-between gap-3">
         <button onClick={() => navigate(`/bowl/${bowlId}`)} className="btn btn-ghost px-3 py-2">
-          Back
+          <span aria-hidden="true">←</span> Back
         </button>
-        <h2 className="max-w-[70%] truncate text-2xl font-semibold text-slate-100">{bowlName}</h2>
-        <div />
+        <div className="min-w-0 text-right">
+          <p className="eyebrow">Bowl settings</p>
+          <h1 className="mt-1 truncate text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">{bowlName}</h1>
+        </div>
       </header>
 
-      {isLoading && <div className="text-sm text-gray-600">Loading…</div>}
-      {!isLoading && errorMessage && <div className="mb-2 text-sm text-red-400">{errorMessage}</div>}
-      {!isLoading && actionMessage && <div className="mb-2 text-sm text-emerald-300">{actionMessage}</div>}
+      {isLoading && <div className="panel text-sm text-slate-400" role="status">Loading…</div>}
+      {!isLoading && errorMessage && <div className="status-error mb-4">{errorMessage}</div>}
+      {!isLoading && actionMessage && <div className="status-success mb-4">{actionMessage}</div>}
 
       {isOwner && (
         <section className="panel mb-4">
@@ -710,12 +712,12 @@ export default function BowlSettings() {
       {isOwner && (
         <section className="panel mb-4">
           <h3 className="section-title mb-2">Draw Access</h3>
-          <p className="text-sm text-slate-600 mb-3">
+          <p className="text-sm text-slate-400 mb-3">
             Set who can draw movies from this bowl. Owner is always allowed.
           </p>
           <form onSubmit={handleSaveDrawAccess} className="space-y-3">
             <div className="flex flex-wrap gap-4">
-              <label htmlFor="draw-access-all-members" className="inline-flex items-center gap-2 text-sm text-slate-800">
+              <label htmlFor="draw-access-all-members" className="inline-flex items-center gap-2 text-sm text-slate-100">
                 <input
                   id="draw-access-all-members"
                   name="draw_access_mode"
@@ -726,7 +728,7 @@ export default function BowlSettings() {
                 />
                 Everyone in bowl
               </label>
-              <label htmlFor="draw-access-selected-members" className="inline-flex items-center gap-2 text-sm text-slate-800">
+              <label htmlFor="draw-access-selected-members" className="inline-flex items-center gap-2 text-sm text-slate-100">
                 <input
                   id="draw-access-selected-members"
                   name="draw_access_mode"
@@ -740,8 +742,8 @@ export default function BowlSettings() {
             </div>
 
             {drawAccessMode === DRAW_ACCESS_MODE_SELECTED && (
-              <div className="rounded-lg border border-slate-200 bg-slate-50 p-3">
-                <p className="text-xs text-slate-600 mb-2">
+              <div className="rounded-lg border border-slate-700 bg-slate-800/60 p-3">
+                <p className="text-xs text-slate-400 mb-2">
                   Only selected members can draw. Owner can always draw.
                 </p>
                 <div className="space-y-2">
@@ -750,8 +752,8 @@ export default function BowlSettings() {
                     .map((member) => {
                       const email = member.profiles?.email || member.user_id;
                       return (
-                        <div key={member.user_id} className="text-sm text-slate-700">
-                          {email} <span className="text-xs text-slate-500">(Always allowed)</span>
+                        <div key={member.user_id} className="text-sm text-slate-300">
+                          {email} <span className="text-xs text-slate-400">(Always allowed)</span>
                         </div>
                       );
                     })}
@@ -761,7 +763,7 @@ export default function BowlSettings() {
                       const email = member.profiles?.email || member.user_id;
                       const checkboxId = `draw-access-member-${member.user_id}`;
                       return (
-                        <label key={member.user_id} htmlFor={checkboxId} className="inline-flex w-full items-center gap-2 text-sm text-slate-800">
+                        <label key={member.user_id} htmlFor={checkboxId} className="inline-flex w-full items-center gap-2 text-sm text-slate-100">
                           <input
                             id={checkboxId}
                             name="draw_access_allowed_members"
@@ -796,8 +798,8 @@ export default function BowlSettings() {
 
       {!isOwner && currentUserId && (
         <section className="panel mb-4 border-amber-900/60">
-          <h3 className="section-title mb-2 text-amber-700">Leave Bowl</h3>
-          <p className="text-sm text-slate-600 mb-3">
+          <h3 className="section-title mb-2 text-amber-300">Leave Bowl</h3>
+          <p className="text-sm text-slate-400 mb-3">
             You will be removed from this bowl and can rejoin only by invite.
           </p>
           <button
@@ -814,13 +816,13 @@ export default function BowlSettings() {
         <h3 className="section-title mb-3">Members</h3>
 
         {!isOwner && (
-          <p className="text-sm text-gray-600 mb-3">
+          <p className="text-sm text-slate-400 mb-3">
             Only the bowl owner can invite or remove members.
           </p>
         )}
 
         {isOwner && (
-          <form onSubmit={handleCreateInvite} className="flex gap-2 mb-4">
+          <form onSubmit={handleCreateInvite} className="mb-4 flex flex-col gap-2 sm:flex-row">
             <input
               id="invite-email-input"
               name="invite_email"
@@ -840,8 +842,8 @@ export default function BowlSettings() {
         )}
 
         {isOwner && inviteLink && (
-          <div className="mb-4 rounded-lg border border-slate-200 p-3 bg-slate-50">
-            <div className="text-xs text-slate-600 mb-1">Invite link</div>
+          <div className="mb-4 rounded-lg border border-slate-700 p-3 bg-slate-800/60">
+            <div className="text-xs text-slate-400 mb-1">Invite link</div>
             <div className="flex items-center gap-2">
               <input
                 id="invite-link-input"
@@ -877,11 +879,11 @@ export default function BowlSettings() {
                 return (
                   <div
                     key={inv.id}
-                    className="flex items-center justify-between rounded-lg border border-slate-200 p-2"
+                    className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-slate-700 bg-slate-950/35 p-3"
                   >
                     <div className="min-w-0">
                       <div className="text-sm font-medium truncate">{inv.invited_email}</div>
-                      <div className="text-xs text-gray-600">Not accepted yet</div>
+                      <div className="text-xs text-slate-400">Not accepted yet</div>
                     </div>
                     <button
                       type="button"
@@ -902,7 +904,7 @@ export default function BowlSettings() {
                       onClick={() => {
                         void handleRevokeInvite(inv.id, inv.invited_email);
                       }}
-                      className="btn border border-red-300 bg-red-50 px-2 py-1 text-sm text-red-700 hover:bg-red-100 focus-visible:ring-red-200"
+                      className="btn btn-danger px-3 py-2 text-sm"
                     >
                       Revoke
                     </button>
@@ -915,7 +917,7 @@ export default function BowlSettings() {
 
         <div className="space-y-2">
           {members.length === 0 ? (
-            <div className="text-sm text-gray-600">No members found.</div>
+            <div className="text-sm text-slate-400">No members found.</div>
           ) : (
             members.map((m) => {
               const email = m.profiles?.email || m.user_id;
@@ -924,11 +926,11 @@ export default function BowlSettings() {
               return (
                 <div
                   key={m.user_id}
-                  className="flex items-center justify-between rounded-lg border border-slate-200 p-2"
+                  className="flex items-center justify-between gap-3 rounded-xl border border-slate-700 bg-slate-950/35 p-3"
                 >
                   <div className="min-w-0">
                     <div className="text-sm font-medium truncate">{email}</div>
-                    <div className="text-xs text-gray-600">{m.role}</div>
+                    <div className="text-xs text-slate-400">{m.role}</div>
                   </div>
 
                   {isOwner && !isOwnerRole && (
@@ -1021,7 +1023,7 @@ export default function BowlSettings() {
                 return (
                   <div
                     key={link.id}
-                    className="rounded-lg border border-slate-700 bg-slate-950/50 p-3"
+                    className="rounded-xl border border-slate-700 bg-slate-950/40 p-3 transition hover:border-slate-600"
                   >
                     <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                       <div className="min-w-0">
@@ -1029,12 +1031,12 @@ export default function BowlSettings() {
                           {remainingAdds} of {link.max_adds} adds remaining
                         </div>
                         <div className="text-xs text-slate-400">
-                          {Boolean(link.revoked_at) ? "Revoked" : remainingAdds === 0 ? "Exhausted" : "Active"}
+                          {link.revoked_at ? "Revoked" : remainingAdds === 0 ? "Exhausted" : "Active"}
                         </div>
                         <div className="mt-1 text-xs text-slate-400">
                           Default label: {link.default_contributor_name || "Link Guest"}
                         </div>
-                        <div className="mt-2 truncate text-xs text-slate-500">{linkUrl}</div>
+                        <div className="mt-2 truncate text-xs text-slate-400">{linkUrl}</div>
                       </div>
                       <div className="flex gap-2">
                         <button
@@ -1056,7 +1058,7 @@ export default function BowlSettings() {
                           onClick={() => {
                             void handleDeleteAddLink(link.id);
                           }}
-                          className="btn border border-red-900/70 bg-red-950/40 px-3 py-2 text-sm text-red-300 hover:bg-red-900/40 focus-visible:ring-red-900/40"
+                          className="btn btn-danger px-3 py-2 text-sm"
                         >
                           Delete
                         </button>
@@ -1100,8 +1102,8 @@ export default function BowlSettings() {
       )}
 
       {isOwner && (
-        <section className="panel-muted mt-5 border border-red-900/60">
-          <h3 className="mb-2 text-sm font-semibold uppercase tracking-[0.16em] text-red-400">Danger zone</h3>
+        <section className="panel-muted mt-5 border border-rose-900/60 bg-rose-950/10">
+          <h3 className="mb-2 text-sm font-semibold uppercase tracking-[0.16em] text-rose-400">Danger zone</h3>
           <h4 className="section-title mb-2 text-base">Delete Bowl</h4>
           <p className="mb-3 text-sm text-slate-400">
             Permanently deletes this bowl, including movies, members, and pending invites.

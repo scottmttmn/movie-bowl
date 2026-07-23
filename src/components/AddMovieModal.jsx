@@ -1,4 +1,4 @@
-import React, { useEffect, useMemo, useState } from "react";
+import React, { useEffect, useState } from "react";
 import MovieSearch from "./MovieSearch";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { matchUserServices, normalizeStreamingServices } from "../utils/streamingServices";
@@ -36,6 +36,8 @@ export default function AddMovieModal({
   }, [onClose]);
 
   useEffect(() => {
+    // Reset the disclosure whenever a different movie is shown.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setIsTrailerVisible(false);
   }, [movie]);
 
@@ -44,8 +46,8 @@ export default function AddMovieModal({
   // 2) "Just drawn" flow (movie is defined): show details for the drawn movie.
   if (!movie) {
     return (
-      <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm">
-        <div className="w-full max-w-4xl rounded-3xl border border-slate-700 bg-slate-900 p-6 text-left shadow-2xl shadow-black/40">
+      <div className="modal-overlay z-50" role="presentation">
+        <div className="modal-surface max-h-[92vh] max-w-4xl overflow-y-auto p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="movie-search-title">
           <button
             onClick={onClose}
             className="icon-btn absolute top-4 right-4"
@@ -54,7 +56,7 @@ export default function AddMovieModal({
             ✕
           </button>
 
-          <h2 className="mb-4 text-2xl font-semibold text-slate-100">Search Movies</h2>
+          <h2 id="movie-search-title" className="mb-4 pr-12 text-2xl font-semibold tracking-tight text-slate-100">Search Movies</h2>
 
           {/* MovieSearch handles TMDB search + details fetch and returns a full movie object */}
           <MovieSearch
@@ -87,10 +89,7 @@ export default function AddMovieModal({
   const addedByLabel = getMovieAttributionLabel(movie);
   const availableProviders = normalizeStreamingServices(movie.streamingProviders || []);
   const matchingProviders = matchUserServices(availableProviders, userStreamingServices);
-  const hasTrailer = useMemo(
-    () => movie?.trailer?.site === "YouTube" && Boolean(movie?.trailer?.key),
-    [movie]
-  );
+  const hasTrailer = movie?.trailer?.site === "YouTube" && Boolean(movie?.trailer?.key);
   const trailerRegionId = resolvedMovieId != null
     ? `movie-trailer-${String(resolvedMovieId).replace(/[^a-zA-Z0-9_-]+/g, "-")}`
     : "movie-trailer";
@@ -102,8 +101,8 @@ export default function AddMovieModal({
     Boolean(webLaunchStatus);
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-slate-950/80 px-4 backdrop-blur-sm">
-      <div className="relative max-h-[90vh] w-full max-w-4xl overflow-y-auto rounded-3xl border border-slate-700 bg-slate-900 p-6 text-left shadow-2xl shadow-black/40">
+    <div className="modal-overlay z-50" role="presentation">
+      <div className="modal-surface max-h-[92vh] max-w-4xl overflow-y-auto p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="movie-detail-title">
         <button
           onClick={onClose}
           className="icon-btn absolute top-4 right-4"
@@ -113,17 +112,17 @@ export default function AddMovieModal({
         </button>
 
         {posterUrl && (
-          <div className="mb-4 max-h-[46vh] rounded-xl bg-slate-950">
+          <div className="mx-auto mb-5 max-h-[46vh] max-w-2xl overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
             <img
               src={posterUrl}
               alt={movie.title}
-              className="h-full max-h-[46vh] w-full rounded object-contain"
+              className="h-full max-h-[46vh] w-full object-contain"
             />
           </div>
         )}
 
         <div className="mb-1 flex items-center gap-2">
-          <h2 className="text-2xl font-semibold text-slate-100">
+          <h2 id="movie-detail-title" className="pr-10 text-2xl font-semibold tracking-tight text-slate-100 sm:text-3xl">
             {movie.title} ({year})
           </h2>
           {isCustomEntry && (
@@ -186,7 +185,7 @@ export default function AddMovieModal({
           {availableProviders.length > 0 ? (
             <p className="text-sm text-slate-300">{availableProviders.join(", ")}</p>
           ) : (
-            <p className="text-sm text-slate-500">No US streaming providers found right now.</p>
+            <p className="text-sm text-slate-400">No US streaming providers found right now.</p>
           )}
         </div>
 
@@ -195,7 +194,7 @@ export default function AddMovieModal({
           {matchingProviders.length > 0 ? (
             <p className="text-sm text-emerald-300">{matchingProviders.join(", ")}</p>
           ) : (
-            <p className="text-sm text-slate-500">None of your saved services match this title.</p>
+            <p className="text-sm text-slate-400">None of your saved services match this title.</p>
           )}
         </div>
 
@@ -242,7 +241,7 @@ export default function AddMovieModal({
             {rokuLaunchStatus && (
               <div
                 className={`mt-3 rounded-lg px-3 py-2 text-sm ${
-                  rokuLaunchStatus.ok ? "bg-emerald-950/50 text-emerald-300" : "bg-red-950/50 text-red-300"
+                  rokuLaunchStatus.ok ? "bg-emerald-950/50 text-emerald-300" : "bg-rose-950/50 text-rose-300"
                 }`}
               >
                 <p className="font-medium">{rokuLaunchStatus.message}</p>
@@ -259,7 +258,7 @@ export default function AddMovieModal({
             {webLaunchStatus && (
               <div
                 className={`mt-3 rounded-lg px-3 py-2 text-sm ${
-                  webLaunchStatus.ok ? "bg-emerald-950/50 text-emerald-300" : "bg-red-950/50 text-red-300"
+                  webLaunchStatus.ok ? "bg-emerald-950/50 text-emerald-300" : "bg-rose-950/50 text-rose-300"
                 }`}
               >
                 <p className="font-medium">{webLaunchStatus.message}</p>
@@ -275,7 +274,7 @@ export default function AddMovieModal({
           </div>
         )}
 
-        <div className="flex gap-3 justify-end">
+        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
           {onDetailPrimaryAction && detailPrimaryActionLabel && (
             <button
               onClick={async () => {

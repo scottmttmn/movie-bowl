@@ -156,6 +156,8 @@ export default function UserSettings() {
   useEffect(() => {
     if (location.hash !== "#streaming-services") return;
     streamingServicesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    // The hash is an external navigation signal that selects the matching settings tab.
+    // eslint-disable-next-line react-hooks/set-state-in-effect
     setServicesTab("manage");
   }, [location.hash]);
 
@@ -174,16 +176,22 @@ export default function UserSettings() {
   };
 
   // Show loading indicator while fetching data
-  if (loading) return <div className="page-container py-6 text-sm text-slate-400">Loading...</div>;
+  if (loading) {
+    return (
+      <div className="page-container py-8">
+        <div className="panel text-sm text-slate-400" role="status">Loading...</div>
+      </div>
+    );
+  }
 
   return (
-    <div className="page-container py-5">
-      <div className="mb-5 flex items-center justify-between">
+    <div className="page-container py-6 sm:py-8">
+      <header className="page-hero mb-6 flex flex-col gap-5 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Profile</p>
-          <h2 className="mt-1 text-2xl font-semibold text-slate-800">User Settings</h2>
+          <p className="eyebrow">Profile</p>
+          <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">User Settings</h1>
         </div>
-        <div className="flex items-center gap-2">
+        <div className="flex flex-col-reverse gap-2 min-[420px]:flex-row">
           <button
             onClick={() => navigate(-1)}
             className="btn btn-secondary"
@@ -197,28 +205,28 @@ export default function UserSettings() {
             Save
           </button>
         </div>
-      </div>
+      </header>
 
-      <section className="panel section-stack">
+      <section className="panel section-stack mx-auto max-w-5xl">
       <div
         id="streaming-services"
         ref={streamingServicesRef}
         className="scroll-mt-24"
       >
-        <h3 className="mb-2 text-lg font-semibold text-slate-800">Streaming Services</h3>
-        <p className="mb-3 text-base text-slate-500">
+        <h3 className="mb-2 text-lg font-semibold text-slate-100">Streaming Services</h3>
+        <p className="mb-3 text-base text-slate-400">
           Choose your services, then rank them for draw priority.
         </p>
         <p className="mb-4 text-sm text-slate-400">
           Selected services: {streamingServices.length}
         </p>
       </div>
-      <div className="mb-4 inline-flex rounded-xl border border-slate-700 bg-slate-900 p-1">
+      <div className="mb-4 inline-flex rounded-xl border border-slate-700 bg-slate-950/55 p-1">
         <button
           type="button"
           onClick={() => setServicesTab("manage")}
           className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-            servicesTab === "manage" ? "bg-slate-700 text-slate-100" : "text-slate-400 hover:text-slate-200"
+            servicesTab === "manage" ? "bg-slate-700 text-slate-100 shadow-sm" : "text-slate-400 hover:text-slate-200"
           }`}
         >
           Manage services
@@ -227,7 +235,7 @@ export default function UserSettings() {
           type="button"
           onClick={() => setServicesTab("rank")}
           className={`rounded-lg px-3 py-1.5 text-sm font-medium ${
-            servicesTab === "rank" ? "bg-slate-700 text-slate-100" : "text-slate-400 hover:text-slate-200"
+            servicesTab === "rank" ? "bg-slate-700 text-slate-100 shadow-sm" : "text-slate-400 hover:text-slate-200"
           }`}
         >
           Rank services
@@ -290,7 +298,7 @@ export default function UserSettings() {
                 <label
                   key={service}
                   htmlFor={`streaming-service-${serviceKey}`}
-                  className="flex items-center gap-2 rounded-lg border border-slate-700 px-3 py-2 text-slate-200 hover:bg-slate-800"
+                  className="flex min-h-11 cursor-pointer items-center gap-3 rounded-xl border border-slate-700 bg-slate-950/30 px-3 py-2.5 text-slate-200 transition hover:border-slate-600 hover:bg-slate-800"
                 >
                   <input
                     id={`streaming-service-${serviceKey}`}
@@ -324,7 +332,7 @@ export default function UserSettings() {
               </p>
               <div className="space-y-2">
                 <div
-                  className={dropIndex === 0 ? "h-3 rounded-full bg-red-500" : "h-3"}
+                  className={dropIndex === 0 ? "h-3 rounded-full bg-rose-500" : "h-3"}
                   onDragOver={(event) => {
                     event.preventDefault();
                     setDropIndex(0);
@@ -369,7 +377,7 @@ export default function UserSettings() {
                         setStreamingServices(next);
                       }}
                       className={[
-                        "flex items-center justify-between rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 transition",
+                        "flex items-center justify-between rounded-xl border border-slate-700 bg-slate-950/35 px-3 py-2.5 transition hover:border-slate-600",
                         draggedService === service ? "opacity-60" : "",
                       ].join(" ")}
                     >
@@ -398,7 +406,7 @@ export default function UserSettings() {
                         >
                           ↓
                         </button>
-                        <span className="cursor-grab text-slate-500" aria-hidden="true">⋮⋮</span>
+                        <span className="cursor-grab text-slate-400" aria-hidden="true">⋮⋮</span>
                         <button
                           type="button"
                           onClick={() => toggleService(service)}
@@ -411,7 +419,7 @@ export default function UserSettings() {
                       </div>
                     </div>
                     <div
-                      className={dropIndex === index + 1 ? "mt-1 h-3 rounded-full bg-red-500" : "mt-1 h-3"}
+                      className={dropIndex === index + 1 ? "mt-1 h-3 rounded-full bg-rose-500" : "mt-1 h-3"}
                       onDragOver={(event) => {
                         event.preventDefault();
                         setDropIndex(index + 1);
@@ -432,12 +440,12 @@ export default function UserSettings() {
           )}
         </div>
       )}
-      <div className="panel-muted border-b border-slate-200/80 pb-5">
+      <div className="panel-muted border-b border-slate-700/80 pb-5">
         <div className="mb-2 flex items-center justify-between gap-3">
-          <h3 className="text-lg font-semibold text-slate-800">Default Draw Settings</h3>
+          <h3 className="text-lg font-semibold text-slate-100">Default Draw Settings</h3>
           <button
             type="button"
-            className="text-xs font-medium text-blue-700 hover:text-blue-800"
+            className="text-xs font-medium text-rose-300 hover:text-rose-200"
             onClick={() => setDefaultDrawSettings(normalizeDefaultDrawSettings(DEFAULT_DRAW_SETTINGS))}
           >
             Reset to defaults
@@ -471,13 +479,13 @@ export default function UserSettings() {
                 }}
                 disabled={streamingServices.length === 0}
               />
-              <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-blue-600 peer-disabled:bg-gray-200" />
-              <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+              <span className="h-6 w-11 rounded-full bg-slate-700 transition peer-checked:bg-rose-600 peer-disabled:bg-slate-800" />
+              <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-slate-900 shadow transition peer-checked:translate-x-5" />
             </label>
           </div>
 
           {defaultDrawSettings.prioritizeStreaming && streamingServices.length > 0 && (
-            <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
+            <div className="flex items-center justify-between gap-3 border-t border-slate-700 pt-4">
               <div className="text-left">
                 <p className="text-base font-semibold text-slate-100">Use my service ranking</p>
                 <p className="text-sm text-slate-300">If off, matching services are treated equally.</p>
@@ -497,13 +505,13 @@ export default function UserSettings() {
                     })
                   }
                 />
-                <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-blue-600" />
-                <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+                <span className="h-6 w-11 rounded-full bg-slate-700 transition peer-checked:bg-rose-600" />
+                <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-slate-900 shadow transition peer-checked:translate-x-5" />
               </label>
             </div>
           )}
 
-          <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
+          <div className="flex items-center justify-between gap-3 border-t border-slate-700 pt-4">
             <div className="text-left">
               <p className="text-base font-semibold text-slate-100">Open preferred Roku app for drawn movies</p>
               <p className="text-sm text-slate-300">Quietly show a Roku launch button only when a preferred installed app is available.</p>
@@ -524,12 +532,12 @@ export default function UserSettings() {
                 }
                 disabled={streamingServices.length === 0}
               />
-              <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-blue-600 peer-disabled:bg-gray-200" />
-              <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+              <span className="h-6 w-11 rounded-full bg-slate-700 transition peer-checked:bg-rose-600 peer-disabled:bg-slate-800" />
+              <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-slate-900 shadow transition peer-checked:translate-x-5" />
             </label>
           </div>
 
-          <div className="flex items-center justify-between gap-3 border-t border-slate-200 pt-4">
+          <div className="flex items-center justify-between gap-3 border-t border-slate-700 pt-4">
             <div className="text-left">
               <p className="text-base font-semibold text-slate-100">Open preferred streaming website for drawn movies</p>
               <p className="text-sm text-slate-300">Show a web launch button when a ranked service match supports direct search links.</p>
@@ -550,13 +558,13 @@ export default function UserSettings() {
                 }
                 disabled={streamingServices.length === 0}
               />
-              <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-blue-600 peer-disabled:bg-gray-200" />
-              <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+              <span className="h-6 w-11 rounded-full bg-slate-700 transition peer-checked:bg-rose-600 peer-disabled:bg-slate-800" />
+              <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-slate-900 shadow transition peer-checked:translate-x-5" />
             </label>
           </div>
 
           {defaultDrawSettings.enablePreferredRokuAppLaunch && (
-            <div className="border-t border-slate-200 pt-4">
+            <div className="border-t border-slate-700 pt-4">
               <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
                 <div className="text-left">
                   <p className="text-base font-semibold text-slate-100">
@@ -583,12 +591,12 @@ export default function UserSettings() {
                       key={`${device.ip}:${device.port}`}
                       className={`flex cursor-pointer items-start justify-between gap-3 rounded-xl border px-3 py-2 text-left transition ${
                         selectedRokuIp === device.ip
-                          ? "border-blue-500 bg-blue-50"
-                          : "border-slate-200 bg-white hover:border-slate-300"
+                          ? "border-rose-500 bg-rose-950/50"
+                          : "border-slate-700 bg-slate-900 hover:border-slate-700"
                       }`}
                     >
                       <div>
-                        <div className="font-medium text-slate-900">{device.name}</div>
+                        <div className="font-medium text-slate-50">{device.name}</div>
                         <div className="text-sm text-slate-300">{device.ip}:{device.port}</div>
                       </div>
                       <input
@@ -623,7 +631,7 @@ export default function UserSettings() {
                 </button>
               </div>
 
-              {rokuDeviceError && <p className="mt-2 text-sm text-red-600">{rokuDeviceError}</p>}
+              {rokuDeviceError && <p className="mt-2 text-sm text-rose-300">{rokuDeviceError}</p>}
               {rokuSetupSteps.length > 0 && (
                 <ul className="mt-2 space-y-1 text-sm text-slate-300">
                   {rokuSetupSteps.map((step) => (
@@ -634,10 +642,10 @@ export default function UserSettings() {
             </div>
           )}
 
-          <div className="border-t border-slate-200 pt-4 text-left">
+          <div className="border-t border-slate-700 pt-4 text-left">
             <button
               type="button"
-              className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-left"
+              className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-left"
               onClick={() => setShowDefaultRatings((prev) => !prev)}
               aria-expanded={showDefaultRatings}
               aria-controls="default-rating-settings-panel"
@@ -646,7 +654,7 @@ export default function UserSettings() {
                 <p className="text-base font-semibold text-slate-100">Default ratings</p>
                 <p className="mt-0.5 text-sm text-slate-300">{defaultRatingSummary}</p>
               </div>
-              <span className="text-xs font-medium text-blue-700">
+              <span className="text-xs font-medium text-rose-300">
                 {showDefaultRatings ? "Hide ratings" : "Edit ratings"}
               </span>
             </button>
@@ -696,10 +704,10 @@ export default function UserSettings() {
             )}
           </div>
 
-          <div className="border-t border-slate-200 pt-4 text-left">
+          <div className="border-t border-slate-700 pt-4 text-left">
             <button
               type="button"
-              className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-left"
+              className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-left"
               onClick={() => setShowDefaultGenres((prev) => !prev)}
               aria-expanded={showDefaultGenres}
               aria-controls="default-genre-settings-panel"
@@ -708,7 +716,7 @@ export default function UserSettings() {
                 <p className="text-base font-semibold text-slate-100">Default genres</p>
                 <p className="mt-0.5 text-sm text-slate-300">{defaultGenreSummary}</p>
               </div>
-              <span className="text-xs font-medium text-blue-700">
+              <span className="text-xs font-medium text-rose-300">
                 {showDefaultGenres ? "Hide genres" : "Edit genres"}
               </span>
             </button>
@@ -762,10 +770,10 @@ export default function UserSettings() {
             )}
           </div>
 
-          <div className="border-t border-slate-200 pt-4 text-left">
+          <div className="border-t border-slate-700 pt-4 text-left">
             <button
               type="button"
-              className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-200 bg-white/70 px-3 py-2 text-left"
+              className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-900/70 px-3 py-2 text-left"
               onClick={() => setShowDefaultRuntime((prev) => !prev)}
               aria-expanded={showDefaultRuntime}
               aria-controls="default-runtime-settings-panel"
@@ -774,17 +782,17 @@ export default function UserSettings() {
                 <p className="text-base font-semibold text-slate-100">Default runtime filter</p>
                 <p className="mt-0.5 text-sm text-slate-300">{defaultRuntimeSummary}</p>
               </div>
-              <span className="text-xs font-medium text-blue-700">
+              <span className="text-xs font-medium text-rose-300">
                 {showDefaultRuntime ? "Hide runtime" : "Edit runtime"}
               </span>
             </button>
             {showDefaultRuntime && (
-              <div id="default-runtime-settings-panel" className="mt-2 rounded-lg border border-slate-200 bg-slate-50/70 p-3">
+              <div id="default-runtime-settings-panel" className="mt-2 rounded-lg border border-slate-700 bg-slate-950/45 p-3">
                 <p className="text-sm text-slate-300">
                   Set the acceptable runtime range to prefill bowl draw filters.
                 </p>
                 <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <label htmlFor="default-draw-runtime-min" className="text-sm text-slate-700">
+                  <label htmlFor="default-draw-runtime-min" className="text-sm text-slate-300">
                     Minimum minutes
                     <input
                       id="default-draw-runtime-min"
@@ -808,7 +816,7 @@ export default function UserSettings() {
                       className="input-field mt-1 w-full"
                     />
                   </label>
-                  <label htmlFor="default-draw-runtime-max" className="text-sm text-slate-700">
+                  <label htmlFor="default-draw-runtime-max" className="text-sm text-slate-300">
                     Maximum minutes
                     <input
                       id="default-draw-runtime-max"
@@ -885,7 +893,7 @@ export default function UserSettings() {
                     />
                   </label>
                 </div>
-                <label htmlFor="default-draw-runtime-unknown" className="mt-3 inline-flex items-center gap-1.5 text-sm text-slate-700">
+                <label htmlFor="default-draw-runtime-unknown" className="mt-3 inline-flex items-center gap-1.5 text-sm text-slate-300">
                   <input
                     id="default-draw-runtime-unknown"
                     name="default_draw_runtime_unknown"

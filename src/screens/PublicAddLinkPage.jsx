@@ -32,7 +32,7 @@ export default function PublicAddLinkPage() {
           setMetadata(next);
           setContributorName(next.defaultContributorName || "");
         }
-      } catch (error) {
+      } catch {
         if (!cancelled) {
           setErrorMessage("Could not load this add link.");
           setMetadata({ status: "not_found", bowlName: "Movie Bowl", remainingAdds: 0, defaultContributorName: "" });
@@ -90,20 +90,21 @@ export default function PublicAddLinkPage() {
   };
 
   return (
-    <div className="page-container py-10">
-      <div className="mx-auto max-w-4xl rounded-3xl border border-slate-700 bg-slate-900 p-6 shadow-2xl shadow-black/30">
-        <h1 className="text-3xl font-semibold text-slate-100">Add movies to {metadata.bowlName}</h1>
-        <p className="mt-2 text-base text-slate-300">
+    <div className="page-container py-8 sm:py-12">
+      <main className="page-hero mx-auto max-w-4xl">
+        <p className="eyebrow text-rose-300">Guest add link</p>
+        <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">Add movies to {metadata.bowlName}</h1>
+        <p className="mt-3 max-w-2xl text-base leading-7 text-slate-300">
           Use this link to add movies directly to the bowl. You do not need to sign in.
         </p>
 
-        <div className="mt-4 rounded-2xl border border-slate-700 bg-slate-950/60 p-4">
+        <div className="mt-6 inline-flex min-w-44 flex-col rounded-2xl border border-slate-700 bg-slate-950/60 p-4">
           <p className="text-sm font-semibold uppercase tracking-[0.16em] text-slate-400">Adds remaining</p>
           <p className="mt-2 text-3xl font-semibold text-slate-100">{metadata.remainingAdds}</p>
         </div>
 
-        {actionMessage && <div className="mt-4 rounded-xl bg-emerald-950/50 px-4 py-3 text-sm text-emerald-300">{actionMessage}</div>}
-        {errorMessage && <div className="mt-4 rounded-xl bg-red-950/50 px-4 py-3 text-sm text-red-300">{errorMessage}</div>}
+        {actionMessage && <div className="status-success mt-4">{actionMessage}</div>}
+        {errorMessage && <div className="status-error mt-4">{errorMessage}</div>}
 
         {!isLinkActive ? (
           <div className="mt-6 rounded-2xl border border-slate-700 bg-slate-950/60 p-5 text-sm text-slate-300">
@@ -131,7 +132,7 @@ export default function PublicAddLinkPage() {
             <MovieSearch onAddMovie={handleAddMovie} userStreamingServices={[]} />
           </div>
         )}
-      </div>
+      </main>
     </div>
   );
 }

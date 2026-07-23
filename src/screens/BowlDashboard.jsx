@@ -480,23 +480,25 @@ export default function BowlDashboard() {
     };
 
 return (
-    <div className="bowl-dashboard page-container overflow-hidden pb-10 pt-4">
-        <header className="mb-4 flex min-w-0 items-center justify-between">
-                <button onClick={() => navigate("/")} className="btn btn-ghost px-3 py-2">Back</button>
-                <h2 className="max-w-[60%] truncate text-center text-2xl font-semibold text-slate-800">{bowlName}</h2>
-                <button onClick={() => navigate(`/bowl/${bowlId}/settings`)} className="icon-btn h-8 w-8" aria-label="Bowl settings">⚙️</button>
+    <div className="bowl-dashboard page-container overflow-hidden pb-12 pt-5 sm:pt-7">
+        <header className="mb-5 flex min-w-0 items-center justify-between gap-3">
+                <button onClick={() => navigate("/")} className="btn btn-ghost px-3 py-2">
+                  <span aria-hidden="true">←</span> Back
+                </button>
+                <h1 className="max-w-[58%] truncate text-center text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">{bowlName}</h1>
+                <button onClick={() => navigate(`/bowl/${bowlId}/settings`)} className="icon-btn" aria-label="Bowl settings">⚙️</button>
             </header>
 
             {isLoading && (
-              <div className="text-sm text-gray-600 mb-2">Loading bowl…</div>
+              <div className="panel mb-3 text-sm text-slate-400" role="status">Loading bowl…</div>
             )}
             {!isLoading && errorMessage && (
-              <div className="text-sm text-red-600 mb-2">{errorMessage}</div>
+              <div className="status-error mb-3">{errorMessage}</div>
             )}
 
-            <section className="panel my-3">
+            <section className="page-hero my-3">
               <div className="mx-auto max-w-5xl">
-                <div className="mx-auto flex max-w-2xl flex-col items-center gap-2.5 text-center md:flex-row md:justify-center md:gap-3">
+                <div className="mx-auto flex max-w-2xl flex-col items-stretch gap-2.5 text-center sm:flex-row sm:items-center sm:justify-center sm:gap-3">
                   <AddMovieButton
                     variant="primary"
                     disabled={isAddBlocked}
@@ -519,7 +521,7 @@ return (
                   <BowlIllustration
                     drawTitle={drawAnimationTitle}
                     isDrawing={isDrawing}
-                    className="mx-auto h-44 w-full max-w-2xl drop-shadow-md md:h-48"
+                    className="mx-auto h-44 w-full max-w-2xl drop-shadow-2xl sm:h-48 md:h-52"
                   />
                 </div>
 
@@ -527,14 +529,14 @@ return (
                   <RemainingCount count={bowl.remaining.length} />
                 </div>
                 {drawGuardMessage && (
-                  <p className="mt-2 text-center text-sm text-amber-700">{drawGuardMessage}</p>
+                  <p className="mt-2 text-center text-sm text-amber-300">{drawGuardMessage}</p>
                 )}
 
                 <div className="mt-3 flex justify-center">
                   <button
                     type="button"
                     onClick={() => setShowDrawFilters((prev) => !prev)}
-                    className={`icon-btn h-9 w-9 ${showDrawFilters ? "border-blue-300 text-blue-700" : ""}`}
+                    className={`icon-btn h-9 w-9 ${showDrawFilters ? "border-rose-700 text-rose-300" : ""}`}
                     aria-label={showDrawFilters ? "Hide filters" : "Filters"}
                     title={showDrawFilters ? "Hide filters" : "Filters"}
                   >
@@ -547,7 +549,7 @@ return (
                   </button>
                 </div>
                 {showDrawFilters && (
-                  <div className="panel-muted mx-auto mt-3 max-w-xl px-3.5 py-3">
+                  <div className="panel-muted mx-auto mt-4 max-w-2xl px-3.5 py-3.5 sm:px-4">
                       <div className="flex items-center justify-between gap-3">
                         <div className="text-left">
                           <p className="text-base font-semibold text-slate-100">Streaming Match Preferences</p>
@@ -570,12 +572,12 @@ return (
                             }}
                             disabled={userStreamingServices.length === 0}
                           />
-                          <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-blue-600 peer-disabled:bg-gray-200" />
-                          <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+                          <span className="h-6 w-11 rounded-full bg-slate-700 transition peer-checked:bg-rose-600 peer-disabled:bg-slate-800" />
+                          <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-slate-900 shadow transition peer-checked:translate-x-5" />
                         </label>
                       </div>
                       {prioritizeStreaming && userStreamingServices.length > 0 && (
-                        <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-200/70 pt-2.5">
+                        <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-700/70 pt-2.5">
                           <div className="text-left">
                             <p className="text-base font-semibold text-slate-100">Use my service ranking</p>
                             <p className="text-sm text-slate-300">If off, draw randomly from any matching service.</p>
@@ -590,21 +592,21 @@ return (
                               checked={useStreamingRank}
                               onChange={(e) => setUseStreamingRank(e.target.checked)}
                             />
-                            <span className="h-6 w-11 rounded-full bg-gray-300 transition peer-checked:bg-blue-600" />
-                            <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-white shadow transition peer-checked:translate-x-5" />
+                            <span className="h-6 w-11 rounded-full bg-slate-700 transition peer-checked:bg-rose-600" />
+                            <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-slate-900 shadow transition peer-checked:translate-x-5" />
                           </label>
                         </div>
                       )}
                       <div className="mt-2 text-left">
                         <button
                           type="button"
-                          className="text-sm font-medium text-red-300 hover:text-red-200"
+                          className="text-sm font-medium text-rose-300 hover:text-rose-200"
                           onClick={() => navigate("/settings#streaming-services")}
                         >
                           {userStreamingServices.length > 0 ? "Edit streaming service ranking" : "Choose streaming services"}
                         </button>
                       </div>
-                      <div className="mt-3 border-t border-slate-200/70 pt-2.5 text-left">
+                      <div className="mt-3 border-t border-slate-700/70 pt-2.5 text-left">
                         <button
                           type="button"
                           className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-left"
@@ -616,7 +618,7 @@ return (
                             <p className="text-base font-semibold text-slate-100">Rating filter</p>
                             <p className="mt-0.5 text-sm text-slate-300">{ratingSummary}</p>
                           </div>
-                          <span className="text-sm font-medium text-red-300">
+                          <span className="text-sm font-medium text-rose-300">
                             {showRatingFilters ? "Hide ratings" : "Edit ratings"}
                           </span>
                         </button>
@@ -644,7 +646,7 @@ return (
                           </div>
                         )}
                       </div>
-                      <div className="mt-3 border-t border-slate-200/70 pt-2.5 text-left">
+                      <div className="mt-3 border-t border-slate-700/70 pt-2.5 text-left">
                         <button
                           type="button"
                           className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-left"
@@ -656,7 +658,7 @@ return (
                             <p className="text-base font-semibold text-slate-100">Genre filter</p>
                             <p className="mt-0.5 text-sm text-slate-300">{genreSummary}</p>
                           </div>
-                          <span className="text-sm font-medium text-red-300">
+                          <span className="text-sm font-medium text-rose-300">
                             {showGenreFilters ? "Hide genres" : "Edit genres"}
                           </span>
                         </button>
@@ -684,12 +686,12 @@ return (
                                 onToggleUnknown={setIncludeUnknownGenres}
                               />
                             ) : (
-                              <p className="text-xs text-slate-500">No genre data available for current bowl movies.</p>
+                              <p className="text-xs text-slate-400">No genre data available for current bowl movies.</p>
                             )}
                           </div>
                         )}
                       </div>
-                      <div className="mt-3 border-t border-slate-200/70 pt-2.5 text-left">
+                      <div className="mt-3 border-t border-slate-700/70 pt-2.5 text-left">
                         <button
                           type="button"
                           className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-left"
@@ -701,7 +703,7 @@ return (
                             <p className="text-base font-semibold text-slate-100">Runtime filter</p>
                             <p className="mt-0.5 text-sm text-slate-300">{runtimeSummary}</p>
                           </div>
-                          <span className="text-sm font-medium text-red-300">
+                          <span className="text-sm font-medium text-rose-300">
                             {showRuntimeFilters ? "Hide runtime" : "Edit runtime"}
                           </span>
                         </button>
@@ -711,7 +713,7 @@ return (
                               Set the acceptable runtime range for this draw.
                             </p>
                             <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                              <label htmlFor="draw-runtime-min" className="text-sm text-slate-700">
+                              <label htmlFor="draw-runtime-min" className="text-sm text-slate-300">
                                 Minimum minutes
                                 <input
                                   id="draw-runtime-min"
@@ -729,7 +731,7 @@ return (
                                   className="input-field mt-1 w-full text-sm"
                                 />
                               </label>
-                              <label htmlFor="draw-runtime-max" className="text-sm text-slate-700">
+                              <label htmlFor="draw-runtime-max" className="text-sm text-slate-300">
                                 Maximum minutes
                                 <input
                                   id="draw-runtime-max"
@@ -749,7 +751,7 @@ return (
                               </label>
                             </div>
                             <div className="mt-3 space-y-3">
-                              <label htmlFor="draw-runtime-min-slider" className="block text-xs text-slate-500">
+                              <label htmlFor="draw-runtime-min-slider" className="block text-xs text-slate-400">
                                 Minimum runtime
                                 <input
                                   id="draw-runtime-min-slider"
@@ -770,7 +772,7 @@ return (
                                   className="mt-1 w-full"
                                 />
                               </label>
-                              <label htmlFor="draw-runtime-max-slider" className="block text-xs text-slate-500">
+                              <label htmlFor="draw-runtime-max-slider" className="block text-xs text-slate-400">
                                 Maximum runtime
                                 <input
                                   id="draw-runtime-max-slider"
@@ -794,7 +796,7 @@ return (
                             </div>
                             <label
                               htmlFor="draw-runtime-unknown"
-                              className="mt-3 inline-flex items-center gap-1.5 text-sm text-slate-700"
+                              className="mt-3 inline-flex items-center gap-1.5 text-sm text-slate-300"
                             >
                               <input
                                 id="draw-runtime-unknown"
@@ -816,10 +818,10 @@ return (
                   </p>
                 )}
                 {addGuardMessage && (
-                  <p className="mt-2 text-center text-sm text-amber-700">{addGuardMessage}</p>
+                  <p className="mt-2 text-center text-sm text-amber-300">{addGuardMessage}</p>
                 )}
                 {isAddBlockedByUndrawnLimit && (
-                  <p className="mt-2 text-center text-sm text-amber-700">
+                  <p className="mt-2 text-center text-sm text-amber-300">
                     Bowl is at the undrawn movie limit ({MAX_UNDRAWN_MOVIES_PER_BOWL}).
                   </p>
                 )}
@@ -827,7 +829,7 @@ return (
             </section>
 
             
-            <section className="panel w-full max-w-full min-w-0 overflow-x-auto">
+            <section className="panel mt-5 w-full max-w-full min-w-0 overflow-x-auto">
                 <WatchedMoviesStrip
                   movies={bowl.watched}
                   onSelectMovie={async (movie) => {
@@ -836,7 +838,7 @@ return (
                   }}
                 />
                 {readdErrorMessage && (
-                  <p className="mt-2 text-sm text-amber-700">{readdErrorMessage}</p>
+                  <p className="mt-2 text-sm text-amber-300">{readdErrorMessage}</p>
                 )}
             </section>
 
@@ -844,7 +846,7 @@ return (
               <div className="flex items-center justify-between gap-3">
                 <div className="text-left">
                   <h3 className="section-title text-base">My Movies</h3>
-                  <p className="text-xs text-slate-500">Your undrawn picks in this bowl.</p>
+                  <p className="text-xs text-slate-400">Your undrawn picks in this bowl.</p>
                 </div>
                 <button
                   type="button"
@@ -858,7 +860,7 @@ return (
               {showMyMovies && (
                 <div className="mt-3">
                   {myMovies.length === 0 ? (
-                    <p className="text-sm text-slate-500">You have no movies in this section.</p>
+                    <p className="text-sm text-slate-400">You have no movies in this section.</p>
                   ) : (
                     <MyMoviesStrip
                       movies={myMovies}
@@ -879,7 +881,7 @@ return (
                   )}
                 </div>
               )}
-              {myMoviesErrorMessage && <p className="mt-2 text-sm text-red-600">{myMoviesErrorMessage}</p>}
+              {myMoviesErrorMessage && <p className="mt-2 text-sm text-rose-300">{myMoviesErrorMessage}</p>}
             </section>
             
 
@@ -907,10 +909,10 @@ return (
 
             <DrawOddsStats stats={drawOdds || []} />
             {showDrawConfirm && (
-              <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 px-4">
-                <div className="panel w-full max-w-md">
-                  <h3 className="text-lg font-semibold text-slate-800">Reveal a movie?</h3>
-                  <p className="mt-2 text-sm text-slate-600">
+              <div className="modal-overlay z-[70]" role="presentation">
+                <div className="modal-surface max-w-md p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="draw-confirm-title">
+                  <h3 id="draw-confirm-title" className="text-lg font-semibold text-slate-100">Reveal a movie?</h3>
+                  <p className="mt-2 text-sm text-slate-400">
                     Drawing will reveal one hidden title from this bowl to everyone here.
                   </p>
                   <div className="mt-4 flex items-center justify-end gap-2">
@@ -984,10 +986,10 @@ return (
               />
             )}
             {pendingReaddMovie && (
-              <div className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-900/60 px-4">
-                <div className="panel w-full max-w-md">
-                  <h3 className="text-lg font-semibold text-slate-800">Re-add to Bowl?</h3>
-                  <p className="mt-2 text-sm text-slate-600">
+              <div className="modal-overlay z-[70]" role="presentation">
+                <div className="modal-surface max-w-md p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="readd-confirm-title">
+                  <h3 id="readd-confirm-title" className="text-lg font-semibold text-slate-100">Re-add to Bowl?</h3>
+                  <p className="mt-2 text-sm text-slate-400">
                     "{pendingReaddMovie.title}" will be removed from the watched strip and placed back in your bowl.
                   </p>
                   <div className="mt-4 flex items-center justify-end gap-2">

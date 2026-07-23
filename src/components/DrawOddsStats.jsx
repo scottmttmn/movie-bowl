@@ -5,34 +5,36 @@ function formatOdds(value) {
 
 export default function DrawOddsStats({ stats }) {
   return (
-    <section className="panel mt-6">
-      <h3 className="section-title mb-3">Draw Odds</h3>
-      <table className="w-full text-sm">
+    <section className="panel mt-6 overflow-hidden">
+      <h3 className="section-title mb-4">Draw Odds</h3>
+      <div className="overflow-x-auto">
+      <table className="w-full min-w-[28rem] text-sm">
         <thead>
-          <tr className="text-left text-slate-500">
-            <th className="pb-2 font-semibold">Contributor</th>
-            <th className="pb-2 font-semibold">Remaining</th>
-            <th className="pb-2 font-semibold">Draw Odds</th>
+          <tr className="text-left text-xs uppercase tracking-wider text-slate-400">
+            <th className="pb-3 font-semibold">Contributor</th>
+            <th className="pb-3 font-semibold">Remaining</th>
+            <th className="pb-3 font-semibold">Draw Odds</th>
           </tr>
         </thead>
         <tbody>
           {stats.length === 0 ? (
-            <tr className="border-t border-slate-100">
-              <td className="py-2 text-slate-500" colSpan={3}>
+            <tr className="border-t border-slate-800">
+              <td className="py-3 text-slate-400" colSpan={3}>
                 Add movies to see draw odds.
               </td>
             </tr>
           ) : (
             stats.map((s) => (
-              <tr key={s.bucketKey} className="border-t border-slate-100">
-                <td className="py-2">{s.member}</td>
-                <td className="py-2 font-medium">{s.movieCount}</td>
-                <td className="py-2 font-medium">{formatOdds(s.drawOdds)}</td>
+              <tr key={s.bucketKey} className="border-t border-slate-800 transition hover:bg-slate-800/30">
+                <td className="py-3 text-slate-200">{s.member}</td>
+                <td className="py-3 font-medium text-slate-300">{s.movieCount}</td>
+                <td className="py-3 font-semibold text-rose-300">{formatOdds(s.drawOdds)}</td>
               </tr>
             ))
           )}
         </tbody>
       </table>
+      </div>
     </section>
   );
 }

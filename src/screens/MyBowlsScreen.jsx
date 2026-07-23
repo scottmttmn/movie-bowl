@@ -407,17 +407,19 @@ export default function MyBowlsScreen() {
   };
 
   return (
-    <div className="my-bowls-screen page-container py-5">
-      <header className="mb-6">
-        {createErrorMessage && <div className="mb-3 text-sm text-red-600">{createErrorMessage}</div>}
-        {createActionMessage && <div className="mb-3 text-sm text-green-700">{createActionMessage}</div>}
-        {inviteErrorMessage && <div className="mb-3 text-sm text-red-600">{inviteErrorMessage}</div>}
-        {inviteActionMessage && <div className="mb-3 text-sm text-green-700">{inviteActionMessage}</div>}
-        <div className="panel flex flex-col gap-4 md:flex-row md:items-center md:justify-between">
+    <div className="my-bowls-screen page-container py-6 sm:py-8">
+      <header className="mb-8">
+        <div className="mb-4 space-y-2" aria-live="polite">
+          {createErrorMessage && <div className="status-error">{createErrorMessage}</div>}
+          {createActionMessage && <div className="status-success">{createActionMessage}</div>}
+          {inviteErrorMessage && <div className="status-error">{inviteErrorMessage}</div>}
+          {inviteActionMessage && <div className="status-success">{inviteActionMessage}</div>}
+        </div>
+        <div className="page-hero flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Home</p>
-            <h2 className="mt-1 text-2xl font-semibold text-slate-800">My Bowls</h2>
-            <p className="mt-1 text-sm text-slate-600">
+            <p className="eyebrow">Home</p>
+            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">My Bowls</h1>
+            <p className="mt-2 max-w-xl text-sm text-slate-400 sm:text-base">
               Open an existing bowl or start a new one.
             </p>
           </div>
@@ -426,27 +428,27 @@ export default function MyBowlsScreen() {
           </div>
         </div>
         {isCreateBowlLimitReached && (
-          <div className="mt-3 text-xs text-slate-500">
+          <div className="status-warning mt-3">
             Bowl limit reached ({MAX_BOWLS_PER_USER}).
           </div>
         )}
       </header>
       <div className="section-stack">
         {isLoading || isStreamingServicesLoading ? (
-          <div className="panel text-sm text-gray-600">
+          <div className="panel text-sm text-slate-400" role="status">
             Loading bowls…
           </div>
         ) : shouldShowGuidedSetup ? (
           <div className="space-y-4">
-            <section className="panel">
+            <section className="page-hero">
               <div className="max-w-2xl">
-                <p className="text-sm font-medium uppercase tracking-[0.2em] text-slate-500">
+                <p className="eyebrow">
                   First steps
                 </p>
-                <h3 className="mt-2 text-2xl font-semibold text-slate-900">
+                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">
                   Start your first movie bowl
-                </h3>
-                <p className="mt-3 text-sm text-slate-600">
+                </h2>
+                <p className="mt-3 text-sm text-slate-400 sm:text-base">
                   Pick your streaming services, then create a bowl for yourself or your group.
                 </p>
               </div>
@@ -461,20 +463,20 @@ export default function MyBowlsScreen() {
             </section>
 
             <section className="panel-muted">
-              <h3 className="text-sm font-semibold uppercase tracking-[0.2em] text-slate-500">
+              <h3 className="eyebrow">
                 Guided setup
               </h3>
               <div className="mt-4 space-y-3">
-                <article className="rounded-xl border border-slate-200 bg-white p-4">
+                <article className="surface-card p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
                         Step 1
                       </p>
-                      <h4 className="mt-1 text-base font-semibold text-slate-800">
+                      <h4 className="mt-1 text-base font-semibold text-slate-100">
                         Set up your streaming services
                       </h4>
-                      <p className="mt-1 text-sm text-slate-600">
+                      <p className="mt-1 text-sm text-slate-400">
                         This helps prioritize movies you can actually watch.
                       </p>
                     </div>
@@ -482,8 +484,8 @@ export default function MyBowlsScreen() {
                       className={[
                         "inline-flex shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold",
                         hasStreamingServices
-                          ? "bg-emerald-100 text-emerald-700"
-                          : "bg-slate-200 text-slate-600",
+                          ? "bg-emerald-100 text-emerald-300"
+                          : "bg-slate-700 text-slate-400",
                       ].join(" ")}
                     >
                       {hasStreamingServices ? "Done" : "Recommended"}
@@ -493,27 +495,27 @@ export default function MyBowlsScreen() {
                     <button
                       type="button"
                       onClick={handleGoToStreamingServices}
-                      className={hasStreamingServices ? "text-sm font-medium text-blue-600 hover:text-blue-700" : "btn btn-secondary"}
+                      className={hasStreamingServices ? "text-sm font-medium text-rose-300 hover:text-rose-300" : "btn btn-secondary"}
                     >
                       {hasStreamingServices ? "Edit" : "Set up services"}
                     </button>
                   </div>
                 </article>
 
-                <article className="rounded-xl border border-slate-200 bg-white p-4">
+                <article className="surface-card p-4">
                   <div className="flex items-start justify-between gap-4">
                     <div>
                       <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
                         Step 2
                       </p>
-                      <h4 className="mt-1 text-base font-semibold text-slate-800">
+                      <h4 className="mt-1 text-base font-semibold text-slate-100">
                         Create your first bowl
                       </h4>
-                      <p className="mt-1 text-sm text-slate-600">
+                      <p className="mt-1 text-sm text-slate-400">
                         Add a bowl now and start collecting movies to draw from.
                       </p>
                     </div>
-                    <span className="inline-flex shrink-0 rounded-full bg-slate-200 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                    <span className="inline-flex shrink-0 rounded-full bg-slate-700 px-2.5 py-1 text-xs font-semibold text-slate-400">
                       Next
                     </span>
                   </div>
@@ -531,18 +533,18 @@ export default function MyBowlsScreen() {
             {pendingInvites.length > 0 && (
               <section className="space-y-3">
                 <div className="mb-3">
-                  <h3 className="text-lg font-semibold text-slate-800">Invites</h3>
-                  <p className="text-sm text-slate-500">{inviteCountLabel} waiting for your response.</p>
+                  <h3 className="text-lg font-semibold text-slate-100">Invites</h3>
+                  <p className="text-sm text-slate-400">{inviteCountLabel} waiting for your response.</p>
                 </div>
                 <div className="space-y-3">
                   {pendingInvites.map((invite) => (
-                    <article key={invite.id} className="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+                    <article key={invite.id} className="surface-card p-4 transition hover:border-slate-600">
                       <div className="flex flex-wrap items-start justify-between gap-3">
                         <div>
-                          <h4 className="text-base font-semibold text-slate-800">
+                          <h4 className="text-base font-semibold text-slate-100">
                             {invite.bowl_name || "Movie Bowl Invite"}
                           </h4>
-                          <p className="mt-1 text-sm text-slate-600">
+                          <p className="mt-1 text-sm text-slate-400">
                             Invited
                             {invite.invited_by_email ? ` by ${invite.invited_by_email}` : ""}
                             {invite.created_at
@@ -551,7 +553,7 @@ export default function MyBowlsScreen() {
                           </p>
                         </div>
                         {invite.created_at ? (
-                          <span className="inline-flex rounded-full bg-slate-100 px-2.5 py-1 text-xs font-semibold text-slate-600">
+                          <span className="inline-flex rounded-full bg-slate-800 px-2.5 py-1 text-xs font-semibold text-slate-400">
                             {formatRelativeDateLabel(invite.created_at)}
                           </span>
                         ) : null}
@@ -568,7 +570,7 @@ export default function MyBowlsScreen() {
                         </button>
                         <button
                           type="button"
-                          className="btn border border-slate-300 bg-white text-slate-700 hover:bg-slate-50"
+                          className="btn border border-slate-700 bg-slate-900 text-slate-300 hover:bg-slate-800/60"
                           onClick={() => {
                             void handleDeclineInvite(invite);
                           }}
@@ -584,12 +586,12 @@ export default function MyBowlsScreen() {
               <section className="space-y-3">
               <div className="mb-3">
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-800">Owned by you</h3>
-                  <p className="text-sm text-slate-500">Bowls you manage and can configure.</p>
+                  <h3 className="text-lg font-semibold text-slate-100">Owned by you</h3>
+                  <p className="text-sm text-slate-400">Bowls you manage and can configure.</p>
                 </div>
               </div>
               {ownedBowls.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-5 text-sm text-slate-600">
+                <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/35 p-6 text-sm text-slate-400">
                   You have not created any bowls yet.
                 </div>
               ) : (
@@ -604,12 +606,12 @@ export default function MyBowlsScreen() {
               <section className="space-y-3">
               <div className="mb-3">
                 <div>
-                  <h3 className="text-lg font-semibold text-slate-800">Shared with you</h3>
-                  <p className="text-sm text-slate-500">Bowls where you participate as a member.</p>
+                  <h3 className="text-lg font-semibold text-slate-100">Shared with you</h3>
+                  <p className="text-sm text-slate-400">Bowls where you participate as a member.</p>
                 </div>
               </div>
               {sharedBowls.length === 0 ? (
-                <div className="rounded-xl border border-dashed border-slate-300 bg-slate-50/70 p-5 text-sm text-slate-600">
+                <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/35 p-6 text-sm text-slate-400">
                   No shared bowls yet.
                 </div>
               ) : (

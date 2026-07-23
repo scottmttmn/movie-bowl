@@ -37,8 +37,8 @@ export default function FilterChipSelect({
         {options.map((option) => {
           const isSelected = selectedSet.has(option);
           const chipClass = isSelected
-            ? "border-blue-300 bg-blue-50 text-blue-800"
-            : "border-slate-200 bg-white text-slate-700 hover:border-slate-300";
+            ? "border-rose-700 bg-rose-950/50 text-rose-200 shadow-sm shadow-rose-950/30"
+            : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-600 hover:bg-slate-800";
           const ariaLabel = optionAriaLabelPrefix
             ? `${optionAriaLabelPrefix} ${option}`
             : option;
@@ -46,12 +46,12 @@ export default function FilterChipSelect({
           return (
             <div
               key={option}
-              className={`inline-flex items-center rounded-full border text-sm ${chipClass}`}
+              className={`inline-flex min-h-10 items-center rounded-full border text-sm transition ${chipClass}`}
             >
               <button
                 type="button"
                 aria-label={ariaLabel}
-                className="px-3 py-1.5"
+                className="self-stretch px-3 py-2"
                 onClick={() => onToggle?.(option)}
               >
                 {option}
@@ -60,7 +60,7 @@ export default function FilterChipSelect({
                 <button
                   type="button"
                   aria-label={`Only ${option}`}
-                  className="border-l border-blue-200/80 px-2 py-1.5 text-[11px] font-medium text-blue-700 hover:text-blue-800"
+                  className="self-stretch border-l border-rose-700/70 px-2.5 py-2 text-[11px] font-medium text-rose-300 hover:text-rose-200"
                   onClick={() => onOnly?.(option)}
                 >
                   Only
@@ -74,10 +74,10 @@ export default function FilterChipSelect({
           <button
             type="button"
             aria-label={unknownLabel}
-            className={`inline-flex items-center rounded-full border px-3 py-1.5 text-sm ${
+            className={`inline-flex min-h-10 items-center rounded-full border px-3 py-2 text-sm transition ${
               unknownEnabled
-                ? "border-amber-300 bg-amber-50 text-amber-800"
-                : "border-slate-200 bg-white text-slate-700 hover:border-slate-300"
+                ? "border-amber-700 bg-amber-950/45 text-amber-300"
+                : "border-slate-700 bg-slate-900 text-slate-300 hover:border-slate-600 hover:bg-slate-800"
             }`}
             onClick={() => onToggleUnknown(!unknownEnabled)}
           >

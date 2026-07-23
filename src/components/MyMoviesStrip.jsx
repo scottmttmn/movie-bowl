@@ -2,8 +2,8 @@ import MovieActionCard from "./MovieActionCard";
 
 export default function MyMoviesStrip({ movies, onViewMovie, onDeleteMovie }) {
   return (
-    <section className="my-movies-strip w-full min-w-0 mt-1">
-      <div className="flex flex-nowrap gap-3 overflow-x-auto pb-1">
+    <section className="my-movies-strip mt-1 w-full min-w-0">
+      <div className="flex flex-nowrap gap-3 overflow-x-auto pb-3 pt-1">
         {movies.map((movie) => (
           <MovieActionCard
             key={`${movie.source}:${movie.id}`}

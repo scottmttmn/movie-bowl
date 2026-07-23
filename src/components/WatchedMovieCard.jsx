@@ -7,11 +7,11 @@ export default function WatchedMovieCard({ movie, onClick }) {
   
 
   return (
-    <div className="watched-movie-card flex-shrink-0 inline-flex w-28 flex-col items-center text-center">
+    <div className="watched-movie-card inline-flex w-28 flex-shrink-0 flex-col items-center text-center">
       <button
         type="button"
         onClick={() => onClick?.(movie)}
-        className="w-full rounded-lg border-0 bg-transparent p-0 transition hover:opacity-95 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-red-900/70"
+        className="group w-full rounded-xl border-0 bg-transparent p-0 transition hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/70"
       >
         {(() => {
           const posterUrl = movie.poster_path
@@ -22,10 +22,10 @@ export default function WatchedMovieCard({ movie, onClick }) {
             <img
               src={posterUrl}
               alt={movie.title}
-              className="w-28 h-40 object-cover rounded-lg shadow-sm"
+              className="h-40 w-28 rounded-xl object-cover shadow-lg shadow-black/30 transition group-hover:shadow-xl group-hover:shadow-black/40"
             />
           ) : (
-            <div className="flex h-40 w-28 items-center justify-center rounded-lg bg-slate-800 p-2">
+            <div className="flex h-40 w-28 items-center justify-center rounded-xl border border-slate-700 bg-slate-800 p-2">
               <p className="text-center text-xs font-semibold text-slate-200">{movie.title}</p>
             </div>
           );
@@ -39,7 +39,7 @@ export default function WatchedMovieCard({ movie, onClick }) {
           Custom
         </span>
       )}
-      {drawnDateLabel && <p className="text-[11px] text-slate-500">{drawnDateLabel}</p>}
+      {drawnDateLabel && <p className="text-[11px] text-slate-400">{drawnDateLabel}</p>}
     </div>
   );
 }

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useState } from "react";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { searchTmdbMovies } from "../lib/tmdbApi";
 import { sendMovieToRoku } from "../lib/rokuApi";
@@ -56,7 +56,7 @@ export default function RokuPocScreen() {
         if (!active) return;
         setResults(data.results || []);
         setSearchError("");
-      } catch (error) {
+      } catch {
         if (!active) return;
         setResults([]);
         setSearchError("Movie search is unavailable right now.");

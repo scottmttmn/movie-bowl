@@ -36,19 +36,21 @@ export default function TopNav({
   }, [isMenuOpen]);
 
   return (
-    <div className="fixed top-0 left-0 right-0 z-50 border-b border-slate-800 bg-slate-950/95 backdrop-blur">
+    <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-800/80 bg-slate-950/88 shadow-lg shadow-black/10 backdrop-blur-xl">
       <div className="page-container flex h-16 items-center justify-between">
         <Link
           to="/"
           aria-label="Go to My Bowls"
-          className="inline-flex items-center gap-2 text-2xl font-semibold tracking-tight text-slate-100 hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-slate-700 rounded"
+          className="inline-flex items-center gap-2.5 rounded-xl text-xl font-semibold tracking-tight text-slate-100 transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60 sm:text-2xl"
         >
-          <img
-            src={bowlImage}
-            alt=""
-            aria-hidden="true"
-            className="h-8 w-8 object-contain"
-          />
+          <span className="flex h-9 w-9 items-center justify-center">
+            <img
+              src={bowlImage}
+              alt=""
+              aria-hidden="true"
+              className="h-8 w-8 object-contain"
+            />
+          </span>
           Movie Bowl
         </Link>
         <div className="relative" ref={menuRef}>
@@ -70,11 +72,11 @@ export default function TopNav({
           {isMenuOpen && (
             <div
               role="menu"
-              className="absolute right-0 mt-2 w-52 rounded-xl border border-slate-700 bg-slate-900 p-1.5 shadow-xl shadow-black/30"
+              className="absolute right-0 mt-2 w-56 rounded-2xl border border-slate-700/80 bg-slate-900/95 p-2 shadow-2xl shadow-black/50 backdrop-blur-xl"
             >
               {userEmail && (
                 <div
-                  className="mb-1 truncate rounded-md px-3 py-2 text-sm text-slate-400"
+                  className="mb-1 truncate border-b border-slate-800 px-3 py-2.5 text-xs text-slate-400"
                   title={userEmail}
                   aria-label={`Signed in as ${userEmail}`}
                 >
@@ -85,7 +87,7 @@ export default function TopNav({
                 to="/about"
                 role="menuitem"
                 onClick={() => setIsMenuOpen(false)}
-                className="flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+                className="flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white"
               >
                 About
               </Link>
@@ -95,7 +97,7 @@ export default function TopNav({
                     to="/"
                     role="menuitem"
                     onClick={() => setIsMenuOpen(false)}
-                    className="flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-200 hover:bg-slate-800"
+                    className="flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white"
                   >
                     My Bowls
                   </Link>
@@ -103,8 +105,8 @@ export default function TopNav({
                     to="/watch-list"
                     role="menuitem"
                     onClick={() => setIsMenuOpen(false)}
-                    className={`flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 ${
-                      isWatchListRoute ? "bg-slate-800 text-slate-400 pointer-events-none" : ""
+                    className={`flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white ${
+                      isWatchListRoute ? "pointer-events-none bg-slate-800 text-slate-400" : ""
                     }`}
                   >
                     Watch List
@@ -113,8 +115,8 @@ export default function TopNav({
                     to="/settings"
                     role="menuitem"
                     onClick={() => setIsMenuOpen(false)}
-                    className={`flex w-full items-center rounded-md px-3 py-2 text-sm text-slate-200 hover:bg-slate-800 ${
-                      isSettingsRoute ? "bg-slate-800 text-slate-400 pointer-events-none" : ""
+                    className={`flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white ${
+                      isSettingsRoute ? "pointer-events-none bg-slate-800 text-slate-400" : ""
                     }`}
                   >
                     Settings
@@ -126,7 +128,7 @@ export default function TopNav({
                       setIsMenuOpen(false);
                       onSignOut?.();
                     }}
-                    className="mt-1 flex w-full items-center rounded-md px-3 py-2 text-sm text-red-300 hover:bg-red-950/60"
+                    className="mt-1 flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-rose-300 transition hover:bg-rose-950/60 hover:text-rose-200"
                   >
                     Log out
                   </button>
@@ -136,7 +138,7 @@ export default function TopNav({
                   to="/login"
                   role="menuitem"
                   onClick={() => setIsMenuOpen(false)}
-                  className="mt-1 flex w-full items-center rounded-md px-3 py-2 text-sm text-red-300 hover:bg-red-950/60"
+                  className="mt-1 flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-rose-300 transition hover:bg-rose-950/60 hover:text-rose-200"
                 >
                   Log in
                 </Link>
@@ -145,6 +147,6 @@ export default function TopNav({
           )}
         </div>
       </div>
-    </div>
+    </header>
   );
 }

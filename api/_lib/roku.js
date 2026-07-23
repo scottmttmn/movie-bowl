@@ -151,6 +151,8 @@ async function postKeypress(address, key) {
   });
 }
 
+// Retained for the direct-keyboard fallback path.
+// eslint-disable-next-line no-unused-vars
 async function sendLiteralText(address, title) {
   for (const character of title) {
     await postKeypress(address, `Lit_${character}`);
@@ -477,6 +479,8 @@ export async function discoverRokuDevices({ timeoutMs = DISCOVERY_TIMEOUT_MS } =
   return devices.filter(Boolean);
 }
 
+// `year` remains part of the public request shape for compatibility.
+// eslint-disable-next-line no-unused-vars
 export async function openSearchForTitle({ rokuIp, title, year }) {
   const address = parseAddress(rokuIp);
   const sanitizedTitle = sanitizeTitle(title);

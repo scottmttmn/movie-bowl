@@ -20,7 +20,7 @@ export default function MovieActionCard({
 
   return (
     <article
-      className={`w-32 flex-shrink-0 rounded-xl border border-slate-700 bg-slate-900 p-2 ${
+      className={`flex w-36 flex-shrink-0 flex-col rounded-2xl border border-slate-700 bg-slate-950/50 p-2.5 shadow-lg shadow-black/15 transition hover:-translate-y-0.5 hover:border-slate-600 ${
         isSyncing ? "opacity-80" : ""
       }`}
     >
@@ -28,14 +28,14 @@ export default function MovieActionCard({
         <img
           src={posterUrl}
           alt={movie.title}
-          className="h-40 w-full rounded-md object-cover"
+          className="h-44 w-full rounded-xl object-cover shadow-md shadow-black/30"
         />
       ) : (
-        <div className="flex h-40 w-full items-center justify-center rounded-md bg-slate-800 p-2">
+        <div className="flex h-44 w-full items-center justify-center rounded-xl bg-slate-800 p-2">
           <p className="text-center text-xs font-semibold text-slate-200">{movie.title}</p>
         </div>
       )}
-      <p className="mt-2 min-h-[2.5rem] line-clamp-2 text-xs font-semibold text-slate-100">
+      <p className="mt-2.5 min-h-[2.5rem] line-clamp-2 text-xs font-semibold leading-snug text-slate-100">
         {movie.title}
       </p>
       {isCustomEntry && (
@@ -44,11 +44,11 @@ export default function MovieActionCard({
         </span>
       )}
       {dateLabel && dateLabelPrefix && (
-        <p className="mb-2 text-[11px] text-slate-500">
+        <p className="mb-2 text-[11px] text-slate-400">
           {dateLabelPrefix}: {dateLabel}
         </p>
       )}
-      {isSyncing && <p className="mb-2 text-[11px] font-medium text-red-300">Syncing...</p>}
+      {isSyncing && <p className="mb-2 text-[11px] font-medium text-rose-300">Syncing...</p>}
       <div className="mt-auto grid grid-cols-2 gap-1">
         <button
           type="button"

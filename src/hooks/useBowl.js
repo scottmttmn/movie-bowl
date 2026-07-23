@@ -424,6 +424,8 @@ export default function useBowl(bowlId) {
       await loadBowlMovies();
       return true;
     },
+    // `loadBowlMovies` refreshes the watched collection after the mutation.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     [bowlId, bowl.remaining, loadBowlMovies]
   );
 

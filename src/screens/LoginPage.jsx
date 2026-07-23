@@ -1,6 +1,7 @@
 import { useState } from "react";
 import { useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
+import bowlImage from "../assets/bowl-illustration-v3.png";
 
 export default function LoginPage() {
   const { signIn } = useAuth();
@@ -43,14 +44,18 @@ export default function LoginPage() {
   };
 
   return (
-    <div className="page-container py-8">
-      <div className="panel mx-auto max-w-md">
-        <h2 className="mb-4 text-2xl font-semibold text-slate-100">Login</h2>
+    <div className="page-container flex min-h-screen items-center py-10">
+      <div className="page-hero mx-auto w-full max-w-md text-center">
+        <div className="mx-auto mb-4 flex h-20 w-20 items-center justify-center rounded-3xl border border-rose-900/50 bg-rose-950/30 shadow-xl shadow-black/25">
+          <img src={bowlImage} alt="" aria-hidden="true" className="h-16 w-16 object-contain" />
+        </div>
+        <p className="eyebrow text-rose-300">Movie Bowl</p>
+        <h1 className="mb-5 mt-2 text-3xl font-semibold tracking-tight text-slate-50">Login</h1>
 
         {sent ? (
-          <p className="text-base text-slate-200">Check your email for a magic link.</p>
+          <p className="status-success text-left">Check your email for a magic link.</p>
         ) : (
-          <form onSubmit={handleSubmit} className="flex flex-col gap-3">
+          <form onSubmit={handleSubmit} className="flex flex-col gap-3 text-left">
             <input
               id="login-email"
               name="email"
@@ -69,7 +74,7 @@ export default function LoginPage() {
               {isSubmitting ? "Sending..." : "Send Magic Link"}
             </button>
             {errorMessage && (
-              <p className="text-sm text-red-400">{errorMessage}</p>
+              <p className="status-error">{errorMessage}</p>
             )}
           </form>
         )}

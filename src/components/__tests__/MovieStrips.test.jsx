@@ -55,7 +55,7 @@ describe("movie strip components", () => {
     render(<MyMoviesStrip movies={movies} onViewMovie={vi.fn()} onDeleteMovie={vi.fn()} />);
     const addedCard = screen.getAllByText(/Added Title/i)[0].closest("article");
     expect(addedCard).toHaveClass("border-slate-700");
-    expect(addedCard).toHaveClass("bg-slate-900");
+    expect(addedCard).toHaveClass("bg-slate-950/50");
     expect(screen.queryByText(/pending/i)).not.toBeInTheDocument();
   });
 

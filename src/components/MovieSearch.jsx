@@ -309,7 +309,7 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
     // Render search UI and list of results
     return (
         <div className="mt-2">
-            <div className="sticky top-0 z-10 bg-slate-900 pb-2">
+            <div className="sticky top-0 z-10 -mx-1 bg-slate-900/95 px-1 pb-3 backdrop-blur">
                 <div className="flex items-start gap-2">
                     <input
                         ref={inputRef}
@@ -347,7 +347,7 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                         <button
                             type="button"
                             onClick={toggleVoiceInput}
-                            className={`icon-btn h-11 w-11 flex-shrink-0 ${isListening ? "animate-pulse border-red-500 bg-red-950/50 text-red-200 shadow-lg shadow-red-950/30" : ""}`}
+                            className={`icon-btn h-11 w-11 flex-shrink-0 ${isListening ? "animate-pulse border-rose-500 bg-rose-950/50 text-rose-200 shadow-lg shadow-rose-950/30" : ""}`}
                             aria-label={isListening ? "Stop voice input" : "Start voice input"}
                             aria-pressed={isListening}
                         >
@@ -363,8 +363,8 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                     <p className="mt-2 text-sm text-slate-400">Speak a movie title or type to search.</p>
                 )}
                 {isListening && (
-                    <div className="mt-2 flex items-center gap-2 text-sm text-red-300">
-                        <span className="h-2.5 w-2.5 rounded-full bg-red-400 animate-ping" aria-hidden="true" />
+                    <div className="mt-2 flex items-center gap-2 text-sm text-rose-300">
+                        <span className="h-2.5 w-2.5 rounded-full bg-rose-400 animate-ping" aria-hidden="true" />
                         <span>{voiceStatusMessage || "Listening… tap the mic again to stop."}</span>
                     </div>
                 )}
@@ -372,7 +372,7 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                     <p className="mt-2 text-sm text-slate-300">{voiceStatusMessage}</p>
                 )}
                 {voiceError && (
-                    <div className="mt-2 rounded-lg border border-red-900/60 bg-red-950/50 px-3 py-2 text-sm text-red-300">
+                    <div className="mt-2 rounded-lg border border-rose-900/60 bg-rose-950/50 px-3 py-2 text-sm text-rose-300">
                         {voiceError}
                     </div>
                 )}
@@ -397,19 +397,19 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                             key={movie.id}
                             role="option"
                             aria-selected={index === highlightedIndex}
-                            className={`flex items-center justify-between rounded-xl border border-slate-700 p-2 ${
-                                index === highlightedIndex ? "bg-slate-800" : "bg-slate-900"
+                            className={`flex flex-col gap-3 rounded-2xl border border-slate-700/80 p-3 transition sm:flex-row sm:items-center sm:justify-between ${
+                                index === highlightedIndex ? "bg-slate-800/90 ring-1 ring-rose-800/40" : "bg-slate-950/35 hover:bg-slate-800/60"
                             }`}
                         >
-                            <div className="flex items-center gap-3">
+                            <div className="flex min-w-0 items-center gap-3">
                                 <img
                                     src={getPosterUrl(movie)}
                                     alt={movie.title}
-                                    className="w-12 h-16 object-cover rounded"
+                                    className="h-20 w-14 flex-shrink-0 rounded-lg object-cover shadow-md shadow-black/30"
                                 />
 
-                                <div className="text-left">
-                                    <div className="font-semibold">{movie.title}</div>
+                                <div className="min-w-0 text-left">
+                                    <div className="font-semibold text-slate-100">{movie.title}</div>
                                     <div className="text-sm text-slate-400">{year}</div>
                                     <div className="text-xs text-slate-400">
                                         {Array.isArray(providers) && providers.length > 0
@@ -423,13 +423,13 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                                     )}
                                 </div>
                             </div>
-                            <div className="ml-2 flex flex-col gap-1">
+                            <div className="flex w-full flex-row gap-2 sm:ml-2 sm:w-auto sm:flex-col">
                                 <button
                                   type="button"
                                   onClick={async () => {
                                     await addMovie(movie);
                                   }}
-                                  className="btn btn-primary text-xs px-2 py-1"
+                                  className="btn btn-primary flex-1 px-3 py-1 text-xs sm:flex-none"
                                   disabled={isAdding}
                                 >
                                   {isAdding ? "Adding..." : "Add"}
@@ -439,7 +439,7 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                                   onClick={async () => {
                                     await openDetails(movie);
                                   }}
-                                  className="btn btn-secondary text-xs px-2 py-1"
+                                  className="btn btn-secondary flex-1 px-3 py-1 text-xs sm:flex-none"
                                   disabled={isAdding}
                                 >
                                   Details
@@ -450,19 +450,19 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                 })}
             </ul>
             {searchError && (
-              <div className="mt-2 rounded-lg border border-red-900/60 bg-red-950/50 px-3 py-2 text-sm text-red-300">
+              <div className="mt-2 rounded-lg border border-rose-900/60 bg-rose-950/50 px-3 py-2 text-sm text-rose-300">
                 {searchError}
               </div>
             )}
             {!searchError && searchTerm.trim() && searchResults.length === 0 && (
-              <div className="mt-2 text-sm text-slate-500">No matching movies found.</div>
+              <div className="mt-2 text-sm text-slate-400">No matching movies found.</div>
             )}
             {searchTerm.trim() && (
               <div className="mt-3 rounded-xl border border-slate-700 bg-slate-900 px-3 py-3">
-                <p className="text-sm font-medium text-slate-800">
+                <p className="text-sm font-medium text-slate-100">
                   Can&apos;t find it?
                 </p>
-                <p className="mb-2 text-xs text-slate-600">
+                <p className="mb-2 text-xs text-slate-400">
                   Add a custom title or category for flexible draws.
                 </p>
                 <button

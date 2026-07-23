@@ -28,7 +28,7 @@ function Layout({ children }) {
   const userEmail = session?.user?.email ?? "";
 
   return (
-    <div className="min-h-screen">
+    <div className="app-shell">
       {/* Global actions stay pinned to the top for quick access */}
       {shouldShowTopNav && (
         <TopNav
@@ -49,7 +49,15 @@ function RequireAuth({ children }) {
   const { session, loading } = useAuth();
   const location = useLocation();
 
-  if (loading) return <div>Loading...</div>;
+  if (loading) {
+    return (
+      <div className="page-container py-10">
+        <div className="panel mx-auto max-w-lg text-sm text-slate-400" role="status">
+          Loading…
+        </div>
+      </div>
+    );
+  }
 
   // If user is not logged in, redirect to /login
   // and preserve the page they were trying to access
@@ -161,7 +169,7 @@ function AcceptInvite() {
   return (
     <div className="p-6 max-w-md mx-auto">
       <h2 className="text-lg font-semibold mb-2">Accept Invite</h2>
-      <div className={status === "error" ? "text-red-600" : "text-gray-700"}>{message}</div>
+      <div className={status === "error" ? "text-rose-300" : "text-slate-300"}>{message}</div>
     </div>
   );
 }
@@ -170,7 +178,15 @@ function App() {
   return (
     <Router>
       <Layout>
-        <Suspense fallback={<div className="page-container py-6 text-sm text-slate-600">Loading…</div>}>
+        <Suspense
+          fallback={
+            <div className="page-container py-10">
+              <div className="panel mx-auto max-w-lg text-sm text-slate-400" role="status">
+                Loading…
+              </div>
+            </div>
+          }
+        >
           <Routes>
             <Route path="/roku-poc" element={<RokuPocScreen />} />
             <Route path="/settings" element={
