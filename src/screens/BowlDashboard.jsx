@@ -63,6 +63,7 @@ export default function BowlDashboard() {
     const [showGenreFilters, setShowGenreFilters] = useState(false);
     const [showRuntimeFilters, setShowRuntimeFilters] = useState(false);
     const [isDrawing, setIsDrawing] = useState(false);
+    const [drawAnimationTitle, setDrawAnimationTitle] = useState("");
     const [showDrawConfirm, setShowDrawConfirm] = useState(false);
     const [bowlName, setBowlName] = useState("My Bowl");
     const [bowlOwnerId, setBowlOwnerId] = useState(null);
@@ -438,10 +439,11 @@ export default function BowlDashboard() {
     const handleConfirmedDraw = async () => {
       if (isDrawing || !canCurrentUserDraw || bowl.remaining.length === 0) return;
       setShowDrawConfirm(false);
+      setDrawAnimationTitle("");
       setIsDrawing(true);
 
       try {
-        const minAnimationDelay = new Promise((resolve) => setTimeout(resolve, 1200));
+        const minAnimationDelay = new Promise((resolve) => setTimeout(resolve, 1500));
         const drawPromise = handleDraw({
           prioritizeByServices: prioritizeStreaming,
           prioritizeByServiceRank: useStreamingRank,
@@ -459,6 +461,11 @@ export default function BowlDashboard() {
             maxMinutes: runtimeMaxMinutes,
             includeUnknown: includeUnknownRuntime,
           },
+        }).then((movie) => {
+          if (movie?.title) {
+            setDrawAnimationTitle(movie.title);
+          }
+          return movie;
         });
 
         const [movie] = await Promise.all([drawPromise, minAnimationDelay]);
@@ -468,6 +475,7 @@ export default function BowlDashboard() {
         }
       } finally {
         setIsDrawing(false);
+        setDrawAnimationTitle("");
       }
     };
 
@@ -488,7 +496,7 @@ return (
 
             <section className="panel my-3">
               <div className="mx-auto max-w-5xl">
-                <div className="panel-muted mx-auto flex max-w-2xl flex-col items-center gap-2.5 text-center md:flex-row md:justify-center md:gap-3">
+                <div className="mx-auto flex max-w-2xl flex-col items-center gap-2.5 text-center md:flex-row md:justify-center md:gap-3">
                   <AddMovieButton
                     variant="primary"
                     disabled={isAddBlocked}
@@ -508,7 +516,11 @@ return (
                 </div>
 
                 <div className="mt-4">
-                  <BowlIllustration className="mx-auto h-44 md:h-48 w-full max-w-2xl drop-shadow-md" />
+                  <BowlIllustration
+                    drawTitle={drawAnimationTitle}
+                    isDrawing={isDrawing}
+                    className="mx-auto h-44 w-full max-w-2xl drop-shadow-md md:h-48"
+                  />
                 </div>
 
                 <div className="mt-2 text-center">

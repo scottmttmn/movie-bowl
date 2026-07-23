@@ -8,7 +8,7 @@ describe("DrawAnimationModal", () => {
     vi.useRealTimers();
   });
 
-  it("renders the draw status overlay", () => {
+  it("renders the draw status announcement", () => {
     render(<DrawAnimationModal />);
 
     expect(screen.getByRole("status")).toBeInTheDocument();
@@ -16,7 +16,7 @@ describe("DrawAnimationModal", () => {
     expect(screen.getByText(/movie bowl/i)).toBeInTheDocument();
   });
 
-  it("progresses through the cinematic phases over time", () => {
+  it("progresses through the in-place draw phases over time", () => {
     vi.useFakeTimers();
     render(<DrawAnimationModal />);
 
@@ -24,17 +24,17 @@ describe("DrawAnimationModal", () => {
     expect(overlay).toHaveAttribute("data-phase", "enter");
 
     act(() => {
-      vi.advanceTimersByTime(220);
+      vi.advanceTimersByTime(240);
     });
-    expect(overlay).toHaveAttribute("data-phase", "shuffle");
+    expect(overlay).toHaveAttribute("data-phase", "shake");
 
     act(() => {
-      vi.advanceTimersByTime(520);
+      vi.advanceTimersByTime(620);
     });
-    expect(overlay).toHaveAttribute("data-phase", "lift");
+    expect(overlay).toHaveAttribute("data-phase", "pop");
 
     act(() => {
-      vi.advanceTimersByTime(260);
+      vi.advanceTimersByTime(420);
     });
     expect(overlay).toHaveAttribute("data-phase", "finish");
   });

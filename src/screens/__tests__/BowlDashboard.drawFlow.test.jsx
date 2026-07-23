@@ -185,7 +185,14 @@ describe("BowlDashboard draw flow", () => {
     expect(screen.queryByText("Movie A (2020)")).not.toBeInTheDocument();
 
     await act(async () => {
-      vi.advanceTimersByTime(1199);
+      await Promise.resolve();
+    });
+
+    expect(document.querySelector(".bowl-draw-pop-title")).toHaveTextContent("Movie A");
+    expect(screen.queryByText("Movie A (2020)")).not.toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1499);
     });
 
     expect(screen.getByText(/drawing a title from the bowl/i)).toBeInTheDocument();
@@ -228,7 +235,7 @@ describe("BowlDashboard draw flow", () => {
     confirmDraw();
 
     await act(async () => {
-      vi.advanceTimersByTime(1200);
+      vi.advanceTimersByTime(1500);
       await Promise.resolve();
     });
 
@@ -254,7 +261,7 @@ describe("BowlDashboard draw flow", () => {
     expect(screen.getByText(/drawing a title from the bowl/i)).toBeInTheDocument();
 
     await act(async () => {
-      vi.advanceTimersByTime(1200);
+      vi.advanceTimersByTime(1500);
       await Promise.resolve();
     });
 
@@ -288,7 +295,7 @@ describe("BowlDashboard draw flow", () => {
     vi.useFakeTimers();
     confirmDraw();
     await act(async () => {
-      vi.advanceTimersByTime(1200);
+      vi.advanceTimersByTime(1500);
       await Promise.resolve();
     });
     vi.useRealTimers();
@@ -330,7 +337,7 @@ describe("BowlDashboard draw flow", () => {
     vi.useFakeTimers();
     confirmDraw();
     await act(async () => {
-      vi.advanceTimersByTime(1200);
+      vi.advanceTimersByTime(1500);
       await Promise.resolve();
     });
     vi.useRealTimers();

@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import AddMovieButton from "../AddMovieButton";
+import BowlIllustration from "../BowlIllustration";
 import BowlCard from "../BowlCard";
 import DrawOddsStats from "../DrawOddsStats";
 import DrawButton from "../DrawButton";
@@ -62,5 +63,20 @@ describe("button and card components", () => {
     render(<RemainingCount count={7} />);
     expect(screen.getByText("Remaining:")).toBeInTheDocument();
     expect(screen.getByText("7")).toBeInTheDocument();
+  });
+
+  it("renders BowlIllustration with the draw animation layer", () => {
+    const { container } = render(
+      <BowlIllustration drawTitle="Paper Moon" isDrawing className="test-class" />
+    );
+    const stage = container.querySelector(".bowl-illustration-stage");
+
+    expect(stage).toHaveClass("is-drawing");
+    expect(stage).toHaveClass("test-class");
+    expect(container.querySelector(".bowl-illustration-image")).toBeInTheDocument();
+    expect(container.querySelector(".bowl-draw-pop-slip")).toBeInTheDocument();
+    expect(container.querySelector(".bowl-draw-pop-fold-left")).toBeInTheDocument();
+    expect(container.querySelector(".bowl-draw-pop-fold-right")).toBeInTheDocument();
+    expect(container.querySelector(".bowl-draw-pop-title")).toHaveTextContent("Paper Moon");
   });
 });

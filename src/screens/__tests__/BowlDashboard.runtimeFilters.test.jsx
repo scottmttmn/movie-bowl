@@ -134,7 +134,7 @@ describe("BowlDashboard runtime filters", () => {
     vi.useFakeTimers();
     confirmDraw();
     await act(async () => {
-      vi.advanceTimersByTime(1200);
+      vi.advanceTimersByTime(1500);
     });
     vi.useRealTimers();
 
