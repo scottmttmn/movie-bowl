@@ -59,7 +59,7 @@ describe("button and card components", () => {
     fireEvent.click(summary);
 
     expect(details).toHaveAttribute("open");
-    expect(screen.getByText(/the bowl picks a person first/i)).toBeInTheDocument();
+    expect(screen.getByText(/selects a person at random.*selects one of their movies at random/i)).toBeInTheDocument();
   });
 
   it("renders RemainingCount", () => {

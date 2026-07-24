@@ -14,8 +14,8 @@ export default function DrawMethodDisclosure() {
         </span>
       </summary>
       <p className="mx-auto mt-2 max-w-lg rounded-xl border border-slate-800 bg-slate-950/45 px-3.5 py-3 text-sm leading-6 text-slate-300">
-        Right now, the bowl picks a person first, then one of their movies. Each person is equally
-        likely to be picked, regardless of how many movies they added.
+        The bowl first selects a person at random, then selects one of their movies at random. Each
+        person is equally likely to be selected, regardless of how many movies they added.
       </p>
     </details>
   );

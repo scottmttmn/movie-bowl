@@ -169,7 +169,7 @@ describe("BowlDashboard guards", () => {
 
     fireEvent.click(summary);
 
-    expect(screen.getByText(/each person is equally likely to be picked/i)).toBeInTheDocument();
+    expect(screen.getByText(/each person is equally likely to be selected/i)).toBeInTheDocument();
   });
 
   it("adds a custom movie directly", async () => {
