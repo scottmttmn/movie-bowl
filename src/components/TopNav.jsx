@@ -109,7 +109,7 @@ export default function TopNav({
                       isWatchListRoute ? "pointer-events-none bg-slate-800 text-slate-400" : ""
                     }`}
                   >
-                    Watch List
+                    Watch History
                   </Link>
                   <Link
                     to="/settings"

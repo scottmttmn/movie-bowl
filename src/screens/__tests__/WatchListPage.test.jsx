@@ -167,23 +167,100 @@ describe("WatchListPage", () => {
     render(<WatchListPage />);
 
     await waitFor(() => {
-      expect(screen.getByText("Watch List")).toBeInTheDocument();
+      expect(screen.getByText("Watch History")).toBeInTheDocument();
     });
 
-    const headings = screen.getAllByRole("heading", { level: 2 });
+    expect(screen.getByRole("heading", { level: 2, name: "April" })).toBeInTheDocument();
+    const headings = screen.getAllByRole("heading", { level: 3 });
     expect(headings.map((node) => node.textContent)).toEqual([
-      "Shared Favorite",
       "Owned Favorite",
+      "Shared Favorite",
       "Shared Favorite",
     ]);
 
     expect(screen.getAllByText("Shared Favorite")).toHaveLength(2);
     expect(screen.getByText("Shared Bowl")).toBeInTheDocument();
     expect(screen.getAllByText("Owned Bowl")).toHaveLength(2);
-    expect(screen.getByText("3 watched movies")).toBeInTheDocument();
+    expect(screen.getByText("3 watched in 2026 · 3 all time")).toBeInTheDocument();
     expect(screen.getAllByText(/Watched on /i)).toHaveLength(3);
-    expect(screen.getByRole("button", { name: /export csv/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /export all csv/i })).toBeEnabled();
     expect(screen.getByText("2 exportable, 1 skipped")).toBeInTheDocument();
+  });
+
+  it("defaults to the latest watched year and navigates only between years with history", async () => {
+    mocks.state.watchedRows = [
+      ...mocks.state.watchedRows,
+      {
+        id: "movie-2024",
+        bowl_id: "bowl-1",
+        tmdb_id: 204,
+        title: "Older Favorite",
+        poster_path: "/older.jpg",
+        release_date: "1994-09-23",
+        drawn_at: "2024-11-15T18:00:00.000Z",
+        bowls: { name: "Owned Bowl" },
+        profiles: null,
+        added_by_name: null,
+      },
+    ];
+
+    render(<WatchListPage />);
+
+    const yearSelect = await screen.findByLabelText(/year watched/i);
+    expect(yearSelect).toHaveValue("2026");
+    expect(screen.getByRole("option", { name: "2026" })).toBeInTheDocument();
+    expect(screen.getByRole("option", { name: "2024" })).toBeInTheDocument();
+    expect(screen.queryByRole("option", { name: "2025" })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /previous watched year/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /next watched year/i })).toBeDisabled();
+    expect(screen.queryByText("Older Favorite")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /previous watched year/i }));
+
+    expect(yearSelect).toHaveValue("2024");
+    expect(screen.getByText("1 watched in 2024 · 4 all time")).toBeInTheDocument();
+    expect(screen.getByText("Older Favorite")).toBeInTheDocument();
+    expect(screen.queryByText("Owned Favorite")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /previous watched year/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /next watched year/i })).toBeEnabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /next watched year/i }));
+    expect(yearSelect).toHaveValue("2026");
+  });
+
+  it("groups the selected year by month and watched date in newest-first order", async () => {
+    mocks.state.watchedRows = [
+      {
+        ...mocks.state.watchedRows[0],
+        id: "march-a",
+        title: "March First",
+        drawn_at: "2026-03-12T18:00:00.000Z",
+      },
+      {
+        ...mocks.state.watchedRows[1],
+        id: "march-b",
+        title: "March Second",
+        drawn_at: "2026-03-12T20:00:00.000Z",
+      },
+      {
+        ...mocks.state.watchedRows[2],
+        id: "january",
+        title: "January Pick",
+        drawn_at: "2026-01-04T18:00:00.000Z",
+      },
+    ];
+
+    render(<WatchListPage />);
+
+    await screen.findByText("March First");
+
+    expect(
+      screen.getAllByRole("heading", { level: 2 }).map((heading) => heading.textContent)
+    ).toEqual(["March", "January"]);
+    expect(screen.getAllByLabelText(/March 12/i)).toHaveLength(1);
+    expect(
+      screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)
+    ).toEqual(["March Second", "March First", "January Pick"]);
   });
 
   it("shows an empty state when no watched movies are available", async () => {
@@ -195,13 +272,13 @@ describe("WatchListPage", () => {
       expect(screen.getByText(/no watched movies yet/i)).toBeInTheDocument();
     });
     expect(screen.getByText("0 watched movies")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /export csv/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /export all csv/i })).toBeDisabled();
   });
 
   it("disables Letterboxd export while the watch list is loading", () => {
     render(<WatchListPage />);
 
-    expect(screen.getByRole("button", { name: /export csv/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /export all csv/i })).toBeDisabled();
   });
 
   it("downloads a Letterboxd CSV for exportable watched movies", async () => {
@@ -241,10 +318,10 @@ describe("WatchListPage", () => {
       render(<WatchListPage />);
 
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /export csv/i })).toBeEnabled();
+        expect(screen.getByRole("button", { name: /export all csv/i })).toBeEnabled();
       });
 
-      fireEvent.click(screen.getByRole("button", { name: /export csv/i }));
+      fireEvent.click(screen.getByRole("button", { name: /export all csv/i }));
 
       expect(createObjectURL).toHaveBeenCalledTimes(1);
       expect(anchorClick).toHaveBeenCalledTimes(1);
