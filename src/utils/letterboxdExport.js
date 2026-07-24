@@ -7,6 +7,11 @@ function padDatePart(value) {
 export function formatLocalCalendarDate(value) {
   if (!value) return "";
 
+  // PostgreSQL date values are already calendar dates. Parsing them as UTC and
+  // then formatting locally can otherwise shift the displayed day backward.
+  const dateOnly = String(value).match(/^\d{4}-\d{2}-\d{2}$/);
+  if (dateOnly) return dateOnly[0];
+
   const date = value instanceof Date ? value : new Date(value);
   if (Number.isNaN(date.getTime())) return "";
 
@@ -49,7 +54,7 @@ export function buildLetterboxdWatchedCsv(movies = []) {
         Number(movie.tmdb_id),
         movie.title ?? "",
         getReleaseYear(movie.release_date),
-        formatLocalCalendarDate(movie.drawn_at),
+        formatLocalCalendarDate(movie.watched_on ?? movie.drawn_at),
       ])
     );
   });

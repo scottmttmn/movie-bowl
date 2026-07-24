@@ -4,6 +4,8 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   remainingQueue: [],
   watchedQueue: [],
+  rpcCalls: [],
+  rpcResponses: [],
   insertPayloads: [],
   insertResponses: [],
   updatePayloads: [],
@@ -21,12 +23,16 @@ const mocks = vi.hoisted(() => ({
         error: null,
       })),
     },
+    rpc: vi.fn(async (name, params) => {
+      mocks.rpcCalls.push({ name, params });
+      return mocks.rpcResponses.shift() || { data: null, error: null };
+    }),
     from: vi.fn((table) => {
-      if (table !== "bowl_movies") {
+      if (table !== "bowl_movies" && table !== "bowl_draw_events") {
         throw new Error(`Unexpected table: ${table}`);
       }
 
-      const state = { mode: "select", kind: null };
+      const state = { mode: "select", kind: null, table };
       const query = {
         select: vi.fn(() => query),
         eq: vi.fn((key, value) => {
@@ -39,7 +45,12 @@ const mocks = vi.hoisted(() => ({
           return query;
         }),
         is: vi.fn((column, value) => {
-          if (column === "drawn_at" && value === null) state.kind = "remaining";
+          if (table === "bowl_movies" && column === "drawn_at" && value === null) {
+            state.kind = "remaining";
+          }
+          if (table === "bowl_draw_events" && column === "returned_at" && value === null) {
+            state.kind = "watched";
+          }
           if (state.mode === "update") {
             mocks.updateEqFilters.push({ key: column, value });
           }
@@ -49,7 +60,9 @@ const mocks = vi.hoisted(() => ({
           return query;
         }),
         not: vi.fn((column, op, value) => {
-          if (column === "drawn_at" && op === "is" && value === null) state.kind = "watched";
+          if (table === "bowl_movies" && column === "drawn_at" && op === "is" && value === null) {
+            state.kind = "watched";
+          }
           return query;
         }),
         order: vi.fn(async () => {
@@ -131,10 +144,19 @@ vi.mock("../../lib/tmdbApi", () => ({
 import useBowl from "../useBowl";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../../utils/appLimits";
 
+function expectDrawRpc(movieId) {
+  expect(mocks.rpcCalls).toContainEqual({
+    name: "draw_bowl_movie",
+    params: { p_bowl_movie_id: movieId },
+  });
+}
+
 describe("useBowl handleDraw integration", () => {
   beforeEach(() => {
     mocks.remainingQueue = [];
     mocks.watchedQueue = [];
+    mocks.rpcCalls = [];
+    mocks.rpcResponses = [];
     mocks.insertPayloads = [];
     mocks.insertResponses = [];
     mocks.updatePayloads = [];
@@ -176,16 +198,7 @@ describe("useBowl handleDraw integration", () => {
 
     expect(drawn.id).toBe("m1");
     expect(drawn.streamingProviders).toEqual(["Netflix"]);
-    expect(mocks.updatePayloads).toHaveLength(1);
-    expect(mocks.updatePayloads[0].drawn_by).toBe("user-1");
-    expect(typeof mocks.updatePayloads[0].drawn_at).toBe("string");
-    expect(mocks.updateEqFilters).toEqual(
-      expect.arrayContaining([
-        { key: "bowl_id", value: "bowl-1" },
-        { key: "drawn_at", value: null },
-        { key: "id", value: "m1" },
-      ])
-    );
+    expectDrawRpc("m1");
 
     await waitFor(() => {
       expect(result.current.bowl.remaining).toHaveLength(0);
@@ -226,13 +239,7 @@ describe("useBowl handleDraw integration", () => {
     expect(drawn.id).toBe("m2");
     expect(mocks.fetchStreamingProviders).toHaveBeenCalledWith(101, { region: "US" });
     expect(mocks.fetchStreamingProviders).toHaveBeenCalledWith(202, { region: "US" });
-    expect(mocks.updateEqFilters).toEqual(
-      expect.arrayContaining([
-        { key: "bowl_id", value: "bowl-1" },
-        { key: "drawn_at", value: null },
-        { key: "id", value: "m2" },
-      ])
-    );
+    expectDrawRpc("m2");
 
     randomSpy.mockRestore();
   });
@@ -590,13 +597,7 @@ describe("useBowl handleDraw integration", () => {
       await result.current.handleDraw({ randomFn: () => 0 });
     });
 
-    expect(mocks.updateEqFilters).toEqual(
-      expect.arrayContaining([
-        { key: "bowl_id", value: "bowl-1" },
-        { key: "drawn_at", value: null },
-        { key: "id", value: "m1" },
-      ])
-    );
+    expectDrawRpc("m1");
     expect(mocks.deleteCalled).toBe(false);
     expect(mocks.deleteInFilters).toEqual([]);
 
@@ -627,11 +628,7 @@ describe("useBowl handleDraw integration", () => {
       await result.current.handleDraw({ randomFn: () => 0 });
     });
 
-    expect(mocks.updateEqFilters).toEqual(
-      expect.arrayContaining([
-        { key: "id", value: "c1" },
-      ])
-    );
+    expectDrawRpc("c1");
     expect(mocks.deleteCalled).toBe(false);
     expect(mocks.deleteInFilters).toEqual([]);
 
@@ -699,14 +696,10 @@ describe("useBowl handleDraw integration", () => {
     });
 
     expect(mocks.insertPayloads).toHaveLength(0);
-    expect(mocks.updatePayloads).toEqual(
-      expect.arrayContaining([
-        expect.objectContaining({
-          drawn_at: null,
-          drawn_by: null,
-        }),
-      ])
-    );
+    expect(mocks.rpcCalls).toContainEqual({
+      name: "return_bowl_draw_to_bowl",
+      params: { p_draw_event_id: "w1" },
+    });
 
     await waitFor(() => {
       expect(result.current.bowl.remaining).toHaveLength(1);
@@ -925,11 +918,7 @@ describe("useBowl handleDraw integration", () => {
       });
     });
 
-    expect(mocks.updateEqFilters).toEqual(
-      expect.arrayContaining([
-        { key: "id", value: "m2" },
-      ])
-    );
+    expectDrawRpc("m2");
     randomSpy.mockRestore();
   });
 
@@ -942,7 +931,7 @@ describe("useBowl handleDraw integration", () => {
       region: "US",
       fetchedAt: null,
     });
-    mocks.updateResponses.push({
+    mocks.rpcResponses.push({
       data: null,
       error: { code: "42501", message: "permission denied for table bowl_movies" },
     });
@@ -1004,11 +993,7 @@ describe("useBowl handleDraw integration", () => {
       });
     });
 
-    expect(mocks.updateEqFilters).toEqual(
-      expect.arrayContaining([
-        { key: "id", value: "m1" },
-      ])
-    );
+    expectDrawRpc("m1");
     randomSpy.mockRestore();
   });
 
@@ -1033,11 +1018,7 @@ describe("useBowl handleDraw integration", () => {
       });
     });
 
-    expect(mocks.updateEqFilters).toEqual(
-      expect.arrayContaining([
-        { key: "id", value: "m2" },
-      ])
-    );
+    expectDrawRpc("m2");
     randomSpy.mockRestore();
   });
 
@@ -1089,11 +1070,7 @@ describe("useBowl handleDraw integration", () => {
       });
     });
 
-    expect(mocks.updateEqFilters).toEqual(
-      expect.arrayContaining([
-        { key: "id", value: "m2" },
-      ])
-    );
+    expectDrawRpc("m2");
     randomSpy.mockRestore();
   });
 });

@@ -4,6 +4,46 @@ import { getPosterUrl } from "../utils/getPosterUrl";
 import { matchUserServices, normalizeStreamingServices } from "../utils/streamingServices";
 import { getMovieAttributionLabel } from "../utils/drawBuckets";
 
+function formatDisplayDate(value) {
+  if (!value) return null;
+
+  const dateOnly = String(value).match(/^\d{4}-\d{2}-\d{2}$/);
+  const date = dateOnly ? new Date(`${dateOnly[0]}T12:00:00`) : new Date(value);
+  return Number.isNaN(date.getTime()) ? null : date.toLocaleDateString();
+}
+
+function TrailerDisclosure({ movie, trailerRegionId }) {
+  const [isTrailerVisible, setIsTrailerVisible] = useState(false);
+
+  return (
+    <div className="mb-4">
+      <button
+        type="button"
+        className="btn btn-secondary px-3 py-2 text-sm"
+        aria-expanded={isTrailerVisible}
+        aria-controls={trailerRegionId}
+        onClick={() => setIsTrailerVisible((prev) => !prev)}
+      >
+        {isTrailerVisible ? "Hide Trailer" : "Show Trailer"}
+      </button>
+      {isTrailerVisible && (
+        <div
+          id={trailerRegionId}
+          className="mt-3 aspect-video overflow-hidden rounded-xl border border-slate-700 bg-slate-950"
+        >
+          <iframe
+            src={movie.trailer.embedUrl}
+            title={`${movie.title} trailer`}
+            className="h-full w-full"
+            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+            allowFullScreen
+          />
+        </div>
+      )}
+    </div>
+  );
+}
+
 export default function AddMovieModal({
   movie,
   onClose,
@@ -22,8 +62,6 @@ export default function AddMovieModal({
   onLaunchPreferredWeb = null,
   rokuLaunchStatus = null,
 }) {
-  const [isTrailerVisible, setIsTrailerVisible] = useState(false);
-
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
@@ -36,12 +74,6 @@ export default function AddMovieModal({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [onClose]);
-
-  useEffect(() => {
-    // Reset the disclosure whenever a different movie is shown.
-    // eslint-disable-next-line react-hooks/set-state-in-effect
-    setIsTrailerVisible(false);
-  }, [movie]);
 
   // This modal is used in two contexts:
   // 1) "Add movie" flow (movie is undefined): show search UI.
@@ -87,8 +119,8 @@ export default function AddMovieModal({
   const isCustomEntry = Boolean(
     movie.isCustomEntry || resolvedMovieId == null || Number(resolvedMovieId) <= 0
   );
-  const watchedAt = movie.drawn_at || movie.drawnAt || null;
-  const watchedDateLabel = watchedAt ? new Date(watchedAt).toLocaleDateString() : null;
+  const watchedAt = movie.watched_on || movie.drawn_at || movie.drawnAt || null;
+  const watchedDateLabel = formatDisplayDate(watchedAt);
   const addedByLabel = getMovieAttributionLabel(movie);
   const availableProviders = normalizeStreamingServices(movie.streamingProviders || []);
   const matchingProviders = matchUserServices(availableProviders, userStreamingServices);
@@ -155,33 +187,7 @@ export default function AddMovieModal({
           </div>
         )}
 
-        {hasTrailer && (
-          <div className="mb-4">
-            <button
-              type="button"
-              className="btn btn-secondary px-3 py-2 text-sm"
-              aria-expanded={isTrailerVisible}
-              aria-controls={trailerRegionId}
-              onClick={() => setIsTrailerVisible((prev) => !prev)}
-            >
-              {isTrailerVisible ? "Hide Trailer" : "Show Trailer"}
-            </button>
-            {isTrailerVisible && (
-              <div
-                id={trailerRegionId}
-                className="mt-3 aspect-video overflow-hidden rounded-xl border border-slate-700 bg-slate-950"
-              >
-                <iframe
-                  src={movie.trailer.embedUrl}
-                  title={`${movie.title} trailer`}
-                  className="h-full w-full"
-                  allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                  allowFullScreen
-                />
-              </div>
-            )}
-          </div>
-        )}
+        {hasTrailer && <TrailerDisclosure key={trailerRegionId} movie={movie} trailerRegionId={trailerRegionId} />}
 
         <div className="mb-4">
           <p className="mb-1 text-sm font-semibold text-slate-100">Available on</p>

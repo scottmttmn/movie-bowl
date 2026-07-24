@@ -15,12 +15,6 @@ function createSyntheticTmdbId() {
   return -Math.floor(Math.random() * (max - min + 1)) - min;
 }
 
-function looksLikeUuid(value) {
-  return /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(
-    String(value || "").trim()
-  );
-}
-
 function sortByAddedAtAscending(movies = []) {
   return [...movies].sort((a, b) => {
     const aTime = new Date(a?.added_at || 0).getTime();
@@ -57,7 +51,7 @@ function addResult(ok, code = null, message = null) {
 export default function useBowl(bowlId) {
   // Primary bowl state:
   // - remaining: movies not yet drawn (drawn_at is null)
-  // - watched: movies that have been drawn (drawn_at is not null)
+  // - watched: bowl draw events that have not been returned to the bowl
   const [bowl, setBowl] = useState({
     remaining: [],
     watched: [],
@@ -104,14 +98,15 @@ export default function useBowl(bowlId) {
         setErrorMessage("Failed to load remaining movies.");
       }
 
-      // Watched movies
-      const { data: watched, error: watchedError } = await supabase
-        .from("bowl_movies")
+      // Draw events are separate from current bowl slips so a return to the
+      // bowl never erases the fact that the bowl made a draw.
+      const { data: watchedEvents, error: watchedError } = await supabase
+        .from("bowl_draw_events")
         .select(
-          "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at, profiles:profiles!bowl_movies_added_by_fkey(email)"
+          "id, bowl_id, source_bowl_movie_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_by_name, drawn_at, drawn_by, snapshot_at, profiles:profiles!bowl_draw_events_added_by_fkey(email)"
         )
         .eq("bowl_id", bowlId)
-        .not("drawn_at", "is", null)
+        .is("returned_at", null)
         .order("drawn_at", { ascending: false });
 
       if (watchedError) {
@@ -137,7 +132,11 @@ export default function useBowl(bowlId) {
 
         return {
           remaining: sortByAddedAtAscending([...nextRemaining, ...mergedPending]),
-          watched: watched || [],
+          watched: (watchedEvents || []).map((event) => ({
+            ...event,
+            drawEventId: event.id,
+            bowlMovieId: event.source_bowl_movie_id,
+          })),
         };
       });
     } catch (err) {
@@ -154,8 +153,8 @@ export default function useBowl(bowlId) {
     loadBowlMovies();
   }, [loadBowlMovies]);
 
-  // Randomly select a movie from remaining, mark it as drawn in the DB,
-  // and reload the remaining/watched lists.
+  // Randomly select a movie from remaining, record the bowl draw and personal
+  // history entries atomically, then reload the remaining/watched lists.
   const handleDraw = useCallback(async (options = {}) => {
     if (!bowlId) return null;
     const drawableRemaining = (bowl.remaining || []).filter(
@@ -185,29 +184,20 @@ export default function useBowl(bowlId) {
 
     const drawn = selected.movie;
 
-    const { data: authData, error: authError } = await supabase.auth.getSession();
-    const user = authData?.session?.user;
+    const { error: drawMovieError } = await supabase.rpc("draw_bowl_movie", {
+      p_bowl_movie_id: drawn.id,
+    });
 
-    if (authError || !user) {
-      console.error("[useBowl] Not authenticated", authError);
-      return null;
-    }
-
-    const { error: updateError } = await supabase
-      .from("bowl_movies")
-      .update({ drawn_at: new Date().toISOString(), drawn_by: user.id })
-      .eq("bowl_id", bowlId)
-      .is("drawn_at", null)
-      .eq("id", drawn.id);
-
-    if (updateError) {
-      console.error("[useBowl] Failed to draw movie", updateError);
-      const errorCode = String(updateError?.code || "");
-      const errorMessageText = String(updateError?.message || "").toLowerCase();
+    if (drawMovieError) {
+      console.error("[useBowl] Failed to draw movie", drawMovieError);
+      const errorCode = String(drawMovieError?.code || "");
+      const errorMessageText = String(drawMovieError?.message || "").toLowerCase();
       const isPermissionDenied =
         errorCode === "42501" || errorMessageText.includes("permission denied");
       if (isPermissionDenied) {
         setErrorMessage("You don't have permission to draw in this bowl.");
+      } else if (errorMessageText.includes("no longer available")) {
+        setErrorMessage("That movie is no longer available to draw.");
       }
       return null;
     }
@@ -420,37 +410,17 @@ export default function useBowl(bowlId) {
         );
       }
 
-      // Defensive fallback: if a TMDB id slips through from enriched UI data,
-      // map it back to the corresponding watched bowl row UUID.
-      let targetRowId = movieId;
-      if (!looksLikeUuid(movieId)) {
-        const movieIdNumber = Number(movieId);
-        if (Number.isFinite(movieIdNumber)) {
-          const matchedWatchedRow = (bowl.watched || []).find(
-            (movie) => Number(movie?.tmdb_id) === movieIdNumber
-          );
-          if (matchedWatchedRow?.id) {
-            targetRowId = matchedWatchedRow.id;
-          }
-        }
-      }
-
-      if (!looksLikeUuid(targetRowId)) {
-        const matchesExistingRowId = (bowl.watched || []).some(
-          (movie) => String(movie?.id || "") === String(targetRowId)
-        );
-        if (matchesExistingRowId) {
-          // Test fixtures and some local mocks may use non-UUID ids.
-          // If the id maps to an existing watched row, allow it.
-        } else {
-          console.error("[useBowl] Invalid re-add movie id", { movieId, targetRowId });
-          return addResult(false, "invalid_movie", "Could not re-add this movie.");
-        }
-      }
-
-      const targetMovie = (bowl.watched || []).find(
-        (movie) => String(movie?.id || "") === String(targetRowId)
+      const targetMovie = (bowl.watched || []).find((movie) =>
+        [movie?.drawEventId, movie?.id, movie?.bowlMovieId].some(
+          (candidateId) => String(candidateId || "") === String(movieId)
+        )
       );
+      const targetDrawEventId = targetMovie?.drawEventId || targetMovie?.id || movieId;
+
+      if (!targetMovie) {
+        console.error("[useBowl] Invalid re-add draw event id", { movieId });
+        return addResult(false, "invalid_movie", "Could not re-add this movie.");
+      }
       const targetTmdbId = getPositiveTmdbId(targetMovie);
       const hasActiveDuplicate =
         targetTmdbId != null &&
@@ -461,20 +431,9 @@ export default function useBowl(bowlId) {
         return addResult(false, "duplicate_movie", DUPLICATE_MOVIE_MESSAGE);
       }
 
-      const { data: authData, error: authError } = await supabase.auth.getSession();
-      const user = authData?.session?.user;
-
-      if (authError || !user) {
-        console.error("[useBowl] Not authenticated", authError);
-        return addResult(false, "not_authenticated", "You must be signed in to re-add a movie.");
-      }
-
-      const { error } = await supabase
-        .from("bowl_movies")
-        .update({ drawn_at: null, drawn_by: null })
-        .eq("id", targetRowId)
-        .eq("bowl_id", bowlId)
-        .not("drawn_at", "is", null);
+      const { error } = await supabase.rpc("return_bowl_draw_to_bowl", {
+        p_draw_event_id: targetDrawEventId,
+      });
 
       if (error) {
         const duplicateMovie = isDuplicateMovieError(error);

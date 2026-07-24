@@ -381,7 +381,8 @@ export default function BowlDashboard() {
       return {
         ...(details || {}),
         ...movie,
-        bowlMovieId: movie?.id ?? null,
+        drawEventId: movie?.drawEventId ?? movie?.id ?? null,
+        bowlMovieId: movie?.bowlMovieId ?? null,
         streamingProviders: providerData.providers || [],
         streamingRegion: providerData.region || "US",
         streamingFetchedAt: providerData.fetchedAt || null,
@@ -989,9 +990,9 @@ return (
             {pendingReaddMovie && (
               <div className="modal-overlay z-[70]" role="presentation">
                 <div className="modal-surface max-w-md p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="readd-confirm-title">
-                  <h3 id="readd-confirm-title" className="text-lg font-semibold text-slate-100">Re-add to Bowl?</h3>
+                  <h3 id="readd-confirm-title" className="text-lg font-semibold text-slate-100">Move to Bowl?</h3>
                   <p className="mt-2 text-sm text-slate-400">
-                    "{pendingReaddMovie.title}" will be removed from the watched strip and placed back in your bowl.
+                    "{pendingReaddMovie.title}" will return to this bowl and be removed from Watch History.
                   </p>
                   <div className="mt-4 flex items-center justify-end gap-2">
                     <button
@@ -1014,8 +1015,8 @@ return (
                           return;
                         }
                         setIsReadding(true);
-                        const rowId = pendingReaddMovie?.bowlMovieId ?? pendingReaddMovie?.id;
-                        const result = await handleReaddMovie(rowId);
+                        const drawEventId = pendingReaddMovie?.drawEventId ?? pendingReaddMovie?.id;
+                        const result = await handleReaddMovie(drawEventId);
                         setIsReadding(false);
                         setPendingReaddMovie(null);
                         const ok = result === true || result?.ok === true;
@@ -1028,7 +1029,7 @@ return (
                       className="btn btn-primary"
                       disabled={isReadding}
                     >
-                      {isReadding ? "Re-adding..." : "Re-add"}
+                      {isReadding ? "Moving..." : "Move to Bowl"}
                     </button>
                   </div>
                 </div>

@@ -1,6 +1,10 @@
 export default function WatchedMovieCard({ movie, onClick }) {
   const drawnDate = movie.drawn_at || movie.drawnAt;
-  const drawnDateLabel = drawnDate ? new Date(drawnDate).toLocaleDateString() : null;
+  const dateOnly = String(drawnDate || "").match(/^\d{4}-\d{2}-\d{2}$/);
+  const displayDate = dateOnly ? new Date(`${dateOnly[0]}T12:00:00`) : new Date(drawnDate);
+  const drawnDateLabel = drawnDate && !Number.isNaN(displayDate.getTime())
+    ? displayDate.toLocaleDateString()
+    : null;
   const isCustomEntry = Boolean(
     movie.isCustomEntry || movie.tmdb_id == null || Number(movie.tmdb_id) <= 0
   );

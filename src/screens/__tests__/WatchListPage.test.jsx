@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => {
     ownedRows: [{ id: "bowl-1" }],
     memberRows: [{ bowl_id: "bowl-2" }],
     watchedRows: [],
+    rpcCalls: [],
   };
 
   function createThenable(result) {
@@ -42,17 +43,15 @@ const mocks = vi.hoisted(() => {
         })),
       },
       from: vi.fn((table) => {
-        if (table === "bowls") {
-          return createFilterQuery({ data: state.ownedRows, error: null });
-        }
-        if (table === "bowl_members") {
-          return createFilterQuery({ data: state.memberRows, error: null });
-        }
-        if (table === "bowl_movies") {
+        if (table === "user_watch_events") {
           return createFilterQuery({ data: state.watchedRows, error: null });
         }
 
         return createThenable({ data: [], error: null });
+      }),
+      rpc: vi.fn(async (name, params) => {
+        state.rpcCalls.push({ name, params });
+        return { data: null, error: null };
       }),
     },
     getTmdbMovieDetails: vi.fn(async () => ({
@@ -80,26 +79,50 @@ vi.mock("../../lib/streamingProviders", () => ({
 }));
 
 vi.mock("../../components/AddMovieModal", () => ({
-  default: ({ movie, onAddMovie, onDeleteMovie, onMoveToBowl }) => (
+  default: ({ movie, detailPrimaryActionLabel, onDetailPrimaryAction }) => (
     <div data-testid="movie-detail-modal">
       <div>{movie.title}</div>
-      <div>{movie.added_by_name || movie.profiles?.email?.split("@")[0] || "no attribution"}</div>
       <div>{movie.streamingProviders?.length ? "providers loaded" : "no providers"}</div>
-      <div>{onAddMovie || onDeleteMovie || onMoveToBowl ? "actions enabled" : "read-only"}</div>
+      <div>{detailPrimaryActionLabel ? "actions enabled" : "read-only"}</div>
+      {detailPrimaryActionLabel && (
+        <button type="button" onClick={() => onDetailPrimaryAction?.(movie)}>
+          {detailPrimaryActionLabel}
+        </button>
+      )}
+    </div>
+  ),
+}));
+
+vi.mock("../../components/WatchHistoryEntryModal", () => ({
+  default: ({ entry, onSave, onDelete }) => (
+    <div data-testid="watch-history-editor">
+      <div>{entry ? `editing ${entry.title}` : "adding history"}</div>
+      <button
+        type="button"
+        onClick={() =>
+          onSave(
+            entry || {
+              id: 303,
+              title: "Manual Favorite",
+              watched_on: "2026-05-01",
+              release_date: "1999-01-01",
+              genres: ["Drama"],
+            }
+          )
+        }
+      >
+        Save history entry
+      </button>
+      {entry && (
+        <button type="button" onClick={() => onDelete(entry)}>
+          Remove history entry
+        </button>
+      )}
     </div>
   ),
 }));
 
 import WatchListPage from "../WatchListPage";
-
-function formatLocalDate(value) {
-  const date = new Date(value);
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
-}
 
 describe("WatchListPage", () => {
   beforeEach(() => {
@@ -108,8 +131,9 @@ describe("WatchListPage", () => {
     mocks.state.memberRows = [{ bowl_id: "bowl-2" }];
     mocks.state.watchedRows = [
       {
-        id: "movie-2",
-        bowl_id: "bowl-2",
+        id: "history-2",
+        source_kind: "bowl_draw",
+        bowl_name: "Shared Bowl",
         tmdb_id: 102,
         title: "Shared Favorite",
         poster_path: "/shared.jpg",
@@ -117,14 +141,12 @@ describe("WatchListPage", () => {
         runtime: 201,
         genres: ["Adventure"],
         overview: "A shared bowl movie",
-        drawn_at: "2026-04-10T12:00:00.000Z",
-        bowls: { name: "Shared Bowl" },
-        profiles: { email: "friend@example.com" },
-        added_by_name: null,
+        watched_on: "2026-04-10",
       },
       {
-        id: "movie-1",
-        bowl_id: "bowl-1",
+        id: "history-1",
+        source_kind: "bowl_draw",
+        bowl_name: "Owned Bowl",
         tmdb_id: 101,
         title: "Owned Favorite",
         poster_path: "/owned.jpg",
@@ -132,14 +154,12 @@ describe("WatchListPage", () => {
         runtime: 178,
         genres: ["Fantasy"],
         overview: "An owned bowl movie",
-        drawn_at: "2026-04-12T18:30:00.000Z",
-        bowls: { name: "Owned Bowl" },
-        profiles: { email: "owner@example.com" },
-        added_by_name: null,
+        watched_on: "2026-04-12",
       },
       {
-        id: "movie-3",
-        bowl_id: "bowl-1",
+        id: "history-3",
+        source_kind: "manual",
+        bowl_name: null,
         tmdb_id: null,
         title: "Shared Favorite",
         poster_path: null,
@@ -147,14 +167,12 @@ describe("WatchListPage", () => {
         runtime: 90,
         genres: ["Drama"],
         overview: "Duplicate title in another bowl",
-        drawn_at: "2026-04-01T09:00:00.000Z",
-        bowls: { name: "Owned Bowl" },
-        profiles: null,
-        added_by_name: "Dad",
+        watched_on: "2026-04-01",
       },
     ];
     mocks.getTmdbMovieDetails.mockClear();
     mocks.fetchStreamingProviders.mockClear();
+    mocks.state.rpcCalls = [];
   });
 
   afterEach(() => {
@@ -163,7 +181,7 @@ describe("WatchListPage", () => {
     vi.unstubAllGlobals();
   });
 
-  it("loads watched movies across owned and member bowls and shows duplicates", async () => {
+  it("loads personal watch events and shows duplicates from bowls and manual entries", async () => {
     render(<WatchListPage />);
 
     await waitFor(() => {
@@ -179,11 +197,12 @@ describe("WatchListPage", () => {
     ]);
 
     expect(screen.getAllByText("Shared Favorite")).toHaveLength(2);
-    expect(screen.getByText("Shared Bowl")).toBeInTheDocument();
-    expect(screen.getAllByText("Owned Bowl")).toHaveLength(2);
+    expect(screen.getByText("From Shared Bowl")).toBeInTheDocument();
+    expect(screen.getByText("From Owned Bowl")).toBeInTheDocument();
+    expect(screen.getByText("Added manually")).toBeInTheDocument();
     expect(screen.getByText("3 watched in 2026 · 3 all time")).toBeInTheDocument();
     expect(screen.getAllByText(/Watched on /i)).toHaveLength(3);
-    expect(screen.getByRole("button", { name: /export all csv/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /export all history csv/i })).toBeEnabled();
     expect(screen.getByText("2 exportable, 1 skipped")).toBeInTheDocument();
   });
 
@@ -192,15 +211,13 @@ describe("WatchListPage", () => {
       ...mocks.state.watchedRows,
       {
         id: "movie-2024",
-        bowl_id: "bowl-1",
+        source_kind: "bowl_draw",
+        bowl_name: "Owned Bowl",
         tmdb_id: 204,
         title: "Older Favorite",
         poster_path: "/older.jpg",
         release_date: "1994-09-23",
-        drawn_at: "2024-11-15T18:00:00.000Z",
-        bowls: { name: "Owned Bowl" },
-        profiles: null,
-        added_by_name: null,
+        watched_on: "2024-11-15",
       },
     ];
 
@@ -234,19 +251,22 @@ describe("WatchListPage", () => {
         ...mocks.state.watchedRows[0],
         id: "march-a",
         title: "March First",
-        drawn_at: "2026-03-12T18:00:00.000Z",
+        watched_on: "2026-03-12",
+        created_at: "2026-03-12T18:00:00.000Z",
       },
       {
         ...mocks.state.watchedRows[1],
         id: "march-b",
         title: "March Second",
-        drawn_at: "2026-03-12T20:00:00.000Z",
+        watched_on: "2026-03-12",
+        created_at: "2026-03-12T20:00:00.000Z",
       },
       {
         ...mocks.state.watchedRows[2],
         id: "january",
         title: "January Pick",
-        drawn_at: "2026-01-04T18:00:00.000Z",
+        watched_on: "2026-01-04",
+        created_at: "2026-01-04T18:00:00.000Z",
       },
     ];
 
@@ -272,13 +292,13 @@ describe("WatchListPage", () => {
       expect(screen.getByText(/no watched movies yet/i)).toBeInTheDocument();
     });
     expect(screen.getByText("0 watched movies")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /export all csv/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /export all history csv/i })).toBeDisabled();
   });
 
   it("disables Letterboxd export while the watch list is loading", () => {
     render(<WatchListPage />);
 
-    expect(screen.getByRole("button", { name: /export all csv/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /export all history csv/i })).toBeDisabled();
   });
 
   it("downloads a Letterboxd CSV for exportable watched movies", async () => {
@@ -318,10 +338,10 @@ describe("WatchListPage", () => {
       render(<WatchListPage />);
 
       await waitFor(() => {
-        expect(screen.getByRole("button", { name: /export all csv/i })).toBeEnabled();
+        expect(screen.getByRole("button", { name: /export all history csv/i })).toBeEnabled();
       });
 
-      fireEvent.click(screen.getByRole("button", { name: /export all csv/i }));
+      fireEvent.click(screen.getByRole("button", { name: /export all history csv/i }));
 
       expect(createObjectURL).toHaveBeenCalledTimes(1);
       expect(anchorClick).toHaveBeenCalledTimes(1);
@@ -333,8 +353,8 @@ describe("WatchListPage", () => {
       expect(blob.parts).toEqual([
         [
           "tmdbID,Title,Year,WatchedDate",
-          `102,Shared Favorite,2004,${formatLocalDate("2026-04-10T12:00:00.000Z")}`,
-          `101,Owned Favorite,2001,${formatLocalDate("2026-04-12T18:30:00.000Z")}`,
+          "101,Owned Favorite,2001,2026-04-12",
+          "102,Shared Favorite,2004,2026-04-10",
         ].join("\n"),
       ]);
     } finally {
@@ -358,7 +378,7 @@ describe("WatchListPage", () => {
     }
   });
 
-  it("opens a read-only enriched detail modal when a TMDB watched movie is clicked", async () => {
+  it("opens an enriched detail modal and can start editing a TMDB watch event", async () => {
     render(<WatchListPage />);
 
     await waitFor(() => {
@@ -373,12 +393,14 @@ describe("WatchListPage", () => {
 
     expect(mocks.getTmdbMovieDetails).toHaveBeenCalledWith(101);
     expect(mocks.fetchStreamingProviders).toHaveBeenCalledWith(101, { region: "US" });
-    expect(screen.getByText("owner")).toBeInTheDocument();
     expect(screen.getByText("providers loaded")).toBeInTheDocument();
-    expect(screen.getByText("read-only")).toBeInTheDocument();
+    expect(screen.getByText("actions enabled")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /edit history/i }));
+    expect(screen.getByTestId("watch-history-editor")).toHaveTextContent("editing Owned Favorite");
   });
 
-  it("preserves public add-link attribution in detail view", async () => {
+  it("keeps manual entries distinct from bowl entries and skips TMDB enrichment for custom titles", async () => {
     render(<WatchListPage />);
 
     await waitFor(() => {
@@ -392,7 +414,60 @@ describe("WatchListPage", () => {
       expect(screen.getByTestId("movie-detail-modal")).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Dad")).toBeInTheDocument();
     expect(mocks.getTmdbMovieDetails).not.toHaveBeenCalledWith(null);
+  });
+
+  it("creates a manual watch event without requiring a bowl", async () => {
+    render(<WatchListPage />);
+
+    await screen.findByText("Owned Favorite");
+    fireEvent.click(screen.getByRole("button", { name: /add watched movie/i }));
+
+    expect(screen.getByTestId("watch-history-editor")).toHaveTextContent("adding history");
+    fireEvent.click(screen.getByRole("button", { name: /save history entry/i }));
+
+    await waitFor(() => {
+      expect(mocks.state.rpcCalls).toContainEqual({
+        name: "create_manual_watch_event",
+        params: expect.objectContaining({
+          p_title: "Manual Favorite",
+          p_watched_on: "2026-05-01",
+          p_tmdb_id: 303,
+        }),
+      });
+    });
+  });
+
+  it("updates and removes only the selected personal history event", async () => {
+    render(<WatchListPage />);
+
+    await screen.findByText("Owned Favorite");
+    fireEvent.click(screen.getByRole("button", { name: /owned favorite/i }));
+    await screen.findByTestId("movie-detail-modal");
+    fireEvent.click(screen.getByRole("button", { name: /edit history/i }));
+    fireEvent.click(screen.getByRole("button", { name: /save history entry/i }));
+
+    await waitFor(() => {
+      expect(mocks.state.rpcCalls).toContainEqual({
+        name: "update_user_watch_event",
+        params: expect.objectContaining({
+          p_event_id: "history-1",
+          p_title: "Owned Favorite",
+          p_watched_on: "2026-04-12",
+        }),
+      });
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /owned favorite/i }));
+    await screen.findByTestId("movie-detail-modal");
+    fireEvent.click(screen.getByRole("button", { name: /edit history/i }));
+    fireEvent.click(screen.getByRole("button", { name: /remove history entry/i }));
+
+    await waitFor(() => {
+      expect(mocks.state.rpcCalls).toContainEqual({
+        name: "delete_user_watch_event",
+        params: { p_event_id: "history-1" },
+      });
+    });
   });
 });

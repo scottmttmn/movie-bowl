@@ -1,5 +1,6 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import AddMovieModal from "../components/AddMovieModal";
+import WatchHistoryEntryModal from "../components/WatchHistoryEntryModal";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { supabase } from "../lib/supabase";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
@@ -10,11 +11,18 @@ import {
 } from "../utils/letterboxdExport";
 
 function formatWatchedDate(value) {
-  return value ? new Date(value).toLocaleDateString() : null;
+  const date = getWatchedDate(value);
+  return date ? date.toLocaleDateString() : null;
 }
 
 function getWatchedDate(value) {
   if (!value) return null;
+
+  const dateOnly = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
+  if (dateOnly) {
+    const [, year, month, day] = dateOnly;
+    return new Date(Number(year), Number(month) - 1, Number(day));
+  }
 
   const date = new Date(value);
   return Number.isNaN(date.getTime()) ? null : date;
@@ -34,89 +42,53 @@ export default function WatchListPage() {
   const [errorMessage, setErrorMessage] = useState(null);
   const [selectedDetailMovie, setSelectedDetailMovie] = useState(null);
   const [selectedYear, setSelectedYear] = useState(null);
+  const [isEntryEditorOpen, setIsEntryEditorOpen] = useState(false);
+  const [editingEntry, setEditingEntry] = useState(null);
+  const [entryEditorError, setEntryEditorError] = useState("");
+  const [isSavingEntry, setIsSavingEntry] = useState(false);
+
+  const loadWatchList = useCallback(async () => {
+    setIsLoading(true);
+    setErrorMessage(null);
+
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      const user = authData?.session?.user;
+
+      if (authError || !user) {
+        setMovies([]);
+        return;
+      }
+
+      const { data: watchedRows, error: watchedError } = await supabase
+        .from("user_watch_events")
+        .select(
+          "id, source_draw_event_id, source_kind, bowl_name, tmdb_id, title, poster_path, release_date, runtime, genres, overview, watched_on, created_at, updated_at"
+        )
+        .eq("user_id", user.id)
+        .order("watched_on", { ascending: false })
+        .order("created_at", { ascending: false });
+
+      if (watchedError) {
+        console.error("[WatchListPage] Failed to load watch history", watchedError);
+        setMovies([]);
+        setErrorMessage("Failed to load your watch history.");
+        return;
+      }
+
+      setMovies(watchedRows || []);
+    } catch (error) {
+      console.error("[WatchListPage] Unexpected error", error);
+      setMovies([]);
+      setErrorMessage("Unexpected error loading your watch history.");
+    } finally {
+      setIsLoading(false);
+    }
+  }, []);
 
   useEffect(() => {
-    let cancelled = false;
-
-    const loadWatchList = async () => {
-      setIsLoading(true);
-      setErrorMessage(null);
-
-      try {
-        const { data: authData, error: authError } = await supabase.auth.getSession();
-        const user = authData?.session?.user;
-
-        if (authError || !user) {
-          if (!cancelled) {
-            setMovies([]);
-          }
-          return;
-        }
-
-        const [{ data: ownedRows, error: ownedError }, { data: memberRows, error: memberError }] =
-          await Promise.all([
-            supabase.from("bowls").select("id").eq("owner_id", user.id),
-            supabase.from("bowl_members").select("bowl_id").eq("user_id", user.id),
-          ]);
-
-        if (ownedError || memberError) {
-          console.error("[WatchListPage] Failed to load user bowl access", ownedError || memberError);
-          if (!cancelled) {
-            setMovies([]);
-            setErrorMessage("Failed to load your watch list.");
-          }
-          return;
-        }
-
-        const bowlIds = [...new Set([...(ownedRows || []).map((row) => row.id), ...(memberRows || []).map((row) => row.bowl_id)])]
-          .filter(Boolean);
-
-        if (bowlIds.length === 0) {
-          if (!cancelled) {
-            setMovies([]);
-          }
-          return;
-        }
-
-        const { data: watchedRows, error: watchedError } = await supabase
-          .from("bowl_movies")
-          .select(
-            "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at, bowls(name), profiles:profiles!bowl_movies_added_by_fkey(email)"
-          )
-          .in("bowl_id", bowlIds)
-          .not("drawn_at", "is", null)
-          .order("drawn_at", { ascending: false });
-
-        if (watchedError) {
-          console.error("[WatchListPage] Failed to load watched movies", watchedError);
-          if (!cancelled) {
-            setMovies([]);
-            setErrorMessage("Failed to load your watch list.");
-          }
-          return;
-        }
-
-        if (!cancelled) {
-          setMovies(watchedRows || []);
-        }
-      } catch (error) {
-        console.error("[WatchListPage] Unexpected error", error);
-        if (!cancelled) {
-          setMovies([]);
-          setErrorMessage("Unexpected error loading your watch list.");
-        }
-      } finally {
-        if (!cancelled) {
-          setIsLoading(false);
-        }
-      }
-    };
-
     loadWatchList();
-    return () => {
-      cancelled = true;
-    };
-  }, []);
+  }, [loadWatchList]);
 
   const buildDetailMovie = async (movie) => {
     const tmdbId = Number(movie?.tmdb_id ?? movie?.id);
@@ -163,13 +135,14 @@ export default function WatchListPage() {
     () =>
       (movies || [])
         .map((movie) => {
-          const watchedDate = getWatchedDate(movie?.drawn_at);
+          const watchedDate = getWatchedDate(movie?.watched_on ?? movie?.drawn_at);
 
           return {
             ...movie,
-            bowlName: movie?.bowls?.name || "Movie Bowl",
+            bowlName: movie?.bowl_name || null,
             watchedDate,
-            watchedDateLabel: formatWatchedDate(movie?.drawn_at),
+            watchedDateLabel: formatWatchedDate(movie?.watched_on ?? movie?.drawn_at),
+            createdAt: getWatchedDate(movie?.created_at),
             watchedYear: watchedDate?.getFullYear() ?? null,
             releaseYear: movie?.release_date ? String(movie.release_date).split("-")[0] : "—",
             posterUrl: getPosterUrl(movie, "w200"),
@@ -177,7 +150,8 @@ export default function WatchListPage() {
         })
         .sort(
           (firstMovie, secondMovie) =>
-            (secondMovie.watchedDate?.getTime() ?? 0) - (firstMovie.watchedDate?.getTime() ?? 0)
+            (secondMovie.watchedDate?.getTime() ?? 0) - (firstMovie.watchedDate?.getTime() ?? 0) ||
+            (secondMovie.createdAt?.getTime() ?? 0) - (firstMovie.createdAt?.getTime() ?? 0)
         ),
     [movies]
   );
@@ -254,7 +228,7 @@ export default function WatchListPage() {
       movieCount: group.movieCount,
     }));
   }, [filteredRows]);
-  const letterboxdExport = useMemo(() => buildLetterboxdWatchedCsv(movies), [movies]);
+  const letterboxdExport = useMemo(() => buildLetterboxdWatchedCsv(rows), [rows]);
   const canExportLetterboxd =
     !isLoading && !errorMessage && letterboxdExport.exportedCount > 0;
   const allTimeCountLabel = rows.length === 1 ? "1 all time" : `${rows.length} all time`;
@@ -277,6 +251,93 @@ export default function WatchListPage() {
     URL.revokeObjectURL(url);
   };
 
+  const normalizeGenres = (genres) =>
+    Array.isArray(genres)
+      ? genres
+          .map((genre) => (typeof genre === "string" ? genre : genre?.name))
+          .filter(Boolean)
+      : [];
+
+  const handleSaveEntry = async (entry) => {
+    const title = String(entry?.title || "").trim();
+    if (!title || !entry?.watched_on) {
+      setEntryEditorError("Add a title and the date you watched it.");
+      return;
+    }
+
+    setIsSavingEntry(true);
+    setEntryEditorError("");
+
+    try {
+      let error;
+
+      if (editingEntry?.id) {
+        ({ error } = await supabase.rpc("update_user_watch_event", {
+          p_event_id: editingEntry.id,
+          p_title: title,
+          p_watched_on: entry.watched_on,
+          p_release_date: entry.release_date || null,
+        }));
+      } else {
+        const tmdbId = Number(entry?.tmdb_id ?? entry?.id);
+        ({ error } = await supabase.rpc("create_manual_watch_event", {
+          p_title: title,
+          p_watched_on: entry.watched_on,
+          p_tmdb_id: Number.isInteger(tmdbId) && tmdbId > 0 ? tmdbId : null,
+          p_poster_path: entry?.poster_path || null,
+          p_release_date: entry.release_date || null,
+          p_runtime: entry?.runtime || null,
+          p_genres: normalizeGenres(entry?.genres),
+          p_overview: entry?.overview || null,
+        }));
+      }
+
+      if (error) {
+        console.error("[WatchListPage] Failed to save watch history entry", error);
+        setEntryEditorError(error.message || "Could not save this history entry. Please try again.");
+        return;
+      }
+
+      setIsEntryEditorOpen(false);
+      setEditingEntry(null);
+      await loadWatchList();
+    } catch (error) {
+      console.error("[WatchListPage] Unexpected error saving watch history entry", error);
+      setEntryEditorError("Could not save this history entry. Please try again.");
+    } finally {
+      setIsSavingEntry(false);
+    }
+  };
+
+  const handleDeleteEntry = async (entry) => {
+    if (!entry?.id || isSavingEntry) return;
+
+    setIsSavingEntry(true);
+    setEntryEditorError("");
+
+    try {
+      const { error } = await supabase.rpc("delete_user_watch_event", {
+        p_event_id: entry.id,
+      });
+
+      if (error) {
+        console.error("[WatchListPage] Failed to delete watch history entry", error);
+        setEntryEditorError(error.message || "Could not remove this history entry. Please try again.");
+        return;
+      }
+
+      setIsEntryEditorOpen(false);
+      setEditingEntry(null);
+      setSelectedDetailMovie(null);
+      await loadWatchList();
+    } catch (error) {
+      console.error("[WatchListPage] Unexpected error deleting watch history entry", error);
+      setEntryEditorError("Could not remove this history entry. Please try again.");
+    } finally {
+      setIsSavingEntry(false);
+    }
+  };
+
   return (
     <div className="page-container py-6 sm:py-8">
       <section className="page-hero mx-auto max-w-5xl">
@@ -287,7 +348,7 @@ export default function WatchListPage() {
               Watch History
             </h1>
             <p className="mt-3 max-w-2xl text-base leading-7 text-slate-300">
-              Watched movies from every bowl you currently own or belong to.
+              Your personal record of movies you watched, from bowls and on your own.
             </p>
             {!isLoading && !errorMessage && (
               <p className="mt-2 text-sm font-semibold text-slate-400">
@@ -297,14 +358,25 @@ export default function WatchListPage() {
               </p>
             )}
           </div>
-          <div className="flex flex-col items-start gap-1 sm:items-end">
+          <div className="flex flex-col items-start gap-2 sm:items-end">
+            <button
+              type="button"
+              className="btn btn-primary whitespace-nowrap"
+              onClick={() => {
+                setEntryEditorError("");
+                setEditingEntry(null);
+                setIsEntryEditorOpen(true);
+              }}
+            >
+              Add watched movie
+            </button>
             <button
               type="button"
               className="btn btn-secondary whitespace-nowrap disabled:cursor-not-allowed disabled:border-slate-800 disabled:bg-slate-900 disabled:text-slate-400 disabled:shadow-none"
               onClick={handleExportLetterboxd}
               disabled={!canExportLetterboxd}
             >
-              Export all CSV
+              Export all history CSV
             </button>
             {!isLoading && !errorMessage && rows.length > 0 && letterboxdExport.skippedCount > 0 && (
               <p className="text-xs text-slate-400">
@@ -315,14 +387,14 @@ export default function WatchListPage() {
         </div>
 
         {isLoading ? (
-          <p className="text-sm text-slate-400">Loading your watch list…</p>
+          <p className="text-sm text-slate-400">Loading your watch history…</p>
         ) : errorMessage ? (
           <div className="status-error">{errorMessage}</div>
         ) : rows.length === 0 ? (
           <div className="rounded-2xl border border-dashed border-slate-700 bg-slate-950/35 px-5 py-10 text-center">
             <p className="text-lg font-medium text-slate-200">No watched movies yet</p>
             <p className="mt-2 text-sm text-slate-400">
-              As movies are drawn in your bowls, they’ll show up here.
+              Add a movie yourself, or draw one from a bowl to record it automatically.
             </p>
           </div>
         ) : (
@@ -428,7 +500,9 @@ export default function WatchListPage() {
                                     ({movie.releaseYear})
                                   </span>
                                 </div>
-                                <p className="mt-2 text-sm text-slate-300">{movie.bowlName}</p>
+                                <p className="mt-2 text-sm text-slate-300">
+                                  {movie.bowlName ? `From ${movie.bowlName}` : "Added manually"}
+                                </p>
                                 {movie.watchedDateLabel && (
                                   <p className="mt-1 text-sm text-slate-400">
                                     Watched on {movie.watchedDateLabel}
@@ -452,7 +526,30 @@ export default function WatchListPage() {
         <AddMovieModal
           movie={selectedDetailMovie}
           userStreamingServices={[]}
+          detailPrimaryActionLabel="Edit history"
+          onDetailPrimaryAction={async (movie) => {
+            setEntryEditorError("");
+            setSelectedDetailMovie(null);
+            setEditingEntry(movie);
+            setIsEntryEditorOpen(true);
+          }}
           onClose={() => setSelectedDetailMovie(null)}
+        />
+      )}
+
+      {isEntryEditorOpen && (
+        <WatchHistoryEntryModal
+          entry={editingEntry}
+          onClose={() => {
+            if (isSavingEntry) return;
+            setEntryEditorError("");
+            setIsEntryEditorOpen(false);
+            setEditingEntry(null);
+          }}
+          onSave={handleSaveEntry}
+          onDelete={handleDeleteEntry}
+          isSaving={isSavingEntry}
+          errorMessage={entryEditorError}
         />
       )}
     </div>

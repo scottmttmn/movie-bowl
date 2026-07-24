@@ -264,13 +264,15 @@ describe("BowlDashboard guards", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows re-add confirmation modal before moving watched item back to bowl", async () => {
+  it("shows the history-removal confirmation before moving a watched item back to bowl", async () => {
     mocks.state.memberRows = [{ user_id: "u1" }];
     mocks.state.bowlData = {
       remaining: [],
       watched: [
         {
           id: "w1",
+          drawEventId: "draw-1",
+          bowlMovieId: "w1",
           tmdb_id: 101,
           title: "Movie A",
           drawn_at: "2026-02-23T00:00:00.000Z",
@@ -285,15 +287,14 @@ describe("BowlDashboard guards", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /move to bowl/i })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /move to bowl/i }));
 
-    expect(screen.getByText(/re-add to bowl\?/i)).toBeInTheDocument();
+    expect(screen.getByText(/move to bowl\?/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/will be removed from the watched strip and placed back in your bowl/i)
+      screen.getByText(/will return to this bowl and be removed from watch history/i)
     ).toBeInTheDocument();
 
-    const readdButtons = screen.getAllByRole("button", { name: /^re-add$/i });
-    fireEvent.click(readdButtons[readdButtons.length - 1]);
+    fireEvent.click(screen.getByRole("button", { name: /^move to bowl$/i }));
 
-    await waitFor(() => expect(mocks.state.handleReaddMovie).toHaveBeenCalledWith("w1"));
+    await waitFor(() => expect(mocks.state.handleReaddMovie).toHaveBeenCalledWith("draw-1"));
   });
 
   it("enriches watched TMDB details with trailer data before opening the modal", async () => {
@@ -342,13 +343,15 @@ describe("BowlDashboard guards", () => {
     expect(screen.getByTitle("Movie A trailer")).toBeInTheDocument();
   });
 
-  it("preserves the bowl row id when re-adding an enriched watched movie", async () => {
+  it("preserves the draw event id when moving an enriched watched movie to the bowl", async () => {
     mocks.state.memberRows = [{ user_id: "u1" }];
     mocks.state.bowlData = {
       remaining: [],
       watched: [
         {
           id: "w1",
+          drawEventId: "draw-1",
+          bowlMovieId: "w1",
           tmdb_id: 238,
           title: "Movie A",
           release_date: "2020-01-01",
@@ -374,10 +377,9 @@ describe("BowlDashboard guards", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /move to bowl/i })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /move to bowl/i }));
 
-    const readdButtons = screen.getAllByRole("button", { name: /^re-add$/i });
-    fireEvent.click(readdButtons[readdButtons.length - 1]);
+    fireEvent.click(screen.getByRole("button", { name: /^move to bowl$/i }));
 
-    await waitFor(() => expect(mocks.state.handleReaddMovie).toHaveBeenCalledWith("w1"));
+    await waitFor(() => expect(mocks.state.handleReaddMovie).toHaveBeenCalledWith("draw-1"));
   });
 
   it("disables draw for a non-selected member in selected-members mode", async () => {
