@@ -9,7 +9,7 @@ Movie Bowl is a collaborative app for maintaining a shared movie list and random
 - Add custom/manual movie entries.
 - Draw a random movie by first choosing an eligible contributor bucket uniformly, then choosing one movie from that bucket.
 - Optionally prioritize draws to titles available on your streaming services.
-- Show per-contributor draw odds and remaining eligible movie counts.
+- Explain the person-first draw method without surfacing competitive odds.
 - Track watched titles in a horizontal history strip.
 - Open full movie details from:
   - a newly drawn movie

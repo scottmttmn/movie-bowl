@@ -6,7 +6,7 @@ import MyMoviesStrip from "../components/MyMoviesStrip";
 import AddMovieButton from "../components/AddMovieButton";
 import FilterChipSelect from "../components/FilterChipSelect";
 import BowlIllustration from "../components/BowlIllustration";
-import DrawOddsStats from "../components/DrawOddsStats";
+import DrawMethodDisclosure from "../components/DrawMethodDisclosure";
 import useBowl from "../hooks/useBowl";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import AddMovieModal from "../components/AddMovieModal";
@@ -35,7 +35,6 @@ export default function BowlDashboard() {
     const { bowlId } = useParams();
     const {
       bowl,
-      drawOdds,
       isLoading,
       errorMessage,
       handleDraw,
@@ -528,6 +527,7 @@ return (
                 <div className="mt-2 text-center">
                   <RemainingCount count={bowl.remaining.length} />
                 </div>
+                <DrawMethodDisclosure />
                 {drawGuardMessage && (
                   <p className="mt-2 text-center text-sm text-amber-300">{drawGuardMessage}</p>
                 )}
@@ -909,7 +909,6 @@ return (
               )}
             </div>
 
-            <DrawOddsStats stats={drawOdds || []} />
             {showDrawConfirm && (
               <div className="modal-overlay z-[70]" role="presentation">
                 <div className="modal-surface max-w-md p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="draw-confirm-title">

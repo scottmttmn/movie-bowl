@@ -3,7 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import AddMovieButton from "../AddMovieButton";
 import BowlIllustration from "../BowlIllustration";
 import BowlCard from "../BowlCard";
-import DrawOddsStats from "../DrawOddsStats";
+import DrawMethodDisclosure from "../DrawMethodDisclosure";
 import DrawButton from "../DrawButton";
 import NewBowlButton from "../NewBowlButton";
 import RemainingCount from "../RemainingCount";
@@ -47,16 +47,19 @@ describe("button and card components", () => {
     expect(onSelect).toHaveBeenCalledWith("b1");
   });
 
-  it("renders DrawOddsStats", () => {
-    render(
-      <DrawOddsStats
-        stats={[{ bucketKey: "user:me", member: "me@example.com", movieCount: 3, drawOdds: 0.5 }]}
-      />
-    );
-    expect(screen.getAllByText("Draw Odds").length).toBeGreaterThan(0);
-    expect(screen.getByText("me@example.com")).toBeInTheDocument();
-    expect(screen.getByText("3")).toBeInTheDocument();
-    expect(screen.getByText("50%")).toBeInTheDocument();
+  it("reveals how the bowl picks without showing odds by default", () => {
+    render(<DrawMethodDisclosure />);
+
+    const summary = screen.getByText("How this bowl picks");
+    const details = summary.closest("details");
+
+    expect(details).not.toHaveAttribute("open");
+    expect(screen.queryByText(/draw odds/i)).not.toBeInTheDocument();
+
+    fireEvent.click(summary);
+
+    expect(details).toHaveAttribute("open");
+    expect(screen.getByText(/the bowl picks a person first/i)).toBeInTheDocument();
   });
 
   it("renders RemainingCount", () => {

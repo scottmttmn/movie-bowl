@@ -155,16 +155,21 @@ describe("BowlDashboard guards", () => {
     cleanup();
   });
 
-  it("keeps Add Movie enabled and shows draw odds instead of lead warnings", async () => {
+  it("keeps Add Movie enabled and explains the current person-first draw method", async () => {
     renderDashboard();
 
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     expect(screen.getByRole("button", { name: /\+ add movie/i })).toBeEnabled();
     expect(screen.queryByText(/lowest active member/i)).not.toBeInTheDocument();
-    expect(screen.getAllByText("Draw Odds").length).toBeGreaterThan(0);
-    expect(screen.getByText("owner@example.com")).toBeInTheDocument();
-    expect(screen.getByText("100%")).toBeInTheDocument();
+    expect(screen.queryByText(/draw odds/i)).not.toBeInTheDocument();
+
+    const summary = screen.getByText("How this bowl picks");
+    expect(summary.closest("details")).not.toHaveAttribute("open");
+
+    fireEvent.click(summary);
+
+    expect(screen.getByText(/each person is equally likely to be picked/i)).toBeInTheDocument();
   });
 
   it("adds a custom movie directly", async () => {
