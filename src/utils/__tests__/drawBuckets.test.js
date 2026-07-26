@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   buildDrawOddsStats,
   getContributorBucketKey,
+  getMovieAttributionAccent,
   getMovieAttributionLabel,
 } from "../drawBuckets";
 
@@ -38,5 +39,13 @@ describe("drawBuckets", () => {
         drawOdds: 0.5,
       },
     ]);
+  });
+
+  it("keeps an accent stable for the actual named contributor", () => {
+    const danMovie = { added_by: "link-creator-a", added_by_name: "Dan" };
+    const anotherDanMovie = { added_by: "link-creator-b", added_by_name: "Dan" };
+
+    expect(getMovieAttributionAccent(danMovie)).toEqual(getMovieAttributionAccent(danMovie));
+    expect(getMovieAttributionAccent(danMovie)).toEqual(getMovieAttributionAccent(anotherDanMovie));
   });
 });

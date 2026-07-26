@@ -61,10 +61,24 @@ describe("movie strip components", () => {
 
   it("renders WatchedMovieCard and forwards click", () => {
     const onClick = vi.fn();
-    render(<WatchedMovieCard movie={{ id: "w1", title: "Arrival", poster_path: "/arrival.jpg" }} onClick={onClick} />);
+    render(
+      <WatchedMovieCard
+        movie={{
+          id: "w1",
+          title: "Arrival",
+          poster_path: "/arrival.jpg",
+          added_by: "dan-user-id",
+          profiles: { email: "dan@example.com" },
+          drawn_by: "scott-user-id",
+        }}
+        onClick={onClick}
+      />
+    );
 
     fireEvent.click(screen.getByRole("button", { name: /arrival/i }));
     expect(screen.getByAltText("Arrival")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Added by dan" })).toHaveAttribute("title", "Added by dan");
+    expect(screen.queryByText("Added by dan")).not.toBeInTheDocument();
     expect(onClick).toHaveBeenCalledWith(expect.objectContaining({ id: "w1" }));
   });
 
