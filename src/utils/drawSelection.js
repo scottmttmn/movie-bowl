@@ -64,7 +64,7 @@ function filterCandidatesByRuntime(movies, runtimeFilter) {
   const minRuntime = Number(runtimeFilter.minMinutes);
   const maxRuntime = Number(runtimeFilter.maxMinutes);
   const includeUnknownRuntime = runtimeFilter.includeUnknown !== false;
-  if (!Number.isFinite(minRuntime) || !Number.isFinite(maxRuntime) || minRuntime <= 0 || maxRuntime <= 0) {
+  if (!Number.isFinite(minRuntime) || !Number.isFinite(maxRuntime) || minRuntime < 0 || maxRuntime <= 0) {
     return movies;
   }
   const lowerBound = Math.min(minRuntime, maxRuntime);

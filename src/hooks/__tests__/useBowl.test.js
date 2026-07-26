@@ -986,7 +986,7 @@ describe("useBowl handleDraw integration", () => {
     await act(async () => {
       await result.current.handleDraw({
         runtimeFilter: {
-          minMinutes: 60,
+          minMinutes: 0,
           maxMinutes: 100,
           includeUnknown: false,
         },
