@@ -108,10 +108,10 @@ export default function BowlSettings() {
       );
       setOwnerId(bowl?.owner_id ?? null);
 
-      // Load members. Join to profiles so we can show emails.
+      // Load membership rows separately from the bowl-scoped email directory.
       const { data: memberRows, error: membersError } = await supabase
         .from("bowl_members")
-        .select("user_id, role, profiles:profiles(email)")
+        .select("user_id, role")
         .eq("bowl_id", bowlId)
         .order("role", { ascending: false });
 
@@ -123,7 +123,27 @@ export default function BowlSettings() {
         return;
       }
 
-      setMembers(memberRows || []);
+      const { data: profileRows, error: profilesError } = await supabase.rpc(
+        "get_bowl_profile_directory",
+        { p_bowl_id: bowlId }
+      );
+
+      if (profilesError) {
+        console.error("[BowlSettings] Failed to load member profiles", profilesError);
+      }
+
+      const emailByUserId = new Map(
+        (profileRows || []).map((profile) => [profile.user_id, profile.email])
+      );
+      setMembers(
+        (memberRows || []).map((member) => {
+          const email = emailByUserId.get(member.user_id);
+          return {
+            ...member,
+            profiles: email ? { email } : null,
+          };
+        })
+      );
 
       const { data: permissionRows, error: permissionsError } = await supabase
         .from("bowl_draw_permissions")

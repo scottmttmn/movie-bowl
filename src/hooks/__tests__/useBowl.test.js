@@ -4,8 +4,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   remainingQueue: [],
   watchedQueue: [],
+  profileDirectoryRows: [],
+  profileDirectoryError: null,
   rpcCalls: [],
   rpcResponses: [],
+  selectCalls: [],
   insertPayloads: [],
   insertResponses: [],
   updatePayloads: [],
@@ -25,6 +28,12 @@ const mocks = vi.hoisted(() => ({
     },
     rpc: vi.fn(async (name, params) => {
       mocks.rpcCalls.push({ name, params });
+      if (name === "get_bowl_profile_directory") {
+        return {
+          data: mocks.profileDirectoryRows,
+          error: mocks.profileDirectoryError,
+        };
+      }
       return mocks.rpcResponses.shift() || { data: null, error: null };
     }),
     from: vi.fn((table) => {
@@ -34,7 +43,10 @@ const mocks = vi.hoisted(() => ({
 
       const state = { mode: "select", kind: null, table };
       const query = {
-        select: vi.fn(() => query),
+        select: vi.fn((columns) => {
+          mocks.selectCalls.push({ table, columns });
+          return query;
+        }),
         eq: vi.fn((key, value) => {
           if (state.mode === "update") {
             mocks.updateEqFilters.push({ key, value });
@@ -155,8 +167,11 @@ describe("useBowl handleDraw integration", () => {
   beforeEach(() => {
     mocks.remainingQueue = [];
     mocks.watchedQueue = [];
+    mocks.profileDirectoryRows = [];
+    mocks.profileDirectoryError = null;
     mocks.rpcCalls = [];
     mocks.rpcResponses = [];
+    mocks.selectCalls = [];
     mocks.insertPayloads = [];
     mocks.insertResponses = [];
     mocks.updatePayloads = [];
@@ -245,25 +260,26 @@ describe("useBowl handleDraw integration", () => {
   });
 
   it("groups guest add-link rows into the inviter draw bucket", async () => {
+    mocks.profileDirectoryRows = [
+      { user_id: "user-1", email: "owner@example.com" },
+      { user_id: "user-2", email: "friend@example.com" },
+    ];
     mocks.remainingQueue.push([
       {
         id: "m1",
         title: "Guest Pick",
         added_by: "user-1",
         added_by_name: "Dad",
-        profiles: { email: "owner@example.com" },
       },
       {
         id: "m2",
         title: "Member Pick",
         added_by: "user-1",
-        profiles: { email: "owner@example.com" },
       },
       {
         id: "m3",
         title: "Other Member Pick",
         added_by: "user-2",
-        profiles: { email: "friend@example.com" },
       },
     ]);
     mocks.watchedQueue.push([]);
@@ -286,6 +302,47 @@ describe("useBowl handleDraw integration", () => {
         drawOdds: 0.5,
       },
     ]);
+  });
+
+  it("enriches current and historical contributors without profile joins", async () => {
+    mocks.profileDirectoryRows = [
+      { user_id: "former-member", email: "former@example.com" },
+    ];
+    mocks.remainingQueue.push([
+      {
+        id: "m1",
+        title: "Former Member Pick",
+        added_by: "former-member",
+      },
+    ]);
+    mocks.watchedQueue.push([
+      {
+        id: "event-1",
+        source_bowl_movie_id: "m2",
+        title: "Former Member Draw",
+        added_by: "former-member",
+      },
+    ]);
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    expect(result.current.bowl.remaining[0].profiles).toEqual({
+      email: "former@example.com",
+    });
+    expect(result.current.bowl.watched[0].profiles).toEqual({
+      email: "former@example.com",
+    });
+    expect(mocks.rpcCalls).toContainEqual({
+      name: "get_bowl_profile_directory",
+      params: { p_bowl_id: "bowl-1" },
+    });
+    expect(
+      mocks.selectCalls
+        .filter(({ table }) => table === "bowl_movies" || table === "bowl_draw_events")
+        .map(({ columns }) => columns)
+    ).not.toEqual(expect.arrayContaining([expect.stringContaining("profiles:profiles")]));
   });
 
   it("deletes only current user's undrawn movie and refreshes state", async () => {

@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => {
     errors: {
       loadBowl: null,
       loadMembers: null,
+      loadProfileDirectory: null,
       loadInvites: null,
       loadDrawPermissions: null,
       loadAddLinks: null,
@@ -62,7 +63,6 @@ const mocks = vi.hoisted(() => {
         .map((m) => ({
           user_id: m.user_id,
           role: m.role,
-          profiles: { email: m.email },
         }));
       return { data: rows, error: null };
     }
@@ -314,7 +314,18 @@ const mocks = vi.hoisted(() => {
 
       return query;
     }),
-    rpc: vi.fn(async () => ({ data: null, error: null })),
+    rpc: vi.fn(async (name) => {
+      if (name === "get_bowl_profile_directory") {
+        return {
+          data: state.members.map((member) => ({
+            user_id: member.user_id,
+            email: member.email,
+          })),
+          error: state.errors.loadProfileDirectory,
+        };
+      }
+      return { data: null, error: null };
+    }),
   };
 
   return { state, supabase };
@@ -369,6 +380,7 @@ describe("BowlSettings integration", () => {
     mocks.state.errors = {
       loadBowl: null,
       loadMembers: null,
+      loadProfileDirectory: null,
       loadInvites: null,
       loadDrawPermissions: null,
       loadAddLinks: null,
@@ -673,7 +685,11 @@ describe("BowlSettings integration", () => {
         }),
       ])
     );
-    expect(mocks.supabase.rpc).not.toHaveBeenCalled();
+    expect(mocks.supabase.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith(
+      "get_bowl_profile_directory",
+      { p_bowl_id: "bowl-1" }
+    );
   });
 
   it("shows draw access controls for owner and defaults to everyone", async () => {

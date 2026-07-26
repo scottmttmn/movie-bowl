@@ -45,6 +45,24 @@ function addResult(ok, code = null, message = null) {
   return { ok, code, message };
 }
 
+function createProfileEmailByUserId(profileRows = []) {
+  return new Map(
+    profileRows
+      .filter((profile) => profile?.user_id && profile?.email)
+      .map((profile) => [profile.user_id, profile.email])
+  );
+}
+
+function attachContributorProfile(row, profileEmailByUserId) {
+  const email = profileEmailByUserId.get(row?.added_by);
+  return email
+    ? {
+      ...row,
+      profiles: { email },
+    }
+    : row;
+}
+
 // useBowl is the core state engine for a bowl.
 // It manages bowl state and defines how that state transitions (add + draw).
 
@@ -87,7 +105,7 @@ export default function useBowl(bowlId) {
       const { data: remaining, error: remainingError } = await supabase
         .from("bowl_movies")
         .select(
-          "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at, profiles:profiles!bowl_movies_added_by_fkey(email)"
+          "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at"
         )
         .eq("bowl_id", bowlId)
         .is("drawn_at", null)
@@ -103,7 +121,7 @@ export default function useBowl(bowlId) {
       const { data: watchedEvents, error: watchedError } = await supabase
         .from("bowl_draw_events")
         .select(
-          "id, bowl_id, source_bowl_movie_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_by_name, drawn_at, drawn_by, snapshot_at, profiles:profiles!bowl_draw_events_added_by_fkey(email)"
+          "id, bowl_id, source_bowl_movie_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_by_name, drawn_at, drawn_by, snapshot_at"
         )
         .eq("bowl_id", bowlId)
         .is("returned_at", null)
@@ -114,11 +132,24 @@ export default function useBowl(bowlId) {
         setErrorMessage("Failed to load watched movies.");
       }
 
+      const { data: profileRows, error: profilesError } = await supabase.rpc(
+        "get_bowl_profile_directory",
+        { p_bowl_id: bowlId }
+      );
+
+      if (profilesError) {
+        console.error("[useBowl] Failed to load contributor profiles", profilesError);
+      }
+
+      const profileEmailByUserId = createProfileEmailByUserId(profileRows || []);
+
       setBowl((prev) => {
         const pendingRemaining = (prev.remaining || []).filter(
           (movie) => movie?.local_status === "syncing"
         );
-        const nextRemaining = remaining || [];
+        const nextRemaining = (remaining || []).map((movie) =>
+          attachContributorProfile(movie, profileEmailByUserId)
+        );
 
         const mergedPending = pendingRemaining.filter((pendingMovie) => {
           const pendingSnapshot = String(pendingMovie?.snapshot_at || "");
@@ -132,11 +163,17 @@ export default function useBowl(bowlId) {
 
         return {
           remaining: sortByAddedAtAscending([...nextRemaining, ...mergedPending]),
-          watched: (watchedEvents || []).map((event) => ({
-            ...event,
-            drawEventId: event.id,
-            bowlMovieId: event.source_bowl_movie_id,
-          })),
+          watched: (watchedEvents || []).map((event) => {
+            const eventWithProfile = attachContributorProfile(
+              event,
+              profileEmailByUserId
+            );
+            return {
+              ...eventWithProfile,
+              drawEventId: event.id,
+              bowlMovieId: event.source_bowl_movie_id,
+            };
+          }),
         };
       });
     } catch (err) {
@@ -301,7 +338,7 @@ export default function useBowl(bowlId) {
           .from("bowl_movies")
           .insert([rowPayload])
           .select(
-            "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at, profiles:profiles!bowl_movies_added_by_fkey(email)"
+            "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at"
           )
           .single();
       };
@@ -332,7 +369,8 @@ export default function useBowl(bowlId) {
             (prev.remaining || []).map((item) => {
               if (item?.local_temp_id !== localTempId) return item;
               return {
-                ...(persistedMovie || item),
+                ...item,
+                ...(persistedMovie || {}),
                 id: persistedMovie?.id || item.id,
                 local_temp_id: null,
                 local_status: null,

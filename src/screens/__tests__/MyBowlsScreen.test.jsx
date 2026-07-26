@@ -32,7 +32,18 @@ const mocks = vi.hoisted(() => {
         return { data: { session: { user: state.sessionUser } }, error: null };
       }),
     },
-    rpc: vi.fn(async () => ({ data: state.rpcRows, error: null })),
+    rpc: vi.fn(async (name) => {
+      if (name === "get_my_invite_sender_directory") {
+        return {
+          data: state.profileRows.map((row) => ({
+            user_id: row.id,
+            email: row.email,
+          })),
+          error: null,
+        };
+      }
+      return { data: state.rpcRows, error: null };
+    }),
     from: vi.fn((table) => {
       if (table === "bowls") {
         const ctx = { insertRows: null, selectMode: false, eqFilters: [], inFilter: null };
@@ -171,26 +182,6 @@ const mocks = vi.hoisted(() => {
             };
           }),
         };
-      }
-
-      if (table === "profiles") {
-        const ctx = { inFilter: null };
-        const query = {
-          select: vi.fn(() => query),
-          in: vi.fn((key, values) => {
-            ctx.inFilter = { key, values };
-            return query;
-          }),
-          then: (resolve, reject) => {
-            if (ctx.inFilter?.key === "id") {
-              const values = new Set(ctx.inFilter.values || []);
-              const rows = mocks.state.profileRows.filter((row) => values.has(row.id));
-              return Promise.resolve({ data: rows, error: null }).then(resolve, reject);
-            }
-            return Promise.resolve({ data: [], error: null }).then(resolve, reject);
-          },
-        };
-        return query;
       }
 
       throw new Error(`Unexpected table: ${table}`);

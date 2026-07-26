@@ -90,7 +90,7 @@ export default function MyBowlsScreen() {
         ? supabase.from("bowls").select("id, name").in("id", bowlIds)
         : Promise.resolve({ data: [], error: null }),
       inviterIds.length > 0
-        ? supabase.from("profiles").select("id, email").in("id", inviterIds)
+        ? supabase.rpc("get_my_invite_sender_directory")
         : Promise.resolve({ data: [], error: null }),
     ]);
 
@@ -102,7 +102,9 @@ export default function MyBowlsScreen() {
     }
 
     const bowlNameById = new Map((bowlLookup.data || []).map((row) => [row.id, row.name]));
-    const inviterEmailById = new Map((inviterLookup.data || []).map((row) => [row.id, row.email]));
+    const inviterEmailById = new Map(
+      (inviterLookup.data || []).map((row) => [row.user_id, row.email])
+    );
 
     setPendingInvites(
       invites.map((invite) => ({
