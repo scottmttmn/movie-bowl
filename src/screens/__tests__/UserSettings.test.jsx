@@ -1,6 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { RokuDeviceProvider } from "../../context/RokuDeviceContext";
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
@@ -10,7 +9,6 @@ const mocks = vi.hoisted(() => ({
     defaultDrawSettings: {
       prioritizeStreaming: false,
       useStreamingRank: true,
-      enablePreferredRokuAppLaunch: false,
       enablePreferredWebLaunch: false,
       selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
       includeUnknownRatings: true,
@@ -45,11 +43,7 @@ vi.mock("react-router-dom", async () => {
 import UserSettings from "../UserSettings";
 
 function renderSettings() {
-  return render(
-    <RokuDeviceProvider>
-      <UserSettings />
-    </RokuDeviceProvider>
-  );
+  return render(<UserSettings />);
 }
 
 describe("UserSettings", () => {
@@ -61,7 +55,6 @@ describe("UserSettings", () => {
     mocks.hook.defaultDrawSettings = {
       prioritizeStreaming: false,
       useStreamingRank: true,
-      enablePreferredRokuAppLaunch: false,
       enablePreferredWebLaunch: false,
       selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
       includeUnknownRatings: true,
@@ -250,7 +243,6 @@ describe("UserSettings", () => {
     expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith({
       prioritizeStreaming: false,
       useStreamingRank: true,
-      enablePreferredRokuAppLaunch: false,
       enablePreferredWebLaunch: false,
       selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
       includeUnknownRatings: true,

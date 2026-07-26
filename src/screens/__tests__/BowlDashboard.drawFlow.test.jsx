@@ -1,6 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { RokuDeviceProvider } from "../../context/RokuDeviceContext";
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -21,7 +20,6 @@ const mocks = vi.hoisted(() => {
     defaultDrawSettings: {
       prioritizeStreaming: false,
       useStreamingRank: true,
-      enablePreferredRokuAppLaunch: false,
       enablePreferredWebLaunch: false,
       selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
       includeUnknownRatings: true,
@@ -111,11 +109,7 @@ import { getTmdbMovieDetails } from "../../lib/tmdbApi";
 import { fetchStreamingProviders } from "../../lib/streamingProviders";
 
 function renderDashboard() {
-  return render(
-    <RokuDeviceProvider>
-      <BowlDashboard />
-    </RokuDeviceProvider>
-  );
+  return render(<BowlDashboard />);
 }
 
 function confirmDraw() {
@@ -142,7 +136,6 @@ describe("BowlDashboard draw flow", () => {
     mocks.state.defaultDrawSettings = {
       prioritizeStreaming: false,
       useStreamingRank: true,
-      enablePreferredRokuAppLaunch: false,
       enablePreferredWebLaunch: false,
       selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
       includeUnknownRatings: true,

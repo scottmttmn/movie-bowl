@@ -1,6 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { RokuDeviceProvider } from "../../context/RokuDeviceContext";
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -83,7 +82,6 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
     defaultDrawSettings: {
       prioritizeStreaming: false,
       useStreamingRank: true,
-      enablePreferredRokuAppLaunch: false,
       enablePreferredWebLaunch: false,
       selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
       includeUnknownRatings: true,
@@ -120,11 +118,7 @@ import BowlDashboard from "../BowlDashboard";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../../utils/appLimits";
 
 function renderDashboard() {
-  return render(
-    <RokuDeviceProvider>
-      <BowlDashboard />
-    </RokuDeviceProvider>
-  );
+  return render(<BowlDashboard />);
 }
 
 describe("BowlDashboard guards", () => {

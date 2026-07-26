@@ -9,7 +9,6 @@ const BowlDashboard = React.lazy(() => import("./screens/BowlDashboard"));
 const LoginPage = React.lazy(() => import("./screens/LoginPage"));
 const UserSettings = React.lazy(() => import("./screens/UserSettings"));
 const BowlSettings = React.lazy(() => import("./screens/BowlSettings"));
-const RokuPocScreen = React.lazy(() => import("./screens/RokuPocScreen"));
 const AboutPage = React.lazy(() => import("./screens/AboutPage"));
 const PublicAddLinkPage = React.lazy(() => import("./screens/PublicAddLinkPage"));
 const WatchListPage = React.lazy(() => import("./screens/WatchListPage"));
@@ -19,12 +18,11 @@ function Layout({ children }) {
   const location = useLocation();
   const isLoginRoute = location.pathname === "/login";
   const isSettingsRoute = location.pathname === "/settings";
-  const isRokuPocRoute = location.pathname === "/roku-poc";
   const isAboutRoute = location.pathname === "/about";
   const isWatchListRoute = location.pathname === "/watch-list";
   const isPublicAddRoute = location.pathname.startsWith("/add-to-bowl/");
   const shouldShowTopNav =
-    !isLoginRoute && !isRokuPocRoute && !isPublicAddRoute && (Boolean(session) || isAboutRoute);
+    !isLoginRoute && !isPublicAddRoute && (Boolean(session) || isAboutRoute);
   const userEmail = session?.user?.email ?? "";
 
   return (
@@ -188,7 +186,6 @@ function App() {
           }
         >
           <Routes>
-            <Route path="/roku-poc" element={<RokuPocScreen />} />
             <Route path="/settings" element={
               <RequireAuth><UserSettings />
               </RequireAuth>

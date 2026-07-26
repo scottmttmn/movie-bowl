@@ -15,7 +15,6 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
-import { launchPreferredStreamingApp } from "../lib/rokuApi";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 import { matchUserServices } from "../utils/streamingServices";
@@ -25,7 +24,6 @@ import {
   RUNTIME_FILTER_MAX_MINUTES,
   RUNTIME_FILTER_MIN_MINUTES,
 } from "../utils/drawSettings";
-import { useRokuDevice } from "../context/RokuDeviceContext";
 
 
 export default function BowlDashboard() {
@@ -76,19 +74,12 @@ export default function BowlDashboard() {
     const [pendingReaddMovie, setPendingReaddMovie] = useState(null);
     const [isReadding, setIsReadding] = useState(false);
     const [didApplyDefaultDrawSettings, setDidApplyDefaultDrawSettings] = useState(false);
-    const [isLaunchingPreferredService, setIsLaunchingPreferredService] = useState(false);
-    const [rokuLaunchStatus, setRokuLaunchStatus] = useState(null);
     const [webLaunchStatus, setWebLaunchStatus] = useState(null);
-    const [hasAttemptedPreferredLaunch, setHasAttemptedPreferredLaunch] = useState(false);
     const {
       streamingServices: userStreamingServices,
       defaultDrawSettings,
       loading: isLoadingUserPreferences,
     } = useUserStreamingServices();
-    const {
-      selectedRoku,
-      selectedRokuIp,
-    } = useRokuDevice();
 
     const navigate = useNavigate();
 
@@ -185,15 +176,6 @@ export default function BowlDashboard() {
       () => (drawnMovie ? matchUserServices(drawnMovie.streamingProviders || [], userStreamingServices) : []),
       [drawnMovie, userStreamingServices]
     );
-    const preferredLaunchCandidate = useMemo(
-      () =>
-        hasAttemptedPreferredLaunch && rokuLaunchStatus?.serviceName
-          ? { serviceName: rokuLaunchStatus.serviceName }
-          : selectedRoku && drawnMovieMatchingProviders.length > 0
-            ? { serviceName: drawnMovieMatchingProviders[0] }
-            : null,
-      [hasAttemptedPreferredLaunch, rokuLaunchStatus, selectedRoku, drawnMovieMatchingProviders]
-    );
     const preferredWebLaunchCandidate = useMemo(() => {
       if (!drawnMovie || !defaultDrawSettings.enablePreferredWebLaunch) return null;
       if (drawnMovieMatchingProviders.length === 0) return null;
@@ -211,25 +193,6 @@ export default function BowlDashboard() {
       drawnMovieMatchingProviders,
       userStreamingServices,
     ]);
-    const preferredLaunchUnavailableReason = useMemo(() => {
-      if (!drawnMovie) return "";
-      if ((drawnMovie.streamingProviders || []).length === 0) {
-        return "";
-      }
-      if (drawnMovieMatchingProviders.length === 0) {
-        return "";
-      }
-      if (!defaultDrawSettings.enablePreferredRokuAppLaunch) {
-        return "";
-      }
-      if (!selectedRoku) {
-        return "";
-      }
-      if (hasAttemptedPreferredLaunch && rokuLaunchStatus?.action === "no-match") {
-        return "This movie matches your services, but none of those supported apps are installed on the selected Roku.";
-      }
-      return "";
-    }, [drawnMovie, defaultDrawSettings.enablePreferredRokuAppLaunch, selectedRoku, drawnMovieMatchingProviders, hasAttemptedPreferredLaunch, rokuLaunchStatus]);
 
     useEffect(() => {
       if (didApplyDefaultDrawSettings || isLoadingUserPreferences) return;
@@ -387,33 +350,6 @@ export default function BowlDashboard() {
         streamingRegion: providerData.region || "US",
         streamingFetchedAt: providerData.fetchedAt || null,
       };
-    };
-
-    const handleLaunchPreferredService = async (movie) => {
-      if (!selectedRokuIp || !movie || !defaultDrawSettings.enablePreferredRokuAppLaunch) return;
-
-      setIsLaunchingPreferredService(true);
-      setRokuLaunchStatus(null);
-      setHasAttemptedPreferredLaunch(true);
-
-      try {
-        const result = await launchPreferredStreamingApp({
-          rokuIp: selectedRokuIp,
-          userServices: userStreamingServices,
-          movieProviders: movie.streamingProviders || [],
-        });
-        setRokuLaunchStatus(result);
-      } catch (error) {
-        setRokuLaunchStatus({
-          ok: false,
-          message: error.message || "Unable to launch the streaming app on Roku.",
-          details: [
-            "Check the Roku IP and confirm Control by mobile apps is enabled.",
-          ],
-        });
-      } finally {
-        setIsLaunchingPreferredService(false);
-      }
     };
 
     const handleLaunchPreferredWeb = () => {
@@ -942,27 +878,16 @@ return (
               <AddMovieModal
                 movie={drawnMovie}
                 userStreamingServices={userStreamingServices}
-                preferredLaunchCandidate={
-                  defaultDrawSettings.enablePreferredRokuAppLaunch && selectedRoku
-                    ? preferredLaunchCandidate
-                    : null
-                }
-                preferredLaunchUnavailableReason={preferredLaunchUnavailableReason}
                 webLaunchCandidate={
                   defaultDrawSettings.enablePreferredWebLaunch
                     ? preferredWebLaunchCandidate
                     : null
                 }
                 webLaunchStatus={webLaunchStatus}
-                isLaunchingPreferredService={isLaunchingPreferredService}
-                onLaunchPreferredService={() => handleLaunchPreferredService(drawnMovie)}
                 onLaunchPreferredWeb={handleLaunchPreferredWeb}
-                rokuLaunchStatus={rokuLaunchStatus}
                 onClose={() => {
                   setDrawnMovie(null);
-                  setRokuLaunchStatus(null);
                   setWebLaunchStatus(null);
-                  setHasAttemptedPreferredLaunch(false);
                 }}
               />
             )}

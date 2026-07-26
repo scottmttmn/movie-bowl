@@ -1,6 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { RokuDeviceProvider } from "../../context/RokuDeviceContext";
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -99,11 +98,7 @@ vi.mock("react-router-dom", async () => {
 import BowlDashboard from "../BowlDashboard";
 
 function renderDashboard() {
-  return render(
-    <RokuDeviceProvider>
-      <BowlDashboard />
-    </RokuDeviceProvider>
-  );
+  return render(<BowlDashboard />);
 }
 
 function confirmDraw() {

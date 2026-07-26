@@ -10,6 +10,5 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Technical Debt / Maintenance
 
-- Cross-device Roku expectations: decide whether Roku selection should remain local-only or ever become account-level.
 - Supabase schema/process hygiene: keep migrations and policy snapshots current so dashboard-only DB changes do not drift from the repo.
 - Asset optimization: compress or replace large illustration assets that add unnecessary weight to the build.

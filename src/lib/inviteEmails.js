@@ -1,3 +1,5 @@
+import { supabase } from "./supabase";
+
 async function parseJsonSafe(response) {
   try {
     return await response.json();
@@ -8,7 +10,7 @@ async function parseJsonSafe(response) {
 
 export async function sendInviteEmails(invites) {
   const normalizedInvites = Array.isArray(invites)
-    ? invites.filter((invite) => invite?.invitedEmail && invite?.token)
+    ? invites.filter((invite) => invite?.token)
     : [];
 
   if (normalizedInvites.length === 0) {
@@ -16,12 +18,27 @@ export async function sendInviteEmails(invites) {
   }
 
   try {
+    const { data: sessionData, error: sessionError } = await supabase.auth.getSession();
+    const accessToken = sessionData?.session?.access_token;
+
+    if (sessionError || !accessToken) {
+      return {
+        sent: 0,
+        failed: normalizedInvites.length,
+        results: [],
+        error: "Sign in to send invite emails.",
+      };
+    }
+
     const response = await fetch("/api/invites/send", {
       method: "POST",
       headers: {
+        Authorization: `Bearer ${accessToken}`,
         "Content-Type": "application/json",
       },
-      body: JSON.stringify({ invites: normalizedInvites }),
+      body: JSON.stringify({
+        invites: normalizedInvites.map((invite) => ({ token: invite.token })),
+      }),
     });
 
     const data = await parseJsonSafe(response);
@@ -50,4 +67,3 @@ export async function sendInviteEmails(invites) {
     };
   }
 }
-

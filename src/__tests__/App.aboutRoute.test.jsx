@@ -49,10 +49,6 @@ vi.mock("../screens/BowlSettings", () => ({
   default: () => <div>Bowl Settings</div>,
 }));
 
-vi.mock("../screens/RokuPocScreen", () => ({
-  default: () => <div>Roku POC</div>,
-}));
-
 import App from "../App";
 
 describe("App about route", () => {
