@@ -37,6 +37,7 @@ const mocks = vi.hoisted(() => {
       deleteBowlInvites: null,
       deleteBowlMembers: null,
       deleteBowl: null,
+      deleteOwnedBowl: null,
       verifyMembership: null,
     },
     sendInviteEmailsResult: { sent: 1, failed: 0, results: [{ email: "newfriend@example.com", ok: true }], error: null },
@@ -314,7 +315,7 @@ const mocks = vi.hoisted(() => {
 
       return query;
     }),
-    rpc: vi.fn(async (name) => {
+    rpc: vi.fn(async (name, args) => {
       if (name === "get_bowl_profile_directory") {
         return {
           data: state.members.map((member) => ({
@@ -323,6 +324,39 @@ const mocks = vi.hoisted(() => {
           })),
           error: state.errors.loadProfileDirectory,
         };
+      }
+      if (name === "delete_owned_bowl") {
+        if (state.errors.deleteOwnedBowl) {
+          return { data: null, error: state.errors.deleteOwnedBowl };
+        }
+
+        if (
+          args?.p_bowl_id !== state.bowl.id ||
+          state.bowl.owner_id !== state.authUser.id
+        ) {
+          return {
+            data: null,
+            error: {
+              code: "42501",
+              message: "Only the bowl owner can delete this bowl.",
+            },
+          };
+        }
+
+        state.members = state.members.filter(
+          (member) => member.bowl_id !== args.p_bowl_id
+        );
+        state.invites = state.invites.filter(
+          (invite) => invite.bowl_id !== args.p_bowl_id
+        );
+        state.addLinks = state.addLinks.filter(
+          (link) => link.bowl_id !== args.p_bowl_id
+        );
+        state.drawPermissions = state.drawPermissions.filter(
+          (permission) => permission.bowl_id !== args.p_bowl_id
+        );
+
+        return { data: args.p_bowl_id, error: null };
       }
       return { data: null, error: null };
     }),
@@ -398,6 +432,7 @@ describe("BowlSettings integration", () => {
       deleteBowlInvites: null,
       deleteBowlMembers: null,
       deleteBowl: null,
+      deleteOwnedBowl: null,
       verifyMembership: null,
       refreshQueuePromotions: null,
     };
@@ -869,7 +904,7 @@ describe("BowlSettings integration", () => {
     expect(mocks.state.navigate).not.toHaveBeenCalled();
   });
 
-  it("deletes the bowl and related rows when confirmed by the owner", async () => {
+  it("deletes the bowl atomically when confirmed by the owner", async () => {
     render(<BowlSettings />);
 
     await waitFor(() => {
@@ -885,15 +920,21 @@ describe("BowlSettings integration", () => {
       expect(mocks.state.navigate).toHaveBeenCalledWith("/", { replace: true });
     });
 
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith("delete_owned_bowl", {
+      p_bowl_id: "bowl-1",
+    });
+
     const deleteOps = mocks.state.operations.filter((op) => op.action === "delete");
-    expect(deleteOps.some((op) => op.table === "bowl_movies")).toBe(true);
-    expect(deleteOps.some((op) => op.table === "bowl_invites")).toBe(true);
-    expect(deleteOps.some((op) => op.table === "bowl_members")).toBe(true);
-    expect(deleteOps.some((op) => op.table === "bowls")).toBe(true);
+    expect(deleteOps.some((op) => op.table === "bowl_movies")).toBe(false);
+    expect(deleteOps.some((op) => op.table === "bowl_invites")).toBe(false);
+    expect(deleteOps.some((op) => op.table === "bowl_members")).toBe(false);
+    expect(deleteOps.some((op) => op.table === "bowls")).toBe(false);
   });
 
-  it("shows an error when bowl deletion fails partway through", async () => {
-    mocks.state.errors.deleteBowlMembers = { message: "rls" };
+  it("keeps the bowl intact when atomic deletion fails", async () => {
+    mocks.state.errors.deleteOwnedBowl = { message: "database unavailable" };
+    const membersBefore = [...mocks.state.members];
+    const invitesBefore = [...mocks.state.invites];
 
     render(<BowlSettings />);
 
@@ -907,8 +948,10 @@ describe("BowlSettings integration", () => {
     fireEvent.click(screen.getByRole("button", { name: /^delete bowl$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/failed to delete bowl members\./i)).toBeInTheDocument();
+      expect(screen.getByText(/failed to delete bowl\./i)).toBeInTheDocument();
     });
     expect(mocks.state.navigate).not.toHaveBeenCalled();
+    expect(mocks.state.members).toEqual(membersBefore);
+    expect(mocks.state.invites).toEqual(invitesBefore);
   });
 });

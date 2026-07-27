@@ -573,42 +573,12 @@ export default function BowlSettings() {
     setIsDeletingBowl(true);
 
     try {
-      const { error: moviesError } = await supabase
-        .from("bowl_movies")
-        .delete()
-        .eq("bowl_id", bowlId);
-      if (moviesError) {
-        console.error("[BowlSettings] Failed to delete bowl movies", moviesError);
-        setErrorMessage("Failed to delete bowl movies.");
-        return;
-      }
+      const { error: deleteError } = await supabase.rpc("delete_owned_bowl", {
+        p_bowl_id: bowlId,
+      });
 
-      const { error: invitesError } = await supabase
-        .from("bowl_invites")
-        .delete()
-        .eq("bowl_id", bowlId);
-      if (invitesError) {
-        console.error("[BowlSettings] Failed to delete bowl invites", invitesError);
-        setErrorMessage("Failed to delete bowl invites.");
-        return;
-      }
-
-      const { error: membersError } = await supabase
-        .from("bowl_members")
-        .delete()
-        .eq("bowl_id", bowlId);
-      if (membersError) {
-        console.error("[BowlSettings] Failed to delete bowl members", membersError);
-        setErrorMessage("Failed to delete bowl members.");
-        return;
-      }
-
-      const { error: bowlError } = await supabase
-        .from("bowls")
-        .delete()
-        .eq("id", bowlId);
-      if (bowlError) {
-        console.error("[BowlSettings] Failed to delete bowl", bowlError);
+      if (deleteError) {
+        console.error("[BowlSettings] Failed to delete bowl", deleteError);
         setErrorMessage("Failed to delete bowl.");
         return;
       }
