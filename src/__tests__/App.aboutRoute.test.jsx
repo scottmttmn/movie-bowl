@@ -71,7 +71,7 @@ describe("App about route", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText(/about movie bowl/i)).toBeInTheDocument();
+      expect(screen.getByText(/stop searching\. start watching\./i)).toBeInTheDocument();
     });
     expect(screen.queryByText("Login Page")).not.toBeInTheDocument();
   });
@@ -88,7 +88,7 @@ describe("App about route", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText(/about movie bowl/i)).toBeInTheDocument();
+      expect(screen.getByText(/stop searching\. start watching\./i)).toBeInTheDocument();
     });
   });
 
@@ -98,7 +98,7 @@ describe("App about route", () => {
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText(/about movie bowl/i)).toBeInTheDocument();
+      expect(screen.getByText(/stop searching\. start watching\./i)).toBeInTheDocument();
     });
     expect(screen.queryByText("Login Page")).not.toBeInTheDocument();
   });
