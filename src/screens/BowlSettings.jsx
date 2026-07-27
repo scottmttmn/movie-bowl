@@ -487,66 +487,36 @@ export default function BowlSettings() {
 
     setIsSavingDrawAccess(true);
     try {
-      const isMissingDrawAccessColumn = (error) =>
-        String(error?.message || "").toLowerCase().includes("draw_access_mode");
-      const isMissingDrawPermissionsTable = (error) => {
-        const text = String(error?.message || "").toLowerCase();
-        return text.includes("bowl_draw_permissions") && text.includes("does not exist");
-      };
+      const { error: saveError } = await supabase.rpc("save_bowl_draw_access", {
+        p_bowl_id: bowlId,
+        p_mode: nextMode,
+        p_allowed_user_ids:
+          nextMode === DRAW_ACCESS_MODE_SELECTED ? nextAllowedUserIds : [],
+      });
 
-      const { error: modeError } = await supabase
-        .from("bowls")
-        .update({ draw_access_mode: nextMode })
-        .eq("id", bowlId);
+      if (saveError) {
+        const errorText = String(saveError?.message || "").toLowerCase();
+        const isMissingMigration =
+          saveError?.code === "PGRST202" ||
+          (
+            errorText.includes("save_bowl_draw_access") &&
+            (
+              errorText.includes("could not find") ||
+              errorText.includes("does not exist")
+            )
+          );
 
-      if (modeError) {
-        if (isMissingDrawAccessColumn(modeError)) {
+        if (isMissingMigration) {
           setErrorMessage("Draw access requires the latest database migration. Please run it and try again.");
           return;
         }
-        console.error("[BowlSettings] Failed to save draw access mode", modeError);
-        setErrorMessage("Failed to update draw access mode.");
+        console.error("[BowlSettings] Failed to save draw access", saveError);
+        setErrorMessage("Failed to update draw access.");
         return;
       }
 
-      const { error: clearError } = await supabase
-        .from("bowl_draw_permissions")
-        .delete()
-        .eq("bowl_id", bowlId);
-
-      if (clearError) {
-        if (isMissingDrawPermissionsTable(clearError)) {
-          setErrorMessage("Draw access requires the latest database migration. Please run it and try again.");
-          return;
-        }
-        console.error("[BowlSettings] Failed to reset draw permissions", clearError);
-        setErrorMessage("Failed to update draw permissions.");
-        return;
-      }
-
-      if (nextMode === DRAW_ACCESS_MODE_SELECTED && nextAllowedUserIds.length > 0) {
-        const permissionRows = nextAllowedUserIds.map((userId) => ({
-          bowl_id: bowlId,
-          user_id: userId,
-        }));
-
-        const { error: insertError } = await supabase
-          .from("bowl_draw_permissions")
-          .insert(permissionRows);
-
-        if (insertError) {
-          if (isMissingDrawPermissionsTable(insertError)) {
-            setErrorMessage("Draw access requires the latest database migration. Please run it and try again.");
-            return;
-          }
-          console.error("[BowlSettings] Failed to save draw permissions", insertError);
-          setErrorMessage("Failed to save allowed members for drawing.");
-          return;
-        }
-      }
-
-      setActionMessage("Draw access updated.");
       await loadBowlAndMembers();
+      setActionMessage("Draw access updated.");
     } catch (err) {
       console.error("[BowlSettings] Unexpected error saving draw access", err);
       setErrorMessage("Unexpected error updating draw access.");

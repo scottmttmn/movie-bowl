@@ -38,6 +38,7 @@ const mocks = vi.hoisted(() => {
       deleteBowlMembers: null,
       deleteBowl: null,
       deleteOwnedBowl: null,
+      saveDrawAccess: null,
       verifyMembership: null,
     },
     sendInviteEmailsResult: { sent: 1, failed: 0, results: [{ email: "newfriend@example.com", ok: true }], error: null },
@@ -358,6 +359,69 @@ const mocks = vi.hoisted(() => {
 
         return { data: args.p_bowl_id, error: null };
       }
+      if (name === "save_bowl_draw_access") {
+        if (state.errors.saveDrawAccess) {
+          return { data: null, error: state.errors.saveDrawAccess };
+        }
+
+        const isOwner =
+          args?.p_bowl_id === state.bowl.id &&
+          state.bowl.owner_id === state.authUser.id;
+        if (!isOwner) {
+          return {
+            data: null,
+            error: {
+              code: "42501",
+              message: "Only the bowl owner can update draw access.",
+            },
+          };
+        }
+
+        const validModes = ["all_members", "selected_members"];
+        if (!validModes.includes(args?.p_mode)) {
+          return {
+            data: null,
+            error: { code: "P0001", message: "Invalid draw access mode." },
+          };
+        }
+
+        const selectedUserIds = [
+          ...new Set(
+            args.p_mode === "selected_members"
+              ? (args.p_allowed_user_ids || []).filter(Boolean)
+              : []
+          ),
+        ];
+        const memberIds = new Set(
+          state.members
+            .filter(
+              (member) =>
+                member.bowl_id === args.p_bowl_id &&
+                member.user_id !== state.bowl.owner_id
+            )
+            .map((member) => member.user_id)
+        );
+        if (selectedUserIds.some((userId) => !memberIds.has(userId))) {
+          return {
+            data: null,
+            error: {
+              code: "P0001",
+              message: "Draw access can only be granted to current bowl members.",
+            },
+          };
+        }
+
+        state.bowl = {
+          ...state.bowl,
+          draw_access_mode: args.p_mode,
+        };
+        state.drawPermissions = selectedUserIds.map((userId) => ({
+          bowl_id: args.p_bowl_id,
+          user_id: userId,
+        }));
+
+        return { data: args.p_mode, error: null };
+      }
       return { data: null, error: null };
     }),
   };
@@ -433,6 +497,7 @@ describe("BowlSettings integration", () => {
       deleteBowlMembers: null,
       deleteBowl: null,
       deleteOwnedBowl: null,
+      saveDrawAccess: null,
       verifyMembership: null,
       refreshQueuePromotions: null,
     };
@@ -767,19 +832,18 @@ describe("BowlSettings integration", () => {
     fireEvent.click(screen.getByRole("button", { name: /save draw access/i }));
 
     await waitFor(() => {
-      expect(
-        mocks.state.updatedBowls.some((row) => row.draw_access_mode === "selected_members")
-      ).toBe(true);
+      expect(screen.getByText(/draw access updated\./i)).toBeInTheDocument();
     });
 
-    expect(mocks.state.updatedBowls).toEqual(
-      expect.arrayContaining([expect.objectContaining({ draw_access_mode: "selected_members" })])
-    );
-    expect(mocks.state.insertedDrawPermissions).toEqual(
-      expect.arrayContaining([
-        [expect.objectContaining({ bowl_id: "bowl-1", user_id: "member-1" })],
-      ])
-    );
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith("save_bowl_draw_access", {
+      p_bowl_id: "bowl-1",
+      p_mode: "selected_members",
+      p_allowed_user_ids: ["member-1"],
+    });
+    expect(mocks.state.bowl.draw_access_mode).toBe("selected_members");
+    expect(mocks.state.drawPermissions).toEqual([
+      { bowl_id: "bowl-1", user_id: "member-1" },
+    ]);
   });
 
   it("owner can switch back to everyone and clear selected draw permissions", async () => {
@@ -801,14 +865,15 @@ describe("BowlSettings integration", () => {
     fireEvent.click(screen.getByRole("button", { name: /save draw access/i }));
 
     await waitFor(() => {
-      expect(
-        mocks.state.updatedBowls.some((row) => row.draw_access_mode === "all_members")
-      ).toBe(true);
+      expect(screen.getByText(/draw access updated\./i)).toBeInTheDocument();
     });
 
-    expect(mocks.state.updatedBowls).toEqual(
-      expect.arrayContaining([expect.objectContaining({ draw_access_mode: "all_members" })])
-    );
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith("save_bowl_draw_access", {
+      p_bowl_id: "bowl-1",
+      p_mode: "all_members",
+      p_allowed_user_ids: [],
+    });
+    expect(mocks.state.bowl.draw_access_mode).toBe("all_members");
     expect(mocks.state.drawPermissions).toEqual([]);
   });
 
@@ -830,14 +895,15 @@ describe("BowlSettings integration", () => {
     expect(screen.queryByRole("heading", { name: /draw access/i })).not.toBeInTheDocument();
   });
 
-  it("shows error when saving draw access fails", async () => {
+  it("keeps draw access unchanged when atomic saving fails", async () => {
     mocks.state.bowl = {
       id: "bowl-1",
       name: "Bowl 1",
       owner_id: "owner-1",
-      draw_access_mode: "all_members",
+      draw_access_mode: "selected_members",
     };
-    mocks.state.errors.updateDrawAccessMode = { message: "rls" };
+    mocks.state.drawPermissions = [{ bowl_id: "bowl-1", user_id: "member-1" }];
+    mocks.state.errors.saveDrawAccess = { message: "database unavailable" };
 
     render(<BowlSettings />);
 
@@ -845,11 +911,16 @@ describe("BowlSettings integration", () => {
       expect(screen.getByRole("button", { name: /save draw access/i })).toBeInTheDocument();
     });
 
+    fireEvent.click(screen.getByLabelText(/everyone in bowl/i));
     fireEvent.click(screen.getByRole("button", { name: /save draw access/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/failed to update draw access mode\./i)).toBeInTheDocument();
+      expect(screen.getByText(/failed to update draw access\./i)).toBeInTheDocument();
     });
+    expect(mocks.state.bowl.draw_access_mode).toBe("selected_members");
+    expect(mocks.state.drawPermissions).toEqual([
+      { bowl_id: "bowl-1", user_id: "member-1" },
+    ]);
   });
 
   it("validates invite input errors before creating an invite", async () => {
