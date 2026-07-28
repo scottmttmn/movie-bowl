@@ -1,4 +1,5 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { MemoryRouter } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -24,6 +25,14 @@ vi.mock("react-router-dom", async () => {
 
 import LoginPage from "../LoginPage";
 
+function renderLoginPage() {
+  return render(
+    <MemoryRouter>
+      <LoginPage />
+    </MemoryRouter>
+  );
+}
+
 describe("LoginPage", () => {
   beforeEach(() => {
     vi.restoreAllMocks();
@@ -37,7 +46,7 @@ describe("LoginPage", () => {
   });
 
   it("sends a magic link and shows success state", async () => {
-    render(<LoginPage />);
+    renderLoginPage();
 
     fireEvent.change(screen.getByPlaceholderText("Email"), {
       target: { value: "user@example.com" },
@@ -59,7 +68,7 @@ describe("LoginPage", () => {
       },
     };
 
-    render(<LoginPage />);
+    renderLoginPage();
 
     fireEvent.change(screen.getByPlaceholderText("Email"), {
       target: { value: "user@example.com" },
@@ -77,7 +86,7 @@ describe("LoginPage", () => {
   it("shows returned auth errors", async () => {
     mocks.signIn.mockResolvedValue({ error: { message: "Too many requests" } });
 
-    render(<LoginPage />);
+    renderLoginPage();
 
     fireEvent.change(screen.getByPlaceholderText("Email"), {
       target: { value: "user@example.com" },
@@ -93,7 +102,7 @@ describe("LoginPage", () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.signIn.mockRejectedValue(new Error("boom"));
 
-    render(<LoginPage />);
+    renderLoginPage();
 
     fireEvent.change(screen.getByPlaceholderText("Email"), {
       target: { value: "user@example.com" },
@@ -115,7 +124,7 @@ describe("LoginPage", () => {
         })
     );
 
-    render(<LoginPage />);
+    renderLoginPage();
 
     fireEvent.change(screen.getByPlaceholderText("Email"), {
       target: { value: "user@example.com" },
@@ -129,5 +138,14 @@ describe("LoginPage", () => {
     await waitFor(() => {
       expect(screen.getByText(/check your email for a magic link/i)).toBeInTheDocument();
     });
+  });
+
+  it("links signed-out visitors to the public About page", () => {
+    renderLoginPage();
+
+    expect(screen.getByRole("link", { name: /learn about movie bowl/i })).toHaveAttribute(
+      "href",
+      "/about"
+    );
   });
 });

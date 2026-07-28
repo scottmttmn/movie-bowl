@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { useLocation } from "react-router-dom";
+import { Link, useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import bowlImage from "../assets/bowl-illustration-v3.png";
 
@@ -78,6 +78,13 @@ export default function LoginPage() {
             )}
           </form>
         )}
+
+        <div className="mt-6 border-t border-slate-800 pt-4">
+          <Link to="/about" className="btn btn-ghost w-full text-sm">
+            Learn about Movie Bowl
+            <span aria-hidden="true">→</span>
+          </Link>
+        </div>
       </div>
     </div>
   );
