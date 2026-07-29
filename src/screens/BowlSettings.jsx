@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { sendInviteEmails } from "../lib/inviteEmails";
 import { supabase } from "../lib/supabase";
 import { parseInviteEmails } from "../utils/parseInviteEmails";
+import { forgetLastOpenedBowl, getLastOpenedBowlId } from "../utils/lastOpenedBowl";
 
 // Bowl-level settings screen.
 // MVP scope: manage members + invites for a bowl.
@@ -15,6 +16,15 @@ export default function BowlSettings() {
 
   const { bowlId } = useParams();
   const navigate = useNavigate();
+
+  // Leaving or deleting the bowl must also drop it as the remembered landing
+  // spot, otherwise "/" would send the user straight back into it.
+  const leaveBowlList = (userId) => {
+    if (userId && getLastOpenedBowlId(userId) === bowlId) {
+      forgetLastOpenedBowl(userId);
+    }
+    navigate("/bowls", { replace: true });
+  };
 
   const [bowlName, setBowlName] = useState("Bowl Settings");
   const [drawAccessMode, setDrawAccessMode] = useState(DRAW_ACCESS_MODE_ALL);
@@ -553,7 +563,7 @@ export default function BowlSettings() {
         return;
       }
 
-      navigate("/", { replace: true });
+      leaveBowlList(currentUserId);
     } catch (err) {
       console.error("[BowlSettings] Unexpected error deleting bowl", err);
       setErrorMessage("Unexpected error deleting bowl.");
@@ -620,7 +630,7 @@ export default function BowlSettings() {
         }
       }
 
-      navigate("/", { replace: true });
+      leaveBowlList(currentUserId);
     } catch (err) {
       console.error("[BowlSettings] Unexpected error leaving bowl", err);
       setErrorMessage("Unexpected error leaving bowl.");

@@ -6,6 +6,7 @@ export default function TopNav({
   isSettingsRoute,
   isWatchListRoute = false,
   isInvitesRoute = false,
+  isBowlsRoute = false,
   onSignOut,
   userEmail = "",
   isAuthenticated = true,
@@ -46,7 +47,7 @@ export default function TopNav({
     <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-800/80 bg-slate-950/88 shadow-lg shadow-black/10 backdrop-blur-xl">
       <div className="page-container flex h-16 items-center justify-between">
         <Link
-          to="/"
+          to="/bowls"
           aria-label="Go to My Bowls"
           className="inline-flex items-center gap-2.5 rounded-xl text-xl font-semibold tracking-tight text-slate-100 transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60 sm:text-2xl"
         >
@@ -113,10 +114,12 @@ export default function TopNav({
               {isAuthenticated ? (
                 <>
                   <Link
-                    to="/"
+                    to="/bowls"
                     role="menuitem"
                     onClick={() => setIsMenuOpen(false)}
-                    className="flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white"
+                    className={`flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white ${
+                      isBowlsRoute ? "pointer-events-none bg-slate-800 text-slate-400" : ""
+                    }`}
                   >
                     My Bowls
                   </Link>

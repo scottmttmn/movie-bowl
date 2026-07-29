@@ -14,6 +14,7 @@ const AboutPage = React.lazy(() => import("./screens/AboutPage"));
 const PublicAddLinkPage = React.lazy(() => import("./screens/PublicAddLinkPage"));
 const WatchListPage = React.lazy(() => import("./screens/WatchListPage"));
 const InvitesPage = React.lazy(() => import("./screens/InvitesPage"));
+const HomeRedirect = React.lazy(() => import("./screens/HomeRedirect"));
 const TvApp = React.lazy(() => import("./tv/TvApp"));
 
 function AppShell({ children }) {
@@ -25,6 +26,7 @@ function AppShell({ children }) {
   const isAboutRoute = location.pathname === "/about";
   const isWatchListRoute = location.pathname === "/watch-list";
   const isInvitesRoute = location.pathname === "/invites";
+  const isBowlsRoute = location.pathname === "/bowls";
   const isPublicAddRoute = location.pathname.startsWith("/add-to-bowl/");
   const isTvRoute = location.pathname === "/tv" || location.pathname.startsWith("/tv/");
   const shouldShowTopNav =
@@ -42,6 +44,7 @@ function AppShell({ children }) {
           isSettingsRoute={isSettingsRoute}
           isWatchListRoute={isWatchListRoute}
           isInvitesRoute={isInvitesRoute}
+          isBowlsRoute={isBowlsRoute}
           onSignOut={signOut}
           userEmail={userEmail}
           isAuthenticated={Boolean(session)}
@@ -233,6 +236,11 @@ function App() {
               </RequireAuth>
             } />
             <Route path="/" element={
+              <RequireAuth>
+                <HomeRedirect />
+              </RequireAuth>
+            } />
+            <Route path="/bowls" element={
               <RequireAuth>
                 <MyBowlsScreen />
               </RequireAuth>

@@ -541,7 +541,7 @@ describe("BowlSettings integration", () => {
 
     await waitFor(() => {
       expect(confirmSpy).toHaveBeenCalled();
-      expect(mocks.state.navigate).toHaveBeenCalledWith("/", { replace: true });
+      expect(mocks.state.navigate).toHaveBeenCalledWith("/bowls", { replace: true });
     }, { timeout: 3000 });
 
     confirmSpy.mockRestore();
@@ -561,7 +561,7 @@ describe("BowlSettings integration", () => {
     fireEvent.click(screen.getByRole("button", { name: /leave bowl/i }));
 
     await waitFor(() => {
-      expect(mocks.state.navigate).toHaveBeenCalledWith("/", { replace: true });
+      expect(mocks.state.navigate).toHaveBeenCalledWith("/bowls", { replace: true });
     }, { timeout: 8000 });
 
     const deleteOps = mocks.state.operations.filter((op) => op.action === "delete");
@@ -988,7 +988,7 @@ describe("BowlSettings integration", () => {
     fireEvent.click(screen.getByRole("button", { name: /^delete bowl$/i }));
 
     await waitFor(() => {
-      expect(mocks.state.navigate).toHaveBeenCalledWith("/", { replace: true });
+      expect(mocks.state.navigate).toHaveBeenCalledWith("/bowls", { replace: true });
     });
 
     expect(mocks.supabase.rpc).toHaveBeenCalledWith("delete_owned_bowl", {

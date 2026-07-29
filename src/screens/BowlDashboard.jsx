@@ -20,6 +20,11 @@ import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 import { matchUserServices } from "../utils/streamingServices";
 import { resolvePreferredWebLaunchCandidate } from "../utils/webLaunch";
 import {
+  forgetLastOpenedBowl,
+  getLastOpenedBowlId,
+  rememberLastOpenedBowl,
+} from "../utils/lastOpenedBowl";
+import {
   DEFAULT_DRAW_SETTINGS,
   RUNTIME_FILTER_MAX_MINUTES,
   RUNTIME_FILTER_MIN_MINUTES,
@@ -220,13 +225,23 @@ export default function BowlDashboard() {
         return text.includes("bowl_draw_permissions") && text.includes("does not exist");
       };
 
+      // "/" redirects to the remembered bowl, so every bail-out here has to land
+      // on the list instead. Sending an unopenable bowl back to "/" would bounce
+      // straight back into this screen.
+      const abandonBowl = (userId) => {
+        if (userId && getLastOpenedBowlId(userId) === bowlId) {
+          forgetLastOpenedBowl(userId);
+        }
+        if (!cancelled) navigate("/bowls", { replace: true });
+      };
+
       const loadBowlName = async () => {
         if (!bowlId) return;
 
         const { data: authData, error: authError } = await supabase.auth.getSession();
         const userId = authData?.session?.user?.id;
         if (authError || !userId) {
-          if (!cancelled) navigate("/", { replace: true });
+          abandonBowl(userId);
           return;
         }
         if (!cancelled) setCurrentUserId(userId);
@@ -248,7 +263,7 @@ export default function BowlDashboard() {
         }
 
         if (error || !data || cancelled) {
-          if (!cancelled) navigate("/", { replace: true });
+          abandonBowl(userId);
           return;
         }
 
@@ -262,10 +277,13 @@ export default function BowlDashboard() {
             .maybeSingle();
 
           if (memberError || !memberRow) {
-            if (!cancelled) navigate("/", { replace: true });
+            abandonBowl(userId);
             return;
           }
         }
+
+        // Access is confirmed, so this is a bowl worth returning to.
+        rememberLastOpenedBowl(userId, bowlId);
 
         const { data: memberRows, error: membersError } = await supabase
           .from("bowl_members")
@@ -418,7 +436,7 @@ export default function BowlDashboard() {
 return (
     <div className="bowl-dashboard page-container overflow-hidden pb-12 pt-5 sm:pt-7">
         <header className="mb-5 flex min-w-0 items-center justify-between gap-3">
-                <button onClick={() => navigate("/")} className="btn btn-ghost px-3 py-2">
+                <button onClick={() => navigate("/bowls")} className="btn btn-ghost px-3 py-2">
                   <span aria-hidden="true">←</span> Back
                 </button>
                 <h1 className="max-w-[58%] truncate text-center text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">{bowlName}</h1>
