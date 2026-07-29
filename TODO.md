@@ -4,7 +4,7 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## UX / UI Polish
 
-- Invite inbox polish: improve visibility and state handling for accepted, declined, and stale invites.
+- Invite inbox polish: state handling for accepted, declined, and stale invites. Visibility is covered by the top nav badge and `/invites` page.
 - Draw filter UX follow-up: keep evaluating whether runtime, genre, and rating controls still feel too dense after recent cleanup.
 - Visual consistency sweep: audit remaining non-core pages and components for raw styling that bypasses shared tokens.
 

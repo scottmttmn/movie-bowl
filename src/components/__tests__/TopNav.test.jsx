@@ -56,6 +56,75 @@ describe("TopNav", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
+  it("shows an invite badge and menu entry when invites are pending", () => {
+    render(
+      <MemoryRouter>
+        <TopNav
+          isSettingsRoute={false}
+          onSignOut={vi.fn()}
+          userEmail="user@example.com"
+          pendingInviteCount={2}
+        />
+      </MemoryRouter>
+    );
+
+    const menuButton = screen.getByRole("button", { name: /navigation menu \(2 pending invites\)/i });
+    expect(menuButton).toHaveTextContent("2");
+
+    fireEvent.click(menuButton);
+    const inviteItem = screen.getByRole("menuitem", { name: /invites/i });
+    expect(inviteItem).toHaveAttribute("href", "/invites");
+    expect(inviteItem).toHaveTextContent("2");
+  });
+
+  it("caps the invite badge at 9+", () => {
+    render(
+      <MemoryRouter>
+        <TopNav
+          isSettingsRoute={false}
+          onSignOut={vi.fn()}
+          userEmail="user@example.com"
+          pendingInviteCount={12}
+        />
+      </MemoryRouter>
+    );
+
+    expect(
+      screen.getByRole("button", { name: /navigation menu \(12 pending invites\)/i })
+    ).toHaveTextContent("9+");
+  });
+
+  it("hides the invite badge and menu entry when nothing is pending", () => {
+    render(
+      <MemoryRouter>
+        <TopNav isSettingsRoute={false} onSignOut={vi.fn()} userEmail="user@example.com" />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("button", { name: /^navigation menu$/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /navigation menu/i }));
+    expect(screen.queryByRole("menuitem", { name: /invites/i })).not.toBeInTheDocument();
+  });
+
+  it("does not surface invites to logged out visitors", () => {
+    render(
+      <MemoryRouter>
+        <TopNav
+          isSettingsRoute={false}
+          onSignOut={vi.fn()}
+          isAuthenticated={false}
+          pendingInviteCount={3}
+        />
+      </MemoryRouter>
+    );
+
+    expect(screen.getByRole("button", { name: /^navigation menu$/i })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /navigation menu/i }));
+    expect(screen.queryByRole("menuitem", { name: /invites/i })).not.toBeInTheDocument();
+  });
+
   it("shows only About and Log in options when logged out", () => {
     render(
       <MemoryRouter>

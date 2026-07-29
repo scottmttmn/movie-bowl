@@ -15,6 +15,9 @@ vi.mock("../hooks/useAuth", () => ({
 
 vi.mock("../lib/supabase", () => ({
   supabase: {
+    auth: {
+      getSession: vi.fn(async () => ({ data: { session: null }, error: null })),
+    },
     from: vi.fn(),
   },
 }));
