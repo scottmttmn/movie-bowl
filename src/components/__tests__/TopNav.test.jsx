@@ -21,6 +21,7 @@ describe("TopNav", () => {
     expect(screen.getByRole("menuitem", { name: /about/i })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /my bowls/i })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /watch history/i })).toBeInTheDocument();
+    expect(screen.getByRole("menuitem", { name: /tv mode/i })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /settings/i })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "Escape" });
@@ -67,6 +68,7 @@ describe("TopNav", () => {
     expect(screen.getByRole("menuitem", { name: /about/i })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /log in/i })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /watch history/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /tv mode/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /settings/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /log out/i })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/signed in as/i)).not.toBeInTheDocument();

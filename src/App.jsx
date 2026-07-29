@@ -12,6 +12,7 @@ const BowlSettings = React.lazy(() => import("./screens/BowlSettings"));
 const AboutPage = React.lazy(() => import("./screens/AboutPage"));
 const PublicAddLinkPage = React.lazy(() => import("./screens/PublicAddLinkPage"));
 const WatchListPage = React.lazy(() => import("./screens/WatchListPage"));
+const TvApp = React.lazy(() => import("./tv/TvApp"));
 
 function Layout({ children }) {
   const { session, signOut } = useAuth();
@@ -21,12 +22,16 @@ function Layout({ children }) {
   const isAboutRoute = location.pathname === "/about";
   const isWatchListRoute = location.pathname === "/watch-list";
   const isPublicAddRoute = location.pathname.startsWith("/add-to-bowl/");
+  const isTvRoute = location.pathname === "/tv" || location.pathname.startsWith("/tv/");
   const shouldShowTopNav =
-    !isLoginRoute && !isPublicAddRoute && (Boolean(session) || isAboutRoute);
+    !isLoginRoute &&
+    !isPublicAddRoute &&
+    !isTvRoute &&
+    (Boolean(session) || isAboutRoute);
   const userEmail = session?.user?.email ?? "";
 
   return (
-    <div className="app-shell">
+    <div className={`app-shell ${isTvRoute ? "app-shell-tv" : ""}`}>
       {/* Global actions stay pinned to the top for quick access */}
       {shouldShowTopNav && (
         <TopNav
@@ -197,6 +202,11 @@ function App() {
             <Route path="/watch-list" element={
               <RequireAuth>
                 <WatchListPage />
+              </RequireAuth>
+            } />
+            <Route path="/tv/*" element={
+              <RequireAuth>
+                <TvApp />
               </RequireAuth>
             } />
             <Route path="/" element={

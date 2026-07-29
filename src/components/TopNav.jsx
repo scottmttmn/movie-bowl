@@ -112,6 +112,14 @@ export default function TopNav({
                     Watch History
                   </Link>
                   <Link
+                    to="/tv"
+                    role="menuitem"
+                    onClick={() => setIsMenuOpen(false)}
+                    className="flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white"
+                  >
+                    TV mode
+                  </Link>
+                  <Link
                     to="/settings"
                     role="menuitem"
                     onClick={() => setIsMenuOpen(false)}

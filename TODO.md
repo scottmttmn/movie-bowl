@@ -8,6 +8,10 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 - Draw filter UX follow-up: keep evaluating whether runtime, genre, and rating controls still feel too dense after recent cleanup.
 - Visual consistency sweep: audit remaining non-core pages and components for raw styling that bypasses shared tokens.
 
+## Future Product Concepts
+
+- TV Theater mode: after a movie is drawn, optionally play trailers from other undrawn movies before handing off to the selected feature. See `output/designs/tv-theater-mode.md`.
+
 ## Technical Debt / Maintenance
 
 - Supabase schema/process hygiene: keep migrations and policy snapshots current so dashboard-only DB changes do not drift from the repo.
