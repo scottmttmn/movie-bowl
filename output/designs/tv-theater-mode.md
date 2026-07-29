@@ -55,15 +55,81 @@ The handoff should use progressive enhancement:
 1. Start the exact feature through a verified provider playback deep link.
 2. Open the selected movie's provider detail page.
 3. Open the preferred provider with the title and year already searched.
-4. Present provider launch buttons if automatic handoff is unavailable.
+4. Show the exact voice command for the room's TV assistant
+   (for example: "Hold the mic button and say: Play [title] on [service]").
+5. Present provider launch buttons if automatic handoff is unavailable.
 
 The preferred provider should follow the signed-in user's saved streaming-service
 priority when the selected movie is available from more than one service.
 
 Direct playback cannot be assumed across every television and provider. TMDB
 provider data identifies availability but does not supply full provider playback
-links. A production implementation will require a platform capability matrix and
-possibly provider-specific content identifiers or partnerships.
+links; a separate deep-link data source closes that gap (see below).
+
+## Handoff Feasibility Ladder
+
+Research notes as of mid-2026. Steps 1-2 are not reachable from a web page
+running in a TV browser, but they are reachable by other routes.
+
+### Step 0 (any version): per-title deep-link data
+
+Services such as Watchmode and the Streaming Availability API (Movie of the
+Night) map TMDB IDs to per-provider title links (web URLs plus iOS/Android
+deep links). This upgrades the current provider *search* link to a direct
+title page — which on a signed-in browser effectively starts the movie.
+This is the single cheapest improvement and benefits phone and TV alike.
+
+### Web app on a TV browser (current architecture)
+
+Ceiling: a direct provider title link plus the voice-command card (ladder
+steps 2-5). A browser tab cannot launch native TV apps, and assistant
+platforms (Gemini on Google TV, Alexa, Siri) expose no third-party API for
+injecting "play X on Y" commands — the voice command must be spoken by a
+person, so we display it rather than send it.
+
+### Personal/LAN setups (full auto-start, not distributable)
+
+- Roku External Control Protocol: unauthenticated LAN HTTP
+  (`POST :8060/launch/<channel>?contentId=...&mediaType=movie`) launches a
+  provider channel directly into a title. Needs a small LAN bridge (for
+  example a Home Assistant webhook) because HTTPS pages cannot call LAN HTTP.
+- Android TV / Fire TV via ADB: fire a VIEW intent at the provider title
+  URL; Home Assistant's androidtv integration wraps this.
+
+These fully realize draw → trailers → feature-starts-itself for a household
+that runs the bridge, and are a good validation step before any native app.
+
+### Native shell app (the distributable version of steps 1-2)
+
+A thin Android TV WebView shell around the existing `/tv` route, with a small
+JS bridge exposing a `launchDeepLink(url)` call that fires an ACTION_VIEW
+intent. One build covers Android TV and Fire TV. The existing spatial
+navigation already handles D-pad input, so the web UI carries over as-is.
+Most provider apps open on the title's detail page (one OK-press from play);
+some start playback directly. Roku/tvOS/Tizen/webOS ports are separate
+platforms and are explicitly out of scope for a first native version.
+
+## Cost and Quota Protection
+
+Theater mode should stay effectively free at hobby scale and degrade
+gracefully instead of billing anyone if usage spikes:
+
+- Deep-link lookups must be cached server-side (for example a Supabase table
+  keyed by TMDB ID and region, refreshed on the order of weeks). Lookups then
+  scale with unique movies added, not with draws, viewers, or movie nights.
+- Free tiers (Watchmode ~2,500 requests/month; Streaming Availability API
+  ~100/day) require no payment card, so the overrun failure mode is a 429
+  response, never a surprise bill. Keep no card attached until scale demands it.
+- The API key lives server-side behind the existing serverless proxy, with a
+  monthly usage counter and a kill switch.
+- When the quota is exhausted or a lookup fails, the handoff silently falls
+  back to the current provider search link — the feature never blocks on the
+  paid data source.
+- Trailers are YouTube iframe embeds driven by TMDB video keys: no YouTube
+  Data API quota and no cost.
+- One-time platform costs if a native shell ships publicly: Google Play
+  developer registration (about $25 once); Amazon Appstore registration is
+  free; sideloading for personal use costs nothing.
 
 ## Likely Dependencies
 
