@@ -221,9 +221,16 @@ export default function useBowl(bowlId) {
 
     const drawn = selected.movie;
 
-    const { error: drawMovieError } = await supabase.rpc("draw_bowl_movie", {
-      p_bowl_movie_id: drawn.id,
-    });
+    let drawMovieError;
+    try {
+      ({ error: drawMovieError } = await supabase.rpc("draw_bowl_movie", {
+        p_bowl_movie_id: drawn.id,
+      }));
+    } catch (error) {
+      console.error("[useBowl] Unexpected error drawing movie", error);
+      setErrorMessage("Could not draw a movie. Please try again.");
+      return null;
+    }
 
     if (drawMovieError) {
       console.error("[useBowl] Failed to draw movie", drawMovieError);
@@ -235,6 +242,8 @@ export default function useBowl(bowlId) {
         setErrorMessage("You don't have permission to draw in this bowl.");
       } else if (errorMessageText.includes("no longer available")) {
         setErrorMessage("That movie is no longer available to draw.");
+      } else {
+        setErrorMessage("Could not draw a movie. Please try again.");
       }
       return null;
     }

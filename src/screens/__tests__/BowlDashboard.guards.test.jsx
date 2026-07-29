@@ -281,12 +281,15 @@ describe("BowlDashboard guards", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /move to bowl/i })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /move to bowl/i }));
 
-    expect(screen.getByText(/move to bowl\?/i)).toBeInTheDocument();
+    expect(screen.getByText(/move back to bowl\?/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/will return to this bowl and be removed from watch history/i)
+      screen.getByText(/marks "movie a" as not watched for everyone/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/want to watch it again.*cancel and use add movie/i)
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /^move to bowl$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /remove & move back/i }));
 
     await waitFor(() => expect(mocks.state.handleReaddMovie).toHaveBeenCalledWith("draw-1"));
   });
@@ -371,7 +374,7 @@ describe("BowlDashboard guards", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /move to bowl/i })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /move to bowl/i }));
 
-    fireEvent.click(screen.getByRole("button", { name: /^move to bowl$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /remove & move back/i }));
 
     await waitFor(() => expect(mocks.state.handleReaddMovie).toHaveBeenCalledWith("draw-1"));
   });

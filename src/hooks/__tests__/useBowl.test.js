@@ -1005,6 +1005,55 @@ describe("useBowl handleDraw integration", () => {
     expect(result.current.errorMessage).toMatch(/don't have permission to draw/i);
   });
 
+  it("shows a retry message when drawing fails unexpectedly", async () => {
+    const movie = { id: "m1", tmdb_id: 101, title: "Movie A" };
+    mocks.remainingQueue.push([movie]);
+    mocks.watchedQueue.push([]);
+    mocks.fetchStreamingProviders.mockResolvedValue({
+      providers: [],
+      region: "US",
+      fetchedAt: null,
+    });
+    mocks.rpcResponses.push({
+      data: null,
+      error: { code: "XX000", message: "database unavailable" },
+    });
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let drawn;
+    await act(async () => {
+      drawn = await result.current.handleDraw();
+    });
+
+    expect(drawn).toBeNull();
+    expect(result.current.errorMessage).toMatch(/could not draw a movie.*try again/i);
+  });
+
+  it("shows a retry message when the draw request throws", async () => {
+    const movie = { id: "m1", tmdb_id: 101, title: "Movie A" };
+    mocks.remainingQueue.push([movie]);
+    mocks.watchedQueue.push([]);
+    mocks.fetchStreamingProviders.mockResolvedValue({
+      providers: [],
+      region: "US",
+      fetchedAt: null,
+    });
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    mocks.supabase.rpc.mockRejectedValueOnce(new Error("network unavailable"));
+
+    let drawn;
+    await act(async () => {
+      drawn = await result.current.handleDraw();
+    });
+
+    expect(drawn).toBeNull();
+    expect(result.current.errorMessage).toMatch(/could not draw a movie.*try again/i);
+  });
+
   it("draw blocks with message when runtime filter has no matches", async () => {
     const movie = { id: "m1", tmdb_id: 401, title: "Long Movie", runtime: 150 };
     mocks.remainingQueue.push([movie]);

@@ -915,10 +915,18 @@ return (
             {pendingReaddMovie && (
               <div className="modal-overlay z-[70]" role="presentation">
                 <div className="modal-surface max-w-md p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="readd-confirm-title">
-                  <h3 id="readd-confirm-title" className="text-lg font-semibold text-slate-100">Move to Bowl?</h3>
-                  <p className="mt-2 text-sm text-slate-400">
-                    "{pendingReaddMovie.title}" will return to this bowl and be removed from Watch History.
-                  </p>
+                  <h3 id="readd-confirm-title" className="text-lg font-semibold text-slate-100">
+                    Move back to bowl?
+                  </h3>
+                  <div className="mt-2 space-y-2 text-sm text-slate-400">
+                    <p>
+                      This marks "{pendingReaddMovie.title}" as not watched for everyone and returns
+                      it to the bowl.
+                    </p>
+                    <p>
+                      Want to watch it again? Cancel and use Add Movie.
+                    </p>
+                  </div>
                   <div className="mt-4 flex items-center justify-end gap-2">
                     <button
                       type="button"
@@ -954,7 +962,7 @@ return (
                       className="btn btn-primary"
                       disabled={isReadding}
                     >
-                      {isReadding ? "Moving..." : "Move to Bowl"}
+                      {isReadding ? "Moving..." : "Remove & move back"}
                     </button>
                   </div>
                 </div>
