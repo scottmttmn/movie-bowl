@@ -217,6 +217,16 @@ vi.mock("react-router-dom", async () => {
 });
 
 import MyBowlsScreen from "../MyBowlsScreen";
+import { PendingInvitesProvider } from "../../hooks/usePendingInvites";
+
+// Invites live in a shared provider so the top nav and this screen agree.
+function renderMyBowls() {
+  return render(
+    <PendingInvitesProvider>
+      <MyBowlsScreen />
+    </PendingInvitesProvider>
+  );
+}
 
 describe("MyBowlsScreen", () => {
   beforeEach(() => {
@@ -254,7 +264,7 @@ describe("MyBowlsScreen", () => {
   it("shows guided setup when the user has no bowls", async () => {
     mocks.state.initialAuthenticated = true;
 
-    render(<MyBowlsScreen />);
+    renderMyBowls();
 
     expect(screen.queryByText(/start your first movie bowl/i)).not.toBeInTheDocument();
 
@@ -281,7 +291,7 @@ describe("MyBowlsScreen", () => {
       },
     ];
 
-    render(<MyBowlsScreen />);
+    renderMyBowls();
 
     await waitFor(() => expect(screen.getByText("Owned Bowl")).toBeInTheDocument());
 
@@ -331,7 +341,7 @@ describe("MyBowlsScreen", () => {
       },
     ];
 
-    render(<MyBowlsScreen />);
+    renderMyBowls();
 
     await waitFor(() => expect(screen.getByText("Owned New")).toBeInTheDocument());
 
@@ -369,7 +379,7 @@ describe("MyBowlsScreen", () => {
       },
     ];
 
-    render(<MyBowlsScreen />);
+    renderMyBowls();
 
     await waitFor(() => expect(screen.getByText("Alpha Bowl")).toBeInTheDocument());
 
@@ -383,7 +393,7 @@ describe("MyBowlsScreen", () => {
   it("deep-links to streaming services from guided setup", async () => {
     mocks.state.initialAuthenticated = true;
 
-    render(<MyBowlsScreen />);
+    renderMyBowls();
 
     await waitFor(() => expect(screen.getByRole("button", { name: /set up streaming services/i })).toBeInTheDocument());
 
@@ -395,7 +405,7 @@ describe("MyBowlsScreen", () => {
   it("opens the create bowl modal from the guided setup CTA", async () => {
     mocks.state.initialAuthenticated = true;
 
-    render(<MyBowlsScreen />);
+    renderMyBowls();
 
     await waitFor(() => expect(screen.getByRole("button", { name: /create your first bowl/i })).toBeInTheDocument());
 
@@ -408,7 +418,7 @@ describe("MyBowlsScreen", () => {
     mocks.state.initialAuthenticated = true;
     mocks.state.streamingServices = ["Netflix", "Max"];
 
-    render(<MyBowlsScreen />);
+    renderMyBowls();
 
     await waitFor(() => expect(screen.getByText(/start your first movie bowl/i)).toBeInTheDocument());
 
@@ -421,13 +431,17 @@ describe("MyBowlsScreen", () => {
     mocks.state.initialAuthenticated = true;
     mocks.state.streamingServicesLoading = true;
 
-    const { rerender } = render(<MyBowlsScreen />);
+    const { rerender } = renderMyBowls();
 
     await waitFor(() => expect(screen.getByText(/loading bowls/i)).toBeInTheDocument());
     expect(screen.queryByText(/start your first movie bowl/i)).not.toBeInTheDocument();
 
     mocks.state.streamingServicesLoading = false;
-    rerender(<MyBowlsScreen />);
+    rerender(
+      <PendingInvitesProvider>
+        <MyBowlsScreen />
+      </PendingInvitesProvider>
+    );
 
     await waitFor(() => expect(screen.getByText(/start your first movie bowl/i)).toBeInTheDocument());
   });
@@ -435,7 +449,7 @@ describe("MyBowlsScreen", () => {
   it("removes the guided setup after creating the first bowl", async () => {
     mocks.state.initialAuthenticated = true;
 
-    render(<MyBowlsScreen />);
+    renderMyBowls();
 
     await waitFor(() => expect(screen.getByRole("button", { name: /create your first bowl/i })).toBeInTheDocument());
 
@@ -452,7 +466,7 @@ describe("MyBowlsScreen", () => {
   it("creates a bowl with invites", async () => {
     mocks.state.initialAuthenticated = true;
 
-    render(<MyBowlsScreen />);
+    renderMyBowls();
 
     await waitFor(() => expect(screen.getByText(/start your first movie bowl/i)).toBeInTheDocument());
 
@@ -496,7 +510,7 @@ describe("MyBowlsScreen", () => {
       error: "resend down",
     };
 
-    render(<MyBowlsScreen />);
+    renderMyBowls();
 
     await waitFor(() => expect(screen.getByText(/start your first movie bowl/i)).toBeInTheDocument());
 
@@ -523,7 +537,7 @@ describe("MyBowlsScreen", () => {
       owner_id: "u1",
     }));
 
-    render(<MyBowlsScreen />);
+    renderMyBowls();
 
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
@@ -546,7 +560,7 @@ describe("MyBowlsScreen", () => {
     mocks.state.profileRows = [{ id: "owner-1", email: "owner@example.com" }];
     mocks.state.rpcRows = [{ id: "bowl-2", name: "Friday Bowl", remaining_count: 0, member_count: 1, owner_id: "owner-1" }];
 
-    render(<MyBowlsScreen />);
+    renderMyBowls();
 
     await waitFor(() => expect(screen.getByRole("heading", { name: /^invites$/i })).toBeInTheDocument());
     expect(screen.getByText("Friday Bowl")).toBeInTheDocument();
@@ -583,7 +597,7 @@ describe("MyBowlsScreen", () => {
       { id: "bowl-3", name: "Saturday Bowl", remaining_count: 0, member_count: 1, owner_id: "owner-1" },
     ];
 
-    render(<MyBowlsScreen />);
+    renderMyBowls();
 
     await waitFor(() => expect(screen.getByText(/2 pending invites waiting for your response/i)).toBeInTheDocument());
     expect(screen.getByText(/^today$/i)).toBeInTheDocument();
@@ -594,7 +608,7 @@ describe("MyBowlsScreen", () => {
     mocks.state.initialAuthenticated = true;
     mocks.state.pendingInvites = [];
 
-    render(<MyBowlsScreen />);
+    renderMyBowls();
 
     await waitFor(() => expect(screen.getByText(/start your first movie bowl/i)).toBeInTheDocument());
     expect(screen.queryByText(/^invites$/i)).not.toBeInTheDocument();
@@ -615,7 +629,7 @@ describe("MyBowlsScreen", () => {
     mocks.state.profileRows = [{ id: "owner-1", email: "owner@example.com" }];
     mocks.state.rpcRows = [{ id: "bowl-2", name: "Friday Bowl", remaining_count: 0, member_count: 1, owner_id: "owner-1" }];
 
-    render(<MyBowlsScreen />);
+    renderMyBowls();
 
     await waitFor(() => expect(screen.getByRole("button", { name: /accept/i })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /accept/i }));
@@ -646,7 +660,7 @@ describe("MyBowlsScreen", () => {
     mocks.state.profileRows = [{ id: "owner-1", email: "owner@example.com" }];
     mocks.state.rpcRows = [{ id: "bowl-2", name: "Friday Bowl", remaining_count: 0, member_count: 1, owner_id: "owner-1" }];
 
-    render(<MyBowlsScreen />);
+    renderMyBowls();
 
     await waitFor(() => expect(screen.getByRole("button", { name: /accept/i })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /accept/i }));
@@ -670,7 +684,7 @@ describe("MyBowlsScreen", () => {
     mocks.state.profileRows = [{ id: "owner-1", email: "owner@example.com" }];
     mocks.state.rpcRows = [{ id: "bowl-2", name: "Friday Bowl", remaining_count: 0, member_count: 1, owner_id: "owner-1" }];
 
-    render(<MyBowlsScreen />);
+    renderMyBowls();
 
     await waitFor(() => expect(screen.getByRole("button", { name: /decline/i })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /decline/i }));
@@ -694,7 +708,7 @@ describe("MyBowlsScreen", () => {
     mocks.state.profileRows = [{ id: "owner-1", email: "owner@example.com" }];
     mocks.state.rpcRows = [{ id: "bowl-2", name: "Friday Bowl", remaining_count: 0, member_count: 1, owner_id: "owner-1" }];
 
-    render(<MyBowlsScreen />);
+    renderMyBowls();
 
     await waitFor(() => expect(screen.getByText(/start your first movie bowl/i)).toBeInTheDocument());
     expect(screen.queryByText("Friday Bowl")).not.toBeInTheDocument();

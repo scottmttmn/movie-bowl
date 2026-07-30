@@ -5,12 +5,20 @@ import bowlImage from "../assets/bowl-illustration-v3.png";
 export default function TopNav({
   isSettingsRoute,
   isWatchListRoute = false,
+  isInvitesRoute = false,
+  isBowlsRoute = false,
   onSignOut,
   userEmail = "",
   isAuthenticated = true,
+  pendingInviteCount = 0,
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const hasPendingInvites = isAuthenticated && pendingInviteCount > 0;
+  const pendingInviteLabel = `${pendingInviteCount} pending invite${
+    pendingInviteCount === 1 ? "" : "s"
+  }`;
+  const badgeCount = pendingInviteCount > 9 ? "9+" : pendingInviteCount;
 
   useEffect(() => {
     if (!isMenuOpen) return undefined;
@@ -39,7 +47,7 @@ export default function TopNav({
     <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-800/80 bg-slate-950/88 shadow-lg shadow-black/10 backdrop-blur-xl">
       <div className="page-container flex h-16 items-center justify-between">
         <Link
-          to="/"
+          to="/bowls"
           aria-label="Go to My Bowls"
           className="inline-flex items-center gap-2.5 rounded-xl text-xl font-semibold tracking-tight text-slate-100 transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60 sm:text-2xl"
         >
@@ -58,8 +66,12 @@ export default function TopNav({
             type="button"
             aria-haspopup="menu"
             aria-expanded={isMenuOpen}
-            aria-label="Navigation menu"
-            className="icon-btn h-10 w-10"
+            aria-label={
+              hasPendingInvites
+                ? `Navigation menu (${pendingInviteLabel})`
+                : "Navigation menu"
+            }
+            className="icon-btn relative h-10 w-10"
             onClick={() => setIsMenuOpen((prev) => !prev)}
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -67,6 +79,14 @@ export default function TopNav({
               <path d="M4 12h16" />
               <path d="M4 18h16" />
             </svg>
+            {hasPendingInvites && (
+              <span
+                aria-hidden="true"
+                className="absolute -right-0.5 -top-0.5 flex h-4 min-w-4 items-center justify-center rounded-full bg-rose-500 px-1 text-[10px] font-bold leading-none text-white"
+              >
+                {badgeCount}
+              </span>
+            )}
           </button>
 
           {isMenuOpen && (
@@ -94,13 +114,30 @@ export default function TopNav({
               {isAuthenticated ? (
                 <>
                   <Link
-                    to="/"
+                    to="/bowls"
                     role="menuitem"
                     onClick={() => setIsMenuOpen(false)}
-                    className="flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white"
+                    className={`flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white ${
+                      isBowlsRoute ? "pointer-events-none bg-slate-800 text-slate-400" : ""
+                    }`}
                   >
                     My Bowls
                   </Link>
+                  {hasPendingInvites && (
+                    <Link
+                      to="/invites"
+                      role="menuitem"
+                      onClick={() => setIsMenuOpen(false)}
+                      className={`flex min-h-10 w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white ${
+                        isInvitesRoute ? "pointer-events-none bg-slate-800 text-slate-400" : ""
+                      }`}
+                    >
+                      <span>Invites</span>
+                      <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-bold leading-none text-white">
+                        {badgeCount}
+                      </span>
+                    </Link>
+                  )}
                   <Link
                     to="/watch-list"
                     role="menuitem"

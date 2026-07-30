@@ -20,6 +20,11 @@ const mocks = vi.hoisted(() => {
   };
 
   const supabase = {
+    auth: {
+      // The pending-invites provider reads auth directly; these tests drive the
+      // route through the mocked useAuth hook instead.
+      getSession: vi.fn(async () => ({ data: { session: null }, error: null })),
+    },
     from: vi.fn((table) => {
       const queryState = { table, action: "select", filters: [], payload: null };
       const query = {

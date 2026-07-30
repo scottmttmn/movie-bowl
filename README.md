@@ -5,6 +5,7 @@ Movie Bowl is a collaborative app for maintaining a shared movie list and random
 ## What It Does
 
 - Create and join bowls.
+- Return straight to the bowl you last opened; the full list stays at `/bowls`.
 - Add movies from TMDB search.
 - Add custom/manual movie entries.
 - Draw a random movie by first choosing an eligible contributor bucket uniformly, then choosing one movie from that bucket.
