@@ -103,11 +103,36 @@ that runs the bridge, and are a good validation step before any native app.
 
 A thin Android TV WebView shell around the existing `/tv` route, with a small
 JS bridge exposing a `launchDeepLink(url)` call that fires an ACTION_VIEW
-intent. One build covers Android TV and Fire TV. The existing spatial
-navigation already handles D-pad input, so the web UI carries over as-is.
-Most provider apps open on the title's detail page (one OK-press from play);
-some start playback directly. Roku/tvOS/Tizen/webOS ports are separate
-platforms and are explicitly out of scope for a first native version.
+intent. The existing spatial navigation already handles D-pad input, so the
+web UI carries over as-is. Most provider apps open on the title's detail page
+(one OK-press from play); some start playback directly. Roku/tvOS/Tizen/webOS
+ports are separate platforms and are out of scope for a first native version.
+
+Target Google TV / Android TV, not Fire TV. Amazon is replacing Fire OS (an
+Android fork) with Vega OS, a Linux platform that does not run Android apps
+and has no consumer sideloading. The Fire TV Stick 4K Select (2025) and Fire
+TV Stick HD (2026) already ship with Vega, and Amazon has said future sticks
+will too. An Android shell therefore covers Google TV plus older Fire OS
+hardware only, and the Fire OS share shrinks over time.
+
+## Test Hardware
+
+No specific television is required — every route below runs on a streaming
+device plugged into any HDMI set.
+
+- Most of the TV UI (layout, D-pad focus order, draw and reveal flow) can be
+  exercised in a desktop browser using arrow keys; hardware is only needed for
+  autoplay policy and the playback handoff.
+- Google TV device with developer options and network ADB enabled: the primary
+  target. Covers sideloading the native shell, firing VIEW intents for
+  auto-start, and testing the Gemini voice-command card. A browser must be
+  sideloaded (Google TV ships without one) to test the pure-web tier.
+- Fire TV Stick 4K Max or 4K Plus (Fire OS, not Vega): useful because Silk is
+  a preinstalled browser, so the web tier can be tested with no sideloading.
+  Treat as a compatibility check, not the build target.
+- Roku (any current model): the quickest end-to-end auto-start demo through
+  ECP on port 8060, with no developer account or ADB. Roku has no web browser,
+  so the TV UI cannot run on it; drive the draw from a phone for this test.
 
 ## Cost and Quota Protection
 
