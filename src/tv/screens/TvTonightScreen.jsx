@@ -33,6 +33,11 @@ import {
 
 const MIN_DRAW_ANIMATION_MS = 1800;
 
+// Television autoplay permission rides on the press that accepts the pick and
+// expires within a few seconds, so a slow preview lookup is abandoned rather
+// than allowed to consume the whole activation window.
+const MAX_PREVIEW_WAIT_MS = 2500;
+
 function getYear(movie) {
   return movie?.release_date ? String(movie.release_date).split("-")[0] : "";
 }
@@ -364,6 +369,7 @@ function TvRevealScreen({
   movie,
   streamingServices,
   isPickKept,
+  isPreparingPreviews,
   showTrailer,
   isDialogOpen,
   webLaunchCandidate,
@@ -470,6 +476,12 @@ function TvRevealScreen({
                 </button>
               )}
             </div>
+
+            {isPreparingPreviews && (
+              <p className="tv-preview-status" role="status">
+                Loading previews…
+              </p>
+            )}
           </div>
         </section>
 
@@ -577,6 +589,8 @@ export default function TvTonightScreen({ userId, userEmail }) {
   const [returnErrorMessage, setReturnErrorMessage] = useState(null);
   const [tonightMessage, setTonightMessage] = useState(null);
   const [trailerQueue, setTrailerQueue] = useState([]);
+  const [isTrailerQueueLoading, setIsTrailerQueueLoading] = useState(false);
+  const [isTheaterPending, setIsTheaterPending] = useState(false);
   const [isTheaterPlaying, setIsTheaterPlaying] = useState(false);
   const drawInFlightRef = useRef(false);
 
@@ -612,10 +626,13 @@ export default function TvTonightScreen({ userId, userEmail }) {
   useEffect(() => {
     if (!isTheaterModeEnabled || !drawnMovie) {
       setTrailerQueue([]);
+      setIsTrailerQueueLoading(false);
       return undefined;
     }
 
     let cancelled = false;
+    setTrailerQueue([]);
+    setIsTrailerQueueLoading(true);
 
     buildTrailerQueue({
       movies: bowl.remaining,
@@ -630,6 +647,9 @@ export default function TvTonightScreen({ userId, userEmail }) {
       .catch((error) => {
         console.error("[TvTonightScreen] Failed to build the preview queue", error);
         if (!cancelled) setTrailerQueue([]);
+      })
+      .finally(() => {
+        if (!cancelled) setIsTrailerQueueLoading(false);
       });
 
     return () => {
@@ -639,10 +659,33 @@ export default function TvTonightScreen({ userId, userEmail }) {
 
   const keepPick = () => {
     setIsPickKept(true);
-    if (isTheaterModeEnabled && trailerQueue.length > 0) {
-      setIsTheaterPlaying(true);
+    if (!isTheaterModeEnabled) return;
+
+    // A fast press can land before the lookups finish; wait for the queue
+    // instead of silently dropping the previews.
+    if (isTrailerQueueLoading) {
+      setIsTheaterPending(true);
+      return;
     }
+
+    if (trailerQueue.length > 0) setIsTheaterPlaying(true);
   };
+
+  useEffect(() => {
+    if (!isTheaterPending) return undefined;
+
+    if (!isTrailerQueueLoading) {
+      setIsTheaterPending(false);
+      if (trailerQueue.length > 0) setIsTheaterPlaying(true);
+      return undefined;
+    }
+
+    const timer = window.setTimeout(
+      () => setIsTheaterPending(false),
+      MAX_PREVIEW_WAIT_MS
+    );
+    return () => window.clearTimeout(timer);
+  }, [isTheaterPending, isTrailerQueueLoading, trailerQueue]);
 
   // The whole queue is recorded as played, including on an early exit: a few
   // previews suppressed for one extra movie night beats replaying them.
@@ -688,6 +731,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
       if (drawnMovie) {
         setDrawnMovie(null);
         setIsPickKept(false);
+        setIsTheaterPending(false);
         setIsTheaterPlaying(false);
         setShowTrailer(false);
         return;
@@ -730,6 +774,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
       const detailedMovie = await enrichDrawnMovie(movie);
       setDrawnMovie(detailedMovie);
       setIsPickKept(false);
+      setIsTheaterPending(false);
       setIsTheaterPlaying(false);
       setShowTrailer(false);
     } finally {
@@ -768,6 +813,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
       setPendingReturn(null);
       setDrawnMovie(null);
       setIsPickKept(false);
+      setIsTheaterPending(false);
       setIsTheaterPlaying(false);
       setShowTrailer(false);
       setShowDrawConfirm(false);
@@ -807,6 +853,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
           movie={drawnMovie}
           streamingServices={streamingServices}
           isPickKept={isPickKept}
+          isPreparingPreviews={isTheaterPending}
           showTrailer={showTrailer}
           isDialogOpen={Boolean(pendingReturn) || isTheaterPlaying}
           webLaunchCandidate={preferredWebLaunchCandidate}

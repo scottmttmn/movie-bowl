@@ -237,6 +237,76 @@ describe("TV theater mode", () => {
     expect(screen.getByText(/tonight's pick/i)).toBeInTheDocument();
   });
 
+  it("waits for a slow preview lookup instead of dropping the previews", async () => {
+    let releasePreviewLookups;
+    const previewGate = new Promise((resolve) => {
+      releasePreviewLookups = resolve;
+    });
+    mocks.getTmdbMovieDetails.mockImplementation(async (id) => {
+      // Only the drawn movie's own enrichment resolves right away.
+      if (id !== 101) await previewGate;
+      return DETAILS_BY_ID[id] || {};
+    });
+
+    renderTonight();
+    fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1800);
+    });
+    vi.useRealTimers();
+
+    // Accept the pick while the queue is still resolving.
+    fireEvent.click(await screen.findByRole("button", { name: /that's the one/i }));
+
+    expect(screen.getByText(/loading previews/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: /previews before arrival/i })
+    ).not.toBeInTheDocument();
+
+    await act(async () => {
+      releasePreviewLookups();
+      await previewGate;
+    });
+
+    expect(
+      await screen.findByRole("dialog", { name: /previews before arrival/i })
+    ).toBeInTheDocument();
+    expect(screen.queryByText(/loading previews/i)).not.toBeInTheDocument();
+  });
+
+  it("gives up on the previews when the lookup outlasts the autoplay window", async () => {
+    mocks.getTmdbMovieDetails.mockImplementation(async (id) => {
+      if (id !== 101) await new Promise(() => {});
+      return DETAILS_BY_ID[id] || {};
+    });
+
+    renderTonight();
+    fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1800);
+    });
+
+    fireEvent.click(screen.getByRole("button", { name: /that's the one/i }));
+    expect(screen.getByText(/loading previews/i)).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2500);
+    });
+    vi.useRealTimers();
+
+    expect(screen.queryByText(/loading previews/i)).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("dialog", { name: /previews before arrival/i })
+    ).not.toBeInTheDocument();
+    expect(screen.getByText(/tonight's pick/i)).toBeInTheDocument();
+  });
+
   it("keeps the plain reveal flow when theater mode is off", async () => {
     mocks.drawSettings = { ...mocks.drawSettings, theaterModeEnabled: false };
 
