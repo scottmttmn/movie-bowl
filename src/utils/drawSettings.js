@@ -25,10 +25,15 @@ export const DRAW_GENRE_OPTIONS = [
   "Western",
 ];
 
+export const THEATER_TRAILER_COUNT_OPTIONS = [1, 2, 3, 4];
+export const DEFAULT_THEATER_TRAILER_COUNT = 3;
+
 export const DEFAULT_DRAW_SETTINGS = {
   prioritizeStreaming: false,
   useStreamingRank: true,
   enablePreferredWebLaunch: false,
+  theaterModeEnabled: false,
+  theaterTrailerCount: DEFAULT_THEATER_TRAILER_COUNT,
   selectedRatings: MPAA_RATING_OPTIONS,
   includeUnknownRatings: true,
   selectedGenres: null,
@@ -50,6 +55,15 @@ function normalizeNonNegativeInteger(value, fallback) {
   if (!Number.isFinite(parsed)) return fallback;
   const rounded = Math.round(parsed);
   return rounded >= 0 ? rounded : fallback;
+}
+
+export function clampTheaterTrailerCount(value) {
+  const parsed = Number(value);
+  if (!Number.isFinite(parsed)) return DEFAULT_THEATER_TRAILER_COUNT;
+  const rounded = Math.round(parsed);
+  const min = THEATER_TRAILER_COUNT_OPTIONS[0];
+  const max = THEATER_TRAILER_COUNT_OPTIONS[THEATER_TRAILER_COUNT_OPTIONS.length - 1];
+  return Math.min(max, Math.max(min, rounded));
 }
 
 function normalizeSelectedRatings(value) {
@@ -92,6 +106,8 @@ export function normalizeDefaultDrawSettings(value) {
       source.enablePreferredWebLaunch === undefined
         ? DEFAULT_DRAW_SETTINGS.enablePreferredWebLaunch
         : Boolean(source.enablePreferredWebLaunch),
+    theaterModeEnabled: Boolean(source.theaterModeEnabled),
+    theaterTrailerCount: clampTheaterTrailerCount(source.theaterTrailerCount),
     selectedRatings: normalizeSelectedRatings(source.selectedRatings),
     includeUnknownRatings:
       source.includeUnknownRatings === undefined

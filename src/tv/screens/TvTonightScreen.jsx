@@ -1,4 +1,5 @@
 import {
+  useCallback,
   useEffect,
   useId,
   useLayoutEffect,
@@ -11,50 +12,26 @@ import BowlIllustration from "../../components/BowlIllustration";
 import useBowl from "../../hooks/useBowl";
 import useUserStreamingServices from "../../hooks/useUserStreamingServices";
 import { getTmdbMovieDetails } from "../../lib/tmdbApi";
+import { clampTheaterTrailerCount } from "../../utils/drawSettings";
 import { getPosterUrl } from "../../utils/getPosterUrl";
 import { matchUserServices } from "../../utils/streamingServices";
 import { resolvePreferredWebLaunchCandidate } from "../../utils/webLaunch";
 import TvBrand from "../components/TvBrand";
+import TvTheaterPreroll from "../components/TvTheaterPreroll";
 import { useTvBowlAccess } from "../hooks/useTvBowls";
 import useTvSpatialNavigation from "../hooks/useTvSpatialNavigation";
+import {
+  buildTrailerQueue,
+  readRecentTrailerKeys,
+  rememberTrailerKeys,
+} from "../utils/theaterQueue";
+import {
+  getAutoplayTrailerUrl,
+  getYouTubeVideoId,
+  loadYouTubeIframeApi,
+} from "../utils/youtubePlayer";
 
 const MIN_DRAW_ANIMATION_MS = 1800;
-let youtubeIframeApiPromise = null;
-
-function loadYouTubeIframeApi() {
-  if (window.YT?.Player) return Promise.resolve(window.YT);
-  if (youtubeIframeApiPromise) return youtubeIframeApiPromise;
-
-  youtubeIframeApiPromise = new Promise((resolve, reject) => {
-    const previousReadyHandler = window.onYouTubeIframeAPIReady;
-    window.onYouTubeIframeAPIReady = () => {
-      if (typeof previousReadyHandler === "function") {
-        previousReadyHandler();
-      }
-      resolve(window.YT);
-    };
-
-    const existingScript = document.querySelector(
-      'script[src="https://www.youtube.com/iframe_api"]'
-    );
-    if (existingScript) return;
-
-    const script = document.createElement("script");
-    script.src = "https://www.youtube.com/iframe_api";
-    script.async = true;
-    script.addEventListener(
-      "error",
-      () => {
-        youtubeIframeApiPromise = null;
-        reject(new Error("YouTube player API failed to load."));
-      },
-      { once: true }
-    );
-    document.head.appendChild(script);
-  });
-
-  return youtubeIframeApiPromise;
-}
 
 function getYear(movie) {
   return movie?.release_date ? String(movie.release_date).split("-")[0] : "";
@@ -66,25 +43,14 @@ function getGenreNames(movie) {
     .filter(Boolean);
 }
 
-function getYouTubeVideoId(trailer) {
-  if (trailer?.key) return String(trailer.key);
-  const match = String(trailer?.embedUrl || "").match(/\/embed\/([^?&#/]+)/);
-  return match?.[1] ? decodeURIComponent(match[1]) : "";
-}
-
-function getAutoplayTrailerUrl(trailer) {
-  const videoId = getYouTubeVideoId(trailer);
-  if (!videoId) return trailer?.embedUrl || "";
-
-  const url = new URL(
-    `https://www.youtube.com/embed/${encodeURIComponent(videoId)}`
-  );
-  url.searchParams.set("autoplay", "1");
-  url.searchParams.set("enablejsapi", "1");
-  url.searchParams.set("rel", "0");
-  url.searchParams.set("playsinline", "0");
-  url.searchParams.set("origin", window.location.origin);
-  return url.toString();
+async function fetchMovieTrailer(movie) {
+  try {
+    const details = await getTmdbMovieDetails(Number(movie?.tmdb_id));
+    return details?.trailer || null;
+  } catch (error) {
+    console.error("[TvTonightScreen] Failed to load a preview trailer", error);
+    return null;
+  }
 }
 
 function getAvailableGenres(movies) {
@@ -152,6 +118,13 @@ function getPreferenceLines(defaultDrawSettings, streamingServices) {
   const maxRuntime = Number(settings.runtimeMaxMinutes || 500);
   if (minRuntime > 0 || maxRuntime < 500) {
     lines.push(`${minRuntime}–${maxRuntime} minutes`);
+  }
+
+  if (settings.theaterModeEnabled) {
+    const previewCount = clampTheaterTrailerCount(settings.theaterTrailerCount);
+    lines.push(
+      `Theater mode: ${previewCount} ${previewCount === 1 ? "preview" : "previews"}`
+    );
   }
 
   return lines;
@@ -603,7 +576,14 @@ export default function TvTonightScreen({ userId, userEmail }) {
   const [isReturningMovie, setIsReturningMovie] = useState(false);
   const [returnErrorMessage, setReturnErrorMessage] = useState(null);
   const [tonightMessage, setTonightMessage] = useState(null);
+  const [trailerQueue, setTrailerQueue] = useState([]);
+  const [isTheaterPlaying, setIsTheaterPlaying] = useState(false);
   const drawInFlightRef = useRef(false);
+
+  const isTheaterModeEnabled = Boolean(defaultDrawSettings?.theaterModeEnabled);
+  const theaterTrailerCount = clampTheaterTrailerCount(
+    defaultDrawSettings?.theaterTrailerCount
+  );
 
   const availableGenres = useMemo(
     () => getAvailableGenres(bowl.remaining),
@@ -626,6 +606,51 @@ export default function TvTonightScreen({ userId, userEmail }) {
 
   const chooseAnotherBowl = () => navigate("/tv/bowls");
 
+  // Previews are resolved while the room is still reading the reveal screen so
+  // the sequence can start on the same press that accepts the pick, which is
+  // also the user gesture television browsers require before autoplay.
+  useEffect(() => {
+    if (!isTheaterModeEnabled || !drawnMovie) {
+      setTrailerQueue([]);
+      return undefined;
+    }
+
+    let cancelled = false;
+
+    buildTrailerQueue({
+      movies: bowl.remaining,
+      excludeMovieId: drawnMovie.id,
+      count: theaterTrailerCount,
+      recentKeys: readRecentTrailerKeys(),
+      fetchTrailer: fetchMovieTrailer,
+    })
+      .then((queue) => {
+        if (!cancelled) setTrailerQueue(queue);
+      })
+      .catch((error) => {
+        console.error("[TvTonightScreen] Failed to build the preview queue", error);
+        if (!cancelled) setTrailerQueue([]);
+      });
+
+    return () => {
+      cancelled = true;
+    };
+  }, [isTheaterModeEnabled, drawnMovie, bowl.remaining, theaterTrailerCount]);
+
+  const keepPick = () => {
+    setIsPickKept(true);
+    if (isTheaterModeEnabled && trailerQueue.length > 0) {
+      setIsTheaterPlaying(true);
+    }
+  };
+
+  // The whole queue is recorded as played, including on an early exit: a few
+  // previews suppressed for one extra movie night beats replaying them.
+  const endTheater = useCallback(() => {
+    setIsTheaterPlaying(false);
+    rememberTrailerKeys(trailerQueue.map((item) => item.trailer?.key));
+  }, [trailerQueue]);
+
   useTvSpatialNavigation({
     scopeKey: [
       "tonight",
@@ -637,11 +662,16 @@ export default function TvTonightScreen({ userId, userEmail }) {
       drawnMovie?.id || "",
       isPickKept,
       showTrailer,
+      isTheaterPlaying,
       pendingReturn?.drawEventId || "",
       Boolean(accessError),
     ].join(":"),
     onBack: () => {
       if (isDrawing) return;
+      if (isTheaterPlaying) {
+        endTheater();
+        return;
+      }
       if (pendingReturn) {
         setPendingReturn(null);
         setReturnErrorMessage(null);
@@ -658,6 +688,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
       if (drawnMovie) {
         setDrawnMovie(null);
         setIsPickKept(false);
+        setIsTheaterPlaying(false);
         setShowTrailer(false);
         return;
       }
@@ -699,6 +730,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
       const detailedMovie = await enrichDrawnMovie(movie);
       setDrawnMovie(detailedMovie);
       setIsPickKept(false);
+      setIsTheaterPlaying(false);
       setShowTrailer(false);
     } finally {
       drawInFlightRef.current = false;
@@ -736,6 +768,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
       setPendingReturn(null);
       setDrawnMovie(null);
       setIsPickKept(false);
+      setIsTheaterPlaying(false);
       setShowTrailer(false);
       setShowDrawConfirm(false);
       setTonightMessage(`${returnedTitle} is back in the bowl.`);
@@ -775,12 +808,20 @@ export default function TvTonightScreen({ userId, userEmail }) {
           streamingServices={streamingServices}
           isPickKept={isPickKept}
           showTrailer={showTrailer}
-          isDialogOpen={Boolean(pendingReturn)}
+          isDialogOpen={Boolean(pendingReturn) || isTheaterPlaying}
           webLaunchCandidate={preferredWebLaunchCandidate}
-          onKeep={() => setIsPickKept(true)}
+          onKeep={keepPick}
           onCloseTrailer={() => setShowTrailer(false)}
           onToggleTrailer={() => setShowTrailer((current) => !current)}
         />
+        {isTheaterPlaying && (
+          <TvTheaterPreroll
+            queue={trailerQueue}
+            featureTitle={drawnMovie.title}
+            onFinish={endTheater}
+            onExit={endTheater}
+          />
+        )}
         <TvReturnDialog
           request={pendingReturn}
           isReturning={isReturningMovie}

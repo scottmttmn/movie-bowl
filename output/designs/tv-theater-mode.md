@@ -165,10 +165,15 @@ from phase 2. Three of the open questions below block phase 1: trailer count,
 whether skip is offered alongside pause and exit, and whether theater mode is a
 user preference or a per-TV choice.
 
-### Phase 1 — Trailer pre-roll (web only, no new services)
+### Phase 1 — Trailer pre-roll (web only, no new services) — SHIPPED
 
 Ships the ritual itself: draw → reveal → trailers → "Feature Presentation" →
 the existing "Open in [service]" action.
+
+Implemented in `src/tv/utils/theaterQueue.js`, `src/tv/components/TvTheaterPreroll.jsx`,
+and the theater settings in `src/utils/drawSettings.js`. Decisions taken from
+the principles above: three previews by default (1-4 configurable), pause plus
+skip plus exit on the remote, and a per-user preference set on the phone.
 
 - Trailer queue state in `TvTonightScreen`, entered only after the pick is kept.
 - Reuse a single `YT.Player` and call `loadVideoById()` between trailers instead

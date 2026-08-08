@@ -1081,6 +1081,125 @@
   background: rgba(136, 19, 55, 0.9);
 }
 
+.tv-theater-overlay {
+  position: fixed;
+  z-index: 190;
+  inset: 0;
+  display: grid;
+  width: 100vw;
+  height: 100vh;
+  place-items: center;
+  overflow: hidden;
+  background: black;
+}
+
+.tv-theater-overlay iframe {
+  display: block;
+  width: 100%;
+  height: 100%;
+  border: 0;
+}
+
+.tv-theater-chrome {
+  position: absolute;
+  right: clamp(18px, 2.5vw, 42px);
+  bottom: clamp(18px, 2.5vw, 42px);
+  left: clamp(18px, 2.5vw, 42px);
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: space-between;
+  gap: 1rem;
+}
+
+.tv-theater-progress {
+  margin: 0;
+  padding: 0.5rem 1rem;
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.72);
+  color: rgba(248, 250, 252, 0.92);
+  font-size: 0.82rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  backdrop-filter: blur(10px);
+}
+
+.tv-theater-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.tv-theater-button {
+  min-height: 52px;
+  padding: 0.75rem 1.35rem;
+  border: 1px solid rgba(248, 250, 252, 0.32);
+  border-radius: 999px;
+  background: rgba(2, 6, 23, 0.82);
+  color: #f8fafc;
+  font-size: 0.8rem;
+  font-weight: 780;
+  cursor: pointer;
+  backdrop-filter: blur(10px);
+}
+
+.tv-theater-button:hover,
+.tv-theater-button:focus {
+  border-color: rgba(251, 113, 133, 0.78);
+  background: rgba(136, 19, 55, 0.9);
+}
+
+.tv-theater-announcement,
+.tv-theater-feature {
+  position: absolute;
+  display: grid;
+  gap: 0.4rem;
+  justify-items: center;
+  padding: clamp(1.5rem, 3vw, 2.75rem) clamp(2rem, 4vw, 4rem);
+  border-radius: 28px;
+  background: rgba(2, 6, 23, 0.82);
+  color: #f8fafc;
+  text-align: center;
+  backdrop-filter: blur(14px);
+}
+
+.tv-theater-announcement {
+  top: clamp(18px, 4vw, 64px);
+}
+
+.tv-theater-announcement h2,
+.tv-theater-feature h1 {
+  margin: 0;
+  font-weight: 820;
+  letter-spacing: -0.01em;
+}
+
+.tv-theater-announcement h2 {
+  font-size: clamp(1.6rem, 2.6vw, 2.4rem);
+}
+
+.tv-theater-announcement p:last-child {
+  margin: 0;
+  color: rgba(226, 232, 240, 0.82);
+}
+
+.tv-theater-feature {
+  border: 1px solid rgba(251, 113, 133, 0.34);
+  background: rgba(2, 6, 23, 0.94);
+}
+
+.tv-theater-feature h1 {
+  font-size: clamp(2.4rem, 5vw, 4.5rem);
+  text-transform: uppercase;
+}
+
+.tv-theater-feature-title {
+  margin: 0;
+  color: rgba(251, 113, 133, 0.92);
+  font-size: clamp(1.1rem, 2vw, 1.75rem);
+  font-weight: 700;
+}
+
 @media (max-width: 1180px) {
   .tv-bowl-grid {
     grid-template-columns: repeat(2, minmax(0, 1fr));

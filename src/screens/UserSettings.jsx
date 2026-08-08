@@ -9,6 +9,7 @@ import {
   normalizeDefaultDrawSettings,
   RUNTIME_FILTER_MAX_MINUTES,
   RUNTIME_FILTER_MIN_MINUTES,
+  THEATER_TRAILER_COUNT_OPTIONS,
 } from "../utils/drawSettings";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 
@@ -522,6 +523,58 @@ export default function UserSettings() {
               <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-slate-900 shadow transition peer-checked:translate-x-5" />
             </label>
           </div>
+
+          <div className="flex items-center justify-between gap-3 border-t border-slate-700 pt-4">
+            <div className="text-left">
+              <p className="text-base font-semibold text-slate-100">TV theater mode</p>
+              <p className="text-sm text-slate-300">On the TV app, play previews from other movies in the bowl before starting the drawn movie.</p>
+            </div>
+            <label htmlFor="theater-mode-enabled" className="relative inline-flex items-center cursor-pointer">
+              <input
+                id="theater-mode-enabled"
+                name="theater_mode_enabled"
+                aria-label="Enable TV theater mode"
+                type="checkbox"
+                className="peer sr-only"
+                checked={defaultDrawSettings.theaterModeEnabled}
+                onChange={(event) =>
+                  setDefaultDrawSettings({
+                    ...defaultDrawSettings,
+                    theaterModeEnabled: event.target.checked,
+                  })
+                }
+              />
+              <span className="h-6 w-11 rounded-full bg-slate-700 transition peer-checked:bg-rose-600" />
+              <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-slate-900 shadow transition peer-checked:translate-x-5" />
+            </label>
+          </div>
+
+          {defaultDrawSettings.theaterModeEnabled && (
+            <div className="flex items-center justify-between gap-3">
+              <label htmlFor="theater-trailer-count" className="text-sm text-slate-300">
+                Previews before the movie
+              </label>
+              <select
+                id="theater-trailer-count"
+                name="theater_trailer_count"
+                aria-label="Theater mode preview count"
+                className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                value={defaultDrawSettings.theaterTrailerCount}
+                onChange={(event) =>
+                  setDefaultDrawSettings({
+                    ...defaultDrawSettings,
+                    theaterTrailerCount: Number(event.target.value),
+                  })
+                }
+              >
+                {THEATER_TRAILER_COUNT_OPTIONS.map((option) => (
+                  <option key={option} value={option}>
+                    {option}
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
 
           <div className="border-t border-slate-700 pt-4 text-left">
             <button

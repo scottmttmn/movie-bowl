@@ -10,7 +10,7 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Future Product Concepts
 
-- TV Theater mode: after a movie is drawn, optionally play trailers from other undrawn movies before handing off to the selected feature. See `output/designs/tv-theater-mode.md`.
+- TV Theater mode: trailer pre-roll (phase 1) is implemented. Remaining phases cover provider deep links, LAN auto-start, and a native TV shell. See `output/designs/tv-theater-mode.md`.
 
 ## Technical Debt / Maintenance
 
