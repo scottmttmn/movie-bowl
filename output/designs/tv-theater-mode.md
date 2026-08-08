@@ -1,6 +1,7 @@
 # TV Theater Mode
 
-Status: future product concept; not scheduled for implementation.
+Status: future product concept; not scheduled for implementation. The roadmap
+below sequences the work if it is picked up; it is not a commitment to build.
 
 ## Product Idea
 
@@ -155,6 +156,67 @@ gracefully instead of billing anyone if usage spikes:
 - One-time platform costs if a native shell ships publicly: Google Play
   developer registration (about $25 once); Amazon Appstore registration is
   free; sideloading for personal use costs nothing.
+
+## Roadmap
+
+Each phase is independently useful and ships on its own, and each de-risks the
+one after it. Phase 1 stands alone; phases 3 and 4 both need the deep-link data
+from phase 2. Three of the open questions below block phase 1: trailer count,
+whether skip is offered alongside pause and exit, and whether theater mode is a
+user preference or a per-TV choice.
+
+### Phase 1 — Trailer pre-roll (web only, no new services)
+
+Ships the ritual itself: draw → reveal → trailers → "Feature Presentation" →
+the existing "Open in [service]" action.
+
+- Trailer queue state in `TvTonightScreen`, entered only after the pick is kept.
+- Reuse a single `YT.Player` and call `loadVideoById()` between trailers instead
+  of remounting the iframe, so the draw button press keeps satisfying autoplay
+  policy and fullscreen is requested once.
+- Build a candidate pool from `bowl.remaining`; TMDB detail lookups supply the
+  trailers. Exclude the drawn title and anything without an official trailer,
+  and preload the next trailer while the current one plays.
+- Keep a recently-played video-key list per device so trailers do not repeat.
+- Handle pause, skip, and exit through the existing spatial navigation chain.
+- One setting to start: theater mode on/off plus trailer count, stored with the
+  existing profile draw settings.
+
+Gate: does the group enjoy the pre-roll, or do they want the movie now? If it is
+not fun, stop here — every later phase is handoff work that stands on its own.
+
+### Phase 2 — Real deep links and the voice card (web only)
+
+- Add a deep-link provider behind the existing serverless API layer, with the
+  key server-side, a monthly usage counter, and a kill switch.
+- Cache results in Supabase keyed by TMDB ID and region, so lookups scale with
+  movies added rather than with draws.
+- Upgrade the launch candidate to prefer a direct provider title URL, falling
+  back to today's search URL when a lookup is missing or the quota is spent.
+- Show the spoken assistant command on the handoff card.
+
+This improves the phone experience too, so it is worth doing even if theater
+mode never ships.
+
+### Phase 3 — Personal auto-start over the LAN (household only)
+
+A Roku ECP call or an ADB VIEW intent fired by a bridge on the home network.
+Not distributable and not a product feature; the point is to feel the complete
+ritual end to end and learn whether automatic playback actually beats a single
+OK press.
+
+Gate: if this does not feel like magic in the room, do not build phase 4.
+
+### Phase 4 — Android TV shell
+
+A Kotlin WebView around `/tv` plus a `launchDeepLink(url)` bridge firing an
+ACTION_VIEW intent. Sideload for personal use first; a store listing is a
+separate decision carrying its own review and maintenance burden.
+
+### Not on this roadmap
+
+tvOS, Roku native (BrightScript), Samsung Tizen, LG webOS, and any attempt to
+drive a TV assistant programmatically — no third-party API exists for the last.
 
 ## Likely Dependencies
 
