@@ -784,14 +784,6 @@
   -webkit-line-clamp: 3;
 }
 
-.tv-recent-movie small {
-  color: #64748b;
-  font-size: 0.54rem;
-  font-weight: 650;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-}
-
 .tv-dialog-backdrop {
   position: fixed;
   z-index: 100;

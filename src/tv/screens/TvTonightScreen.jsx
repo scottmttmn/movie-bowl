@@ -249,7 +249,6 @@ function TvRecentDraws({ movies, onSelect }) {
             <img src={getPosterUrl(movie, "w185")} alt="" />
             <span>
               <strong>{movie.title}</strong>
-              <small>Watch History</small>
             </span>
           </button>
         ))}
