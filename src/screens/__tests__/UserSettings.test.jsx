@@ -1,5 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AUTOSAVE_DELAY_MS } from "../../hooks/useAutosave";
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
@@ -76,7 +77,15 @@ describe("UserSettings", () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
   });
+
+  // Lets the debounced autosave fire and its save promise settle.
+  const settleAutosave = async () => {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS + 50);
+    });
+  };
 
   it("shows loading state while streaming services are loading", () => {
     mocks.hook.loading = true;
@@ -86,33 +95,75 @@ describe("UserSettings", () => {
     expect(screen.getByText("Loading...")).toBeInTheDocument();
   });
 
-  it("saves services and alerts on success", async () => {
-    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+  it("does not autosave the settings it just finished loading", async () => {
+    vi.useFakeTimers();
+    mocks.hook.loading = true;
 
-    renderSettings();
+    const { rerender } = renderSettings();
 
-    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    mocks.hook.loading = false;
+    mocks.hook.streamingServices = ["Netflix", "Hulu"];
+    rerender(<UserSettings />);
+    await settleAutosave();
 
-    await waitFor(() => {
-      expect(mocks.hook.saveStreamingServices).toHaveBeenCalledWith(["Netflix", "Hulu"]);
-      expect(mocks.hook.saveDefaultDrawSettings).toHaveBeenCalledWith(mocks.hook.defaultDrawSettings);
-      expect(alertSpy).toHaveBeenCalledWith("Saved");
-    });
+    expect(mocks.hook.saveStreamingServices).not.toHaveBeenCalled();
+    expect(mocks.hook.saveDefaultDrawSettings).not.toHaveBeenCalled();
+    expect(screen.getByRole("status")).toHaveTextContent("Changes save automatically");
   });
 
-  it("does not alert if saving fails", async () => {
-    mocks.hook.saveStreamingServices.mockResolvedValue({ error: new Error("nope") });
-    const alertSpy = vi.spyOn(window, "alert").mockImplementation(() => {});
+  it("autosaves an edit and reports that it saved", async () => {
+    vi.useFakeTimers();
 
-    renderSettings();
+    const { rerender } = renderSettings();
 
-    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
+    mocks.hook.streamingServices = ["Netflix"];
+    rerender(<UserSettings />);
+    await settleAutosave();
 
-    await waitFor(() => {
-      expect(mocks.hook.saveStreamingServices).toHaveBeenCalled();
-      expect(mocks.hook.saveDefaultDrawSettings).toHaveBeenCalled();
+    expect(mocks.hook.saveStreamingServices).toHaveBeenCalledWith(["Netflix"]);
+    // Draw settings are untouched, so they are not rewritten.
+    expect(mocks.hook.saveDefaultDrawSettings).not.toHaveBeenCalled();
+    expect(screen.getByRole("status")).toHaveTextContent("All changes saved");
+  });
+
+  it("flushes a pending autosave when the page unmounts", async () => {
+    vi.useFakeTimers();
+
+    const { rerender, unmount } = renderSettings();
+
+    mocks.hook.streamingServices = ["Netflix"];
+    rerender(<UserSettings />);
+    // Leave before the debounce elapses, the way Back does.
+    unmount();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(0);
     });
-    expect(alertSpy).not.toHaveBeenCalled();
+
+    expect(mocks.hook.saveStreamingServices).toHaveBeenCalledWith(["Netflix"]);
+  });
+
+  it("surfaces a failed autosave and saves again on retry", async () => {
+    vi.useFakeTimers();
+    mocks.hook.saveStreamingServices.mockResolvedValue({ error: new Error("network down") });
+
+    const { rerender } = renderSettings();
+
+    mocks.hook.streamingServices = ["Netflix"];
+    rerender(<UserSettings />);
+    await settleAutosave();
+
+    expect(screen.getByRole("status")).toHaveTextContent("Couldn't save changes");
+    expect(screen.getByRole("alert")).toHaveTextContent("network down");
+
+    mocks.hook.saveStreamingServices.mockResolvedValue({ error: null });
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /retry/i }));
+      await vi.advanceTimersByTimeAsync(0);
+    });
+
+    expect(mocks.hook.saveStreamingServices).toHaveBeenCalledTimes(2);
+    expect(screen.getByRole("status")).toHaveTextContent("All changes saved");
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("supports search, selection shortcuts, reordering, removal, and back navigation", () => {
@@ -239,6 +290,14 @@ describe("UserSettings", () => {
       })
     );
 
+    // Autosave persists a reset immediately, so it is gated behind a confirm.
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    const callsBeforeReset = mocks.hook.setDefaultDrawSettings.mock.calls.length;
+    fireEvent.click(screen.getByRole("button", { name: /reset to defaults/i }));
+    expect(confirmSpy).toHaveBeenCalled();
+    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledTimes(callsBeforeReset);
+
+    confirmSpy.mockReturnValue(true);
     fireEvent.click(screen.getByRole("button", { name: /reset to defaults/i }));
     expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith({
       prioritizeStreaming: false,
