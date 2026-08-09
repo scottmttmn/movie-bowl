@@ -1,6 +1,8 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
+import useAutosave, { valuesAreEqual } from "../hooks/useAutosave";
+import AutosaveStatus from "../components/AutosaveStatus";
 import FilterChipSelect from "../components/FilterChipSelect";
 import { AVAILABLE_STREAMING_SERVICES } from "../utils/streamingServices";
 import {
@@ -148,18 +150,44 @@ export default function UserSettings() {
     setServicesTab("manage");
   }, [location.hash]);
 
-  // Function to save the updated streaming services to the database
-  const handleSave = async () => {
-    const [streamingResponse, drawSettingsResponse] = await Promise.all([
-      saveStreamingServices(streamingServices),
-      saveDefaultDrawSettings(defaultDrawSettings),
-    ]);
+  const settingsSnapshot = useMemo(
+    () => ({ streamingServices, defaultDrawSettings }),
+    [streamingServices, defaultDrawSettings]
+  );
 
-    const error = streamingResponse.error || drawSettingsResponse.error;
-    if (error) return;
+  // Writes only the halves that actually changed, so flipping one draw toggle
+  // does not rewrite the streaming list as well.
+  const persistSettings = useCallback(
+    async (next, previous) => {
+      const pendingWrites = [];
 
-    // Notify the user that their changes have been saved
-    alert("Saved");
+      if (!valuesAreEqual(next.streamingServices, previous.streamingServices)) {
+        pendingWrites.push(saveStreamingServices(next.streamingServices));
+      }
+      if (!valuesAreEqual(next.defaultDrawSettings, previous.defaultDrawSettings)) {
+        pendingWrites.push(saveDefaultDrawSettings(next.defaultDrawSettings));
+      }
+
+      const results = await Promise.all(pendingWrites);
+      return { error: results.find((result) => result?.error)?.error || null };
+    },
+    [saveStreamingServices, saveDefaultDrawSettings]
+  );
+
+  const { status: saveStatus, error: saveError, retry: retrySave } = useAutosave({
+    value: settingsSnapshot,
+    save: persistSettings,
+    enabled: !loading,
+  });
+
+  const handleResetDefaults = () => {
+    // Autosave persists this straight away, so confirm before discarding a
+    // hand-tuned set of filters.
+    const confirmed = window.confirm(
+      "Reset default draw settings back to their defaults? This replaces your current selections."
+    );
+    if (!confirmed) return;
+    setDefaultDrawSettings(normalizeDefaultDrawSettings(DEFAULT_DRAW_SETTINGS));
   };
 
   // Show loading indicator while fetching data
@@ -178,21 +206,33 @@ export default function UserSettings() {
           <p className="eyebrow">Profile</p>
           <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">User Settings</h1>
         </div>
-        <div className="flex flex-col-reverse gap-2 min-[420px]:flex-row">
+        <div className="flex flex-col gap-3 min-[420px]:flex-row min-[420px]:items-center">
+          <AutosaveStatus status={saveStatus} />
           <button
             onClick={() => navigate(-1)}
             className="btn btn-secondary"
           >
             Back
           </button>
-          <button
-            onClick={handleSave}
-            className="btn btn-primary"
-          >
-            Save
-          </button>
         </div>
       </header>
+
+      {saveStatus === "error" && (
+        <div
+          role="alert"
+          className="sticky bottom-4 z-20 mx-auto mb-4 flex max-w-5xl flex-col gap-3 rounded-xl border border-rose-500/60 bg-rose-950/90 px-4 py-3 text-sm text-rose-100 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <p className="font-semibold">Your changes haven&apos;t been saved.</p>
+            <p className="mt-0.5 text-rose-200/90">
+              {saveError?.message || "Something went wrong while saving. Check your connection and try again."}
+            </p>
+          </div>
+          <button type="button" onClick={retrySave} className="btn btn-primary shrink-0">
+            Retry
+          </button>
+        </div>
+      )}
 
       <section className="panel section-stack mx-auto max-w-5xl">
       <div
@@ -433,7 +473,7 @@ export default function UserSettings() {
           <button
             type="button"
             className="text-xs font-medium text-rose-300 hover:text-rose-200"
-            onClick={() => setDefaultDrawSettings(normalizeDefaultDrawSettings(DEFAULT_DRAW_SETTINGS))}
+            onClick={handleResetDefaults}
           >
             Reset to defaults
           </button>
