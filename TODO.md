@@ -11,6 +11,7 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 ## Future Product Concepts
 
 - TV Theater mode: trailer pre-roll (phase 1) is implemented. Remaining phases cover provider deep links, LAN auto-start, and a native TV shell. See `output/designs/tv-theater-mode.md`.
+- Selectable draw methods: make the draw method an owner-controlled bowl setting (person-first stays the default, plus title-first and rotation). See `output/designs/bowl-draw-methods.md`.
 
 ## Technical Debt / Maintenance
 
