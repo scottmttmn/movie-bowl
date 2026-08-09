@@ -52,6 +52,7 @@ export default function useAutosave({ value, save, enabled = true, delay = AUTOS
   });
 
   const savingRef = useRef(false);
+  const rerunRef = useRef(false);
   const timerRef = useRef(null);
 
   const hasUnsavedChanges = enabled && ready && !valuesAreEqual(value, baseline);
@@ -61,36 +62,57 @@ export default function useAutosave({ value, save, enabled = true, delay = AUTOS
       clearTimeout(timerRef.current);
       timerRef.current = null;
     }
-    if (savingRef.current) return;
-
-    const current = latestRef.current;
-    if (!current.enabled || !current.ready) return;
-    if (valuesAreEqual(current.value, current.baseline)) return;
-
-    const snapshot = current.value;
-    savingRef.current = true;
-    setPhase("saving");
-
-    let result;
-    try {
-      result = await current.save(snapshot, current.baseline);
-    } catch (thrown) {
-      result = { error: thrown };
-    } finally {
-      savingRef.current = false;
-    }
-
-    if (result?.error) {
-      setError(result.error);
-      setPhase("error");
+    if (savingRef.current) {
+      // A write is already running. Ask it to look again once it lands rather
+      // than dropping this request, which is what strands the final edit when
+      // the screen unmounts mid-request.
+      rerunRef.current = true;
       return;
     }
 
-    setError(null);
-    setPhase("saved");
-    // Any edits made while this was in flight leave the new baseline stale,
-    // which re-runs the scheduling effect below and starts the next save.
-    setBaseline(snapshot);
+    savingRef.current = true;
+    // Tracked locally rather than read back from state: after unmount there are
+    // no more commits, so `baseline` would never catch up between passes.
+    let base = latestRef.current.baseline;
+
+    try {
+      for (;;) {
+        rerunRef.current = false;
+
+        const current = latestRef.current;
+        if (!current.enabled || !current.ready) return;
+
+        const snapshot = current.value;
+        if (valuesAreEqual(snapshot, base)) return;
+
+        setPhase("saving");
+
+        let result;
+        try {
+          result = await current.save(snapshot, base);
+        } catch (thrown) {
+          result = { error: thrown };
+        }
+
+        if (result?.error) {
+          setError(result.error);
+          setPhase("error");
+          return;
+        }
+
+        base = snapshot;
+        setError(null);
+        setPhase("saved");
+        setBaseline(snapshot);
+
+        // Edits that landed while the request was in flight go out in the next
+        // pass. While mounted the scheduling effect would also catch them, but
+        // it cannot run once the screen is gone.
+        if (!rerunRef.current && valuesAreEqual(latestRef.current.value, snapshot)) return;
+      }
+    } finally {
+      savingRef.current = false;
+    }
   }, []);
 
   useEffect(() => {

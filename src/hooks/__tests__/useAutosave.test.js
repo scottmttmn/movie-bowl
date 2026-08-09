@@ -183,6 +183,36 @@ describe("useAutosave", () => {
     expect(result.current.status).toBe("saved");
   });
 
+  it("still writes an edit made mid-request when it unmounts before the request lands", async () => {
+    let releaseFirstSave;
+    const save = vi
+      .fn()
+      .mockImplementationOnce(
+        () => new Promise((resolve) => {
+          releaseFirstSave = () => resolve({ error: null });
+        })
+      )
+      .mockResolvedValue({ error: null });
+
+    const { rerender, unmount } = renderAutosave({ value: { count: 1 }, save });
+
+    rerender({ value: { count: 2 }, save, enabled: true });
+    await settle();
+    expect(save).toHaveBeenCalledTimes(1);
+
+    // Edit lands while the first write is still open, then the user navigates
+    // away before it comes back.
+    rerender({ value: { count: 3 }, save, enabled: true });
+    unmount();
+    await act(async () => {
+      releaseFirstSave();
+      await vi.advanceTimersByTimeAsync(50);
+    });
+
+    expect(save).toHaveBeenCalledTimes(2);
+    expect(save).toHaveBeenLastCalledWith({ count: 3 }, { count: 2 });
+  });
+
   it("flushes a pending save when it unmounts", async () => {
     const save = vi.fn().mockResolvedValue({ error: null });
     const { rerender, unmount } = renderAutosave({ value: { count: 1 }, save });
