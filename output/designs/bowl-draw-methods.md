@@ -263,10 +263,74 @@ changes with it.
   an owner to make; more than that becomes a menu nobody reads. Additional
   methods should have to displace an existing one.
 
+## Recorded Idea: Within-Person Title Weights
+
+Status: idea, not part of the phases above.
+
+Let a contributor control the relative odds **among their own titles** while
+every person stays equally likely to be selected. You have been meaning to watch
+one of your six for a year and added another on a whim; those should not be
+coin-flips against each other, and saying so should not cost anyone else a thing.
+
+This is a different feature from the between-person weights listed under
+Deferred, and the distinction is what makes it attractive:
+
+- *Between-person* weights change who gets picked. They alter the group's
+  fairness bargain and need to be a bowl-level, owner-controlled decision.
+- *Within-person* weights change only which of your own titles comes up once
+  you have already been selected. They are self-competition. Nobody else's odds
+  move, so this can be a purely personal setting with no owner involvement and no
+  group negotiation.
+
+### Where it plugs in
+
+`pickRandomByContributor` is already two steps: pick a bucket, then
+`pickRandom(bucket)`. Weights replace only the second step with a weighted pick.
+That is a strictly local change inside the method registry's `person_first` (and
+`rotation`) implementation, and it leaves bucket selection untouched.
+
+### It only means something under person-first
+
+Under `title_first` there is no inner step to parameterize — titles are drawn
+uniformly across the whole pool, so any personal weight would move that person's
+total share and leak straight into cross-person fairness. That is precisely the
+property this idea is supposed to preserve.
+
+So the rule should be that weights apply under `person_first` and `rotation`, and
+`title_first` ignores them — stated plainly in the UI, because a slider that
+silently does nothing in some bowls is worse than no slider.
+
+### Open questions
+
+- **Storage.** `bowl_movies.draw_weight numeric not null default 1` is the
+  natural home; the row already carries `added_by`, so an update policy scoped to
+  `added_by = auth.uid()` gives the right permission boundary. Check this against
+  `20260726153000_tighten_profile_and_bowl_movie_access.sql` before assuming an
+  update path exists.
+- **How weights are expressed.** Raw numbers turn a movie list into a
+  spreadsheet. A coarse ordinal — three to five levels along the lines of "someday
+  / normal / eager" mapped to fixed multipliers — is likely to get used, and keeps
+  the odds legible without ever printing a percentage.
+- **Is zero allowed?** A weight of 0 means "never draw this," which is really a
+  snooze, and an undrawable title sitting silently in the list is a trap. Prefer a
+  floor above zero and, if pausing a title is wanted, build it as an explicit
+  visible state rather than as a side effect of a slider bottoming out.
+- **Link-guest rows.** Titles added through a public add link carry the link
+  creator's `added_by`, so they would technically be weightable by that person.
+  Harmless, but worth deciding rather than discovering.
+- **Disclosure copy.** "Then selects one of their movies at random" stops being
+  true and becomes "weighted by that person's preferences." Same three hardcoded
+  copy sites as the rest of this document.
+
+Solo draw (`solo-draw.md`) is a single-contributor pool, which means these
+weights would *be* its entire selection logic. If both get built, this one goes
+first.
+
 ## Deferred
 
-- **Per-contributor weights** (a 2x boost for a new member, or dialing yourself
-  down). Deliberately excluded here. If weights are wanted later, the scalar
+- **Between-person weights** (a 2x boost for a new member, or dialing yourself
+  down relative to others). Deliberately excluded here, and distinct from the
+  within-person weights recorded above. If they are wanted later, the scalar
   `draw_method` column should probably become a `draw_config jsonb` blob so the
   method and its parameters travel together — worth revisiting before adding a
   second bowl-level draw knob.

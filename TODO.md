@@ -12,6 +12,8 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 - TV Theater mode: trailer pre-roll (phase 1) is implemented. Remaining phases cover provider deep links, LAN auto-start, and a native TV shell. See `output/designs/tv-theater-mode.md`.
 - Selectable draw methods: make the draw method an owner-controlled bowl setting (person-first stays the default, plus title-first and rotation). See `output/designs/bowl-draw-methods.md`.
+- Within-person title weights: let a contributor set relative odds among their own titles without changing anyone else's odds. Recorded in `output/designs/bowl-draw-methods.md`.
+- Solo draw: draw privately from only your own titles, in one bowl or pooled across all of them. See `output/designs/solo-draw.md`.
 
 ## Technical Debt / Maintenance
 
