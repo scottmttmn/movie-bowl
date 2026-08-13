@@ -39,6 +39,7 @@ const mocks = vi.hoisted(() => {
       deleteBowl: null,
       deleteOwnedBowl: null,
       saveDrawAccess: null,
+      saveDrawMethod: null,
       verifyMembership: null,
     },
     sendInviteEmailsResult: { sent: 1, failed: 0, results: [{ email: "newfriend@example.com", ok: true }], error: null },
@@ -422,6 +423,38 @@ const mocks = vi.hoisted(() => {
 
         return { data: args.p_mode, error: null };
       }
+      if (name === "save_bowl_draw_method") {
+        if (state.errors.saveDrawMethod) {
+          return { data: null, error: state.errors.saveDrawMethod };
+        }
+
+        const isOwner =
+          args?.p_bowl_id === state.bowl.id &&
+          state.bowl.owner_id === state.authUser.id;
+        if (!isOwner) {
+          return {
+            data: null,
+            error: {
+              code: "42501",
+              message: "Only the bowl owner can update the draw method.",
+            },
+          };
+        }
+
+        if (!["person_first", "title_first"].includes(args?.p_method)) {
+          return {
+            data: null,
+            error: { code: "P0001", message: "Invalid draw method." },
+          };
+        }
+
+        state.bowl = {
+          ...state.bowl,
+          draw_method: args.p_method,
+        };
+
+        return { data: args.p_method, error: null };
+      }
       return { data: null, error: null };
     }),
   };
@@ -498,6 +531,7 @@ describe("BowlSettings integration", () => {
       deleteBowl: null,
       deleteOwnedBowl: null,
       saveDrawAccess: null,
+      saveDrawMethod: null,
       verifyMembership: null,
       refreshQueuePromotions: null,
     };
@@ -921,6 +955,79 @@ describe("BowlSettings integration", () => {
     expect(mocks.state.drawPermissions).toEqual([
       { bowl_id: "bowl-1", user_id: "member-1" },
     ]);
+  });
+
+  it("shows the draw method control for owner and defaults to person-first", async () => {
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /save draw method/i })).toBeInTheDocument();
+    });
+
+    expect(screen.getByLabelText(/person-first/i)).toBeChecked();
+    expect(screen.getByLabelText(/title-first/i)).not.toBeChecked();
+  });
+
+  it("owner can switch the bowl to title-first", async () => {
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /save draw method/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText(/title-first/i));
+    fireEvent.click(screen.getByRole("button", { name: /save draw method/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/draw method updated\./i)).toBeInTheDocument();
+    });
+
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith("save_bowl_draw_method", {
+      p_bowl_id: "bowl-1",
+      p_method: "title_first",
+    });
+    expect(mocks.state.bowl.draw_method).toBe("title_first");
+    expect(screen.getByLabelText(/title-first/i)).toBeChecked();
+  });
+
+  it("keeps the draw method unchanged when saving fails", async () => {
+    mocks.state.errors.saveDrawMethod = { message: "database unavailable" };
+
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /save draw method/i })).toBeInTheDocument();
+    });
+
+    fireEvent.click(screen.getByLabelText(/title-first/i));
+    fireEvent.click(screen.getByRole("button", { name: /save draw method/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/failed to update the draw method\./i)).toBeInTheDocument();
+    });
+    expect(mocks.state.bowl.draw_method).toBeUndefined();
+  });
+
+  it("shows the draw method to a non-owner as read-only", async () => {
+    mocks.state.authUser = { id: "member-1", email: "member@example.com" };
+    mocks.state.bowl = {
+      id: "bowl-1",
+      name: "Bowl 1",
+      owner_id: "owner-1",
+      draw_access_mode: "all_members",
+      draw_method: "title_first",
+    };
+
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: /draw method/i })).toBeInTheDocument();
+    });
+
+    expect(screen.getByText("Title-first")).toBeInTheDocument();
+    expect(screen.getByText(/only the bowl owner can change this/i)).toBeInTheDocument();
+    expect(screen.queryByLabelText(/person-first/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /save draw method/i })).not.toBeInTheDocument();
   });
 
   it("validates invite input errors before creating an invite", async () => {

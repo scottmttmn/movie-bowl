@@ -4,6 +4,12 @@ import { sendInviteEmails } from "../lib/inviteEmails";
 import { supabase } from "../lib/supabase";
 import { parseInviteEmails } from "../utils/parseInviteEmails";
 import { forgetLastOpenedBowl, getLastOpenedBowlId } from "../utils/lastOpenedBowl";
+import {
+  DEFAULT_DRAW_METHOD,
+  DRAW_METHOD_OPTIONS,
+  getDrawMethod,
+  normalizeDrawMethod,
+} from "../utils/drawMethods";
 
 // Bowl-level settings screen.
 // MVP scope: manage members + invites for a bowl.
@@ -29,6 +35,7 @@ export default function BowlSettings() {
   const [bowlName, setBowlName] = useState("Bowl Settings");
   const [drawAccessMode, setDrawAccessMode] = useState(DRAW_ACCESS_MODE_ALL);
   const [drawAllowedUserIds, setDrawAllowedUserIds] = useState([]);
+  const [drawMethod, setDrawMethod] = useState(DEFAULT_DRAW_METHOD);
   const [editableBowlName, setEditableBowlName] = useState("Bowl Settings");
   const [ownerId, setOwnerId] = useState(null);
 
@@ -46,6 +53,7 @@ export default function BowlSettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [isSavingName, setIsSavingName] = useState(false);
   const [isSavingDrawAccess, setIsSavingDrawAccess] = useState(false);
+  const [isSavingDrawMethod, setIsSavingDrawMethod] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isDeletingBowl, setIsDeletingBowl] = useState(false);
   const [actionMessage, setActionMessage] = useState(null);
@@ -68,6 +76,8 @@ export default function BowlSettings() {
     try {
       const isMissingDrawAccessColumn = (error) =>
         String(error?.message || "").toLowerCase().includes("draw_access_mode");
+      const isMissingDrawMethodColumn = (error) =>
+        String(error?.message || "").toLowerCase().includes("draw_method");
       const isMissingDrawPermissionsTable = (error) => {
         const text = String(error?.message || "").toLowerCase();
         return text.includes("bowl_draw_permissions") && text.includes("does not exist");
@@ -86,11 +96,23 @@ export default function BowlSettings() {
       setCurrentUserEmail((authData?.session?.user?.email || "").toLowerCase());
 
       // Load bowl basics (name + owner).
+      // Each optional column is dropped on its own so a deploy that lands
+      // ahead of the migration degrades one feature instead of all of them.
       let { data: bowl, error: bowlError } = await supabase
         .from("bowls")
-        .select("id, name, owner_id, draw_access_mode")
+        .select("id, name, owner_id, draw_access_mode, draw_method")
         .eq("id", bowlId)
         .single();
+
+      if (bowlError && isMissingDrawMethodColumn(bowlError)) {
+        const fallback = await supabase
+          .from("bowls")
+          .select("id, name, owner_id, draw_access_mode")
+          .eq("id", bowlId)
+          .single();
+        bowl = fallback.data;
+        bowlError = fallback.error;
+      }
 
       if (bowlError && isMissingDrawAccessColumn(bowlError)) {
         const fallback = await supabase
@@ -116,6 +138,7 @@ export default function BowlSettings() {
           ? DRAW_ACCESS_MODE_SELECTED
           : DRAW_ACCESS_MODE_ALL
       );
+      setDrawMethod(normalizeDrawMethod(bowl?.draw_method));
       setOwnerId(bowl?.owner_id ?? null);
 
       // Load membership rows separately from the bowl-scoped email directory.
@@ -535,6 +558,54 @@ export default function BowlSettings() {
     }
   };
 
+  const handleSaveDrawMethod = async (e) => {
+    e.preventDefault();
+    setActionMessage(null);
+    setErrorMessage(null);
+
+    if (!isOwner) {
+      setErrorMessage("Only the bowl owner can update the draw method.");
+      return;
+    }
+
+    setIsSavingDrawMethod(true);
+    try {
+      const { error: saveError } = await supabase.rpc("save_bowl_draw_method", {
+        p_bowl_id: bowlId,
+        p_method: normalizeDrawMethod(drawMethod),
+      });
+
+      if (saveError) {
+        const errorText = String(saveError?.message || "").toLowerCase();
+        const isMissingMigration =
+          saveError?.code === "PGRST202" ||
+          (
+            errorText.includes("save_bowl_draw_method") &&
+            (
+              errorText.includes("could not find") ||
+              errorText.includes("does not exist")
+            )
+          );
+
+        if (isMissingMigration) {
+          setErrorMessage("The draw method requires the latest database migration. Please run it and try again.");
+          return;
+        }
+        console.error("[BowlSettings] Failed to save draw method", saveError);
+        setErrorMessage("Failed to update the draw method.");
+        return;
+      }
+
+      await loadBowlAndMembers();
+      setActionMessage("Draw method updated.");
+    } catch (err) {
+      console.error("[BowlSettings] Unexpected error saving draw method", err);
+      setErrorMessage("Unexpected error updating the draw method.");
+    } finally {
+      setIsSavingDrawMethod(false);
+    }
+  };
+
   const handleDeleteBowl = async (e) => {
     e.preventDefault();
     setActionMessage(null);
@@ -678,6 +749,60 @@ export default function BowlSettings() {
           </form>
         </section>
       )}
+
+      {/* Gated on load: naming the wrong method, even for a frame, is exactly
+          the falsehood this setting exists to prevent. */}
+      {!isLoading && (isOwner ? (
+        <section className="panel mb-4">
+          <h3 className="section-title mb-2">Draw Method</h3>
+          <p className="text-sm text-slate-400 mb-3">
+            Set how this bowl picks a movie. Every draw from this bowl uses it, no matter who taps
+            Draw.
+          </p>
+          <form onSubmit={handleSaveDrawMethod} className="space-y-3">
+            <div className="space-y-2">
+              {DRAW_METHOD_OPTIONS.map((method) => {
+                const inputId = `draw-method-${method.id}`;
+                return (
+                  <label
+                    key={method.id}
+                    htmlFor={inputId}
+                    className="flex cursor-pointer items-start gap-2 rounded-lg border border-slate-700 bg-slate-800/60 p-3"
+                  >
+                    <input
+                      id={inputId}
+                      name="draw_method"
+                      type="radio"
+                      className="mt-1"
+                      value={method.id}
+                      checked={drawMethod === method.id}
+                      onChange={(e) => setDrawMethod(e.target.value)}
+                    />
+                    <span>
+                      <span className="block text-sm text-slate-100">{method.label}</span>
+                      <span className="mt-0.5 block text-xs text-slate-400">{method.description}</span>
+                    </span>
+                  </label>
+                );
+              })}
+            </div>
+            <button
+              type="submit"
+              disabled={isSavingDrawMethod}
+              className="btn btn-secondary disabled:opacity-60"
+            >
+              {isSavingDrawMethod ? "Saving..." : "Save Draw Method"}
+            </button>
+          </form>
+        </section>
+      ) : (
+        <section className="panel mb-4">
+          <h3 className="section-title mb-2">Draw Method</h3>
+          <p className="text-sm text-slate-100">{getDrawMethod(drawMethod).label}</p>
+          <p className="mt-1 text-sm text-slate-400">{getDrawMethod(drawMethod).description}</p>
+          <p className="mt-2 text-xs text-slate-500">Only the bowl owner can change this.</p>
+        </section>
+      ))}
 
       {isOwner && (
         <section className="panel mb-4">

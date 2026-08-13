@@ -12,6 +12,7 @@ import BowlIllustration from "../../components/BowlIllustration";
 import useBowl from "../../hooks/useBowl";
 import useUserStreamingServices from "../../hooks/useUserStreamingServices";
 import { getTmdbMovieDetails } from "../../lib/tmdbApi";
+import { getDrawMethod } from "../../utils/drawMethods";
 import { clampTheaterTrailerCount } from "../../utils/drawSettings";
 import { getPosterUrl } from "../../utils/getPosterUrl";
 import { matchUserServices } from "../../utils/streamingServices";
@@ -570,7 +571,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
     errorMessage: bowlError,
     handleDraw,
     handleReaddMovie,
-  } = useBowl(bowlId);
+  } = useBowl(bowlId, { drawMethod: bowlMeta.drawMethod });
   const {
     streamingServices,
     defaultDrawSettings,
@@ -964,7 +965,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
                 ))}
                 <li>
                   <span aria-hidden="true">✓</span>
-                  Person-first random draw
+                  {getDrawMethod(bowlMeta.drawMethod).label} random draw
                 </li>
               </ul>
             )}

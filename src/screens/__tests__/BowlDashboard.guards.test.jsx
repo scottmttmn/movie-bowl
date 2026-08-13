@@ -7,6 +7,10 @@ const mocks = vi.hoisted(() => {
     navigate: vi.fn(),
     authUserId: "u1",
     bowlRow: { name: "Bowl 1", owner_id: "u1", draw_access_mode: "all_members" },
+    // Flipped off to stand in for a deploy that reaches users before the
+    // draw_method migration is applied.
+    hasDrawMethodColumn: true,
+    useBowlOptions: null,
     memberRows: [{ user_id: "u1" }, { user_id: "u2" }],
     drawPermissionRows: [],
     bowlData: {
@@ -34,12 +38,24 @@ const mocks = vi.hoisted(() => {
       })),
     },
     from: vi.fn((table) => {
+      let selectedColumns = "";
       const query = {
-        select: vi.fn(() => query),
+        select: vi.fn((columns) => {
+          selectedColumns = String(columns || "");
+          return query;
+        }),
         eq: vi.fn(() => query),
         maybeSingle: vi.fn(async () => ({ data: { user_id: state.authUserId }, error: null })),
         single: vi.fn(async () => {
-          if (table === "bowls") return { data: state.bowlRow, error: null };
+          if (table === "bowls") {
+            if (!state.hasDrawMethodColumn && selectedColumns.includes("draw_method")) {
+              return {
+                data: null,
+                error: { message: 'column bowls.draw_method does not exist' },
+              };
+            }
+            return { data: state.bowlRow, error: null };
+          }
           return { data: null, error: null };
         }),
         then: (resolve, reject) => {
@@ -64,16 +80,21 @@ const mocks = vi.hoisted(() => {
 });
 
 vi.mock("../../hooks/useBowl", () => ({
-  default: () => ({
-    bowl: mocks.state.bowlData,
-    drawOdds: mocks.state.drawOdds,
-    isLoading: false,
-    errorMessage: null,
-    handleDraw: mocks.state.handleDraw,
-    handleAddMovie: mocks.state.handleAddMovie,
-    handleDeleteMovie: mocks.state.handleDeleteMovie,
-    handleReaddMovie: mocks.state.handleReaddMovie,
-  }),
+  default: (_bowlId, options) => {
+    // The screen owns the bowl row, so what it hands the hook is the wiring
+    // that decides how the bowl actually draws.
+    mocks.state.useBowlOptions = options;
+    return {
+      bowl: mocks.state.bowlData,
+      drawOdds: mocks.state.drawOdds,
+      isLoading: false,
+      errorMessage: null,
+      handleDraw: mocks.state.handleDraw,
+      handleAddMovie: mocks.state.handleAddMovie,
+      handleDeleteMovie: mocks.state.handleDeleteMovie,
+      handleReaddMovie: mocks.state.handleReaddMovie,
+    };
+  },
 }));
 
 vi.mock("../../hooks/useUserStreamingServices", () => ({
@@ -126,6 +147,8 @@ describe("BowlDashboard guards", () => {
     mocks.state.navigate.mockReset();
     mocks.state.authUserId = "u1";
     mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", draw_access_mode: "all_members" };
+    mocks.state.hasDrawMethodColumn = true;
+    mocks.state.useBowlOptions = null;
     mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
     mocks.state.drawPermissionRows = [];
     mocks.state.bowlData = {
@@ -162,6 +185,45 @@ describe("BowlDashboard guards", () => {
     expect(summary.closest("details")).not.toHaveAttribute("open");
 
     fireEvent.click(summary);
+
+    expect(screen.getByText(/each person is equally likely to be selected/i)).toBeInTheDocument();
+    expect(mocks.state.useBowlOptions).toEqual({ drawMethod: "person_first" });
+  });
+
+  it("explains a title-first bowl with title-first copy and draws that way", async () => {
+    mocks.state.bowlRow = {
+      name: "Bowl 1",
+      owner_id: "u1",
+      draw_access_mode: "all_members",
+      draw_method: "title_first",
+    };
+
+    renderDashboard();
+
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(mocks.state.useBowlOptions).toEqual({ drawMethod: "title_first" })
+    );
+
+    fireEvent.click(screen.getByText("How this bowl picks"));
+
+    expect(screen.getByText(/every movie is equally likely/i)).toBeInTheDocument();
+    expect(screen.queryByText(/each person is equally likely to be selected/i)).not.toBeInTheDocument();
+  });
+
+  it("falls back to person-first when the draw_method column is missing", async () => {
+    mocks.state.hasDrawMethodColumn = false;
+
+    renderDashboard();
+
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    // The bowl still loads, still draws, and still describes itself correctly.
+    expect(screen.getByRole("button", { name: /draw/i })).toBeEnabled();
+    expect(mocks.state.navigate).not.toHaveBeenCalled();
+    expect(mocks.state.useBowlOptions).toEqual({ drawMethod: "person_first" });
+
+    fireEvent.click(screen.getByText("How this bowl picks"));
 
     expect(screen.getByText(/each person is equally likely to be selected/i)).toBeInTheDocument();
   });

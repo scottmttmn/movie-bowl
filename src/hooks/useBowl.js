@@ -4,7 +4,7 @@ import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { getDrawSelection } from "../utils/drawSelection";
-import { buildDrawOddsStats } from "../utils/drawBuckets";
+import { buildDrawOddsStats, DEFAULT_DRAW_METHOD } from "../utils/drawMethods";
 
 const DUPLICATE_MOVIE_MESSAGE = "This movie is already in the bowl.";
 
@@ -66,7 +66,7 @@ function attachContributorProfile(row, profileEmailByUserId) {
 // useBowl is the core state engine for a bowl.
 // It manages bowl state and defines how that state transitions (add + draw).
 
-export default function useBowl(bowlId) {
+export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {}) {
   // Primary bowl state:
   // - remaining: movies not yet drawn (drawn_at is null)
   // - watched: bowl draw events that have not been returned to the bowl
@@ -80,7 +80,10 @@ export default function useBowl(bowlId) {
   const [errorMessage, setErrorMessage] = useState(null);
   const addRequestsInFlightRef = useRef(new Set());
 
-  const drawOdds = useMemo(() => buildDrawOddsStats(bowl.remaining || []), [bowl.remaining]);
+  const drawOdds = useMemo(
+    () => buildDrawOddsStats(bowl.remaining || [], drawMethod),
+    [bowl.remaining, drawMethod]
+  );
 
   const loadBowlMovies = useCallback(async () => {
     if (!bowlId) {
@@ -211,6 +214,7 @@ export default function useBowl(bowlId) {
       fetchProviders: (tmdbId) => fetchStreamingProviders(tmdbId, { region: "US" }),
       fetchMovieDetails: (tmdbId) => getTmdbMovieDetails(tmdbId),
       randomFn: options.randomFn,
+      drawMethod: options.drawMethod ?? drawMethod,
     });
     if (drawError) {
       setErrorMessage(drawError);
@@ -257,7 +261,7 @@ export default function useBowl(bowlId) {
       streamingRegion: selected.region || "US",
       streamingFetchedAt: selected.fetchedAt || null,
     };
-  }, [bowlId, bowl.remaining, loadBowlMovies]);
+  }, [bowlId, bowl.remaining, loadBowlMovies, drawMethod]);
 
   // Insert a movie into the DB for this bowl. We store snapshot fields from TMDB.
   const handleAddMovie = useCallback(

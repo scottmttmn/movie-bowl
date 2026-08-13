@@ -21,7 +21,7 @@ npm run build        # production build — run this for any UI/app change
 ```
 
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
-A clean checkout is expected to be fully green (52 test files / 329 tests, lint
+A clean checkout is expected to be fully green (53 test files / 355 tests, lint
 with zero warnings); if something fails, it is your change.
 
 Single test file: `npx vitest run src/utils/__tests__/drawSelection.test.js`.
@@ -97,8 +97,9 @@ because they are the atomic/permission-checked path:
 
 `get_my_bowls_with_counts`, `get_bowl_profile_directory`,
 `get_my_invite_sender_directory`, `draw_bowl_movie`, `return_bowl_draw_to_bowl`,
-`save_bowl_draw_access`, `delete_owned_bowl`, `consume_bowl_add_link`,
-`create_manual_watch_event`, `update_user_watch_event`, `delete_user_watch_event`.
+`save_bowl_draw_access`, `save_bowl_draw_method`, `delete_owned_bowl`,
+`consume_bowl_add_link`, `create_manual_watch_event`, `update_user_watch_event`,
+`delete_user_watch_event`.
 
 Custom (non-TMDB) movies carry a **negative synthetic `tmdb_id`** so that
 NOT NULL deployments still accept them. Any code that hits TMDB must filter for
@@ -123,12 +124,29 @@ rating, genre, and runtime filters in that order, each with an
 empties the pool → `selectDrawCandidate` (`utils/selectDrawCandidate.js`) picks
 the movie → the `draw_bowl_movie` RPC persists it atomically → the bowl reloads.
 
-Selection is **person-first**: bucket the candidates by contributor
+The final pick is the bowl's **draw method**, an owner-controlled setting on
+`bowls.draw_method` saved through `save_bowl_draw_method`. The methods live in
+`utils/drawMethods.js` — a registry keyed by id, each owning its `pick`, its
+`buildOdds`, and the copy every surface renders. `normalizeDrawMethod` falls
+back to the default for anything unrecognized, so a value written by a newer
+deploy cannot break an older client.
+
+The default is and stays **person-first**: bucket the candidates by contributor
 (`getContributorBucketKey`), pick a bucket uniformly at random, then pick a
-movie within it. Someone who added 25 titles does not get 25× the odds. This is
-a stated product promise, surfaced by `DrawMethodDisclosure` and
-`buildDrawOddsStats`, and repeated in `output/designs/bowl-draw-methods.md`.
-Do not change it to a flat raffle as an optimization or a side effect.
+movie within it. Someone who added 25 titles does not get 25× the odds. That is
+a stated product promise for person-first bowls. `title_first` is a flat raffle
+and exists only because an owner explicitly chose it — never make it the
+default, and never turn person-first into it as an optimization or a side
+effect.
+
+The method replaces only the last step of selection. It runs on whatever pool
+survives filtering and streaming priority, and it never re-expands or reorders
+those stages. Both `selectDrawCandidate` call sites go through it, so any new
+method must handle raw movie rows *and* `{ movie, providers }` wrappers.
+
+Method copy has one source of truth. `DrawMethodDisclosure`, the TV preference
+list, and Bowl Settings all read `label`/`description`/`disclosure` off the
+registry — do not hardcode a sentence about odds anywhere else.
 
 Streaming prioritization narrows the pool *before* the contributor bucketing:
 with `prioritizeByServiceRank` it keeps only the top-ranked matching service,

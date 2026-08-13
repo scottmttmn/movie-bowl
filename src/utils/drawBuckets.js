@@ -55,28 +55,3 @@ export function getMovieAttributionAccent(movie) {
     : getContributorBucketKey(movie);
   return CONTRIBUTOR_ACCENTS[Math.abs(getStableStringHash(contributorKey)) % CONTRIBUTOR_ACCENTS.length];
 }
-
-export function buildDrawOddsStats(movies = []) {
-  const buckets = new Map();
-
-  (movies || []).forEach((movie) => {
-    if (!movie || movie.local_status === "syncing") return;
-    const key = getContributorBucketKey(movie);
-    if (!buckets.has(key)) {
-      buckets.set(key, {
-        bucketKey: key,
-        member: getContributorBucketLabel(movie),
-        movieCount: 0,
-        drawOdds: 0,
-      });
-    }
-    buckets.get(key).movieCount += 1;
-  });
-
-  const stats = Array.from(buckets.values()).sort((a, b) => a.member.localeCompare(b.member));
-  const bucketCount = stats.length;
-  return stats.map((stat) => ({
-    ...stat,
-    drawOdds: bucketCount > 0 ? 1 / bucketCount : 0,
-  }));
-}

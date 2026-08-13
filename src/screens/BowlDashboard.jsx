@@ -29,6 +29,7 @@ import {
   RUNTIME_FILTER_MAX_MINUTES,
   RUNTIME_FILTER_MIN_MINUTES,
 } from "../utils/drawSettings";
+import { DEFAULT_DRAW_METHOD, normalizeDrawMethod } from "../utils/drawMethods";
 
 
 export default function BowlDashboard() {
@@ -36,6 +37,7 @@ export default function BowlDashboard() {
     const DRAW_ACCESS_MODE_SELECTED = "selected_members";
     
     const { bowlId } = useParams();
+    const [drawMethod, setDrawMethod] = useState(DEFAULT_DRAW_METHOD);
     const {
       bowl,
       isLoading,
@@ -44,7 +46,7 @@ export default function BowlDashboard() {
       handleAddMovie,
       handleDeleteMovie,
       handleReaddMovie,
-    } = useBowl(bowlId);
+    } = useBowl(bowlId, { drawMethod });
 
     const [showSearch, setShowSearch] = useState(false);
     const [drawnMovie, setDrawnMovie] = useState(null);
@@ -220,6 +222,8 @@ export default function BowlDashboard() {
 
       const isMissingDrawAccessColumn = (error) =>
         String(error?.message || "").toLowerCase().includes("draw_access_mode");
+      const isMissingDrawMethodColumn = (error) =>
+        String(error?.message || "").toLowerCase().includes("draw_method");
       const isMissingDrawPermissionsTable = (error) => {
         const text = String(error?.message || "").toLowerCase();
         return text.includes("bowl_draw_permissions") && text.includes("does not exist");
@@ -246,11 +250,25 @@ export default function BowlDashboard() {
         }
         if (!cancelled) setCurrentUserId(userId);
 
+        // Frontend can reach users before the migration is applied, so each
+        // optional column is dropped one at a time. Falling back past
+        // draw_access_mode for a missing draw_method would quietly widen who
+        // the screen thinks can draw.
         let { data, error } = await supabase
           .from("bowls")
-          .select("name, owner_id, draw_access_mode")
+          .select("name, owner_id, draw_access_mode, draw_method")
           .eq("id", bowlId)
           .single();
+
+        if (error && isMissingDrawMethodColumn(error)) {
+          const fallback = await supabase
+            .from("bowls")
+            .select("name, owner_id, draw_access_mode")
+            .eq("id", bowlId)
+            .single();
+          data = fallback.data;
+          error = fallback.error;
+        }
 
         if (error && isMissingDrawAccessColumn(error)) {
           const fallback = await supabase
@@ -319,6 +337,7 @@ export default function BowlDashboard() {
             ? DRAW_ACCESS_MODE_SELECTED
             : DRAW_ACCESS_MODE_ALL
         );
+        setDrawMethod(normalizeDrawMethod(data?.draw_method));
       };
 
       loadBowlName();
@@ -482,7 +501,7 @@ return (
                 <div className="mt-2 text-center">
                   <RemainingCount count={bowl.remaining.length} />
                 </div>
-                <DrawMethodDisclosure />
+                <DrawMethodDisclosure drawMethod={drawMethod} />
                 {drawGuardMessage && (
                   <p className="mt-2 text-center text-sm text-amber-300">{drawGuardMessage}</p>
                 )}
