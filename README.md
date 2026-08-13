@@ -1,38 +1,62 @@
 # Movie Bowl
 
-Movie Bowl is a collaborative app for maintaining a shared movie list and randomly drawing what to watch next.
+**Live app: [moviebowl.app](https://moviebowl.app)**
+
+Movie Bowl is a collaborative app for keeping a shared movie list and randomly
+drawing what to watch next. Everyone in a bowl adds titles, and the draw picks a
+contributor first — so the person who added 25 movies does not get 25× the odds.
 
 ## What It Does
 
-- Create and join bowls.
+**Bowls**
+
+- Create bowls, invite people by email, and manage members.
 - Return straight to the bowl you last opened; the full list stays at `/bowls`.
-- Add movies from TMDB search.
-- Add custom/manual movie entries.
-- Draw a random movie by first choosing an eligible contributor bucket uniformly, then choosing one movie from that bucket.
-- Optionally prioritize draws to titles available on your streaming services.
-- Explain the person-first draw method without surfacing competitive odds.
-- Track watched titles in a horizontal history strip.
-- Open full movie details from:
-  - a newly drawn movie
-  - search results (`Details`)
-  - watched movie cards
+- Manage who is allowed to draw, per bowl (everyone, or a selected allow-list).
+- Create public add links so people without accounts can add a fixed number of
+  titles.
+
+**Movies**
+
+- Add movies from TMDB search, or add custom/manual entries.
+- Open full movie details from a newly drawn movie, from search results, or from
+  a watched movie card.
 - Watch official TMDB trailers inline from movie detail views.
-- Manage bowl members and invite links.
-- Manage draw access by bowl.
-- Create public add links that allow a fixed number of anonymous/movie-guest adds.
-- Store user streaming service preferences.
+
+**The draw**
+
+- Draw a random movie by first choosing an eligible contributor bucket
+  uniformly, then choosing one movie from that bucket.
+- Narrow the pool before drawing with rating, genre, and runtime filters, each
+  with an "include unknown" escape hatch.
+- Optionally prioritize titles available on your streaming services.
+- See the person-first method explained without surfacing competitive odds.
+- Return a drawn movie to the bowl without erasing the fact that it was drawn.
+
+**History**
+
+- Track bowl activity in a horizontal watched-movie strip.
+- Keep a personal watch list at `/watch-list` that survives leaving or deleting
+  a bowl, including manually added entries.
+- Export watched titles as a Letterboxd-compatible CSV.
+
+**TV**
+
+- A separate TV experience at `/tv` with D-pad/remote spatial navigation, a bowl
+  picker, and a theater-mode trailer pre-roll before the pick is revealed.
 
 ## Tech Stack
 
 - React 19 + Vite 7
-- React Router
-- Supabase (auth + database)
+- React Router 7
+- Supabase (auth, Postgres, RLS)
+- Vercel serverless functions for anything needing a secret
 - Tailwind CSS
 - Vitest + Testing Library
 
 ## Local Setup
 
-1. Install dependencies:
+1. Install dependencies (Node `>=20.19 <21` or `>=22.12`):
 
 ```bash
 npm install
@@ -67,6 +91,9 @@ If you only need frontend-only iteration, you can still use:
 npm run dev
 ```
 
+Note that `npm run dev` does not serve the serverless functions, so `/api/*`
+requests 404 — TMDB search, invite email, and public add links need `vercel dev`.
+
 ## Scripts
 
 - `npm run dev` - start dev server
@@ -75,6 +102,57 @@ npm run dev
 - `npm run lint` - run ESLint
 - `npm run test` - start Vitest in watch mode
 - `npm run test:run` - run tests once
+- `npm run test:coverage` - run tests with coverage
+
+## Project Layout
+
+```
+src/
+  App.jsx            router, route guards, invite acceptance
+  screens/           one screen per route, lazily imported
+  components/        shared UI
+  hooks/             stateful data layer (useBowl, useAuth, useAutosave, ...)
+  lib/               external-service clients (supabase, tmdbApi, streamingProviders)
+  utils/             pure logic (draw selection, filters, formatting, storage)
+  tv/                self-contained TV experience: own screens, hooks, css
+  index.css          design tokens + shared component classes
+api/                 Vercel serverless functions (not part of the Vite build)
+  _lib/              server-only helpers (supabaseAdmin, tmdb)
+supabase/
+  migrations/        source of truth for schema, RLS, functions
+  tests/             pgTAP tests for security-sensitive migrations
+  rollback/          staged reverts, kept out of migrations/ on purpose
+output/designs/      design specs and roadmaps for shipped + planned features
+```
+
+### Routes
+
+`/` (redirects to your last opened bowl), `/bowls`, `/bowl/:bowlId`,
+`/bowl/:bowlId/settings`, `/settings`, `/watch-list`, `/invites`, `/about`,
+`/login`, `/accept-invite/:token`, `/add-to-bowl/:token`, `/tv/*`.
+
+Everything except `/login`, `/about`, `/accept-invite/:token`, and
+`/add-to-bowl/:token` requires a signed-in user.
+
+### Key Files
+
+- App shell/routes: `src/App.jsx`
+- Bowl state and draw handlers: `src/hooks/useBowl.js`
+- Draw filtering: `src/utils/drawSelection.js`
+- Draw candidate selection: `src/utils/selectDrawCandidate.js`
+- Contributor bucketing: `src/utils/drawBuckets.js`
+- User streaming settings hook: `src/hooks/useUserStreamingServices.js`
+- Bowl dashboard UI: `src/screens/BowlDashboard.jsx`
+- Bowl settings UI: `src/screens/BowlSettings.jsx`
+- User settings UI: `src/screens/UserSettings.jsx`
+- Watch list UI: `src/screens/WatchListPage.jsx`
+- TV experience: `src/tv/TvApp.jsx`
+- Invite email route: `api/invites/send.js`
+- Public add-link routes: `api/add-links/*`
+
+For how the code is put together and the conventions to follow when changing it,
+see `CLAUDE.md`. For reliability guardrails and the release smoke checklist, see
+`STABILITY.md`. `TODO.md` is the live backlog.
 
 ## Streaming-Service Logic
 
@@ -85,20 +163,31 @@ npm run dev
   - proxied through server routes in `api/tmdb/*` so the TMDB key stays server-side
   - includes in-memory caching + in-flight request deduping
 - Draw behavior:
-  - if prioritize toggle is on and matches exist, draw from matches
-  - if no matches, fallback to all remaining titles
+  - if the prioritize toggle is on and matches exist, draw from matches
+  - if no matches, fall back to all remaining titles
+- This narrowing happens *before* contributor bucketing, so it changes which
+  titles are eligible, not the equal-per-person odds among them.
 
-## Key Files
+## Environment Variables
 
-- App shell/routes: `src/App.jsx`
-- Bowl state and draw logic: `src/hooks/useBowl.js`
-- Draw candidate selection: `src/utils/selectDrawCandidate.js`
-- User streaming settings hook: `src/hooks/useUserStreamingServices.js`
-- Bowl dashboard UI: `src/screens/BowlDashboard.jsx`
-- Bowl settings UI: `src/screens/BowlSettings.jsx`
-- User settings UI: `src/screens/UserSettings.jsx`
-- Invite email route: `api/invites/send.js`
-- Public add-link routes: `api/add-links/*`
+### Browser-visible
+
+- `VITE_SUPABASE_URL`
+- `VITE_SUPABASE_ANON_KEY`
+
+These are visible in the browser bundle by design.
+
+### Server-only
+
+- `TMDB_READ_ACCESS_TOKEN`
+- `SUPABASE_URL`
+- `SUPABASE_SERVICE_ROLE_KEY`
+- `APP_BASE_URL`
+- `RESEND_API_KEY`
+- `INVITE_EMAIL_FROM`
+
+Do not prefix server-only values with `VITE_`. `SUPABASE_SERVICE_ROLE_KEY`
+bypasses RLS, so every route that uses it must do its own authorization.
 
 ## Production Setup
 
@@ -124,7 +213,7 @@ npm run dev
 
 ### Auth email delivery
 
-- The app still uses Supabase magic-link auth
+- The app uses Supabase magic-link auth
 - To avoid the default Supabase email rate limits, configure custom SMTP in Supabase Auth
 - Recommended branded sender:
   - `Movie Bowl <auth@mail.moviebowl.app>`
@@ -147,31 +236,41 @@ npm run dev
   - `POST /api/add-links/consume`
 - Link users do not need to sign in.
 
-## Environment Variables
+## Data Model
 
-### Browser-visible
+Tables the app touches:
 
-- `VITE_SUPABASE_URL`
-- `VITE_SUPABASE_ANON_KEY`
+- `profiles`
+- `bowls`
+- `bowl_members`
+- `bowl_movies`
+- `bowl_invites`
+- `bowl_draw_permissions`
+- `bowl_add_links`
+- `bowl_draw_events` — immutable bowl-side record of each draw
+- `user_watch_events` — per-participant personal history
+- `bowl_movie_queue` — legacy compatibility table; not written to
 
-These are visible in the browser bundle by design.
+A draw writes one `bowl_draw_events` row plus one `user_watch_events` row per
+participant, which is why personal history survives leaving or deleting a bowl.
+Returning a movie to the bowl sets `returned_at` on the draw event rather than
+deleting it.
 
-### Server-only
+Custom (non-TMDB) movies carry a negative synthetic `tmdb_id`, so anything that
+calls TMDB must filter for `Number(tmdb_id) > 0` first.
 
-- `TMDB_READ_ACCESS_TOKEN`
-- `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
-- `APP_BASE_URL`
-- `RESEND_API_KEY`
-- `INVITE_EMAIL_FROM`
+RPCs the client calls (preferred over multi-statement client writes, because
+they are the atomic and permission-checked path):
 
-Do not prefix server-only values with `VITE_`.
+`get_my_bowls_with_counts`, `get_bowl_profile_directory`,
+`get_my_invite_sender_directory`, `draw_bowl_movie`, `return_bowl_draw_to_bowl`,
+`save_bowl_draw_access`, `delete_owned_bowl`, `consume_bowl_add_link`,
+`create_manual_watch_event`, `update_user_watch_event`, `delete_user_watch_event`.
 
 ## Supabase Schema & Policies (Git-tracked)
 
-Store all Supabase schema and RLS/policy changes in:
-
-- `supabase/migrations/`
+Store all Supabase schema and RLS/policy changes in `supabase/migrations/` with
+a timestamped filename — never make dashboard-only edits.
 
 Quick workflow:
 
@@ -202,17 +301,21 @@ supabase db push
 
 5. Commit migrations to git.
 
-See `supabase/README.md` for details.
+For permission-sensitive changes, add a pgTAP test in `supabase/tests/` and a
+revert in `supabase/rollback/`. See `supabase/README.md` for details.
 
 ## Tests
 
-Current tests include:
+Tests live in `__tests__/` next to the code they cover. Current coverage
+includes:
 
-- Bowl/dashboard flow tests
+- Bowl dashboard and draw flow tests (`src/screens/__tests__/BowlDashboard.*.test.jsx`)
 - Bowl settings and invite integration tests
 - Public add-link API and page tests
 - Draw selection unit tests (`src/utils/__tests__/selectDrawCandidate.test.js`)
 - Hook-level bowl integration tests (`src/hooks/__tests__/useBowl.test.js`)
+- TV navigation and theater-mode tests (`src/tv/__tests__/`)
+- pgTAP tests for security-sensitive migrations (`supabase/tests/`)
 
 Run all tests:
 
@@ -220,19 +323,6 @@ Run all tests:
 npm run test:run
 ```
 
-For ongoing reliability guardrails and a release smoke checklist, see `STABILITY.md`.
-
-## Notes
-
-- The app currently expects a Supabase schema with tables like:
-  - `profiles`
-  - `bowls`
-  - `bowl_movies`
-  - `bowl_members`
-  - `bowl_invites`
-  - `bowl_draw_permissions`
-  - `bowl_movie_queue` (legacy compatibility table; active adds go directly to `bowl_movies`)
-  - `bowl_add_links`
-- There is also an RPC used on the home screen:
-  - `get_my_bowls_with_counts`
-- Public add-link lifecycle and attribution are migration-backed. If you add new DB behavior, keep it in `supabase/migrations` rather than making dashboard-only edits.
+A clean checkout is expected to be fully green, with lint reporting zero
+warnings. Run `npm run test:run` and `npm run build` before committing anything
+non-trivial.
