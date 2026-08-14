@@ -117,6 +117,7 @@ export async function getDrawSelection({
   fetchProviders,
   fetchMovieDetails,
   randomFn,
+  drawMethod,
 }) {
   if (!Array.isArray(remainingMovies) || remainingMovies.length === 0) {
     return { selected: null, errorMessage: null };
@@ -163,6 +164,7 @@ export async function getDrawSelection({
     userStreamingServices,
     fetchProviders,
     randomFn,
+    drawMethod,
   });
 
   return { selected, errorMessage: null };

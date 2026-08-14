@@ -1,5 +1,5 @@
 import { matchUserServices, normalizeStreamingServices } from "./streamingServices";
-import { getContributorBucketKey } from "./drawBuckets";
+import { DEFAULT_DRAW_METHOD, getDrawMethod } from "./drawMethods";
 
 export async function selectDrawCandidate(
   remainingMovies,
@@ -9,6 +9,7 @@ export async function selectDrawCandidate(
     userStreamingServices = [],
     fetchProviders,
     randomFn = Math.random,
+    drawMethod = DEFAULT_DRAW_METHOD,
   } = {}
 ) {
   if (!Array.isArray(remainingMovies) || remainingMovies.length === 0) return null;
@@ -23,23 +24,10 @@ export async function selectDrawCandidate(
     normalizedUserServices.map((service, index) => [service.toLowerCase(), index])
   );
 
-  const pickRandom = (items) => {
-    const index = Math.floor(randomFn() * items.length);
-    return items[index];
-  };
-  const pickRandomByContributor = (items) => {
-    const buckets = new Map();
-    items.forEach((item) => {
-      const movie = item?.movie || item;
-      const bucketKey = getContributorBucketKey(movie);
-      if (!buckets.has(bucketKey)) buckets.set(bucketKey, []);
-      buckets.get(bucketKey).push(item);
-    });
-
-    const bucketList = Array.from(buckets.values()).filter((bucket) => bucket.length > 0);
-    const bucket = pickRandom(bucketList);
-    return pickRandom(bucket);
-  };
+  // The bowl's method replaces only the final pick. It runs on whatever pool
+  // survives filtering and streaming priority, so the two stay composable.
+  const method = getDrawMethod(drawMethod);
+  const pickFromPool = (items) => method.pick(items, { randomFn });
   const getProvidersForMovie = async (movie) => {
     const tmdbId = Number(movie?.tmdb_id);
     if (!Number.isFinite(tmdbId) || tmdbId <= 0) {
@@ -49,7 +37,7 @@ export async function selectDrawCandidate(
   };
 
   if (!canPrioritize) {
-    const movie = pickRandomByContributor(remainingMovies);
+    const movie = pickFromPool(remainingMovies);
     const providerData = await getProvidersForMovie(movie);
     return {
       movie,
@@ -104,5 +92,5 @@ export async function selectDrawCandidate(
     return rankedCandidates.filter((candidate) => candidate.bestRank === topRank);
   })();
 
-  return pickRandomByContributor(drawPool);
+  return pickFromPool(drawPool);
 }

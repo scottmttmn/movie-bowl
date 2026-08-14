@@ -27,10 +27,12 @@ contributor first — so the person who added 25 movies does not get 25× the od
 
 - Draw a random movie by first choosing an eligible contributor bucket
   uniformly, then choosing one movie from that bucket.
+- Or let the bowl owner switch the bowl to a straight title-by-title draw, where
+  every movie in the bowl is equally likely.
 - Narrow the pool before drawing with rating, genre, and runtime filters, each
   with an "include unknown" escape hatch.
 - Optionally prioritize titles available on your streaming services.
-- See the person-first method explained without surfacing competitive odds.
+- See the bowl's active draw method explained without surfacing competitive odds.
 - Return a drawn movie to the bowl without erasing the fact that it was drawn.
 
 **History**

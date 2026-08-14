@@ -230,4 +230,66 @@ describe("selectDrawCandidate", () => {
     expect(selected.providers).toEqual([]);
     expect(fetchProviders).not.toHaveBeenCalled();
   });
+
+  it("draws by the bowl's method instead of contributor buckets when asked", async () => {
+    const movies = [
+      { id: "u1-1", tmdb_id: 101, title: "Movie A", added_by: "user-1" },
+      { id: "u1-2", tmdb_id: 102, title: "Movie B", added_by: "user-1" },
+      { id: "u1-3", tmdb_id: 103, title: "Movie C", added_by: "user-1" },
+      { id: "u2-1", tmdb_id: 201, title: "Movie D", added_by: "user-2" },
+    ];
+    const fetchProviders = vi.fn(async () => ({ providers: [], region: "US", fetchedAt: null }));
+
+    // Person-first would read 0.5 as "the second of two contributors"; title-first
+    // reads it as "the third of four titles".
+    const selected = await selectDrawCandidate(movies, {
+      prioritizeByServices: false,
+      fetchProviders,
+      randomFn: () => 0.5,
+      drawMethod: "title_first",
+    });
+
+    expect(selected.movie.id).toBe("u1-3");
+  });
+
+  it("applies the method to the streaming-narrowed pool, not the full one", async () => {
+    const movies = [
+      { id: "u1-1", tmdb_id: 101, title: "Movie A", added_by: "user-1" },
+      { id: "u1-2", tmdb_id: 102, title: "Movie B", added_by: "user-1" },
+      { id: "u2-1", tmdb_id: 201, title: "Movie C", added_by: "user-2" },
+    ];
+    const fetchProviders = vi.fn(async (tmdbId) => {
+      if (tmdbId === 101) return { providers: ["Netflix"], region: "US", fetchedAt: null };
+      return { providers: ["Max"], region: "US", fetchedAt: null };
+    });
+
+    // Only Movie A is on Netflix, so a title-first draw over the narrowed pool
+    // has exactly one title to choose from however the random lands.
+    const selected = await selectDrawCandidate(movies, {
+      prioritizeByServices: true,
+      userStreamingServices: ["Netflix"],
+      fetchProviders,
+      randomFn: () => 0.9,
+      drawMethod: "title_first",
+    });
+
+    expect(selected.movie.id).toBe("u1-1");
+  });
+
+  it("ignores an unknown method rather than failing the draw", async () => {
+    const movies = [
+      { id: "u1-1", tmdb_id: 101, title: "Movie A", added_by: "user-1" },
+      { id: "u2-1", tmdb_id: 201, title: "Movie B", added_by: "user-2" },
+    ];
+    const fetchProviders = vi.fn(async () => ({ providers: [], region: "US", fetchedAt: null }));
+
+    const selected = await selectDrawCandidate(movies, {
+      prioritizeByServices: false,
+      fetchProviders,
+      randomFn: () => 0,
+      drawMethod: "rotation",
+    });
+
+    expect(selected.movie.id).toBe("u1-1");
+  });
 });

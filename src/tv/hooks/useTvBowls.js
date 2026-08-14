@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
+import { DEFAULT_DRAW_METHOD, normalizeDrawMethod } from "../../utils/drawMethods";
 
 function getActivityTime(bowl) {
   const time = new Date(bowl?.lastActivityAt || 0).getTime();
@@ -96,6 +97,7 @@ export function useTvBowlAccess(bowlId, userId) {
     name: "Movie Bowl",
     ownerId: null,
     canDraw: false,
+    drawMethod: DEFAULT_DRAW_METHOD,
   });
   const [isLoading, setIsLoading] = useState(Boolean(bowlId && userId));
   const [errorMessage, setErrorMessage] = useState(null);
@@ -118,9 +120,25 @@ export function useTvBowlAccess(bowlId, userId) {
       try {
         let { data: bowlRow, error: bowlError } = await supabase
           .from("bowls")
-          .select("name, owner_id, draw_access_mode")
+          .select("name, owner_id, draw_access_mode, draw_method")
           .eq("id", bowlId)
           .single();
+
+        // Drop the optional columns one at a time: retreating past
+        // draw_access_mode because draw_method is missing would hand this
+        // television a draw button it should not have.
+        if (
+          bowlError &&
+          String(bowlError?.message || "").toLowerCase().includes("draw_method")
+        ) {
+          const fallback = await supabase
+            .from("bowls")
+            .select("name, owner_id, draw_access_mode")
+            .eq("id", bowlId)
+            .single();
+          bowlRow = fallback.data;
+          bowlError = fallback.error;
+        }
 
         const missingAccessColumn = String(bowlError?.message || "")
           .toLowerCase()
@@ -184,6 +202,7 @@ export function useTvBowlAccess(bowlId, userId) {
             name: bowlRow.name || "Movie Bowl",
             ownerId: bowlRow.owner_id,
             canDraw,
+            drawMethod: normalizeDrawMethod(bowlRow.draw_method),
           });
         }
       } catch (error) {

@@ -229,7 +229,8 @@ function BowlDemo() {
           <>
             <p className="mt-3 text-center text-xs leading-5 text-slate-300">
               {result.selectedSubject} selected first, then one of {result.moviePronoun} movies. Each
-              member had an equal chance.
+              member had an equal chance — the method every bowl starts with. An owner can switch
+              their bowl to draw title by title instead.
             </p>
             <button
               type="button"

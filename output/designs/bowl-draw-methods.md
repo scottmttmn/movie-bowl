@@ -1,7 +1,9 @@
 # Selectable Draw Methods
 
-Status: plan only; not implemented. This document sequences the work if it is
-picked up. Nothing in the current draw path changes until Phase 1 lands.
+Status: Phase 1 shipped — `person_first` and `title_first` are live, owner-set in
+Bowl Settings, and the disclosure, TV label, and About copy all read from the
+registry. Phase 2 (rotation) is still a plan; nothing in the rotation sections
+below exists in code.
 
 ## Product Idea
 
@@ -209,17 +211,25 @@ method degenerates to plain person-first, which is the correct behavior.
 
 ## Rollout
 
-**Phase 1 — plumbing and two methods.** Add the column, RPC, and
-`drawMethods.js` registry; thread `drawMethod` through `getDrawSelection` →
-`selectDrawCandidate`; ship `person_first` and `title_first`; add the Bowl
-Settings control and make the disclosure copy method-aware. This is shippable on
-its own and is where the compatibility risk lives.
+**Phase 1 — plumbing and two methods.** *Shipped.* The column, RPC, and
+`drawMethods.js` registry; `drawMethod` threaded through `getDrawSelection` →
+`selectDrawCandidate`; `person_first` and `title_first`; the Bowl Settings
+control, owner-editable and read-only for members.
+
+The TV label and About copy shipped with it rather than in Phase 3: both
+asserted equal per-person odds as fact, so leaving them behind would have
+shipped a falsehood the moment a bowl switched to title-first. The TV screen
+also draws, so it reads the bowl's method through `useTvBowlAccess` rather than
+just naming it.
+
+The check constraint allows only shipped methods. Adding `rotation` means
+adding its value in the same migration that implements it, so a stored method
+the client cannot honor never exists.
 
 **Phase 2 — rotation.** Add the history source, the `rotation` method, its
 constraint value, and its disclosure copy.
 
-**Phase 3 — surfaces.** TV label, About copy, and any settings polish that falls
-out of using it.
+**Phase 3 — surfaces.** Any settings polish that falls out of using it.
 
 Phases 1 and 2 each end with the app in a coherent, explainable state.
 

@@ -1,4 +1,8 @@
-export default function DrawMethodDisclosure() {
+import { getDrawMethod } from "../utils/drawMethods";
+
+export default function DrawMethodDisclosure({ drawMethod }) {
+  const method = getDrawMethod(drawMethod);
+
   return (
     <details className="group mx-auto mt-3 max-w-xl text-left">
       <summary className="mx-auto flex w-fit cursor-pointer list-none items-center gap-1.5 rounded-lg px-2.5 py-1.5 text-xs font-medium text-slate-400 transition hover:bg-slate-800/60 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60 [&::-webkit-details-marker]:hidden">
@@ -14,8 +18,7 @@ export default function DrawMethodDisclosure() {
         </span>
       </summary>
       <p className="mx-auto mt-2 max-w-lg rounded-xl border border-slate-800 bg-slate-950/45 px-3.5 py-3 text-sm leading-6 text-slate-300">
-        The bowl first selects a person at random, then selects one of their movies at random. Each
-        person is equally likely to be selected, regardless of how many movies they added.
+        {method.disclosure}
       </p>
     </details>
   );
