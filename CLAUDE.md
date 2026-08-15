@@ -239,3 +239,6 @@ Vitest + Testing Library, jsdom, setup in `src/test/setup.js`. Tests live in
 - Commit subjects are imperative and sentence-case, no prefixes or emoji
   ("Land returning users in their last opened bowl"). Bodies explain the
   reasoning when the change is not obvious.
+- Never put a Claude session link in anything pushed to this repo — no
+  `Claude-Session:` commit trailer, no session URL in a PR body or comment.
+  This repo is public, so those links are world-readable.
