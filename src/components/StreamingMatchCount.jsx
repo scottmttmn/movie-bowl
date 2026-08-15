@@ -12,6 +12,15 @@ const TONE_CLASSES = {
   warning: "border-amber-700 bg-amber-950/30 text-amber-300",
 };
 
+// Hover stays inside the tone's own hue: the chip's border is a state readout
+// (is the draw being filtered?), so a pointer passing over it must not look
+// like that state changed.
+const HOVER_CLASSES = {
+  idle: "hover:border-slate-600 hover:text-slate-300",
+  active: "hover:border-rose-600 hover:text-rose-200",
+  warning: "hover:border-amber-600 hover:text-amber-200",
+};
+
 const DOT_CLASSES = {
   idle: "border border-slate-500",
   active: "bg-rose-400",
@@ -48,7 +57,7 @@ export default function StreamingMatchCount({
         type="button"
         data-tone={pendingTone}
         onClick={onScan}
-        className={`${basePillClasses} ${TONE_CLASSES[pendingTone]} hover:text-slate-200`}
+        className={`${basePillClasses} ${TONE_CLASSES[pendingTone]} ${HOVER_CLASSES[pendingTone]}`}
       >
         <StateDot tone={pendingTone} />
         Count titles on my services
@@ -79,7 +88,7 @@ export default function StreamingMatchCount({
       data-tone={tone}
       onClick={onOpenPreferences}
       aria-label={`${label} Open streaming match preferences.`}
-      className={`${basePillClasses} ${TONE_CLASSES[tone]} hover:border-slate-500`}
+      className={`${basePillClasses} ${TONE_CLASSES[tone]} ${HOVER_CLASSES[tone]}`}
     >
       <StateDot tone={tone} />
       <span>
