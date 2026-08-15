@@ -47,6 +47,10 @@ vi.mock("../../lib/tmdbApi", () => ({
   getTmdbMovieDetails: mocks.getTmdbMovieDetails,
 }));
 
+vi.mock("../../lib/streamingProviders", () => ({
+  fetchStreamingProviders: async () => ({ providers: [], region: "US", fetchedAt: null }),
+}));
+
 import TvTonightScreen from "../screens/TvTonightScreen";
 
 const DRAWN_MOVIE = {
