@@ -16,6 +16,13 @@ import { getDrawMethod } from "../../utils/drawMethods";
 import { clampTheaterTrailerCount } from "../../utils/drawSettings";
 import { getPosterUrl } from "../../utils/getPosterUrl";
 import { matchUserServices } from "../../utils/streamingServices";
+import useBowlStreamingMatches, {
+  STREAMING_MATCH_STATUS,
+} from "../../hooks/useBowlStreamingMatches";
+import {
+  describeStreamingMatch,
+  STREAMING_MATCH_TONE,
+} from "../../utils/streamingMatchSummary";
 import { resolvePreferredWebLaunchCandidate } from "../../utils/webLaunch";
 import TvBrand from "../components/TvBrand";
 import TvTheaterPreroll from "../components/TvTheaterPreroll";
@@ -97,15 +104,44 @@ function buildDrawOptions(defaultDrawSettings, streamingServices, availableGenre
   };
 }
 
-function getPreferenceLines(defaultDrawSettings, streamingServices) {
+// The streaming line is built separately because it carries a count and a
+// state; everything below it is a plain restatement of a saved filter.
+function getStreamingPreferenceLine({
+  defaultDrawSettings,
+  streamingServices,
+  matchStatus,
+  matchCount,
+  topService,
+  topServiceCount,
+}) {
+  const settings = defaultDrawSettings || {};
+  const isPrioritized = Boolean(settings.prioritizeStreaming) && streamingServices.length > 0;
+
+  // Bowls too large to count without asking keep the old service list, since a
+  // television has nowhere to put an opt-in tap.
+  if (matchStatus !== STREAMING_MATCH_STATUS.ready) {
+    return {
+      tone: STREAMING_MATCH_TONE.idle,
+      text: isPrioritized
+        ? `Favoring ${streamingServices.join(", ")}`
+        : "Drawing from every eligible movie",
+    };
+  }
+
+  const { tone, text } = describeStreamingMatch({
+    matchCount,
+    topService,
+    topServiceCount,
+    isPrioritized,
+    useServiceRank: Boolean(settings.useStreamingRank),
+  });
+
+  return { tone, text };
+}
+
+function getPreferenceLines(defaultDrawSettings) {
   const settings = defaultDrawSettings || {};
   const lines = [];
-
-  if (settings.prioritizeStreaming && streamingServices.length > 0) {
-    lines.push(`Favoring ${streamingServices.join(", ")}`);
-  } else {
-    lines.push("Drawing from every eligible movie");
-  }
 
   const ratings = settings.selectedRatings || [];
   if (ratings.length > 0 && ratings.length < 5) {
@@ -604,8 +640,33 @@ export default function TvTonightScreen({ userId, userEmail }) {
     [bowl.remaining]
   );
   const preferenceLines = useMemo(
-    () => getPreferenceLines(defaultDrawSettings, streamingServices),
-    [defaultDrawSettings, streamingServices]
+    () => getPreferenceLines(defaultDrawSettings),
+    [defaultDrawSettings]
+  );
+  const {
+    status: streamingMatchStatus,
+    matchCount: streamingMatchCount,
+    topService: streamingMatchTopService,
+    topServiceCount: streamingMatchTopServiceCount,
+  } = useBowlStreamingMatches(bowl.remaining, streamingServices);
+  const streamingPreferenceLine = useMemo(
+    () =>
+      getStreamingPreferenceLine({
+        defaultDrawSettings,
+        streamingServices,
+        matchStatus: streamingMatchStatus,
+        matchCount: streamingMatchCount,
+        topService: streamingMatchTopService,
+        topServiceCount: streamingMatchTopServiceCount,
+      }),
+    [
+      defaultDrawSettings,
+      streamingServices,
+      streamingMatchStatus,
+      streamingMatchCount,
+      streamingMatchTopService,
+      streamingMatchTopServiceCount,
+    ]
   );
   const preferredWebLaunchCandidate = useMemo(() => {
     if (!drawnMovie) return null;
@@ -957,6 +1018,19 @@ export default function TvTonightScreen({ userId, userEmail }) {
               <p>Loading preferences…</p>
             ) : (
               <ul>
+                <li
+                  data-tone={streamingPreferenceLine.tone}
+                  className={
+                    streamingPreferenceLine.tone === STREAMING_MATCH_TONE.warning
+                      ? "tv-preference-warning"
+                      : undefined
+                  }
+                >
+                  <span aria-hidden="true">
+                    {streamingPreferenceLine.tone === STREAMING_MATCH_TONE.warning ? "!" : "✓"}
+                  </span>
+                  {streamingPreferenceLine.text}
+                </li>
                 {preferenceLines.map((line) => (
                   <li key={line}>
                     <span aria-hidden="true">✓</span>

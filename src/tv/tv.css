@@ -689,6 +689,18 @@
   font-size: 0.62rem;
 }
 
+/* Streaming priority that matches nothing is on but changing nothing, so it
+   reads as a caution rather than a satisfied preference. */
+.tv-preference-panel li.tv-preference-warning {
+  color: #fcd34d;
+}
+
+.tv-preference-panel li.tv-preference-warning span {
+  border-color: rgba(251, 191, 36, 0.38);
+  background: rgba(120, 53, 15, 0.3);
+  color: #fcd34d;
+}
+
 .tv-preference-note {
   margin-top: 1.6rem;
   padding-top: 1.2rem;

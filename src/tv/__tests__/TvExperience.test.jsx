@@ -45,6 +45,9 @@ const mocks = vi.hoisted(() => ({
   handleDraw: vi.fn(),
   handleReaddMovie: vi.fn(),
   getTmdbMovieDetails: vi.fn(),
+  streamingServices: ["Netflix", "Max"],
+  prioritizeStreaming: true,
+  providersByTmdbId: { 101: ["Netflix"] },
 }));
 
 vi.mock("../hooks/useTvBowls", () => ({
@@ -75,11 +78,19 @@ vi.mock("../../hooks/useBowl", () => ({
   }),
 }));
 
+vi.mock("../../lib/streamingProviders", () => ({
+  fetchStreamingProviders: async (tmdbId) => ({
+    providers: mocks.providersByTmdbId[tmdbId] || [],
+    region: "US",
+    fetchedAt: null,
+  }),
+}));
+
 vi.mock("../../hooks/useUserStreamingServices", () => ({
   default: () => ({
-    streamingServices: ["Netflix", "Max"],
+    streamingServices: mocks.streamingServices,
     defaultDrawSettings: {
-      prioritizeStreaming: true,
+      prioritizeStreaming: mocks.prioritizeStreaming,
       useStreamingRank: true,
       selectedRatings: ["PG", "PG-13", "R"],
       includeUnknownRatings: true,
@@ -161,6 +172,9 @@ describe("Movie Bowl TV experience", () => {
     mocks.getTmdbMovieDetails.mockReset();
     mocks.bowlError = null;
     mocks.bowlLoading = false;
+    mocks.streamingServices = ["Netflix", "Max"];
+    mocks.prioritizeStreaming = true;
+    mocks.providersByTmdbId = { 101: ["Netflix"] };
     delete window.YT;
     delete window.onYouTubeIframeAPIReady;
     vi.useRealTimers();
@@ -208,6 +222,30 @@ describe("Movie Bowl TV experience", () => {
 
     fireEvent.keyDown(window, { key: "Enter" });
     expect(screen.getByText("Tonight route")).toBeInTheDocument();
+  });
+
+  it("states how much of the bowl the draw is favoring", async () => {
+    renderTonight();
+
+    expect(await screen.findByText(/favoring 1 on netflix/i)).toBeInTheDocument();
+  });
+
+  it("counts matches without claiming the draw is filtered when prioritizing is off", async () => {
+    mocks.prioritizeStreaming = false;
+
+    renderTonight();
+
+    expect(await screen.findByText(/1 on your services/i)).toBeInTheDocument();
+    expect(screen.queryByText(/favoring/i)).not.toBeInTheDocument();
+  });
+
+  it("warns on TV when streaming priority matches nothing", async () => {
+    mocks.providersByTmdbId = { 101: ["Paramount+"] };
+
+    renderTonight();
+
+    const line = await screen.findByText(/no matches — drawing from all/i);
+    expect(line).toHaveAttribute("data-tone", "warning");
   });
 
   it("draws once with saved preferences and offers no immediate return path", async () => {
