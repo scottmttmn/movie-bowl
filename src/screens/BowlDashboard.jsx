@@ -1,6 +1,7 @@
 import { useEffect, useMemo, useState } from "react";
 import DrawButton from "../components/DrawButton";
 import RemainingCount from "../components/RemainingCount";
+import StreamingMatchCount from "../components/StreamingMatchCount";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
 import MyMoviesStrip from "../components/MyMoviesStrip";
 import AddMovieButton from "../components/AddMovieButton";
@@ -9,6 +10,7 @@ import BowlIllustration from "../components/BowlIllustration";
 import DrawMethodDisclosure from "../components/DrawMethodDisclosure";
 import useBowl from "../hooks/useBowl";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
+import useBowlStreamingMatches from "../hooks/useBowlStreamingMatches";
 import AddMovieModal from "../components/AddMovieModal";
 import DrawAnimationModal from "../components/DrawAnimationModal";
 import { useNavigate, useParams } from "react-router-dom";
@@ -87,6 +89,12 @@ export default function BowlDashboard() {
       defaultDrawSettings,
       loading: isLoadingUserPreferences,
     } = useUserStreamingServices();
+
+    const {
+      status: streamingMatchStatus,
+      matchCount: streamingMatchCount,
+      scan: scanStreamingMatches,
+    } = useBowlStreamingMatches(bowl.remaining, userStreamingServices);
 
     const navigate = useNavigate();
 
@@ -498,8 +506,13 @@ return (
                   />
                 </div>
 
-                <div className="mt-2 text-center">
+                <div className="mt-2 flex flex-wrap items-center justify-center gap-2 text-center">
                   <RemainingCount count={bowl.remaining.length} />
+                  <StreamingMatchCount
+                    status={streamingMatchStatus}
+                    count={streamingMatchCount}
+                    onScan={scanStreamingMatches}
+                  />
                 </div>
                 <DrawMethodDisclosure drawMethod={drawMethod} />
                 {drawGuardMessage && (
