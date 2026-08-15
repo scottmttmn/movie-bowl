@@ -164,6 +164,7 @@ describe("BowlDashboard streaming match count", () => {
     await waitFor(() => expect(screen.getByText(/favoring/i)).toBeInTheDocument());
     expect(screen.getByText("Netflix", { exact: false })).toBeInTheDocument();
     expect(screen.queryByText(/^on your services$/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/favoring/i)).toHaveAttribute("data-tone", "active");
   });
 
   it("favors every match when service ranking is turned off", async () => {
@@ -197,6 +198,8 @@ describe("BowlDashboard streaming match count", () => {
     await waitFor(() =>
       expect(screen.getByText(/no matches — drawing from all/i)).toBeInTheDocument()
     );
+    // A filter that is on but changing nothing should not look like one that works.
+    expect(screen.getByText(/no matches — drawing from all/i)).toHaveAttribute("data-tone", "warning");
   });
 
   it("opens the filter panel so the count leads to the control that changes it", async () => {

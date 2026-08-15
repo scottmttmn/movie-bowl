@@ -5,7 +5,7 @@ import { matchUserServices } from "../utils/streamingServices";
 // Providers are not stored on bowl_movies, so every title costs one TMDB
 // lookup. Small bowls scan on their own; past this we wait for a tap rather
 // than firing hundreds of requests at page load.
-export const AUTO_SCAN_TITLE_LIMIT = 60;
+export const AUTO_SCAN_TITLE_LIMIT = 100;
 
 const MAX_CONCURRENT_LOOKUPS = 6;
 
