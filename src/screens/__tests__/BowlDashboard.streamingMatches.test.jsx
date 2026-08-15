@@ -150,6 +150,74 @@ describe("BowlDashboard streaming match count", () => {
     expect(screen.getByText("1")).toBeInTheDocument();
   });
 
+  it("says the draw is favoring the top-ranked service once prioritizing is on", async () => {
+    mocks.state.streamingServices = ["Netflix", "Max"];
+    mocks.state.providersByTmdbId = { 101: ["Netflix"], 102: ["Max"] };
+
+    render(<BowlDashboard />);
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/on your services/i)).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
+
+    await waitFor(() => expect(screen.getByText(/favoring/i)).toBeInTheDocument());
+    expect(screen.getByText("Netflix", { exact: false })).toBeInTheDocument();
+    expect(screen.queryByText(/^on your services$/i)).not.toBeInTheDocument();
+  });
+
+  it("favors every match when service ranking is turned off", async () => {
+    mocks.state.streamingServices = ["Netflix", "Max"];
+    mocks.state.providersByTmdbId = { 101: ["Netflix"], 102: ["Max"] };
+
+    render(<BowlDashboard />);
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /use streaming service ranking/i }));
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("button", { name: /draw is favoring the 2 remaining titles/i })
+      ).toBeInTheDocument()
+    );
+  });
+
+  it("warns that the draw falls back to every title when nothing matches", async () => {
+    mocks.state.streamingServices = ["Netflix"];
+    mocks.state.providersByTmdbId = { 101: ["Paramount+"], 102: ["Peacock"] };
+
+    render(<BowlDashboard />);
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
+
+    await waitFor(() =>
+      expect(screen.getByText(/no matches — drawing from all/i)).toBeInTheDocument()
+    );
+  });
+
+  it("opens the filter panel so the count leads to the control that changes it", async () => {
+    mocks.state.streamingServices = ["Netflix"];
+    mocks.state.providersByTmdbId = { 101: ["Netflix"] };
+
+    render(<BowlDashboard />);
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/on your services/i)).toBeInTheDocument());
+
+    expect(
+      screen.queryByRole("checkbox", { name: /prioritize streaming services/i })
+    ).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /is not filtered by them/i }));
+
+    expect(
+      screen.getByRole("checkbox", { name: /prioritize streaming services/i })
+    ).toBeInTheDocument();
+  });
+
   it("defers the lookup behind a tap on bowls past the auto-scan limit", async () => {
     mocks.state.streamingServices = ["Netflix"];
     mocks.state.bowlData = {

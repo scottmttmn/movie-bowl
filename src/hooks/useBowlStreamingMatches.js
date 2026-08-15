@@ -16,6 +16,8 @@ export const STREAMING_MATCH_STATUS = {
   ready: "ready",
 };
 
+const EMPTY_RESULT = { matchCount: null, topService: null, topServiceCount: 0 };
+
 function getPositiveTmdbId(movie) {
   const numericId = Number(movie?.tmdb_id ?? movie?.id);
   return Number.isInteger(numericId) && numericId > 0 ? numericId : null;
@@ -40,7 +42,7 @@ export default function useBowlStreamingMatches(
   userStreamingServices,
   { fetchProviders = fetchStreamingProviders, autoScanLimit = AUTO_SCAN_TITLE_LIMIT } = {}
 ) {
-  const [matchCount, setMatchCount] = useState(null);
+  const [result, setResult] = useState(EMPTY_RESULT);
   const [isScanning, setIsScanning] = useState(false);
   const [didRequestScan, setDidRequestScan] = useState(false);
   const runTokenRef = useRef(0);
@@ -76,25 +78,46 @@ export default function useBowlStreamingMatches(
 
     if (!shouldScan) {
       setIsScanning(false);
-      setMatchCount(null);
+      setResult(EMPTY_RESULT);
       return undefined;
     }
 
     setIsScanning(true);
-    let matches = 0;
+    const services = userStreamingServices || [];
+    const countsByService = new Array(services.length).fill(0);
+    const serviceRank = new Map(
+      services.map((service, index) => [service.toLowerCase(), index])
+    );
+    let matchCount = 0;
 
     // fetchStreamingProviders resolves to an empty provider list when a lookup
     // fails, so a flaky request undercounts rather than breaking the chip.
     const countMatches = async (tmdbId) => {
       const providerData = await fetchProviders(tmdbId, { region: "US" });
       if (runTokenRef.current !== runToken) return;
-      const matched = matchUserServices(providerData?.providers || [], userStreamingServices);
-      if (matched.length > 0) matches += 1;
+
+      const matched = matchUserServices(providerData?.providers || [], services);
+      if (matched.length === 0) return;
+
+      matchCount += 1;
+      matched.forEach((service) => {
+        const rank = serviceRank.get(service.toLowerCase());
+        if (typeof rank === "number") countsByService[rank] += 1;
+      });
     };
 
     runWithConcurrency(tmdbIds, countMatches, MAX_CONCURRENT_LOOKUPS).then(() => {
       if (runTokenRef.current !== runToken) return;
-      setMatchCount(matches);
+
+      // Mirrors selectDrawCandidate: ranked prioritization keeps only the
+      // highest-ranked service that matched anything, so that service's tally
+      // is the pool the draw would narrow to.
+      const topRank = countsByService.findIndex((count) => count > 0);
+      setResult({
+        matchCount,
+        topService: topRank === -1 ? null : services[topRank],
+        topServiceCount: topRank === -1 ? 0 : countsByService[topRank],
+      });
       setIsScanning(false);
     });
 
@@ -113,13 +136,15 @@ export default function useBowlStreamingMatches(
   const status = (() => {
     if (!hasServices || tmdbIds.length === 0) return STREAMING_MATCH_STATUS.unavailable;
     if (!shouldScan) return STREAMING_MATCH_STATUS.manual;
-    if (isScanning || matchCount === null) return STREAMING_MATCH_STATUS.scanning;
+    if (isScanning || result.matchCount === null) return STREAMING_MATCH_STATUS.scanning;
     return STREAMING_MATCH_STATUS.ready;
   })();
 
   return {
     status,
-    matchCount,
+    matchCount: result.matchCount,
+    topService: result.topService,
+    topServiceCount: result.topServiceCount,
     eligibleCount: tmdbIds.length,
     scan,
   };

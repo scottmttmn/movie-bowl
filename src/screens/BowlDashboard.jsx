@@ -93,8 +93,11 @@ export default function BowlDashboard() {
     const {
       status: streamingMatchStatus,
       matchCount: streamingMatchCount,
+      topService: streamingMatchTopService,
+      topServiceCount: streamingMatchTopServiceCount,
       scan: scanStreamingMatches,
     } = useBowlStreamingMatches(bowl.remaining, userStreamingServices);
+    const isDrawFilteredByServices = prioritizeStreaming && userStreamingServices.length > 0;
 
     const navigate = useNavigate();
 
@@ -511,7 +514,12 @@ return (
                   <StreamingMatchCount
                     status={streamingMatchStatus}
                     count={streamingMatchCount}
+                    topService={streamingMatchTopService}
+                    topServiceCount={streamingMatchTopServiceCount}
+                    isPrioritized={isDrawFilteredByServices}
+                    useServiceRank={useStreamingRank}
                     onScan={scanStreamingMatches}
+                    onOpenPreferences={() => setShowDrawFilters(true)}
                   />
                 </div>
                 <DrawMethodDisclosure drawMethod={drawMethod} />

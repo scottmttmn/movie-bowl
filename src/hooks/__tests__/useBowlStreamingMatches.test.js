@@ -55,6 +55,58 @@ describe("useBowlStreamingMatches", () => {
     expect(result.current.matchCount).toBe(2);
   });
 
+  it("reports the highest-ranked matching service as the ranked draw pool", async () => {
+    const fetchProviders = createFetchProviders({
+      101: ["Netflix"],
+      102: ["Netflix", "Max"],
+      103: ["Max"],
+      104: ["Paramount+"],
+    });
+
+    const { result } = renderHook(() =>
+      useBowlStreamingMatches(
+        [
+          { id: "m1", tmdb_id: 101 },
+          { id: "m2", tmdb_id: 102 },
+          { id: "m3", tmdb_id: 103 },
+          { id: "m4", tmdb_id: 104 },
+        ],
+        ["Netflix", "Max"],
+        { fetchProviders }
+      )
+    );
+
+    await waitFor(() => expect(result.current.status).toBe(STREAMING_MATCH_STATUS.ready));
+    expect(result.current.matchCount).toBe(3);
+    expect(result.current.topService).toBe("Netflix");
+    expect(result.current.topServiceCount).toBe(2);
+  });
+
+  it("falls back to the next ranked service when the top one matches nothing", async () => {
+    const fetchProviders = createFetchProviders({ 101: ["Max"] });
+
+    const { result } = renderHook(() =>
+      useBowlStreamingMatches([{ id: "m1", tmdb_id: 101 }], ["Netflix", "Max"], { fetchProviders })
+    );
+
+    await waitFor(() => expect(result.current.status).toBe(STREAMING_MATCH_STATUS.ready));
+    expect(result.current.topService).toBe("Max");
+    expect(result.current.topServiceCount).toBe(1);
+  });
+
+  it("reports no top service when nothing matches", async () => {
+    const fetchProviders = createFetchProviders({ 101: ["Paramount+"] });
+
+    const { result } = renderHook(() =>
+      useBowlStreamingMatches([{ id: "m1", tmdb_id: 101 }], ["Netflix"], { fetchProviders })
+    );
+
+    await waitFor(() => expect(result.current.status).toBe(STREAMING_MATCH_STATUS.ready));
+    expect(result.current.matchCount).toBe(0);
+    expect(result.current.topService).toBeNull();
+    expect(result.current.topServiceCount).toBe(0);
+  });
+
   it("skips custom movies carrying a negative tmdb id", async () => {
     const fetchProviders = createFetchProviders({ 101: ["Netflix"] });
 
