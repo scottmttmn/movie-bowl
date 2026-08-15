@@ -7,6 +7,7 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 - Invite inbox polish: state handling for accepted, declined, and stale invites. Visibility is covered by the top nav badge and `/invites` page.
 - Draw filter UX follow-up: keep evaluating whether runtime, genre, and rating controls still feel too dense after recent cleanup.
 - Visual consistency sweep: audit remaining non-core pages and components for raw styling that bypasses shared tokens.
+- Streaming match count follow-ups: the count reports titles on your services, not the eventual draw pool — rating, genre, and runtime filters narrow it further and are not modeled. Bowls over 100 lookup-eligible titles need an explicit tap on the phone, and TV falls back to listing services instead.
 
 ## Future Product Concepts
 
