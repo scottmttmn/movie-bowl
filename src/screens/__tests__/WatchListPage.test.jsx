@@ -21,8 +21,10 @@ const mocks = vi.hoisted(() => {
   function createFilterQuery(result) {
     const query = {
       select: vi.fn(() => query),
+      delete: vi.fn(() => query),
       eq: vi.fn(() => query),
       in: vi.fn(() => query),
+      is: vi.fn(() => query),
       not: vi.fn(() => query),
       order: vi.fn(() => query),
       then(resolve, reject) {
@@ -45,6 +47,11 @@ const mocks = vi.hoisted(() => {
       from: vi.fn((table) => {
         if (table === "user_watch_events") {
           return createFilterQuery({ data: state.watchedRows, error: null });
+        }
+
+        // No bowl copies here — the removal prompt has its own focused test file.
+        if (table === "bowl_movies") {
+          return createFilterQuery({ data: [], error: null });
         }
 
         return createThenable({ data: [], error: null });

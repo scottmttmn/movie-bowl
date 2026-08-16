@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
 import AddMovieModal from "../components/AddMovieModal";
+import RemoveFromBowlsModal from "../components/RemoveFromBowlsModal";
 import WatchHistoryEntryModal from "../components/WatchHistoryEntryModal";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { supabase } from "../lib/supabase";
@@ -46,6 +47,9 @@ export default function WatchListPage() {
   const [editingEntry, setEditingEntry] = useState(null);
   const [entryEditorError, setEntryEditorError] = useState("");
   const [isSavingEntry, setIsSavingEntry] = useState(false);
+  const [bowlRemoval, setBowlRemoval] = useState(null);
+  const [bowlRemovalError, setBowlRemovalError] = useState("");
+  const [isRemovingFromBowls, setIsRemovingFromBowls] = useState(false);
 
   const loadWatchList = useCallback(async () => {
     setIsLoading(true);
@@ -258,6 +262,60 @@ export default function WatchListPage() {
           .filter(Boolean)
       : [];
 
+  // Only your own undrawn slips are offered. RLS would let a bowl owner delete
+  // anyone's row, but silently dropping someone else's title would also shift
+  // person-first odds for the whole bowl with no visible cause.
+  const findOwnUndrawnBowlMovies = async (tmdbId) => {
+    if (!Number.isInteger(tmdbId) || tmdbId <= 0) return [];
+
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      const user = authData?.session?.user;
+
+      if (authError || !user) return [];
+
+      const { data: bowlMovies, error: bowlMoviesError } = await supabase
+        .from("bowl_movies")
+        .select("id, bowl_id")
+        .eq("added_by", user.id)
+        .eq("tmdb_id", tmdbId)
+        .is("drawn_at", null);
+
+      if (bowlMoviesError) {
+        console.error("[WatchListPage] Failed to look up bowl copies", bowlMoviesError);
+        return [];
+      }
+
+      const matches = bowlMovies || [];
+      if (matches.length === 0) return [];
+
+      const { data: bowlRows, error: bowlsError } = await supabase
+        .from("bowls")
+        .select("id, name")
+        .in("id", [...new Set(matches.map((match) => match.bowl_id))]);
+
+      if (bowlsError) {
+        console.error("[WatchListPage] Failed to load bowl names", bowlsError);
+        return [];
+      }
+
+      const bowlNames = new Map((bowlRows || []).map((bowl) => [bowl.id, bowl.name]));
+
+      return matches
+        .filter((match) => bowlNames.has(match.bowl_id))
+        .map((match) => ({
+          id: match.id,
+          bowlId: match.bowl_id,
+          bowlName: bowlNames.get(match.bowl_id),
+        }));
+    } catch (error) {
+      // The prompt is a convenience on top of a saved entry, so a failed lookup
+      // degrades to not offering it rather than breaking the save.
+      console.error("[WatchListPage] Unexpected error looking up bowl copies", error);
+      return [];
+    }
+  };
+
   const handleSaveEntry = async (entry) => {
     const title = String(entry?.title || "").trim();
     if (!title || !entry?.watched_on) {
@@ -270,6 +328,7 @@ export default function WatchListPage() {
 
     try {
       let error;
+      let createdTmdbId = null;
 
       if (editingEntry?.id) {
         ({ error } = await supabase.rpc("update_user_watch_event", {
@@ -280,10 +339,11 @@ export default function WatchListPage() {
         }));
       } else {
         const tmdbId = Number(entry?.tmdb_id ?? entry?.id);
+        createdTmdbId = Number.isInteger(tmdbId) && tmdbId > 0 ? tmdbId : null;
         ({ error } = await supabase.rpc("create_manual_watch_event", {
           p_title: title,
           p_watched_on: entry.watched_on,
-          p_tmdb_id: Number.isInteger(tmdbId) && tmdbId > 0 ? tmdbId : null,
+          p_tmdb_id: createdTmdbId,
           p_poster_path: entry?.poster_path || null,
           p_release_date: entry.release_date || null,
           p_runtime: entry?.runtime || null,
@@ -301,12 +361,66 @@ export default function WatchListPage() {
       setIsEntryEditorOpen(false);
       setEditingEntry(null);
       await loadWatchList();
+
+      if (createdTmdbId) {
+        const matches = await findOwnUndrawnBowlMovies(createdTmdbId);
+
+        if (matches.length > 0) {
+          setBowlRemovalError("");
+          setBowlRemoval({ title, matches });
+        }
+      }
     } catch (error) {
       console.error("[WatchListPage] Unexpected error saving watch history entry", error);
       setEntryEditorError("Could not save this history entry. Please try again.");
     } finally {
       setIsSavingEntry(false);
     }
+  };
+
+  const handleRemoveFromBowls = async (bowlMovieIds) => {
+    const targetIds = (bowlMovieIds || []).filter(Boolean);
+    if (targetIds.length === 0 || isRemovingFromBowls) return;
+
+    setIsRemovingFromBowls(true);
+    setBowlRemovalError("");
+
+    try {
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      const user = authData?.session?.user;
+
+      if (authError || !user) {
+        setBowlRemovalError("Could not remove it from your bowls. Please try again.");
+        return;
+      }
+
+      const { error } = await supabase
+        .from("bowl_movies")
+        .delete()
+        .in("id", targetIds)
+        .eq("added_by", user.id)
+        .is("drawn_at", null);
+
+      if (error) {
+        console.error("[WatchListPage] Failed to remove movie from bowls", error);
+        setBowlRemovalError("Could not remove it from your bowls. Please try again.");
+        return;
+      }
+
+      setBowlRemoval(null);
+    } catch (error) {
+      console.error("[WatchListPage] Unexpected error removing movie from bowls", error);
+      setBowlRemovalError("Could not remove it from your bowls. Please try again.");
+    } finally {
+      setIsRemovingFromBowls(false);
+    }
+  };
+
+  const handleKeepInBowls = () => {
+    if (isRemovingFromBowls) return;
+
+    setBowlRemoval(null);
+    setBowlRemovalError("");
   };
 
   const handleDeleteEntry = async (entry) => {
@@ -550,6 +664,17 @@ export default function WatchListPage() {
           onDelete={handleDeleteEntry}
           isSaving={isSavingEntry}
           errorMessage={entryEditorError}
+        />
+      )}
+
+      {bowlRemoval && (
+        <RemoveFromBowlsModal
+          title={bowlRemoval.title}
+          matches={bowlRemoval.matches}
+          onKeep={handleKeepInBowls}
+          onRemove={handleRemoveFromBowls}
+          isRemoving={isRemovingFromBowls}
+          errorMessage={bowlRemovalError}
         />
       )}
     </div>
