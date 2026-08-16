@@ -56,6 +56,11 @@ const PERSON_FIRST = {
     "Picks a person at random, then one of their movies. Everyone is equally likely, no matter how many movies they added.",
   disclosure:
     "The bowl first selects a person at random, then selects one of their movies at random. Each person is equally likely to be selected, regardless of how many movies they added.",
+  // Equal odds are a promise about people, so a filter that removes everything
+  // one person added quietly removes them from the draw. Say so.
+  bucketsByContributor: true,
+  reachCaveat:
+    "Equal odds only cover the people whose movies survive the current filters. Anyone whose movies are all filtered out cannot be drawn at all.",
   pick(pool, { randomFn = Math.random } = {}) {
     const buckets = groupByContributor(pool);
     return pickUniform(pickUniform(buckets, randomFn), randomFn);
@@ -77,6 +82,9 @@ const TITLE_FIRST = {
     "Picks a title at random from the whole bowl. Adding more movies means more chances to be drawn.",
   disclosure:
     "The bowl selects one title at random from everything in it. Every movie is equally likely, so someone who added more movies is more likely to have one of theirs drawn.",
+  bucketsByContributor: false,
+  reachCaveat:
+    "Only the movies that survive the current filters are in the running, so anyone whose movies are all filtered out cannot be drawn at all.",
   pick(pool, { randomFn = Math.random } = {}) {
     return pickUniform(pool, randomFn);
   },
