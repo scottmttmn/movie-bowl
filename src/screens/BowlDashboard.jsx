@@ -2,6 +2,7 @@ import { useEffect, useMemo, useState } from "react";
 import DrawButton from "../components/DrawButton";
 import RemainingCount from "../components/RemainingCount";
 import StreamingMatchCount from "../components/StreamingMatchCount";
+import DrawPoolCount from "../components/DrawPoolCount";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
 import MyMoviesStrip from "../components/MyMoviesStrip";
 import AddMovieButton from "../components/AddMovieButton";
@@ -11,6 +12,7 @@ import DrawMethodDisclosure from "../components/DrawMethodDisclosure";
 import useBowl from "../hooks/useBowl";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import useBowlStreamingMatches from "../hooks/useBowlStreamingMatches";
+import useDrawPoolCount from "../hooks/useDrawPoolCount";
 import AddMovieModal from "../components/AddMovieModal";
 import DrawAnimationModal from "../components/DrawAnimationModal";
 import { useNavigate, useParams } from "react-router-dom";
@@ -31,7 +33,7 @@ import {
   RUNTIME_FILTER_MAX_MINUTES,
   RUNTIME_FILTER_MIN_MINUTES,
 } from "../utils/drawSettings";
-import { DEFAULT_DRAW_METHOD, normalizeDrawMethod } from "../utils/drawMethods";
+import { DEFAULT_DRAW_METHOD, getDrawMethod, normalizeDrawMethod } from "../utils/drawMethods";
 
 
 export default function BowlDashboard() {
@@ -190,6 +192,42 @@ export default function BowlDashboard() {
       const base = `${runtimeMinMinutes}-${runtimeMaxMinutes} min`;
       return includeUnknownRuntime ? `${base} • Unknown` : base;
     }, [runtimeMinMinutes, runtimeMaxMinutes, includeUnknownRuntime]);
+    // One filter object for both the pool count and the draw itself, so the
+    // number on screen cannot drift from what the draw actually applies.
+    const drawFilters = useMemo(
+      () => ({
+        ratingFilter: {
+          allowedRatings: selectedRatings,
+          includeUnknown: includeUnknownRatings,
+        },
+        genreFilter: {
+          allowedGenres: selectedDrawGenres,
+          includeUnknown: includeUnknownGenres,
+        },
+        runtimeFilter: {
+          minMinutes: runtimeMinMinutes,
+          maxMinutes: runtimeMaxMinutes,
+          includeUnknown: includeUnknownRuntime,
+        },
+      }),
+      [
+        selectedRatings,
+        includeUnknownRatings,
+        selectedDrawGenres,
+        includeUnknownGenres,
+        runtimeMinMinutes,
+        runtimeMaxMinutes,
+        includeUnknownRuntime,
+      ]
+    );
+    const {
+      status: drawPoolStatus,
+      poolCount: drawPoolCount,
+      totalCount: drawPoolTotalCount,
+      contributorReach: drawPoolContributorReach,
+      runLookups: runDrawPoolLookups,
+    } = useDrawPoolCount(bowl.remaining, drawFilters);
+    const drawMethodBucketsByContributor = getDrawMethod(drawMethod).bucketsByContributor;
     const drawnMovieMatchingProviders = useMemo(
       () => (drawnMovie ? matchUserServices(drawnMovie.streamingProviders || [], userStreamingServices) : []),
       [drawnMovie, userStreamingServices]
@@ -432,19 +470,7 @@ export default function BowlDashboard() {
           prioritizeByServices: prioritizeStreaming,
           prioritizeByServiceRank: useStreamingRank,
           userStreamingServices,
-          ratingFilter: {
-            allowedRatings: selectedRatings,
-            includeUnknown: includeUnknownRatings,
-          },
-          genreFilter: {
-            allowedGenres: selectedDrawGenres,
-            includeUnknown: includeUnknownGenres,
-          },
-          runtimeFilter: {
-            minMinutes: runtimeMinMinutes,
-            maxMinutes: runtimeMaxMinutes,
-            includeUnknown: includeUnknownRuntime,
-          },
+          ...drawFilters,
         }).then((movie) => {
           if (movie?.title) {
             setDrawAnimationTitle(movie.title);
@@ -511,6 +537,15 @@ return (
 
                 <div className="mt-2 flex flex-wrap items-center justify-center gap-2 text-center">
                   <RemainingCount count={bowl.remaining.length} />
+                  <DrawPoolCount
+                    status={drawPoolStatus}
+                    poolCount={drawPoolCount}
+                    totalCount={drawPoolTotalCount}
+                    contributorReach={drawPoolContributorReach}
+                    showContributorReach={drawMethodBucketsByContributor}
+                    onRunLookups={runDrawPoolLookups}
+                    onOpenFilters={() => setShowDrawFilters(true)}
+                  />
                   <StreamingMatchCount
                     status={streamingMatchStatus}
                     count={streamingMatchCount}
@@ -522,7 +557,10 @@ return (
                     onOpenPreferences={() => setShowDrawFilters(true)}
                   />
                 </div>
-                <DrawMethodDisclosure drawMethod={drawMethod} />
+                <DrawMethodDisclosure
+                  drawMethod={drawMethod}
+                  contributorReach={drawPoolContributorReach}
+                />
                 {drawGuardMessage && (
                   <p className="mt-2 text-center text-sm text-amber-300">{drawGuardMessage}</p>
                 )}

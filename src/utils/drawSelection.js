@@ -1,5 +1,5 @@
 import { selectDrawCandidate } from "./selectDrawCandidate";
-import { extractUsMovieRating, normalizeMpaaRating } from "./movieRatings";
+import { extractUsMovieRating, MPAA_RATING_OPTIONS, normalizeMpaaRating } from "./movieRatings";
 
 const MOVIE_RATING_CACHE_TTL_MS = 60 * 60 * 1000;
 const movieRatingCache = new Map();
@@ -106,6 +106,74 @@ function filterCandidatesByGenre(movies, genreFilter) {
   });
 }
 
+// A rating filter that allows every rating and keeps unknowns cannot remove
+// anything, so callers can skip the stage entirely — and with it one TMDB
+// lookup per title. This is the default state of the draw filters, which is
+// why the pool count is free for most bowls.
+export function isRatingFilterExhaustive(ratingFilter) {
+  if (!ratingFilter) return true;
+  if (ratingFilter.includeUnknown === false) return false;
+
+  const allowed = new Set(
+    (ratingFilter.allowedRatings || [])
+      .map((rating) => normalizeMpaaRating(rating))
+      .filter(Boolean)
+  );
+  return MPAA_RATING_OPTIONS.every((rating) => allowed.has(rating));
+}
+
+/**
+ * Applies the draw filters and returns the surviving pool.
+ *
+ * The filters are conjunctive, so the surviving set never depends on the order
+ * they run in — only on which message a user sees when one of them empties the
+ * pool. `getDrawSelection` keeps rating first so that message stays what it has
+ * always been; `ratingLast` exists for the pool count, which has no messages to
+ * preserve and wants the free row-local filters to shrink the set before it
+ * pays a TMDB lookup per surviving title.
+ */
+export async function getDrawCandidates({
+  remainingMovies,
+  ratingFilter = null,
+  genreFilter = null,
+  runtimeFilter = null,
+  fetchMovieDetails,
+  ratingLast = false,
+}) {
+  if (!Array.isArray(remainingMovies) || remainingMovies.length === 0) {
+    return { candidates: [], errorMessage: null };
+  }
+
+  const ratingStage = ratingFilter && {
+    errorMessage: "No titles match your selected ratings. Check your filters.",
+    run: (movies) => filterCandidatesByRating(movies, ratingFilter, fetchMovieDetails),
+  };
+  const cheapStages = [
+    genreFilter && {
+      errorMessage: "No titles match your genre filter. Check your filters.",
+      run: (movies) => filterCandidatesByGenre(movies, genreFilter),
+    },
+    runtimeFilter && {
+      errorMessage: "No titles match your runtime filter. Check your filters.",
+      run: (movies) => filterCandidatesByRuntime(movies, runtimeFilter),
+    },
+  ].filter(Boolean);
+
+  const stages = (
+    ratingLast ? [...cheapStages, ratingStage] : [ratingStage, ...cheapStages]
+  ).filter(Boolean);
+
+  let candidates = remainingMovies;
+  for (const stage of stages) {
+    candidates = await stage.run(candidates);
+    if (candidates.length === 0) {
+      return { candidates: [], errorMessage: stage.errorMessage };
+    }
+  }
+
+  return { candidates, errorMessage: null };
+}
+
 export async function getDrawSelection({
   remainingMovies,
   prioritizeByServices = false,
@@ -123,39 +191,15 @@ export async function getDrawSelection({
     return { selected: null, errorMessage: null };
   }
 
-  let drawCandidates = remainingMovies;
-  if (ratingFilter) {
-    drawCandidates = await filterCandidatesByRating(
-      remainingMovies,
-      ratingFilter,
-      fetchMovieDetails
-    );
-    if (drawCandidates.length === 0) {
-      return {
-        selected: null,
-        errorMessage: "No titles match your selected ratings. Check your filters.",
-      };
-    }
-  }
-
-  if (genreFilter) {
-    drawCandidates = filterCandidatesByGenre(drawCandidates, genreFilter);
-    if (drawCandidates.length === 0) {
-      return {
-        selected: null,
-        errorMessage: "No titles match your genre filter. Check your filters.",
-      };
-    }
-  }
-
-  if (runtimeFilter) {
-    drawCandidates = filterCandidatesByRuntime(drawCandidates, runtimeFilter);
-    if (drawCandidates.length === 0) {
-      return {
-        selected: null,
-        errorMessage: "No titles match your runtime filter. Check your filters.",
-      };
-    }
+  const { candidates: drawCandidates, errorMessage } = await getDrawCandidates({
+    remainingMovies,
+    ratingFilter,
+    genreFilter,
+    runtimeFilter,
+    fetchMovieDetails,
+  });
+  if (errorMessage) {
+    return { selected: null, errorMessage };
   }
 
   const selected = await selectDrawCandidate(drawCandidates, {
