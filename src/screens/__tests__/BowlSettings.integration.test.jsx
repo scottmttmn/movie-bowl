@@ -1,5 +1,6 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { AUTOSAVE_DELAY_MS } from "../../hooks/useAutosave";
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -480,7 +481,14 @@ import BowlSettings from "../BowlSettings";
 describe("BowlSettings integration", () => {
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
   });
+
+  const settleAutosave = async () => {
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS + 50);
+    });
+  };
 
   beforeEach(() => {
     mocks.state.navigate.mockReset();
@@ -725,7 +733,7 @@ describe("BowlSettings integration", () => {
     });
   });
 
-  it("allows updating an add link contributor label without mutating prior rows", async () => {
+  it("autosaves an add link contributor label without mutating prior rows", async () => {
     mocks.state.addLinks = [
       {
         id: "link-1",
@@ -746,19 +754,18 @@ describe("BowlSettings integration", () => {
       expect(screen.getByDisplayValue("Dad")).toBeInTheDocument();
     });
 
+    vi.useFakeTimers();
     const labelInputs = screen.getAllByDisplayValue("Dad");
     fireEvent.change(labelInputs[labelInputs.length - 1], {
       target: { value: "Grandpa" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /save label/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/add link label updated/i)).toBeInTheDocument();
-    });
+    expect(screen.queryByRole("button", { name: /save label/i })).not.toBeInTheDocument();
+    await settleAutosave();
 
     expect(
       mocks.state.addLinks.find((link) => link.id === "link-1")?.default_contributor_name
     ).toBe("Grandpa");
+    expect(screen.getByText(/default label: grandpa/i)).toBeInTheDocument();
   });
 
   it("keeps the invite link available when invite email sending fails", async () => {
@@ -789,7 +796,7 @@ describe("BowlSettings integration", () => {
     ).toBeInTheDocument();
   });
 
-  it("allows owner to update bowl name", async () => {
+  it("autosaves an updated bowl name without a save button", async () => {
     mocks.state.bowl = {
       id: "bowl-1",
       name: "Bowl 1",
@@ -803,14 +810,12 @@ describe("BowlSettings integration", () => {
       expect(screen.getByDisplayValue("Bowl 1")).toBeInTheDocument();
     });
 
+    vi.useFakeTimers();
     fireEvent.change(screen.getByDisplayValue("Bowl 1"), {
       target: { value: "Renamed Bowl" },
     });
-    fireEvent.click(screen.getByRole("button", { name: /^save$/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/bowl settings updated\./i)).toBeInTheDocument();
-    });
+    expect(screen.queryByRole("button", { name: /^save$/i })).not.toBeInTheDocument();
+    await settleAutosave();
 
     expect(mocks.state.updatedBowls).toEqual(
       expect.arrayContaining([
@@ -824,6 +829,7 @@ describe("BowlSettings integration", () => {
       "get_bowl_profile_directory",
       { p_bowl_id: "bowl-1" }
     );
+    expect(screen.getByRole("status")).toHaveTextContent("All changes saved");
   });
 
   it("shows draw access controls for owner and defaults to everyone", async () => {
@@ -842,7 +848,7 @@ describe("BowlSettings integration", () => {
     expect(screen.getByLabelText(/everyone in bowl/i)).toBeChecked();
   });
 
-  it("owner can switch to selected members and save draw permissions", async () => {
+  it("owner can switch to selected members and autosave draw permissions", async () => {
     mocks.state.bowl = {
       id: "bowl-1",
       name: "Bowl 1",
@@ -861,13 +867,11 @@ describe("BowlSettings integration", () => {
       expect(screen.getByLabelText(/only selected members/i)).toBeInTheDocument();
     });
 
+    vi.useFakeTimers();
     fireEvent.click(screen.getByLabelText(/only selected members/i));
     fireEvent.click(screen.getByLabelText(/member@example.com/i));
-    fireEvent.click(screen.getByRole("button", { name: /save draw access/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/draw access updated\./i)).toBeInTheDocument();
-    });
+    expect(screen.queryByRole("button", { name: /save draw access/i })).not.toBeInTheDocument();
+    await settleAutosave();
 
     expect(mocks.supabase.rpc).toHaveBeenCalledWith("save_bowl_draw_access", {
       p_bowl_id: "bowl-1",
@@ -880,7 +884,7 @@ describe("BowlSettings integration", () => {
     ]);
   });
 
-  it("owner can switch back to everyone and clear selected draw permissions", async () => {
+  it("owner can switch back to everyone and autosave cleared draw permissions", async () => {
     mocks.state.bowl = {
       id: "bowl-1",
       name: "Bowl 1",
@@ -895,12 +899,9 @@ describe("BowlSettings integration", () => {
       expect(screen.getByLabelText(/everyone in bowl/i)).toBeInTheDocument();
     });
 
+    vi.useFakeTimers();
     fireEvent.click(screen.getByLabelText(/everyone in bowl/i));
-    fireEvent.click(screen.getByRole("button", { name: /save draw access/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/draw access updated\./i)).toBeInTheDocument();
-    });
+    await settleAutosave();
 
     expect(mocks.supabase.rpc).toHaveBeenCalledWith("save_bowl_draw_access", {
       p_bowl_id: "bowl-1",
@@ -942,15 +943,14 @@ describe("BowlSettings integration", () => {
     render(<BowlSettings />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /save draw access/i })).toBeInTheDocument();
+      expect(screen.getByLabelText(/everyone in bowl/i)).toBeInTheDocument();
     });
 
+    vi.useFakeTimers();
     fireEvent.click(screen.getByLabelText(/everyone in bowl/i));
-    fireEvent.click(screen.getByRole("button", { name: /save draw access/i }));
+    await settleAutosave();
 
-    await waitFor(() => {
-      expect(screen.getByText(/failed to update draw access\./i)).toBeInTheDocument();
-    });
+    expect(screen.getByRole("alert")).toHaveTextContent(/failed to update draw access\./i);
     expect(mocks.state.bowl.draw_access_mode).toBe("selected_members");
     expect(mocks.state.drawPermissions).toEqual([
       { bowl_id: "bowl-1", user_id: "member-1" },
@@ -961,26 +961,24 @@ describe("BowlSettings integration", () => {
     render(<BowlSettings />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /save draw method/i })).toBeInTheDocument();
+      expect(screen.getByLabelText(/person-first/i)).toBeInTheDocument();
     });
 
     expect(screen.getByLabelText(/person-first/i)).toBeChecked();
     expect(screen.getByLabelText(/title-first/i)).not.toBeChecked();
+    expect(screen.queryByRole("button", { name: /save draw method/i })).not.toBeInTheDocument();
   });
 
-  it("owner can switch the bowl to title-first", async () => {
+  it("owner can switch the bowl to title-first with autosave", async () => {
     render(<BowlSettings />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /save draw method/i })).toBeInTheDocument();
+      expect(screen.getByLabelText(/title-first/i)).toBeInTheDocument();
     });
 
+    vi.useFakeTimers();
     fireEvent.click(screen.getByLabelText(/title-first/i));
-    fireEvent.click(screen.getByRole("button", { name: /save draw method/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/draw method updated\./i)).toBeInTheDocument();
-    });
+    await settleAutosave();
 
     expect(mocks.supabase.rpc).toHaveBeenCalledWith("save_bowl_draw_method", {
       p_bowl_id: "bowl-1",
@@ -996,15 +994,14 @@ describe("BowlSettings integration", () => {
     render(<BowlSettings />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /save draw method/i })).toBeInTheDocument();
+      expect(screen.getByLabelText(/title-first/i)).toBeInTheDocument();
     });
 
+    vi.useFakeTimers();
     fireEvent.click(screen.getByLabelText(/title-first/i));
-    fireEvent.click(screen.getByRole("button", { name: /save draw method/i }));
+    await settleAutosave();
 
-    await waitFor(() => {
-      expect(screen.getByText(/failed to update the draw method\./i)).toBeInTheDocument();
-    });
+    expect(screen.getByRole("alert")).toHaveTextContent(/failed to update the draw method\./i);
     expect(mocks.state.bowl.draw_method).toBeUndefined();
   });
 

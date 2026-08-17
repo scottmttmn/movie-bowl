@@ -1,5 +1,7 @@
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useNavigate, useParams } from "react-router-dom";
+import AutosaveStatus from "../components/AutosaveStatus";
+import useAutosave, { valuesAreEqual } from "../hooks/useAutosave";
 import { sendInviteEmails } from "../lib/inviteEmails";
 import { supabase } from "../lib/supabase";
 import { parseInviteEmails } from "../utils/parseInviteEmails";
@@ -11,15 +13,15 @@ import {
   normalizeDrawMethod,
 } from "../utils/drawMethods";
 
+const DRAW_ACCESS_MODE_ALL = "all_members";
+const DRAW_ACCESS_MODE_SELECTED = "selected_members";
+
 // Bowl-level settings screen.
 // MVP scope: manage members + invites for a bowl.
 // - Owner can create invite links by email.
 // - Owner can remove non-owner members.
 // - Members can view the membership list.
 export default function BowlSettings() {
-  const DRAW_ACCESS_MODE_ALL = "all_members";
-  const DRAW_ACCESS_MODE_SELECTED = "selected_members";
-
   const { bowlId } = useParams();
   const navigate = useNavigate();
 
@@ -51,9 +53,6 @@ export default function BowlSettings() {
   const [editingAddLinkNames, setEditingAddLinkNames] = useState({});
 
   const [isLoading, setIsLoading] = useState(true);
-  const [isSavingName, setIsSavingName] = useState(false);
-  const [isSavingDrawAccess, setIsSavingDrawAccess] = useState(false);
-  const [isSavingDrawMethod, setIsSavingDrawMethod] = useState(false);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isDeletingBowl, setIsDeletingBowl] = useState(false);
   const [actionMessage, setActionMessage] = useState(null);
@@ -65,6 +64,162 @@ export default function BowlSettings() {
   const isOwner = useMemo(() => {
     return Boolean(ownerId && currentUserId && ownerId === currentUserId);
   }, [ownerId, currentUserId]);
+
+  const validDrawAllowedUserIds = useMemo(() => {
+    const memberIds = new Set(
+      members
+        .map((member) => member?.user_id)
+        .filter((id) => Boolean(id && id !== ownerId))
+    );
+    return [...new Set(drawAllowedUserIds)]
+      .filter((id) => memberIds.has(id))
+      .sort();
+  }, [drawAllowedUserIds, members, ownerId]);
+
+  const bowlSettingsSnapshot = useMemo(
+    () => ({
+      name: editableBowlName,
+      drawMethod: normalizeDrawMethod(drawMethod),
+      drawAccessMode:
+        drawAccessMode === DRAW_ACCESS_MODE_SELECTED
+          ? DRAW_ACCESS_MODE_SELECTED
+          : DRAW_ACCESS_MODE_ALL,
+      drawAllowedUserIds:
+        drawAccessMode === DRAW_ACCESS_MODE_SELECTED ? validDrawAllowedUserIds : [],
+      addLinkNames: editingAddLinkNames,
+    }),
+    [
+      drawAccessMode,
+      drawMethod,
+      editableBowlName,
+      editingAddLinkNames,
+      validDrawAllowedUserIds,
+    ]
+  );
+
+  const persistBowlSettings = useCallback(
+    async (next, previous) => {
+      const bowlPreferencesChanged =
+        !valuesAreEqual(next.name, previous.name) ||
+        !valuesAreEqual(next.drawMethod, previous.drawMethod) ||
+        !valuesAreEqual(next.drawAccessMode, previous.drawAccessMode) ||
+        !valuesAreEqual(next.drawAllowedUserIds, previous.drawAllowedUserIds);
+      if (bowlPreferencesChanged && !isOwner) {
+        return { error: new Error("Only the bowl owner can update bowl settings.") };
+      }
+
+      const isMissingRpcMigration = (error, rpcName) => {
+        const errorText = String(error?.message || "").toLowerCase();
+        return (
+          error?.code === "PGRST202" ||
+          (errorText.includes(rpcName) &&
+            (errorText.includes("could not find") || errorText.includes("does not exist")))
+        );
+      };
+
+      try {
+        if (!valuesAreEqual(next.name, previous.name)) {
+          const nextName = next.name.trim();
+          if (!nextName) {
+            return { error: new Error("Bowl name cannot be empty.") };
+          }
+
+          const { error } = await supabase
+            .from("bowls")
+            .update({ name: nextName })
+            .eq("id", bowlId);
+
+          if (error) {
+            console.error("[BowlSettings] Failed to rename bowl", error);
+            return { error: new Error("Failed to update bowl name.") };
+          }
+          setBowlName(nextName);
+        }
+
+        if (!valuesAreEqual(next.drawMethod, previous.drawMethod)) {
+          const { error } = await supabase.rpc("save_bowl_draw_method", {
+            p_bowl_id: bowlId,
+            p_method: next.drawMethod,
+          });
+
+          if (error) {
+            if (isMissingRpcMigration(error, "save_bowl_draw_method")) {
+              return {
+                error: new Error(
+                  "The draw method requires the latest database migration. Please run it and try again."
+                ),
+              };
+            }
+            console.error("[BowlSettings] Failed to save draw method", error);
+            return { error: new Error("Failed to update the draw method.") };
+          }
+        }
+
+        const drawAccessChanged =
+          !valuesAreEqual(next.drawAccessMode, previous.drawAccessMode) ||
+          !valuesAreEqual(next.drawAllowedUserIds, previous.drawAllowedUserIds);
+        if (drawAccessChanged) {
+          const { error } = await supabase.rpc("save_bowl_draw_access", {
+            p_bowl_id: bowlId,
+            p_mode: next.drawAccessMode,
+            p_allowed_user_ids:
+              next.drawAccessMode === DRAW_ACCESS_MODE_SELECTED
+                ? next.drawAllowedUserIds
+                : [],
+          });
+
+          if (error) {
+            if (isMissingRpcMigration(error, "save_bowl_draw_access")) {
+              return {
+                error: new Error(
+                  "Draw access requires the latest database migration. Please run it and try again."
+                ),
+              };
+            }
+            console.error("[BowlSettings] Failed to save draw access", error);
+            return { error: new Error("Failed to update draw access.") };
+          }
+        }
+
+        const changedAddLinkIds = Object.keys(next.addLinkNames).filter(
+          (linkId) =>
+            Object.prototype.hasOwnProperty.call(previous.addLinkNames, linkId) &&
+            !valuesAreEqual(next.addLinkNames[linkId], previous.addLinkNames[linkId])
+        );
+        for (const linkId of changedAddLinkIds) {
+          const nextName = String(next.addLinkNames[linkId] || "").trim();
+          const { error } = await supabase
+            .from("bowl_add_links")
+            .update({ default_contributor_name: nextName || null })
+            .eq("id", linkId);
+
+          if (error) {
+            console.error("[BowlSettings] Failed to save add link label", error);
+            return { error: new Error("Failed to save add link label.") };
+          }
+          setAddLinks((current) =>
+            current.map((link) =>
+              link.id === linkId
+                ? { ...link, default_contributor_name: nextName || null }
+                : link
+            )
+          );
+        }
+
+        return { error: null };
+      } catch (error) {
+        console.error("[BowlSettings] Unexpected error saving bowl settings", error);
+        return { error: new Error("Unexpected error saving bowl settings.") };
+      }
+    },
+    [bowlId, isOwner]
+  );
+
+  const { status: saveStatus, error: saveError, retry: retrySave } = useAutosave({
+    value: bowlSettingsSnapshot,
+    save: persistBowlSettings,
+    enabled: !isLoading && Boolean(currentUserId),
+  });
 
   const loadBowlAndMembers = async () => {
     if (!bowlId) return;
@@ -375,31 +530,6 @@ export default function BowlSettings() {
     }
   };
 
-  const handleSaveAddLinkName = async (linkId) => {
-    setActionMessage(null);
-    setErrorMessage(null);
-
-    try {
-      const nextName = String(editingAddLinkNames[linkId] || "").trim();
-      const { error } = await supabase
-        .from("bowl_add_links")
-        .update({ default_contributor_name: nextName || null })
-        .eq("id", linkId);
-
-      if (error) {
-        console.error("[BowlSettings] Failed to save add link label", error);
-        setErrorMessage("Failed to save add link label.");
-        return;
-      }
-
-      await loadBowlAndMembers();
-      setActionMessage("Add link label updated.");
-    } catch (err) {
-      console.error("[BowlSettings] Unexpected error saving add link label", err);
-      setErrorMessage("Unexpected error saving add link label.");
-    }
-  };
-
   const buildAddLinkUrl = (token) => `${window.location.origin}/add-to-bowl/${token}`;
 
   const handleRemoveMember = async (userIdToRemove) => {
@@ -454,155 +584,6 @@ export default function BowlSettings() {
     } catch (err) {
       console.error("[BowlSettings] Unexpected error revoking invite", err);
       setErrorMessage("Unexpected error revoking invite.");
-    }
-  };
-
-  const handleSaveBowlMeta = async (e) => {
-    e.preventDefault();
-
-    setActionMessage(null);
-    setErrorMessage(null);
-
-    const nextName = editableBowlName.trim();
-    if (!nextName) {
-      setErrorMessage("Bowl name cannot be empty.");
-      return;
-    }
-
-    if (nextName === bowlName) {
-      setActionMessage("Bowl settings are already up to date.");
-      return;
-    }
-
-    setIsSavingName(true);
-
-    try {
-      const { error } = await supabase
-        .from("bowls")
-        .update({ name: nextName })
-        .eq("id", bowlId);
-
-      if (error) {
-        console.error("[BowlSettings] Failed to rename bowl", error);
-        setErrorMessage("Failed to update bowl name.");
-        return;
-      }
-
-      setBowlName(nextName);
-      setEditableBowlName(nextName);
-      setActionMessage("Bowl settings updated.");
-    } catch (err) {
-      console.error("[BowlSettings] Unexpected error renaming bowl", err);
-      setErrorMessage("Unexpected error updating bowl settings.");
-    } finally {
-      setIsSavingName(false);
-    }
-  };
-
-  const handleSaveDrawAccess = async (e) => {
-    e.preventDefault();
-    setActionMessage(null);
-    setErrorMessage(null);
-
-    if (!isOwner) {
-      setErrorMessage("Only the bowl owner can update draw access.");
-      return;
-    }
-
-    const nextMode =
-      drawAccessMode === DRAW_ACCESS_MODE_SELECTED ? DRAW_ACCESS_MODE_SELECTED : DRAW_ACCESS_MODE_ALL;
-    const allowedMemberIdSet = new Set(
-      members
-        .map((member) => member?.user_id)
-        .filter((id) => Boolean(id && id !== ownerId))
-    );
-    const nextAllowedUserIds = [...new Set(drawAllowedUserIds)].filter((id) => allowedMemberIdSet.has(id));
-
-    setIsSavingDrawAccess(true);
-    try {
-      const { error: saveError } = await supabase.rpc("save_bowl_draw_access", {
-        p_bowl_id: bowlId,
-        p_mode: nextMode,
-        p_allowed_user_ids:
-          nextMode === DRAW_ACCESS_MODE_SELECTED ? nextAllowedUserIds : [],
-      });
-
-      if (saveError) {
-        const errorText = String(saveError?.message || "").toLowerCase();
-        const isMissingMigration =
-          saveError?.code === "PGRST202" ||
-          (
-            errorText.includes("save_bowl_draw_access") &&
-            (
-              errorText.includes("could not find") ||
-              errorText.includes("does not exist")
-            )
-          );
-
-        if (isMissingMigration) {
-          setErrorMessage("Draw access requires the latest database migration. Please run it and try again.");
-          return;
-        }
-        console.error("[BowlSettings] Failed to save draw access", saveError);
-        setErrorMessage("Failed to update draw access.");
-        return;
-      }
-
-      await loadBowlAndMembers();
-      setActionMessage("Draw access updated.");
-    } catch (err) {
-      console.error("[BowlSettings] Unexpected error saving draw access", err);
-      setErrorMessage("Unexpected error updating draw access.");
-    } finally {
-      setIsSavingDrawAccess(false);
-    }
-  };
-
-  const handleSaveDrawMethod = async (e) => {
-    e.preventDefault();
-    setActionMessage(null);
-    setErrorMessage(null);
-
-    if (!isOwner) {
-      setErrorMessage("Only the bowl owner can update the draw method.");
-      return;
-    }
-
-    setIsSavingDrawMethod(true);
-    try {
-      const { error: saveError } = await supabase.rpc("save_bowl_draw_method", {
-        p_bowl_id: bowlId,
-        p_method: normalizeDrawMethod(drawMethod),
-      });
-
-      if (saveError) {
-        const errorText = String(saveError?.message || "").toLowerCase();
-        const isMissingMigration =
-          saveError?.code === "PGRST202" ||
-          (
-            errorText.includes("save_bowl_draw_method") &&
-            (
-              errorText.includes("could not find") ||
-              errorText.includes("does not exist")
-            )
-          );
-
-        if (isMissingMigration) {
-          setErrorMessage("The draw method requires the latest database migration. Please run it and try again.");
-          return;
-        }
-        console.error("[BowlSettings] Failed to save draw method", saveError);
-        setErrorMessage("Failed to update the draw method.");
-        return;
-      }
-
-      await loadBowlAndMembers();
-      setActionMessage("Draw method updated.");
-    } catch (err) {
-      console.error("[BowlSettings] Unexpected error saving draw method", err);
-      setErrorMessage("Unexpected error updating the draw method.");
-    } finally {
-      setIsSavingDrawMethod(false);
     }
   };
 
@@ -711,9 +692,12 @@ export default function BowlSettings() {
   return (
     <div className="page-container py-6 sm:py-8">
       <header className="page-hero mb-6 flex items-center justify-between gap-3">
-        <button onClick={() => navigate(`/bowl/${bowlId}`)} className="btn btn-ghost px-3 py-2">
-          <span aria-hidden="true">←</span> Back
-        </button>
+        <div className="flex flex-col items-start gap-2 sm:flex-row sm:items-center sm:gap-3">
+          <button onClick={() => navigate(`/bowl/${bowlId}`)} className="btn btn-ghost px-3 py-2">
+            <span aria-hidden="true">←</span> Back
+          </button>
+          {!isLoading && currentUserId && <AutosaveStatus status={saveStatus} />}
+        </div>
         <div className="min-w-0 text-right">
           <p className="eyebrow">Bowl settings</p>
           <h1 className="mt-1 truncate text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">{bowlName}</h1>
@@ -721,13 +705,29 @@ export default function BowlSettings() {
       </header>
 
       {isLoading && <div className="panel text-sm text-slate-400" role="status">Loading…</div>}
+      {!isLoading && currentUserId && saveStatus === "error" && (
+        <div
+          role="alert"
+          className="sticky bottom-4 z-20 mx-auto mb-4 flex max-w-5xl flex-col gap-3 rounded-xl border border-rose-500/60 bg-rose-950/90 px-4 py-3 text-sm text-rose-100 shadow-lg backdrop-blur sm:flex-row sm:items-center sm:justify-between"
+        >
+          <div>
+            <p className="font-semibold">Your changes haven&apos;t been saved.</p>
+            <p className="mt-0.5 text-rose-200/90">
+              {saveError?.message || "Something went wrong while saving. Check your connection and try again."}
+            </p>
+          </div>
+          <button type="button" onClick={retrySave} className="btn btn-primary shrink-0">
+            Retry
+          </button>
+        </div>
+      )}
       {!isLoading && errorMessage && <div className="status-error mb-4">{errorMessage}</div>}
       {!isLoading && actionMessage && <div className="status-success mb-4">{actionMessage}</div>}
 
       {isOwner && (
         <section className="panel mb-4">
           <h3 className="section-title mb-3">Bowl Name</h3>
-          <form onSubmit={handleSaveBowlMeta} className="space-y-3">
+          <div className="space-y-3">
             <div className="flex gap-2">
               <input
                 id="bowl-name-input"
@@ -739,14 +739,7 @@ export default function BowlSettings() {
                 maxLength={120}
               />
             </div>
-            <button
-              type="submit"
-              disabled={isSavingName}
-              className="btn btn-secondary disabled:opacity-60"
-            >
-              {isSavingName ? "Saving..." : "Save"}
-            </button>
-          </form>
+          </div>
         </section>
       )}
 
@@ -759,7 +752,7 @@ export default function BowlSettings() {
             Set how this bowl picks a movie. Every draw from this bowl uses it, no matter who taps
             Draw.
           </p>
-          <form onSubmit={handleSaveDrawMethod} className="space-y-3">
+          <div className="space-y-3">
             <div className="space-y-2">
               {DRAW_METHOD_OPTIONS.map((method) => {
                 const inputId = `draw-method-${method.id}`;
@@ -786,14 +779,7 @@ export default function BowlSettings() {
                 );
               })}
             </div>
-            <button
-              type="submit"
-              disabled={isSavingDrawMethod}
-              className="btn btn-secondary disabled:opacity-60"
-            >
-              {isSavingDrawMethod ? "Saving..." : "Save Draw Method"}
-            </button>
-          </form>
+          </div>
         </section>
       ) : (
         <section className="panel mb-4">
@@ -810,7 +796,7 @@ export default function BowlSettings() {
           <p className="text-sm text-slate-400 mb-3">
             Set who can draw movies from this bowl. Owner is always allowed.
           </p>
-          <form onSubmit={handleSaveDrawAccess} className="space-y-3">
+          <div className="space-y-3">
             <div className="flex flex-wrap gap-4">
               <label htmlFor="draw-access-all-members" className="inline-flex items-center gap-2 text-sm text-slate-100">
                 <input
@@ -819,7 +805,10 @@ export default function BowlSettings() {
                   type="radio"
                   value={DRAW_ACCESS_MODE_ALL}
                   checked={drawAccessMode === DRAW_ACCESS_MODE_ALL}
-                  onChange={(e) => setDrawAccessMode(e.target.value)}
+                  onChange={(e) => {
+                    setDrawAccessMode(e.target.value);
+                    setDrawAllowedUserIds([]);
+                  }}
                 />
                 Everyone in bowl
               </label>
@@ -879,15 +868,7 @@ export default function BowlSettings() {
                 </div>
               </div>
             )}
-
-            <button
-              type="submit"
-              disabled={isSavingDrawAccess}
-              className="btn btn-secondary disabled:opacity-60"
-            >
-              {isSavingDrawAccess ? "Saving..." : "Save Draw Access"}
-            </button>
-          </form>
+          </div>
         </section>
       )}
 
@@ -1159,8 +1140,8 @@ export default function BowlSettings() {
                         </button>
                       </div>
                     </div>
-                    <div className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-end">
-                      <div className="sm:flex-1">
+                    <div className="mt-3">
+                      <div>
                         <label htmlFor={`add-link-label-${link.id}`} className="mb-1 block text-xs text-slate-400">
                           Contributor label
                         </label>
@@ -1178,15 +1159,6 @@ export default function BowlSettings() {
                           className="input-field text-sm"
                         />
                       </div>
-                      <button
-                        type="button"
-                        onClick={() => {
-                          void handleSaveAddLinkName(link.id);
-                        }}
-                        className="btn btn-secondary text-sm px-3 py-2"
-                      >
-                        Save Label
-                      </button>
                     </div>
                   </div>
                 );
