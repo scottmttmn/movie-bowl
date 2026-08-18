@@ -25,3 +25,10 @@ dist-ssr
 *.sw?
 .vercel
 supabase/.temp/
+
+# Android TV test wrapper
+tv-android/.gradle/
+tv-android/local.properties
+tv-android/**/build/
+tv-android/captures/
+tv-android/*.iml

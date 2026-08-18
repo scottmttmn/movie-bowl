@@ -34,6 +34,11 @@ vi.mock("../tv/TvApp", () => ({
   default: () => <div>Movie Bowl TV App</div>,
 }));
 
+vi.mock("../tv/TvAuthGate", () => ({
+  default: ({ children }) =>
+    mocks.auth.session ? children : <div>Connect Movie Bowl TV</div>,
+}));
+
 import App from "../App";
 
 describe("App TV route", () => {
@@ -66,14 +71,15 @@ describe("App TV route", () => {
     expect(screen.queryByTestId("top-nav")).not.toBeInTheDocument();
   });
 
-  it("redirects an unauthenticated television to login", async () => {
+  it("shows TV pairing instead of the standard login to an unauthenticated television", async () => {
     window.history.pushState({}, "", "/tv");
 
     render(<App />);
 
     await waitFor(() => {
-      expect(screen.getByText("Login Page")).toBeInTheDocument();
+      expect(screen.getByText("Connect Movie Bowl TV")).toBeInTheDocument();
     });
+    expect(screen.queryByText("Login Page")).not.toBeInTheDocument();
     expect(screen.queryByText("Movie Bowl TV App")).not.toBeInTheDocument();
   });
 });

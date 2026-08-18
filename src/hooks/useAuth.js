@@ -105,6 +105,16 @@ export function AuthProvider({ children }) {
     });
   };
 
+  // Complete a server-approved TV pairing inside the television's own browser
+  // context so its persisted Supabase session never needs to pass through the
+  // phone or desktop that approved it.
+  const completeTvPairing = async (tokenHash, verificationType = "magiclink") => {
+    return await supabase.auth.verifyOtp({
+      token_hash: tokenHash,
+      type: verificationType,
+    });
+  };
+
   // Log the user out and clear session.
   // Return the Supabase response so callers can check for errors.
   const signOut = async () => {
@@ -117,7 +127,7 @@ export function AuthProvider({ children }) {
   };
 
   const value = useMemo(
-    () => ({ session, loading, signIn, signOut }),
+    () => ({ session, loading, signIn, completeTvPairing, signOut }),
     [session, loading]
   );
 

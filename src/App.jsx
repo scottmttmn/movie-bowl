@@ -16,6 +16,8 @@ const WatchListPage = React.lazy(() => import("./screens/WatchListPage"));
 const InvitesPage = React.lazy(() => import("./screens/InvitesPage"));
 const HomeRedirect = React.lazy(() => import("./screens/HomeRedirect"));
 const TvApp = React.lazy(() => import("./tv/TvApp"));
+const TvAuthGate = React.lazy(() => import("./tv/TvAuthGate"));
+const TvActivationPage = React.lazy(() => import("./screens/TvActivationPage"));
 
 function AppShell({ children }) {
   const { session, signOut } = useAuth();
@@ -218,6 +220,7 @@ function App() {
             } />
             <Route path="/login" element={<LoginPage />} />
             <Route path="/about" element={<AboutPage />} />
+            <Route path="/activate-tv" element={<TvActivationPage />} />
             <Route path="/accept-invite/:token" element={<AcceptInvite />} />
             <Route path="/add-to-bowl/:token" element={<PublicAddLinkPage />} />
             <Route path="/watch-list" element={
@@ -231,9 +234,9 @@ function App() {
               </RequireAuth>
             } />
             <Route path="/tv/*" element={
-              <RequireAuth>
+              <TvAuthGate>
                 <TvApp />
-              </RequireAuth>
+              </TvAuthGate>
             } />
             <Route path="/" element={
               <RequireAuth>

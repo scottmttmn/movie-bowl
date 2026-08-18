@@ -216,6 +216,12 @@ bypasses RLS, so every route that uses it must do its own authorization.
 ### Auth email delivery
 
 - The app uses Supabase magic-link auth
+- Televisions use `/activate-tv` for QR pairing while phones and ordinary web
+  browsers retain the magic-link flow
+- TV pairing is handled by `POST /api/tv-pairing/start`,
+  `POST /api/tv-pairing/approve`, and `POST /api/tv-pairing/poll`
+- Pairing requests expire after ten minutes; only a device-secret hash is stored,
+  and the approved TV receives a single-use Supabase token hash
 - To avoid the default Supabase email rate limits, configure custom SMTP in Supabase Auth
 - Recommended branded sender:
   - `Movie Bowl <auth@mail.moviebowl.app>`
@@ -248,6 +254,7 @@ Tables the app touches:
 - `bowl_movies`
 - `bowl_invites`
 - `bowl_draw_permissions`
+- `tv_pairing_requests` (server-only; no direct client access)
 - `bowl_add_links`
 - `bowl_draw_events` — immutable bowl-side record of each draw
 - `user_watch_events` — per-participant personal history

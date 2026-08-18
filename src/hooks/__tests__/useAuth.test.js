@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => {
     session: null,
     getSessionError: null,
     signInResponse: { error: null },
+    verifyOtpResponse: { error: null },
     signOutResponse: { error: null },
     upsertError: null,
     upsertPayloads: [],
@@ -40,6 +41,7 @@ const mocks = vi.hoisted(() => {
         email,
         options,
       })),
+      verifyOtp: vi.fn(async () => state.verifyOtpResponse),
       signOut: vi.fn(async () => state.signOutResponse),
     },
     from: vi.fn(() => ({
@@ -62,6 +64,7 @@ describe("useAuth", () => {
     mocks.state.session = null;
     mocks.state.getSessionError = null;
     mocks.state.signInResponse = { error: null };
+    mocks.state.verifyOtpResponse = { error: null };
     mocks.state.signOutResponse = { error: null };
     mocks.state.upsertError = null;
     mocks.state.upsertPayloads = [];
@@ -70,6 +73,7 @@ describe("useAuth", () => {
     mocks.supabase.auth.getSession.mockClear();
     mocks.supabase.auth.onAuthStateChange.mockClear();
     mocks.supabase.auth.signInWithOtp.mockClear();
+    mocks.supabase.auth.verifyOtp.mockClear();
     mocks.supabase.auth.signOut.mockClear();
     mocks.supabase.from.mockClear();
   });
@@ -112,6 +116,16 @@ describe("useAuth", () => {
         emailRedirectTo: "https://moviebowl.app/accept-invite/token-1",
       },
     });
+
+    let pairingResult;
+    await act(async () => {
+      pairingResult = await result.current.completeTvPairing("hashed-token", "magiclink");
+    });
+    expect(mocks.supabase.auth.verifyOtp).toHaveBeenCalledWith({
+      token_hash: "hashed-token",
+      type: "magiclink",
+    });
+    expect(pairingResult).toEqual({ error: null });
 
     let signOutResult;
     await act(async () => {
