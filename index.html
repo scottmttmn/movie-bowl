@@ -6,6 +6,17 @@
     <link rel="apple-touch-icon" href="/apple-touch-icon.png" />
     <link rel="manifest" href="/manifest.webmanifest" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <script>
+      if (/\bMovieBowlTV\//.test(navigator.userAgent)) {
+        const tvScale = Math.min(screen.width / 1920, screen.height / 1080);
+        document
+          .querySelector('meta[name="viewport"]')
+          .setAttribute(
+            "content",
+            `width=1920, height=1080, initial-scale=${tvScale}, minimum-scale=${tvScale}, maximum-scale=${tvScale}, user-scalable=no`
+          );
+      }
+    </script>
     <meta name="theme-color" content="#02040a" />
     <title>Movie Bowl</title>
   </head>

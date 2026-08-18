@@ -81,7 +81,7 @@ function renderTonight() {
   );
 }
 
-async function drawAndKeep() {
+async function drawWithTheaterMode() {
   renderTonight();
 
   fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
@@ -93,12 +93,10 @@ async function drawAndKeep() {
   });
   vi.useRealTimers();
 
-  const keepButton = await screen.findByRole("button", { name: /that's the one/i });
-  // Let the background preview lookups settle before the pick is accepted.
+  // The committed draw starts theater mode as soon as previews are ready.
   await waitFor(() =>
     expect(mocks.getTmdbMovieDetails).toHaveBeenCalledWith(202)
   );
-  fireEvent.click(keepButton);
 }
 
 describe("TV theater mode", () => {
@@ -107,6 +105,7 @@ describe("TV theater mode", () => {
 
   beforeEach(() => {
     window.localStorage.clear();
+    window.sessionStorage.clear();
     // Pin the candidate shuffle so preview order is assertable; Fisher-Yates
     // leaves the list untouched when every draw picks the last slot.
     vi.spyOn(Math, "random").mockReturnValue(0.999999);
@@ -149,7 +148,7 @@ describe("TV theater mode", () => {
   });
 
   it("plays queued previews on one player and hands off to the feature", async () => {
-    await drawAndKeep();
+    await drawWithTheaterMode();
 
     const overlay = await screen.findByRole("dialog", {
       name: /previews before arrival/i,
@@ -191,7 +190,7 @@ describe("TV theater mode", () => {
     ).not.toBeInTheDocument();
     expect(screen.getByText(/tonight's pick/i)).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /open in netflix/i })
+      screen.getByRole("link", { name: /^open netflix$/i })
     ).toBeInTheDocument();
     expect(
       JSON.parse(window.localStorage.getItem("movie-bowl:tv:recent-trailers"))
@@ -199,7 +198,7 @@ describe("TV theater mode", () => {
   });
 
   it("advances past a preview that fails to play", async () => {
-    await drawAndKeep();
+    await drawWithTheaterMode();
     await screen.findByRole("dialog", { name: /previews before arrival/i });
     await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
 
@@ -212,7 +211,7 @@ describe("TV theater mode", () => {
   });
 
   it("lets the remote pause and skip straight to the movie", async () => {
-    await drawAndKeep();
+    await drawWithTheaterMode();
     await screen.findByRole("dialog", { name: /previews before arrival/i });
     await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
 
@@ -230,7 +229,7 @@ describe("TV theater mode", () => {
   });
 
   it("exits the previews on the remote back button", async () => {
-    await drawAndKeep();
+    await drawWithTheaterMode();
     await screen.findByRole("dialog", { name: /previews before arrival/i });
 
     fireEvent.keyDown(window, { key: "Escape" });
@@ -261,9 +260,6 @@ describe("TV theater mode", () => {
       await vi.advanceTimersByTimeAsync(1800);
     });
     vi.useRealTimers();
-
-    // Accept the pick while the queue is still resolving.
-    fireEvent.click(await screen.findByRole("button", { name: /that's the one/i }));
 
     expect(screen.getByText(/loading previews/i)).toBeInTheDocument();
     expect(
@@ -296,7 +292,6 @@ describe("TV theater mode", () => {
       await vi.advanceTimersByTimeAsync(1800);
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /that's the one/i }));
     expect(screen.getByText(/loading previews/i)).toBeInTheDocument();
 
     await act(async () => {
@@ -323,8 +318,6 @@ describe("TV theater mode", () => {
       await vi.advanceTimersByTimeAsync(1800);
     });
     vi.useRealTimers();
-
-    fireEvent.click(await screen.findByRole("button", { name: /that's the one/i }));
 
     expect(
       screen.queryByRole("dialog", { name: /previews before arrival/i })

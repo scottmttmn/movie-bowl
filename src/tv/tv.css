@@ -1099,6 +1099,14 @@
   font-weight: 650;
 }
 
+.tv-provider-launch-message {
+  max-width: 42rem;
+  margin: 1rem 0 0;
+  color: #fcd34d;
+  font-size: 0.78rem;
+  line-height: 1.4;
+}
+
 .tv-theater-overlay {
   position: fixed;
   z-index: 190;

@@ -13,8 +13,9 @@ The wrapper currently provides:
 - native fullscreen-video hosting for trailer playback
 - persistent cookies and DOM storage for the signed-in TV user
 - QR-code account pairing without typing credentials on the television
+- a fixed 1920 x 1080 TV layout scaled to the device viewport
 - external provider-link handoff when an installed app can handle the URL
-- an in-wrapper fallback when the emulator has no browser/provider app
+- an in-app explanation when no installed app can handle a provider link
 
 ## One-time Android setup
 
@@ -88,14 +89,31 @@ Verify these behaviors with only the virtual remote:
 2. Reopen the app and confirm the paired WebView session persists.
 3. Confirm launch enters the last-opened accessible bowl.
 4. Reach every visible control using only the D-pad.
-5. Draw once and confirm the animation is uninterrupted.
+5. Draw once, confirm the animation is uninterrupted, and confirm the result is
+   immediately labeled as tonight's pick without another acceptance button.
 6. Press Back from the result, current bowl, and picker in sequence.
 7. Move a Watch History title back into the bowl.
 8. Start a trailer, verify fullscreen playback, and verify return when it ends.
-9. Open the preferred provider action and record whether the URL is handled by an
-   installed app, an external browser, or the WebView fallback.
+   With theater mode enabled, confirm the preview sequence starts automatically.
+9. Open the preferred provider action and confirm an installed app opens. Return
+   to Movie Bowl and confirm the drawn result is still present. If the provider
+   app is absent, confirm Movie Bowl stays on the result and explains the issue.
 10. Background and resume the app; confirm focus and session state recover.
 11. Disconnect the emulator network and inspect the failure/recovery experience.
+
+## Provider handoff behavior
+
+Movie Bowl sends the selected title as standard Android search extras while
+opening the provider's HTTPS link. Provider apps differ in what they accept.
+For example, the current Max Google TV app opens successfully but ignores the
+title extras and lands on its empty search screen. Until a provider publishes a
+supported title-search or playback deep link, the honest fallback is to open the
+installed app without promising that its search field will be populated.
+
+The drawn-result snapshot is kept in WebView session storage for up to 30 minutes
+after a provider action. It survives an app handoff and a renderer reload, but is
+cleared when the viewer backs out of the result, changes bowls, or starts another
+draw.
 
 ## Pairing architecture
 

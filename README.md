@@ -46,6 +46,10 @@ contributor first — so the person who added 25 movies does not get 25× the od
 
 - A separate TV experience at `/tv` with D-pad/remote spatial navigation, a bowl
   picker, and a theater-mode trailer pre-roll before the pick is revealed.
+- A draw is treated as the decision: the result appears without a second
+  acceptance step, and configured theater-mode previews begin automatically.
+- Provider actions hand off to installed television apps when possible and keep
+  the drawn result available when the viewer returns to Movie Bowl.
 
 ## Tech Stack
 

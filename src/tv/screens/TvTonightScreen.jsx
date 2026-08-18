@@ -34,6 +34,11 @@ import {
   rememberTrailerKeys,
 } from "../utils/theaterQueue";
 import {
+  clearExternalReturn,
+  readExternalReturn,
+  rememberExternalReturn,
+} from "../utils/externalReturn";
+import {
   getAutoplayTrailerUrl,
   getYouTubeVideoId,
   loadYouTubeIframeApi,
@@ -41,9 +46,8 @@ import {
 
 const MIN_DRAW_ANIMATION_MS = 1800;
 
-// Television autoplay permission rides on the press that accepts the pick and
-// expires within a few seconds, so a slow preview lookup is abandoned rather
-// than allowed to consume the whole activation window.
+// Avoid leaving the result screen in a permanent loading state if preview
+// enrichment stalls. The Android wrapper explicitly permits media autoplay.
 const MAX_PREVIEW_WAIT_MS = 2500;
 
 function getYear(movie) {
@@ -404,12 +408,12 @@ function TvRevealScreen({
   bowlName,
   movie,
   streamingServices,
-  isPickKept,
   isPreparingPreviews,
   showTrailer,
   isDialogOpen,
   webLaunchCandidate,
-  onKeep,
+  providerLaunchMessage,
+  onProviderLaunch,
   onCloseTrailer,
   onToggleTrailer,
 }) {
@@ -427,28 +431,26 @@ function TvRevealScreen({
   return (
     <>
       <main
-        className="tv-page tv-reveal-page"
+        className="tv-page tv-reveal-page is-kept"
         aria-hidden={isDialogOpen || showTrailer ? "true" : undefined}
       >
         <header className="tv-topbar">
-          <TvBrand context={isPickKept ? "Tonight’s movie" : "The draw"} />
+          <TvBrand context="Tonight’s movie" />
           <div className="tv-reveal-bowl-name">{bowlName}</div>
         </header>
 
-        <section className={`tv-reveal ${isPickKept ? "is-kept" : ""}`}>
+        <section className="tv-reveal is-kept">
           <div className="tv-poster-wrap">
             <img
               className="tv-reveal-poster"
               src={getPosterUrl(movie, "w500")}
               alt={`${movie.title} poster`}
             />
-            {isPickKept && <span className="tv-kept-badge">Tonight&apos;s pick</span>}
+            <span className="tv-kept-badge">Tonight&apos;s pick</span>
           </div>
 
           <div className="tv-reveal-copy">
-            <p className="tv-kicker">
-              {isPickKept ? "Decision made" : "Your movie is"}
-            </p>
+            <p className="tv-kicker">Decision made</p>
             <h1>
               {movie.title}
               {year && <span> ({year})</span>}
@@ -472,29 +474,18 @@ function TvRevealScreen({
             )}
 
             <div className="tv-reveal-actions">
-              {!isPickKept && (
-                <button
-                  type="button"
-                  className="tv-button tv-button-primary"
-                  data-tv-focusable
-                  data-tv-nav-group="reveal-actions"
-                  data-tv-autofocus="true"
-                  onClick={onKeep}
-                >
-                  That&apos;s the one
-                </button>
-              )}
               {webLaunchCandidate?.url && (
                 <a
                   className="tv-button tv-button-secondary"
                   data-tv-focusable
                   data-tv-nav-group="reveal-actions"
-                  data-tv-autofocus={isPickKept ? "true" : undefined}
+                  data-tv-autofocus="true"
                   href={webLaunchCandidate.url}
                   target="_blank"
                   rel="noopener noreferrer"
+                  onClick={onProviderLaunch}
                 >
-                  Open in {webLaunchCandidate.serviceName}
+                  Open {webLaunchCandidate.serviceName}
                 </a>
               )}
               {trailer?.embedUrl && (
@@ -504,7 +495,7 @@ function TvRevealScreen({
                   data-tv-focusable
                   data-tv-nav-group="reveal-actions"
                   data-tv-autofocus={
-                    isPickKept && !webLaunchCandidate?.url ? "true" : undefined
+                    !webLaunchCandidate?.url ? "true" : undefined
                   }
                   onClick={onToggleTrailer}
                 >
@@ -512,6 +503,12 @@ function TvRevealScreen({
                 </button>
               )}
             </div>
+
+            {providerLaunchMessage && (
+              <p className="tv-provider-launch-message" role="status">
+                {providerLaunchMessage}
+              </p>
+            )}
 
             {isPreparingPreviews && (
               <p className="tv-preview-status" role="status">
@@ -617,17 +614,17 @@ export default function TvTonightScreen({ userId, userEmail }) {
   const [showDrawConfirm, setShowDrawConfirm] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawAnimationTitle, setDrawAnimationTitle] = useState("");
-  const [drawnMovie, setDrawnMovie] = useState(null);
-  const [isPickKept, setIsPickKept] = useState(false);
+  const [drawnMovie, setDrawnMovie] = useState(() => readExternalReturn(bowlId));
   const [showTrailer, setShowTrailer] = useState(false);
   const [pendingReturn, setPendingReturn] = useState(null);
   const [isReturningMovie, setIsReturningMovie] = useState(false);
   const [returnErrorMessage, setReturnErrorMessage] = useState(null);
   const [tonightMessage, setTonightMessage] = useState(null);
   const [trailerQueue, setTrailerQueue] = useState([]);
-  const [isTrailerQueueLoading, setIsTrailerQueueLoading] = useState(false);
+  const [trailerQueueStatus, setTrailerQueueStatus] = useState("idle");
   const [isTheaterPending, setIsTheaterPending] = useState(false);
   const [isTheaterPlaying, setIsTheaterPlaying] = useState(false);
+  const [providerLaunchMessage, setProviderLaunchMessage] = useState(null);
   const drawInFlightRef = useRef(false);
 
   const isTheaterModeEnabled = Boolean(defaultDrawSettings?.theaterModeEnabled);
@@ -679,21 +676,36 @@ export default function TvTonightScreen({ userId, userEmail }) {
     });
   }, [drawnMovie, streamingServices]);
 
-  const chooseAnotherBowl = () => navigate("/tv/bowls");
+  const chooseAnotherBowl = () => {
+    clearExternalReturn();
+    navigate("/tv/bowls");
+  };
 
-  // Previews are resolved while the room is still reading the reveal screen so
-  // the sequence can start on the same press that accepts the pick, which is
-  // also the user gesture television browsers require before autoplay.
+  useEffect(() => {
+    const handleProviderLaunchError = (event) => {
+      setProviderLaunchMessage(
+        event?.detail?.message || "That streaming app could not be opened on this TV."
+      );
+    };
+
+    window.addEventListener("moviebowl:provider-launch-error", handleProviderLaunchError);
+    return () => {
+      window.removeEventListener("moviebowl:provider-launch-error", handleProviderLaunchError);
+    };
+  }, []);
+
+  // Resolve previews as soon as the draw is committed. Theater mode starts the
+  // queue automatically; ordinary draws remain on the result screen.
   useEffect(() => {
     if (!isTheaterModeEnabled || !drawnMovie) {
       setTrailerQueue([]);
-      setIsTrailerQueueLoading(false);
+      setTrailerQueueStatus("idle");
       return undefined;
     }
 
     let cancelled = false;
     setTrailerQueue([]);
-    setIsTrailerQueueLoading(true);
+    setTrailerQueueStatus("loading");
 
     buildTrailerQueue({
       movies: bowl.remaining,
@@ -710,7 +722,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
         if (!cancelled) setTrailerQueue([]);
       })
       .finally(() => {
-        if (!cancelled) setIsTrailerQueueLoading(false);
+        if (!cancelled) setTrailerQueueStatus("ready");
       });
 
     return () => {
@@ -718,24 +730,10 @@ export default function TvTonightScreen({ userId, userEmail }) {
     };
   }, [isTheaterModeEnabled, drawnMovie, bowl.remaining, theaterTrailerCount]);
 
-  const keepPick = () => {
-    setIsPickKept(true);
-    if (!isTheaterModeEnabled) return;
-
-    // A fast press can land before the lookups finish; wait for the queue
-    // instead of silently dropping the previews.
-    if (isTrailerQueueLoading) {
-      setIsTheaterPending(true);
-      return;
-    }
-
-    if (trailerQueue.length > 0) setIsTheaterPlaying(true);
-  };
-
   useEffect(() => {
     if (!isTheaterPending) return undefined;
 
-    if (!isTrailerQueueLoading) {
+    if (trailerQueueStatus === "ready") {
       setIsTheaterPending(false);
       if (trailerQueue.length > 0) setIsTheaterPlaying(true);
       return undefined;
@@ -746,7 +744,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
       MAX_PREVIEW_WAIT_MS
     );
     return () => window.clearTimeout(timer);
-  }, [isTheaterPending, isTrailerQueueLoading, trailerQueue]);
+  }, [isTheaterPending, trailerQueueStatus, trailerQueue]);
 
   // The whole queue is recorded as played, including on an early exit: a few
   // previews suppressed for one extra movie night beats replaying them.
@@ -764,7 +762,6 @@ export default function TvTonightScreen({ userId, userEmail }) {
       showDrawConfirm,
       isDrawing,
       drawnMovie?.id || "",
-      isPickKept,
       showTrailer,
       isTheaterPlaying,
       pendingReturn?.drawEventId || "",
@@ -790,8 +787,8 @@ export default function TvTonightScreen({ userId, userEmail }) {
         return;
       }
       if (drawnMovie) {
+        clearExternalReturn();
         setDrawnMovie(null);
-        setIsPickKept(false);
         setIsTheaterPending(false);
         setIsTheaterPlaying(false);
         setShowTrailer(false);
@@ -813,6 +810,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
     }
 
     drawInFlightRef.current = true;
+    clearExternalReturn();
     setShowDrawConfirm(false);
     setTonightMessage(null);
     setDrawAnimationTitle("");
@@ -834,10 +832,10 @@ export default function TvTonightScreen({ userId, userEmail }) {
 
       const detailedMovie = await enrichDrawnMovie(movie);
       setDrawnMovie(detailedMovie);
-      setIsPickKept(false);
-      setIsTheaterPending(false);
+      setIsTheaterPending(isTheaterModeEnabled);
       setIsTheaterPlaying(false);
       setShowTrailer(false);
+      setProviderLaunchMessage(null);
     } finally {
       drawInFlightRef.current = false;
       setIsDrawing(false);
@@ -871,9 +869,9 @@ export default function TvTonightScreen({ userId, userEmail }) {
       }
 
       const returnedTitle = pendingReturn.movie?.title || "Movie";
+      clearExternalReturn();
       setPendingReturn(null);
       setDrawnMovie(null);
-      setIsPickKept(false);
       setIsTheaterPending(false);
       setIsTheaterPlaying(false);
       setShowTrailer(false);
@@ -913,12 +911,15 @@ export default function TvTonightScreen({ userId, userEmail }) {
           bowlName={bowlMeta.name}
           movie={drawnMovie}
           streamingServices={streamingServices}
-          isPickKept={isPickKept}
           isPreparingPreviews={isTheaterPending}
           showTrailer={showTrailer}
           isDialogOpen={Boolean(pendingReturn) || isTheaterPlaying}
           webLaunchCandidate={preferredWebLaunchCandidate}
-          onKeep={keepPick}
+          providerLaunchMessage={providerLaunchMessage}
+          onProviderLaunch={() => {
+            setProviderLaunchMessage(null);
+            rememberExternalReturn({ bowlId, movie: drawnMovie });
+          }}
           onCloseTrailer={() => setShowTrailer(false)}
           onToggleTrailer={() => setShowTrailer((current) => !current)}
         />

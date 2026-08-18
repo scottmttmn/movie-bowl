@@ -167,6 +167,7 @@ function setElementRect(element, { left, top, width, height }) {
 describe("Movie Bowl TV experience", () => {
   beforeEach(() => {
     window.localStorage.clear();
+    window.sessionStorage.clear();
     mocks.handleDraw.mockReset();
     mocks.handleReaddMovie.mockReset();
     mocks.getTmdbMovieDetails.mockReset();
@@ -331,7 +332,7 @@ describe("Movie Bowl TV experience", () => {
     );
     expect(mocks.handleDraw).toHaveBeenCalledTimes(1);
     expect(
-      screen.getByRole("link", { name: /open in netflix/i })
+      screen.getByRole("link", { name: /^open netflix$/i })
     ).toHaveAttribute(
       "href",
       "https://www.netflix.com/search?q=Arrival%202016"
@@ -418,7 +419,7 @@ describe("Movie Bowl TV experience", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("does not show a bowl-switch shortcut after accepting the selected movie", async () => {
+  it("treats the draw as tonight's pick without asking for acceptance", async () => {
     mocks.handleDraw.mockResolvedValue({
       id: "movie-1",
       tmdb_id: 101,
@@ -445,11 +446,10 @@ describe("Movie Bowl TV experience", () => {
     });
     vi.useRealTimers();
 
-    await waitFor(() => {
-      expect(screen.getByRole("button", { name: /that's the one/i })).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByRole("button", { name: /that's the one/i }));
-
+    expect(await screen.findByText(/tonight's pick/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /that's the one/i })
+    ).not.toBeInTheDocument();
     expect(screen.getByText(/tonight's pick/i)).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /choose another bowl/i })
@@ -457,5 +457,62 @@ describe("Movie Bowl TV experience", () => {
     expect(
       screen.queryByRole("button", { name: /we're not watching this/i })
     ).not.toBeInTheDocument();
+  });
+
+  it("restores the drawn result after an external provider handoff reload", async () => {
+    window.sessionStorage.setItem(
+      "movie-bowl:tv:external-return",
+      JSON.stringify({
+        bowlId: "family",
+        movie: {
+          id: "movie-1",
+          title: "Arrival",
+          release_date: "2016-11-11",
+          streamingProviders: ["Netflix"],
+        },
+        savedAt: Date.now(),
+      })
+    );
+
+    renderTonight();
+
+    expect(
+      await screen.findByRole("heading", { name: /arrival/i })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("link", { name: /^open netflix$/i })
+    ).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(window.sessionStorage.getItem("movie-bowl:tv:external-return")).toBeNull();
+  });
+
+  it("shows a native provider-launch failure without leaving the result", async () => {
+    window.sessionStorage.setItem(
+      "movie-bowl:tv:external-return",
+      JSON.stringify({
+        bowlId: "family",
+        movie: {
+          id: "movie-1",
+          title: "Arrival",
+          streamingProviders: ["Netflix"],
+        },
+        savedAt: Date.now(),
+      })
+    );
+
+    renderTonight();
+    await screen.findByRole("heading", { name: /arrival/i });
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent("moviebowl:provider-launch-error", {
+          detail: { message: "Netflix isn't installed on this TV." },
+        })
+      );
+    });
+
+    expect(screen.getByText(/netflix isn't installed/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /arrival/i })).toBeInTheDocument();
   });
 });

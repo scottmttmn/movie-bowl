@@ -2,8 +2,10 @@ package app.moviebowl.tv;
 
 import android.annotation.SuppressLint;
 import android.app.Activity;
+import android.app.SearchManager;
 import android.content.ActivityNotFoundException;
 import android.content.Intent;
+import android.content.pm.ResolveInfo;
 import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.Uri;
@@ -24,10 +26,16 @@ import android.webkit.WebView;
 import android.webkit.WebViewClient;
 import android.widget.FrameLayout;
 
+import org.json.JSONObject;
+
+import java.util.List;
+import java.util.Locale;
 import java.util.Objects;
 
 public final class MainActivity extends Activity {
     private static final long ROUTE_SETTLE_DELAY_MS = 180L;
+    private static final String TV_BROWSER_STUB_PACKAGE =
+        "com.android.tv.frameworkpackagestubs";
 
     private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
@@ -61,6 +69,8 @@ public final class MainActivity extends Activity {
         settings.setJavaScriptEnabled(true);
         settings.setDomStorageEnabled(true);
         settings.setDatabaseEnabled(true);
+        settings.setUseWideViewPort(true);
+        settings.setLoadWithOverviewMode(true);
         settings.setMediaPlaybackRequiresUserGesture(false);
         settings.setSupportMultipleWindows(true);
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
@@ -286,14 +296,112 @@ public final class MainActivity extends Activity {
         if (uri == null) return true;
         if (isMovieBowlOrigin(uri)) return false;
 
+        Intent intent = new Intent(Intent.ACTION_VIEW, uri);
+        intent.addCategory(Intent.CATEGORY_BROWSABLE);
+
+        String query = getSearchQuery(uri);
+        if (query != null) {
+            // Some television apps honor one of these standard search extras
+            // even when their web-link filter accepts every path.
+            intent.putExtra(SearchManager.QUERY, query);
+            intent.putExtra("query", query);
+            intent.putExtra(Intent.EXTRA_TEXT, query);
+        }
+
+        String providerPackage = getProviderPackageName(uri);
+        if (providerPackage != null && isPackageInstalled(providerPackage)) {
+            intent.setPackage(providerPackage);
+        } else if (!hasUsableExternalHandler(intent)) {
+            notifyProviderLaunchError(
+                getProviderName(uri) + " isn't installed on this TV."
+            );
+            return true;
+        }
+
         try {
-            startActivity(new Intent(Intent.ACTION_VIEW, uri));
+            startActivity(intent);
         } catch (ActivityNotFoundException error) {
-            // A Google TV emulator might not have a general browser installed.
-            // Loading in the wrapper still lets us inspect the provider fallback.
-            webView.loadUrl(uri.toString());
+            notifyProviderLaunchError(
+                getProviderName(uri) + " could not be opened on this TV."
+            );
         }
         return true;
+    }
+
+    private boolean hasUsableExternalHandler(Intent intent) {
+        List<ResolveInfo> handlers = getPackageManager().queryIntentActivities(
+            intent,
+            android.content.pm.PackageManager.MATCH_DEFAULT_ONLY
+        );
+
+        for (ResolveInfo handler : handlers) {
+            String packageName = handler.activityInfo != null
+                ? handler.activityInfo.packageName
+                : null;
+            if (
+                packageName != null &&
+                !TV_BROWSER_STUB_PACKAGE.equals(packageName) &&
+                !getPackageName().equals(packageName)
+            ) {
+                return true;
+            }
+        }
+
+        return false;
+    }
+
+    private boolean isPackageInstalled(String packageName) {
+        try {
+            return getPackageManager().getApplicationInfo(packageName, 0).enabled;
+        } catch (android.content.pm.PackageManager.NameNotFoundException error) {
+            return false;
+        }
+    }
+
+    private String getSearchQuery(Uri uri) {
+        for (String key : new String[] { "q", "query", "term" }) {
+            String value = uri.getQueryParameter(key);
+            if (value != null && !value.trim().isEmpty()) return value.trim();
+        }
+        return null;
+    }
+
+    private String getProviderName(Uri uri) {
+        String host = String.valueOf(uri.getHost()).toLowerCase(Locale.US);
+        if (host.contains("max.com") || host.contains("hbomax.com")) return "Max";
+        if (host.contains("netflix.com")) return "Netflix";
+        if (host.contains("hulu.com")) return "Hulu";
+        if (host.contains("disneyplus.com")) return "Disney+";
+        if (host.contains("amazon.com")) return "Prime Video";
+        if (host.contains("tv.apple.com")) return "Apple TV+";
+        if (host.contains("paramountplus.com")) return "Paramount+";
+        if (host.contains("peacocktv.com")) return "Peacock";
+        return "That streaming app";
+    }
+
+    private String getProviderPackageName(Uri uri) {
+        String host = String.valueOf(uri.getHost()).toLowerCase(Locale.US);
+        if (host.contains("max.com") || host.contains("hbomax.com")) {
+            return "com.wbd.stream";
+        }
+        if (host.contains("netflix.com")) return "com.netflix.ninja";
+        if (host.contains("hulu.com")) return "com.hulu.livingroomplus";
+        if (host.contains("disneyplus.com")) return "com.disney.disneyplus";
+        if (host.contains("amazon.com")) return "com.amazon.amazonvideo.livingroom";
+        if (host.contains("tv.apple.com")) return "com.apple.atve.androidtv.appletv";
+        if (host.contains("paramountplus.com")) return "com.cbs.ott";
+        if (host.contains("peacocktv.com")) return "com.peacocktv.peacockandroid";
+        return null;
+    }
+
+    private void notifyProviderLaunchError(String message) {
+        if (webView == null) return;
+
+        String script =
+            "window.dispatchEvent(new CustomEvent(" +
+            "'moviebowl:provider-launch-error'," +
+            "{detail:{message:" + JSONObject.quote(message) + "}}));";
+        webView.post(() -> webView.evaluateJavascript(script, null));
     }
 
     private void showCustomFullscreenView(
