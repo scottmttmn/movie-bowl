@@ -587,6 +587,10 @@ export default function BowlSettings() {
     }
   };
 
+  // The button is disabled until this matches, but the check stays here too:
+  // it is the guard that actually protects the bowl.
+  const isDeleteConfirmed = deleteConfirmText.trim() === "DELETE";
+
   const handleDeleteBowl = async (e) => {
     e.preventDefault();
     setActionMessage(null);
@@ -597,7 +601,7 @@ export default function BowlSettings() {
       return;
     }
 
-    if (deleteConfirmText.trim() !== "DELETE") {
+    if (!isDeleteConfirmed) {
       setErrorMessage('Type "DELETE" to confirm bowl deletion.');
       return;
     }
@@ -1188,8 +1192,8 @@ export default function BowlSettings() {
             />
             <button
               type="submit"
-              disabled={isDeletingBowl}
-              className="btn btn-danger disabled:opacity-60"
+              disabled={isDeletingBowl || !isDeleteConfirmed}
+              className="btn btn-danger disabled:opacity-60 disabled:cursor-not-allowed"
             >
               {isDeletingBowl ? "Deleting..." : "Delete Bowl"}
             </button>

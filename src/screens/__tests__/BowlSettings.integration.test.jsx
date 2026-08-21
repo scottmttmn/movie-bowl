@@ -1066,16 +1066,38 @@ describe("BowlSettings integration", () => {
     });
   });
 
-  it("prevents deleting a bowl without the DELETE confirmation text", async () => {
+  it("keeps Delete Bowl disabled until the confirmation text matches exactly", async () => {
     render(<BowlSettings />);
 
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /delete bowl/i })).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: /^delete bowl$/i })).toBeInTheDocument();
     });
 
-    fireEvent.click(screen.getByRole("button", { name: /^delete bowl$/i }));
+    const deleteButton = screen.getByRole("button", { name: /^delete bowl$/i });
+    const confirmInput = screen.getByPlaceholderText('Type "DELETE"');
+
+    expect(deleteButton).toBeDisabled();
+
+    fireEvent.change(confirmInput, { target: { value: "delete" } });
+    expect(deleteButton).toBeDisabled();
+
+    fireEvent.change(confirmInput, { target: { value: "  DELETE  " } });
+    expect(deleteButton).toBeEnabled();
+  });
+
+  // The disabled button is the affordance; this is the guard behind it, so it
+  // is exercised by submitting the form directly.
+  it("prevents deleting a bowl without the DELETE confirmation text", async () => {
+    const { container } = render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^delete bowl$/i })).toBeInTheDocument();
+    });
+
+    fireEvent.submit(container.querySelector("#delete-bowl-confirm").closest("form"));
 
     expect(screen.getByText('Type "DELETE" to confirm bowl deletion.')).toBeInTheDocument();
+    expect(mocks.supabase.rpc).not.toHaveBeenCalledWith("delete_owned_bowl", expect.anything());
     expect(mocks.state.navigate).not.toHaveBeenCalled();
   });
 
