@@ -6,6 +6,7 @@ export default defineConfig({
   plugins: [react()],
   test: {
     environment: "jsdom",
+    maxWorkers: 2,
     setupFiles: "./src/test/setup.js",
     coverage: {
       provider: "v8",

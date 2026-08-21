@@ -27,7 +27,14 @@ export default defineConfig([
     },
   },
   {
-    files: ['api/**/*.js', '**/__tests__/**/*.js', '**/*.test.js', 'src/test/**/*.js'],
+    files: [
+      'api/**/*.js',
+      '**/__tests__/**/*.js',
+      '**/*.test.js',
+      'src/test/**/*.js',
+      'e2e/**/*.js',
+      'playwright.config.js',
+    ],
     languageOptions: {
       globals: {
         ...globals.browser,
