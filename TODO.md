@@ -11,12 +11,16 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 - Bowl dashboard hero redesign, slice 2: move the draw filters out of the inline panel into a "Narrow the draw" overlay anchored under the header (filter icon + gear top right, rose dot when active, live eligible count, Reset/Done). Slice 1 (hold-to-draw, stat line, ⓘ method info) landed. See `output/designs/bowl-dashboard-hero.md`.
 - Once-per-day draw lockout: the mobile design exploration floated "can't draw again until tomorrow" after putting a movie back, to discourage re-rolling. New product behavior with open questions (locked per user or per bowl, timezone, who can override) — needs its own design doc before any code.
 - Watched-outside-the-bowl removals leave no trace: logging a manual watch can now pull your own undrawn slips out of the bowls holding them, but that is a hard delete, so the other members just see the bowl shrink. Everything else in the history model keeps the fact (draw events are immutable, returns set `returned_at`). Worth deciding whether this should be an event the bowl can show instead.
-- Person-first odds vs. the eligible pool: phone and TV now report contributor reach after rating, genre, runtime, and streaming priority have all run. `buildDrawOddsStats` still derives from `bowl.remaining`, so if an odds panel is ever rendered it will show a flat 1/N for someone the draw cannot reach — it should take the resolved eligible pool. Still undecided whether unreachable contributors deserve a fallback that keeps them in play rather than only honest copy.
+- Future odds-panel accuracy: before rendering `buildDrawOddsStats`, feed it the resolved eligible pool rather than `bowl.remaining`; otherwise it would show a flat 1/N for contributors the filters or streaming priority cannot reach. Separately decide whether unreachable contributors deserve a fallback that keeps them in play rather than only honest copy.
 
 ## Future Product Concepts
 
+- Movie comments: let contributors optionally record why a movie belongs in
+  the bowl, then reveal that context with the draw and retain it in watched
+  details and manual history. Implementation-ready plan in
+  `output/designs/movie-comments.md`.
 - TV Theater mode: trailer pre-roll (phase 1) is implemented. Remaining phases cover provider deep links, LAN auto-start, and a native TV shell. See `output/designs/tv-theater-mode.md`.
-- Selectable draw methods: person-first and title-first ship as an owner-controlled bowl setting. Rotation (phase 2) still needs a per-contributor last-drawn source. See `output/designs/bowl-draw-methods.md`.
+- Personal movie ordering: let contributors rank their own undrawn titles, independently of contributor rotation. Needs a separate design for method scope, link-guest ownership, accessible reordering, and where new or returned movies land.
 - Within-person title weights: let a contributor set relative odds among their own titles without changing anyone else's odds. Recorded in `output/designs/bowl-draw-methods.md`.
 - Solo draw: draw privately from only your own titles, in one bowl or pooled across all of them. See `output/designs/solo-draw.md`.
 

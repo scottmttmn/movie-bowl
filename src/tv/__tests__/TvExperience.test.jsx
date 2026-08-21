@@ -48,6 +48,7 @@ const mocks = vi.hoisted(() => ({
   streamingServices: ["Netflix", "Max"],
   prioritizeStreaming: true,
   providersByTmdbId: { 101: ["Netflix"] },
+  drawMethod: "person_first",
 }));
 
 vi.mock("../hooks/useTvBowls", () => ({
@@ -62,6 +63,7 @@ vi.mock("../hooks/useTvBowls", () => ({
       name: "Family Night",
       ownerId: "user-1",
       canDraw: true,
+      drawMethod: mocks.drawMethod,
     },
     isLoading: false,
     errorMessage: null,
@@ -194,6 +196,7 @@ describe("Movie Bowl TV experience", () => {
     mocks.streamingServices = ["Netflix", "Max"];
     mocks.prioritizeStreaming = true;
     mocks.providersByTmdbId = { 101: ["Netflix"] };
+    mocks.drawMethod = "person_first";
     delete window.YT;
     delete window.onYouTubeIframeAPIReady;
     vi.useRealTimers();
@@ -247,6 +250,15 @@ describe("Movie Bowl TV experience", () => {
     renderTonight();
 
     expect(await screen.findByText(/favoring 1 on netflix/i)).toBeInTheDocument();
+  });
+
+  it("describes rotation without calling it a plain random draw", async () => {
+    mocks.drawMethod = "rotation";
+
+    renderTonight();
+
+    expect(await screen.findByText("Contributor rotation")).toBeInTheDocument();
+    expect(screen.queryByText(/rotation random draw/i)).not.toBeInTheDocument();
   });
 
   it("shows the final ranked pool and contributors represented, including manual exclusions", async () => {

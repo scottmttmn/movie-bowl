@@ -152,12 +152,12 @@ select throws_ok(
   $sql$
     select public.save_bowl_draw_method(
       '10000000-0000-0000-0000-000000000031',
-      'rotation'
+      'raffle'
     )
   $sql$,
   'P0001',
   'Invalid draw method.',
-  'the owner cannot save a method that is not implemented yet'
+  'the owner cannot save an unknown draw method'
 );
 
 select throws_ok(

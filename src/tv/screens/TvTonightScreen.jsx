@@ -1145,7 +1145,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
                 ))}
                 <li>
                   <span aria-hidden="true">✓</span>
-                  {getDrawMethod(bowlMeta.drawMethod).label} random draw
+                  {getDrawMethod(bowlMeta.drawMethod).tvLabel}
                 </li>
               </ul>
             )}

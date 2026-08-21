@@ -338,9 +338,21 @@ describe("selectDrawCandidate", () => {
       prioritizeByServices: false,
       fetchProviders,
       randomFn: () => 0,
-      drawMethod: "rotation",
+      drawMethod: "future_method",
     });
 
     expect(selected.movie.id).toBe("u1-1");
+  });
+
+  it("requires the atomic RPC for rotation instead of silently picking in the client", async () => {
+    const fetchProviders = vi.fn(async () => ({ providers: [], region: "US", fetchedAt: null }));
+
+    await expect(
+      selectDrawCandidate(REMAINING, {
+        prioritizeByServices: false,
+        fetchProviders,
+        drawMethod: "rotation",
+      })
+    ).rejects.toThrow(/atomic draw rpc/i);
   });
 });

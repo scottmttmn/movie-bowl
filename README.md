@@ -2,8 +2,8 @@
 
 **Live app: [moviebowl.app](https://moviebowl.app)**
 
-Movie Bowl is a collaborative app for keeping a shared movie list and randomly
-drawing what to watch next. Everyone in a bowl adds titles, and the draw picks a
+Movie Bowl is a collaborative app for keeping a shared movie list and drawing
+what to watch next. Everyone in a bowl adds titles. By default, the draw picks a
 contributor first — so the person who added 25 movies does not get 25× the odds.
 
 ## What It Does
@@ -29,6 +29,9 @@ contributor first — so the person who added 25 movies does not get 25× the od
   uniformly, then choosing one movie from that bucket.
 - Or let the bowl owner switch the bowl to a straight title-by-title draw, where
   every movie in the bowl is equally likely.
+- Or use contributor rotation: people who have never had a title drawn go
+  first, then the least recently selected eligible contributor gets the next
+  turn. Ties and the title within that person's pool are random.
 - Narrow the pool before drawing with rating, genre, and runtime filters, each
   with an "include unknown" escape hatch.
 - Optionally prioritize titles available on your streaming services.
@@ -172,8 +175,9 @@ see `CLAUDE.md`. For reliability guardrails and the release smoke checklist, see
 - Draw behavior:
   - if the prioritize toggle is on and matches exist, draw from matches
   - if no matches, fall back to all titles that survived the other draw filters
-- This narrowing happens *before* contributor bucketing, so it changes which
-  titles are eligible, not the equal-per-person odds among them.
+- This narrowing happens *before* the draw method, so it changes which titles
+  and contributors are eligible. Person-first still gives each represented
+  contributor equal odds; rotation considers only represented contributors.
 
 ## Environment Variables
 

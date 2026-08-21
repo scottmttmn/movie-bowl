@@ -210,6 +210,27 @@ describe("BowlDashboard guards", () => {
     expect(screen.queryByText(/each person is equally likely to be selected/i)).not.toBeInTheDocument();
   });
 
+  it("passes rotation into the shared draw hook and explains the turn history", async () => {
+    mocks.state.bowlRow = {
+      name: "Bowl 1",
+      owner_id: "u1",
+      draw_access_mode: "all_members",
+      draw_method: "rotation",
+    };
+
+    renderDashboard();
+
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    await waitFor(() =>
+      expect(mocks.state.useBowlOptions).toEqual({ drawMethod: "rotation" })
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks$/i }));
+
+    expect(screen.getByText(/starting with anyone who has never had a movie drawn/i)).toBeInTheDocument();
+    expect(screen.getByText(/returning a movie does not reset the turn/i)).toBeInTheDocument();
+  });
+
   it("falls back to person-first when the draw_method column is missing", async () => {
     mocks.state.hasDrawMethodColumn = false;
 

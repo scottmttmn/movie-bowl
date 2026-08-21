@@ -1,4 +1,7 @@
-import { selectDrawCandidate } from "./selectDrawCandidate";
+import {
+  resolveStreamingDrawPool,
+  selectFromResolvedDrawPool,
+} from "./selectDrawCandidate";
 import { extractUsMovieRating, MPAA_RATING_OPTIONS, normalizeMpaaRating } from "./movieRatings";
 
 const MOVIE_RATING_CACHE_TTL_MS = 60 * 60 * 1000;
@@ -191,25 +194,64 @@ export async function getDrawSelection({
     return { selected: null, errorMessage: null };
   }
 
-  const { candidates: drawCandidates, errorMessage } = await getDrawCandidates({
+  const { candidates, errorMessage } = await getResolvedDrawPool({
     remainingMovies,
+    prioritizeByServices,
+    prioritizeByServiceRank,
+    userStreamingServices,
     ratingFilter,
     genreFilter,
     runtimeFilter,
+    fetchProviders,
     fetchMovieDetails,
   });
   if (errorMessage) {
     return { selected: null, errorMessage };
   }
 
-  const selected = await selectDrawCandidate(drawCandidates, {
-    prioritizeByServices,
-    prioritizeByServiceRank,
-    userStreamingServices,
+  const selected = await selectFromResolvedDrawPool(candidates, {
     fetchProviders,
     randomFn,
     drawMethod,
   });
 
   return { selected, errorMessage: null };
+}
+
+/**
+ * Resolves the complete pool a draw method may use. Ordinary filters run first,
+ * then streaming priority, matching both the persisted draw and its readouts.
+ */
+export async function getResolvedDrawPool({
+  remainingMovies,
+  prioritizeByServices = false,
+  prioritizeByServiceRank = true,
+  userStreamingServices = [],
+  ratingFilter = null,
+  genreFilter = null,
+  runtimeFilter = null,
+  fetchProviders,
+  fetchMovieDetails,
+}) {
+  if (!Array.isArray(remainingMovies) || remainingMovies.length === 0) {
+    return { candidates: [], errorMessage: null };
+  }
+
+  const { candidates: filteredCandidates, errorMessage } = await getDrawCandidates({
+    remainingMovies,
+    ratingFilter,
+    genreFilter,
+    runtimeFilter,
+    fetchMovieDetails,
+  });
+  if (errorMessage) return { candidates: [], errorMessage };
+
+  const candidates = await resolveStreamingDrawPool(filteredCandidates, {
+    prioritizeByServices,
+    prioritizeByServiceRank,
+    userStreamingServices,
+    fetchProviders,
+  });
+
+  return { candidates, errorMessage: null };
 }

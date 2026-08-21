@@ -1,7 +1,11 @@
 import { matchUserServices, normalizeStreamingServices } from "./streamingServices";
 import { DEFAULT_DRAW_METHOD, getDrawMethod } from "./drawMethods";
 
-function getProvidersForMovie(movie, fetchProviders) {
+export function getMovieFromDrawCandidate(candidate) {
+  return candidate?.movie || candidate;
+}
+
+export function getProvidersForMovie(movie, fetchProviders) {
   const tmdbId = Number(movie?.tmdb_id);
   if (!Number.isFinite(tmdbId) || tmdbId <= 0) {
     return Promise.resolve({ providers: [], region: "US", fetchedAt: null });
@@ -90,6 +94,66 @@ export async function getStreamingPriorityPool(
   };
 }
 
+/**
+ * Applies only the streaming-priority stage and returns the complete pool that
+ * the draw method is allowed to use. When priority is off, rows stay raw so a
+ * provider lookup is paid only for the eventual selection.
+ */
+export async function resolveStreamingDrawPool(
+  movies,
+  {
+    prioritizeByServices = false,
+    prioritizeByServiceRank = true,
+    userStreamingServices = [],
+    fetchProviders,
+  } = {}
+) {
+  const sourceMovies = Array.isArray(movies) ? movies : [];
+  const normalizedUserServices = normalizeStreamingServices(userStreamingServices);
+  const canPrioritize = prioritizeByServices && normalizedUserServices.length > 0;
+
+  if (!canPrioritize) return sourceMovies;
+
+  const { candidates } = await getStreamingPriorityPool(sourceMovies, {
+    prioritizeByServiceRank,
+    userStreamingServices: normalizedUserServices,
+    fetchProviders,
+  });
+  return candidates;
+}
+
+export async function hydrateDrawCandidate(candidate, fetchProviders) {
+  if (!candidate) return null;
+  if (candidate?.movie) return candidate;
+
+  const providerData = await getProvidersForMovie(candidate, fetchProviders);
+  return {
+    movie: candidate,
+    providers: providerData?.providers || [],
+    region: providerData?.region || "US",
+    fetchedAt: providerData?.fetchedAt || null,
+  };
+}
+
+export async function selectFromResolvedDrawPool(
+  candidates,
+  {
+    fetchProviders,
+    randomFn = Math.random,
+    drawMethod = DEFAULT_DRAW_METHOD,
+  } = {}
+) {
+  if (!Array.isArray(candidates) || candidates.length === 0) return null;
+
+  const method = getDrawMethod(drawMethod);
+  if (method.selectionMode !== "client") {
+    throw new Error(`${method.id} selection requires its atomic draw RPC`);
+  }
+
+  const selected = method.pick(candidates, { randomFn });
+  return hydrateDrawCandidate(selected, fetchProviders);
+}
+
 export async function selectDrawCandidate(
   remainingMovies,
   {
@@ -107,30 +171,18 @@ export async function selectDrawCandidate(
     throw new Error("selectDrawCandidate requires fetchProviders");
   }
 
-  const normalizedUserServices = normalizeStreamingServices(userStreamingServices);
-  const canPrioritize = prioritizeByServices && normalizedUserServices.length > 0;
-
-  // The bowl's method replaces only the final pick. It runs on whatever pool
-  // survives filtering and streaming priority, so the two stay composable.
-  const method = getDrawMethod(drawMethod);
-  const pickFromPool = (items) => method.pick(items, { randomFn });
-
-  if (!canPrioritize) {
-    const movie = pickFromPool(remainingMovies);
-    const providerData = await getProvidersForMovie(movie, fetchProviders);
-    return {
-      movie,
-      providers: providerData?.providers || [],
-      region: providerData?.region || "US",
-      fetchedAt: providerData?.fetchedAt || null,
-    };
-  }
-
-  const { candidates: drawPool } = await getStreamingPriorityPool(remainingMovies, {
+  const drawPool = await resolveStreamingDrawPool(remainingMovies, {
+    prioritizeByServices,
     prioritizeByServiceRank,
-    userStreamingServices: normalizedUserServices,
+    userStreamingServices,
     fetchProviders,
   });
 
-  return pickFromPool(drawPool);
+  // The bowl's method replaces only the final pick. It runs on whatever pool
+  // survives streaming priority, so the two stay composable.
+  return selectFromResolvedDrawPool(drawPool, {
+    fetchProviders,
+    randomFn,
+    drawMethod,
+  });
 }

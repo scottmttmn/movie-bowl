@@ -52,6 +52,7 @@ function buildContributorCounts(movies) {
 const PERSON_FIRST = {
   id: "person_first",
   label: "Person-first",
+  tvLabel: "Person-first random draw",
   description:
     "Picks a person at random, then one of their movies. Everyone is equally likely, no matter how many movies they added.",
   disclosure:
@@ -61,6 +62,7 @@ const PERSON_FIRST = {
   bucketsByContributor: true,
   reachCaveat:
     "Equal odds only cover the people with a movie in the actual eligible pool. Rating, genre, runtime, and streaming settings can remove every title someone added, leaving that person out of the draw.",
+  selectionMode: "client",
   pick(pool, { randomFn = Math.random } = {}) {
     const buckets = groupByContributor(pool);
     return pickUniform(pickUniform(buckets, randomFn), randomFn);
@@ -78,6 +80,7 @@ const PERSON_FIRST = {
 const TITLE_FIRST = {
   id: "title_first",
   label: "Title-first",
+  tvLabel: "Title-first random draw",
   description:
     "Picks a title at random from the whole bowl. Adding more movies means more chances to be drawn.",
   disclosure:
@@ -85,6 +88,7 @@ const TITLE_FIRST = {
   bucketsByContributor: false,
   reachCaveat:
     "Only movies in the actual eligible pool are in the running. Rating, genre, runtime, and streaming settings can remove every title someone added, leaving that person out of the draw.",
+  selectionMode: "client",
   pick(pool, { randomFn = Math.random } = {}) {
     return pickUniform(pool, randomFn);
   },
@@ -98,13 +102,28 @@ const TITLE_FIRST = {
   },
 };
 
+const ROTATION = {
+  id: "rotation",
+  label: "Rotation",
+  tvLabel: "Contributor rotation",
+  description:
+    "Picks someone who has waited longest, then randomly chooses one of their eligible movies.",
+  disclosure:
+    "The bowl chooses among the people represented in the eligible pool, starting with anyone who has never had a movie drawn and then whoever was selected least recently. Ties are random, and the bowl randomly chooses one of that person's eligible movies. Returning a movie does not reset the turn.",
+  bucketsByContributor: true,
+  reachCaveat:
+    "Rotation only covers people with a movie in the actual eligible pool. Rating, genre, runtime, and streaming settings can remove every title someone added, leaving that person out until one of their movies is eligible again.",
+  selectionMode: "server_rotation",
+};
+
 const DRAW_METHODS = {
   [PERSON_FIRST.id]: PERSON_FIRST,
   [TITLE_FIRST.id]: TITLE_FIRST,
+  [ROTATION.id]: ROTATION,
 };
 
 // Display order for the Bowl Settings control; the default leads.
-export const DRAW_METHOD_OPTIONS = [PERSON_FIRST, TITLE_FIRST];
+export const DRAW_METHOD_OPTIONS = [PERSON_FIRST, TITLE_FIRST, ROTATION];
 
 // A bowl row written by a newer deploy must not break an older client still
 // open in someone's tab, so anything unrecognized reads as the default.
@@ -118,5 +137,6 @@ export function getDrawMethod(value) {
 }
 
 export function buildDrawOddsStats(movies = [], drawMethod = DEFAULT_DRAW_METHOD) {
-  return getDrawMethod(drawMethod).buildOdds(movies);
+  const method = getDrawMethod(drawMethod);
+  return typeof method.buildOdds === "function" ? method.buildOdds(movies) : [];
 }

@@ -26,13 +26,14 @@ describe("normalizeDrawMethod", () => {
     expect(normalizeDrawMethod(null)).toBe(DEFAULT_DRAW_METHOD);
     expect(normalizeDrawMethod(undefined)).toBe(DEFAULT_DRAW_METHOD);
     expect(normalizeDrawMethod("")).toBe(DEFAULT_DRAW_METHOD);
-    expect(normalizeDrawMethod("rotation")).toBe(DEFAULT_DRAW_METHOD);
+    expect(normalizeDrawMethod("future_method")).toBe(DEFAULT_DRAW_METHOD);
     expect(normalizeDrawMethod("constructor")).toBe(DEFAULT_DRAW_METHOD);
   });
 
   it("keeps the methods that exist", () => {
     expect(normalizeDrawMethod("person_first")).toBe("person_first");
     expect(normalizeDrawMethod(" title_first ")).toBe("title_first");
+    expect(normalizeDrawMethod("rotation")).toBe("rotation");
   });
 
   it("gives every offered method the copy the UI renders", () => {
@@ -41,6 +42,8 @@ describe("normalizeDrawMethod", () => {
       expect(method.label).toBeTruthy();
       expect(method.description).toBeTruthy();
       expect(method.disclosure).toBeTruthy();
+      expect(method.tvLabel).toBeTruthy();
+      expect(method.selectionMode).toBeTruthy();
     });
   });
 });
@@ -119,12 +122,15 @@ describe("title_first", () => {
 });
 
 describe("every method", () => {
+  const clientMethods = DRAW_METHOD_OPTIONS.filter(
+    (method) => method.selectionMode === "client"
+  );
   const singleContributorPool = [
     { id: "solo-1", added_by: "user-1" },
     { id: "solo-2", added_by: "user-1" },
   ];
 
-  DRAW_METHOD_OPTIONS.forEach((method) => {
+  clientMethods.forEach((method) => {
     it(`${method.id} unwraps the { movie } candidates the streaming path builds`, () => {
       const wrapped = LOPSIDED_POOL.map((movie) => ({ movie, providers: [], bestRank: 0 }));
       const selected = method.pick(wrapped, { randomFn: makeSequenceRandom([0, 0]) });
@@ -164,5 +170,16 @@ describe("every method", () => {
     it(`${method.id} reports no odds for an empty bowl`, () => {
       expect(buildDrawOddsStats([], method.id)).toEqual([]);
     });
+  });
+});
+
+describe("rotation", () => {
+  const method = getDrawMethod("rotation");
+
+  it("declares server selection and contributor reach without fake client odds", () => {
+    expect(method.selectionMode).toBe("server_rotation");
+    expect(method.bucketsByContributor).toBe(true);
+    expect(method.pick).toBeUndefined();
+    expect(buildDrawOddsStats(LOPSIDED_POOL, "rotation")).toEqual([]);
   });
 });

@@ -442,7 +442,7 @@ const mocks = vi.hoisted(() => {
           };
         }
 
-        if (!["person_first", "title_first"].includes(args?.p_method)) {
+        if (!["person_first", "title_first", "rotation"].includes(args?.p_method)) {
           return {
             data: null,
             error: { code: "P0001", message: "Invalid draw method." },
@@ -988,6 +988,25 @@ describe("BowlSettings integration", () => {
     expect(screen.getByLabelText(/title-first/i)).toBeChecked();
   });
 
+  it("owner can switch the bowl to rotation with autosave", async () => {
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^rotation/i)).toBeInTheDocument();
+    });
+
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByLabelText(/^rotation/i));
+    await settleAutosave();
+
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith("save_bowl_draw_method", {
+      p_bowl_id: "bowl-1",
+      p_method: "rotation",
+    });
+    expect(mocks.state.bowl.draw_method).toBe("rotation");
+    expect(screen.getByLabelText(/^rotation/i)).toBeChecked();
+  });
+
   it("keeps the draw method unchanged when saving fails", async () => {
     mocks.state.errors.saveDrawMethod = { message: "database unavailable" };
 
@@ -1005,14 +1024,14 @@ describe("BowlSettings integration", () => {
     expect(mocks.state.bowl.draw_method).toBeUndefined();
   });
 
-  it("shows the draw method to a non-owner as read-only", async () => {
+  it("shows rotation to a non-owner as read-only", async () => {
     mocks.state.authUser = { id: "member-1", email: "member@example.com" };
     mocks.state.bowl = {
       id: "bowl-1",
       name: "Bowl 1",
       owner_id: "owner-1",
       draw_access_mode: "all_members",
-      draw_method: "title_first",
+      draw_method: "rotation",
     };
 
     render(<BowlSettings />);
@@ -1021,7 +1040,7 @@ describe("BowlSettings integration", () => {
       expect(screen.getByRole("heading", { name: /draw method/i })).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Title-first")).toBeInTheDocument();
+    expect(screen.getByText("Rotation")).toBeInTheDocument();
     expect(screen.getByText(/only the bowl owner can change this/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/person-first/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /save draw method/i })).not.toBeInTheDocument();

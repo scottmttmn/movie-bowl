@@ -259,49 +259,112 @@ describe("useBowl handleDraw integration", () => {
     randomSpy.mockRestore();
   });
 
-  it("groups guest add-link rows into the inviter draw bucket", async () => {
-    mocks.profileDirectoryRows = [
-      { user_id: "user-1", email: "owner@example.com" },
-      { user_id: "user-2", email: "friend@example.com" },
-    ];
-    mocks.remainingQueue.push([
-      {
-        id: "m1",
-        title: "Guest Pick",
-        added_by: "user-1",
-        added_by_name: "Dad",
-      },
-      {
-        id: "m2",
-        title: "Member Pick",
-        added_by: "user-1",
-      },
-      {
-        id: "m3",
-        title: "Other Member Pick",
-        added_by: "user-2",
-      },
-    ]);
-    mocks.watchedQueue.push([]);
+  it("sends the resolved pool to the atomic rotation RPC and hydrates its selection", async () => {
+    const movieA = { id: "m1", tmdb_id: 101, title: "Movie A", added_by: "user-1" };
+    const movieB = { id: "m2", tmdb_id: 202, title: "Movie B", added_by: "user-2" };
+    mocks.remainingQueue.push([movieA, movieB], [movieA]);
+    mocks.watchedQueue.push([], [{ ...movieB, drawn_at: "2026-08-21T18:00:00.000Z" }]);
+    mocks.rpcResponses.push({
+      data: [{ bowl_movie_id: "m2", draw_event_id: "event-2" }],
+      error: null,
+    });
+    mocks.fetchStreamingProviders.mockResolvedValue({
+      providers: ["Netflix"],
+      region: "US",
+      fetchedAt: null,
+    });
 
-    const { result } = renderHook(() => useBowl("bowl-1"));
-
+    const { result } = renderHook(() =>
+      useBowl("bowl-1", { drawMethod: "rotation" })
+    );
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
-    expect(result.current.drawOdds).toEqual([
-      {
-        bucketKey: "user:user-2",
-        member: "friend@example.com",
-        movieCount: 1,
-        drawOdds: 0.5,
+    let drawn;
+    await act(async () => {
+      drawn = await result.current.handleDraw();
+    });
+
+    expect(mocks.rpcCalls).toContainEqual({
+      name: "draw_bowl_movie_by_rotation",
+      params: {
+        p_bowl_id: "bowl-1",
+        p_candidate_movie_ids: ["m1", "m2"],
       },
-      {
-        bucketKey: "user:user-1",
-        member: "owner@example.com",
-        movieCount: 2,
-        drawOdds: 0.5,
+    });
+    expect(mocks.rpcCalls.some(({ name }) => name === "draw_bowl_movie")).toBe(false);
+    expect(mocks.fetchStreamingProviders).toHaveBeenCalledTimes(1);
+    expect(mocks.fetchStreamingProviders).toHaveBeenCalledWith(202, { region: "US" });
+    expect(drawn).toEqual(
+      expect.objectContaining({ id: "m2", streamingProviders: ["Netflix"] })
+    );
+  });
+
+  it("preserves the streaming fallback and manual titles in a rotation pool", async () => {
+    const unmatched = { id: "m1", tmdb_id: 101, title: "Unmatched", added_by: "user-1" };
+    const manual = { id: "manual", tmdb_id: -42, title: "Wildcard", added_by: "user-2" };
+    mocks.remainingQueue.push([unmatched, manual], [unmatched]);
+    mocks.watchedQueue.push([], [{ ...manual, drawn_at: "2026-08-21T18:00:00.000Z" }]);
+    mocks.rpcResponses.push({
+      data: [{ bowl_movie_id: "manual", draw_event_id: "event-manual" }],
+      error: null,
+    });
+    mocks.fetchStreamingProviders.mockResolvedValue({
+      providers: ["Paramount+"],
+      region: "US",
+      fetchedAt: null,
+    });
+
+    const { result } = renderHook(() =>
+      useBowl("bowl-1", { drawMethod: "rotation" })
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let drawn;
+    await act(async () => {
+      drawn = await result.current.handleDraw({
+        prioritizeByServices: true,
+        userStreamingServices: ["Netflix"],
+      });
+    });
+
+    expect(mocks.rpcCalls).toContainEqual({
+      name: "draw_bowl_movie_by_rotation",
+      params: {
+        p_bowl_id: "bowl-1",
+        p_candidate_movie_ids: ["m1", "manual"],
       },
-    ]);
+    });
+    expect(mocks.fetchStreamingProviders).toHaveBeenCalledTimes(1);
+    expect(mocks.fetchStreamingProviders).not.toHaveBeenCalledWith(-42, { region: "US" });
+    expect(drawn).toEqual(
+      expect.objectContaining({ id: "manual", streamingProviders: [] })
+    );
+  });
+
+  it("explains when the rotation database migration is missing", async () => {
+    const movie = { id: "m1", tmdb_id: 101, title: "Movie A", added_by: "user-1" };
+    mocks.remainingQueue.push([movie]);
+    mocks.watchedQueue.push([]);
+    mocks.rpcResponses.push({
+      data: null,
+      error: {
+        code: "PGRST202",
+        message: "Could not find the function public.draw_bowl_movie_by_rotation",
+      },
+    });
+
+    const { result } = renderHook(() =>
+      useBowl("bowl-1", { drawMethod: "rotation" })
+    );
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let drawn;
+    await act(async () => {
+      drawn = await result.current.handleDraw();
+    });
+
+    expect(drawn).toBeNull();
+    expect(result.current.errorMessage).toMatch(/latest database migration/i);
   });
 
   it("enriches current and historical contributors without profile joins", async () => {

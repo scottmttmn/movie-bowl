@@ -75,6 +75,19 @@ describe("DrawMethodInfoModal", () => {
     expect(screen.getByText(new RegExp(getDrawMethod("title_first").reachCaveat))).toBeInTheDocument();
   });
 
+  it("explains rotation and uses its eligible-contributor caveat", () => {
+    render(
+      <DrawMethodInfoModal
+        drawMethod="rotation"
+        contributorReach={{ totalCount: 2, reachedCount: 1, excludedNames: ["sam"] }}
+        onClose={() => {}}
+      />
+    );
+
+    expect(screen.getByText(getDrawMethod("rotation").disclosure)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(getDrawMethod("rotation").reachCaveat))).toBeInTheDocument();
+  });
+
   it("closes from the button and the backdrop, but not the surface", () => {
     const onClose = vi.fn();
     render(<DrawMethodInfoModal drawMethod="person_first" onClose={onClose} />);

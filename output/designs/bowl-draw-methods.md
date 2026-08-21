@@ -1,22 +1,20 @@
 # Selectable Draw Methods
 
-Status: Phase 1 shipped — `person_first` and `title_first` are live, owner-set in
-Bowl Settings, and the disclosure, TV label, and About copy all read from the
-registry. Phase 2 (rotation) is still a plan; nothing in the rotation sections
-below exists in code.
+Status: shipped — `person_first`, `title_first`, and contributor-history
+`rotation` are live as owner-set bowl methods. Rotation uses the exact resolved
+eligible pool and an atomic database draw; personal movie ordering remains a
+separate future feature.
 
 ## Product Idea
 
-Today every bowl draws exactly one way: pick a contributor at random with equal
-probability, then pick one of that contributor's movies at random. That method
-is good, and it stays the default. But it is not the only reasonable way for a
-group to decide, and some bowls want a different feel — a pure raffle where a
-person who added ten movies really does have ten chances, or a rotation where
-whoever has not had a pick in a while comes up next.
+Movie Bowl ships with person-first as the default and title-first as an optional
+straight raffle. Person-first is good, and it stays the default, but some bowls
+want a different feel: a rotation where whoever has not had a pick in a while
+comes up next.
 
-This plan makes the draw method an explicit, named, bowl-level choice. The bowl
-owner picks it in Bowl Settings; every draw in that bowl uses it, no matter who
-taps Draw.
+Phase 1 made the draw method an explicit, named, bowl-level choice. This plan
+extends that model with rotation. The bowl owner still picks the method in Bowl
+Settings, and every draw in that bowl uses it no matter who taps Draw.
 
 ## Decisions Already Made
 
@@ -51,18 +49,51 @@ Note this changes odds for link guests too — `getContributorBucketKey` buckets
 anonymous adds under `guest:<name>`, so a guest who added six titles currently
 counts as one person and would stop doing so under title-first.
 
-### 3. Rotation (`rotation`) — Phase 2
+### 3. Rotation (`rotation`)
 
-Restrict the bucket pool to the contributors whose most recent draw in this bowl
-is oldest (contributors never drawn rank first), then run person-first inside
-that restricted set.
+Start with the actual eligible pool after rating, genre, runtime, and streaming
+priority. Group it by contributor, keep only the contributors whose most recent
+draw in this bowl is oldest, randomly break a tie between those contributors,
+then randomly choose one of that contributor's eligible movies. Contributors
+who have never had one of their movies drawn rank ahead of everyone with draw
+history.
 
 *Feel:* turns. Over a run of movie nights everyone gets picked before anyone
 repeats.
 
-This is the only method that needs data the draw path does not already have; see
-Rotation Data below. That cost is why it is sequenced second rather than shipped
-with the first two.
+This is the only method that needs durable draw history and transactional
+selection; see Rotation Authority and Data below.
+
+### Rotation contract
+
+- Rotation is among **contributors represented in the actual eligible pool**,
+  not every member of the bowl. A contributor whose titles are all filtered out
+  does not stall the rotation; when one of their titles becomes eligible again,
+  their older history naturally moves them toward the front.
+- A draw counts as that contributor's turn even if the movie is later returned
+  to the bowl. `bowl_draw_events` is the durable fact that the draw happened;
+  `returned_at` changes current bowl state, not history.
+- All successful bowl draws count, including draws made before rotation was
+  enabled and draws made while another method was active. Switching to rotation
+  therefore starts from the bowl's real history instead of resetting fairness.
+- A newly represented contributor has no history and goes before contributors
+  who have already had a turn. Multiple never-drawn contributors tie and are
+  chosen randomly until each has appeared once.
+- Registered contributors use their stable user id. Public add-link guests keep
+  the existing `getContributorBucketKey` behavior: names are case-insensitive,
+  and unnamed adds share the `Link Guest` bucket.
+- The second step stays random. Rotation decides **whose turn** it is; it does
+  not create a personal movie queue or decide which of that person's movies is
+  most wanted.
+
+### Movie ordering is a separate feature
+
+Rotation does not require people to order their movies. Ordering would replace
+the second random step with "take my highest-ranked eligible title" and would
+introduce its own product and data decisions: who may reorder link-guest titles,
+where new and returned movies land, whether ordering also affects person-first,
+and how drag-and-drop degrades for keyboard and touch users. Keep that work out
+of rotation and give it its own design before adding a rank column or reorder UI.
 
 ## Where the Method Applies
 
@@ -73,9 +104,10 @@ The current selection pipeline is:
 
 ```
 remainingMovies
-  → filterCandidatesByRating / Genre / Runtime      (drawSelection.js)
-  → streaming-priority narrowing, if enabled        (selectDrawCandidate.js)
-  → pickRandomByContributor(pool)                   (selectDrawCandidate.js)
+  → rating / genre / runtime filters                 (drawSelection.js)
+  → streaming-priority narrowing, if enabled         (selectDrawCandidate.js)
+  → method-specific selection                        (client or rotation RPC)
+  → atomic draw persistence                          (Supabase RPC)
 ```
 
 The draw method replaces **only the last step**. It runs on whatever pool
@@ -84,130 +116,146 @@ never reorders the earlier stages. That keeps filters and method composable:
 "R-rated, on Netflix, drawn by rotation" is a coherent sentence, and each layer
 still means what it meant before.
 
-`selectDrawCandidate` calls `pickRandomByContributor` in two places (the
-non-prioritized path at line 52, and the ranked `drawPool` path at line 107).
-Both become calls to the selected method. Note the current helper accepts either
-raw movie rows or `{ movie, providers, ... }` wrappers via `item?.movie || item`;
-every method must preserve that duck-typing, because the two call sites pass
-different shapes.
+Person-first and title-first route through `src/utils/drawMethods.js`. Rotation
+adds a named eligible-pool resolver to the existing
+`getDrawSelection` / `selectDrawCandidate` split. It returns the
+same raw rows or `{ movie, providers, ... }` wrappers the existing code uses,
+after every narrowing stage has run. Person-first and title-first continue to
+pick in the client. Rotation sends only the ids from that resolved pool to its
+atomic RPC, then maps the returned id back to the resolved candidate so provider
+metadata and custom/manual-title behavior stay unchanged.
 
-### Proposed module
+The resolver must not fetch providers for the whole bowl when streaming priority
+is off. In that path, resolve the ordinary filters, let the rotation RPC choose
+an id, and fetch providers only for the selected positive TMDB id, matching the
+current non-prioritized cost.
 
-New `src/utils/drawMethods.js` holding a registry keyed by method id:
+### Method registry
+
+Rotation is a third registry entry rather than a parallel selection table:
 
 ```js
 {
-  id: "person_first",
-  label: "Person first",
-  description: "…",            // Bowl Settings radio copy
-  disclosure: "…",             // DrawMethodDisclosure body copy
-  pick(pool, { randomFn, context }),   // pool → one item
-  buildOdds(movies, context),          // → [{ bucketKey, member, movieCount, drawOdds }]
+  id: "rotation",
+  label: "Rotation",
+  description: "Picks someone who has waited longest, then one of their eligible movies.",
+  disclosure: "…",
+  tvLabel: "Contributor rotation",
+  bucketsByContributor: true,
+  selectionMode: "server_rotation"
 }
 ```
 
-Plus `DEFAULT_DRAW_METHOD = "person_first"` and
-`normalizeDrawMethod(value)` that falls back to the default for anything
-unrecognized. Normalization matters: a bowl row written by a newer deploy must
-not break an older client still in someone's tab.
+`selectionMode` keeps the branch declarative and prevents
+`selectDrawCandidate` from accidentally treating rotation as person-first.
+`bucketsByContributor: true` lets the existing stat-line and method-info reach
+warning work without special casing. Add `tvLabel` (with fallbacks for the two
+existing methods) instead of continuing to append the hardcoded words "random
+draw" to every label.
 
-`selectDrawCandidate` gains a `drawMethod` option defaulting to
-`DEFAULT_DRAW_METHOD`, so every existing caller and test keeps working untouched.
-`getDrawSelection` passes it through; `useBowl.handleDraw` reads it from bowl
-state and forwards it in the same options object that already carries the
-filters.
+`normalizeDrawMethod` recognizes `rotation` and keeps its unknown-value fallback
+for forward compatibility. An older client will still
+normalize it to person-first, so the database guard described below must reject
+an ordinary draw from a rotation bowl rather than silently use the wrong method.
 
-`buildDrawOddsStats` in `drawBuckets.js` moves behind `method.buildOdds` so the
-odds model tracks the method instead of hardcoding `1 / bucketCount`.
+Rotation does not add an odds UI. The unused `useBowl.drawOdds` export was
+removed because it cannot describe rotation honestly without both the resolved
+pool and current history. `buildDrawOddsStats` remains available for the two
+methods it currently supports. A
+future odds surface must solve the eligible-pool TODO for every method first.
 
 ## Data Model
 
-Mirror `draw_access_mode` exactly — it is the closest precedent in the schema.
+Phase 1 added the text column and owner-authorized save RPC. The rotation
+migration extends both allow-lists from two methods to three:
 
 ```sql
 alter table public.bowls
-  add column if not exists draw_method text not null default 'person_first';
-
-alter table public.bowls
+  drop constraint if exists bowls_draw_method_check,
   add constraint bowls_draw_method_check
   check (draw_method in ('person_first', 'title_first', 'rotation'));
 ```
 
-A text column with a check constraint, not an enum: adding a fourth method later
-is then a plain additive migration rather than a type change.
-
-Writes go through an owner-authorized RPC modeled on `save_bowl_draw_access`:
-
-```sql
-create or replace function public.save_bowl_draw_method(p_bowl_id uuid, p_method text)
-returns text
-language plpgsql security definer set search_path = public
-```
-
-…which rejects an unauthenticated caller (`42501`), rejects a non-owner
-(`42501`), rejects an unknown method id (`P0001`), and otherwise updates the row.
-Validating server-side matters because the check constraint alone would surface
-as an opaque database error in the UI.
+Update `save_bowl_draw_method` to accept `rotation`; its existing unauthenticated,
+non-owner, and unknown-method behavior stays unchanged.
 
 Files, following the existing convention:
 
-- `supabase/migrations/<ts>_add_bowl_draw_method.sql`
-- `supabase/rollback/<ts>_restore_single_draw_method.sql`
-- `supabase/tests/<ts>_add_bowl_draw_method.sql`
+- `supabase/migrations/<ts>_add_rotation_draw_method.sql`
+- `supabase/rollback/<ts>_remove_rotation_draw_method.sql`
+- `supabase/tests/<ts>_add_rotation_draw_method.sql`
 
-### Reading the column
-
-`BowlDashboard` already loads the bowl row (`name, owner_id, draw_access_mode`)
-and already degrades gracefully when a column is missing, re-querying without it
-and treating the feature as absent. Extend that same select and the same fallback
-to `draw_method`, so a deploy that reaches users before the migration is applied
-falls back to person-first instead of bouncing them to `/bowls`. `BowlSettings`
-and `src/tv/hooks/useTvBowls.js` need the same treatment; the TV surface prints
-"Person-first random draw" as static text today and must read the real value.
+No `bowl_movies` ordering, rank, or weight column belongs in this migration.
+The migration adds an unfiltered `(bowl_id, drawn_at desc)` index on
+`bowl_draw_events`; the
+existing history index covers only events that have not been returned, while
+rotation deliberately reads both returned and unreturned events. No history
+backfill is needed: durable draw events already include the legacy rows migrated
+when watch history was introduced.
 
 ## UI Surfaces
 
-1. **Bowl Settings** — an owner-only radio group next to Draw Access, one row per
-   method with a one-line description. Non-owners see the active method as read-only
-   text. Save through the RPC, matching how draw access already saves.
-2. **`DrawMethodDisclosure`** — currently a static component asserting equal
-   per-person odds. It takes a `drawMethod` prop and renders that method's
-   disclosure copy. If this component keeps saying "each person is equally
-   likely" while a bowl draws title-first, the feature has shipped a falsehood
-   into the most trusted sentence in the app.
-3. **TV `TvTonightScreen`** — replace the hardcoded "Person-first random draw"
-   label with the bowl's method label.
-4. **`AboutPage` / `AboutDecisionSpectrum`** — the spectrum copy says every member
-   had an equal chance. Reword to describe person-first as the default rather
-   than as the only behavior.
+Most surfaces already consume the registry, so adding the entry automatically
+adds the owner radio option, the member read-only view, and the phone method-info
+copy. The focused UI work is:
 
-`useBowl` exports `drawOdds` and nothing currently renders it, matching the
-README's "without surfacing competitive odds." Keep it export-only and correct
-per method; do not build new odds UI as part of this work.
+1. Use copy that says rotation is based on eligible contributors and that the
+   title within the selected person's pool is random.
+2. Keep the existing contributor-reach warning because filters and streaming
+   priority can still remove someone from this draw.
+3. Replace TV's `"${method.label} random draw"` concatenation with the registry's
+   `tvLabel` so rotation is not described as a plain random draw.
+4. Do not show "next person," last-turn timestamps, numeric odds, or ordering
+   controls. Those surfaces expose more group history and product policy than
+   the method needs to work.
 
-## Rotation Data
+## Rotation Authority and Data
 
-Person-first and title-first are pure functions of the eligible pool. Rotation is
-not — it needs each contributor's last draw time in this bowl.
+Do not fetch full history into `useBowl` and choose from a stale client snapshot.
+Two authorized people can draw at nearly the same time; if both saw the same
+oldest contributor, separate read and write calls could give that contributor
+two consecutive turns. Rotation's fairness promise should be enforced in the
+transaction that records the draw.
 
-`useBowl` loads `bowl_draw_events` today, but filtered to `returned_at is null`,
-so it is the current watch list rather than full history. Rotation needs the
-unfiltered per-contributor maximum. Options, in order of preference:
+Rotation uses a security-definer RPC with a fixed `search_path`:
 
-1. An RPC returning `(bucket_key, last_drawn_at)` for a bowl — one small query,
-   no history payload in the client.
-2. A separate `bowl_draw_events` select of `added_by, added_by_name, drawn_at`
-   ordered descending, reduced client-side.
+```sql
+public.draw_bowl_movie_by_rotation(
+  p_bowl_id uuid,
+  p_candidate_movie_ids uuid[]
+)
+returns table (
+  bowl_movie_id uuid,
+  draw_event_id uuid,
+  drawn_at timestamptz
+)
+```
 
-Either way the result is a `context` object passed into `method.pick`, so
-`person_first` and `title_first` continue to ignore it and stay trivially
-testable. Fetch it only when the bowl's method is `rotation`.
+The client passes the ids from the exact resolved eligible pool. Inside one
+transaction, the function:
 
-Edge cases to settle when Phase 2 is specified: a contributor whose titles are
-all filtered out is simply absent from the pool and does not stall the rotation;
-a contributor who joins mid-bowl has no draw history and therefore sorts first;
-when every eligible contributor ties (a fresh bowl, or a completed cycle) the
-method degenerates to plain person-first, which is the correct behavior.
+1. Requires authentication and `can_draw_from_bowl(p_bowl_id)`.
+2. Locks the bowl row so rotation draws for one bowl serialize.
+3. Confirms the bowl currently uses `rotation`, deduplicates the candidate ids,
+   rejects an empty or oversized list, and ignores ids that are from another
+   bowl or are no longer undrawn.
+4. Builds contributor buckets from the remaining candidate rows using the same
+   user-id / normalized guest-name contract as `getContributorBucketKey`.
+5. Reads the maximum `drawn_at` for those buckets from **all** matching
+   `bowl_draw_events`, without filtering on `returned_at` or draw method.
+6. Chooses uniformly among never-drawn buckets if any exist; otherwise chooses
+   uniformly among the buckets tied for the oldest timestamp. It then chooses
+   one candidate movie uniformly inside that bucket.
+7. Records the draw through one private persistence helper shared with the
+   existing `draw_bowl_movie`, so the bowl event and participant watch events
+   still have exactly one implementation.
+
+The existing `draw_bowl_movie(uuid)` RPC rejects a draw when the bowl now
+uses rotation. This turns an older cached client into a clear refresh/error case
+instead of silently performing person-first selection. The rotation RPC returns
+the chosen movie id; `useBowl.handleDraw` finds that id in its resolved candidate
+list, attaches any provider metadata, reloads the bowl, and returns the same
+shape callers receive today.
 
 ## Rollout
 
@@ -226,12 +274,40 @@ The check constraint allows only shipped methods. Adding `rotation` means
 adding its value in the same migration that implements it, so a stored method
 the client cannot honor never exists.
 
-**Phase 2 — rotation.** Add the history source, the `rotation` method, its
-constraint value, and its disclosure copy.
+**Phase 2A — atomic server foundation.** *Shipped.* Adds the unfiltered history
+index, factors event/watch-history persistence into a private helper, adds the
+rotation RPC, guards the ordinary draw RPC on rotation bowls, and extends the
+constraint/save RPC. The migration includes focused pgTAP coverage and a
+rollback.
 
-**Phase 3 — surfaces.** Any settings polish that falls out of using it.
+**Phase 2B — eligible-pool and client wiring.** *Shipped.* Extracts the reusable
+pool resolver, adds the registry entry, and branches `useBowl.handleDraw` on
+`selectionMode`. Both phone and TV draw through the same hook; there is no
+parallel TV implementation.
 
-Phases 1 and 2 each end with the app in a coherent, explainable state.
+**Phase 2C — truthful surfaces and cleanup.** *Shipped.* Adds the
+settings/disclosure copy, replaces the TV label concatenation, removes the
+unused `drawOdds` hook export, and updates README/TODO/design status.
+
+Deploy the database migration before the frontend. A rollback must first map
+any `rotation` bowls back to `person_first`, then restore the two-value
+constraint and save RPC, drop the rotation RPC/private helper if unused, and
+remove the new index. That behavior change should be called out in the rollback
+file rather than hidden in a constraint failure.
+
+### Implementation footprint
+
+- Selection: `src/utils/drawSelection.js`,
+  `src/utils/selectDrawCandidate.js`, and their focused tests.
+- Method contract/copy: `src/utils/drawMethods.js` plus stat-line/modal registry
+  tests.
+- Shared phone/TV draw state: `src/hooks/useBowl.js` and
+  `src/hooks/__tests__/useBowl.test.js`.
+- Settings and TV surfaces: `src/screens/BowlSettings.jsx`,
+  `src/tv/screens/TvTonightScreen.jsx`, and their integration tests.
+- Database: one migration, one rollback, and one pgTAP file following the names
+  above. Avoid a new table, a movie-rank column, or a second client-side history
+  hook.
 
 ## Testing
 
@@ -239,36 +315,70 @@ Per `STABILITY.md`, this touches two high-risk areas (`useBowl.js`,
 `BowlSettings.jsx`) plus migrations, so tests come with the change rather than
 after it.
 
-- `drawMethods` unit tests with an injected `randomFn`: distribution shape for
-  each method, single-contributor degeneracy (all methods agree), single-movie
-  pool, and the `{ movie }`-wrapper vs raw-row duck-typing.
-- `selectDrawCandidate` regression: **omitting `drawMethod` reproduces today's
-  output exactly.** The existing suite passing unmodified is the real proof.
-- Method composed with streaming priority: the method picks from the narrowed
-  ranked pool, not from all remaining titles.
-- `normalizeDrawMethod` maps `null`, `""`, and an unknown id to person-first.
-- Permissions: owner can save the method, member cannot (`42501`), unknown id is
-  rejected (`P0001`) — the owner-vs-member boundary `STABILITY.md` calls for.
-- `BowlDashboard` renders and draws normally when the `draw_method` column is
-  absent.
-- Disclosure copy matches the active method.
+### JavaScript and UI
 
-Manual QA before merge: draw in a person-first bowl and confirm nothing about the
-experience changed; switch a bowl to title-first and confirm the disclosure text
-changes with it.
+- Pool-resolver tests prove the returned ids are post-rating, post-genre,
+  post-runtime, post-streaming-match, and post-service-rank. Preserve the
+  no-service-match fallback, including custom/manual titles.
+- Existing person-first/title-first suites remain unchanged as a regression
+  gate. Omitting `drawMethod` must still reproduce person-first behavior.
+- Registry tests recognize `rotation`, retain unknown-value fallback, require
+  its copy/TV label, and mark it contributor-bucketed and server-selected.
+- `useBowl` tests prove rotation sends exactly the resolved candidate ids to
+  `draw_bowl_movie_by_rotation`, maps the returned id back from both raw and
+  provider-wrapped candidates, skips provider lookup for custom titles, and
+  keeps the ordinary RPC path for the existing methods.
+- Error tests cover an empty resolved pool, a stale/no-longer-available pool,
+  permission denial, missing migration, and the old-client refresh response.
+- Bowl Settings integration covers owner save and member read-only display.
+  Phone modal and TV tests cover the rotation disclosure/label and preserve the
+  contributor-reach warning.
+
+### Database
+
+- Extend the existing draw-method pgTAP suite: owner can save `rotation`; member,
+  outsider, anonymous, null, and unknown values retain their current outcomes.
+- Prove a fresh three-contributor bowl draws each contributor once before any
+  contributor repeats, with a second title for one contributor proving the
+  fourth draw can return to a bucket only after the first cycle completes.
+- Prove the oldest eligible contributor wins; a never-drawn contributor wins
+  first; filtered-out contributors do not block; and a contributor becomes
+  eligible again with their old history intact.
+- Prove returned events and draws made under person-first/title-first still count
+  toward rotation history.
+- Cover registered users, case-insensitive named guests, and the unnamed
+  `Link Guest` bucket so SQL and `getContributorBucketKey` cannot drift.
+- Reject empty/oversized candidate arrays, a non-rotation bowl, and unauthorized
+  callers. Prove wrong-bowl or already-drawn ids can never be selected, an
+  all-stale pool returns a clear error, the ordinary RPC refuses a rotation bowl,
+  and one successful call still writes one bowl event plus the same participant
+  watch events as today.
+
+Run `npm run test:run` and `npm run build`. Manual QA should switch an existing
+bowl with history to rotation, verify a contributor with no prior draw goes
+first, exercise a filter that removes the otherwise-next contributor, return a
+movie and confirm that does not reset the turn, draw once from TV, and try two
+near-simultaneous authorized browsers to confirm the bowl-row lock prevents a
+double turn.
 
 ## Risks
 
-- **Silent behavior change on existing bowls.** Mitigated by defaulting the
-  column, defaulting the function argument, and treating an unmodified
-  `selectDrawCandidate` suite as a merge gate.
-- **Copy drifting from behavior.** The disclosure, the TV label, and the About
-  spectrum all currently hardcode equal-per-person odds in three separate places.
-  Route all three through the registry's `disclosure`/`label` so there is one
-  source of truth.
-- **Deploy ordering.** Frontend can reach users before `supabase db push` runs.
-  The missing-column fallback described above is what keeps that from being an
-  outage.
+- **Two concurrent draws violate the turn order.** Serialize rotation draws on
+  the bowl row and select/persist inside the same RPC transaction.
+- **Old clients silently fall back to person-first.** Make the ordinary draw RPC
+  reject rotation bowls and show a refresh message; deploy the migration before
+  exposing the option.
+- **Client and SQL bucket identities drift.** Lock the registered, named-guest,
+  and unnamed-guest cases in both JS and pgTAP tests.
+- **Selection pipeline duplication changes filter/provider behavior.** Extract
+  one eligible-pool resolver and retain the existing focused streaming/manual
+  fallback tests.
+- **History scans grow with a long-lived bowl.** Use the unfiltered bowl/time
+  index and aggregate only the contributor buckets present in the candidate
+  list; never send the event history to the client.
+- **Event persistence forks into two implementations.** Put the immutable bowl
+  event and participant-watch writes behind one private database helper called
+  by both public draw RPCs.
 - **Method proliferation.** Three named methods is a real settings decision for
   an owner to make; more than that becomes a menu nobody reads. Additional
   methods should have to displace an existing one.
@@ -294,12 +404,14 @@ Deferred, and the distinction is what makes it attractive:
 
 ### Where it plugs in
 
-`pickRandomByContributor` is already two steps: pick a bucket, then
-`pickRandom(bucket)`. Weights replace only the second step with a weighted pick.
-That is a strictly local change inside the method registry's `person_first` (and
-`rotation`) implementation, and it leaves bucket selection untouched.
+Person-first is already two steps: pick a bucket, then `pickRandom(bucket)`.
+Weights would replace only the second step and leave bucket selection untouched.
+Rotation has the same conceptual second step, but its authoritative selection is
+server-side; supporting weights there would require the rotation RPC to read and
+apply the weight as well as the client-side person-first method. That is another
+reason weights should not hitch a ride on the rotation migration.
 
-### It only means something under person-first
+### It only means something under contributor-bucketed methods
 
 Under `title_first` there is no inner step to parameterize — titles are drawn
 uniformly across the whole pool, so any personal weight would move that person's
@@ -325,12 +437,12 @@ silently does nothing in some bowls is worse than no slider.
   snooze, and an undrawable title sitting silently in the list is a trap. Prefer a
   floor above zero and, if pausing a title is wanted, build it as an explicit
   visible state rather than as a side effect of a slider bottoming out.
-- **Link-guest rows.** Titles added through a public add link carry the link
-  creator's `added_by`, so they would technically be weightable by that person.
-  Harmless, but worth deciding rather than discovering.
+- **Link-guest rows.** Public add-link titles have no authenticated `added_by`,
+  so there is no obvious person who owns their weight. Leave them at the default
+  unless a separate guest-ownership model is designed.
 - **Disclosure copy.** "Then selects one of their movies at random" stops being
-  true and becomes "weighted by that person's preferences." Same three hardcoded
-  copy sites as the rest of this document.
+  true and becomes "weighted by that person's preferences." Update the method
+  registry copy so every existing surface changes together.
 
 Solo draw (`solo-draw.md`) is a single-contributor pool, which means these
 weights would *be* its entire selection logic. If both get built, this one goes

@@ -97,7 +97,8 @@ RPCs used by the client — prefer these over multi-statement client writes,
 because they are the atomic/permission-checked path:
 
 `get_my_bowls_with_counts`, `get_bowl_profile_directory`,
-`get_my_invite_sender_directory`, `draw_bowl_movie`, `return_bowl_draw_to_bowl`,
+`get_my_invite_sender_directory`, `draw_bowl_movie`,
+`draw_bowl_movie_by_rotation`, `return_bowl_draw_to_bowl`,
 `save_bowl_draw_access`, `save_bowl_draw_method`, `delete_owned_bowl`,
 `consume_bowl_add_link`, `create_manual_watch_event`, `update_user_watch_event`,
 `delete_user_watch_event`.
@@ -119,18 +120,21 @@ back with a fresh timestamp to run). See `supabase/README.md`.
 
 This is the core of the product and the most sensitive logic in the repo.
 
-`useBowl.handleDraw` → `getDrawSelection` (`utils/drawSelection.js`) applies
-rating, genre, and runtime filters in that order, each with an
-`includeUnknown` escape hatch and a specific user-facing message when a filter
-empties the pool → `selectDrawCandidate` (`utils/selectDrawCandidate.js`) picks
-the movie → the `draw_bowl_movie` RPC persists it atomically → the bowl reloads.
+`useBowl.handleDraw` → `getResolvedDrawPool` (`utils/drawSelection.js`) applies
+rating, genre, and runtime filters in that order, then streaming priority. Each
+ordinary filter has an `includeUnknown` escape hatch and a specific user-facing
+message when it empties the pool. Person-first and title-first select from that
+pool in the client and persist through `draw_bowl_movie`. Rotation passes the
+resolved ids to `draw_bowl_movie_by_rotation`, which selects and persists in one
+serialized transaction. Every path reloads the bowl afterward.
 
 The final pick is the bowl's **draw method**, an owner-controlled setting on
 `bowls.draw_method` saved through `save_bowl_draw_method`. The methods live in
-`utils/drawMethods.js` — a registry keyed by id, each owning its `pick`, its
-`buildOdds`, and the copy every surface renders. `normalizeDrawMethod` falls
-back to the default for anything unrecognized, so a value written by a newer
-deploy cannot break an older client.
+`utils/drawMethods.js` — a registry keyed by id, each owning its selection mode
+and the copy every surface renders. Client-selected methods also own `pick` and
+may own `buildOdds`. `normalizeDrawMethod` falls back to the default for
+anything unrecognized, so a value written by a newer deploy cannot break an
+older client.
 
 The default is and stays **person-first**: bucket the candidates by contributor
 (`getContributorBucketKey`), pick a bucket uniformly at random, then pick a
@@ -140,10 +144,19 @@ and exists only because an owner explicitly chose it — never make it the
 default, and never turn person-first into it as an optimization or a side
 effect.
 
+**Rotation** is contributor-first but history-aware: among contributors in the
+actual eligible pool, a never-drawn contributor goes first; otherwise the least
+recently drawn contributor goes next, with random tie-breaking and a random
+title within that contributor's pool. Returned draws still count. The database
+locks the bowl row and owns this choice so concurrent phone/TV draws cannot
+award the same turn twice. The ordinary draw RPC rejects rotation bowls to keep
+older cached clients from silently applying person-first behavior.
+
 The method replaces only the last step of selection. It runs on whatever pool
 survives filtering and streaming priority, and it never re-expands or reorders
-those stages. Both `selectDrawCandidate` call sites go through it, so any new
-method must handle raw movie rows *and* `{ movie, providers }` wrappers.
+those stages. The shared resolver can return raw movie rows or
+`{ movie, providers }` wrappers; client methods must handle both, while a server
+method accepts their ids and maps its returned id back to the same candidate.
 
 Method copy has one source of truth. `DrawMethodDisclosure`, the TV preference
 list, and Bowl Settings all read `label`/`description`/`disclosure` off the

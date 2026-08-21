@@ -1,10 +1,14 @@
-import { useCallback, useEffect, useMemo, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
-import { getDrawSelection } from "../utils/drawSelection";
-import { buildDrawOddsStats, DEFAULT_DRAW_METHOD } from "../utils/drawMethods";
+import { getDrawSelection, getResolvedDrawPool } from "../utils/drawSelection";
+import { DEFAULT_DRAW_METHOD, getDrawMethod } from "../utils/drawMethods";
+import {
+  getMovieFromDrawCandidate,
+  hydrateDrawCandidate,
+} from "../utils/selectDrawCandidate";
 
 const DUPLICATE_MOVIE_MESSAGE = "This movie is already in the bowl.";
 
@@ -45,6 +49,32 @@ function addResult(ok, code = null, message = null) {
   return { ok, code, message };
 }
 
+function getDrawFailureMessage(error) {
+  const errorCode = String(error?.code || "");
+  const errorMessageText = String(error?.message || "").toLowerCase();
+
+  if (errorCode === "42501" || errorMessageText.includes("permission denied")) {
+    return "You don't have permission to draw in this bowl.";
+  }
+  if (
+    errorCode === "PGRST202" ||
+    (errorMessageText.includes("draw_bowl_movie_by_rotation") &&
+      (errorMessageText.includes("could not find") || errorMessageText.includes("does not exist")))
+  ) {
+    return "Rotation requires the latest database migration. Please run it and try again.";
+  }
+  if (errorMessageText.includes("now uses rotation")) {
+    return "This bowl now uses rotation. Refresh Movie Bowl and try again.";
+  }
+  if (errorMessageText.includes("stale")) {
+    return "The eligible movie pool changed. Please try again.";
+  }
+  if (errorMessageText.includes("no longer available")) {
+    return "That movie is no longer available to draw.";
+  }
+  return "Could not draw a movie. Please try again.";
+}
+
 function createProfileEmailByUserId(profileRows = []) {
   return new Map(
     profileRows
@@ -79,11 +109,6 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState(null);
   const addRequestsInFlightRef = useRef(new Set());
-
-  const drawOdds = useMemo(
-    () => buildDrawOddsStats(bowl.remaining || [], drawMethod),
-    [bowl.remaining, drawMethod]
-  );
 
   const loadBowlMovies = useCallback(async () => {
     if (!bowlId) {
@@ -193,8 +218,8 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
     loadBowlMovies();
   }, [loadBowlMovies]);
 
-  // Randomly select a movie from remaining, record the bowl draw and personal
-  // history entries atomically, then reload the remaining/watched lists.
+  // Resolve the eligible pool, record the bowl draw and personal history
+  // entries atomically, then reload the remaining/watched lists.
   const handleDraw = useCallback(async (options = {}) => {
     if (!bowlId) return null;
     const drawableRemaining = (bowl.remaining || []).filter(
@@ -203,7 +228,10 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
     if (drawableRemaining.length === 0) return null;
     setErrorMessage(null);
 
-    const { selected, errorMessage: drawError } = await getDrawSelection({
+    const activeDrawMethod = options.drawMethod ?? drawMethod;
+    const method = getDrawMethod(activeDrawMethod);
+    const fetchProviders = (tmdbId) => fetchStreamingProviders(tmdbId, { region: "US" });
+    const selectionOptions = {
       remainingMovies: drawableRemaining,
       prioritizeByServices: options.prioritizeByServices,
       prioritizeByServiceRank: options.prioritizeByServiceRank,
@@ -211,46 +239,84 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       ratingFilter: options.ratingFilter,
       genreFilter: options.genreFilter,
       runtimeFilter: options.runtimeFilter,
-      fetchProviders: (tmdbId) => fetchStreamingProviders(tmdbId, { region: "US" }),
+      fetchProviders,
       fetchMovieDetails: (tmdbId) => getTmdbMovieDetails(tmdbId),
-      randomFn: options.randomFn,
-      drawMethod: options.drawMethod ?? drawMethod,
-    });
-    if (drawError) {
-      setErrorMessage(drawError);
-      return null;
-    }
+    };
 
-    if (!selected) return null;
-
-    const drawn = selected.movie;
-
-    let drawMovieError;
+    let selected;
     try {
-      ({ error: drawMovieError } = await supabase.rpc("draw_bowl_movie", {
-        p_bowl_movie_id: drawn.id,
-      }));
+      if (method.selectionMode === "server_rotation") {
+        const { candidates, errorMessage: drawError } = await getResolvedDrawPool(
+          selectionOptions
+        );
+        if (drawError) {
+          setErrorMessage(drawError);
+          return null;
+        }
+
+        const candidateMovieIds = candidates
+          .map((candidate) => getMovieFromDrawCandidate(candidate)?.id)
+          .filter(Boolean);
+        if (candidateMovieIds.length === 0) return null;
+
+        const { data, error } = await supabase.rpc("draw_bowl_movie_by_rotation", {
+          p_bowl_id: bowlId,
+          p_candidate_movie_ids: candidateMovieIds,
+        });
+        if (error) {
+          console.error("[useBowl] Failed to draw movie by rotation", error);
+          setErrorMessage(getDrawFailureMessage(error));
+          return null;
+        }
+
+        const rotationResult = Array.isArray(data) ? data[0] : data;
+        const selectedMovieId = rotationResult?.bowl_movie_id;
+        const selectedCandidate = candidates.find(
+          (candidate) =>
+            String(getMovieFromDrawCandidate(candidate)?.id || "") ===
+            String(selectedMovieId || "")
+        );
+        if (!selectedCandidate) {
+          console.error("[useBowl] Rotation returned a movie outside the resolved pool", {
+            selectedMovieId,
+          });
+          setErrorMessage("The eligible movie pool changed. Please try again.");
+          await loadBowlMovies();
+          return null;
+        }
+
+        selected = await hydrateDrawCandidate(selectedCandidate, fetchProviders);
+      } else {
+        const { selected: clientSelected, errorMessage: drawError } =
+          await getDrawSelection({
+            ...selectionOptions,
+            randomFn: options.randomFn,
+            drawMethod: activeDrawMethod,
+          });
+        if (drawError) {
+          setErrorMessage(drawError);
+          return null;
+        }
+        if (!clientSelected) return null;
+
+        const { error } = await supabase.rpc("draw_bowl_movie", {
+          p_bowl_movie_id: clientSelected.movie.id,
+        });
+        if (error) {
+          console.error("[useBowl] Failed to draw movie", error);
+          setErrorMessage(getDrawFailureMessage(error));
+          return null;
+        }
+        selected = clientSelected;
+      }
     } catch (error) {
       console.error("[useBowl] Unexpected error drawing movie", error);
       setErrorMessage("Could not draw a movie. Please try again.");
       return null;
     }
 
-    if (drawMovieError) {
-      console.error("[useBowl] Failed to draw movie", drawMovieError);
-      const errorCode = String(drawMovieError?.code || "");
-      const errorMessageText = String(drawMovieError?.message || "").toLowerCase();
-      const isPermissionDenied =
-        errorCode === "42501" || errorMessageText.includes("permission denied");
-      if (isPermissionDenied) {
-        setErrorMessage("You don't have permission to draw in this bowl.");
-      } else if (errorMessageText.includes("no longer available")) {
-        setErrorMessage("That movie is no longer available to draw.");
-      } else {
-        setErrorMessage("Could not draw a movie. Please try again.");
-      }
-      return null;
-    }
+    if (!selected) return null;
+    const drawn = selected.movie;
 
     // Reload after updating.
     await loadBowlMovies();
@@ -508,7 +574,6 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
 
   return {
     bowl,
-    drawOdds,
     isLoading,
     errorMessage,
     reload: loadBowlMovies,
