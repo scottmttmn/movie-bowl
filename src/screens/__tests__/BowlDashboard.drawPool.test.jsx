@@ -203,6 +203,39 @@ describe("BowlDashboard draw pool count", () => {
     expect(screen.getByText(/No movies from alex are in the pool\./)).toBeInTheDocument();
   });
 
+  it("shows the live eligible count in the filters overlay with reset and done", async () => {
+    await renderDashboard();
+    selectOnlyGenre("Comedy");
+
+    expect(screen.getByRole("dialog", { name: /narrow the draw/i })).toBeInTheDocument();
+    expect(await screen.findByText("1 of 3 titles eligible")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^reset$/i }));
+    await waitFor(() =>
+      expect(screen.getByText("All 3 titles eligible")).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^done$/i }));
+    expect(screen.queryByRole("dialog", { name: /narrow the draw/i })).not.toBeInTheDocument();
+  });
+
+  it("marks the header filter icon while a narrowing selection is set", async () => {
+    await renderDashboard();
+
+    expect(screen.getByRole("button", { name: /^filters$/i })).not.toHaveAttribute(
+      "data-filter-active"
+    );
+
+    selectOnlyGenre("Comedy");
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /hide filters/i })).toHaveAttribute(
+        "data-filter-active",
+        "true"
+      )
+    );
+  });
+
   it("drops the people count for a title-first bowl but still flags the exclusion", async () => {
     mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", draw_method: "title_first" };
 

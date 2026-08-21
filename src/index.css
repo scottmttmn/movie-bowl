@@ -267,6 +267,13 @@
     @apply fixed inset-0 flex items-center justify-center bg-slate-950/85 px-4 py-6 backdrop-blur-sm;
   }
 
+  /* Variant that drops the surface from under the page header instead of
+     centering it — for panels whose trigger lives in the header and whose
+     content must be reachable without scrolling the page. */
+  .modal-overlay-top {
+    @apply fixed inset-0 flex items-start justify-center bg-slate-950/85 pt-16 backdrop-blur-sm sm:justify-end sm:px-4 sm:pt-[4.5rem];
+  }
+
   .modal-surface {
     @apply relative w-full rounded-3xl border border-slate-700/80 bg-slate-900 text-left;
     box-shadow:
