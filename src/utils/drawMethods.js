@@ -60,7 +60,7 @@ const PERSON_FIRST = {
   // one person added quietly removes them from the draw. Say so.
   bucketsByContributor: true,
   reachCaveat:
-    "Equal odds only cover the people whose movies survive the current filters. Anyone whose movies are all filtered out cannot be drawn at all.",
+    "Equal odds only cover the people with a movie in the actual eligible pool. Rating, genre, runtime, and streaming settings can remove every title someone added, leaving that person out of the draw.",
   pick(pool, { randomFn = Math.random } = {}) {
     const buckets = groupByContributor(pool);
     return pickUniform(pickUniform(buckets, randomFn), randomFn);
@@ -84,7 +84,7 @@ const TITLE_FIRST = {
     "The bowl selects one title at random from everything in it. Every movie is equally likely, so someone who added more movies is more likely to have one of theirs drawn.",
   bucketsByContributor: false,
   reachCaveat:
-    "Only the movies that survive the current filters are in the running, so anyone whose movies are all filtered out cannot be drawn at all.",
+    "Only movies in the actual eligible pool are in the running. Rating, genre, runtime, and streaming settings can remove every title someone added, leaving that person out of the draw.",
   pick(pool, { randomFn = Math.random } = {}) {
     return pickUniform(pool, randomFn);
   },

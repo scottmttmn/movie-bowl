@@ -75,6 +75,7 @@ describe("BowlStatLine", () => {
     expect(
       screen.getByRole("button", { name: /reaching 1 of 2 people/i })
     ).toHaveAttribute("data-tone", "warning");
+    expect(screen.getByText(/1 of 2 people represented/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /how this bowl picks — some people are filtered out/i })
     ).toBeInTheDocument();
@@ -136,7 +137,7 @@ describe("BowlStatLine", () => {
       useServiceRank: true,
     });
 
-    const segment = screen.getByRole("button", { name: /favoring the 2 remaining titles on netflix/i });
+    const segment = screen.getByRole("button", { name: /favoring the 2 eligible titles on netflix/i });
     expect(segment).toHaveTextContent("Favoring");
     expect(segment).toHaveAttribute("data-tone", "active");
   });
@@ -148,10 +149,9 @@ describe("BowlStatLine", () => {
       isPrioritized: true,
     });
 
-    expect(screen.getByText(/no matches — drawing from all/i).closest("[data-tone]")).toHaveAttribute(
-      "data-tone",
-      "warning"
-    );
+    expect(
+      screen.getByText(/no service matches — using eligible pool/i).closest("[data-tone]")
+    ).toHaveAttribute("data-tone", "warning");
   });
 
   it("opens the method info from the ⓘ affordance", () => {

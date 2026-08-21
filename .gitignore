@@ -26,6 +26,10 @@ dist-ssr
 .vercel
 supabase/.temp/
 
+# Playwright smoke-test artifacts
+playwright-report/
+test-results/
+
 # Android TV test wrapper
 tv-android/.gradle/
 tv-android/local.properties

@@ -231,6 +231,57 @@ describe("selectDrawCandidate", () => {
     expect(fetchProviders).not.toHaveBeenCalled();
   });
 
+  it("keeps manual titles out of a prioritized pool when a service match exists", async () => {
+    const fetchProviders = vi.fn(async () => ({
+      providers: ["Netflix"],
+      region: "US",
+      fetchedAt: null,
+    }));
+
+    const selected = await selectDrawCandidate(
+      [
+        { id: "matched", tmdb_id: 101, title: "Matched" },
+        { id: "manual", tmdb_id: -42, title: "Manual" },
+      ],
+      {
+        prioritizeByServices: true,
+        userStreamingServices: ["Netflix"],
+        fetchProviders,
+        randomFn: () => 0.99,
+        drawMethod: "title_first",
+      }
+    );
+
+    expect(selected.movie.id).toBe("matched");
+    expect(fetchProviders).toHaveBeenCalledTimes(1);
+  });
+
+  it("restores manual titles when streaming priority has no matches", async () => {
+    const fetchProviders = vi.fn(async () => ({
+      providers: ["Paramount+"],
+      region: "US",
+      fetchedAt: null,
+    }));
+
+    const selected = await selectDrawCandidate(
+      [
+        { id: "unmatched", tmdb_id: 101, title: "Unmatched" },
+        { id: "manual", tmdb_id: -42, title: "Manual" },
+      ],
+      {
+        prioritizeByServices: true,
+        userStreamingServices: ["Netflix"],
+        fetchProviders,
+        randomFn: () => 0.99,
+        drawMethod: "title_first",
+      }
+    );
+
+    expect(selected.movie.id).toBe("manual");
+    expect(selected.providers).toEqual([]);
+    expect(fetchProviders).toHaveBeenCalledTimes(1);
+  });
+
   it("draws by the bowl's method instead of contributor buckets when asked", async () => {
     const movies = [
       { id: "u1-1", tmdb_id: 101, title: "Movie A", added_by: "user-1" },

@@ -109,6 +109,7 @@ requests 404 — TMDB search, invite email, and public add links need `vercel de
 - `npm run test` - start Vitest in watch mode
 - `npm run test:run` - run tests once
 - `npm run test:coverage` - run tests with coverage
+- `npm run test:e2e` - run the local Playwright release smoke suite
 
 ## Project Layout
 
@@ -170,7 +171,7 @@ see `CLAUDE.md`. For reliability guardrails and the release smoke checklist, see
   - includes in-memory caching + in-flight request deduping
 - Draw behavior:
   - if the prioritize toggle is on and matches exist, draw from matches
-  - if no matches, fall back to all remaining titles
+  - if no matches, fall back to all titles that survived the other draw filters
 - This narrowing happens *before* contributor bucketing, so it changes which
   titles are eligible, not the equal-per-person odds among them.
 
@@ -336,6 +337,20 @@ Run all tests:
 npm run test:run
 ```
 
+The Playwright smoke suite exercises the release-critical flows in a real,
+headless Chromium browser at desktop and mobile sizes. It supplies an isolated
+in-memory Supabase/API boundary, so it never needs production credentials or
+data and does not require `vercel dev`. Install Chromium once, then run it with:
+
+```bash
+npx playwright install chromium
+npm run test:e2e
+```
+
+TV-specific checks run only in the desktop project. Failures retain a trace,
+screenshot, and video in `test-results/`; the HTML report is written to
+`playwright-report/`. Both directories are gitignored.
+
 A clean checkout is expected to be fully green, with lint reporting zero
-warnings. Run `npm run test:run` and `npm run build` before committing anything
-non-trivial.
+warnings. Run `npm run test:run`, `npm run test:e2e`, and `npm run build` before
+committing anything non-trivial.

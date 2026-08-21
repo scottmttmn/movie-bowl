@@ -173,6 +173,24 @@ describe("Movie Bowl TV experience", () => {
     mocks.getTmdbMovieDetails.mockReset();
     mocks.bowlError = null;
     mocks.bowlLoading = false;
+    mocks.bowlData = {
+      remaining: [
+        {
+          id: "movie-1",
+          tmdb_id: 101,
+          title: "Arrival",
+          genres: ["Science Fiction", "Drama"],
+        },
+      ],
+      watched: [
+        {
+          id: "draw-1",
+          drawEventId: "draw-1",
+          bowlMovieId: "movie-1",
+          title: "Arrival",
+        },
+      ],
+    };
     mocks.streamingServices = ["Netflix", "Max"];
     mocks.prioritizeStreaming = true;
     mocks.providersByTmdbId = { 101: ["Netflix"] };
@@ -231,6 +249,51 @@ describe("Movie Bowl TV experience", () => {
     expect(await screen.findByText(/favoring 1 on netflix/i)).toBeInTheDocument();
   });
 
+  it("shows the final ranked pool and contributors represented, including manual exclusions", async () => {
+    mocks.bowlData = {
+      remaining: [
+        {
+          id: "movie-1",
+          tmdb_id: 101,
+          title: "Arrival",
+          added_by: "user-1",
+          profiles: { email: "alex@example.com" },
+          genres: ["Drama"],
+          runtime: 116,
+        },
+        {
+          id: "movie-2",
+          tmdb_id: 202,
+          title: "The Menu",
+          added_by: "user-2",
+          profiles: { email: "sam@example.com" },
+          genres: ["Drama"],
+          runtime: 107,
+        },
+        {
+          id: "movie-manual",
+          tmdb_id: -9,
+          title: "Family VHS",
+          added_by: null,
+          added_by_name: "Jo",
+          genres: ["Drama"],
+          runtime: 95,
+        },
+      ],
+      watched: [],
+    };
+    mocks.providersByTmdbId = { 101: ["Netflix"], 202: ["Max"] };
+
+    renderTonight();
+
+    const poolLine = await screen.findByText(
+      /1 of 3 titles eligible; 1 of 3 contributors represented/i
+    );
+    expect(poolLine).toHaveAttribute("data-tone", "warning");
+    expect(screen.getByText(/1 of 3 movies eligible/i)).toBeInTheDocument();
+    expect(screen.getByText(/favoring 1 on netflix/i)).toBeInTheDocument();
+  });
+
   it("counts matches without claiming the draw is filtered when prioritizing is off", async () => {
     mocks.prioritizeStreaming = false;
 
@@ -245,7 +308,7 @@ describe("Movie Bowl TV experience", () => {
 
     renderTonight();
 
-    const line = await screen.findByText(/no matches — drawing from all/i);
+    const line = await screen.findByText(/no service matches — using eligible pool/i);
     expect(line).toHaveAttribute("data-tone", "warning");
   });
 

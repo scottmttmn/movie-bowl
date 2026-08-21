@@ -19,6 +19,7 @@ import { matchUserServices } from "../../utils/streamingServices";
 import useBowlStreamingMatches, {
   STREAMING_MATCH_STATUS,
 } from "../../hooks/useBowlStreamingMatches";
+import useDrawPoolCount, { DRAW_POOL_STATUS } from "../../hooks/useDrawPoolCount";
 import {
   describeStreamingMatch,
   STREAMING_MATCH_TONE,
@@ -143,6 +144,43 @@ function getStreamingPreferenceLine({
   return { tone, text };
 }
 
+function getDrawPoolPreferenceLine({ status, poolCount, totalCount, contributorReach }) {
+  if (totalCount === 0) {
+    return { tone: STREAMING_MATCH_TONE.idle, text: "No titles are ready to draw" };
+  }
+  if (status === DRAW_POOL_STATUS.manual) {
+    return {
+      tone: STREAMING_MATCH_TONE.warning,
+      text: "Open Movie Bowl on your phone to count the exact eligible pool",
+    };
+  }
+  if (status === DRAW_POOL_STATUS.counting) {
+    return { tone: STREAMING_MATCH_TONE.active, text: "Counting the eligible draw pool…" };
+  }
+
+  const resolvedCount = status === DRAW_POOL_STATUS.unfiltered ? totalCount : poolCount;
+  const excludedCount = contributorReach
+    ? contributorReach.totalCount - contributorReach.reachedCount
+    : 0;
+  const titleText =
+    resolvedCount === totalCount
+      ? `All ${totalCount} ${totalCount === 1 ? "title" : "titles"} eligible`
+      : `${resolvedCount} of ${totalCount} titles eligible`;
+
+  if (excludedCount > 0) {
+    return {
+      tone: STREAMING_MATCH_TONE.warning,
+      text: `${titleText}; ${contributorReach.reachedCount} of ${contributorReach.totalCount} contributors represented`,
+    };
+  }
+
+  return {
+    tone:
+      resolvedCount === totalCount ? STREAMING_MATCH_TONE.idle : STREAMING_MATCH_TONE.active,
+    text: titleText,
+  };
+}
+
 function getPreferenceLines(defaultDrawSettings) {
   const settings = defaultDrawSettings || {};
   const lines = [];
@@ -248,7 +286,16 @@ function TvErrorScreen({ message, onBack }) {
   );
 }
 
-function TvDrawingScreen({ bowlName, drawTitle }) {
+function TvDrawingScreen({ bowlName, drawTitle, poolCount, totalCount, contributorReach }) {
+  const resolvedCount = poolCount ?? totalCount;
+  const excludedCount = contributorReach
+    ? contributorReach.totalCount - contributorReach.reachedCount
+    : 0;
+  const caption =
+    excludedCount > 0
+      ? `Tonight's eligible pool represents ${contributorReach.reachedCount} of ${contributorReach.totalCount} contributors.`
+      : `${resolvedCount} eligible ${resolvedCount === 1 ? "movie is" : "movies are"} in tonight's draw.`;
+
   return (
     <main className="tv-drawing-screen" role="status" aria-live="polite">
       <p className="tv-kicker">{bowlName}</p>
@@ -258,9 +305,7 @@ function TvDrawingScreen({ bowlName, drawTitle }) {
         isDrawing
         className="tv-drawing-bowl"
       />
-      <p className="tv-drawing-caption">
-        Every eligible person gets a turn before a movie slip is chosen.
-      </p>
+      <p className="tv-drawing-caption">{caption}</p>
     </main>
   );
 }
@@ -636,25 +681,51 @@ export default function TvTonightScreen({ userId, userEmail }) {
     () => getAvailableGenres(bowl.remaining),
     [bowl.remaining]
   );
+  const drawOptions = useMemo(
+    () => buildDrawOptions(defaultDrawSettings, streamingServices, availableGenres),
+    [defaultDrawSettings, streamingServices, availableGenres]
+  );
   const preferenceLines = useMemo(
     () => getPreferenceLines(defaultDrawSettings),
     [defaultDrawSettings]
   );
+  const {
+    status: drawPoolStatus,
+    poolCount: drawPoolCount,
+    totalCount: drawPoolTotalCount,
+    contributorReach: drawPoolContributorReach,
+    streamingMatch: drawPoolStreamingMatch,
+  } = useDrawPoolCount(bowl.remaining, drawOptions);
   const {
     status: streamingMatchStatus,
     matchCount: streamingMatchCount,
     topService: streamingMatchTopService,
     topServiceCount: streamingMatchTopServiceCount,
   } = useBowlStreamingMatches(bowl.remaining, streamingServices);
+  const isStreamingPrioritized =
+    Boolean(drawOptions.prioritizeByServices) && streamingServices.length > 0;
+  const hasResolvedPrioritizedPool =
+    isStreamingPrioritized &&
+    drawPoolTotalCount > 0 &&
+    (drawPoolStatus === DRAW_POOL_STATUS.ready ||
+      drawPoolStatus === DRAW_POOL_STATUS.unfiltered);
   const streamingPreferenceLine = useMemo(
     () =>
       getStreamingPreferenceLine({
         defaultDrawSettings,
         streamingServices,
-        matchStatus: streamingMatchStatus,
-        matchCount: streamingMatchCount,
-        topService: streamingMatchTopService,
-        topServiceCount: streamingMatchTopServiceCount,
+        matchStatus: hasResolvedPrioritizedPool
+          ? STREAMING_MATCH_STATUS.ready
+          : streamingMatchStatus,
+        matchCount: hasResolvedPrioritizedPool
+          ? drawPoolStreamingMatch.matchCount
+          : streamingMatchCount,
+        topService: hasResolvedPrioritizedPool
+          ? drawPoolStreamingMatch.topService
+          : streamingMatchTopService,
+        topServiceCount: hasResolvedPrioritizedPool
+          ? drawPoolStreamingMatch.topServiceCount
+          : streamingMatchTopServiceCount,
       }),
     [
       defaultDrawSettings,
@@ -663,6 +734,23 @@ export default function TvTonightScreen({ userId, userEmail }) {
       streamingMatchCount,
       streamingMatchTopService,
       streamingMatchTopServiceCount,
+      hasResolvedPrioritizedPool,
+      drawPoolStreamingMatch,
+    ]
+  );
+  const drawPoolPreferenceLine = useMemo(
+    () =>
+      getDrawPoolPreferenceLine({
+        status: drawPoolStatus,
+        poolCount: drawPoolCount,
+        totalCount: drawPoolTotalCount,
+        contributorReach: drawPoolContributorReach,
+      }),
+    [
+      drawPoolStatus,
+      drawPoolCount,
+      drawPoolTotalCount,
+      drawPoolContributorReach,
     ]
   );
   const preferredWebLaunchCandidate = useMemo(() => {
@@ -819,9 +907,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
       const delay = new Promise((resolve) =>
         window.setTimeout(resolve, MIN_DRAW_ANIMATION_MS)
       );
-      const drawPromise = handleDraw(
-        buildDrawOptions(defaultDrawSettings, streamingServices, availableGenres)
-      ).then((movie) => {
+      const drawPromise = handleDraw(drawOptions).then((movie) => {
         if (movie?.title) setDrawAnimationTitle(movie.title);
         return movie;
       });
@@ -899,6 +985,9 @@ export default function TvTonightScreen({ userId, userEmail }) {
       <TvDrawingScreen
         bowlName={bowlMeta.name}
         drawTitle={drawAnimationTitle}
+        poolCount={drawPoolCount}
+        totalCount={drawPoolTotalCount}
+        contributorReach={drawPoolContributorReach}
       />
     );
   }
@@ -985,7 +1074,11 @@ export default function TvTonightScreen({ userId, userEmail }) {
               >
                 <span>Draw a movie</span>
                 <small>
-                  {remainingCount} {remainingCount === 1 ? "movie" : "movies"} ready
+                  {drawPoolStatus === DRAW_POOL_STATUS.ready
+                    ? `${drawPoolCount} of ${remainingCount} movies eligible`
+                    : drawPoolStatus === DRAW_POOL_STATUS.unfiltered
+                      ? `${remainingCount} ${remainingCount === 1 ? "movie" : "movies"} eligible`
+                      : `${remainingCount} ${remainingCount === 1 ? "movie" : "movies"} in bowl`}
                 </small>
               </button>
               {!bowlMeta.canDraw && (
@@ -1018,6 +1111,19 @@ export default function TvTonightScreen({ userId, userEmail }) {
               <p>Loading preferences…</p>
             ) : (
               <ul>
+                <li
+                  data-tone={drawPoolPreferenceLine.tone}
+                  className={
+                    drawPoolPreferenceLine.tone === STREAMING_MATCH_TONE.warning
+                      ? "tv-preference-warning"
+                      : undefined
+                  }
+                >
+                  <span aria-hidden="true">
+                    {drawPoolPreferenceLine.tone === STREAMING_MATCH_TONE.warning ? "!" : "✓"}
+                  </span>
+                  {drawPoolPreferenceLine.text}
+                </li>
                 <li
                   data-tone={streamingPreferenceLine.tone}
                   className={

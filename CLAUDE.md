@@ -16,6 +16,7 @@ vercel dev           # full local behavior including /api/* serverless routes
 npm run test:run     # run the whole Vitest suite once (the pre-merge gate)
 npm run test         # Vitest watch mode
 npm run test:coverage
+npm run test:e2e     # Playwright release smoke suite; no production credentials
 npm run lint         # ESLint, flat config
 npm run build        # production build — run this for any UI/app change
 ```
@@ -151,7 +152,10 @@ registry — do not hardcode a sentence about odds anywhere else.
 Streaming prioritization narrows the pool *before* the contributor bucketing:
 with `prioritizeByServiceRank` it keeps only the top-ranked matching service,
 otherwise all matches; either way an empty match set falls back to the full
-pool. Movie ratings are cached in-module for an hour; providers for ten minutes
+incoming pool. `getStreamingPriorityPool` is shared by selection and the
+phone/TV eligibility readouts so those surfaces reflect the same post-filter,
+post-rank pool, including the fallback behavior for manual titles. Movie
+ratings are cached in-module for an hour; providers for ten minutes
 with in-flight dedupe (`lib/streamingProviders.js`). Both expose a
 `clear*Cache()` for tests.
 
@@ -217,6 +221,12 @@ Vitest + Testing Library, jsdom, setup in `src/test/setup.js`. Tests live in
   ownership, membership, public/anonymous access, or link lifecycle, cover
   owner vs member, authenticated vs public, allowed vs denied, and exhausted
   cases — in JS tests and, for DB-level rules, in `supabase/tests/`.
+- Playwright smoke tests live in `e2e/*.e2e.js`. They run against the Vite app
+  with external HTTP boundaries supplied by `e2e/support/fakeBackend.js`; keep
+  product code on its normal Supabase and `/api/*` paths. Install the browser
+  once with `npx playwright install chromium`. `npm run test:e2e` covers desktop
+  and mobile layouts, retains failure artifacts under `test-results/`, and must
+  not use production credentials or data.
 
 ## Working agreements
 

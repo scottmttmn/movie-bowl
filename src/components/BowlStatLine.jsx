@@ -99,6 +99,9 @@ function PoolSegment({
   return (
     <Segment as="button" tone={tone} onClick={onOpenFilters} ariaLabel={label}>
       <Count tone={tone}>{poolCount}</Count> of {totalCount} eligible
+      {showContributorReach && hasExcludedContributors
+        ? ` · ${reachedCount} of ${contributorTotal} people represented`
+        : null}
     </Segment>
   );
 }

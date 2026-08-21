@@ -31,9 +31,11 @@ became one quiet sentence under the bowl (`BowlStatLine`). The design's static
 
 - Unfiltered: "18 in the bowl". Filters narrowing: "12 of 18 eligible".
 - Streaming (omitted when no services are saved): "7 on your services",
-  "Favoring 4 on Netflix" when prioritized, "No matches — drawing from all"
-  as a warning. Over the auto-scan limit it is a tap-to-scan affordance
-  ("Check your services") rather than an automatic N-request scan.
+  "Favoring 4 on Netflix" when prioritized, "No service matches — using
+  eligible pool" as a warning. When priority is enabled, the eligible count is
+  the actual pool after rating, genre, runtime, provider matching, and service
+  rank have all run. Over the auto-scan limit it is a tap-to-count affordance
+  rather than an automatic N-request scan.
 - Segments keep the chip tone vocabulary (idle/active/warning as `data-tone`)
   and tapping a segment opens the draw filters.
 
@@ -42,9 +44,9 @@ became one quiet sentence under the bowl (`BowlStatLine`). The design's static
 "How this bowl picks" as standing disclosure copy is gone. In its place a ⓘ
 glyph at the end of the stat line opens `DrawMethodInfoModal`, which renders
 the method's registry copy (`utils/drawMethods.js` stays the single source of
-truth). The contributor-reach warning kept a persistent surface: when filters
-shut someone out of a person-first bowl, the pool segment and the ⓘ turn
-amber, and the modal names who is excluded.
+truth). The contributor-reach warning kept a persistent surface: when any draw
+setting shuts someone out of a person-first bowl, the pool segment and the ⓘ
+turn amber, and the modal names who is excluded.
 
 ### Filters overlay (slice 2, planned)
 
