@@ -134,7 +134,7 @@ describe("BowlDashboard streaming match count", () => {
     render(<BowlDashboard />);
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    expect(screen.getByText(/remaining:/i)).toBeInTheDocument();
+    expect(screen.getByText(/in the bowl/i)).toBeInTheDocument();
     expect(screen.queryByText(/on your services/i)).not.toBeInTheDocument();
     expect(fetchStreamingProviders).not.toHaveBeenCalled();
   });
@@ -237,7 +237,7 @@ describe("BowlDashboard streaming match count", () => {
     render(<BowlDashboard />);
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    const scanButton = screen.getByRole("button", { name: /count titles on my services/i });
+    const scanButton = screen.getByRole("button", { name: /check your services/i });
     expect(fetchStreamingProviders).not.toHaveBeenCalled();
 
     fireEvent.click(scanButton);
