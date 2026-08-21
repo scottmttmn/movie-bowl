@@ -1,18 +1,16 @@
 import { useEffect, useMemo, useState } from "react";
-import DrawButton from "../components/DrawButton";
-import RemainingCount from "../components/RemainingCount";
-import StreamingMatchCount from "../components/StreamingMatchCount";
-import DrawPoolCount from "../components/DrawPoolCount";
+import HoldToDrawButton from "../components/HoldToDrawButton";
+import BowlStatLine from "../components/BowlStatLine";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
 import MyMoviesStrip from "../components/MyMoviesStrip";
 import AddMovieButton from "../components/AddMovieButton";
 import FilterChipSelect from "../components/FilterChipSelect";
 import BowlIllustration from "../components/BowlIllustration";
-import DrawMethodDisclosure from "../components/DrawMethodDisclosure";
+import DrawMethodInfoModal from "../components/DrawMethodInfoModal";
 import useBowl from "../hooks/useBowl";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import useBowlStreamingMatches from "../hooks/useBowlStreamingMatches";
-import useDrawPoolCount from "../hooks/useDrawPoolCount";
+import useDrawPoolCount, { DRAW_POOL_STATUS } from "../hooks/useDrawPoolCount";
 import AddMovieModal from "../components/AddMovieModal";
 import DrawAnimationModal from "../components/DrawAnimationModal";
 import { useNavigate, useParams } from "react-router-dom";
@@ -73,6 +71,7 @@ export default function BowlDashboard() {
     const [isDrawing, setIsDrawing] = useState(false);
     const [drawAnimationTitle, setDrawAnimationTitle] = useState("");
     const [showDrawConfirm, setShowDrawConfirm] = useState(false);
+    const [showMethodInfo, setShowMethodInfo] = useState(false);
     const [bowlName, setBowlName] = useState("My Bowl");
     const [bowlOwnerId, setBowlOwnerId] = useState(null);
     const [drawAccessMode, setDrawAccessMode] = useState(DRAW_ACCESS_MODE_ALL);
@@ -227,6 +226,41 @@ export default function BowlDashboard() {
       contributorReach: drawPoolContributorReach,
       runLookups: runDrawPoolLookups,
     } = useDrawPoolCount(bowl.remaining, drawFilters);
+    // "Engaged" means a selection that could narrow the draw exists, whether
+    // or not it currently removes anything — the dot marks set state, not
+    // effect, so it cannot flicker as the bowl's contents change.
+    const isFilterEngaged = useMemo(
+      () =>
+        isDrawFilteredByServices ||
+        selectedRatings.length < MPAA_RATING_OPTIONS.length ||
+        !includeUnknownRatings ||
+        Array.isArray(selectedGenres) ||
+        !includeUnknownGenres ||
+        runtimeMinMinutes > RUNTIME_FILTER_MIN_MINUTES ||
+        runtimeMaxMinutes < RUNTIME_FILTER_MAX_MINUTES ||
+        !includeUnknownRuntime,
+      [
+        isDrawFilteredByServices,
+        selectedRatings,
+        includeUnknownRatings,
+        selectedGenres,
+        includeUnknownGenres,
+        runtimeMinMinutes,
+        runtimeMaxMinutes,
+        includeUnknownRuntime,
+      ]
+    );
+    const resetDrawFilters = () => {
+      setSelectedRatings(MPAA_RATING_OPTIONS);
+      setIncludeUnknownRatings(true);
+      setSelectedGenres(null);
+      setIncludeUnknownGenres(true);
+      setRuntimeMinMinutes(RUNTIME_FILTER_MIN_MINUTES);
+      setRuntimeMaxMinutes(RUNTIME_FILTER_MAX_MINUTES);
+      setIncludeUnknownRuntime(true);
+      setPrioritizeStreaming(false);
+      setUseStreamingRank(true);
+    };
     const drawMethodBucketsByContributor = getDrawMethod(drawMethod).bucketsByContributor;
     const drawnMovieMatchingProviders = useMemo(
       () => (drawnMovie ? matchUserServices(drawnMovie.streamingProviders || [], userStreamingServices) : []),
@@ -456,7 +490,9 @@ export default function BowlDashboard() {
       });
     };
 
-    const handleConfirmedDraw = async () => {
+    // Fired by a completed hold on the draw button, or by the keyboard path's
+    // confirm dialog — both arrive here with intent already established.
+    const runDraw = async () => {
       if (isDrawing || !canCurrentUserDraw || bowl.remaining.length === 0) return;
       setShowDrawConfirm(false);
       setDrawAnimationTitle("");
@@ -493,8 +529,30 @@ return (
                 <button onClick={() => navigate("/bowls")} className="btn btn-ghost px-3 py-2">
                   <span aria-hidden="true">←</span> Back
                 </button>
-                <h1 className="max-w-[58%] truncate text-center text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">{bowlName}</h1>
-                <button onClick={() => navigate(`/bowl/${bowlId}/settings`)} className="icon-btn" aria-label="Bowl settings">⚙️</button>
+                <h1 className="min-w-0 flex-1 truncate text-center text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">{bowlName}</h1>
+                <div className="flex shrink-0 items-center gap-2">
+                  <button
+                    type="button"
+                    onClick={() => setShowDrawFilters((prev) => !prev)}
+                    className={`icon-btn relative ${showDrawFilters ? "border-rose-700 text-rose-300" : ""}`}
+                    aria-label={showDrawFilters ? "Hide filters" : "Filters"}
+                    title={showDrawFilters ? "Hide filters" : "Filters"}
+                    data-filter-active={isFilterEngaged ? "true" : undefined}
+                  >
+                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                      <path d="M4 6h16" />
+                      <path d="M7 12h10" />
+                      <path d="M10 18h4" />
+                    </svg>
+                    {isFilterEngaged && (
+                      <span
+                        aria-hidden="true"
+                        className="absolute right-1 top-1 h-2 w-2 rounded-full border border-slate-950 bg-rose-500"
+                      />
+                    )}
+                  </button>
+                  <button onClick={() => navigate(`/bowl/${bowlId}/settings`)} className="icon-btn" aria-label="Bowl settings">⚙️</button>
+                </div>
             </header>
 
             {isLoading && (
@@ -506,26 +564,7 @@ return (
 
             <section className="page-hero my-3">
               <div className="mx-auto max-w-5xl">
-                <div className="mx-auto flex max-w-2xl flex-col items-stretch gap-2.5 text-center sm:flex-row sm:items-center sm:justify-center sm:gap-3">
-                  <AddMovieButton
-                    variant="primary"
-                    disabled={isAddBlocked}
-                    onClick={() => {
-                      setAddGuardMessage(null);
-                      setShowSearch(true);
-                    }}
-                  />
-                  <DrawButton
-                    onClick={() => {
-                      if (isDrawing || !canCurrentUserDraw || bowl.remaining.length === 0) return;
-                      setShowDrawConfirm(true);
-                    }}
-                    isLoading={isDrawing}
-                    disabled={!canCurrentUserDraw || bowl.remaining.length === 0}
-                  />
-                </div>
-
-                <div className="mt-4">
+                <div>
                   <BowlIllustration
                     drawTitle={drawAnimationTitle}
                     isDrawing={isDrawing}
@@ -533,54 +572,106 @@ return (
                   />
                 </div>
 
-                <div className="mt-2 flex flex-wrap items-center justify-center gap-2 text-center">
-                  <RemainingCount count={bowl.remaining.length} />
-                  <DrawPoolCount
-                    status={drawPoolStatus}
-                    poolCount={drawPoolCount}
-                    totalCount={drawPoolTotalCount}
-                    contributorReach={drawPoolContributorReach}
-                    showContributorReach={drawMethodBucketsByContributor}
-                    onRunLookups={runDrawPoolLookups}
-                    onOpenFilters={() => setShowDrawFilters(true)}
+                <BowlStatLine
+                  poolStatus={drawPoolStatus}
+                  poolCount={drawPoolCount}
+                  poolTotalCount={drawPoolTotalCount}
+                  contributorReach={drawPoolContributorReach}
+                  showContributorReach={drawMethodBucketsByContributor}
+                  onRunPoolLookups={runDrawPoolLookups}
+                  streamingStatus={streamingMatchStatus}
+                  streamingMatchCount={streamingMatchCount}
+                  streamingTopService={streamingMatchTopService}
+                  streamingTopServiceCount={streamingMatchTopServiceCount}
+                  isPrioritized={isDrawFilteredByServices}
+                  useServiceRank={useStreamingRank}
+                  onScanStreaming={scanStreamingMatches}
+                  onOpenFilters={() => setShowDrawFilters(true)}
+                  onOpenMethodInfo={() => setShowMethodInfo(true)}
+                />
+
+                <div className="mx-auto mt-4 flex w-full max-w-sm flex-col items-stretch gap-2.5">
+                  <HoldToDrawButton
+                    onHoldComplete={runDraw}
+                    onKeyboardActivate={() => {
+                      if (isDrawing || !canCurrentUserDraw || bowl.remaining.length === 0) return;
+                      setShowDrawConfirm(true);
+                    }}
+                    isLoading={isDrawing}
+                    disabled={!canCurrentUserDraw || bowl.remaining.length === 0}
                   />
-                  <StreamingMatchCount
-                    status={streamingMatchStatus}
-                    count={streamingMatchCount}
-                    topService={streamingMatchTopService}
-                    topServiceCount={streamingMatchTopServiceCount}
-                    isPrioritized={isDrawFilteredByServices}
-                    useServiceRank={useStreamingRank}
-                    onScan={scanStreamingMatches}
-                    onOpenPreferences={() => setShowDrawFilters(true)}
+                  <AddMovieButton
+                    variant="secondary"
+                    disabled={isAddBlocked}
+                    onClick={() => {
+                      setAddGuardMessage(null);
+                      setShowSearch(true);
+                    }}
                   />
                 </div>
-                <DrawMethodDisclosure
-                  drawMethod={drawMethod}
-                  contributorReach={drawPoolContributorReach}
-                />
                 {drawGuardMessage && (
                   <p className="mt-2 text-center text-sm text-amber-300">{drawGuardMessage}</p>
                 )}
 
-                <div className="mt-3 flex justify-center">
-                  <button
-                    type="button"
-                    onClick={() => setShowDrawFilters((prev) => !prev)}
-                    className={`icon-btn h-9 w-9 ${showDrawFilters ? "border-rose-700 text-rose-300" : ""}`}
-                    aria-label={showDrawFilters ? "Hide filters" : "Filters"}
-                    title={showDrawFilters ? "Hide filters" : "Filters"}
-                  >
-                    <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-                      <path d="M4 6h16" />
-                      <path d="M7 12h10" />
-                      <path d="M10 18h4" />
-                    </svg>
-                    <span className="sr-only">{showDrawFilters ? "Hide filters" : "Filters"}</span>
-                  </button>
-                </div>
-                {showDrawFilters && (
-                  <div className="panel-muted mx-auto mt-4 max-w-2xl px-3.5 py-3.5 sm:px-4">
+                {addGuardMessage && (
+                  <p className="mt-2 text-center text-sm text-amber-300">{addGuardMessage}</p>
+                )}
+                {isAddBlockedByUndrawnLimit && (
+                  <p className="mt-2 text-center text-sm text-amber-300">
+                    Bowl is at the undrawn movie limit ({MAX_UNDRAWN_MOVIES_PER_BOWL}).
+                  </p>
+                )}
+              </div>
+            </section>
+
+            {/* Anchored under the header rather than centered or bottom-sheeted:
+                the filter icon lives up there, and the panel must be fully
+                visible without scrolling the page. */}
+            {showDrawFilters && (
+              <div
+                className="modal-overlay-top z-[70]"
+                role="presentation"
+                onClick={() => setShowDrawFilters(false)}
+              >
+                <div
+                  className="modal-surface flex max-h-[calc(100dvh-5.5rem)] w-full max-w-xl flex-col overflow-hidden rounded-t-none sm:max-w-md sm:rounded-3xl"
+                  role="dialog"
+                  aria-modal="true"
+                  aria-labelledby="draw-filters-title"
+                  onClick={(event) => event.stopPropagation()}
+                >
+                  <div className="flex items-start justify-between gap-3 border-b border-slate-800 px-4 py-3.5 sm:px-5">
+                    <div>
+                      <h3 id="draw-filters-title" className="text-lg font-semibold text-slate-100">
+                        Narrow the draw
+                      </h3>
+                      {drawPoolStatus === DRAW_POOL_STATUS.manual ? (
+                        <button
+                          type="button"
+                          onClick={runDrawPoolLookups}
+                          className="mt-0.5 text-sm font-medium text-rose-300 hover:text-rose-200"
+                        >
+                          Count eligible titles
+                        </button>
+                      ) : (
+                        <p className="mt-0.5 text-sm text-slate-400">
+                          {drawPoolStatus === DRAW_POOL_STATUS.counting
+                            ? "Counting eligible titles…"
+                            : drawPoolStatus === DRAW_POOL_STATUS.ready
+                              ? `${drawPoolCount} of ${drawPoolTotalCount} titles eligible`
+                              : `All ${drawPoolTotalCount} titles eligible`}
+                        </p>
+                      )}
+                    </div>
+                    <button
+                      type="button"
+                      onClick={resetDrawFilters}
+                      className="btn btn-ghost px-3 py-1.5 text-sm text-rose-300"
+                    >
+                      Reset
+                    </button>
+                  </div>
+                  <div className="flex-1 overflow-y-auto px-4 py-3.5 sm:px-5">
                       <div className="flex items-center justify-between gap-3">
                         <div className="text-left">
                           <p className="text-base font-semibold text-slate-100">Streaming Match Preferences</p>
@@ -841,25 +932,26 @@ return (
                           </div>
                         )}
                       </div>
+                      {userStreamingServices.length === 0 && (
+                        <p className="mt-3 text-xs text-slate-400">
+                          Add services in Settings to enable prioritized draw.
+                        </p>
+                      )}
                   </div>
-                )}
-                {userStreamingServices.length === 0 && (
-                  <p className="mt-2 text-center text-xs text-slate-400">
-                    Add services in Settings to enable prioritized draw.
-                  </p>
-                )}
-                {addGuardMessage && (
-                  <p className="mt-2 text-center text-sm text-amber-300">{addGuardMessage}</p>
-                )}
-                {isAddBlockedByUndrawnLimit && (
-                  <p className="mt-2 text-center text-sm text-amber-300">
-                    Bowl is at the undrawn movie limit ({MAX_UNDRAWN_MOVIES_PER_BOWL}).
-                  </p>
-                )}
+                  <div className="border-t border-slate-800 px-4 py-3 sm:px-5">
+                    <button
+                      type="button"
+                      onClick={() => setShowDrawFilters(false)}
+                      className="btn btn-primary w-full"
+                    >
+                      Done
+                    </button>
+                  </div>
+                </div>
               </div>
-            </section>
+            )}
 
-            
+
             <section className="panel mt-5 w-full max-w-full min-w-0 overflow-x-auto">
                 <WatchedMoviesStrip
                   movies={bowl.watched}
@@ -945,6 +1037,13 @@ return (
               )}
             </div>
 
+            {showMethodInfo && (
+              <DrawMethodInfoModal
+                drawMethod={drawMethod}
+                contributorReach={drawPoolContributorReach}
+                onClose={() => setShowMethodInfo(false)}
+              />
+            )}
             {showDrawConfirm && (
               <div className="modal-overlay z-[70]" role="presentation">
                 <div className="modal-surface max-w-md p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="draw-confirm-title">
@@ -963,7 +1062,7 @@ return (
                     </button>
                     <button
                       type="button"
-                      onClick={handleConfirmedDraw}
+                      onClick={runDraw}
                       className="btn btn-danger"
                       disabled={isDrawing}
                     >

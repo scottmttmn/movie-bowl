@@ -153,37 +153,87 @@ describe("BowlDashboard draw pool count", () => {
     cleanup();
   });
 
-  it("shows only the remaining count while the filters take nothing out", async () => {
+  it("shows only the bowl count while the filters take nothing out", async () => {
     await renderDashboard();
 
-    expect(screen.getByText(/remaining:/i)).toBeInTheDocument();
-    expect(screen.queryByText(/drawing from/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /3 movies in the bowl/i })).toBeInTheDocument();
+    expect(screen.queryByText(/eligible/i)).not.toBeInTheDocument();
     // The default rating filter allows everything, so it must cost no lookups.
     expect(getTmdbMovieDetails).not.toHaveBeenCalled();
   });
 
-  it("reports the narrowed pool alongside the remaining count", async () => {
+  it("reports the narrowed pool against the total", async () => {
+    // Both contributors keep an Action title, so this narrowing excludes a
+    // movie without excluding a person — the calm active tone.
+    mocks.state.bowlData = {
+      remaining: [
+        ...TWO_CONTRIBUTORS,
+        {
+          id: "m4",
+          added_by: "u2",
+          tmdb_id: 104,
+          title: "Action C",
+          genres: ["Action"],
+          profiles: { email: "sam@example.com" },
+        },
+      ],
+      watched: [],
+    };
+
     await renderDashboard();
     selectOnlyGenre("Action");
 
-    await waitFor(() => expect(screen.getByText(/drawing from/i)).toBeInTheDocument());
-    const chip = screen.getByText(/drawing from/i).closest("[data-tone]");
-    expect(chip).toHaveTextContent("Drawing from 2");
-    expect(screen.getByText(/remaining:/i)).toBeInTheDocument();
+    const segment = await screen.findByRole("button", { name: /drawing from 3 of 4 titles/i });
+    expect(segment).toHaveTextContent("3 of 4 eligible");
+    expect(segment).toHaveAttribute("data-tone", "active");
   });
 
-  it("warns on the chip and in the disclosure when a person is filtered out", async () => {
+  it("warns on the line and behind the ⓘ when a person is filtered out", async () => {
     await renderDashboard();
     selectOnlyGenre("Comedy");
 
-    await waitFor(() => expect(screen.getByText(/drawing from/i)).toBeInTheDocument());
+    const segment = await screen.findByRole("button", { name: /reaching 1 of 2 people/i });
+    expect(segment).toHaveAttribute("data-tone", "warning");
 
-    const chip = screen.getByText(/drawing from/i).closest("[data-tone]");
-    expect(chip).toHaveAttribute("data-tone", "warning");
-    expect(chip).toHaveTextContent("1 of 2 people");
-
-    expect(screen.getByText(/some people are filtered out/i)).toBeInTheDocument();
+    // The named exclusion lives in the method info dialog, whose trigger
+    // carries the warning so it is findable before opening.
+    fireEvent.click(
+      screen.getByRole("button", { name: /how this bowl picks — some people are filtered out/i })
+    );
     expect(screen.getByText(/No movies from alex are in the pool\./)).toBeInTheDocument();
+  });
+
+  it("shows the live eligible count in the filters overlay with reset and done", async () => {
+    await renderDashboard();
+    selectOnlyGenre("Comedy");
+
+    expect(screen.getByRole("dialog", { name: /narrow the draw/i })).toBeInTheDocument();
+    expect(await screen.findByText("1 of 3 titles eligible")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^reset$/i }));
+    await waitFor(() =>
+      expect(screen.getByText("All 3 titles eligible")).toBeInTheDocument()
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /^done$/i }));
+    expect(screen.queryByRole("dialog", { name: /narrow the draw/i })).not.toBeInTheDocument();
+  });
+
+  it("marks the header filter icon while a narrowing selection is set", async () => {
+    await renderDashboard();
+
+    expect(screen.getByRole("button", { name: /^filters$/i })).not.toHaveAttribute(
+      "data-filter-active"
+    );
+
+    selectOnlyGenre("Comedy");
+
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /hide filters/i })).toHaveAttribute(
+        "data-filter-active",
+        "true"
+      )
+    );
   });
 
   it("drops the people count for a title-first bowl but still flags the exclusion", async () => {
@@ -192,11 +242,11 @@ describe("BowlDashboard draw pool count", () => {
     await renderDashboard();
     selectOnlyGenre("Comedy");
 
-    await waitFor(() => expect(screen.getByText(/drawing from/i)).toBeInTheDocument());
+    const segment = await screen.findByRole("button", { name: /drawing from 1 of 3 titles\./i });
+    expect(segment).toHaveAttribute("data-tone", "active");
+    expect(segment).not.toHaveTextContent("people");
 
-    const chip = screen.getByText(/drawing from/i).closest("[data-tone]");
-    expect(chip).toHaveAttribute("data-tone", "active");
-    expect(chip).not.toHaveTextContent("people");
+    fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks$/i }));
     expect(screen.getByText(/No movies from alex are in the pool\./)).toBeInTheDocument();
   });
 });

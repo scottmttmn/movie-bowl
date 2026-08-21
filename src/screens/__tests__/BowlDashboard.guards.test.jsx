@@ -181,10 +181,9 @@ describe("BowlDashboard guards", () => {
     expect(screen.queryByText(/lowest active member/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/draw odds/i)).not.toBeInTheDocument();
 
-    const summary = screen.getByText("How this bowl picks");
-    expect(summary.closest("details")).not.toHaveAttribute("open");
+    expect(screen.queryByText(/each person is equally likely to be selected/i)).not.toBeInTheDocument();
 
-    fireEvent.click(summary);
+    fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks$/i }));
 
     expect(screen.getByText(/each person is equally likely to be selected/i)).toBeInTheDocument();
     expect(mocks.state.useBowlOptions).toEqual({ drawMethod: "person_first" });
@@ -205,7 +204,7 @@ describe("BowlDashboard guards", () => {
       expect(mocks.state.useBowlOptions).toEqual({ drawMethod: "title_first" })
     );
 
-    fireEvent.click(screen.getByText("How this bowl picks"));
+    fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks$/i }));
 
     expect(screen.getByText(/every movie is equally likely/i)).toBeInTheDocument();
     expect(screen.queryByText(/each person is equally likely to be selected/i)).not.toBeInTheDocument();
@@ -219,11 +218,11 @@ describe("BowlDashboard guards", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     // The bowl still loads, still draws, and still describes itself correctly.
-    expect(screen.getByRole("button", { name: /draw/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /draw movie/i })).toBeEnabled();
     expect(mocks.state.navigate).not.toHaveBeenCalled();
     expect(mocks.state.useBowlOptions).toEqual({ drawMethod: "person_first" });
 
-    fireEvent.click(screen.getByText("How this bowl picks"));
+    fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks$/i }));
 
     expect(screen.getByText(/each person is equally likely to be selected/i)).toBeInTheDocument();
   });

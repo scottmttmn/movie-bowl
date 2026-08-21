@@ -105,6 +105,7 @@ vi.mock("react-router-dom", async () => {
 });
 
 import BowlDashboard from "../BowlDashboard";
+import { HOLD_TO_DRAW_MS } from "../../components/HoldToDrawButton";
 import { getTmdbMovieDetails } from "../../lib/tmdbApi";
 import { fetchStreamingProviders } from "../../lib/streamingProviders";
 
@@ -112,6 +113,8 @@ function renderDashboard() {
   return render(<BowlDashboard />);
 }
 
+// fireEvent.click dispatches with detail 0, which the hold button treats as
+// keyboard activation — so this exercises the confirm-dialog fallback path.
 function confirmDraw() {
   fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
   expect(screen.getByText(/reveal a movie\?/i)).toBeInTheDocument();
@@ -200,6 +203,57 @@ describe("BowlDashboard draw flow", () => {
     expect(screen.getByText("Movie A (2020)")).toBeInTheDocument();
     expect(screen.getByText("Added by")).toBeInTheDocument();
     expect(screen.getByText("owner")).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it("draws from a completed press-and-hold without a confirm dialog", async () => {
+    mocks.state.handleDraw.mockResolvedValue({
+      id: "m1",
+      tmdb_id: 101,
+      title: "Movie A",
+      runtime: 120,
+      release_date: "2020-01-01",
+      streamingProviders: [],
+    });
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    vi.useFakeTimers();
+    fireEvent.pointerDown(screen.getByRole("button", { name: /draw movie/i }));
+    await act(async () => {
+      vi.advanceTimersByTime(HOLD_TO_DRAW_MS);
+    });
+
+    expect(screen.queryByText(/reveal a movie\?/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/drawing a title from the bowl/i)).toBeInTheDocument();
+
+    await act(async () => {
+      vi.advanceTimersByTime(1500);
+      await Promise.resolve();
+    });
+
+    expect(screen.getByText("Movie A (2020)")).toBeInTheDocument();
+    vi.useRealTimers();
+  });
+
+  it("releasing the hold early does not draw", async () => {
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    vi.useFakeTimers();
+    const button = screen.getByRole("button", { name: /draw movie/i });
+    fireEvent.pointerDown(button);
+    await act(async () => {
+      vi.advanceTimersByTime(HOLD_TO_DRAW_MS - 1);
+    });
+    fireEvent.pointerUp(button);
+    await act(async () => {
+      vi.advanceTimersByTime(HOLD_TO_DRAW_MS);
+    });
+
+    expect(mocks.state.handleDraw).not.toHaveBeenCalled();
+    expect(screen.queryByText(/drawing a title from the bowl/i)).not.toBeInTheDocument();
     vi.useRealTimers();
   });
 
