@@ -152,7 +152,10 @@ registry — do not hardcode a sentence about odds anywhere else.
 Streaming prioritization narrows the pool *before* the contributor bucketing:
 with `prioritizeByServiceRank` it keeps only the top-ranked matching service,
 otherwise all matches; either way an empty match set falls back to the full
-pool. Movie ratings are cached in-module for an hour; providers for ten minutes
+incoming pool. `getStreamingPriorityPool` is shared by selection and the
+phone/TV eligibility readouts so those surfaces reflect the same post-filter,
+post-rank pool, including the fallback behavior for manual titles. Movie
+ratings are cached in-module for an hour; providers for ten minutes
 with in-flight dedupe (`lib/streamingProviders.js`). Both expose a
 `clear*Cache()` for tests.
 

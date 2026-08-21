@@ -171,7 +171,7 @@ see `CLAUDE.md`. For reliability guardrails and the release smoke checklist, see
   - includes in-memory caching + in-flight request deduping
 - Draw behavior:
   - if the prioritize toggle is on and matches exist, draw from matches
-  - if no matches, fall back to all remaining titles
+  - if no matches, fall back to all titles that survived the other draw filters
 - This narrowing happens *before* contributor bucketing, so it changes which
   titles are eligible, not the equal-per-person odds among them.
 

@@ -168,4 +168,114 @@ describe("useDrawPoolCount", () => {
     expect(result.current.poolCount).toBe(0);
     expect(result.current.contributorReach.reachedCount).toBe(0);
   });
+
+  it("ranks streaming services only after the ordinary filters have run", async () => {
+    const fetchMovieDetails = vi.fn();
+    const fetchProviders = vi.fn(async (tmdbId) => ({
+      providers: tmdbId === 1 ? ["Netflix"] : ["Max"],
+      region: "US",
+      fetchedAt: null,
+    }));
+    const movies = [
+      movie("m1", { genres: ["Comedy"] }),
+      movie("m2", { genres: ["Action"] }),
+    ];
+
+    const { result } = renderHook(() =>
+      useDrawPoolCount(
+        movies,
+        {
+          prioritizeByServices: true,
+          prioritizeByServiceRank: true,
+          userStreamingServices: ["Netflix", "Max"],
+          ratingFilter: ALL_RATINGS,
+          genreFilter: { allowedGenres: ["Action"], includeUnknown: false },
+          runtimeFilter: ALL_RUNTIMES,
+        },
+        { fetchMovieDetails, fetchProviders }
+      )
+    );
+
+    await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.ready));
+    expect(result.current.poolCount).toBe(1);
+    expect(result.current.streamingMatch).toEqual({
+      matchCount: 1,
+      topService: "Max",
+      topServiceCount: 1,
+    });
+    expect(fetchProviders).toHaveBeenCalledTimes(1);
+    expect(fetchProviders).toHaveBeenCalledWith(2);
+  });
+
+  it("excludes a manual title and its contributor when another title matches priority", async () => {
+    const fetchMovieDetails = vi.fn();
+    const fetchProviders = vi.fn(async () => ({
+      providers: ["Netflix"],
+      region: "US",
+      fetchedAt: null,
+    }));
+    const movies = [
+      movie("m1", { added_by: "user-1", profiles: { email: "alex@example.com" } }),
+      movie("manual", {
+        tmdb_id: -42,
+        added_by: "user-2",
+        profiles: { email: "sam@example.com" },
+      }),
+    ];
+
+    const { result } = renderHook(() =>
+      useDrawPoolCount(
+        movies,
+        {
+          prioritizeByServices: true,
+          prioritizeByServiceRank: true,
+          userStreamingServices: ["Netflix"],
+          ratingFilter: ALL_RATINGS,
+          genreFilter: ALL_GENRES,
+          runtimeFilter: ALL_RUNTIMES,
+        },
+        { fetchMovieDetails, fetchProviders }
+      )
+    );
+
+    await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.ready));
+    expect(result.current.poolCount).toBe(1);
+    expect(result.current.contributorReach).toEqual({
+      totalCount: 2,
+      reachedCount: 1,
+      excludedNames: ["sam"],
+    });
+    expect(fetchProviders).toHaveBeenCalledTimes(1);
+    expect(fetchProviders).not.toHaveBeenCalledWith(-42);
+  });
+
+  it("keeps manual titles in the fallback pool when no service matches", async () => {
+    const fetchMovieDetails = vi.fn();
+    const fetchProviders = vi.fn(async () => ({
+      providers: ["Paramount+"],
+      region: "US",
+      fetchedAt: null,
+    }));
+    const movies = [movie("m1"), movie("manual", { tmdb_id: -42 })];
+
+    const { result } = renderHook(() =>
+      useDrawPoolCount(
+        movies,
+        {
+          prioritizeByServices: true,
+          prioritizeByServiceRank: true,
+          userStreamingServices: ["Netflix"],
+          ratingFilter: ALL_RATINGS,
+          genreFilter: ALL_GENRES,
+          runtimeFilter: ALL_RUNTIMES,
+        },
+        { fetchMovieDetails, fetchProviders }
+      )
+    );
+
+    await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.unfiltered));
+    expect(result.current.poolCount).toBe(2);
+    expect(result.current.streamingMatch.matchCount).toBe(0);
+    expect(fetchProviders).toHaveBeenCalledTimes(1);
+  });
 });

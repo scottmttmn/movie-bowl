@@ -9,7 +9,9 @@ import BowlIllustration from "../components/BowlIllustration";
 import DrawMethodInfoModal from "../components/DrawMethodInfoModal";
 import useBowl from "../hooks/useBowl";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
-import useBowlStreamingMatches from "../hooks/useBowlStreamingMatches";
+import useBowlStreamingMatches, {
+  STREAMING_MATCH_STATUS,
+} from "../hooks/useBowlStreamingMatches";
 import useDrawPoolCount, { DRAW_POOL_STATUS } from "../hooks/useDrawPoolCount";
 import AddMovieModal from "../components/AddMovieModal";
 import DrawAnimationModal from "../components/DrawAnimationModal";
@@ -195,6 +197,9 @@ export default function BowlDashboard() {
     // number on screen cannot drift from what the draw actually applies.
     const drawFilters = useMemo(
       () => ({
+        prioritizeByServices: isDrawFilteredByServices,
+        prioritizeByServiceRank: useStreamingRank,
+        userStreamingServices,
         ratingFilter: {
           allowedRatings: selectedRatings,
           includeUnknown: includeUnknownRatings,
@@ -210,6 +215,9 @@ export default function BowlDashboard() {
         },
       }),
       [
+        isDrawFilteredByServices,
+        useStreamingRank,
+        userStreamingServices,
         selectedRatings,
         includeUnknownRatings,
         selectedDrawGenres,
@@ -224,8 +232,26 @@ export default function BowlDashboard() {
       poolCount: drawPoolCount,
       totalCount: drawPoolTotalCount,
       contributorReach: drawPoolContributorReach,
+      streamingMatch: drawPoolStreamingMatch,
       runLookups: runDrawPoolLookups,
     } = useDrawPoolCount(bowl.remaining, drawFilters);
+    const hasResolvedPrioritizedPool =
+      isDrawFilteredByServices &&
+      drawPoolTotalCount > 0 &&
+      (drawPoolStatus === DRAW_POOL_STATUS.ready ||
+        drawPoolStatus === DRAW_POOL_STATUS.unfiltered);
+    const displayedStreamingStatus = isDrawFilteredByServices
+      ? hasResolvedPrioritizedPool
+        ? STREAMING_MATCH_STATUS.ready
+        : STREAMING_MATCH_STATUS.unavailable
+      : streamingMatchStatus;
+    const displayedStreamingMatch = hasResolvedPrioritizedPool
+      ? drawPoolStreamingMatch
+      : {
+          matchCount: streamingMatchCount,
+          topService: streamingMatchTopService,
+          topServiceCount: streamingMatchTopServiceCount,
+        };
     // "Engaged" means a selection that could narrow the draw exists, whether
     // or not it currently removes anything — the dot marks set state, not
     // effect, so it cannot flicker as the bowl's contents change.
@@ -579,10 +605,10 @@ return (
                   contributorReach={drawPoolContributorReach}
                   showContributorReach={drawMethodBucketsByContributor}
                   onRunPoolLookups={runDrawPoolLookups}
-                  streamingStatus={streamingMatchStatus}
-                  streamingMatchCount={streamingMatchCount}
-                  streamingTopService={streamingMatchTopService}
-                  streamingTopServiceCount={streamingMatchTopServiceCount}
+                  streamingStatus={displayedStreamingStatus}
+                  streamingMatchCount={displayedStreamingMatch.matchCount}
+                  streamingTopService={displayedStreamingMatch.topService}
+                  streamingTopServiceCount={displayedStreamingMatch.topServiceCount}
                   isPrioritized={isDrawFilteredByServices}
                   useServiceRank={useStreamingRank}
                   onScanStreaming={scanStreamingMatches}

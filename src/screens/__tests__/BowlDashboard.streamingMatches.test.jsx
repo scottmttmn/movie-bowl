@@ -170,6 +170,58 @@ describe("BowlDashboard streaming match count", () => {
     );
   });
 
+  it("shows the ranked post-filter pool and warns about unreachable manual contributors", async () => {
+    mocks.state.streamingServices = ["Netflix", "Max"];
+    mocks.state.providersByTmdbId = { 101: ["Netflix"], 102: ["Max"] };
+    mocks.state.bowlData = {
+      remaining: [
+        {
+          id: "m1",
+          added_by: "u1",
+          tmdb_id: 101,
+          title: "Movie A",
+          profiles: { email: "alex@example.com" },
+        },
+        {
+          id: "m2",
+          added_by: "u2",
+          tmdb_id: 102,
+          title: "Movie B",
+          profiles: { email: "sam@example.com" },
+        },
+        {
+          id: "m3",
+          added_by: null,
+          added_by_name: "Jo",
+          tmdb_id: -900,
+          title: "Custom Movie",
+        },
+      ],
+      watched: [],
+    };
+
+    render(<BowlDashboard />);
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
+
+    const poolSegment = await screen.findByRole("button", {
+      name: /drawing from 1 of 3 titles, reaching 1 of 3 people/i,
+    });
+    expect(poolSegment).toHaveTextContent("1 of 3 people represented");
+    expect(poolSegment).toHaveAttribute("data-tone", "warning");
+    expect(
+      screen.getByRole("button", { name: /favoring the 1 eligible title on netflix/i })
+    ).toBeInTheDocument();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /how this bowl picks — some people are filtered out/i })
+    );
+    expect(screen.getByText(/No movies from Jo or sam are in the pool\./)).toBeInTheDocument();
+    expect(fetchStreamingProviders).not.toHaveBeenCalledWith(-900);
+  });
+
   it("favors every match when service ranking is turned off", async () => {
     mocks.state.streamingServices = ["Netflix", "Max"];
     mocks.state.providersByTmdbId = { 101: ["Netflix"], 102: ["Max"] };
@@ -183,12 +235,12 @@ describe("BowlDashboard streaming match count", () => {
 
     await waitFor(() =>
       expect(
-        screen.getByRole("button", { name: /draw is favoring the 2 remaining titles/i })
+        screen.getByRole("button", { name: /draw is favoring the 2 eligible titles/i })
       ).toBeInTheDocument()
     );
   });
 
-  it("warns that the draw falls back to every title when nothing matches", async () => {
+  it("warns that streaming falls back to the otherwise eligible pool", async () => {
     mocks.state.streamingServices = ["Netflix"];
     mocks.state.providersByTmdbId = { 101: ["Paramount+"], 102: ["Peacock"] };
 
@@ -199,11 +251,11 @@ describe("BowlDashboard streaming match count", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
 
     await waitFor(() =>
-      expect(screen.getByText(/no matches — drawing from all/i)).toBeInTheDocument()
+      expect(screen.getByText(/no service matches — using eligible pool/i)).toBeInTheDocument()
     );
     // A filter that is on but changing nothing should not look like one that works.
     expect(
-      screen.getByText(/no matches — drawing from all/i).closest("[data-tone]")
+      screen.getByText(/no service matches — using eligible pool/i).closest("[data-tone]")
     ).toHaveAttribute("data-tone", "warning");
   });
 

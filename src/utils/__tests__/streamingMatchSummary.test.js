@@ -35,11 +35,12 @@ describe("describeStreamingMatch", () => {
     expect(summary.text).toBe("Favoring 8 on your services");
   });
 
-  it("warns that the draw falls back when nothing matches", () => {
+  it("warns that streaming falls back to the already-filtered eligible pool", () => {
     const summary = describeStreamingMatch({ matchCount: 0, isPrioritized: true });
 
     expect(summary.tone).toBe("warning");
-    expect(summary.text).toBe("No matches — drawing from all");
+    expect(summary.text).toBe("No service matches — using eligible pool");
+    expect(summary.label).toMatch(/does not narrow the eligible pool further/i);
     expect(summary.count).toBeNull();
   });
 });

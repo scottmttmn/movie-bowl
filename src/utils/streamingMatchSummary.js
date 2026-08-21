@@ -24,42 +24,45 @@ export function describeStreamingMatch({
   });
 
   if (!isPrioritized) {
+    const titleWord = matchCount === 1 ? "title is" : "titles are";
     return build(
       STREAMING_MATCH_TONE.idle,
       "",
       matchCount,
       "on your services",
-      `${matchCount} remaining titles are on your streaming services. The draw is not filtered by them.`
+      `${matchCount} remaining ${titleWord} on your streaming services. The draw is not filtered by them.`
     );
   }
 
   if (matchCount === 0) {
     return build(
       STREAMING_MATCH_TONE.warning,
-      "No matches — drawing from all",
+      "No service matches — using eligible pool",
       null,
       "",
-      "No remaining titles are on your streaming services, so the draw falls back to every title."
+      "No eligible titles are on your streaming services, so streaming priority does not narrow the eligible pool further."
     );
   }
 
   // Ranked prioritization keeps only the highest-ranked service that matched,
   // so that service's tally is the pool rather than every match.
   if (useServiceRank && topService) {
+    const titleWord = topServiceCount === 1 ? "title" : "titles";
     return build(
       STREAMING_MATCH_TONE.active,
       "Favoring",
       topServiceCount,
       `on ${topService}`,
-      `The draw is favoring the ${topServiceCount} remaining titles on ${topService}, your highest-ranked matching service.`
+      `The draw is favoring the ${topServiceCount} eligible ${titleWord} on ${topService}, your highest-ranked matching service.`
     );
   }
 
+  const titleWord = matchCount === 1 ? "title" : "titles";
   return build(
     STREAMING_MATCH_TONE.active,
     "Favoring",
     matchCount,
     "on your services",
-    `The draw is favoring the ${matchCount} remaining titles on your streaming services.`
+    `The draw is favoring the ${matchCount} eligible ${titleWord} on your streaming services.`
   );
 }
