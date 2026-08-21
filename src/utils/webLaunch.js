@@ -15,7 +15,6 @@ export function resolvePreferredWebLaunchCandidate({
   userServices = [],
   movieProviders = [],
   title = "",
-  year = "",
 }) {
   const normalizedUserServices = normalizeStreamingServices(userServices);
   const normalizedProviders = new Set(
@@ -25,8 +24,7 @@ export function resolvePreferredWebLaunchCandidate({
 
   if (!searchText) return null;
 
-  const fullQuery = year ? `${searchText} ${year}` : searchText;
-  const encodedQuery = encodeURIComponent(fullQuery);
+  const encodedQuery = encodeURIComponent(searchText);
 
   for (const serviceName of normalizedUserServices) {
     if (!normalizedProviders.has(serviceName.toLowerCase())) continue;

@@ -260,6 +260,7 @@ describe("BowlDashboard guards", () => {
 
     const myMoviesSection = screen.getByRole("heading", { name: /my movies/i }).closest("section");
     expect(myMoviesSection).toBeTruthy();
+    expect(within(myMoviesSection).getByText("1 movie")).toBeInTheDocument();
     fireEvent.click(within(myMoviesSection).getByRole("button", { name: /^show$/i }));
     expect(screen.getAllByText(/^My Movie$/i).length).toBeGreaterThan(0);
     expect(screen.queryByText(/friend movie/i)).not.toBeInTheDocument();

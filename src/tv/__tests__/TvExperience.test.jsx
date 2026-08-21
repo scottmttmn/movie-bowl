@@ -335,7 +335,7 @@ describe("Movie Bowl TV experience", () => {
       screen.getByRole("link", { name: /^open netflix$/i })
     ).toHaveAttribute(
       "href",
-      "https://www.netflix.com/search?q=Arrival%202016"
+      "https://www.netflix.com/search?q=Arrival"
     );
     let youtubePlayerOptions;
     window.YT = {

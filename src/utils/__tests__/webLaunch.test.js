@@ -7,12 +7,11 @@ describe("resolvePreferredWebLaunchCandidate", () => {
       userServices: ["Netflix", "Hulu"],
       movieProviders: ["Hulu", "Netflix"],
       title: "Dune",
-      year: "2021",
     });
 
     expect(result).toEqual({
       serviceName: "Netflix",
-      url: "https://www.netflix.com/search?q=Dune%202021",
+      url: "https://www.netflix.com/search?q=Dune",
     });
   });
 
@@ -21,12 +20,24 @@ describe("resolvePreferredWebLaunchCandidate", () => {
       userServices: ["MUBI", "Hulu"],
       movieProviders: ["MUBI", "Hulu"],
       title: "Parasite",
-      year: "2019",
     });
 
     expect(result).toEqual({
       serviceName: "Hulu",
-      url: "https://www.hulu.com/search?q=Parasite%202019",
+      url: "https://www.hulu.com/search?q=Parasite",
+    });
+  });
+
+  it("sends Max a title-only search query", () => {
+    const result = resolvePreferredWebLaunchCandidate({
+      userServices: ["Max"],
+      movieProviders: ["Max"],
+      title: "The Batman",
+    });
+
+    expect(result).toEqual({
+      serviceName: "Max",
+      url: "https://play.max.com/search?q=The%20Batman",
     });
   });
 
@@ -35,7 +46,6 @@ describe("resolvePreferredWebLaunchCandidate", () => {
       userServices: ["MUBI"],
       movieProviders: ["MUBI"],
       title: "The Fall",
-      year: "2006",
     });
 
     expect(result).toBeNull();
@@ -46,7 +56,6 @@ describe("resolvePreferredWebLaunchCandidate", () => {
       userServices: ["Netflix"],
       movieProviders: ["Netflix"],
       title: "",
-      year: "2021",
     });
 
     expect(result).toBeNull();

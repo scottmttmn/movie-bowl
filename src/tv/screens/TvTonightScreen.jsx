@@ -672,7 +672,6 @@ export default function TvTonightScreen({ userId, userEmail }) {
       userServices: streamingServices,
       movieProviders: drawnMovie.streamingProviders || [],
       title: drawnMovie.title || "",
-      year: getYear(drawnMovie),
     });
   }, [drawnMovie, streamingServices]);
 

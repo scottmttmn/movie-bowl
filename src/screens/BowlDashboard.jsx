@@ -236,12 +236,10 @@ export default function BowlDashboard() {
       if (!drawnMovie || !defaultDrawSettings.enablePreferredWebLaunch) return null;
       if (drawnMovieMatchingProviders.length === 0) return null;
 
-      const year = drawnMovie?.release_date ? String(drawnMovie.release_date).split("-")[0] : "";
       return resolvePreferredWebLaunchCandidate({
         userServices: userStreamingServices,
         movieProviders: drawnMovie.streamingProviders || [],
         title: drawnMovie.title || "",
-        year,
       });
     }, [
       drawnMovie,
@@ -878,7 +876,12 @@ return (
             <section className="panel mt-4 w-full max-w-full min-w-0">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-left">
-                  <h3 className="section-title text-base">My Movies</h3>
+                  <div className="flex items-baseline gap-2">
+                    <h3 className="section-title text-base">My Movies</h3>
+                    <span className="text-xs font-semibold text-slate-400">
+                      {myMovies.length === 1 ? "1 movie" : `${myMovies.length} movies`}
+                    </span>
+                  </div>
                   <p className="text-xs text-slate-400">Your undrawn picks in this bowl.</p>
                 </div>
                 <button

@@ -297,7 +297,7 @@ describe("BowlDashboard draw flow", () => {
     fireEvent.click(webButton);
 
     expect(openSpy).toHaveBeenCalledWith(
-      "https://www.netflix.com/search?q=Movie%20A%202020",
+      "https://www.netflix.com/search?q=Movie%20A",
       "_blank",
       "noopener,noreferrer"
     );
