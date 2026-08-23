@@ -152,6 +152,9 @@ vi.mock("../../lib/streamingProviders", () => ({
 vi.mock("../../lib/tmdbApi", () => ({
   getTmdbMovieDetails: mocks.getTmdbMovieDetails,
 }));
+vi.mock("../../utils/getBrowserTimeZone", () => ({
+  getBrowserTimeZone: () => "America/Chicago",
+}));
 
 import useBowl from "../useBowl";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../../utils/appLimits";
@@ -159,7 +162,10 @@ import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../../utils/appLimits";
 function expectDrawRpc(movieId) {
   expect(mocks.rpcCalls).toContainEqual({
     name: "draw_bowl_movie",
-    params: { p_bowl_movie_id: movieId },
+    params: {
+      p_bowl_movie_id: movieId,
+      p_watched_timezone: "America/Chicago",
+    },
   });
 }
 
@@ -302,6 +308,7 @@ describe("useBowl handleDraw integration", () => {
       params: {
         p_bowl_id: "bowl-1",
         p_candidate_movie_ids: ["m1", "m2"],
+        p_watched_timezone: "America/Chicago",
       },
     });
     expect(mocks.rpcCalls.some(({ name }) => name === "draw_bowl_movie")).toBe(false);
@@ -345,6 +352,7 @@ describe("useBowl handleDraw integration", () => {
       params: {
         p_bowl_id: "bowl-1",
         p_candidate_movie_ids: ["m1", "manual"],
+        p_watched_timezone: "America/Chicago",
       },
     });
     expect(mocks.fetchStreamingProviders).toHaveBeenCalledTimes(1);

@@ -81,6 +81,17 @@ function corsHeaders() {
   };
 }
 
+function formatCalendarDateAtTimeZone(value, timeZone = "UTC") {
+  const dateParts = new Intl.DateTimeFormat("en-US", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).formatToParts(new Date(value));
+  const partValues = Object.fromEntries(dateParts.map((part) => [part.type, part.value]));
+  return `${partValues.year}-${partValues.month}-${partValues.day}`;
+}
+
 async function fulfillJson(route, body, status = 200, headers = {}) {
   await route.fulfill({
     status,
@@ -402,6 +413,7 @@ class FakeBackend {
         return;
       }
       const now = new Date().toISOString();
+      const watchedOn = formatCalendarDateAtTimeZone(now, args.p_watched_timezone || "UTC");
       movie.drawn_at = now;
       movie.drawn_by = this.state.currentUser.id;
       const drawEvent = {
@@ -437,7 +449,7 @@ class FakeBackend {
           genres: movie.genres || [],
           overview: movie.overview || null,
           note: movie.note || null,
-          watched_on: now.slice(0, 10),
+          watched_on: watchedOn,
           created_at: now,
           updated_at: now,
         });

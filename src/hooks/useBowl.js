@@ -19,6 +19,7 @@ import {
   getMovieNoteValidationError,
   normalizeMovieNote,
 } from "../utils/movieNote";
+import { getBrowserTimeZone } from "../utils/getBrowserTimeZone";
 
 const DUPLICATE_MOVIE_MESSAGE = "This movie is already in the bowl.";
 
@@ -296,6 +297,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
 
     const activeDrawMethod = options.drawMethod ?? drawMethod;
     const method = getDrawMethod(activeDrawMethod);
+    const watchedTimeZone = getBrowserTimeZone();
     const fetchProviders = (tmdbId) => fetchStreamingProviders(tmdbId, { region: "US" });
     const selectionOptions = {
       remainingMovies: drawableRemaining,
@@ -328,6 +330,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         const { data, error } = await supabase.rpc("draw_bowl_movie_by_rotation", {
           p_bowl_id: bowlId,
           p_candidate_movie_ids: candidateMovieIds,
+          p_watched_timezone: watchedTimeZone,
         });
         if (error) {
           console.error("[useBowl] Failed to draw movie by rotation", error);
@@ -367,6 +370,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
 
         const { error } = await supabase.rpc("draw_bowl_movie", {
           p_bowl_movie_id: clientSelected.movie.id,
+          p_watched_timezone: watchedTimeZone,
         });
         if (error) {
           console.error("[useBowl] Failed to draw movie", error);
