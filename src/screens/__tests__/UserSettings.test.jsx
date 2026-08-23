@@ -172,8 +172,8 @@ describe("UserSettings", () => {
     fireEvent.change(screen.getByPlaceholderText("Search services..."), {
       target: { value: "crunch" },
     });
-    expect(screen.getByText("Crunchyroll")).toBeInTheDocument();
-    expect(screen.queryByLabelText("streaming-service-netflix")).not.toBeInTheDocument();
+    expect(screen.getByLabelText("Crunchyroll")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Netflix")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /select all/i }));
     expect(mocks.hook.setStreamingServices).toHaveBeenCalledWith(
@@ -195,8 +195,7 @@ describe("UserSettings", () => {
       "Peacock",
     ]);
 
-    fireEvent.click(screen.getByRole("button", { name: /rank services/i }));
-
+    // Ranking and picking share one view, so reordering needs no mode switch.
     fireEvent.click(screen.getByRole("button", { name: /move hulu up/i }));
     expect(mocks.hook.setStreamingServices).toHaveBeenCalledWith(["Hulu", "Netflix"]);
 
@@ -206,12 +205,61 @@ describe("UserSettings", () => {
     fireEvent.click(screen.getByRole("button", { name: /remove netflix/i }));
     expect(mocks.hook.toggleService).toHaveBeenCalledWith("Netflix");
 
-    fireEvent.click(screen.getByRole("button", { name: /manage services/i }));
     fireEvent.click(screen.getByLabelText("Crunchyroll"));
     expect(mocks.hook.toggleService).toHaveBeenCalledWith("Crunchyroll");
 
     fireEvent.click(screen.getByRole("button", { name: /^back$/i }));
     expect(mocks.navigate).toHaveBeenCalledWith(-1);
+  });
+
+  it("summarizes each section in the header and links to it", () => {
+    mocks.hook.defaultDrawSettings = {
+      ...mocks.hook.defaultDrawSettings,
+      prioritizeStreaming: true,
+      useStreamingRank: true,
+      theaterModeEnabled: true,
+      theaterTrailerCount: 2,
+    };
+
+    renderSettings();
+
+    const sectionNav = screen.getByRole("navigation", { name: /settings sections/i });
+    const links = within(sectionNav).getAllByRole("link");
+
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      "#streaming-services",
+      "#draw-defaults",
+      "#tv-playback",
+    ]);
+    expect(links[0]).toHaveTextContent("2 services");
+    expect(links[0]).toHaveTextContent("Ranked priority");
+    expect(links[1]).toHaveTextContent("All ratings");
+    expect(links[1]).toHaveTextContent("All genres");
+    expect(links[2]).toHaveTextContent("Theater mode on");
+    expect(links[2]).toHaveTextContent("2 previews");
+  });
+
+  it("prompts for a service before the streaming toggles can be used", () => {
+    mocks.hook.streamingServices = [];
+
+    renderSettings();
+
+    expect(
+      screen.getByText(/nothing picked yet\. choose services below/i)
+    ).toBeInTheDocument();
+    expect(screen.getByLabelText(/default prioritize streaming services/i)).toBeDisabled();
+    expect(screen.getByLabelText(/enable preferred web launch/i)).toBeDisabled();
+    expect(screen.getAllByText(/pick at least one service to turn this on/i)).toHaveLength(2);
+  });
+
+  it("scrolls to the streaming section when linked to by hash", () => {
+    mocks.locationHash = "#streaming-services";
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+
+    renderSettings();
+
+    expect(scrollIntoView).toHaveBeenCalled();
   });
 
   it("updates default draw settings controls", () => {
@@ -316,6 +364,13 @@ describe("UserSettings", () => {
     expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
       expect.objectContaining({
         enablePreferredWebLaunch: true,
+      })
+    );
+
+    fireEvent.click(screen.getByLabelText(/enable tv theater mode/i));
+    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
+      expect.objectContaining({
+        theaterModeEnabled: true,
       })
     );
   });
