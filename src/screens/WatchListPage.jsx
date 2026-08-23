@@ -6,6 +6,7 @@ import { getPosterUrl } from "../utils/getPosterUrl";
 import { supabase } from "../lib/supabase";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
+import { getMovieNoteValidationError, normalizeMovieNote } from "../utils/movieNote";
 import {
   buildLetterboxdWatchedCsv,
   getLetterboxdWatchedExportFileName,
@@ -67,7 +68,7 @@ export default function WatchListPage() {
       const { data: watchedRows, error: watchedError } = await supabase
         .from("user_watch_events")
         .select(
-          "id, source_draw_event_id, source_kind, bowl_name, tmdb_id, title, poster_path, release_date, runtime, genres, overview, watched_on, created_at, updated_at"
+          "id, source_draw_event_id, source_kind, bowl_name, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, watched_on, created_at, updated_at"
         )
         .eq("user_id", user.id)
         .order("watched_on", { ascending: false })
@@ -322,6 +323,14 @@ export default function WatchListPage() {
       setEntryEditorError("Add a title and the date you watched it.");
       return;
     }
+    const canEditNote = !editingEntry?.id || editingEntry?.source_kind === "manual";
+    const noteValidationError = canEditNote
+      ? getMovieNoteValidationError(entry?.note)
+      : null;
+    if (noteValidationError) {
+      setEntryEditorError(noteValidationError);
+      return;
+    }
 
     setIsSavingEntry(true);
     setEntryEditorError("");
@@ -331,12 +340,16 @@ export default function WatchListPage() {
       let createdTmdbId = null;
 
       if (editingEntry?.id) {
-        ({ error } = await supabase.rpc("update_user_watch_event", {
+        const updateParams = {
           p_event_id: editingEntry.id,
           p_title: title,
           p_watched_on: entry.watched_on,
           p_release_date: entry.release_date || null,
-        }));
+        };
+        if (editingEntry.source_kind === "manual") {
+          updateParams.p_note = normalizeMovieNote(entry.note);
+        }
+        ({ error } = await supabase.rpc("update_user_watch_event", updateParams));
       } else {
         const tmdbId = Number(entry?.tmdb_id ?? entry?.id);
         createdTmdbId = Number.isInteger(tmdbId) && tmdbId > 0 ? tmdbId : null;
@@ -349,6 +362,7 @@ export default function WatchListPage() {
           p_runtime: entry?.runtime || null,
           p_genres: normalizeGenres(entry?.genres),
           p_overview: entry?.overview || null,
+          p_note: normalizeMovieNote(entry?.note),
         }));
       }
 

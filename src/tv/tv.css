@@ -1011,6 +1011,35 @@
   -webkit-line-clamp: 4;
 }
 
+.tv-movie-note {
+  max-width: 52rem;
+  margin-top: 1.15rem;
+  padding-left: 1rem;
+  border-left: 3px solid rgba(251, 113, 133, 0.72);
+}
+
+.tv-movie-note span {
+  display: block;
+  color: #fda4af;
+  font-size: 0.68rem;
+  font-weight: 780;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+}
+
+.tv-movie-note p {
+  display: -webkit-box;
+  margin: 0.4rem 0 0;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  color: #e2e8f0;
+  font-size: clamp(0.8rem, 0.95vw, 1rem);
+  line-height: 1.45;
+  white-space: pre-wrap;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 6;
+}
+
 .tv-provider-row {
   display: flex;
   flex-wrap: wrap;
@@ -1452,6 +1481,11 @@
   .tv-provider-row,
   .tv-reveal-actions {
     justify-content: center;
+  }
+
+  .tv-movie-note {
+    padding-left: 0;
+    border-left: 0;
   }
 
   .tv-dialog-actions {

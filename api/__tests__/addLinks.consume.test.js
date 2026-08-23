@@ -66,6 +66,7 @@ describe("api/add-links/consume", () => {
             id: 123,
             title: "Jaws",
             genres: [{ name: "Thriller" }],
+            note: "  Dad saw this opening weekend.  ",
           },
         },
       },
@@ -80,6 +81,7 @@ describe("api/add-links/consume", () => {
           tmdb_id: 123,
           title: "Jaws",
           genres: ["Thriller"],
+          note: "Dad saw this opening weekend.",
         }),
         p_contributor_name: "Dad",
       })
@@ -91,6 +93,49 @@ describe("api/add-links/consume", () => {
       bowlName: "Weekend Bowl",
       addedByName: "Dad",
     });
+  });
+
+  it("normalizes a blank guest comment to null", async () => {
+    rpcMock.mockResolvedValue({
+      data: [{ bowl_id: "bowl-1", remaining_adds: 1 }],
+      error: null,
+    });
+    const res = createRes();
+
+    await handler(
+      {
+        method: "POST",
+        body: { token: "token-1", movie: { title: "Jaws", note: "  \n  " } },
+      },
+      res
+    );
+
+    expect(rpcMock).toHaveBeenCalledWith(
+      "consume_bowl_add_link",
+      expect.objectContaining({
+        p_movie: expect.objectContaining({ note: null }),
+      })
+    );
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("rejects an over-limit comment before consuming the link", async () => {
+    const res = createRes();
+
+    await handler(
+      {
+        method: "POST",
+        body: { token: "token-1", movie: { title: "Jaws", note: "x".repeat(501) } },
+      },
+      res
+    );
+
+    expect(res.statusCode).toBe(400);
+    expect(res.body).toEqual({
+      code: "comment_too_long",
+      error: "Comment must be 500 characters or fewer.",
+    });
+    expect(rpcMock).not.toHaveBeenCalled();
   });
 
   it("returns a friendly error for exhausted links", async () => {

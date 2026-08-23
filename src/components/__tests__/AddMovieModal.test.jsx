@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import AddMovieModal from "../AddMovieModal";
 
@@ -63,6 +63,82 @@ describe("AddMovieModal", () => {
 
     render(<AddMovieModal movie={movie} onClose={vi.fn()} userStreamingServices={["Netflix"]} />);
     expect(screen.queryByText("Added by")).not.toBeInTheDocument();
+  });
+
+  it("renders a plain-text multiline bowl comment and omits blank comments", () => {
+    const movie = {
+      id: "movie-1",
+      title: "Dune",
+      note: "Recommended at dinner.\nSave it for movie night.",
+      streamingProviders: [],
+    };
+    const { rerender } = render(
+      <AddMovieModal movie={movie} onClose={vi.fn()} userStreamingServices={[]} />
+    );
+
+    expect(screen.getByText("Why it’s in the bowl")).toBeInTheDocument();
+    const comment = screen.getByText(/Recommended at dinner/);
+    expect(comment).toHaveClass("whitespace-pre-wrap");
+
+    rerender(
+      <AddMovieModal
+        movie={{ ...movie, id: "movie-2", note: "   " }}
+        onClose={vi.fn()}
+        userStreamingServices={[]}
+      />
+    );
+    expect(screen.queryByText("Why it’s in the bowl")).not.toBeInTheDocument();
+  });
+
+  it("uses the personal heading for a manual history comment", () => {
+    render(
+      <AddMovieModal
+        movie={{
+          id: "history-1",
+          source_kind: "manual",
+          title: "Dune",
+          note: "My favorite theater trip.",
+          streamingProviders: [],
+        }}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Your comment")).toBeInTheDocument();
+    expect(screen.queryByText("Why it’s in the bowl")).not.toBeInTheDocument();
+  });
+
+  it("offers comment editing only when an edit action is supplied", async () => {
+    const onEditNote = vi.fn(async (note) => ({
+      ok: true,
+      movie: { id: "movie-1", note: note.trim() },
+    }));
+    const movie = {
+      id: "movie-1",
+      title: "Dune",
+      note: "Original comment",
+      streamingProviders: [],
+    };
+    const { rerender } = render(
+      <AddMovieModal
+        movie={movie}
+        onClose={vi.fn()}
+        onEditNote={onEditNote}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /edit comment/i }));
+    const input = screen.getByLabelText(/comment \(optional\)/i);
+    fireEvent.change(input, { target: { value: "  Updated comment  " } });
+    fireEvent.click(screen.getByRole("button", { name: /save comment/i }));
+
+    await waitFor(() => {
+      expect(onEditNote).toHaveBeenCalledWith("  Updated comment  ");
+    });
+    expect(screen.getByText("Updated comment")).toBeInTheDocument();
+
+    rerender(<AddMovieModal movie={movie} onClose={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: /edit comment/i })).not.toBeInTheDocument();
   });
 
   it("renders a collapsed trailer toggle and expands inline trailer on demand", () => {

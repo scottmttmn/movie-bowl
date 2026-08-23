@@ -18,6 +18,9 @@ describe("MovieSearch custom add", () => {
 
     const input = screen.getByPlaceholderText("Search movies...");
     fireEvent.change(input, { target: { value: "Wildcard" } });
+    fireEvent.change(screen.getByLabelText(/comment \(optional\)/i), {
+      target: { value: "  Perfect for a double feature.  " },
+    });
 
     const addCustomButton = await screen.findByRole("button", { name: /add "wildcard"/i });
     fireEvent.click(addCustomButton);
@@ -28,8 +31,10 @@ describe("MovieSearch custom add", () => {
           id: null,
           title: "Wildcard",
           isCustomEntry: true,
+          note: "Perfect for a double feature.",
         })
       );
     });
+    expect(screen.getByLabelText(/comment \(optional\)/i)).toHaveValue("");
   });
 });

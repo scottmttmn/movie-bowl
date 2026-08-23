@@ -509,6 +509,13 @@ function TvRevealScreen({
 
             {movie.overview && <p className="tv-overview">{movie.overview}</p>}
 
+            {movie.note && (
+              <div className="tv-movie-note">
+                <span>Why it’s in the bowl</span>
+                <p>{movie.note}</p>
+              </div>
+            )}
+
             {providerNames.length > 0 && (
               <div className="tv-provider-row">
                 <span>Available on</span>

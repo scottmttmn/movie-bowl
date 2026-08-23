@@ -1,5 +1,7 @@
 import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
 
+const MAX_MOVIE_NOTE_LENGTH = 500;
+
 function normalizeGenres(genres) {
   if (!Array.isArray(genres)) return [];
   return genres
@@ -13,6 +15,7 @@ function buildMoviePayload(movie) {
 
   const numericId = Number(movie?.tmdb_id ?? movie?.id);
   const tmdbId = Number.isInteger(numericId) && numericId > 0 ? numericId : null;
+  const note = String(movie?.note ?? "").trim() || null;
 
   return {
     tmdb_id: tmdbId,
@@ -22,6 +25,7 @@ function buildMoviePayload(movie) {
     runtime: movie?.runtime ?? null,
     genres: normalizeGenres(movie?.genres),
     overview: movie?.overview ?? null,
+    note,
     snapshot_at: new Date().toISOString(),
   };
 }
@@ -42,6 +46,16 @@ export default async function handler(req, res) {
   }
 
   const token = String(req.body?.token || "").trim();
+  const normalizedNote = String(req.body?.movie?.note ?? "").trim();
+
+  if (normalizedNote.length > MAX_MOVIE_NOTE_LENGTH) {
+    res.status(400).json({
+      code: "comment_too_long",
+      error: `Comment must be ${MAX_MOVIE_NOTE_LENGTH} characters or fewer.`,
+    });
+    return;
+  }
+
   const movie = buildMoviePayload(req.body?.movie);
   const contributorName = String(req.body?.contributorName || "");
 
@@ -69,6 +83,10 @@ export default async function handler(req, res) {
       }
       if (message.toLowerCase().includes("not found") || message.toLowerCase().includes("exhausted")) {
         res.status(400).json({ error: message });
+        return;
+      }
+      if (message.toLowerCase().includes("comment must be 500 characters or fewer")) {
+        res.status(400).json({ code: "comment_too_long", error: message });
         return;
       }
 

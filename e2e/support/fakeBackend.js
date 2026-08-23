@@ -436,12 +436,34 @@ class FakeBackend {
           runtime: movie.runtime || null,
           genres: movie.genres || [],
           overview: movie.overview || null,
+          note: movie.note || null,
           watched_on: now.slice(0, 10),
           created_at: now,
           updated_at: now,
         });
       });
       await fulfillJson(route, null);
+      return;
+    }
+
+    if (rpcName === "update_own_bowl_movie_note") {
+      const movie = this.state.bowl_movies.find(
+        (row) =>
+          row.id === args.p_bowl_movie_id &&
+          row.added_by === this.state.currentUser.id &&
+          !row.added_by_name &&
+          !row.drawn_at
+      );
+      if (!movie) {
+        await fulfillJson(
+          route,
+          { message: "This movie comment is no longer available to edit.", code: "P0001" },
+          400
+        );
+        return;
+      }
+      movie.note = String(args.p_note || "").trim() || null;
+      await fulfillJson(route, movie);
       return;
     }
 
@@ -541,6 +563,7 @@ class FakeBackend {
         runtime: movie.runtime || null,
         genres: movie.genres || [],
         overview: movie.overview || null,
+        note: String(movie.note || "").trim() || null,
         added_by: null,
         added_by_name: addedByName,
         added_at: now,

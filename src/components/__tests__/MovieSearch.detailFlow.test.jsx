@@ -53,6 +53,9 @@ describe("MovieSearch detail flow", () => {
     render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={["Netflix"]} />);
 
     fireEvent.change(screen.getByPlaceholderText("Search movies..."), { target: { value: "Movie A" } });
+    fireEvent.change(screen.getByLabelText(/comment \(optional\)/i), {
+      target: { value: "  Recommended after dinner.\nBring tissues.  " },
+    });
 
     await screen.findByText("Movie A");
     fireEvent.click(screen.getByRole("button", { name: /details/i }));
@@ -80,8 +83,38 @@ describe("MovieSearch detail flow", () => {
           trailer: expect.objectContaining({
             key: "movie-a-trailer",
           }),
+          note: "Recommended after dinner.\nBring tissues.",
         })
       );
+    });
+    expect(screen.getByLabelText(/comment \(optional\)/i)).toHaveValue("");
+  });
+
+  it("passes a normalized blank comment through quick add and enforces the limit", async () => {
+    mocks.searchTmdbMovies.mockResolvedValue({
+      results: [{ id: 101, title: "Movie A", release_date: "2020-01-01" }],
+    });
+    mocks.getTmdbMovieDetails.mockResolvedValue({ runtime: 123, genres: [] });
+    mocks.fetchStreamingProviders.mockResolvedValue({
+      providers: [],
+      region: "US",
+      fetchedAt: null,
+    });
+    const onAddMovie = vi.fn(async () => ({ ok: true }));
+
+    render(<MovieSearch onAddMovie={onAddMovie} />);
+    const comment = screen.getByLabelText(/comment \(optional\)/i);
+    expect(comment).toHaveAttribute("maxlength", "500");
+    fireEvent.change(comment, { target: { value: "   \n  " } });
+    fireEvent.change(screen.getByPlaceholderText("Search movies..."), {
+      target: { value: "Movie A" },
+    });
+
+    await screen.findByText("Movie A");
+    fireEvent.click(screen.getByRole("button", { name: /^add$/i }));
+
+    await waitFor(() => {
+      expect(onAddMovie).toHaveBeenCalledWith(expect.objectContaining({ note: null }));
     });
   });
 
@@ -191,6 +224,8 @@ describe("MovieSearch detail flow", () => {
 
     render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={["Netflix"]} />);
     const searchInput = screen.getByPlaceholderText("Search movies...");
+    const comment = screen.getByLabelText(/comment \(optional\)/i);
+    fireEvent.change(comment, { target: { value: "Keep this draft" } });
     fireEvent.change(searchInput, { target: { value: "Movie A" } });
 
     await screen.findByText("Movie A");
@@ -198,6 +233,7 @@ describe("MovieSearch detail flow", () => {
 
     expect(await screen.findByText("This movie is already in the bowl.")).toBeInTheDocument();
     expect(searchInput).toHaveValue("Movie A");
+    expect(comment).toHaveValue("Keep this draft");
     expect(screen.getByText("Movie A")).toBeInTheDocument();
   });
 });

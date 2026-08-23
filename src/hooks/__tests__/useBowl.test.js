@@ -186,7 +186,12 @@ describe("useBowl handleDraw integration", () => {
   });
 
   it("updates DB and refreshes bowl state after draw", async () => {
-    const movie = { id: "m1", tmdb_id: 101, title: "Movie A" };
+    const movie = {
+      id: "m1",
+      tmdb_id: 101,
+      title: "Movie A",
+      note: "Recommended by Tim.",
+    };
     const watchedMovie = {
       ...movie,
       drawn_at: "2026-02-23T00:00:00.000Z",
@@ -212,6 +217,7 @@ describe("useBowl handleDraw integration", () => {
     });
 
     expect(drawn.id).toBe("m1");
+    expect(drawn.note).toBe("Recommended by Tim.");
     expect(drawn.streamingProviders).toEqual(["Netflix"]);
     expectDrawRpc("m1");
 
@@ -219,7 +225,14 @@ describe("useBowl handleDraw integration", () => {
       expect(result.current.bowl.remaining).toHaveLength(0);
       expect(result.current.bowl.watched).toHaveLength(1);
       expect(result.current.bowl.watched[0].id).toBe("m1");
+      expect(result.current.bowl.watched[0].note).toBe("Recommended by Tim.");
     });
+    expect(mocks.selectCalls).toEqual(
+      expect.arrayContaining([
+        expect.objectContaining({ table: "bowl_movies", columns: expect.stringContaining("note") }),
+        expect.objectContaining({ table: "bowl_draw_events", columns: expect.stringContaining("note") }),
+      ])
+    );
   });
 
   it("prioritizes titles matching user streaming services", async () => {
@@ -450,6 +463,7 @@ describe("useBowl handleDraw integration", () => {
       await result.current.handleAddMovie({
         title: "Wildcard",
         genres: [],
+        note: "  Save this for Halloween.  ",
       });
     });
 
@@ -460,8 +474,82 @@ describe("useBowl handleDraw integration", () => {
         added_by: "user-1",
         tmdb_id: null,
         title: "Wildcard",
+        note: "Save this for Halloween.",
       })
     );
+  });
+
+  it("updates an owned undrawn comment through the narrow RPC and patches state", async () => {
+    const movie = {
+      id: "m1",
+      bowl_id: "bowl-1",
+      added_by: "user-1",
+      tmdb_id: 101,
+      title: "Movie A",
+      note: "Original",
+    };
+    mocks.remainingQueue.push([movie]);
+    mocks.watchedQueue.push([]);
+    mocks.rpcResponses.push({
+      data: { ...movie, note: "Updated comment" },
+      error: null,
+    });
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let updateResult;
+    await act(async () => {
+      updateResult = await result.current.handleUpdateMovieNote(
+        "m1",
+        "  Updated comment  "
+      );
+    });
+
+    expect(mocks.rpcCalls).toContainEqual({
+      name: "update_own_bowl_movie_note",
+      params: { p_bowl_movie_id: "m1", p_note: "Updated comment" },
+    });
+    expect(updateResult).toEqual(
+      expect.objectContaining({ ok: true, movie: expect.objectContaining({ note: "Updated comment" }) })
+    );
+    expect(result.current.bowl.remaining[0].note).toBe("Updated comment");
+  });
+
+  it("returns an inline stale-edit error and reloads without changing the comment", async () => {
+    const movie = {
+      id: "m1",
+      bowl_id: "bowl-1",
+      added_by: "user-1",
+      tmdb_id: 101,
+      title: "Movie A",
+      note: "Original",
+    };
+    mocks.remainingQueue.push([movie], [movie]);
+    mocks.watchedQueue.push([], []);
+    mocks.rpcResponses.push({
+      data: null,
+      error: { code: "P0001", message: "This movie comment is no longer available to edit." },
+    });
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let updateResult;
+    await act(async () => {
+      updateResult = await result.current.handleUpdateMovieNote("m1", "Changed too late");
+    });
+
+    expect(updateResult).toEqual(
+      expect.objectContaining({
+        ok: false,
+        message: expect.stringMatching(/may already have been drawn/i),
+      })
+    );
+    expect(result.current.bowl.remaining[0].note).toBe("Original");
+    expect(
+      mocks.rpcCalls.filter(({ name }) => name === "get_bowl_profile_directory")
+    ).toHaveLength(2);
   });
 
   it("retries custom add with synthetic tmdb id when null tmdb_id is rejected", async () => {

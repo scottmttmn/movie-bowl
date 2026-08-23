@@ -333,6 +333,7 @@ describe("Movie Bowl TV experience", () => {
       runtime: 116,
       genres: ["Science Fiction", "Drama"],
       overview: "A linguist works with the military to communicate with alien visitors.",
+      note: "  Recommended by Tim after dinner.\nHe promised no spoilers.  ",
       streamingProviders: ["Netflix"],
     });
     mocks.getTmdbMovieDetails.mockResolvedValue({
@@ -406,6 +407,9 @@ describe("Movie Bowl TV experience", () => {
       })
     );
     expect(mocks.handleDraw).toHaveBeenCalledTimes(1);
+    expect(screen.getByText("Why it’s in the bowl")).toBeInTheDocument();
+    expect(screen.getByText(/Recommended by Tim after dinner/).closest(".tv-movie-note"))
+      .toBeInTheDocument();
     expect(
       screen.getByRole("link", { name: /^open netflix$/i })
     ).toHaveAttribute(

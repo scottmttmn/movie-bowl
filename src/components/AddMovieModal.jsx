@@ -3,6 +3,11 @@ import MovieSearch from "./MovieSearch";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { matchUserServices, normalizeStreamingServices } from "../utils/streamingServices";
 import { getMovieAttributionLabel } from "../utils/drawBuckets";
+import {
+  MAX_MOVIE_NOTE_LENGTH,
+  getMovieNoteValidationError,
+  normalizeMovieNote,
+} from "../utils/movieNote";
 
 function formatDisplayDate(value) {
   if (!value) return null;
@@ -56,7 +61,15 @@ export default function AddMovieModal({
   webLaunchCandidate = null,
   webLaunchStatus = null,
   onLaunchPreferredWeb = null,
+  onEditNote = null,
+  noteHeading = null,
 }) {
+  const [displayedNote, setDisplayedNote] = useState(() => normalizeMovieNote(movie?.note));
+  const [noteDraft, setNoteDraft] = useState(() => movie?.note || "");
+  const [isEditingNote, setIsEditingNote] = useState(false);
+  const [isSavingNote, setIsSavingNote] = useState(false);
+  const [noteEditError, setNoteEditError] = useState("");
+
   useEffect(() => {
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
@@ -69,6 +82,14 @@ export default function AddMovieModal({
       window.removeEventListener("keydown", handleKeyDown);
     };
   }, [onClose]);
+
+  useEffect(() => {
+    setDisplayedNote(normalizeMovieNote(movie?.note));
+    setNoteDraft(movie?.note || "");
+    setIsEditingNote(false);
+    setIsSavingNote(false);
+    setNoteEditError("");
+  }, [movie?.id, movie?.note]);
 
   // This modal is used in two contexts:
   // 1) "Add movie" flow (movie is undefined): show search UI.
@@ -124,6 +145,38 @@ export default function AddMovieModal({
     ? `movie-trailer-${String(resolvedMovieId).replace(/[^a-zA-Z0-9_-]+/g, "-")}`
     : "movie-trailer";
   const hasLaunchSection = Boolean(webLaunchCandidate) || Boolean(webLaunchStatus);
+  const resolvedNoteHeading =
+    noteHeading || (movie.source_kind === "manual" ? "Your comment" : "Why it’s in the bowl");
+
+  const saveNote = async () => {
+    if (!onEditNote || isSavingNote) return;
+
+    const validationError = getMovieNoteValidationError(noteDraft);
+    if (validationError) {
+      setNoteEditError(validationError);
+      return;
+    }
+
+    setIsSavingNote(true);
+    setNoteEditError("");
+    try {
+      const result = await onEditNote(noteDraft);
+      if (result === false || result?.ok === false) {
+        setNoteEditError(result?.message || "Could not save this comment. Please try again.");
+        return;
+      }
+
+      const nextNote = normalizeMovieNote(result?.movie?.note ?? noteDraft);
+      setDisplayedNote(nextNote);
+      setNoteDraft(nextNote || "");
+      setIsEditingNote(false);
+    } catch (error) {
+      console.error("[AddMovieModal] Failed to save movie comment", error);
+      setNoteEditError("Could not save this comment. Please try again.");
+    } finally {
+      setIsSavingNote(false);
+    }
+  };
 
   return (
     <div className="modal-overlay z-50" role="presentation">
@@ -174,6 +227,74 @@ export default function AddMovieModal({
           <div className="mb-4">
             <p className="text-sm font-semibold text-slate-100">Added by</p>
             <p className="text-sm text-slate-300">{addedByLabel}</p>
+          </div>
+        )}
+
+        {(displayedNote || onEditNote) && (
+          <div className="mb-4">
+            {(displayedNote || isEditingNote) && (
+              <p className="mb-1 text-sm font-semibold text-slate-100">
+                {resolvedNoteHeading}
+              </p>
+            )}
+            {isEditingNote ? (
+              <div>
+                <textarea
+                  className="input-field min-h-28 resize-y whitespace-pre-wrap"
+                  value={noteDraft}
+                  maxLength={MAX_MOVIE_NOTE_LENGTH}
+                  placeholder="Recommended by Tim at dinner…"
+                  onChange={(event) => setNoteDraft(event.target.value)}
+                  disabled={isSavingNote}
+                  aria-label="Comment (optional)"
+                />
+                <div className="mt-1 flex items-start justify-between gap-3 text-xs text-slate-400">
+                  <span>{noteEditError || "Add a reminder of why this movie belongs in the bowl."}</span>
+                  <span className="shrink-0">{noteDraft.length}/{MAX_MOVIE_NOTE_LENGTH}</span>
+                </div>
+                <div className="mt-2 flex flex-wrap gap-2">
+                  <button
+                    type="button"
+                    className="btn btn-primary px-3 py-1.5 text-sm"
+                    onClick={saveNote}
+                    disabled={isSavingNote}
+                  >
+                    {isSavingNote ? "Saving..." : "Save Comment"}
+                  </button>
+                  <button
+                    type="button"
+                    className="btn btn-secondary px-3 py-1.5 text-sm"
+                    onClick={() => {
+                      setNoteDraft(displayedNote || "");
+                      setNoteEditError("");
+                      setIsEditingNote(false);
+                    }}
+                    disabled={isSavingNote}
+                  >
+                    Cancel
+                  </button>
+                </div>
+              </div>
+            ) : (
+              <>
+                {displayedNote && (
+                  <p className="whitespace-pre-wrap text-sm text-slate-300">{displayedNote}</p>
+                )}
+                {onEditNote && (
+                  <button
+                    type="button"
+                    className="mt-2 text-sm font-medium text-rose-300 hover:text-rose-200"
+                    onClick={() => {
+                      setNoteDraft(displayedNote || "");
+                      setNoteEditError("");
+                      setIsEditingNote(true);
+                    }}
+                  >
+                    Edit Comment
+                  </button>
+                )}
+              </>
+            )}
           </div>
         )}
 

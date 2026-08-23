@@ -48,6 +48,7 @@ export default function BowlDashboard() {
       errorMessage,
       handleDraw,
       handleAddMovie,
+      handleUpdateMovieNote,
       handleDeleteMovie,
       handleReaddMovie,
     } = useBowl(bowlId, { drawMethod });
@@ -1127,6 +1128,23 @@ return (
                         setSelectedDetailMovie(null);
                         setSelectedDetailContext(null);
                         setPendingReaddMovie(movie);
+                      }
+                    : null
+                }
+                onEditNote={
+                  selectedDetailContext === "myAdds"
+                    ? async (note) => {
+                        const result = await handleUpdateMovieNote(
+                          selectedDetailMovie.id,
+                          note
+                        );
+                        if (result?.ok) {
+                          setSelectedDetailMovie((current) => ({
+                            ...current,
+                            note: result?.movie?.note ?? null,
+                          }));
+                        }
+                        return result;
                       }
                     : null
                 }

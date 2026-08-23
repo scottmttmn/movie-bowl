@@ -90,6 +90,7 @@ vi.mock("../../components/AddMovieModal", () => ({
     <div data-testid="movie-detail-modal">
       <div>{movie.title}</div>
       <div>{movie.streamingProviders?.length ? "providers loaded" : "no providers"}</div>
+      <div>{movie.note || "no comment"}</div>
       <div>{detailPrimaryActionLabel ? "actions enabled" : "read-only"}</div>
       {detailPrimaryActionLabel && (
         <button type="button" onClick={() => onDetailPrimaryAction?.(movie)}>
@@ -114,6 +115,7 @@ vi.mock("../../components/WatchHistoryEntryModal", () => ({
               watched_on: "2026-05-01",
               release_date: "1999-01-01",
               genres: ["Drama"],
+              note: "  A quiet favorite.  ",
             }
           )
         }
@@ -148,6 +150,7 @@ describe("WatchListPage", () => {
         runtime: 201,
         genres: ["Adventure"],
         overview: "A shared bowl movie",
+        note: "A guest recommended this.",
         watched_on: "2026-04-10",
       },
       {
@@ -161,6 +164,7 @@ describe("WatchListPage", () => {
         runtime: 178,
         genres: ["Fantasy"],
         overview: "An owned bowl movie",
+        note: "Save this for the holidays.",
         watched_on: "2026-04-12",
       },
       {
@@ -174,6 +178,7 @@ describe("WatchListPage", () => {
         runtime: 90,
         genres: ["Drama"],
         overview: "Duplicate title in another bowl",
+        note: "My own note.",
         watched_on: "2026-04-01",
       },
     ];
@@ -401,6 +406,7 @@ describe("WatchListPage", () => {
     expect(mocks.getTmdbMovieDetails).toHaveBeenCalledWith(101);
     expect(mocks.fetchStreamingProviders).toHaveBeenCalledWith(101, { region: "US" });
     expect(screen.getByText("providers loaded")).toBeInTheDocument();
+    expect(screen.getByText("Save this for the holidays.")).toBeInTheDocument();
     expect(screen.getByText("actions enabled")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /edit history/i }));
@@ -440,6 +446,7 @@ describe("WatchListPage", () => {
           p_title: "Manual Favorite",
           p_watched_on: "2026-05-01",
           p_tmdb_id: 303,
+          p_note: "A quiet favorite.",
         }),
       });
     });
@@ -464,6 +471,10 @@ describe("WatchListPage", () => {
         }),
       });
     });
+    const bowlUpdate = mocks.state.rpcCalls.find(
+      ({ name }) => name === "update_user_watch_event"
+    );
+    expect(bowlUpdate.params).not.toHaveProperty("p_note");
 
     fireEvent.click(screen.getByRole("button", { name: /owned favorite/i }));
     await screen.findByTestId("movie-detail-modal");
@@ -474,6 +485,28 @@ describe("WatchListPage", () => {
       expect(mocks.state.rpcCalls).toContainEqual({
         name: "delete_user_watch_event",
         params: { p_event_id: "history-1" },
+      });
+    });
+  });
+
+  it("updates a manual history comment without touching bowl-draw snapshots", async () => {
+    render(<WatchListPage />);
+
+    await waitFor(() => {
+      expect(screen.getAllByText("Shared Favorite")).toHaveLength(2);
+    });
+    fireEvent.click(screen.getAllByRole("button", { name: /shared favorite/i })[1]);
+    await screen.findByTestId("movie-detail-modal");
+    fireEvent.click(screen.getByRole("button", { name: /edit history/i }));
+    fireEvent.click(screen.getByRole("button", { name: /save history entry/i }));
+
+    await waitFor(() => {
+      expect(mocks.state.rpcCalls).toContainEqual({
+        name: "update_user_watch_event",
+        params: expect.objectContaining({
+          p_event_id: "history-3",
+          p_note: "My own note.",
+        }),
       });
     });
   });

@@ -2,6 +2,7 @@ import { useMemo, useState } from "react";
 import MovieSearch from "./MovieSearch";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { formatLocalCalendarDate } from "../utils/letterboxdExport";
+import { MAX_MOVIE_NOTE_LENGTH, normalizeMovieNote } from "../utils/movieNote";
 
 function getToday() {
   return formatLocalCalendarDate(new Date());
@@ -24,9 +25,11 @@ export default function WatchHistoryEntryModal({
   const [title, setTitle] = useState(entry?.title || "");
   const [watchedOn, setWatchedOn] = useState(normalizeDateInput(entry?.watched_on) || getToday());
   const [releaseDate, setReleaseDate] = useState(normalizeDateInput(entry?.release_date));
+  const [note, setNote] = useState(entry?.note || "");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const isEditing = Boolean(entry?.id);
+  const isBowlDrawEntry = entry?.source_kind === "bowl_draw";
   const posterUrl = useMemo(
     () => (selectedMovie ? getPosterUrl(selectedMovie, "w200") : null),
     [selectedMovie]
@@ -48,6 +51,7 @@ export default function WatchHistoryEntryModal({
       title: title.trim(),
       watched_on: watchedOn,
       release_date: releaseDate || null,
+      note: isBowlDrawEntry ? entry?.note ?? null : normalizeMovieNote(note),
     });
   };
 
@@ -78,7 +82,7 @@ export default function WatchHistoryEntryModal({
             <p className="mt-2 text-sm text-slate-400">
               Search for a movie, or add a custom title you watched.
             </p>
-            <MovieSearch onAddMovie={chooseMovie} />
+            <MovieSearch onAddMovie={chooseMovie} includeComment={false} />
           </>
         ) : (
           <form className="mt-5 space-y-4" onSubmit={handleSubmit}>
@@ -143,6 +147,29 @@ export default function WatchHistoryEntryModal({
                 />
               </label>
             </div>
+
+            <label className="block text-sm font-medium text-slate-300">
+              Comment (optional)
+              <textarea
+                className="input-field mt-1.5 min-h-28 resize-y whitespace-pre-wrap"
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                maxLength={MAX_MOVIE_NOTE_LENGTH}
+                placeholder="What made this one memorable?"
+                readOnly={isBowlDrawEntry}
+                disabled={isSaving}
+              />
+              <span className="mt-1 flex items-start justify-between gap-3 text-xs font-normal text-slate-400">
+                <span>
+                  {isBowlDrawEntry
+                    ? "This comment was saved with the bowl draw and can’t be changed."
+                    : "Keep a short personal reminder with this history entry."}
+                </span>
+                {!isBowlDrawEntry && (
+                  <span className="shrink-0">{note.length}/{MAX_MOVIE_NOTE_LENGTH}</span>
+                )}
+              </span>
+            </label>
 
             {errorMessage && (
               <div className="status-error" role="alert">

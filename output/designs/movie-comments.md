@@ -1,6 +1,6 @@
 # Movie Comments
 
-Status: implementation-ready plan; not yet implemented.
+Status: implemented.
 
 ## Product Idea
 

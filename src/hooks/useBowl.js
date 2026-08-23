@@ -15,6 +15,10 @@ import {
   isOffline,
   isOfflineError,
 } from "../utils/networkErrors";
+import {
+  getMovieNoteValidationError,
+  normalizeMovieNote,
+} from "../utils/movieNote";
 
 const DUPLICATE_MOVIE_MESSAGE = "This movie is already in the bowl.";
 
@@ -85,6 +89,24 @@ function getDrawFailureMessage(error) {
   return "Could not draw a movie. Please try again.";
 }
 
+function getNoteUpdateFailureMessage(error) {
+  if (isOfflineError(error)) return OFFLINE_MESSAGE;
+
+  const errorCode = String(error?.code || "");
+  const errorMessageText = String(error?.message || "").toLowerCase();
+
+  if (errorMessageText.includes("500 characters or fewer")) {
+    return "Comment must be 500 characters or fewer.";
+  }
+  if (errorCode === "42501" || errorMessageText.includes("permission denied")) {
+    return "You don't have permission to edit this comment.";
+  }
+  if (errorMessageText.includes("no longer available")) {
+    return "This comment is no longer available to edit. The movie may already have been drawn.";
+  }
+  return "Could not save this comment. Please try again.";
+}
+
 function createProfileEmailByUserId(profileRows = []) {
   return new Map(
     profileRows
@@ -146,7 +168,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       const { data: remaining, error: remainingError } = await supabase
         .from("bowl_movies")
         .select(
-          "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at"
+          "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at"
         )
         .eq("bowl_id", bowlId)
         .is("drawn_at", null)
@@ -165,7 +187,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       const { data: watchedEvents, error: watchedError } = await supabase
         .from("bowl_draw_events")
         .select(
-          "id, bowl_id, source_bowl_movie_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_by_name, drawn_at, drawn_by, snapshot_at"
+          "id, bowl_id, source_bowl_movie_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, added_by, added_by_name, drawn_at, drawn_by, snapshot_at"
         )
         .eq("bowl_id", bowlId)
         .is("returned_at", null)
@@ -379,6 +401,10 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       if (!bowlId || !movie?.title || !String(movie.title).trim()) {
         return addResult(false, "invalid_movie", "Choose a movie to add.");
       }
+      const noteValidationError = getMovieNoteValidationError(movie?.note);
+      if (noteValidationError) {
+        return addResult(false, "comment_too_long", noteValidationError);
+      }
       if ((bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
         return addResult(
           false,
@@ -445,6 +471,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         runtime: movie.runtime ?? null,
         genres: genreNames,
         overview: movie.overview ?? null,
+        note: normalizeMovieNote(movie.note),
         snapshot_at: nowIso,
       };
 
@@ -469,7 +496,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
           .from("bowl_movies")
           .insert([rowPayload])
           .select(
-            "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at"
+            "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at"
           )
           .single();
       };
@@ -533,6 +560,59 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       }
     },
     [bowlId, bowl.remaining]
+  );
+
+  const handleUpdateMovieNote = useCallback(
+    async (movieId, note) => {
+      if (!bowlId || !movieId) {
+        return addResult(false, "invalid_movie", "Choose a movie comment to edit.");
+      }
+
+      const validationError = getMovieNoteValidationError(note);
+      if (validationError) {
+        return addResult(false, "comment_too_long", validationError);
+      }
+      if (isOffline()) {
+        return addResult(false, "offline", OFFLINE_MESSAGE);
+      }
+
+      try {
+        const { data, error } = await supabase.rpc("update_own_bowl_movie_note", {
+          p_bowl_movie_id: movieId,
+          p_note: normalizeMovieNote(note),
+        });
+
+        if (error) {
+          console.error("[useBowl] Failed to update movie comment", error);
+          const message = getNoteUpdateFailureMessage(error);
+          await loadBowlMovies();
+          return addResult(false, "comment_update_failed", message);
+        }
+
+        const updatedMovie = Array.isArray(data) ? data[0] : data;
+        const normalizedNote = normalizeMovieNote(updatedMovie?.note ?? note);
+        setBowl((prev) => ({
+          ...prev,
+          remaining: (prev.remaining || []).map((movie) =>
+            String(movie?.id || "") === String(movieId)
+              ? { ...movie, ...(updatedMovie || {}), note: normalizedNote }
+              : movie
+          ),
+        }));
+        return {
+          ...addResult(true),
+          movie: updatedMovie || { id: movieId, note: normalizedNote },
+        };
+      } catch (error) {
+        console.error("[useBowl] Unexpected error updating movie comment", error);
+        return addResult(
+          false,
+          "comment_update_failed",
+          getNoteUpdateFailureMessage(error)
+        );
+      }
+    },
+    [bowlId, loadBowlMovies]
   );
 
   const handleDeleteMovie = useCallback(
@@ -636,6 +716,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
     reload: loadBowlMovies,
     handleDraw,
     handleAddMovie,
+    handleUpdateMovieNote,
     handleDeleteMovie,
     handleReaddMovie,
   };

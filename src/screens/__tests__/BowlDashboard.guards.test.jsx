@@ -25,6 +25,10 @@ const mocks = vi.hoisted(() => {
     drawOdds: [{ bucketKey: "user:u1", member: "owner@example.com", movieCount: 4, drawOdds: 1 }],
     handleDraw: vi.fn(async () => null),
     handleAddMovie: vi.fn(async () => true),
+    handleUpdateMovieNote: vi.fn(async (_movieId, note) => ({
+      ok: true,
+      movie: { note: String(note).trim() || null },
+    })),
     handleDeleteMovie: vi.fn(async () => true),
     handleReaddMovie: vi.fn(async () => true),
     streamingServices: [],
@@ -91,6 +95,7 @@ vi.mock("../../hooks/useBowl", () => ({
       errorMessage: null,
       handleDraw: mocks.state.handleDraw,
       handleAddMovie: mocks.state.handleAddMovie,
+      handleUpdateMovieNote: mocks.state.handleUpdateMovieNote,
       handleDeleteMovie: mocks.state.handleDeleteMovie,
       handleReaddMovie: mocks.state.handleReaddMovie,
     };
@@ -163,6 +168,7 @@ describe("BowlDashboard guards", () => {
     mocks.state.drawOdds = [{ bucketKey: "user:u1", member: "owner@example.com", movieCount: 4, drawOdds: 1 }];
     mocks.state.handleReaddMovie.mockClear();
     mocks.state.handleAddMovie.mockClear();
+    mocks.state.handleUpdateMovieNote.mockClear();
     mocks.state.streamingServices = [];
     mocks.getTmdbMovieDetails.mockReset();
     mocks.getTmdbMovieDetails.mockResolvedValue({});
@@ -312,6 +318,43 @@ describe("BowlDashboard guards", () => {
     await waitFor(() => expect(mocks.state.handleDeleteMovie).toHaveBeenCalledWith("m-added-1"));
     expect(confirmSpy).toHaveBeenCalledWith('Delete "Added Movie" from this bowl?');
     confirmSpy.mockRestore();
+  });
+
+  it("offers comment editing from an owned undrawn My Movies detail", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = {
+      remaining: [
+        {
+          id: "m-added-1",
+          title: "Added Movie",
+          added_by: "u1",
+          added_at: "2026-03-06T12:30:00.000Z",
+          note: "Original comment",
+        },
+      ],
+      watched: [],
+    };
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    const myMoviesSection = screen.getByRole("heading", { name: /my movies/i }).closest("section");
+    fireEvent.click(within(myMoviesSection).getByRole("button", { name: /^show$/i }));
+    fireEvent.click(within(myMoviesSection).getByRole("button", { name: /details/i }));
+
+    await screen.findByRole("button", { name: /edit comment/i });
+    fireEvent.click(screen.getByRole("button", { name: /edit comment/i }));
+    fireEvent.change(await screen.findByLabelText(/comment \(optional\)/i), {
+      target: { value: "  Updated comment  " },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /save comment/i }));
+
+    await waitFor(() => {
+      expect(mocks.state.handleUpdateMovieNote).toHaveBeenCalledWith(
+        "m-added-1",
+        "  Updated comment  "
+      );
+    });
   });
 
   it("keeps Add Movie enabled when only one active member exists", async () => {

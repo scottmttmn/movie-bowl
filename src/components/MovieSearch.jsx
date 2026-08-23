@@ -6,8 +6,13 @@ import { matchUserServices } from "../utils/streamingServices";
 import AddMovieModal from "./AddMovieModal";
 import { getTmdbMovieDetails, searchTmdbMovies } from "../lib/tmdbApi";
 import { describeNetworkError } from "../utils/networkErrors";
+import { MAX_MOVIE_NOTE_LENGTH, normalizeMovieNote } from "../utils/movieNote";
 
-export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) {
+export default function MovieSearch({
+    onAddMovie,
+    userStreamingServices = [],
+    includeComment = true,
+}) {
     // Controlled input state for the search field
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
@@ -21,6 +26,7 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
     const [detailMovie, setDetailMovie] = useState(null);
     const [detailActionError, setDetailActionError] = useState("");
     const [isAdding, setIsAdding] = useState(false);
+    const [commentDraft, setCommentDraft] = useState("");
     const inputRef = useRef(null);
     const latestRequestRef = useRef(0);
     const recognitionRef = useRef(null);
@@ -47,6 +53,11 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
         streamingFetchedAt: null,
         isCustomEntry: true,
     });
+
+    const attachCurrentComment = (movie) =>
+        includeComment
+            ? { ...movie, note: normalizeMovieNote(commentDraft) }
+            : movie;
 
 
     const handleSearch = async (query) => {
@@ -134,6 +145,7 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
         setSearchTerm("");
         setSearchResults([]);
         setHighlightedIndex(0);
+        setCommentDraft("");
         inputRef.current?.focus();
     };
 
@@ -143,7 +155,9 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
         setIsAdding(true);
         try {
             const detailedMovie = await buildDetailedMovie(movie);
-            const result = normalizeAddResult(await onAddMovie(detailedMovie));
+            const result = normalizeAddResult(
+                await onAddMovie(attachCurrentComment(detailedMovie))
+            );
             if (!result.ok) {
                 setSearchError(result.message);
                 return;
@@ -165,7 +179,9 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
         setIsAdding(true);
 
         try {
-            const result = normalizeAddResult(await onAddMovie(buildCustomMovie(customTitle)));
+            const result = normalizeAddResult(
+                await onAddMovie(attachCurrentComment(buildCustomMovie(customTitle)))
+            );
             if (!result.ok) {
                 setSearchError(result.message);
                 return;
@@ -412,6 +428,26 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                         {voiceError}
                     </div>
                 )}
+                {includeComment && (
+                    <label className="mt-3 block text-left text-sm font-medium text-slate-300" htmlFor="movie-comment-input">
+                        Comment (optional)
+                        <textarea
+                            id="movie-comment-input"
+                            name="movie_comment"
+                            className="input-field mt-1.5 min-h-24 resize-y"
+                            value={commentDraft}
+                            maxLength={MAX_MOVIE_NOTE_LENGTH}
+                            placeholder="Recommended by Tim at dinner…"
+                            onChange={(event) => setCommentDraft(event.target.value)}
+                        />
+                        <span className="mt-1 flex items-start justify-between gap-3 text-xs font-normal text-slate-400">
+                            <span>Add a reminder of why this movie belongs in the bowl.</span>
+                            <span className="shrink-0" aria-label={`${commentDraft.length} of ${MAX_MOVIE_NOTE_LENGTH} characters`}>
+                                {commentDraft.length}/{MAX_MOVIE_NOTE_LENGTH}
+                            </span>
+                        </span>
+                    </label>
+                )}
             </div>
 
             <ul
@@ -527,7 +563,9 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
                   setIsAdding(true);
                   setDetailActionError("");
                   try {
-                    const result = normalizeAddResult(await onAddMovie(selectedMovie));
+                    const result = normalizeAddResult(
+                      await onAddMovie(attachCurrentComment(selectedMovie))
+                    );
                     if (!result.ok) {
                       setDetailActionError(result.message);
                       return;
