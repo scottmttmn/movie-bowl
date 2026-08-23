@@ -22,7 +22,7 @@ npm run build        # production build — run this for any UI/app change
 ```
 
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
-A clean checkout is expected to be fully green (53 test files / 355 tests, lint
+A clean checkout is expected to be fully green (71 test files / 480 tests, lint
 with zero warnings); if something fails, it is your change.
 
 Single test file: `npx vitest run src/utils/__tests__/drawSelection.test.js`.
