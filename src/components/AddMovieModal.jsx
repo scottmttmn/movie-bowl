@@ -211,7 +211,7 @@ export default function AddMovieModal({
         </div>
 
         <div className="mb-4 flex flex-wrap gap-2 text-xs">
-          {movie.runtime && (
+          {Number(movie.runtime) > 0 && (
             <span className="rounded-full border border-slate-700 bg-slate-800 px-2.5 py-1 text-slate-300">
               Runtime: {movie.runtime} minutes
             </span>

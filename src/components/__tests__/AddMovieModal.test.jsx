@@ -201,6 +201,24 @@ describe("AddMovieModal", () => {
     expect(screen.queryByTitle("Dune trailer")).not.toBeInTheDocument();
   });
 
+  it("does not render a stray zero when runtime is unknown", () => {
+    render(
+      <AddMovieModal
+        movie={{
+          title: "Narnia",
+          release_date: "2026-12-25",
+          runtime: 0,
+          streamingProviders: [],
+        }}
+        onClose={vi.fn()}
+        userStreamingServices={[]}
+      />
+    );
+
+    expect(screen.queryByText(/^0$/)).not.toBeInTheDocument();
+    expect(screen.queryByText(/runtime:/i)).not.toBeInTheDocument();
+  });
+
   it("does not show custom badge for TMDB search movies using id", () => {
     render(
       <AddMovieModal
