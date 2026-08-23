@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTOSAVE_DELAY_MS } from "../../hooks/useAutosave";
 
@@ -765,7 +765,9 @@ describe("BowlSettings integration", () => {
     expect(
       mocks.state.addLinks.find((link) => link.id === "link-1")?.default_contributor_name
     ).toBe("Grandpa");
-    expect(screen.getByText(/default label: grandpa/i)).toBeInTheDocument();
+    // The label input is the only place the label is shown, so it is also the
+    // readout that has to survive the save.
+    expect(screen.getByLabelText(/^contributor label$/i)).toHaveValue("Grandpa");
   });
 
   it("keeps the invite link available when invite email sending fails", async () => {
@@ -1040,7 +1042,9 @@ describe("BowlSettings integration", () => {
       expect(screen.getByRole("heading", { name: /draw method/i })).toBeInTheDocument();
     });
 
-    expect(screen.getByText("Rotation")).toBeInTheDocument();
+    // Scoped to the section: the header tile names the method too.
+    const drawingSection = screen.getByRole("region", { name: "Drawing" });
+    expect(within(drawingSection).getByText("Rotation")).toBeInTheDocument();
     expect(screen.getByText(/only the bowl owner can change this/i)).toBeInTheDocument();
     expect(screen.queryByLabelText(/person-first/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /save draw method/i })).not.toBeInTheDocument();
@@ -1169,5 +1173,136 @@ describe("BowlSettings integration", () => {
     expect(mocks.state.navigate).not.toHaveBeenCalled();
     expect(mocks.state.members).toEqual(membersBefore);
     expect(mocks.state.invites).toEqual(invitesBefore);
+  });
+
+  it("summarizes drawing, people, and add links in the header nav", async () => {
+    mocks.state.bowl = {
+      id: "bowl-1",
+      name: "Bowl 1",
+      owner_id: "owner-1",
+      draw_access_mode: "selected_members",
+      draw_method: "rotation",
+    };
+    mocks.state.members = [
+      { bowl_id: "bowl-1", user_id: "owner-1", role: "Owner", email: "owner@example.com" },
+      { bowl_id: "bowl-1", user_id: "member-1", role: "Member", email: "member@example.com" },
+    ];
+    mocks.state.drawPermissions = [{ bowl_id: "bowl-1", user_id: "member-1" }];
+    mocks.state.invites = [
+      {
+        id: "invite-1",
+        bowl_id: "bowl-1",
+        invited_email: "friend@example.com",
+        token: "token-1",
+        accepted_at: null,
+        created_at: "2026-04-06T00:00:00.000Z",
+      },
+    ];
+    mocks.state.addLinks = [
+      {
+        id: "link-1",
+        bowl_id: "bowl-1",
+        token: "token-1",
+        max_adds: 3,
+        adds_used: 3,
+        default_contributor_name: "Dad",
+        revoked_at: null,
+        created_at: "2026-04-06T00:00:00.000Z",
+        created_by: "owner-1",
+      },
+    ];
+
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("navigation", { name: /settings sections/i })).toBeInTheDocument();
+    });
+
+    const links = within(
+      screen.getByRole("navigation", { name: /settings sections/i })
+    ).getAllByRole("link");
+    expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      "#drawing",
+      "#people",
+      "#add-links",
+    ]);
+    // Owner is always allowed, plus the one selected member.
+    expect(links[0]).toHaveTextContent("Rotation • 2 can draw");
+    expect(links[1]).toHaveTextContent("2 members • 1 pending");
+    expect(links[2]).toHaveTextContent("0 active of 1");
+  });
+
+  it("keeps owner-only state out of a member's header nav", async () => {
+    mocks.state.authUser = { id: "member-1", email: "member@example.com" };
+    mocks.state.bowl = {
+      id: "bowl-1",
+      name: "Bowl 1",
+      owner_id: "owner-1",
+      draw_access_mode: "selected_members",
+      draw_method: "rotation",
+    };
+    mocks.state.members = [
+      { bowl_id: "bowl-1", user_id: "owner-1", role: "Owner", email: "owner@example.com" },
+      { bowl_id: "bowl-1", user_id: "member-1", role: "Member", email: "member@example.com" },
+    ];
+    mocks.state.invites = [
+      {
+        id: "invite-1",
+        bowl_id: "bowl-1",
+        invited_email: "friend@example.com",
+        token: "token-1",
+        accepted_at: null,
+        created_at: "2026-04-06T00:00:00.000Z",
+      },
+    ];
+
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("navigation", { name: /settings sections/i })).toBeInTheDocument();
+    });
+
+    const links = within(
+      screen.getByRole("navigation", { name: /settings sections/i })
+    ).getAllByRole("link");
+    expect(links[0]).toHaveTextContent("Rotation");
+    expect(links[0]).not.toHaveTextContent("can draw");
+    expect(links[1]).toHaveTextContent("2 members");
+    expect(links[1]).not.toHaveTextContent("pending");
+  });
+
+  it("confirms on the copy button itself, not only in the page banner", async () => {
+    const writeText = vi.fn().mockResolvedValue(undefined);
+    Object.defineProperty(window.navigator, "clipboard", {
+      value: { writeText },
+      configurable: true,
+    });
+    mocks.state.addLinks = [
+      {
+        id: "link-1",
+        bowl_id: "bowl-1",
+        token: "token-1",
+        max_adds: 3,
+        adds_used: 0,
+        default_contributor_name: "Dad",
+        revoked_at: null,
+        created_at: "2026-04-06T00:00:00.000Z",
+        created_by: "owner-1",
+      },
+    ];
+
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /copy add link/i })).toBeInTheDocument();
+    });
+
+    await act(async () => {
+      fireEvent.click(screen.getByRole("button", { name: /copy add link/i }));
+    });
+
+    expect(writeText).toHaveBeenCalledWith(expect.stringContaining("/add-to-bowl/token-1"));
+    expect(screen.getByRole("button", { name: /copy add link/i })).toHaveTextContent("Copied");
+    expect(screen.getByText(/add link copied\./i)).toBeInTheDocument();
   });
 });
