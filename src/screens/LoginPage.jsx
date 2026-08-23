@@ -1,7 +1,7 @@
 import { useState } from "react";
 import { Link, useLocation } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
-import bowlImage from "../assets/bowl-illustration-v3.png";
+import bowlImage from "../assets/bowl-illustration-v3.webp";
 
 export default function LoginPage() {
   const { signIn } = useAuth();
