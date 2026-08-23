@@ -5,6 +5,7 @@ import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { matchUserServices } from "../utils/streamingServices";
 import AddMovieModal from "./AddMovieModal";
 import { getTmdbMovieDetails, searchTmdbMovies } from "../lib/tmdbApi";
+import { describeNetworkError } from "../utils/networkErrors";
 
 export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) {
     // Controlled input state for the search field
@@ -84,7 +85,12 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
         } catch (error) {
             console.error("Failed to fetch movies", error);
             setSearchResults([]);
-            setSearchError("Movie service is unavailable right now. Please try again.");
+            setSearchError(
+              describeNetworkError(
+                error,
+                "Movie service is unavailable right now. Please try again."
+              )
+            );
         }
     };
 
@@ -145,7 +151,9 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
             resetAfterSuccessfulAdd();
         } catch (error) {
             console.error("Failed to fetch movie details", error);
-            setSearchError("Failed to load movie details. Please try again.");
+            setSearchError(
+              describeNetworkError(error, "Failed to load movie details. Please try again.")
+            );
         } finally {
             setIsAdding(false);
         }
@@ -165,7 +173,9 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
             resetAfterSuccessfulAdd();
         } catch (error) {
             console.error("Failed to add custom movie", error);
-            setSearchError("Failed to add custom entry. Please try again.");
+            setSearchError(
+              describeNetworkError(error, "Failed to add custom entry. Please try again.")
+            );
         } finally {
             setIsAdding(false);
         }
@@ -178,7 +188,9 @@ export default function MovieSearch({ onAddMovie, userStreamingServices = [] }) 
             setDetailMovie(detailedMovie);
         } catch (error) {
             console.error("Failed to open movie details", error);
-            setSearchError("Failed to open movie details. Please try again.");
+            setSearchError(
+              describeNetworkError(error, "Failed to open movie details. Please try again.")
+            );
         }
     };
 

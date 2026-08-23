@@ -1,7 +1,22 @@
 import { selectOfficialTrailer } from "../utils/selectTrailer";
+import { OFFLINE_MESSAGE, isOfflineError } from "../utils/networkErrors";
 
 async function apiGet(url) {
-  const response = await fetch(url);
+  let response;
+  try {
+    response = await fetch(url);
+  } catch (error) {
+    // Re-throw with copy callers can show verbatim. Without this the caller
+    // only sees a bare TypeError and blames the movie service.
+    if (isOfflineError(error)) {
+      const offlineError = new Error(OFFLINE_MESSAGE);
+      offlineError.name = "OfflineError";
+      offlineError.cause = error;
+      throw offlineError;
+    }
+    throw error;
+  }
+
   const data = await response.json().catch(() => ({}));
 
   if (!response.ok) {

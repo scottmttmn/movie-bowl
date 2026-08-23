@@ -4,6 +4,7 @@ import {
   getTmdbMovieProviders,
   searchTmdbMovies,
 } from "../tmdbApi";
+import { OFFLINE_MESSAGE } from "../../utils/networkErrors";
 
 describe("tmdbApi", () => {
   beforeEach(() => {
@@ -120,5 +121,23 @@ describe("tmdbApi", () => {
       id: 88,
       trailer: null,
     });
+  });
+
+  it("reports a dropped connection instead of a service outage", async () => {
+    vi.spyOn(window.navigator, "onLine", "get").mockReturnValue(false);
+    global.fetch.mockRejectedValue(new TypeError("Failed to fetch"));
+
+    await expect(searchTmdbMovies("Alien")).rejects.toThrow(OFFLINE_MESSAGE);
+  });
+
+  it("keeps the original error when the request reached the server", async () => {
+    vi.spyOn(window.navigator, "onLine", "get").mockReturnValue(true);
+    global.fetch.mockResolvedValue({
+      ok: false,
+      status: 503,
+      json: async () => ({ error: "TMDB is down" }),
+    });
+
+    await expect(searchTmdbMovies("Alien")).rejects.toThrow("TMDB is down");
   });
 });
