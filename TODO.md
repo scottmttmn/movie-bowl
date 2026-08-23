@@ -28,4 +28,3 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 ## Technical Debt / Maintenance
 
 - Supabase schema/process hygiene: keep migrations and policy snapshots current so dashboard-only DB changes do not drift from the repo.
-- Asset optimization: compress or replace large illustration assets that add unnecessary weight to the build.
