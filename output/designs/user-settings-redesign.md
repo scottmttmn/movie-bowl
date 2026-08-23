@@ -37,7 +37,9 @@ A hero, three sections that each answer one question, and a reset footer.
 - **Hero summary tiles** read back each section's current state ("3 services •
   Ranked priority", "PG, PG-13, R • 4 genres • 80-165 min", "Theater mode on •
   2 previews") and double as the jump nav — they are anchors to the three
-  section ids, so the page needs no separate nav and no scroll-spy JS.
+  section ids, so the page needs no separate nav and no scroll-spy JS. They
+  live in `components/SettingsSectionNav.jsx`, shared with Bowl Settings (see
+  `bowl-settings-redesign.md`).
 - **Streaming services is one flow.** "Your ranking" (numbered rows, drag,
   arrows, remove) sits above "Pick your services" (search, quick actions, chip
   grid), so picking a service visibly lands in the ranking. The tabs are gone.

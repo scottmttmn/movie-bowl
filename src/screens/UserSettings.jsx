@@ -4,6 +4,7 @@ import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import useAutosave, { valuesAreEqual } from "../hooks/useAutosave";
 import AutosaveStatus from "../components/AutosaveStatus";
 import FilterChipSelect from "../components/FilterChipSelect";
+import SettingsSectionNav from "../components/SettingsSectionNav";
 import { AVAILABLE_STREAMING_SERVICES } from "../utils/streamingServices";
 import {
   DEFAULT_DRAW_SETTINGS,
@@ -95,19 +96,6 @@ function SettingDisclosure({ id, title, summary, editLabel, open, onToggle, chil
         </div>
       )}
     </div>
-  );
-}
-
-// Hero tile: reads back one section's current state and jumps to it.
-function SummaryTile({ href, label, value }) {
-  return (
-    <a
-      href={href}
-      className="surface-card block px-3.5 py-3 transition hover:border-slate-600 hover:bg-slate-900/60"
-    >
-      <span className="eyebrow block text-[0.65rem]">{label}</span>
-      <span className="mt-1.5 block text-sm text-slate-200">{value}</span>
-    </a>
   );
 }
 
@@ -333,11 +321,14 @@ export default function UserSettings() {
             </div>
           </div>
 
-          <nav aria-label="Settings sections" className="mt-6 grid gap-2 sm:grid-cols-3">
-            <SummaryTile href="#streaming-services" label="Streaming" value={streamingTileSummary} />
-            <SummaryTile href="#draw-defaults" label="Draw filters" value={filtersTileSummary} />
-            <SummaryTile href="#tv-playback" label="TV playback" value={playbackTileSummary} />
-          </nav>
+          <SettingsSectionNav
+            className="mt-6"
+            items={[
+              { href: "#streaming-services", label: "Streaming", value: streamingTileSummary },
+              { href: "#draw-defaults", label: "Draw filters", value: filtersTileSummary },
+              { href: "#tv-playback", label: "TV playback", value: playbackTileSummary },
+            ]}
+          />
         </header>
 
         {saveStatus === "error" && (
