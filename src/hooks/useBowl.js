@@ -9,6 +9,12 @@ import {
   getMovieFromDrawCandidate,
   hydrateDrawCandidate,
 } from "../utils/selectDrawCandidate";
+import {
+  OFFLINE_MESSAGE,
+  describeNetworkError,
+  isOffline,
+  isOfflineError,
+} from "../utils/networkErrors";
 
 const DUPLICATE_MOVIE_MESSAGE = "This movie is already in the bowl.";
 
@@ -50,6 +56,10 @@ function addResult(ok, code = null, message = null) {
 }
 
 function getDrawFailureMessage(error) {
+  // Check this first: none of the codes below can be trusted when the request
+  // never reached the database.
+  if (isOfflineError(error)) return OFFLINE_MESSAGE;
+
   const errorCode = String(error?.code || "");
   const errorMessageText = String(error?.message || "").toLowerCase();
 
@@ -109,6 +119,8 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
   const [isLoading, setIsLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState(null);
   const addRequestsInFlightRef = useRef(new Set());
+  // Set when a load fails for connectivity reasons, so reconnecting can retry it.
+  const failedWhileOfflineRef = useRef(false);
 
   const loadBowlMovies = useCallback(async () => {
     if (!bowlId) {
@@ -119,6 +131,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
 
     setIsLoading(true);
     setErrorMessage(null);
+    failedWhileOfflineRef.current = false;
 
     try {
       const { data: authData, error: authError } = await supabase.auth.getSession();
@@ -141,7 +154,10 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
 
       if (remainingError) {
         console.error("[useBowl] Failed to load remaining movies", remainingError);
-        setErrorMessage("Failed to load remaining movies.");
+        failedWhileOfflineRef.current ||= isOfflineError(remainingError);
+        setErrorMessage(
+          describeNetworkError(remainingError, "Failed to load remaining movies.")
+        );
       }
 
       // Draw events are separate from current bowl slips so a return to the
@@ -157,7 +173,10 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
 
       if (watchedError) {
         console.error("[useBowl] Failed to load watched movies", watchedError);
-        setErrorMessage("Failed to load watched movies.");
+        failedWhileOfflineRef.current ||= isOfflineError(watchedError);
+        setErrorMessage(
+          describeNetworkError(watchedError, "Failed to load watched movies.")
+        );
       }
 
       const { data: profileRows, error: profilesError } = await supabase.rpc(
@@ -206,7 +225,10 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       });
     } catch (err) {
       console.error("[useBowl] Unexpected error loading bowl movies", err);
-      setErrorMessage("Unexpected error loading bowl movies.");
+      failedWhileOfflineRef.current = isOfflineError(err);
+      setErrorMessage(
+        describeNetworkError(err, "Unexpected error loading bowl movies.")
+      );
       setBowl({ remaining: [], watched: [] });
     } finally {
       setIsLoading(false);
@@ -218,6 +240,20 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
     loadBowlMovies();
   }, [loadBowlMovies]);
 
+  useEffect(() => {
+    // A bowl that failed to load while offline would otherwise sit empty until
+    // the user thought to refresh. Retry on reconnect, but only when the last
+    // attempt actually failed, so a flapping connection cannot spam the API.
+    const handleOnline = () => {
+      if (!failedWhileOfflineRef.current) return;
+      failedWhileOfflineRef.current = false;
+      loadBowlMovies();
+    };
+
+    window.addEventListener("online", handleOnline);
+    return () => window.removeEventListener("online", handleOnline);
+  }, [loadBowlMovies]);
+
   // Resolve the eligible pool, record the bowl draw and personal history
   // entries atomically, then reload the remaining/watched lists.
   const handleDraw = useCallback(async (options = {}) => {
@@ -226,6 +262,14 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       (movie) => movie?.local_status !== "syncing"
     );
     if (drawableRemaining.length === 0) return null;
+
+    // A draw is server-authoritative, so a confirmed-offline device cannot
+    // complete one. Say so up front rather than after a spinner and a timeout.
+    if (isOffline()) {
+      setErrorMessage(OFFLINE_MESSAGE);
+      return null;
+    }
+
     setErrorMessage(null);
 
     const activeDrawMethod = options.drawMethod ?? drawMethod;
@@ -360,6 +404,14 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       if (addRequestsInFlightRef.current.has(addLockKey)) {
         return addResult(false, "duplicate_movie", DUPLICATE_MOVIE_MESSAGE);
       }
+
+      // Skip the optimistic row entirely when the write cannot land: showing a
+      // "syncing" slip that is certain to vanish is worse than a clear refusal.
+      if (isOffline()) {
+        setErrorMessage(OFFLINE_MESSAGE);
+        return addResult(false, "offline", OFFLINE_MESSAGE);
+      }
+
       addRequestsInFlightRef.current.add(addLockKey);
 
       const { data: authData, error: authError } = await supabase.auth.getSession();
@@ -469,7 +521,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         }));
         const message = duplicateMovie
           ? DUPLICATE_MOVIE_MESSAGE
-          : "Could not add this movie. Please try again.";
+          : describeNetworkError(error, "Could not add this movie. Please try again.");
         setErrorMessage(message);
         return addResult(
           false,
@@ -505,6 +557,9 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
 
       if (error) {
         console.error("[useBowl] Failed to delete movie", error);
+        // This path only reports a boolean, so an offline failure would
+        // otherwise disappear: surface it on the shared error line.
+        if (isOfflineError(error)) setErrorMessage(OFFLINE_MESSAGE);
         return false;
       }
 
@@ -560,7 +615,9 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         return addResult(
           false,
           duplicateMovie ? "duplicate_movie" : "add_failed",
-          duplicateMovie ? DUPLICATE_MOVIE_MESSAGE : "Could not re-add this movie. Please try again."
+          duplicateMovie
+            ? DUPLICATE_MOVIE_MESSAGE
+            : describeNetworkError(error, "Could not re-add this movie. Please try again.")
         );
       }
 

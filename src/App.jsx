@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavig
 import useAuth from "./hooks/useAuth";
 import usePendingInvites, { PendingInvitesProvider } from "./hooks/usePendingInvites";
 import TopNav from "./components/TopNav";
+import OfflineBanner from "./components/OfflineBanner";
 import { supabase } from "./lib/supabase";
 
 const MyBowlsScreen = React.lazy(() => import("./screens/MyBowlsScreen"));
@@ -55,6 +56,9 @@ function AppShell({ children }) {
       )}
 
       <div className={shouldShowTopNav ? "pt-16" : ""}>{children}</div>
+
+      {/* Global, so no screen has to explain a dropped connection on its own */}
+      <OfflineBanner />
     </div>
   );
 }
