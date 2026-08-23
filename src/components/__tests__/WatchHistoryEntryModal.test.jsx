@@ -66,7 +66,7 @@ describe("WatchHistoryEntryModal comments", () => {
     });
   });
 
-  it("shows a bowl-draw comment as read-only and preserves it on save", async () => {
+  it("shows a bowl-draw comment as a static snapshot and preserves it on save", async () => {
     const onSave = vi.fn(async () => {});
     render(
       <WatchHistoryEntryModal
@@ -82,15 +82,43 @@ describe("WatchHistoryEntryModal comments", () => {
       />
     );
 
-    const comment = screen.getByPlaceholderText("What made this one memorable?");
-    expect(comment).toHaveAttribute("readonly");
-    expect(comment).toHaveValue("Tim recommended this.");
+    expect(screen.queryByPlaceholderText("What made this one memorable?")).not.toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: /comment/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /comment from bowl draw/i })).toBeInTheDocument();
+    expect(screen.getByText("Read only")).toBeInTheDocument();
+    expect(screen.getByText("Tim recommended this.")).toBeInTheDocument();
+    expect(screen.getByText(/can’t be changed from watch history/i)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() => {
       expect(onSave).toHaveBeenCalledWith(
         expect.objectContaining({ note: "Tim recommended this." })
       );
+    });
+  });
+
+  it("shows an explicit empty state when a bowl draw has no comment", async () => {
+    const onSave = vi.fn(async () => {});
+    render(
+      <WatchHistoryEntryModal
+        entry={{
+          id: "history-3",
+          source_kind: "bowl_draw",
+          title: "Arrival",
+          watched_on: "2026-08-20",
+          note: null,
+        }}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />
+    );
+
+    expect(screen.queryByPlaceholderText("What made this one memorable?")).not.toBeInTheDocument();
+    expect(screen.getByText("No comment was saved with this draw.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ note: null }));
     });
   });
 });
