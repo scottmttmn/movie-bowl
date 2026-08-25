@@ -1,13 +1,19 @@
-# Five Bold Ideas
+# Future Ideas
 
 Status: brainstorm. Nothing here is scheduled, specified, or committed to. These
 are deliberately larger than the `TODO.md` backlog — each one changes what Movie
 Bowl *is*, not how a screen looks. Open questions are genuinely open.
 
-The spine running through all five: Movie Bowl's real product is not a list, and
-it is not a random number. It is **a fair, explainable ritual for deciding**.
+The spine running through all of them: Movie Bowl's real product is not a list,
+and it is not a random number. It is **a fair, explainable ritual for deciding**.
 Every idea below extends that promise. Anything that dilutes it — see
 "Deliberately not on this list" — is out no matter how obvious it looks.
+
+One piece of evidence worth writing down before anything else, because it should
+decide what gets built: the app's owner watches more movies since it existed.
+That is the outcome the product is for. Not titles added, not bowls created —
+movies actually watched. Ideas 4 and 6 below are the two that take that number
+seriously.
 
 ---
 
@@ -80,37 +86,57 @@ the same animation land at the same instant. Collective hold is phase two.
 
 ---
 
-## 3. Capture anywhere
+## 3. One bowl is the unit
 
-**The idea.** The bowl only grows when someone remembers to open the app, but
-almost no recommendation arrives while you are in it. They arrive in a text, in
-a trailer on YouTube, in a Letterboxd link, at dinner — the movie-comments doc
-literally uses "Recommended by Tim at dinner" as its example. Give each bowl a
-capture endpoint: a share target from any app on an installed phone, a
-forward-to-add email address, an iOS shortcut. The server resolves the title
-against TMDB, adds it, and only asks a follow-up when the match is ambiguous.
+**The idea.** Almost nobody has five bowls. People have one, maybe two. The app
+is built as though you have many: the bowl is a container, `/bowls` is the hub
+the logo points at, and adding a movie exists *only inside a bowl* —
+`AddMovieModal` is rendered by `BowlDashboard` and `WatchListPage` and nowhere
+else. So adding costs navigation before it costs typing. Open the app, land
+somewhere, get into the right bowl, find the add control, then search. The
+search was never the expensive part.
 
-**Why it fits.** `api/add-links/*` is already an authenticated-server,
-not-signed-in write path into a bowl, with tokens, limits, and its own
-authorization on the service-role client. A drop address is the same threat
-model with a different transport. Titles TMDB cannot match already have a home:
-negative synthetic `tmdb_id`s.
+Commit to one bowl as the default shape of the product:
 
-**Why it's bold.** Every other idea here makes movie night better for bowls that
-are already full. This one is the only one that fixes the input problem, and
-input is what decides whether a bowl is still alive in six months.
+- **A default bowl, remembered.** `HomeRedirect` already picks one — your single
+  bowl, or the last one you opened. Promote that from a routing convenience to a
+  real product concept.
+- **Add goes global.** A permanent `+` in `TopNav`, live on every screen,
+  opening the existing modal against the default bowl.
+- **Multi-bowl becomes the exception path**, not a step everyone pays for. "Add
+  to a different bowl" is a secondary control inside the modal: one extra tap in
+  the rare case instead of a mandatory step in the common one.
+- **`/bowls` demotes** from hub to a management screen in the menu.
+- **Then voice capture is possible at all.** "Hey Siri, add Sinners to Movie
+  Bowl" through an App Intent works only when there is exactly one destination
+  and nothing to disambiguate. This is the piece an earlier draft of this
+  document got wrong: it proposed sharing from other apps, which needs a link in
+  your hand. The moments where you actually hear about a movie — a conversation,
+  a podcast — have no link in them. They have a spoken title and a risk of
+  forgetting it. A single unambiguous destination is what makes capturing that
+  possible; the share sheet never was.
 
-**Smallest bold version.** Web Share Target on the installed PWA, plus a
-per-bowl forward-to-add email address. No SMS, no integrations.
+**Why it fits.** The redirect already concedes the point, and the modal is
+already bowl-agnostic — it emits a movie through `onAddMovie` and lets the
+screen decide what happens.
+
+**What it actually costs.** That same bowl-agnosticism is the catch: today the
+screen's `useBowl` handler owns the write *and* the undrawn-limit guard, so a
+global `+` needs a bowl-bound add handler living above the bowl routes. That is
+the real work in this idea, and it touches the highest-risk file in the repo. It
+is not a button.
+
+**Smallest bold version.** The global `+` against the remembered default bowl.
+Voice comes after, and only if the first part lands.
 
 **Risks and open questions.**
-- It is an unauthenticated write path into a private bowl. Sender allowlist,
-  rotation, revocation, and rate limits are part of the feature, not follow-ups.
-- Ambiguous matches with no interactive session: hold in a pending tray for the
-  next app open, or guess and let people fix it? (Pending tray. A wrong title
-  silently in the bowl is worse than a title that shows up late.)
-- Who is recorded as the contributor when a guest forwards? This decides odds,
-  so it cannot be left implicit.
+- The two-bowl user is the one who gets hurt if "add to a different bowl" is
+  buried. It has to be visible in the modal, not hidden behind a menu.
+- Is the default implicit (last opened, as today) or explicitly chosen? Implicit
+  is invisible until it is wrong, and then it is very wrong.
+- `WatchListPage` already uses the same modal to log history you watched
+  elsewhere. One global `+` with two possible meanings needs resolving before it
+  ships, not after.
 
 ---
 
@@ -182,15 +208,67 @@ attendance and a cooldown — with a single generated disclosure sentence.
 
 ---
 
+## 6. The 80-movie problem
+
+**The idea.** A bowl that works outgrows its own memory. At a title a week,
+eighty movies is over a year of runway: most of what is in there will not come
+up this year, some of it was added by someone whose taste has moved on since,
+and nobody can say what is in the bowl without scrolling it. Filters narrow a
+single draw. Nothing curates the bowl itself, and nothing tells you what has
+been sitting in it since 2024.
+
+Three pieces, in increasing order of nerve:
+
+- **Tell the truth about the tail.** The data is already there: the oldest
+  undrawn title, contributors whose slips have never come up, and titles the
+  streaming filters can currently never reach. That last one is already in
+  `TODO.md` as an odds-panel accuracy problem — it is the same fact seen from
+  the curation side rather than the fairness side.
+- **Last call.** A title that has sat undrawn past some threshold comes back to
+  the person who added it for a decision: keep it, or let it go. Never automatic
+  deletion, and never someone else's call.
+- **Seasons.** A bowl can be closed out and started fresh, with everything
+  unwatched rolling over by choice rather than by default. This is the one that
+  needs the most convincing — it may be solving a tidiness itch rather than a
+  real problem.
+
+**Why now.** This is what success looks like from the inside. The bowl is doing
+its job, more movies are getting watched, and the reward is a bowl too big to
+hold in your head.
+
+**Smallest bold version.** The informational slice only: show the oldest undrawn
+titles and the ones the filters cannot reach. No workflow, no deletion, no
+seasons. It may turn out that seeing it is the whole fix.
+
+**Risks and open questions.**
+- Retiring a title is not a draw and must never touch rotation history or
+  anyone's odds. A cleanup that quietly changes whose turn is next would be a
+  bug in the product's central promise.
+- Only the contributor may retire their own title. Any flow that lets one person
+  prune another's slips breaks the thing that makes a bowl feel safe to add to.
+- The bowl is deliberately *not* a browsable catalogue — comments stay hidden
+  until a draw for exactly this reason. A curation surface risks turning the
+  bowl into a browse-and-pick list, which is the failure mode the whole product
+  is arranged to avoid. That tension is real and unresolved.
+- And the prior question: is a big bowl a problem, or just a fact about a
+  healthy bowl? Worth answering before building anything past the informational
+  slice.
+
+---
+
 ## Where I'd start
 
-**Idea 3 first.** It is the cheapest, it compounds, and it fixes the input
-problem every other idea assumes away. Ideas 1 and 2 are really one night seen
-from two angles and should be designed together. Idea 4 is the highest ceiling
-and the one most likely to be built at the wrong time — it wants a product with
-a lot of history in it already. Idea 5 is the right refactor eventually and the
-wrong one now: build two more rules as features first, then extract the layer
-once the shape is obvious.
+**Idea 3 first**, but for a different reason than the version it replaces: not
+because bowls run dry — an eighty-movie bowl plainly does not — but because
+adding is annoying today, and because a single default bowl is the precondition
+for every capture mechanism worth having later. Then the informational slice of
+idea 6, which is cheap and addresses the problem that is live right now. Ideas 1
+and 2 are one movie night seen from two angles and should be designed together.
+Idea 4 has the highest ceiling and is the easiest to build at the wrong time —
+it wants a product with a lot of history in it, which this one is quietly
+accumulating. Idea 5 is the right refactor eventually and the wrong one now:
+build two more rules as ordinary features first, then extract the layer once the
+shape is obvious.
 
 ## Deliberately not on this list
 
