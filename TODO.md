@@ -18,6 +18,12 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Future Product Concepts
 
+- Bigger swings, unscheduled: attendance-aware movie nights, a live draw
+  every client sees at once, treating one bowl as the unit so adding can go
+  global (and voice capture becomes possible), shareable ticket stubs and bowl
+  recaps, a composable house-rules layer over the draw method registry, and
+  curation for bowls that have outgrown their own memory. Brainstorm only — no
+  specs, no commitments. See `output/designs/future-ideas.md`.
 - Movie comments: let contributors optionally record why a movie belongs in
   the bowl, then reveal that context with the draw and retain it in watched
   details and manual history. Implementation-ready plan in
