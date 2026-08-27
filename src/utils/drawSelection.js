@@ -3,6 +3,7 @@ import {
   selectFromResolvedDrawPool,
 } from "./selectDrawCandidate";
 import { extractUsMovieRating, MPAA_RATING_OPTIONS, normalizeMpaaRating } from "./movieRatings";
+import { createFilterMetadataFetchers } from "./filterMetadataFetchers";
 
 const MOVIE_RATING_CACHE_TTL_MS = 60 * 60 * 1000;
 const movieRatingCache = new Map();
@@ -109,6 +110,20 @@ function filterCandidatesByGenre(movies, genreFilter) {
   });
 }
 
+// Genre and runtime live on bowl_movies, so callers that need a lookup budget
+// can shrink the pool synchronously before deciding whether any network work is
+// necessary. Keep this helper on the same private filters the draw uses so a
+// presentation readout cannot drift from selection behavior.
+export function getLocallyFilteredCandidates(
+  movies,
+  { genreFilter = null, runtimeFilter = null } = {}
+) {
+  let candidates = Array.isArray(movies) ? movies : [];
+  if (genreFilter) candidates = filterCandidatesByGenre(candidates, genreFilter);
+  if (runtimeFilter) candidates = filterCandidatesByRuntime(candidates, runtimeFilter);
+  return candidates;
+}
+
 // A rating filter that allows every rating and keeps unknowns cannot remove
 // anything, so callers can skip the stage entirely — and with it one TMDB
 // lookup per title. This is the default state of the draw filters, which is
@@ -187,6 +202,7 @@ export async function getDrawSelection({
   runtimeFilter = null,
   fetchProviders,
   fetchMovieDetails,
+  fetchFilterMetadata,
   randomFn,
   drawMethod,
 }) {
@@ -204,6 +220,7 @@ export async function getDrawSelection({
     runtimeFilter,
     fetchProviders,
     fetchMovieDetails,
+    fetchFilterMetadata,
   });
   if (errorMessage) {
     return { selected: null, errorMessage };
@@ -232,17 +249,34 @@ export async function getResolvedDrawPool({
   runtimeFilter = null,
   fetchProviders,
   fetchMovieDetails,
+  fetchFilterMetadata,
 }) {
   if (!Array.isArray(remainingMovies) || remainingMovies.length === 0) {
     return { candidates: [], errorMessage: null };
   }
 
+  const ratingFilterForSelection = isRatingFilterExhaustive(ratingFilter)
+    ? null
+    : ratingFilter;
+  const canPrioritizeStreaming =
+    prioritizeByServices && (userStreamingServices || []).length > 0;
+  const { movieDetailsFetcher, providersFetcher } = createFilterMetadataFetchers({
+    shouldCombineMetadata: Boolean(
+      ratingFilterForSelection &&
+        canPrioritizeStreaming &&
+        typeof fetchFilterMetadata === "function"
+    ),
+    fetchMovieDetails,
+    fetchProviders,
+    fetchFilterMetadata,
+  });
+
   const { candidates: filteredCandidates, errorMessage } = await getDrawCandidates({
     remainingMovies,
-    ratingFilter,
+    ratingFilter: ratingFilterForSelection,
     genreFilter,
     runtimeFilter,
-    fetchMovieDetails,
+    fetchMovieDetails: movieDetailsFetcher,
   });
   if (errorMessage) return { candidates: [], errorMessage };
 
@@ -250,7 +284,7 @@ export async function getResolvedDrawPool({
     prioritizeByServices,
     prioritizeByServiceRank,
     userStreamingServices,
-    fetchProviders,
+    fetchProviders: providersFetcher,
   });
 
   return { candidates, errorMessage: null };

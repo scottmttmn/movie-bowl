@@ -1,7 +1,16 @@
-import { describe, expect, it, vi } from "vitest";
-import { getDrawSelection, getResolvedDrawPool } from "../drawSelection";
+import { beforeEach, describe, expect, it, vi } from "vitest";
+import {
+  clearDrawSelectionCache,
+  getDrawSelection,
+  getResolvedDrawPool,
+} from "../drawSelection";
+import { MPAA_RATING_OPTIONS } from "../movieRatings";
 
 describe("getDrawSelection", () => {
+  beforeEach(() => {
+    clearDrawSelectionCache();
+  });
+
   it("applies active filters before contributor bucket grouping", async () => {
     const fetchProviders = vi.fn(async () => ({ providers: [], region: "US", fetchedAt: null }));
 
@@ -66,5 +75,99 @@ describe("getDrawSelection", () => {
     expect(fetchProviders).toHaveBeenCalledTimes(2);
     expect(fetchProviders).toHaveBeenCalledWith(101);
     expect(fetchProviders).toHaveBeenCalledWith(104);
+  });
+
+  it("uses combined metadata across whole-bowl rating and provider stages", async () => {
+    const fetchFilterMetadata = vi.fn(async (tmdbId) => ({
+      details: {
+        release_dates: {
+          results: [{
+            iso_3166_1: "US",
+            release_dates: [{ certification: tmdbId === 701 ? "PG" : "R" }],
+          }],
+        },
+      },
+      providers: tmdbId === 702 ? ["Netflix"] : ["Max"],
+      region: "US",
+      fetchedAt: null,
+    }));
+    const fetchMovieDetails = vi.fn();
+    const fetchProviders = vi.fn();
+
+    const { candidates } = await getResolvedDrawPool({
+      remainingMovies: [
+        { id: "pg", tmdb_id: 701 },
+        { id: "netflix-r", tmdb_id: 702 },
+        { id: "max-r", tmdb_id: 703 },
+      ],
+      ratingFilter: { allowedRatings: ["R"], includeUnknown: false },
+      prioritizeByServices: true,
+      prioritizeByServiceRank: true,
+      userStreamingServices: ["Netflix", "Max"],
+      fetchMovieDetails,
+      fetchProviders,
+      fetchFilterMetadata,
+    });
+
+    expect(candidates.map((candidate) => candidate.movie.id)).toEqual(["netflix-r"]);
+    expect(fetchFilterMetadata).toHaveBeenCalledTimes(3);
+    expect(fetchMovieDetails).not.toHaveBeenCalled();
+    expect(fetchProviders).not.toHaveBeenCalled();
+  });
+
+  it("falls back to separate whole-bowl requests when combined metadata fails", async () => {
+    const fetchFilterMetadata = vi.fn(async () => {
+      throw new Error("combined route unavailable");
+    });
+    const fetchMovieDetails = vi.fn(async () => ({
+      release_dates: {
+        results: [{ iso_3166_1: "US", release_dates: [{ certification: "R" }] }],
+      },
+    }));
+    const fetchProviders = vi.fn(async () => ({
+      providers: ["Netflix"],
+      region: "US",
+      fetchedAt: null,
+    }));
+
+    const { candidates } = await getResolvedDrawPool({
+      remainingMovies: [{ id: "fallback", tmdb_id: 704 }],
+      ratingFilter: { allowedRatings: ["R"], includeUnknown: false },
+      prioritizeByServices: true,
+      userStreamingServices: ["Netflix"],
+      fetchMovieDetails,
+      fetchProviders,
+      fetchFilterMetadata,
+    });
+
+    expect(candidates.map((candidate) => candidate.movie.id)).toEqual(["fallback"]);
+    expect(fetchFilterMetadata).toHaveBeenCalledTimes(1);
+    expect(fetchMovieDetails).toHaveBeenCalledTimes(1);
+    expect(fetchProviders).toHaveBeenCalledTimes(1);
+  });
+
+  it("skips rating metadata when the whole rating range and unknowns are allowed", async () => {
+    const fetchMovieDetails = vi.fn();
+    const fetchFilterMetadata = vi.fn();
+    const fetchProviders = vi.fn(async () => ({
+      providers: ["Netflix"],
+      region: "US",
+      fetchedAt: null,
+    }));
+
+    const { candidates } = await getResolvedDrawPool({
+      remainingMovies: [{ id: "default", tmdb_id: 705 }],
+      ratingFilter: { allowedRatings: MPAA_RATING_OPTIONS, includeUnknown: true },
+      prioritizeByServices: true,
+      userStreamingServices: ["Netflix"],
+      fetchMovieDetails,
+      fetchProviders,
+      fetchFilterMetadata,
+    });
+
+    expect(candidates.map((candidate) => candidate.movie.id)).toEqual(["default"]);
+    expect(fetchMovieDetails).not.toHaveBeenCalled();
+    expect(fetchFilterMetadata).not.toHaveBeenCalled();
+    expect(fetchProviders).toHaveBeenCalledTimes(1);
   });
 });

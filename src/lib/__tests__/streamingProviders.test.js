@@ -11,6 +11,7 @@ vi.mock("../tmdbApi", () => ({
 import {
   clearStreamingProvidersCache,
   fetchStreamingProviders,
+  primeStreamingProvidersCache,
 } from "../streamingProviders";
 
 describe("streamingProviders", () => {
@@ -57,6 +58,21 @@ describe("streamingProviders", () => {
     expect(typeof first.fetchedAt).toBe("string");
     expect(second).toEqual(first);
     expect(mocks.getTmdbMovieProviders).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses provider data primed by a combined metadata lookup", async () => {
+    primeStreamingProvidersCache(101, {
+      providers: ["netflix", "HBO Max"],
+      region: "US",
+      fetchedAt: "2026-08-27T00:00:00.000Z",
+    });
+
+    await expect(fetchStreamingProviders(101)).resolves.toEqual({
+      providers: ["Netflix", "Max"],
+      region: "US",
+      fetchedAt: "2026-08-27T00:00:00.000Z",
+    });
+    expect(mocks.getTmdbMovieProviders).not.toHaveBeenCalled();
   });
 
   it("scopes cache keys by region", async () => {

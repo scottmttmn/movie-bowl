@@ -40,7 +40,12 @@ async function runWithConcurrency(items, worker, limit) {
 export default function useBowlStreamingMatches(
   movies,
   userStreamingServices,
-  { fetchProviders = fetchStreamingProviders, autoScanLimit = AUTO_SCAN_TITLE_LIMIT } = {}
+  {
+    fetchProviders = fetchStreamingProviders,
+    autoScanLimit = AUTO_SCAN_TITLE_LIMIT,
+    autoScan = true,
+    enabled = true,
+  } = {}
 ) {
   const [result, setResult] = useState(EMPTY_RESULT);
   const [isScanning, setIsScanning] = useState(false);
@@ -70,7 +75,10 @@ export default function useBowlStreamingMatches(
   }, [servicesKey]);
 
   const shouldScan =
-    hasServices && tmdbIds.length > 0 && (tmdbIds.length <= autoScanLimit || didRequestScan);
+    enabled &&
+    hasServices &&
+    tmdbIds.length > 0 &&
+    ((autoScan && tmdbIds.length <= autoScanLimit) || didRequestScan);
 
   useEffect(() => {
     runTokenRef.current += 1;
@@ -134,7 +142,9 @@ export default function useBowlStreamingMatches(
   }, []);
 
   const status = (() => {
-    if (!hasServices || tmdbIds.length === 0) return STREAMING_MATCH_STATUS.unavailable;
+    if (!enabled || !hasServices || tmdbIds.length === 0) {
+      return STREAMING_MATCH_STATUS.unavailable;
+    }
     if (!shouldScan) return STREAMING_MATCH_STATUS.manual;
     if (isScanning || result.matchCount === null) return STREAMING_MATCH_STATUS.scanning;
     return STREAMING_MATCH_STATUS.ready;

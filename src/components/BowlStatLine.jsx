@@ -65,13 +65,17 @@ function PoolSegment({
   if (status === DRAW_POOL_STATUS.manual) {
     return (
       <Segment as="button" tone="active" onClick={onRunLookups}>
-        Count eligible titles
+        Preview filter matches
       </Segment>
     );
   }
 
   if (status === DRAW_POOL_STATUS.counting) {
-    return <Segment tone="active">Counting eligible titles…</Segment>;
+    return (
+      <Segment tone="idle">
+        <Count>{totalCount}</Count> in bowl · Previewing filters…
+      </Segment>
+    );
   }
 
   if (status === DRAW_POOL_STATUS.unfiltered) {

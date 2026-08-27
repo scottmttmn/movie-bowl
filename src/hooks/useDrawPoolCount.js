@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
+import { fetchMovieFilterMetadata } from "../lib/movieFilterMetadata";
 import { getDrawCandidates, isRatingFilterExhaustive } from "../utils/drawSelection";
 import { getDrawablePoolMovies, summarizeContributorReach } from "../utils/drawPool";
 import { getStreamingPriorityPool } from "../utils/selectDrawCandidate";
+import { createFilterMetadataFetchers } from "../utils/filterMetadataFetchers";
 
 // Ratings are not stored on bowl_movies, so a narrowed rating filter costs one
 // TMDB lookup per title that survives the free filters. Same trade-off as the
@@ -29,6 +31,7 @@ const EMPTY_STREAMING_MATCH = {
 // a fresh closure per render would re-run the count forever.
 const defaultFetchMovieDetails = (tmdbId) => getTmdbMovieDetails(tmdbId);
 const defaultFetchProviders = (tmdbId) => fetchStreamingProviders(tmdbId);
+const defaultFetchFilterMetadata = (tmdbId) => fetchMovieFilterMetadata(tmdbId);
 
 function countLookupEligibleTitles(movies) {
   return movies.reduce((count, movie) => {
@@ -49,6 +52,7 @@ export default function useDrawPoolCount(
   {
     fetchMovieDetails = defaultFetchMovieDetails,
     fetchProviders = defaultFetchProviders,
+    fetchFilterMetadata = defaultFetchFilterMetadata,
     autoLookupLimit = AUTO_LOOKUP_TITLE_LIMIT,
   } = {}
 ) {
@@ -64,6 +68,8 @@ export default function useDrawPoolCount(
   fetchMovieDetailsRef.current = fetchMovieDetails;
   const fetchProvidersRef = useRef(fetchProviders);
   fetchProvidersRef.current = fetchProviders;
+  const fetchFilterMetadataRef = useRef(fetchFilterMetadata);
+  fetchFilterMetadataRef.current = fetchFilterMetadata;
 
   const poolMovies = useMemo(() => getDrawablePoolMovies(movies), [movies]);
   const poolKey = poolMovies.map((movie) => movie.id).join(",");
@@ -115,12 +121,22 @@ export default function useDrawPoolCount(
 
     setIsCounting(true);
     const countPool = async () => {
+      const { movieDetailsFetcher, providersFetcher } = createFilterMetadataFetchers({
+        shouldCombineMetadata: Boolean(
+          ratingFilterForCount &&
+            canPrioritizeStreaming &&
+            typeof fetchFilterMetadataRef.current === "function"
+        ),
+        fetchMovieDetails: fetchMovieDetailsRef.current,
+        fetchProviders: fetchProvidersRef.current,
+        fetchFilterMetadata: fetchFilterMetadataRef.current,
+      });
       const { candidates: filteredCandidates } = await getDrawCandidates({
         remainingMovies: poolMovies,
         ratingFilter: ratingFilterForCount,
         genreFilter,
         runtimeFilter,
-        fetchMovieDetails: fetchMovieDetailsRef.current,
+        fetchMovieDetails: movieDetailsFetcher,
         ratingLast: true,
       });
 
@@ -134,7 +150,7 @@ export default function useDrawPoolCount(
       const streamingPool = await getStreamingPriorityPool(filteredCandidates, {
         prioritizeByServiceRank,
         userStreamingServices,
-        fetchProviders: fetchProvidersRef.current,
+        fetchProviders: providersFetcher,
       });
       return {
         candidates: streamingPool.candidates.map((candidate) => candidate?.movie || candidate),
@@ -152,6 +168,7 @@ export default function useDrawPoolCount(
       setResult({
         countKey,
         poolCount: candidates.length,
+        eligibleMovieIds: candidates.map((movie) => movie.id),
         reach: summarizeContributorReach(poolMovies, candidates),
         streamingMatch,
       });
@@ -173,6 +190,7 @@ export default function useDrawPoolCount(
   const totalCount = poolMovies.length;
   const currentResult = result?.countKey === countKey ? result : null;
   const poolCount = currentResult ? currentResult.poolCount : null;
+  const eligibleMovieIds = currentResult ? currentResult.eligibleMovieIds : null;
   const reach = currentResult ? currentResult.reach : EMPTY_REACH;
   const streamingMatch = currentResult
     ? currentResult.streamingMatch
@@ -191,6 +209,7 @@ export default function useDrawPoolCount(
     status,
     poolCount,
     totalCount,
+    eligibleMovieIds,
     contributorReach: status === DRAW_POOL_STATUS.ready ? reach : EMPTY_REACH,
     streamingMatch,
     runLookups,

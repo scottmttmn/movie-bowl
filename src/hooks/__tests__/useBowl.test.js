@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => ({
   deleteCalled: false,
   fetchStreamingProviders: vi.fn(),
   getTmdbMovieDetails: vi.fn(),
+  fetchMovieFilterMetadata: vi.fn(),
   supabase: {
     auth: {
       getSession: vi.fn(async () => ({
@@ -152,6 +153,9 @@ vi.mock("../../lib/streamingProviders", () => ({
 vi.mock("../../lib/tmdbApi", () => ({
   getTmdbMovieDetails: mocks.getTmdbMovieDetails,
 }));
+vi.mock("../../lib/movieFilterMetadata", () => ({
+  fetchMovieFilterMetadata: mocks.fetchMovieFilterMetadata,
+}));
 vi.mock("../../utils/getBrowserTimeZone", () => ({
   getBrowserTimeZone: () => "America/Chicago",
 }));
@@ -188,6 +192,7 @@ describe("useBowl handleDraw integration", () => {
     mocks.deleteCalled = false;
     mocks.fetchStreamingProviders.mockReset();
     mocks.getTmdbMovieDetails.mockReset();
+    mocks.fetchMovieFilterMetadata.mockReset();
     mocks.supabase.from.mockClear();
   });
 
@@ -276,6 +281,43 @@ describe("useBowl handleDraw integration", () => {
     expectDrawRpc("m2");
 
     randomSpy.mockRestore();
+  });
+
+  it("draws from the whole bowl with one combined metadata request per title", async () => {
+    const pgMovie = { id: "m-combined-pg", tmdb_id: 9301, title: "PG Netflix" };
+    const rMovie = { id: "m-combined-r", tmdb_id: 9302, title: "R Max" };
+    mocks.remainingQueue.push([pgMovie, rMovie], [pgMovie]);
+    mocks.watchedQueue.push([], [{ ...rMovie, drawn_at: "2026-08-27T00:00:00.000Z" }]);
+    mocks.fetchMovieFilterMetadata.mockImplementation(async (tmdbId) => ({
+      details: {
+        release_dates: {
+          results: [{
+            iso_3166_1: "US",
+            release_dates: [{ certification: tmdbId === 9301 ? "PG" : "R" }],
+          }],
+        },
+      },
+      providers: tmdbId === 9301 ? ["Netflix"] : ["Max"],
+      region: "US",
+      fetchedAt: null,
+    }));
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    await act(async () => {
+      await result.current.handleDraw({
+        ratingFilter: { allowedRatings: ["R"], includeUnknown: false },
+        prioritizeByServices: true,
+        prioritizeByServiceRank: true,
+        userStreamingServices: ["Netflix", "Max"],
+      });
+    });
+
+    expectDrawRpc("m-combined-r");
+    expect(mocks.fetchMovieFilterMetadata).toHaveBeenCalledTimes(2);
+    expect(mocks.getTmdbMovieDetails).not.toHaveBeenCalled();
+    expect(mocks.fetchStreamingProviders).not.toHaveBeenCalled();
   });
 
   it("sends the resolved pool to the atomic rotation RPC and hydrates its selection", async () => {

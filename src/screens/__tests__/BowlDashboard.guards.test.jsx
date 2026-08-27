@@ -292,6 +292,54 @@ describe("BowlDashboard guards", () => {
     expect(screen.queryByText(/friend movie/i)).not.toBeInTheDocument();
   });
 
+  it("reorders and greys My Movies when the current filters change", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = {
+      remaining: [
+        {
+          id: "m-long",
+          tmdb_id: 101,
+          title: "Long Movie",
+          added_by: "u1",
+          added_at: "2026-03-06T12:00:00.000Z",
+          runtime: 180,
+          genres: ["Drama"],
+        },
+        {
+          id: "m-short",
+          tmdb_id: 102,
+          title: "Short Movie",
+          added_by: "u1",
+          added_at: "2026-03-06T12:10:00.000Z",
+          runtime: 95,
+          genres: ["Drama"],
+        },
+      ],
+      watched: [],
+    };
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    const myMoviesSection = screen.getByRole("heading", { name: /my movies/i }).closest("section");
+    fireEvent.click(within(myMoviesSection).getByRole("button", { name: /^show$/i }));
+    await waitFor(() => expect(myMoviesSection.querySelectorAll("article")).toHaveLength(2));
+
+    fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /edit runtime/i }));
+    fireEvent.change(screen.getByLabelText("draw-runtime-max"), { target: { value: "120" } });
+
+    await waitFor(() => {
+      const cards = [...myMoviesSection.querySelectorAll("article")];
+      expect(cards[0]).toHaveTextContent("Short Movie");
+      expect(cards[1]).toHaveTextContent("Long Movie");
+      expect(cards[1]).toHaveAttribute("data-filter-excluded", "true");
+    });
+
+    expect(within(myMoviesSection).getAllByRole("button", { name: /details/i })[1]).toBeEnabled();
+    expect(within(myMoviesSection).getAllByRole("button", { name: /delete/i })[1]).toBeEnabled();
+  });
+
   it("routes My Movies delete to bowl delete for added items", async () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     mocks.state.memberRows = [{ user_id: "u1" }];

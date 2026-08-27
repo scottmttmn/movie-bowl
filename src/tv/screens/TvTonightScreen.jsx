@@ -16,9 +16,7 @@ import { getDrawMethod } from "../../utils/drawMethods";
 import { clampTheaterTrailerCount } from "../../utils/drawSettings";
 import { getPosterUrl } from "../../utils/getPosterUrl";
 import { matchUserServices } from "../../utils/streamingServices";
-import useBowlStreamingMatches, {
-  STREAMING_MATCH_STATUS,
-} from "../../hooks/useBowlStreamingMatches";
+import { STREAMING_MATCH_STATUS } from "../../hooks/useBowlStreamingMatches";
 import useDrawPoolCount, { DRAW_POOL_STATUS } from "../../hooks/useDrawPoolCount";
 import {
   describeStreamingMatch,
@@ -155,7 +153,7 @@ function getDrawPoolPreferenceLine({ status, poolCount, totalCount, contributorR
     };
   }
   if (status === DRAW_POOL_STATUS.counting) {
-    return { tone: STREAMING_MATCH_TONE.active, text: "Counting the eligible draw pool…" };
+    return { tone: STREAMING_MATCH_TONE.idle, text: "Previewing filters…" };
   }
 
   const resolvedCount = status === DRAW_POOL_STATUS.unfiltered ? totalCount : poolCount;
@@ -703,12 +701,6 @@ export default function TvTonightScreen({ userId, userEmail }) {
     contributorReach: drawPoolContributorReach,
     streamingMatch: drawPoolStreamingMatch,
   } = useDrawPoolCount(bowl.remaining, drawOptions);
-  const {
-    status: streamingMatchStatus,
-    matchCount: streamingMatchCount,
-    topService: streamingMatchTopService,
-    topServiceCount: streamingMatchTopServiceCount,
-  } = useBowlStreamingMatches(bowl.remaining, streamingServices);
   const isStreamingPrioritized =
     Boolean(drawOptions.prioritizeByServices) && streamingServices.length > 0;
   const hasResolvedPrioritizedPool =
@@ -723,24 +715,20 @@ export default function TvTonightScreen({ userId, userEmail }) {
         streamingServices,
         matchStatus: hasResolvedPrioritizedPool
           ? STREAMING_MATCH_STATUS.ready
-          : streamingMatchStatus,
+          : STREAMING_MATCH_STATUS.unavailable,
         matchCount: hasResolvedPrioritizedPool
           ? drawPoolStreamingMatch.matchCount
-          : streamingMatchCount,
+          : null,
         topService: hasResolvedPrioritizedPool
           ? drawPoolStreamingMatch.topService
-          : streamingMatchTopService,
+          : null,
         topServiceCount: hasResolvedPrioritizedPool
           ? drawPoolStreamingMatch.topServiceCount
-          : streamingMatchTopServiceCount,
+          : 0,
       }),
     [
       defaultDrawSettings,
       streamingServices,
-      streamingMatchStatus,
-      streamingMatchCount,
-      streamingMatchTopService,
-      streamingMatchTopServiceCount,
       hasResolvedPrioritizedPool,
       drawPoolStreamingMatch,
     ]

@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
+import { fetchMovieFilterMetadata } from "../lib/movieFilterMetadata";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { getDrawSelection, getResolvedDrawPool } from "../utils/drawSelection";
 import { DEFAULT_DRAW_METHOD, getDrawMethod } from "../utils/drawMethods";
@@ -309,6 +310,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       runtimeFilter: options.runtimeFilter,
       fetchProviders,
       fetchMovieDetails: (tmdbId) => getTmdbMovieDetails(tmdbId),
+      fetchFilterMetadata: (tmdbId) => fetchMovieFilterMetadata(tmdbId),
     };
 
     let selected;

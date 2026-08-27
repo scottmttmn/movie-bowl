@@ -1,6 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   getTmdbMovieDetails,
+  getTmdbMovieFilterMetadata,
   getTmdbMovieProviders,
   searchTmdbMovies,
 } from "../tmdbApi";
@@ -60,6 +61,11 @@ describe("tmdbApi", () => {
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
+  it("requires an id for filter metadata", async () => {
+    await expect(getTmdbMovieFilterMetadata("")).rejects.toThrow("Missing movie id");
+    expect(global.fetch).not.toHaveBeenCalled();
+  });
+
   it("returns empty provider results for blank ids without fetching", async () => {
     await expect(getTmdbMovieProviders("")).resolves.toEqual({ results: {} });
     expect(global.fetch).not.toHaveBeenCalled();
@@ -103,6 +109,17 @@ describe("tmdbApi", () => {
 
     expect(global.fetch).toHaveBeenNthCalledWith(1, "/api/tmdb/movie/details?id=77");
     expect(global.fetch).toHaveBeenNthCalledWith(2, "/api/tmdb/movie/providers?id=77");
+  });
+
+  it("fetches combined filter metadata through the proxy", async () => {
+    const metadata = { details: { id: 77 }, providers: ["Netflix"], region: "US" };
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => metadata,
+    });
+
+    await expect(getTmdbMovieFilterMetadata("77 ")).resolves.toEqual(metadata);
+    expect(global.fetch).toHaveBeenCalledWith("/api/tmdb/movie/filter-metadata?id=77");
   });
 
   it("returns null trailer when no official YouTube trailer exists", async () => {

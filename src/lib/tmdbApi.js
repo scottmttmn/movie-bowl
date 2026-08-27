@@ -47,3 +47,9 @@ export async function getTmdbMovieProviders(id) {
   if (!tmdbId) return { results: {} };
   return apiGet(`/api/tmdb/movie/providers?id=${encodeURIComponent(tmdbId)}`);
 }
+
+export async function getTmdbMovieFilterMetadata(id) {
+  const tmdbId = String(id || "").trim();
+  if (!tmdbId) throw new Error("Missing movie id");
+  return apiGet(`/api/tmdb/movie/filter-metadata?id=${encodeURIComponent(tmdbId)}`);
+}

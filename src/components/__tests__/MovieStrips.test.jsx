@@ -3,6 +3,7 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import MyMoviesStrip from "../MyMoviesStrip";
 import WatchedMovieCard from "../WatchedMovieCard";
 import WatchedMoviesStrip from "../WatchedMoviesStrip";
+import { MY_MOVIE_ELIGIBILITY_STATUS } from "../../hooks/useMyMovieEligibility";
 
 describe("movie strip components", () => {
   afterEach(() => {
@@ -57,6 +58,114 @@ describe("movie strip components", () => {
     expect(addedCard).toHaveClass("border-slate-700");
     expect(addedCard).toHaveClass("bg-slate-950/50");
     expect(screen.queryByText(/pending/i)).not.toBeInTheDocument();
+  });
+
+  it("stably orders eligible movies first, greys exclusions, and leaves actions enabled", () => {
+    const onViewMovie = vi.fn();
+    const onDeleteMovie = vi.fn();
+    const movies = [
+      { id: "a1", source: "added", title: "Excluded First" },
+      { id: "a2", source: "added", title: "Eligible First" },
+      { id: "a3", source: "added", title: "Excluded Second" },
+      { id: "a4", source: "added", title: "Eligible Second" },
+    ];
+
+    const { container } = render(
+      <MyMoviesStrip
+        movies={movies}
+        onViewMovie={onViewMovie}
+        onDeleteMovie={onDeleteMovie}
+        eligibilityStatus={MY_MOVIE_ELIGIBILITY_STATUS.ready}
+        eligibleMovieIds={["a2", "a4"]}
+      />
+    );
+
+    const cards = [...container.querySelectorAll("article")];
+    expect(cards.map((card) => card.textContent)).toEqual([
+      expect.stringContaining("Eligible First"),
+      expect.stringContaining("Eligible Second"),
+      expect.stringContaining("Excluded First"),
+      expect.stringContaining("Excluded Second"),
+    ]);
+    expect(cards[0]).not.toHaveAttribute("data-filter-excluded");
+    expect(cards[2]).toHaveAttribute("data-filter-excluded", "true");
+    expect(cards[2]).toHaveTextContent("Outside current filters");
+
+    const detailButtons = screen.getAllByRole("button", { name: /details/i });
+    const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
+    expect(detailButtons[2]).toBeEnabled();
+    expect(deleteButtons[2]).toBeEnabled();
+    fireEvent.click(detailButtons[2]);
+    fireEvent.click(deleteButtons[2]);
+    expect(onViewMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "a1" }));
+    expect(onDeleteMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "a1" }));
+  });
+
+  it("preserves unresolved order and puts syncing movies last only after resolution", () => {
+    const movies = [
+      { id: "sync", source: "added", title: "Syncing Movie", local_status: "syncing" },
+      { id: "eligible", source: "added", title: "Eligible Movie" },
+      { id: "excluded", source: "added", title: "Excluded Movie" },
+    ];
+    const { container, rerender } = render(
+      <MyMoviesStrip
+        movies={movies}
+        onViewMovie={vi.fn()}
+        onDeleteMovie={vi.fn()}
+        eligibilityStatus={MY_MOVIE_ELIGIBILITY_STATUS.checking}
+      />
+    );
+
+    expect([...container.querySelectorAll("article")].map((card) => card.textContent)).toEqual([
+      expect.stringContaining("Syncing Movie"),
+      expect.stringContaining("Eligible Movie"),
+      expect.stringContaining("Excluded Movie"),
+    ]);
+
+    rerender(
+      <MyMoviesStrip
+        movies={movies}
+        onViewMovie={vi.fn()}
+        onDeleteMovie={vi.fn()}
+        eligibilityStatus={MY_MOVIE_ELIGIBILITY_STATUS.ready}
+        eligibleMovieIds={["eligible"]}
+      />
+    );
+
+    const cards = [...container.querySelectorAll("article")];
+    expect(cards.map((card) => card.textContent)).toEqual([
+      expect.stringContaining("Eligible Movie"),
+      expect.stringContaining("Excluded Movie"),
+      expect.stringContaining("Syncing Movie"),
+    ]);
+    expect(cards[2]).not.toHaveAttribute("data-filter-excluded");
+  });
+
+  it("offers the manual filter-match gate and reports checking state", () => {
+    const onRunEligibilityLookups = vi.fn();
+    const props = {
+      movies: [{ id: "a1", source: "added", title: "Movie One" }],
+      onViewMovie: vi.fn(),
+      onDeleteMovie: vi.fn(),
+      onRunEligibilityLookups,
+    };
+    const { rerender } = render(
+      <MyMoviesStrip
+        {...props}
+        eligibilityStatus={MY_MOVIE_ELIGIBILITY_STATUS.manual}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /check filter matches/i }));
+    expect(onRunEligibilityLookups).toHaveBeenCalledTimes(1);
+
+    rerender(
+      <MyMoviesStrip
+        {...props}
+        eligibilityStatus={MY_MOVIE_ELIGIBILITY_STATUS.checking}
+      />
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Previewing filter matches");
   });
 
   it("renders WatchedMovieCard and forwards click", () => {

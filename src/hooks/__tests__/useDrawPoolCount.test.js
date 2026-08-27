@@ -1,6 +1,9 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import useDrawPoolCount, { DRAW_POOL_STATUS } from "../useDrawPoolCount";
+import useDrawPoolCount, {
+  AUTO_LOOKUP_TITLE_LIMIT,
+  DRAW_POOL_STATUS,
+} from "../useDrawPoolCount";
 import { clearDrawSelectionCache } from "../../utils/drawSelection";
 import { MPAA_RATING_OPTIONS } from "../../utils/movieRatings";
 
@@ -42,6 +45,7 @@ describe("useDrawPoolCount", () => {
     );
 
     await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.unfiltered));
+    expect(result.current.eligibleMovieIds).toEqual(["m1", "m2"]);
     expect(fetchMovieDetails).not.toHaveBeenCalled();
   });
 
@@ -60,6 +64,7 @@ describe("useDrawPoolCount", () => {
     await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.ready));
     expect(result.current.poolCount).toBe(1);
     expect(result.current.totalCount).toBe(2);
+    expect(result.current.eligibleMovieIds).toEqual(["m1"]);
     expect(fetchMovieDetails).not.toHaveBeenCalled();
   });
 
@@ -105,21 +110,25 @@ describe("useDrawPoolCount", () => {
     });
   });
 
-  it("waits for a tap before running lookups on a large bowl", async () => {
+  it("waits for a tap above the default 100-title lookup limit", async () => {
     const fetchMovieDetails = vi.fn(async () => ({
       release_dates: { results: [{ iso_3166_1: "US", release_dates: [{ certification: "R" }] }] },
     }));
-    const movies = Array.from({ length: 5 }, (unused, index) => movie(`m${index + 1}`));
+    const movies = Array.from(
+      { length: AUTO_LOOKUP_TITLE_LIMIT + 1 },
+      (unused, index) => movie(`m${index + 1}`)
+    );
 
     const { result } = renderHook(() =>
       useDrawPoolCount(movies, {
         ratingFilter: { allowedRatings: ["R"], includeUnknown: false },
         genreFilter: ALL_GENRES,
         runtimeFilter: ALL_RUNTIMES,
-      }, { fetchMovieDetails, autoLookupLimit: 2 })
+      }, { fetchMovieDetails })
     );
 
     await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.manual));
+    expect(result.current.eligibleMovieIds).toBeNull();
     expect(fetchMovieDetails).not.toHaveBeenCalled();
 
     act(() => {
@@ -205,6 +214,42 @@ describe("useDrawPoolCount", () => {
     });
     expect(fetchProviders).toHaveBeenCalledTimes(1);
     expect(fetchProviders).toHaveBeenCalledWith(2);
+  });
+
+  it("uses combined metadata for the whole-bowl count when both lookups are needed", async () => {
+    const fetchFilterMetadata = vi.fn(async (tmdbId) => ({
+      details: {
+        release_dates: {
+          results: [{ iso_3166_1: "US", release_dates: [{ certification: "R" }] }],
+        },
+      },
+      providers: tmdbId === 1 ? ["Netflix"] : ["Max"],
+      region: "US",
+      fetchedAt: null,
+    }));
+    const fetchMovieDetails = vi.fn();
+    const fetchProviders = vi.fn();
+
+    const { result } = renderHook(() =>
+      useDrawPoolCount(
+        [movie("m1"), movie("m2")],
+        {
+          prioritizeByServices: true,
+          prioritizeByServiceRank: true,
+          userStreamingServices: ["Netflix", "Max"],
+          ratingFilter: { allowedRatings: ["R"], includeUnknown: false },
+          genreFilter: ALL_GENRES,
+          runtimeFilter: ALL_RUNTIMES,
+        },
+        { fetchMovieDetails, fetchProviders, fetchFilterMetadata }
+      )
+    );
+
+    await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.ready));
+    expect(result.current.poolCount).toBe(1);
+    expect(fetchFilterMetadata).toHaveBeenCalledTimes(2);
+    expect(fetchMovieDetails).not.toHaveBeenCalled();
+    expect(fetchProviders).not.toHaveBeenCalled();
   });
 
   it("excludes a manual title and its contributor when another title matches priority", async () => {

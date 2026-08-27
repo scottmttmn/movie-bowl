@@ -13,6 +13,7 @@ import useBowlStreamingMatches, {
   STREAMING_MATCH_STATUS,
 } from "../hooks/useBowlStreamingMatches";
 import useDrawPoolCount, { DRAW_POOL_STATUS } from "../hooks/useDrawPoolCount";
+import useMyMovieEligibility from "../hooks/useMyMovieEligibility";
 import AddMovieModal from "../components/AddMovieModal";
 import DrawAnimationModal from "../components/DrawAnimationModal";
 import { useNavigate, useParams } from "react-router-dom";
@@ -94,14 +95,17 @@ export default function BowlDashboard() {
       loading: isLoadingUserPreferences,
     } = useUserStreamingServices();
 
+    const isDrawFilteredByServices = prioritizeStreaming && userStreamingServices.length > 0;
     const {
       status: streamingMatchStatus,
       matchCount: streamingMatchCount,
       topService: streamingMatchTopService,
       topServiceCount: streamingMatchTopServiceCount,
       scan: scanStreamingMatches,
-    } = useBowlStreamingMatches(bowl.remaining, userStreamingServices);
-    const isDrawFilteredByServices = prioritizeStreaming && userStreamingServices.length > 0;
+    } = useBowlStreamingMatches(bowl.remaining, userStreamingServices, {
+      autoScan: false,
+      enabled: !isDrawFilteredByServices,
+    });
 
     const navigate = useNavigate();
 
@@ -234,8 +238,18 @@ export default function BowlDashboard() {
       totalCount: drawPoolTotalCount,
       contributorReach: drawPoolContributorReach,
       streamingMatch: drawPoolStreamingMatch,
+      eligibleMovieIds: drawPoolEligibleMovieIds,
       runLookups: runDrawPoolLookups,
     } = useDrawPoolCount(bowl.remaining, drawFilters);
+    const {
+      status: myMovieEligibilityStatus,
+      eligibleMovieIds: eligibleMyMovieIds,
+      runLookups: runMyMovieEligibilityLookups,
+    } = useMyMovieEligibility(bowl.remaining, myMovies, drawFilters, {
+      enabled: showMyMovies && didApplyDefaultDrawSettings,
+      sharedEligibleMovieIds: drawPoolEligibleMovieIds,
+      isSharedEligibilityPending: drawPoolStatus === DRAW_POOL_STATUS.counting,
+    });
     const hasResolvedPrioritizedPool =
       isDrawFilteredByServices &&
       drawPoolTotalCount > 0 &&
@@ -678,12 +692,12 @@ return (
                           onClick={runDrawPoolLookups}
                           className="mt-0.5 text-sm font-medium text-rose-300 hover:text-rose-200"
                         >
-                          Count eligible titles
+                          Preview filter matches
                         </button>
                       ) : (
                         <p className="mt-0.5 text-sm text-slate-400">
                           {drawPoolStatus === DRAW_POOL_STATUS.counting
-                            ? "Counting eligible titles…"
+                            ? "Previewing filter matches…"
                             : drawPoolStatus === DRAW_POOL_STATUS.ready
                               ? `${drawPoolCount} of ${drawPoolTotalCount} titles eligible`
                               : `All ${drawPoolTotalCount} titles eligible`}
@@ -1019,6 +1033,9 @@ return (
                   ) : (
                     <MyMoviesStrip
                       movies={myMovies}
+                      eligibilityStatus={myMovieEligibilityStatus}
+                      eligibleMovieIds={eligibleMyMovieIds}
+                      onRunEligibilityLookups={runMyMovieEligibilityLookups}
                       onViewMovie={async (movie) => {
                         setSelectedDetailContext("myAdds");
                         setSelectedDetailMovie(await buildDetailMovie(movie));

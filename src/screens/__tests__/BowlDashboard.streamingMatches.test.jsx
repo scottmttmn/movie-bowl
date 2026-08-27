@@ -139,15 +139,20 @@ describe("BowlDashboard streaming match count", () => {
     expect(fetchStreamingProviders).not.toHaveBeenCalled();
   });
 
-  it("shows how many remaining titles are on the user's services", async () => {
+  it("keeps the sub-100 streaming summary lazy until the user asks for it", async () => {
     mocks.state.streamingServices = ["Netflix", "Max"];
     mocks.state.providersByTmdbId = { 101: ["Netflix"], 102: ["Paramount+"] };
 
     render(<BowlDashboard />);
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
+    expect(screen.getByRole("button", { name: /check your services/i })).toBeInTheDocument();
+    expect(fetchStreamingProviders).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /check your services/i }));
     await waitFor(() => expect(screen.getByText(/on your services/i)).toBeInTheDocument());
     expect(screen.getByText("1")).toBeInTheDocument();
+    expect(fetchStreamingProviders).toHaveBeenCalledTimes(2);
   });
 
   it("says the draw is favoring the top-ranked service once prioritizing is on", async () => {
@@ -156,12 +161,13 @@ describe("BowlDashboard streaming match count", () => {
 
     render(<BowlDashboard />);
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
-    await waitFor(() => expect(screen.getByText(/on your services/i)).toBeInTheDocument());
+    expect(fetchStreamingProviders).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
     fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
 
     await waitFor(() => expect(screen.getByText(/favoring/i)).toBeInTheDocument());
+    expect(fetchStreamingProviders).toHaveBeenCalledTimes(2);
     expect(screen.getByText("Netflix", { exact: false })).toBeInTheDocument();
     expect(screen.queryByText(/^on your services$/i)).not.toBeInTheDocument();
     expect(screen.getByText(/favoring/i).closest("[data-tone]")).toHaveAttribute(
@@ -265,6 +271,9 @@ describe("BowlDashboard streaming match count", () => {
 
     render(<BowlDashboard />);
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    expect(fetchStreamingProviders).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /check your services/i }));
     await waitFor(() => expect(screen.getByText(/on your services/i)).toBeInTheDocument());
 
     expect(

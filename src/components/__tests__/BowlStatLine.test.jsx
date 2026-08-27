@@ -96,11 +96,19 @@ describe("BowlStatLine", () => {
     expect(screen.getByRole("button", { name: /^how this bowl picks$/i })).toBeInTheDocument();
   });
 
-  it("offers a tap to count when the pool needs lookups", () => {
+  it("offers a filter preview when the pool needs lookups", () => {
     const { onRunPoolLookups } = renderLine({ poolStatus: DRAW_POOL_STATUS.manual });
 
-    fireEvent.click(screen.getByRole("button", { name: /count eligible titles/i }));
+    fireEvent.click(screen.getByRole("button", { name: /preview filter matches/i }));
     expect(onRunPoolLookups).toHaveBeenCalledTimes(1);
+  });
+
+  it("keeps the bowl count visible while the filter preview updates", () => {
+    renderLine({ poolStatus: DRAW_POOL_STATUS.counting });
+
+    expect(screen.getByText("5")).toBeInTheDocument();
+    expect(screen.getByText(/in bowl · Previewing filters/i)).toBeInTheDocument();
+    expect(screen.queryByText(/counting eligible titles/i)).not.toBeInTheDocument();
   });
 
   it("omits the streaming segment when the user has no services", () => {

@@ -55,6 +55,39 @@ describe("useBowlStreamingMatches", () => {
     expect(result.current.matchCount).toBe(2);
   });
 
+  it("waits for a tap on a small bowl when automatic scanning is disabled", async () => {
+    const fetchProviders = createFetchProviders({ 101: ["Netflix"] });
+    const { result } = renderHook(() =>
+      useBowlStreamingMatches(
+        [{ id: "m1", tmdb_id: 101 }],
+        ["Netflix"],
+        { fetchProviders, autoScan: false }
+      )
+    );
+
+    expect(result.current.status).toBe(STREAMING_MATCH_STATUS.manual);
+    expect(fetchProviders).not.toHaveBeenCalled();
+
+    act(() => result.current.scan());
+
+    await waitFor(() => expect(result.current.status).toBe(STREAMING_MATCH_STATUS.ready));
+    expect(fetchProviders).toHaveBeenCalledTimes(1);
+  });
+
+  it("does not scan while another resolver owns the streaming result", () => {
+    const fetchProviders = createFetchProviders({ 101: ["Netflix"] });
+    const { result } = renderHook(() =>
+      useBowlStreamingMatches(
+        [{ id: "m1", tmdb_id: 101 }],
+        ["Netflix"],
+        { fetchProviders, enabled: false }
+      )
+    );
+
+    expect(result.current.status).toBe(STREAMING_MATCH_STATUS.unavailable);
+    expect(fetchProviders).not.toHaveBeenCalled();
+  });
+
   it("reports the highest-ranked matching service as the ranked draw pool", async () => {
     const fetchProviders = createFetchProviders({
       101: ["Netflix"],

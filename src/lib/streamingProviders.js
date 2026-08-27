@@ -14,6 +14,23 @@ export function clearStreamingProvidersCache() {
   inflightRequests.clear();
 }
 
+export function primeStreamingProvidersCache(tmdbId, providerData, options = {}) {
+  const region = options.region || providerData?.region || "US";
+  const numericId = Number(tmdbId);
+  if (!Number.isInteger(numericId) || numericId <= 0) return null;
+
+  const value = {
+    region,
+    providers: normalizeStreamingServices(providerData?.providers || []),
+    fetchedAt: providerData?.fetchedAt || new Date().toISOString(),
+  };
+  providersCache.set(getCacheKey(numericId, region), {
+    value,
+    expiresAt: Date.now() + PROVIDER_CACHE_TTL_MS,
+  });
+  return value;
+}
+
 export async function fetchStreamingProviders(tmdbId, options = {}) {
   const region = options.region || "US";
   const bypassCache = Boolean(options.bypassCache);

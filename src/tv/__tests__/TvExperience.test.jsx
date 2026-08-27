@@ -45,6 +45,7 @@ const mocks = vi.hoisted(() => ({
   handleDraw: vi.fn(),
   handleReaddMovie: vi.fn(),
   getTmdbMovieDetails: vi.fn(),
+  fetchStreamingProviders: vi.fn(),
   streamingServices: ["Netflix", "Max"],
   prioritizeStreaming: true,
   providersByTmdbId: { 101: ["Netflix"] },
@@ -81,11 +82,7 @@ vi.mock("../../hooks/useBowl", () => ({
 }));
 
 vi.mock("../../lib/streamingProviders", () => ({
-  fetchStreamingProviders: async (tmdbId) => ({
-    providers: mocks.providersByTmdbId[tmdbId] || [],
-    region: "US",
-    fetchedAt: null,
-  }),
+  fetchStreamingProviders: (...args) => mocks.fetchStreamingProviders(...args),
 }));
 
 vi.mock("../../hooks/useUserStreamingServices", () => ({
@@ -173,6 +170,12 @@ describe("Movie Bowl TV experience", () => {
     mocks.handleDraw.mockReset();
     mocks.handleReaddMovie.mockReset();
     mocks.getTmdbMovieDetails.mockReset();
+    mocks.fetchStreamingProviders.mockReset();
+    mocks.fetchStreamingProviders.mockImplementation(async (tmdbId) => ({
+      providers: mocks.providersByTmdbId[tmdbId] || [],
+      region: "US",
+      fetchedAt: null,
+    }));
     mocks.bowlError = null;
     mocks.bowlLoading = false;
     mocks.bowlData = {
@@ -306,13 +309,15 @@ describe("Movie Bowl TV experience", () => {
     expect(screen.getByText(/favoring 1 on netflix/i)).toBeInTheDocument();
   });
 
-  it("counts matches without claiming the draw is filtered when prioritizing is off", async () => {
+  it("does not calculate unused service matches when prioritizing is off", async () => {
     mocks.prioritizeStreaming = false;
 
     renderTonight();
 
-    expect(await screen.findByText(/1 on your services/i)).toBeInTheDocument();
+    expect(await screen.findByText(/drawing from every eligible movie/i)).toBeInTheDocument();
+    expect(screen.queryByText(/on your services/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/favoring/i)).not.toBeInTheDocument();
+    expect(mocks.fetchStreamingProviders).not.toHaveBeenCalled();
   });
 
   it("warns on TV when streaming priority matches nothing", async () => {
