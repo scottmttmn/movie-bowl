@@ -104,11 +104,18 @@ describe("BowlStatLine", () => {
   });
 
   it("keeps the bowl count visible while the filter preview updates", () => {
-    renderLine({ poolStatus: DRAW_POOL_STATUS.counting });
+    const { onOpenFilters } = renderLine({ poolStatus: DRAW_POOL_STATUS.counting });
 
-    expect(screen.getByText("5")).toBeInTheDocument();
-    expect(screen.getByText(/in bowl · Previewing filters/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /5 movies in the bowl/i })).toHaveTextContent(
+      "5 in the bowl"
+    );
+    const detailsButton = screen.getByRole("button", { name: /view filter lookup progress/i });
+    expect(detailsButton).toHaveTextContent("Filter details");
     expect(screen.queryByText(/counting eligible titles/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/previewing filters/i)).not.toBeInTheDocument();
+
+    fireEvent.click(detailsButton);
+    expect(onOpenFilters).toHaveBeenCalledTimes(1);
   });
 
   it("omits the streaming segment when the user has no services", () => {

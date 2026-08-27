@@ -153,7 +153,10 @@ function getDrawPoolPreferenceLine({ status, poolCount, totalCount, contributorR
     };
   }
   if (status === DRAW_POOL_STATUS.counting) {
-    return { tone: STREAMING_MATCH_TONE.idle, text: "Previewing filters…" };
+    return {
+      tone: STREAMING_MATCH_TONE.idle,
+      text: `${totalCount} ${totalCount === 1 ? "title" : "titles"} in bowl`,
+    };
   }
 
   const resolvedCount = status === DRAW_POOL_STATUS.unfiltered ? totalCount : poolCount;

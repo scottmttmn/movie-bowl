@@ -72,8 +72,13 @@ function PoolSegment({
 
   if (status === DRAW_POOL_STATUS.counting) {
     return (
-      <Segment tone="idle">
-        <Count>{totalCount}</Count> in bowl · Previewing filters…
+      <Segment
+        as="button"
+        tone="idle"
+        onClick={onOpenFilters}
+        ariaLabel={`${totalCount} movies in the bowl. Filter preview is running in the background.`}
+      >
+        <Count>{totalCount}</Count> in the bowl
       </Segment>
     );
   }
@@ -193,6 +198,20 @@ export default function BowlStatLine({
       onOpenFilters={onOpenFilters}
     />,
   ];
+
+  if (poolStatus === DRAW_POOL_STATUS.counting) {
+    segments.push(
+      <Segment
+        key="filter-details"
+        as="button"
+        tone="idle"
+        onClick={onOpenFilters}
+        ariaLabel="View filter lookup progress"
+      >
+        Filter details
+      </Segment>
+    );
+  }
 
   if (streamingStatus !== STREAMING_MATCH_STATUS.unavailable) {
     segments.push(

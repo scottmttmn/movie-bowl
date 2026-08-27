@@ -2,7 +2,11 @@ import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { fetchMovieFilterMetadata } from "../lib/movieFilterMetadata";
-import { getDrawCandidates, isRatingFilterExhaustive } from "../utils/drawSelection";
+import {
+  getDrawCandidates,
+  getLocallyFilteredCandidates,
+  isRatingFilterExhaustive,
+} from "../utils/drawSelection";
 import { getDrawablePoolMovies, summarizeContributorReach } from "../utils/drawPool";
 import { getStreamingPriorityPool } from "../utils/selectDrawCandidate";
 import { createFilterMetadataFetchers } from "../utils/filterMetadataFetchers";
@@ -58,6 +62,7 @@ export default function useDrawPoolCount(
 ) {
   const [result, setResult] = useState(null);
   const [isCounting, setIsCounting] = useState(false);
+  const [lookupProgress, setLookupProgress] = useState(null);
   const [didRequestLookup, setDidRequestLookup] = useState(false);
   const runTokenRef = useRef(0);
 
@@ -95,7 +100,11 @@ export default function useDrawPoolCount(
   // and skipping it is the difference between a free count and a TMDB lookup
   // for every title in the bowl.
   const ratingFilterForCount = isRatingFilterExhaustive(ratingFilter) ? null : ratingFilter;
-  const lookupEligibleTitleCount = countLookupEligibleTitles(poolMovies);
+  const locallyFilteredPoolMovies = useMemo(
+    () => getLocallyFilteredCandidates(poolMovies, { genreFilter, runtimeFilter }),
+    [poolMovies, genreFilter, runtimeFilter]
+  );
+  const lookupEligibleTitleCount = countLookupEligibleTitles(locallyFilteredPoolMovies);
   const needsLookups =
     lookupEligibleTitleCount > 0 &&
     (Boolean(ratingFilterForCount) || canPrioritizeStreaming);
@@ -115,11 +124,46 @@ export default function useDrawPoolCount(
 
     if (!shouldCount) {
       setIsCounting(false);
+      setLookupProgress(null);
       setResult(null);
       return undefined;
     }
 
     setIsCounting(true);
+    setLookupProgress({ countKey, completed: 0, total: lookupEligibleTitleCount });
+    const completedTmdbIds = new Set();
+    const reportLookupComplete = (tmdbId) => {
+      if (runTokenRef.current !== runToken) return;
+      const numericId = Number(tmdbId);
+      if (!Number.isInteger(numericId) || numericId <= 0 || completedTmdbIds.has(numericId)) {
+        return;
+      }
+      completedTmdbIds.add(numericId);
+      setLookupProgress({
+        countKey,
+        completed: completedTmdbIds.size,
+        total: lookupEligibleTitleCount,
+      });
+    };
+    const trackedFetchMovieDetails = async (...args) => {
+      try {
+        return await fetchMovieDetailsRef.current(...args);
+      } finally {
+        reportLookupComplete(args[0]);
+      }
+    };
+    const trackedFetchProviders = async (...args) => {
+      try {
+        return await fetchProvidersRef.current(...args);
+      } finally {
+        reportLookupComplete(args[0]);
+      }
+    };
+    const trackedFetchFilterMetadata = async (...args) => {
+      const metadata = await fetchFilterMetadataRef.current(...args);
+      reportLookupComplete(args[0]);
+      return metadata;
+    };
     const countPool = async () => {
       const { movieDetailsFetcher, providersFetcher } = createFilterMetadataFetchers({
         shouldCombineMetadata: Boolean(
@@ -127,9 +171,9 @@ export default function useDrawPoolCount(
             canPrioritizeStreaming &&
             typeof fetchFilterMetadataRef.current === "function"
         ),
-        fetchMovieDetails: fetchMovieDetailsRef.current,
-        fetchProviders: fetchProvidersRef.current,
-        fetchFilterMetadata: fetchFilterMetadataRef.current,
+        fetchMovieDetails: trackedFetchMovieDetails,
+        fetchProviders: trackedFetchProviders,
+        fetchFilterMetadata: trackedFetchFilterMetadata,
       });
       const { candidates: filteredCandidates } = await getDrawCandidates({
         remainingMovies: poolMovies,
@@ -172,6 +216,11 @@ export default function useDrawPoolCount(
         reach: summarizeContributorReach(poolMovies, candidates),
         streamingMatch,
       });
+      setLookupProgress({
+        countKey,
+        completed: lookupEligibleTitleCount,
+        total: lookupEligibleTitleCount,
+      });
       setIsCounting(false);
     });
 
@@ -195,6 +244,9 @@ export default function useDrawPoolCount(
   const streamingMatch = currentResult
     ? currentResult.streamingMatch
     : EMPTY_STREAMING_MATCH;
+  const currentLookupProgress = lookupProgress?.countKey === countKey
+    ? lookupProgress
+    : { completed: 0, total: lookupEligibleTitleCount };
 
   const status = (() => {
     if (totalCount === 0) return DRAW_POOL_STATUS.unfiltered;
@@ -210,6 +262,7 @@ export default function useDrawPoolCount(
     poolCount,
     totalCount,
     eligibleMovieIds,
+    lookupProgress: currentLookupProgress,
     contributorReach: status === DRAW_POOL_STATUS.ready ? reach : EMPTY_REACH,
     streamingMatch,
     runLookups,

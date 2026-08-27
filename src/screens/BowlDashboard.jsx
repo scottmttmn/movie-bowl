@@ -239,8 +239,14 @@ export default function BowlDashboard() {
       contributorReach: drawPoolContributorReach,
       streamingMatch: drawPoolStreamingMatch,
       eligibleMovieIds: drawPoolEligibleMovieIds,
+      lookupProgress: drawPoolLookupProgress,
       runLookups: runDrawPoolLookups,
     } = useDrawPoolCount(bowl.remaining, drawFilters);
+    const drawPoolLookupCompleted = drawPoolLookupProgress?.completed || 0;
+    const drawPoolLookupTotal = drawPoolLookupProgress?.total || 0;
+    const drawPoolLookupPercent = drawPoolLookupTotal > 0
+      ? Math.min(100, Math.round((drawPoolLookupCompleted / drawPoolLookupTotal) * 100))
+      : 0;
     const {
       status: myMovieEligibilityStatus,
       eligibleMovieIds: eligibleMyMovieIds,
@@ -695,13 +701,48 @@ return (
                           Preview filter matches
                         </button>
                       ) : (
-                        <p className="mt-0.5 text-sm text-slate-400">
-                          {drawPoolStatus === DRAW_POOL_STATUS.counting
-                            ? "Previewing filter matches…"
-                            : drawPoolStatus === DRAW_POOL_STATUS.ready
-                              ? `${drawPoolCount} of ${drawPoolTotalCount} titles eligible`
-                              : `All ${drawPoolTotalCount} titles eligible`}
-                        </p>
+                        <>
+                          <p className="mt-0.5 text-sm text-slate-400">
+                            {drawPoolStatus === DRAW_POOL_STATUS.counting
+                              ? "Checking filter matches…"
+                              : drawPoolStatus === DRAW_POOL_STATUS.ready
+                                ? `${drawPoolCount} of ${drawPoolTotalCount} titles eligible`
+                                : `All ${drawPoolTotalCount} titles eligible`}
+                          </p>
+                          {drawPoolStatus === DRAW_POOL_STATUS.counting && (
+                            <div className="mt-2 w-full max-w-64">
+                              <div
+                                className="h-1.5 overflow-hidden rounded-full bg-slate-800"
+                                role="progressbar"
+                                aria-label="Filter lookup progress"
+                                aria-valuemin={drawPoolLookupTotal > 0 ? 0 : undefined}
+                                aria-valuemax={drawPoolLookupTotal > 0 ? drawPoolLookupTotal : undefined}
+                                aria-valuenow={drawPoolLookupTotal > 0 ? drawPoolLookupCompleted : undefined}
+                                aria-valuetext={
+                                  drawPoolLookupTotal > 0
+                                    ? `${drawPoolLookupCompleted} of ${drawPoolLookupTotal} titles checked`
+                                    : "Applying local filters"
+                                }
+                              >
+                                <span
+                                  className={`block h-full rounded-full bg-rose-500 transition-[width] duration-200 ${
+                                    drawPoolLookupTotal === 0 ? "w-1/3 animate-pulse" : ""
+                                  }`}
+                                  style={
+                                    drawPoolLookupTotal > 0
+                                      ? { width: `${drawPoolLookupPercent}%` }
+                                      : undefined
+                                  }
+                                />
+                              </div>
+                              <p className="mt-1 text-xs text-slate-500">
+                                {drawPoolLookupTotal > 0
+                                  ? `${drawPoolLookupCompleted} of ${drawPoolLookupTotal} titles checked`
+                                  : "Applying local filters…"}
+                              </p>
+                            </div>
+                          )}
+                        </>
                       )}
                     </div>
                     <button

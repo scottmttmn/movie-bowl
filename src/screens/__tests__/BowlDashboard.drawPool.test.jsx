@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => {
     bowlData: { remaining: [], watched: [] },
     drawOdds: [],
     locationHash: "",
+    selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
   };
 
   const supabase = {
@@ -62,7 +63,7 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
     defaultDrawSettings: {
       prioritizeStreaming: false,
       useStreamingRank: true,
-      selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
+      selectedRatings: mocks.state.selectedRatings,
       includeUnknownRatings: true,
       selectedGenres: null,
       includeUnknownGenres: true,
@@ -99,6 +100,7 @@ vi.mock("react-router-dom", async () => {
 });
 
 import BowlDashboard from "../BowlDashboard";
+import { clearDrawSelectionCache } from "../../utils/drawSelection";
 
 // Alex added the two action titles, Sam added the only comedy, so filtering
 // down to Comedy is what shuts Alex out of a person-first draw.
@@ -146,7 +148,10 @@ describe("BowlDashboard draw pool count", () => {
     mocks.state.navigate.mockReset();
     mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", draw_method: "person_first" };
     mocks.state.bowlData = { remaining: TWO_CONTRIBUTORS, watched: [] };
-    getTmdbMovieDetails.mockClear();
+    mocks.state.selectedRatings = ["G", "PG", "PG-13", "R", "NC-17"];
+    clearDrawSelectionCache();
+    getTmdbMovieDetails.mockReset();
+    getTmdbMovieDetails.mockResolvedValue({ release_dates: { results: [] } });
   });
 
   afterEach(() => {
@@ -160,6 +165,48 @@ describe("BowlDashboard draw pool count", () => {
     expect(screen.queryByText(/eligible/i)).not.toBeInTheDocument();
     // The default rating filter allows everything, so it must cost no lookups.
     expect(getTmdbMovieDetails).not.toHaveBeenCalled();
+  });
+
+  it("reveals background lookup progress only when filter details are opened", async () => {
+    mocks.state.selectedRatings = ["R"];
+    const resolvers = new Map();
+    getTmdbMovieDetails.mockImplementation(
+      (tmdbId) => new Promise((resolve) => resolvers.set(tmdbId, resolve))
+    );
+
+    await renderDashboard();
+    await waitFor(() => expect(getTmdbMovieDetails).toHaveBeenCalledTimes(3));
+
+    expect(screen.getByRole("button", { name: /3 movies in the bowl/i })).toHaveTextContent(
+      "3 in the bowl"
+    );
+    expect(screen.queryByRole("progressbar", { name: /filter lookup progress/i })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /view filter lookup progress/i }));
+
+    const progress = screen.getByRole("progressbar", { name: /filter lookup progress/i });
+    expect(progress).toHaveAttribute("aria-valuenow", "0");
+    expect(progress).toHaveAttribute("aria-valuemax", "3");
+
+    await act(async () => {
+      resolvers.get(101)({
+        release_dates: {
+          results: [{ iso_3166_1: "US", release_dates: [{ certification: "R" }] }],
+        },
+      });
+    });
+    await waitFor(() => expect(progress).toHaveAttribute("aria-valuenow", "1"));
+
+    await act(async () => {
+      [102, 103].forEach((tmdbId) => {
+        resolvers.get(tmdbId)({
+          release_dates: {
+            results: [{ iso_3166_1: "US", release_dates: [{ certification: "R" }] }],
+          },
+        });
+      });
+    });
+    await waitFor(() => expect(screen.getByText("All 3 titles eligible")).toBeInTheDocument());
   });
 
   it("reports the narrowed pool against the total", async () => {
