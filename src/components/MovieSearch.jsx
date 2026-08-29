@@ -16,6 +16,7 @@ export default function MovieSearch({
     // Controlled input state for the search field
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
+    const [isSearching, setIsSearching] = useState(false);
     const [searchError, setSearchError] = useState(null);
     const [voiceError, setVoiceError] = useState(null);
     const [isVoiceSupported, setIsVoiceSupported] = useState(false);
@@ -27,7 +28,9 @@ export default function MovieSearch({
     const [detailActionError, setDetailActionError] = useState("");
     const [isAdding, setIsAdding] = useState(false);
     const [commentDraft, setCommentDraft] = useState("");
+    const [isCommentOpen, setIsCommentOpen] = useState(false);
     const inputRef = useRef(null);
+    const commentInputRef = useRef(null);
     const latestRequestRef = useRef(0);
     const recognitionRef = useRef(null);
     const isMountedRef = useRef(true);
@@ -67,6 +70,7 @@ export default function MovieSearch({
         const requestId = latestRequestRef.current + 1;
         latestRequestRef.current = requestId;
         setSearchError(null);
+        setIsSearching(true);
 
         try {
             const data = await searchTmdbMovies(trimmedQuery);
@@ -75,6 +79,8 @@ export default function MovieSearch({
             const results = data.results || [];
             setSearchResults(results);
             setHighlightedIndex(0);
+            // Titles are on screen now; providers keep filling in behind them.
+            setIsSearching(false);
 
             const topResults = results.slice(0, 8);
             const providerEntries = await Promise.all(
@@ -102,6 +108,11 @@ export default function MovieSearch({
                 "Movie service is unavailable right now. Please try again."
               )
             );
+        } finally {
+            // A newer search owns the indicator, so only the latest one clears it.
+            if (requestId === latestRequestRef.current) {
+                setIsSearching(false);
+            }
         }
     };
 
@@ -144,8 +155,10 @@ export default function MovieSearch({
         setDetailMovie(null);
         setSearchTerm("");
         setSearchResults([]);
+        setIsSearching(false);
         setHighlightedIndex(0);
         setCommentDraft("");
+        setIsCommentOpen(false);
         inputRef.current?.focus();
     };
 
@@ -243,6 +256,8 @@ export default function MovieSearch({
             return;
         }
 
+        // Flag progress before the debounce so typing never looks like a dead end.
+        setIsSearching(true);
         const timeoutId = setTimeout(() => {
             handleSearch(searchTerm);
         }, 400);
@@ -253,6 +268,12 @@ export default function MovieSearch({
     useEffect(() => {
         inputRef.current?.focus();
     }, []);
+
+    useEffect(() => {
+        if (isCommentOpen) {
+            commentInputRef.current?.focus();
+        }
+    }, [isCommentOpen]);
 
     useEffect(() => {
         isMountedRef.current = true;
@@ -380,6 +401,7 @@ export default function MovieSearch({
                             if (!value.trim()) {
                                 latestRequestRef.current += 1;
                                 setSearchResults([]);
+                                setIsSearching(false);
                                 setSearchError(null);
                                 setHighlightedIndex(0);
                             }
@@ -411,16 +433,27 @@ export default function MovieSearch({
                         </button>
                     )}
                 </div>
-                {isVoiceSupported && !isListening && !voiceStatusMessage && !voiceError && (
-                    <p className="mt-2 text-sm text-slate-400">Speak a movie title or type to search.</p>
-                )}
-                {isListening && (
+                {isListening ? (
                     <div className="mt-2 flex items-center gap-2 text-sm text-rose-300">
                         <span className="h-2.5 w-2.5 rounded-full bg-rose-400 animate-ping" aria-hidden="true" />
                         <span>{voiceStatusMessage || "Listening… tap the mic again to stop."}</span>
                     </div>
-                )}
-                {!isListening && voiceStatusMessage && !voiceError && (
+                ) : isSearching ? (
+                    <p className="mt-2 flex items-center gap-2 text-sm text-slate-300" role="status">
+                        <span
+                            className="h-3.5 w-3.5 flex-shrink-0 animate-spin rounded-full border-2 border-slate-600 border-t-rose-400"
+                            aria-hidden="true"
+                        />
+                        <span>Searching movies…</span>
+                    </p>
+                ) : searchResults.length > 0 ? (
+                    <p className="mt-2 text-sm text-slate-300" role="status">
+                        {searchResults.length} {searchResults.length === 1 ? "result" : "results"} below — tap Add to pick one.
+                    </p>
+                ) : isVoiceSupported && !voiceStatusMessage && !voiceError ? (
+                    <p className="mt-2 text-sm text-slate-400">Speak a movie title or type to search.</p>
+                ) : null}
+                {!isListening && !isSearching && voiceStatusMessage && !voiceError && (
                     <p className="mt-2 text-sm text-slate-300">{voiceStatusMessage}</p>
                 )}
                 {voiceError && (
@@ -428,32 +461,64 @@ export default function MovieSearch({
                         {voiceError}
                     </div>
                 )}
-                {includeComment && (
-                    <label className="mt-3 block text-left text-sm font-medium text-slate-300" htmlFor="movie-comment-input">
-                        Comment (optional)
-                        <textarea
-                            id="movie-comment-input"
-                            name="movie_comment"
-                            className="input-field mt-1.5 min-h-24 resize-y"
-                            value={commentDraft}
-                            maxLength={MAX_MOVIE_NOTE_LENGTH}
-                            placeholder="Recommended by Tim at dinner…"
-                            onChange={(event) => setCommentDraft(event.target.value)}
-                        />
-                        <span className="mt-1 flex items-start justify-between gap-3 text-xs font-normal text-slate-400">
-                            <span>Add a reminder of why this movie belongs in the bowl.</span>
-                            <span className="shrink-0" aria-label={`${commentDraft.length} of ${MAX_MOVIE_NOTE_LENGTH} characters`}>
-                                {commentDraft.length}/{MAX_MOVIE_NOTE_LENGTH}
-                            </span>
-                        </span>
-                    </label>
-                )}
             </div>
+
+            {includeComment && (
+                <div className="mt-3 rounded-xl border border-slate-700/80 bg-slate-950/35 text-left">
+                    <button
+                        type="button"
+                        className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left"
+                        onClick={() => setIsCommentOpen((prev) => !prev)}
+                        aria-expanded={isCommentOpen}
+                        aria-controls="movie-comment-panel"
+                    >
+                        <span className="min-w-0">
+                            <span className="block text-sm font-medium text-slate-100">Comment (optional)</span>
+                            {!isCommentOpen && (
+                                <span className="mt-0.5 block truncate text-xs text-slate-400">
+                                    {commentDraft.trim()
+                                        ? commentDraft.trim()
+                                        : "Add a reminder of why this movie belongs in the bowl."}
+                                </span>
+                            )}
+                        </span>
+                        <span className="flex-shrink-0 text-sm font-medium text-rose-300">
+                            {isCommentOpen ? "Hide" : commentDraft.trim() ? "Edit" : "Add"}
+                        </span>
+                    </button>
+                    {isCommentOpen && (
+                        <div id="movie-comment-panel" className="px-3 pb-3">
+                            <label className="sr-only" htmlFor="movie-comment-input">
+                                Comment (optional)
+                            </label>
+                            <textarea
+                                ref={commentInputRef}
+                                id="movie-comment-input"
+                                name="movie_comment"
+                                className="input-field min-h-20 resize-y"
+                                value={commentDraft}
+                                maxLength={MAX_MOVIE_NOTE_LENGTH}
+                                placeholder="Recommended by Tim at dinner…"
+                                onChange={(event) => setCommentDraft(event.target.value)}
+                            />
+                            <span className="mt-1 flex items-start justify-between gap-3 text-xs text-slate-400">
+                                <span>Applies to the next movie you add.</span>
+                                <span
+                                    className="shrink-0"
+                                    aria-label={`${commentDraft.length} of ${MAX_MOVIE_NOTE_LENGTH} characters`}
+                                >
+                                    {commentDraft.length}/{MAX_MOVIE_NOTE_LENGTH}
+                                </span>
+                            </span>
+                        </div>
+                    )}
+                </div>
+            )}
 
             <ul
                 id="movie-search-listbox"
                 role="listbox"
-                className="mt-2 space-y-2 max-h-[60vh] overflow-y-auto pr-1"
+                className="mt-2 space-y-2 sm:max-h-[60vh] sm:overflow-y-auto sm:pr-1"
                 aria-label="Search results"
             >
                 {searchResults.map((movie, index) => {
@@ -469,7 +534,7 @@ export default function MovieSearch({
                             key={movie.id}
                             role="option"
                             aria-selected={index === highlightedIndex}
-                            className={`flex flex-col gap-3 rounded-2xl border border-slate-700/80 p-3 transition sm:flex-row sm:items-center sm:justify-between ${
+                            className={`flex items-center justify-between gap-3 rounded-2xl border border-slate-700/80 p-3 transition ${
                                 index === highlightedIndex ? "bg-slate-800/90 ring-1 ring-rose-800/40" : "bg-slate-950/35 hover:bg-slate-800/60"
                             }`}
                         >
@@ -483,25 +548,25 @@ export default function MovieSearch({
                                 <div className="min-w-0 text-left">
                                     <div className="font-semibold text-slate-100">{movie.title}</div>
                                     <div className="text-sm text-slate-400">{year}</div>
-                                    <div className="text-xs text-slate-400">
+                                    <div className="truncate text-xs text-slate-400">
                                         {Array.isArray(providers) && providers.length > 0
                                             ? `Available on: ${providers.join(", ")}`
                                             : "Available on: no US providers found"}
                                     </div>
                                     {matchingProviders.length > 0 && (
-                                      <div className="text-xs text-emerald-300">
+                                      <div className="truncate text-xs text-emerald-300">
                                         Your services: {matchingProviders.join(", ")}
                                       </div>
                                     )}
                                 </div>
                             </div>
-                            <div className="flex w-full flex-row gap-2 sm:ml-2 sm:w-auto sm:flex-col">
+                            <div className="flex flex-shrink-0 flex-col gap-2">
                                 <button
                                   type="button"
                                   onClick={async () => {
                                     await addMovie(movie);
                                   }}
-                                  className="btn btn-primary flex-1 px-3 py-1 text-xs sm:flex-none"
+                                  className="btn btn-primary min-w-20 px-3 py-2 text-xs"
                                   disabled={isAdding}
                                 >
                                   {isAdding ? "Adding..." : "Add"}
@@ -511,7 +576,7 @@ export default function MovieSearch({
                                   onClick={async () => {
                                     await openDetails(movie);
                                   }}
-                                  className="btn btn-secondary flex-1 px-3 py-1 text-xs sm:flex-none"
+                                  className="btn btn-secondary min-w-20 px-3 py-2 text-xs"
                                   disabled={isAdding}
                                 >
                                   Details
@@ -521,6 +586,23 @@ export default function MovieSearch({
                     );
                 })}
             </ul>
+            {isSearching && searchResults.length === 0 && (
+              <ul className="mt-2 space-y-2" aria-hidden="true">
+                {[0, 1, 2].map((placeholder) => (
+                  <li
+                    key={placeholder}
+                    className="flex items-center gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/35 p-3"
+                  >
+                    <div className="h-20 w-14 flex-shrink-0 animate-pulse rounded-lg bg-slate-800/80" />
+                    <div className="flex-1 space-y-2">
+                      <div className="h-4 w-2/3 animate-pulse rounded bg-slate-800/80" />
+                      <div className="h-3 w-1/4 animate-pulse rounded bg-slate-800/60" />
+                      <div className="h-3 w-1/2 animate-pulse rounded bg-slate-800/60" />
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
             {searchError && (
               <div
                 className="mt-2 rounded-lg border border-rose-900/60 bg-rose-950/50 px-3 py-2 text-sm text-rose-300"
@@ -529,10 +611,10 @@ export default function MovieSearch({
                 {searchError}
               </div>
             )}
-            {!searchError && searchTerm.trim() && searchResults.length === 0 && (
+            {!searchError && !isSearching && searchTerm.trim() && searchResults.length === 0 && (
               <div className="mt-2 text-sm text-slate-400">No matching movies found.</div>
             )}
-            {searchTerm.trim() && (
+            {searchTerm.trim() && !isSearching && (
               <div className="mt-3 rounded-xl border border-slate-700 bg-slate-900 px-3 py-3">
                 <p className="text-sm font-medium text-slate-100">
                   Can&apos;t find it?
@@ -543,7 +625,7 @@ export default function MovieSearch({
                 <button
                   type="button"
                   onClick={addCustomMovie}
-                  className="btn btn-secondary px-3 py-1.5 text-xs"
+                  className="btn btn-secondary px-3 py-2 text-sm sm:py-1.5 sm:text-xs"
                   disabled={isAdding}
                 >
                   {isAdding ? "Adding..." : `Add "${searchTerm.trim()}"`}

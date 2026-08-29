@@ -81,6 +81,13 @@ Whichever result or custom title the user adds receives the current comment.
 This keeps every existing add action one tap and gives custom titles the same
 capability as TMDB titles.
 
+The field starts collapsed behind a **Comment (optional)** row under the search
+box. Expanded by default it pushed the first search result off a phone screen,
+which made the search look broken rather than the comment look inviting. The
+collapsed row shows the current draft, so a comment waiting to be attached is
+never hidden, and the row sits outside the pinned search header so it scrolls
+away with the results.
+
 ### Before the draw
 
 The contributor can open one of their own slips under My Movies and see the

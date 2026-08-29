@@ -17,6 +17,11 @@ vi.mock("../../lib/streamingProviders", () => ({
   fetchStreamingProviders: mocks.fetchStreamingProviders,
 }));
 
+function openCommentField() {
+  fireEvent.click(screen.getByRole("button", { name: /comment \(optional\)/i }));
+  return screen.getByLabelText(/comment \(optional\)/i);
+}
+
 describe("MovieSearch detail flow", () => {
   beforeEach(() => {
     mocks.searchTmdbMovies.mockReset();
@@ -53,7 +58,7 @@ describe("MovieSearch detail flow", () => {
     render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={["Netflix"]} />);
 
     fireEvent.change(screen.getByPlaceholderText("Search movies..."), { target: { value: "Movie A" } });
-    fireEvent.change(screen.getByLabelText(/comment \(optional\)/i), {
+    fireEvent.change(openCommentField(), {
       target: { value: "  Recommended after dinner.\nBring tissues.  " },
     });
 
@@ -87,7 +92,7 @@ describe("MovieSearch detail flow", () => {
         })
       );
     });
-    expect(screen.getByLabelText(/comment \(optional\)/i)).toHaveValue("");
+    expect(openCommentField()).toHaveValue("");
   });
 
   it("passes a normalized blank comment through quick add and enforces the limit", async () => {
@@ -103,7 +108,7 @@ describe("MovieSearch detail flow", () => {
     const onAddMovie = vi.fn(async () => ({ ok: true }));
 
     render(<MovieSearch onAddMovie={onAddMovie} />);
-    const comment = screen.getByLabelText(/comment \(optional\)/i);
+    const comment = openCommentField();
     expect(comment).toHaveAttribute("maxlength", "500");
     fireEvent.change(comment, { target: { value: "   \n  " } });
     fireEvent.change(screen.getByPlaceholderText("Search movies..."), {
@@ -224,7 +229,7 @@ describe("MovieSearch detail flow", () => {
 
     render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={["Netflix"]} />);
     const searchInput = screen.getByPlaceholderText("Search movies...");
-    const comment = screen.getByLabelText(/comment \(optional\)/i);
+    const comment = openCommentField();
     fireEvent.change(comment, { target: { value: "Keep this draft" } });
     fireEvent.change(searchInput, { target: { value: "Movie A" } });
 
