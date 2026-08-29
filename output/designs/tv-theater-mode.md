@@ -182,6 +182,11 @@ skip plus exit on the remote, and a per-user preference set on the phone.
 - Build a candidate pool from `bowl.remaining`; TMDB detail lookups supply the
   trailers. Exclude the drawn title and anything without an official trailer,
   and preload the next trailer while the current one plays.
+- Rank that pool through `getResolvedDrawPool`, the same resolver the draw uses,
+  so previews lead with titles tonight's filters could still reach. The rest of
+  the bowl only backfills, which keeps "prefer trailers from movies that remain
+  eligible" true without ever losing the pre-roll. See
+  `deterministic-draw-preview.md` for how far this idea can be pushed.
 - Keep a recently-played video-key list per device so trailers do not repeat.
 - Handle pause, skip, and exit through the existing spatial navigation chain.
 - One setting to start: theater mode on/off plus trailer count, stored with the

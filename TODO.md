@@ -28,7 +28,8 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   the bowl, then reveal that context with the draw and retain it in watched
   details and manual history. Implementation-ready plan in
   `output/designs/movie-comments.md`.
-- TV Theater mode: trailer pre-roll (phase 1) is implemented. Remaining phases cover provider deep links, LAN auto-start, and a native TV shell. See `output/designs/tv-theater-mode.md`.
+- TV Theater mode: trailer pre-roll (phase 1) is implemented, and previews now rank through the draw's own resolved pool so they lead with titles that could actually come up next. Remaining phases cover provider deep links, LAN auto-start, and a native TV shell. See `output/designs/tv-theater-mode.md`.
+- Deterministic draw preview, steps 2 and 3: give rotation bowls a real contributor lookahead (the order is already derivable from `bowl_draw_events`, so it needs no new state), and only after living with that decide whether a committed schedule ships as a fourth draw method. A bowl-wide committed queue is blocked on filters being per-user today. Plan, not implementation: `output/designs/deterministic-draw-preview.md`.
 - Personal movie ordering: let contributors rank their own undrawn titles, independently of contributor rotation. Needs a separate design for method scope, link-guest ownership, accessible reordering, and where new or returned movies land. The pinned movie below is the one-title version and should ship first.
 - Within-person title weights: let a contributor set relative odds among their own
   titles without changing anyone else's odds. Recorded in

@@ -38,6 +38,15 @@ describe("theater queue", () => {
     expect(candidates.map((item) => item.id)).toEqual(["b"]);
   });
 
+  it("orders the eligible draw pool ahead of the rest of the bowl", () => {
+    const candidates = selectTrailerCandidates(
+      [movie("b", 202, "Dune"), movie("c", 303, "Tenet"), movie("d", 404, "Her")],
+      { excludeMovieId: "a", eligibleMovieIds: ["d", "c"], random: inOrder }
+    );
+
+    expect(candidates.map((item) => item.id)).toEqual(["c", "d", "b"]);
+  });
+
   it("fills the queue up to the requested count", async () => {
     const fetchTrailer = trailerFetcherFor({ 202: "dune", 303: "tenet", 404: "her" });
 
@@ -117,6 +126,68 @@ describe("theater queue", () => {
 
     expect(queue).toEqual([]);
     expect(fetchTrailer).not.toHaveBeenCalled();
+  });
+
+  it("previews a title the draw can still reach over one it cannot", async () => {
+    const fetchTrailer = trailerFetcherFor({ 202: "dune", 303: "tenet", 404: "her" });
+
+    const queue = await buildTrailerQueue({
+      movies: [movie("b", 202, "Dune"), movie("c", 303, "Tenet"), movie("d", 404, "Her")],
+      eligibleMovieIds: ["d"],
+      excludeMovieId: "a",
+      count: 1,
+      fetchTrailer,
+      random: inOrder,
+    });
+
+    expect(queue.map((item) => item.trailer.key)).toEqual(["her"]);
+    expect(fetchTrailer).toHaveBeenCalledTimes(1);
+  });
+
+  it("backfills from the rest of the bowl when the eligible pool is too small", async () => {
+    const fetchTrailer = trailerFetcherFor({ 202: "dune", 303: "tenet", 404: "her" });
+
+    const queue = await buildTrailerQueue({
+      movies: [movie("b", 202, "Dune"), movie("c", 303, "Tenet"), movie("d", 404, "Her")],
+      eligibleMovieIds: ["d"],
+      excludeMovieId: "a",
+      count: 3,
+      fetchTrailer,
+      random: inOrder,
+    });
+
+    expect(queue.map((item) => item.trailer.key)).toEqual(["her", "dune", "tenet"]);
+  });
+
+  it("keeps an eligible repeat ahead of a fresh title the draw cannot reach", async () => {
+    const fetchTrailer = trailerFetcherFor({ 202: "dune", 404: "her" });
+
+    const queue = await buildTrailerQueue({
+      movies: [movie("b", 202, "Dune"), movie("d", 404, "Her")],
+      eligibleMovieIds: ["d"],
+      excludeMovieId: "a",
+      count: 1,
+      recentKeys: ["her"],
+      fetchTrailer,
+      random: inOrder,
+    });
+
+    expect(queue.map((item) => item.trailer.key)).toEqual(["her"]);
+  });
+
+  it("previews the whole bowl when a filter leaves no eligible title", async () => {
+    const fetchTrailer = trailerFetcherFor({ 202: "dune", 303: "tenet" });
+
+    const queue = await buildTrailerQueue({
+      movies: [movie("b", 202, "Dune"), movie("c", 303, "Tenet")],
+      eligibleMovieIds: [],
+      excludeMovieId: "a",
+      count: 2,
+      fetchTrailer,
+      random: inOrder,
+    });
+
+    expect(queue.map((item) => item.trailer.key)).toEqual(["dune", "tenet"]);
   });
 
   it("records played trailers most recent first without duplicates", () => {

@@ -45,9 +45,16 @@ export function shuffle(items, random = Math.random) {
   return copy;
 }
 
-export function selectTrailerCandidates(movies, { excludeMovieId, random } = {}) {
+function toIdSet(ids) {
+  return Array.isArray(ids) ? new Set(ids.map((id) => String(id))) : null;
+}
+
+export function selectTrailerCandidates(
+  movies,
+  { excludeMovieId, eligibleMovieIds = null, random } = {}
+) {
   // Custom entries carry a negative synthetic tmdb_id and have no TMDB videos.
-  const eligible = (movies || []).filter(
+  const playable = (movies || []).filter(
     (movie) =>
       movie &&
       movie.id !== excludeMovieId &&
@@ -55,16 +62,34 @@ export function selectTrailerCandidates(movies, { excludeMovieId, random } = {})
       Number(movie.tmdb_id) > 0
   );
 
-  return shuffle(eligible, random);
+  const drawable = toIdSet(eligibleMovieIds);
+  if (!drawable) return shuffle(playable, random);
+
+  // A preview only previews something if the title could still be drawn under
+  // the settings the draw just ran with, so the resolved pool leads and the
+  // rest of the bowl is only there to backfill.
+  return [
+    ...shuffle(playable.filter((movie) => drawable.has(String(movie.id))), random),
+    ...shuffle(playable.filter((movie) => !drawable.has(String(movie.id))), random),
+  ];
+}
+
+// Two preferences order the queue and they can disagree, so eligibility wins:
+// a title the draw can no longer reach is not a preview of anything, while a
+// repeat is only a small loss of novelty.
+function getEntryRank({ isDrawable, isRepeat }) {
+  return (isDrawable ? 0 : 2) + (isRepeat ? 1 : 0);
 }
 
 /**
  * Resolves up to `count` playable previews from the movies still in the bowl.
- * Trailers the device played recently are only used to backfill once every
- * unseen candidate has been exhausted.
+ * `eligibleMovieIds` is the pool the draw resolved for tonight's settings;
+ * titles outside it, and trailers the device played recently, are only used to
+ * backfill once the better candidates are exhausted.
  */
 export async function buildTrailerQueue({
   movies,
+  eligibleMovieIds = null,
   excludeMovieId,
   count,
   recentKeys = [],
@@ -72,31 +97,41 @@ export async function buildTrailerQueue({
   random,
 }) {
   const wanted = clampTheaterTrailerCount(count);
-  const candidates = selectTrailerCandidates(movies, { excludeMovieId, random });
+  const candidates = selectTrailerCandidates(movies, {
+    excludeMovieId,
+    eligibleMovieIds,
+    random,
+  });
   if (candidates.length === 0 || typeof fetchTrailer !== "function") return [];
 
   const recent = new Set(recentKeys);
+  const drawable = toIdSet(eligibleMovieIds);
   const lookupLimit = Math.min(candidates.length, wanted * LOOKUPS_PER_TRAILER);
   const seenKeys = new Set();
-  const fresh = [];
-  const repeats = [];
+  const entries = [];
+  let idealCount = 0;
 
   for (const movie of candidates.slice(0, lookupLimit)) {
-    if (fresh.length >= wanted) break;
+    // Sequential on purpose: the loop stops as soon as the queue fills with
+    // candidates nothing later in the list could outrank.
+    if (idealCount >= wanted) break;
 
-    // Sequential on purpose: the loop stops as soon as the queue fills.
     const trailer = await fetchTrailer(movie);
     const key = trailer?.key ? String(trailer.key) : "";
     if (!key || seenKeys.has(key)) continue;
 
     seenKeys.add(key);
-    const entry = { movieId: movie.id, title: movie.title || "", trailer };
-    if (recent.has(key)) {
-      repeats.push(entry);
-    } else {
-      fresh.push(entry);
-    }
+    const rank = getEntryRank({
+      isDrawable: !drawable || drawable.has(String(movie.id)),
+      isRepeat: recent.has(key),
+    });
+    if (rank === 0) idealCount += 1;
+    entries.push({ rank, movieId: movie.id, title: movie.title || "", trailer });
   }
 
-  return [...fresh, ...repeats].slice(0, wanted);
+  // Sort is stable, so each rank keeps the shuffled order it arrived in.
+  return entries
+    .sort((first, second) => first.rank - second.rank)
+    .slice(0, wanted)
+    .map((entry) => ({ movieId: entry.movieId, title: entry.title, trailer: entry.trailer }));
 }

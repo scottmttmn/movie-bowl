@@ -13,8 +13,11 @@ import useBowl from "../../hooks/useBowl";
 import useUserStreamingServices from "../../hooks/useUserStreamingServices";
 import { getTmdbMovieDetails } from "../../lib/tmdbApi";
 import { getDrawMethod } from "../../utils/drawMethods";
+import { getDrawablePoolMovies } from "../../utils/drawPool";
+import { getResolvedDrawPool } from "../../utils/drawSelection";
 import { clampTheaterTrailerCount } from "../../utils/drawSettings";
 import { getPosterUrl } from "../../utils/getPosterUrl";
+import { getMovieFromDrawCandidate } from "../../utils/selectDrawCandidate";
 import { matchUserServices } from "../../utils/streamingServices";
 import { STREAMING_MATCH_STATUS } from "../../hooks/useBowlStreamingMatches";
 import useDrawPoolCount, { DRAW_POOL_STATUS } from "../../hooks/useDrawPoolCount";
@@ -57,6 +60,29 @@ function getGenreNames(movie) {
   return (movie?.genres || [])
     .map((genre) => (typeof genre === "string" ? genre : genre?.name))
     .filter(Boolean);
+}
+
+// Previews run through the same resolver the draw uses, so the pre-roll shows
+// titles that could actually come up next instead of anything left in the bowl.
+// The rating and provider caches are warm from the draw that just ran, so this
+// normally resolves without a network round trip.
+async function resolveEligiblePreviewIds({ movies, drawOptions, fetchers }) {
+  try {
+    const { candidates } = await getResolvedDrawPool({
+      remainingMovies: getDrawablePoolMovies(movies),
+      ...drawOptions,
+      fetchMovieDetails: fetchers.fetchMovieDetails,
+      fetchProviders: fetchers.fetchProviders,
+      fetchFilterMetadata: fetchers.fetchFilterMetadata,
+    });
+    return candidates
+      .map((candidate) => getMovieFromDrawCandidate(candidate)?.id)
+      .filter(Boolean);
+  } catch (error) {
+    console.error("[TvTonightScreen] Failed to resolve the eligible preview pool", error);
+    // Previews degrade to the whole bowl rather than losing the pre-roll.
+    return null;
+  }
 }
 
 async function fetchMovieTrailer(movie) {
@@ -698,6 +724,13 @@ export default function TvTonightScreen({ userId, userEmail }) {
     () => getPreferenceLines(defaultDrawSettings),
     [defaultDrawSettings]
   );
+  // Held in refs rather than the preview effect's deps, the same trade-off
+  // useDrawPoolCount makes: the pre-roll describes the draw that just ran, so a
+  // fetcher identity settling underneath it must not rebuild the queue.
+  const drawOptionsRef = useRef(drawOptions);
+  drawOptionsRef.current = drawOptions;
+  const filterMetadataFetchersRef = useRef(filterMetadataFetchers);
+  filterMetadataFetchersRef.current = filterMetadataFetchers;
   const {
     status: drawPoolStatus,
     poolCount: drawPoolCount,
@@ -793,13 +826,21 @@ export default function TvTonightScreen({ userId, userEmail }) {
     setTrailerQueue([]);
     setTrailerQueueStatus("loading");
 
-    buildTrailerQueue({
+    resolveEligiblePreviewIds({
       movies: bowl.remaining,
-      excludeMovieId: drawnMovie.id,
-      count: theaterTrailerCount,
-      recentKeys: readRecentTrailerKeys(),
-      fetchTrailer: fetchMovieTrailer,
+      drawOptions: drawOptionsRef.current,
+      fetchers: filterMetadataFetchersRef.current,
     })
+      .then((eligibleMovieIds) =>
+        buildTrailerQueue({
+          movies: bowl.remaining,
+          eligibleMovieIds,
+          excludeMovieId: drawnMovie.id,
+          count: theaterTrailerCount,
+          recentKeys: readRecentTrailerKeys(),
+          fetchTrailer: fetchMovieTrailer,
+        })
+      )
       .then((queue) => {
         if (!cancelled) setTrailerQueue(queue);
       })
