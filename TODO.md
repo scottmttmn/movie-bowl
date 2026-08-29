@@ -39,6 +39,15 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   Applies under person-first and rotation, ignored by title-first, skipped
   when tonight's filters exclude it. Nobody else's odds move. Plan in
   `output/designs/pinned-movie.md`.
+- One slip per person for the same title: duplicate prevention is currently per
+  `(bowl_id, tmdb_id)`, so a member who wants a title someone else already added
+  cannot add it and therefore cannot pin it. Letting each contributor hold their
+  own slip, deduped when either is drawn, is the coherent fix — person-first
+  odds are unaffected because a contributor's share is fixed at 1/N, and the
+  registry table already counts duplicate slips. Open questions on pool
+  double-counting and making sibling retirement visible. Analysed under
+  "Edge Case: Somebody Else Already Added It" in
+  `output/designs/pinned-movie.md`; needs its own design before any code.
 - Solo draw: draw privately from only your own titles, in one bowl or pooled across all of them. See `output/designs/solo-draw.md`.
 
 ## Technical Debt / Maintenance

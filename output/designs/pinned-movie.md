@@ -147,6 +147,18 @@ rule belongs.
 - Save failure: **Could not pin this movie. Please try again.** — rendered in
   the existing `myMoviesErrorMessage` slot.
 
+### Duplicate add refusal
+
+`DUPLICATE_MOVIE_MESSAGE` in `useBowl` currently reads *This movie is already in
+the bowl.* — true, and a dead end. It becomes, with the contributor resolved
+from the existing slip:
+
+> **"Title" is already in the bowl — <name> added it, so it can come up on their
+> turn.**
+
+Falling back to the current sentence when no name resolves. See the edge-case
+section below for why this is the whole fix for now.
+
 ## Intended Experience
 
 1. You open My Movies in a bowl. Your titles are already ordered eligible-first,
@@ -311,8 +323,9 @@ file and its rollback.
 
 **Phase 2 — client selection, control, and copy.** `is_pinned` in the `useBowl`
 select list, the `PERSON_FIRST.pick` change, the registry copy and `honorsPin`
-flags, the card control, the strip ordering, and the `useBowl` handler that
-calls the RPC and returns an `addResult`-shaped result.
+flags, the card control, the strip ordering, the `useBowl` handler that calls
+the RPC and returns an `addResult`-shaped result, and the duplicate-refusal
+copy above.
 
 The two phases have one ordering constraint worth stating, because it is easy to
 get backwards. Phase 1 makes rotation bowls honor pins while person-first bowls
@@ -407,15 +420,116 @@ movie and confirm the pin is gone, including after returning it to the bowl.
   covering link-guest ownership, accessible reordering, and where new and
   returned movies land. A second pin is not a small change to this one.
 
+## Edge Case: Somebody Else Already Added It
+
+`20260723200000_prevent_duplicate_active_movies.sql` allows one active slip per
+`(bowl_id, tmdb_id)`. So if another member already added the movie you have been
+meaning to watch for a year, you cannot add it, which means you cannot pin it —
+the exact title the feature exists for is the one it cannot reach.
+
+Two things about that constraint are worth having in front of you before
+choosing a fix. Its registry table already carries an `active_count` column and
+was backfilled from existing duplicates rather than deduping them, so the schema
+already models "N active slips for this title." And the trigger only registers
+`tmdb_id > 0`, so **duplicate custom titles are already allowed today**. One slip
+per title is a TMDB-lookup rule, not a product principle, and the bowl already
+breaks it.
+
+### Why the pin is hard to retarget
+
+The pin is defined relative to a **bucket**: "when the bowl picks me, this comes
+up." Any fix has to answer whose bucket the shared title sits in. That question
+is what separates the options, and it is why the cheaper-looking one is not
+actually cheaper.
+
+### Option A — co-adders on one slip
+
+Record that two people added the same slip, and let either pin it.
+
+Socially this is the right description of what happened. But one slip in two
+buckets breaks the bucketing invariant everywhere — `getContributorBucketKey`
+returns one key, the rotation RPC's SQL bucket expression returns one key, and
+`bowl_draw_events.added_by` records one person. Worse, there is no non-arbitrary
+answer to whose turn it spends: if a co-added movie is drawn under rotation, it
+either burns both turns, one arbitrary turn, or neither, and all three are
+defensible. That is a fairness decision the feature has no basis for making.
+
+Not recommended — not because it is expensive, but because it has no correct
+answer.
+
+### Option B — let members pin each other's movies
+
+Cheaper in code, but it does not mean anything. Under person-first, your pin on
+someone else's slip is either inert (their bucket, their pin) or it steers *their*
+turn, which is a between-person effect and contradicts the plan's central rule
+that a pin never changes anyone else's draw. If two people pin different movies
+of a third person's, there is no tie-break that isn't arbitrary.
+
+It also costs the concealment the bowl is built on — every member browsing every
+member's titles is a different product than a bowl you cannot see into.
+
+Not recommended, on both counts.
+
+### Option C — one slip per person, deduped at the draw
+
+Change the uniqueness rule from `(bowl_id, tmdb_id)` to
+`(bowl_id, tmdb_id, added_by)`. You and I both want Heat, we each get a slip, in
+our own buckets, each pinnable by its owner. When either slip is drawn, the
+siblings retire.
+
+This is the option that matches the physical bowl **better**, not worse. Two
+people who both want a movie write two slips and both go in; nothing about a
+bowl of paper stops them, and the app already permits exactly this for custom
+titles. The current rule is a convenience of the TMDB registry.
+
+The fairness story is also free under the default method, which is the part
+worth noticing. Person-first fixes every contributor's share at 1/N regardless
+of how many slips they hold, so a second person adding the same title costs
+nobody anything — it only makes that title more likely to be the thing that
+fills somebody's turn, which is the correct signal: two people want it. Rotation
+is unaffected for the same reason. Under title-first three slips are three
+chances, which is coherent with title-first's own stated promise.
+
+The real costs, all nameable:
+
+- **Pool counts double-count.** "12 of 30 eligible" would count one movie twice.
+  Needs a decision: count slips (honest about the draw) or count titles (honest
+  about the night).
+- **Sibling retirement is a silent removal.** Drawing Heat off my slip makes your
+  slip vanish from your My Movies. That is the same shape as the existing
+  untraceable-removal item in `TODO.md`, and it should probably be visible
+  ("watched — someone else's slip came up") rather than a shrinking list.
+- **The registry table and trigger both change**, including `active_count`
+  semantics. Its pgTAP coverage is the gate.
+
+### Recommendation
+
+**Do not fold any of this into the pin.** Option C is the right fix and it is its
+own feature — it changes what a bowl *is* slightly, and it has three open
+questions of its own that have nothing to do with pinning.
+
+Ship the pin with the cheap honest version instead: when an add is refused as a
+duplicate, stop saying only *This movie is already in the bowl.* and say that it
+is in the bowl and can come up on the turn of whoever added it. That converts a
+dead end into information, costs one copy change plus the contributor name, and
+is true whether or not Option C is ever built.
+
+Then let the complaint decide. If people keep hitting the refusal and keep
+wanting their own turn to produce that title, Option C has earned its design
+doc. If they mostly just wanted the movie in the bowl — which the refusal
+already achieves — nothing more is needed.
+
 ## Open Questions
 
-- **Should the group ever see a pin?** A reveal that said "this was pinned"
-  would add a little warmth and a little pressure. Leaning no for a first
-  version: the pin is a private nudge, and making it public turns it into a
-  claim on the room.
-- **Should returning a drawn movie restore the pin?** Recommending no above, but
-  it is a genuine coin-flip if people mostly return movies they still intend to
-  watch.
+- ~~Should the group ever see a pin?~~ **Decided: no.** The pin is a private
+  nudge; making it public turns it into a claim on the room.
+- ~~Should returning a drawn movie restore the pin?~~ **Decided: no.** Re-pinning
+  is one tap, and a pin that silently reappears months later is a surprise.
+- **Does the duplicate-refusal copy need the contributor's name?** Naming who
+  already added it is the useful half of the message, but it discloses one slip's
+  contributor before the draw. Probably fine — you learn it by being refused,
+  about a title you already chose — but it is a real edge of the concealment
+  rule.
 - **Does a pin deserve to survive a filter it barely misses?** No. Recording it
   because it is the tempting wrong answer, and because someone will ask.
 - **Should a bowl owner be able to turn pins off?** Only if pins turn out to
