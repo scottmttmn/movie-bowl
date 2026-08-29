@@ -1,4 +1,7 @@
-import { runDailyFilterMetadataRefresh } from "../_lib/filterMetadataRefresh.js";
+import {
+  recordFilterMetadataRefreshRun,
+  runDailyFilterMetadataRefresh,
+} from "../_lib/filterMetadataRefresh.js";
 import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
 
 export const config = { maxDuration: 60 };
@@ -30,17 +33,56 @@ export default async function handler(req, res) {
     return;
   }
 
+  const startedAt = new Date();
+  let supabaseAdmin;
+
   try {
-    const stats = await runDailyFilterMetadataRefresh(getSupabaseAdmin(), {
+    supabaseAdmin = getSupabaseAdmin();
+    const stats = await runDailyFilterMetadataRefresh(supabaseAdmin, {
       maxTitles: getPositiveInteger(
         process.env.FILTER_METADATA_DAILY_MAX_TITLES,
         undefined
       ),
     });
-    console.info("[api/cron/refresh-filter-metadata] Refresh complete", stats);
-    res.status(200).json(stats);
+    let report = null;
+    try {
+      report = await recordFilterMetadataRefreshRun(supabaseAdmin, {
+        status: "completed",
+        startedAt,
+        completedAt: new Date(),
+        stats,
+      });
+    } catch (reportError) {
+      console.error(
+        "[api/cron/refresh-filter-metadata] Failed to record refresh report",
+        reportError
+      );
+    }
+
+    const result = report
+      ? { ...stats, remainingStale: report.remainingStale }
+      : stats;
+    console.info("[api/cron/refresh-filter-metadata] Refresh complete", result);
+    res.status(200).json(result);
   } catch (error) {
     console.error("[api/cron/refresh-filter-metadata] Refresh failed", error);
+    if (supabaseAdmin) {
+      try {
+        const completedAt = new Date();
+        await recordFilterMetadataRefreshRun(supabaseAdmin, {
+          status: "failed",
+          startedAt,
+          completedAt,
+          stats: { elapsedMs: completedAt.getTime() - startedAt.getTime() },
+          error,
+        });
+      } catch (reportError) {
+        console.error(
+          "[api/cron/refresh-filter-metadata] Failed to record failed refresh report",
+          reportError
+        );
+      }
+    }
     res.status(500).json({ error: "Failed to refresh filter metadata" });
   }
 }

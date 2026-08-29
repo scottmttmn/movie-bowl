@@ -2,10 +2,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   runDailyFilterMetadataRefresh: vi.fn(),
+  recordFilterMetadataRefreshRun: vi.fn(),
   getSupabaseAdmin: vi.fn(() => ({ name: "admin" })),
 }));
 
 vi.mock("../_lib/filterMetadataRefresh.js", () => ({
+  recordFilterMetadataRefreshRun: mocks.recordFilterMetadataRefreshRun,
   runDailyFilterMetadataRefresh: mocks.runDailyFilterMetadataRefresh,
 }));
 vi.mock("../_lib/supabaseAdmin.js", () => ({
@@ -34,12 +36,17 @@ describe("api/cron/refresh-filter-metadata", () => {
     process.env.CRON_SECRET = "daily-secret";
     delete process.env.FILTER_METADATA_DAILY_MAX_TITLES;
     mocks.runDailyFilterMetadataRefresh.mockReset();
+    mocks.recordFilterMetadataRefreshRun.mockReset();
     mocks.runDailyFilterMetadataRefresh.mockResolvedValue({
       claimed: 2,
       succeeded: 2,
       failed: 0,
       exhausted: true,
       elapsedMs: 20,
+    });
+    mocks.recordFilterMetadataRefreshRun.mockResolvedValue({
+      runId: "30000000-0000-4000-8000-000000000001",
+      remainingStale: 7,
     });
   });
 
@@ -82,11 +89,47 @@ describe("api/cron/refresh-filter-metadata", () => {
     }, res);
 
     expect(res.statusCode).toBe(200);
-    expect(res.body).toMatchObject({ claimed: 2, succeeded: 2 });
+    expect(res.body).toMatchObject({
+      claimed: 2,
+      succeeded: 2,
+      remainingStale: 7,
+    });
     expect(mocks.runDailyFilterMetadataRefresh).toHaveBeenCalledWith(
       { name: "admin" },
       { maxTitles: 90 }
     );
+    expect(mocks.recordFilterMetadataRefreshRun).toHaveBeenCalledWith(
+      { name: "admin" },
+      expect.objectContaining({
+        status: "completed",
+        startedAt: expect.any(Date),
+        completedAt: expect.any(Date),
+        stats: expect.objectContaining({ succeeded: 2 }),
+      })
+    );
     expect(infoSpy).toHaveBeenCalled();
+  });
+
+  it("records a failed cron execution when the worker throws", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.runDailyFilterMetadataRefresh.mockRejectedValue(
+      new Error("refresh queue unavailable")
+    );
+    const res = createRes();
+
+    await handler({
+      method: "GET",
+      headers: { authorization: "Bearer daily-secret" },
+    }, res);
+
+    expect(res.statusCode).toBe(500);
+    expect(mocks.recordFilterMetadataRefreshRun).toHaveBeenCalledWith(
+      { name: "admin" },
+      expect.objectContaining({
+        status: "failed",
+        error: expect.objectContaining({ message: "refresh queue unavailable" }),
+      })
+    );
+    expect(errorSpy).toHaveBeenCalled();
   });
 });

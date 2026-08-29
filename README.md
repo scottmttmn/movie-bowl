@@ -265,6 +265,10 @@ sends it as a bearer token when invoking the configured cron route.
 - The worker uses combined TMDB certification/provider requests, processes at
   most six titles concurrently, and exits before the Hobby function deadline.
 - Successful snapshots remain available when a later refresh fails.
+- Every invocation stores attempted, successful, and failed title counts, run
+  duration, completion status, and remaining stale backlog. Reports are private
+  service-role data, retained for 90 days, and visible in the Supabase table
+  editor under `tmdb_filter_metadata_refresh_runs`.
 - Inactive cache rows are removed, and no TMDB-derived snapshot is retained
   beyond TMDB's six-month cache limit.
 - Adding a signed-in user's TMDB movie also starts a non-blocking single-title
@@ -282,6 +286,7 @@ Tables the app touches:
 - `bowl_draw_permissions`
 - `tv_pairing_requests` (server-only; no direct client access)
 - `tmdb_filter_metadata` (server-maintained; read through a membership RPC)
+- `tmdb_filter_metadata_refresh_runs` (private 90-day cron run history)
 - `bowl_add_links`
 - `bowl_draw_events` — immutable bowl-side record of each draw
 - `user_watch_events` — per-participant personal history

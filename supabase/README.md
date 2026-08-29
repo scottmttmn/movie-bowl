@@ -90,9 +90,16 @@ server service role. The Vercel daily worker keeps successful snapshots for use
 when a later TMDB refresh fails, prunes titles no longer active in any bowl, and
 expires TMDB-derived values before the six-month caching limit.
 
+`20260829010000_add_filter_metadata_refresh_run_history.sql` adds private daily
+run reporting in `tmdb_filter_metadata_refresh_runs`. Each cron invocation
+records attempted, successful, and failed title counts, duration, completion
+status, and the remaining stale backlog. Only the service role can read or
+record reports. Recording a run prunes history older than 90 days.
+
 Rollback is available via:
 
 - `supabase/rollback/20260828120000_remove_tmdb_filter_metadata_cache.sql`
+- `supabase/rollback/20260829010000_remove_filter_metadata_refresh_run_history.sql`
 
 ## Public add links note
 

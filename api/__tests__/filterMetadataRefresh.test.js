@@ -1,6 +1,7 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
   claimFilterMetadataRefreshes,
+  recordFilterMetadataRefreshRun,
   refreshFilterMetadataClaim,
   runDailyFilterMetadataRefresh,
 } from "../_lib/filterMetadataRefresh.js";
@@ -42,6 +43,48 @@ describe("filter metadata refresh worker", () => {
       p_bowl_id: "10000000-0000-4000-8000-000000000001",
       p_user_id: "20000000-0000-4000-8000-000000000001",
     });
+  });
+
+  it("records a private run report and returns the remaining backlog", async () => {
+    rpc.mockResolvedValue({
+      data: [{
+        run_id: "30000000-0000-4000-8000-000000000001",
+        remaining_stale: 14,
+      }],
+      error: null,
+    });
+
+    await expect(recordFilterMetadataRefreshRun(supabaseAdmin, {
+      status: "completed",
+      startedAt: new Date("2026-08-29T08:00:00.000Z"),
+      completedAt: new Date("2026-08-29T08:00:10.000Z"),
+      stats: {
+        claimed: 12,
+        succeeded: 11,
+        failed: 1,
+        exhausted: false,
+        elapsedMs: 10000,
+      },
+    })).resolves.toEqual({
+      runId: "30000000-0000-4000-8000-000000000001",
+      remainingStale: 14,
+    });
+
+    expect(rpc).toHaveBeenCalledWith(
+      "record_tmdb_filter_metadata_refresh_run",
+      {
+        p_region: "US",
+        p_status: "completed",
+        p_started_at: "2026-08-29T08:00:00.000Z",
+        p_completed_at: "2026-08-29T08:00:10.000Z",
+        p_claimed: 12,
+        p_succeeded: 11,
+        p_failed: 1,
+        p_exhausted: false,
+        p_elapsed_ms: 10000,
+        p_error: null,
+      }
+    );
   });
 
   it("stores one combined metadata result", async () => {

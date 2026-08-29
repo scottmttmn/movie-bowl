@@ -7,6 +7,11 @@ export const FILTER_METADATA_REFRESH_BATCH_SIZE = 12;
 export const FILTER_METADATA_DAILY_MAX_TITLES = 180;
 export const FILTER_METADATA_DAILY_BUDGET_MS = 45 * 1000;
 
+function toIsoString(value) {
+  if (value instanceof Date) return value.toISOString();
+  return new Date(value).toISOString();
+}
+
 function getClaimParams({
   limit,
   region = FILTER_METADATA_REGION,
@@ -32,6 +37,41 @@ export async function claimFilterMetadataRefreshes(supabaseAdmin, options) {
   );
   if (error) throw error;
   return Array.isArray(data) ? data : [];
+}
+
+export async function recordFilterMetadataRefreshRun(
+  supabaseAdmin,
+  {
+    status,
+    startedAt,
+    completedAt,
+    stats = {},
+    error = null,
+    region = FILTER_METADATA_REGION,
+  }
+) {
+  const { data, error: recordError } = await supabaseAdmin.rpc(
+    "record_tmdb_filter_metadata_refresh_run",
+    {
+      p_region: region,
+      p_status: status,
+      p_started_at: toIsoString(startedAt),
+      p_completed_at: toIsoString(completedAt),
+      p_claimed: Number(stats.claimed) || 0,
+      p_succeeded: Number(stats.succeeded) || 0,
+      p_failed: Number(stats.failed) || 0,
+      p_exhausted: status === "completed" ? Boolean(stats.exhausted) : null,
+      p_elapsed_ms: Math.max(0, Number(stats.elapsedMs) || 0),
+      p_error: error ? String(error.message || error) : null,
+    }
+  );
+  if (recordError) throw recordError;
+
+  const report = Array.isArray(data) ? data[0] : null;
+  return {
+    runId: report?.run_id || null,
+    remainingStale: Number(report?.remaining_stale) || 0,
+  };
 }
 
 async function recordRefreshFailure(supabaseAdmin, claim, error) {
