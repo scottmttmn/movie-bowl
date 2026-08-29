@@ -195,7 +195,7 @@ These are visible in the browser bundle by design.
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
 - `CRON_SECRET`
-- `FILTER_METADATA_DAILY_MAX_TITLES` (optional; defaults to 180)
+- `FILTER_METADATA_DAILY_MAX_TITLES` (optional emergency override; defaults to 300)
 - `APP_BASE_URL`
 - `RESEND_API_KEY`
 - `INVITE_EMAIL_FROM`

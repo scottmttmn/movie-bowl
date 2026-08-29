@@ -1,5 +1,6 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  FILTER_METADATA_DAILY_MAX_TITLES,
   claimFilterMetadataRefreshes,
   recordFilterMetadataRefreshRun,
   refreshFilterMetadataClaim,
@@ -21,6 +22,10 @@ describe("filter metadata refresh worker", () => {
   beforeEach(() => {
     rpc = vi.fn();
     supabaseAdmin = { rpc };
+  });
+
+  it("allows up to 300 stale titles per daily run by default", () => {
+    expect(FILTER_METADATA_DAILY_MAX_TITLES).toBe(300);
   });
 
   it("claims due titles with the requested membership scope", async () => {
