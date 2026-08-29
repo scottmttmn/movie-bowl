@@ -386,9 +386,9 @@ double turn.
 ## Recorded Idea: Within-Person Title Weights
 
 Status: idea, not part of the phases above. A smaller first step — pinning one
-title rather than weighting all of them — is planned in
-`output/designs/pinned-movie.md`, and should ship before any weight column
-exists. The open questions below stay open; the pin answers only "this one."
+title rather than weighting all of them — shipped first and is documented in
+`output/designs/pinned-movie.md`. The open questions below stay open; the pin
+answers only "this one."
 
 Let a contributor control the relative odds **among their own titles** while
 every person stays equally likely to be selected. You have been meaning to watch

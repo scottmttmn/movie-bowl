@@ -101,7 +101,7 @@ describe("movie strip components", () => {
     expect(onDeleteMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "a1" }));
   });
 
-  it("preserves unresolved order and puts syncing movies last only after resolution", () => {
+  it("puts syncing movies last while preserving persisted order before resolution", () => {
     const movies = [
       { id: "sync", source: "added", title: "Syncing Movie", local_status: "syncing" },
       { id: "eligible", source: "added", title: "Eligible Movie" },
@@ -117,9 +117,9 @@ describe("movie strip components", () => {
     );
 
     expect([...container.querySelectorAll("article")].map((card) => card.textContent)).toEqual([
-      expect.stringContaining("Syncing Movie"),
       expect.stringContaining("Eligible Movie"),
       expect.stringContaining("Excluded Movie"),
+      expect.stringContaining("Syncing Movie"),
     ]);
 
     rerender(
@@ -166,6 +166,80 @@ describe("movie strip components", () => {
       />
     );
     expect(screen.getByRole("status")).toHaveTextContent("Previewing filter matches");
+  });
+
+  it("orders a pinned eligible movie first without lifting a pinned exclusion", () => {
+    const onTogglePin = vi.fn();
+    const movies = [
+      { id: "eligible", source: "added", title: "Eligible" },
+      { id: "excluded-pinned", source: "added", title: "Excluded Pinned", is_pinned: true },
+      { id: "eligible-pinned", source: "added", title: "Eligible Pinned", is_pinned: true },
+      { id: "syncing", source: "added", title: "Syncing", local_status: "syncing" },
+    ];
+
+    const { container } = render(
+      <MyMoviesStrip
+        movies={movies}
+        onViewMovie={vi.fn()}
+        onDeleteMovie={vi.fn()}
+        onTogglePin={onTogglePin}
+        eligibilityStatus={MY_MOVIE_ELIGIBILITY_STATUS.ready}
+        eligibleMovieIds={["eligible", "eligible-pinned"]}
+      />
+    );
+
+    const cards = [...container.querySelectorAll("article")];
+    expect(cards.map((card) => card.textContent)).toEqual([
+      expect.stringContaining("Eligible Pinned"),
+      expect.stringContaining("Eligible"),
+      expect.stringContaining("Excluded Pinned"),
+      expect.stringContaining("Syncing"),
+    ]);
+    expect(cards[0]).toHaveTextContent("Up first when you're picked");
+    expect(cards[2]).toHaveAttribute("data-filter-excluded", "true");
+    expect(cards[2]).toHaveTextContent("Outside tonight's filters");
+
+    const pressedPins = screen.getAllByRole("button", { pressed: true });
+    expect(pressedPins).toHaveLength(2);
+    expect(screen.getByRole("button", { name: /pin "eligible"/i })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    );
+    expect(screen.getByRole("button", { name: /pin "syncing"/i })).toBeDisabled();
+
+    fireEvent.click(screen.getByRole("button", { name: /pin "eligible"/i }));
+    expect(onTogglePin).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "eligible" }),
+      true
+    );
+  });
+
+  it("explains title-first and omits pin controls without clearing the badge", () => {
+    render(
+      <MyMoviesStrip
+        movies={[{ id: "pinned", source: "added", title: "Pinned Movie", is_pinned: true }]}
+        onViewMovie={vi.fn()}
+        onDeleteMovie={vi.fn()}
+        onTogglePin={vi.fn()}
+        drawMethod="title_first"
+      />
+    );
+
+    expect(screen.getByText(/title-first, so pins don't change anything/i)).toBeInTheDocument();
+    expect(screen.getByText("Pinned")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /unpin/i })).not.toBeInTheDocument();
+  });
+
+  it("omits the optional pin control when no pin callback is supplied", () => {
+    render(
+      <MyMoviesStrip
+        movies={[{ id: "movie", source: "added", title: "Movie" }]}
+        onViewMovie={vi.fn()}
+        onDeleteMovie={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: /pin "movie"/i })).not.toBeInTheDocument();
   });
 
   it("renders WatchedMovieCard and forwards click", () => {

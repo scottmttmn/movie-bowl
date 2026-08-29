@@ -101,6 +101,18 @@ Rollback is available via:
 - `supabase/rollback/20260828120000_remove_tmdb_filter_metadata_cache.sql`
 - `supabase/rollback/20260829010000_remove_filter_metadata_refresh_run_history.sql`
 
+## Pinned movie note
+
+`20260829170000_add_pinned_bowl_movies.sql` lets an authenticated contributor
+pin one owned undrawn slip per bowl. A partial unique index enforces one pin,
+the narrow security-definer RPC moves it atomically, and both ordinary and
+rotation draws clear the selected pin. Rotation considers the pin only after
+choosing the contributor, so turn order is unchanged.
+
+Rollback is available via
+`supabase/rollback/20260829170000_remove_pinned_bowl_movies.sql` and discards all
+saved pins.
+
 ## Public add links note
 
 Public add links are introduced by:

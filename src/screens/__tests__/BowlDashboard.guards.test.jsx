@@ -29,6 +29,10 @@ const mocks = vi.hoisted(() => {
       ok: true,
       movie: { note: String(note).trim() || null },
     })),
+    handleSetMoviePin: vi.fn(async (_movieId, isPinned) => ({
+      ok: true,
+      movie: { is_pinned: isPinned },
+    })),
     handleDeleteMovie: vi.fn(async () => true),
     handleReaddMovie: vi.fn(async () => true),
     streamingServices: [],
@@ -96,6 +100,7 @@ vi.mock("../../hooks/useBowl", () => ({
       handleDraw: mocks.state.handleDraw,
       handleAddMovie: mocks.state.handleAddMovie,
       handleUpdateMovieNote: mocks.state.handleUpdateMovieNote,
+      handleSetMoviePin: mocks.state.handleSetMoviePin,
       handleDeleteMovie: mocks.state.handleDeleteMovie,
       handleReaddMovie: mocks.state.handleReaddMovie,
     };
@@ -169,6 +174,7 @@ describe("BowlDashboard guards", () => {
     mocks.state.handleReaddMovie.mockClear();
     mocks.state.handleAddMovie.mockClear();
     mocks.state.handleUpdateMovieNote.mockClear();
+    mocks.state.handleSetMoviePin.mockClear();
     mocks.state.streamingServices = [];
     mocks.getTmdbMovieDetails.mockReset();
     mocks.getTmdbMovieDetails.mockResolvedValue({});
@@ -367,6 +373,37 @@ describe("BowlDashboard guards", () => {
     await waitFor(() => expect(mocks.state.handleDeleteMovie).toHaveBeenCalledWith("m-added-1"));
     expect(confirmSpy).toHaveBeenCalledWith('Delete "Added Movie" from this bowl?');
     confirmSpy.mockRestore();
+  });
+
+  it("routes a My Movies pin through the bowl mutation handler", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = {
+      remaining: [
+        {
+          id: "m-pin",
+          title: "Pin Me",
+          added_by: "u1",
+          added_at: "2026-03-06T12:30:00.000Z",
+          is_pinned: false,
+        },
+      ],
+      watched: [],
+    };
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    const myMoviesSection = screen.getByRole("heading", { name: /my movies/i }).closest("section");
+    fireEvent.click(within(myMoviesSection).getByRole("button", { name: /^show$/i }));
+    fireEvent.click(
+      within(myMoviesSection).getByRole("button", {
+        name: /pin "pin me" so it comes up first/i,
+      })
+    );
+
+    await waitFor(() => {
+      expect(mocks.state.handleSetMoviePin).toHaveBeenCalledWith("m-pin", true);
+    });
   });
 
   it("offers comment editing from an owned undrawn My Movies detail", async () => {

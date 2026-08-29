@@ -19,9 +19,18 @@ import {
   normalizeMovieNote,
 } from "../utils/movieNote";
 import { getBrowserTimeZone } from "../utils/getBrowserTimeZone";
+import { getMovieAttributionLabel } from "../utils/drawBuckets";
 import useBowlFilterMetadata from "./useBowlFilterMetadata";
 
 const DUPLICATE_MOVIE_MESSAGE = "This movie is already in the bowl.";
+
+function getDuplicateMovieMessage(movie, existingMovie) {
+  const title = String(movie?.title || "").trim();
+  const contributorName = getMovieAttributionLabel(existingMovie);
+  if (!title || !contributorName) return DUPLICATE_MOVIE_MESSAGE;
+
+  return `"${title}" is already in the bowl — ${contributorName} added it, so it can come up on their turn.`;
+}
 
 function createSyntheticTmdbId() {
   // Keep this within signed 32-bit range to avoid common integer column overflows.
@@ -108,6 +117,28 @@ function getNoteUpdateFailureMessage(error) {
   return "Could not save this comment. Please try again.";
 }
 
+function getPinUpdateFailureMessage(error) {
+  if (isOfflineError(error)) return OFFLINE_MESSAGE;
+
+  const errorCode = String(error?.code || "");
+  const errorMessageText = String(error?.message || "").toLowerCase();
+
+  if (
+    errorCode === "PGRST202" ||
+    (errorMessageText.includes("set_own_bowl_movie_pin") &&
+      (errorMessageText.includes("could not find") || errorMessageText.includes("does not exist")))
+  ) {
+    return "Pinning requires the latest database migration. Please run it and try again.";
+  }
+  if (errorCode === "42501" || errorMessageText.includes("permission denied")) {
+    return "You don't have permission to pin this movie.";
+  }
+  if (errorMessageText.includes("no longer available")) {
+    return "This movie is no longer available to pin.";
+  }
+  return "Could not pin this movie. Please try again.";
+}
+
 function createProfileEmailByUserId(profileRows = []) {
   return new Map(
     profileRows
@@ -170,7 +201,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       const { data: remaining, error: remainingError } = await supabase
         .from("bowl_movies")
         .select(
-          "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at"
+          "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, is_pinned, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at"
         )
         .eq("bowl_id", bowlId)
         .is("drawn_at", null)
@@ -424,17 +455,25 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       const addLockKey =
         movieTmdbId && movieTmdbId > 0 ? `tmdb:${movieTmdbId}` : `custom:${normalizedTitle}`;
 
-      const isActiveDuplicate =
-        movieTmdbId != null &&
-        (bowl.remaining || []).some(
-          (existingMovie) => getPositiveTmdbId(existingMovie) === movieTmdbId
+      const activeDuplicate = movieTmdbId == null
+        ? null
+        : (bowl.remaining || []).find(
+            (existingMovie) => getPositiveTmdbId(existingMovie) === movieTmdbId
+          );
+      if (activeDuplicate) {
+        return addResult(
+          false,
+          "duplicate_movie",
+          getDuplicateMovieMessage(movie, activeDuplicate)
         );
-      if (isActiveDuplicate) {
-        return addResult(false, "duplicate_movie", DUPLICATE_MOVIE_MESSAGE);
       }
 
       if (addRequestsInFlightRef.current.has(addLockKey)) {
-        return addResult(false, "duplicate_movie", DUPLICATE_MOVIE_MESSAGE);
+        return addResult(
+          false,
+          "duplicate_movie",
+          getDuplicateMovieMessage(movie, activeDuplicate)
+        );
       }
 
       // Skip the optimistic row entirely when the write cannot land: showing a
@@ -479,6 +518,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         genres: genreNames,
         overview: movie.overview ?? null,
         note: normalizeMovieNote(movie.note),
+        is_pinned: false,
         snapshot_at: nowIso,
       };
 
@@ -503,7 +543,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
           .from("bowl_movies")
           .insert([rowPayload])
           .select(
-            "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at"
+            "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, is_pinned, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at"
           )
           .single();
       };
@@ -561,7 +601,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
           remaining: (prev.remaining || []).filter((item) => item?.local_temp_id !== localTempId),
         }));
         const message = duplicateMovie
-          ? DUPLICATE_MOVIE_MESSAGE
+          ? getDuplicateMovieMessage(movie, activeDuplicate)
           : describeNetworkError(error, "Could not add this movie. Please try again.");
         setErrorMessage(message);
         return addResult(
@@ -629,6 +669,81 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
     [bowlId, loadBowlMovies]
   );
 
+  const handleSetMoviePin = useCallback(
+    async (movieId, pinned) => {
+      if (!bowlId || !movieId) {
+        return addResult(false, "invalid_movie", "Choose a movie to pin.");
+      }
+      if (isOffline()) {
+        return addResult(false, "offline", OFFLINE_MESSAGE);
+      }
+
+      const targetMovie = (bowl.remaining || []).find(
+        (movie) => String(movie?.id || "") === String(movieId)
+      );
+      if (!targetMovie || targetMovie.local_status === "syncing") {
+        return addResult(
+          false,
+          "pin_update_failed",
+          "This movie is no longer available to pin."
+        );
+      }
+
+      const shouldPin = Boolean(pinned);
+      const contributorId = targetMovie.added_by;
+      setBowl((prev) => ({
+        ...prev,
+        remaining: (prev.remaining || []).map((movie) => {
+          const isTarget = String(movie?.id || "") === String(movieId);
+          if (!shouldPin) {
+            return isTarget ? { ...movie, is_pinned: false } : movie;
+          }
+          if (movie?.added_by !== contributorId || movie.local_status === "syncing") {
+            return movie;
+          }
+          return { ...movie, is_pinned: isTarget };
+        }),
+      }));
+
+      try {
+        const { data, error } = await supabase.rpc("set_own_bowl_movie_pin", {
+          p_bowl_movie_id: movieId,
+          p_pinned: shouldPin,
+        });
+
+        if (error) {
+          console.error("[useBowl] Failed to update pinned movie", error);
+          const message = getPinUpdateFailureMessage(error);
+          await loadBowlMovies();
+          return addResult(false, "pin_update_failed", message);
+        }
+
+        const updatedMovie = Array.isArray(data) ? data[0] : data;
+        setBowl((prev) => ({
+          ...prev,
+          remaining: (prev.remaining || []).map((movie) =>
+            String(movie?.id || "") === String(movieId)
+              ? { ...movie, ...(updatedMovie || {}), is_pinned: shouldPin }
+              : movie
+          ),
+        }));
+        return {
+          ...addResult(true),
+          movie: updatedMovie || { id: movieId, is_pinned: shouldPin },
+        };
+      } catch (error) {
+        console.error("[useBowl] Unexpected error updating pinned movie", error);
+        await loadBowlMovies();
+        return addResult(
+          false,
+          "pin_update_failed",
+          getPinUpdateFailureMessage(error)
+        );
+      }
+    },
+    [bowlId, bowl.remaining, loadBowlMovies]
+  );
+
   const handleDeleteMovie = useCallback(
     async (movieId) => {
       if (!bowlId || !movieId) return false;
@@ -688,13 +803,17 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         return addResult(false, "invalid_movie", "Could not re-add this movie.");
       }
       const targetTmdbId = getPositiveTmdbId(targetMovie);
-      const hasActiveDuplicate =
-        targetTmdbId != null &&
-        (bowl.remaining || []).some(
-          (movie) => getPositiveTmdbId(movie) === targetTmdbId
+      const activeDuplicate = targetTmdbId == null
+        ? null
+        : (bowl.remaining || []).find(
+            (movie) => getPositiveTmdbId(movie) === targetTmdbId
+          );
+      if (activeDuplicate) {
+        return addResult(
+          false,
+          "duplicate_movie",
+          getDuplicateMovieMessage(targetMovie, activeDuplicate)
         );
-      if (hasActiveDuplicate) {
-        return addResult(false, "duplicate_movie", DUPLICATE_MOVIE_MESSAGE);
       }
 
       const { error } = await supabase.rpc("return_bowl_draw_to_bowl", {
@@ -710,7 +829,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
           false,
           duplicateMovie ? "duplicate_movie" : "add_failed",
           duplicateMovie
-            ? DUPLICATE_MOVIE_MESSAGE
+            ? getDuplicateMovieMessage(targetMovie, activeDuplicate)
             : describeNetworkError(error, "Could not re-add this movie. Please try again.")
         );
       }
@@ -731,6 +850,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
     handleDraw,
     handleAddMovie,
     handleUpdateMovieNote,
+    handleSetMoviePin,
     handleDeleteMovie,
     handleReaddMovie,
     filterMetadataFetchers,

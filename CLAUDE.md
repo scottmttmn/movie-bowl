@@ -22,7 +22,7 @@ npm run build        # production build — run this for any UI/app change
 ```
 
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
-A clean checkout is expected to be fully green (88 test files / 603 tests, lint
+A clean checkout is expected to be fully green (88 test files / 615 tests, lint
 with zero warnings); if something fails, it is your change. Those counts are a
 tripwire, not trivia — refresh them in the same commit that adds or removes
 tests, or the next person cannot tell a stale number from a lost test.
@@ -103,8 +103,8 @@ because they are the atomic/permission-checked path:
 `get_my_invite_sender_directory`, `draw_bowl_movie`,
 `draw_bowl_movie_by_rotation`, `return_bowl_draw_to_bowl`,
 `save_bowl_draw_access`, `save_bowl_draw_method`, `delete_owned_bowl`,
-`consume_bowl_add_link`, `create_manual_watch_event`, `update_user_watch_event`,
-`delete_user_watch_event`.
+`set_own_bowl_movie_pin`, `consume_bowl_add_link`, `create_manual_watch_event`,
+`update_user_watch_event`, `delete_user_watch_event`.
 
 Custom (non-TMDB) movies carry a **negative synthetic `tmdb_id`** so that
 NOT NULL deployments still accept them. Any code that hits TMDB must filter for

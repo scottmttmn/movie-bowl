@@ -56,16 +56,19 @@ const PERSON_FIRST = {
   description:
     "Picks a person at random, then one of their movies. Everyone is equally likely, no matter how many movies they added.",
   disclosure:
-    "The bowl first selects a person at random, then selects one of their movies at random. Each person is equally likely to be selected, regardless of how many movies they added.",
+    "The bowl first selects a person at random, then selects one of their movies at random. Each person is equally likely to be selected, regardless of how many movies they added. If that person pinned one of their eligible movies, the bowl picks the pinned movie instead of choosing at random. Pinning never changes who is selected.",
   // Equal odds are a promise about people, so a filter that removes everything
   // one person added quietly removes them from the draw. Say so.
   bucketsByContributor: true,
   reachCaveat:
     "Equal odds only cover the people with a movie in the actual eligible pool. Rating, genre, runtime, and streaming settings can remove every title someone added, leaving that person out of the draw.",
+  honorsPin: true,
   selectionMode: "client",
   pick(pool, { randomFn = Math.random } = {}) {
     const buckets = groupByContributor(pool);
-    return pickUniform(pickUniform(buckets, randomFn), randomFn);
+    const bucket = pickUniform(buckets, randomFn);
+    const pinned = bucket.find((item) => getMovieFromItem(item)?.is_pinned);
+    return pinned || pickUniform(bucket, randomFn);
   },
   buildOdds(movies) {
     const stats = buildContributorCounts(movies);
@@ -84,10 +87,12 @@ const TITLE_FIRST = {
   description:
     "Picks a title at random from the whole bowl. Adding more movies means more chances to be drawn.",
   disclosure:
-    "The bowl selects one title at random from everything in it. Every movie is equally likely, so someone who added more movies is more likely to have one of theirs drawn.",
+    "The bowl selects one title at random from everything in it. Every movie is equally likely, so someone who added more movies is more likely to have one of theirs drawn. This bowl ignores pinned movies, because there is no per-person step to apply them to.",
   bucketsByContributor: false,
   reachCaveat:
     "Only movies in the actual eligible pool are in the running. Rating, genre, runtime, and streaming settings can remove every title someone added, leaving that person out of the draw.",
+  honorsPin: false,
+  pinNote: "This bowl draws title-first, so pins don't change anything here.",
   selectionMode: "client",
   pick(pool, { randomFn = Math.random } = {}) {
     return pickUniform(pool, randomFn);
@@ -109,10 +114,11 @@ const ROTATION = {
   description:
     "Picks someone who has waited longest, then randomly chooses one of their eligible movies.",
   disclosure:
-    "The bowl chooses among the people represented in the eligible pool, starting with anyone who has never had a movie drawn and then whoever was selected least recently. Ties are random, and the bowl randomly chooses one of that person's eligible movies. Returning a movie does not reset the turn.",
+    "The bowl chooses among the people represented in the eligible pool, starting with anyone who has never had a movie drawn and then whoever was selected least recently. Ties are random, and the bowl randomly chooses one of that person's eligible movies. If that person pinned one of their eligible movies, the bowl picks the pinned movie instead of choosing at random. Pinning never changes who is selected. Returning a movie does not reset the turn.",
   bucketsByContributor: true,
   reachCaveat:
     "Rotation only covers people with a movie in the actual eligible pool. Rating, genre, runtime, and streaming settings can remove every title someone added, leaving that person out until one of their movies is eligible again.",
+  honorsPin: true,
   selectionMode: "server_rotation",
 };
 

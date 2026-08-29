@@ -50,6 +50,7 @@ export default function BowlDashboard() {
       handleDraw,
       handleAddMovie,
       handleUpdateMovieNote,
+      handleSetMoviePin,
       handleDeleteMovie,
       handleReaddMovie,
       filterMetadataFetchers,
@@ -1082,6 +1083,14 @@ return (
                       eligibilityStatus={myMovieEligibilityStatus}
                       eligibleMovieIds={eligibleMyMovieIds}
                       onRunEligibilityLookups={runMyMovieEligibilityLookups}
+                      drawMethod={drawMethod}
+                      onTogglePin={async (movie, pinned) => {
+                        setMyMoviesErrorMessage(null);
+                        const result = await handleSetMoviePin(movie.id, pinned);
+                        if (!result.ok) {
+                          setMyMoviesErrorMessage(result.message);
+                        }
+                      }}
                       onViewMovie={async (movie) => {
                         setSelectedDetailContext("myAdds");
                         setSelectedDetailMovie(await buildDetailMovie(movie));

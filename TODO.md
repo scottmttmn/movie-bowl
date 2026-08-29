@@ -31,16 +31,11 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   `output/designs/movie-comments.md`.
 - TV Theater mode: trailer pre-roll (phase 1) is implemented, and previews now rank through the draw's own resolved pool so they lead with titles that could actually come up next. Remaining phases cover provider deep links, LAN auto-start, and a native TV shell. See `output/designs/tv-theater-mode.md`.
 - Deterministic draw preview, steps 2 and 3: give rotation bowls a real contributor lookahead (the order is already derivable from `bowl_draw_events`, so it needs no new state), and only after living with that decide whether a committed schedule ships as a fourth draw method. A bowl-wide committed queue is blocked on filters being per-user today. Plan, not implementation: `output/designs/deterministic-draw-preview.md`.
-- Personal movie ordering: let contributors rank their own undrawn titles, independently of contributor rotation. Needs a separate design for method scope, link-guest ownership, accessible reordering, and where new or returned movies land. The pinned movie below is the one-title version and should ship first.
+- Personal movie ordering: let contributors rank their own undrawn titles, independently of contributor rotation. Needs a separate design for method scope, link-guest ownership, accessible reordering, and where new or returned movies land. The pinned movie shipped as the one-title version; full ordering remains a separate feature.
 - Within-person title weights: let a contributor set relative odds among their own
   titles without changing anyone else's odds. Recorded in
-  `output/designs/bowl-draw-methods.md`. The pinned movie below is its
+  `output/designs/bowl-draw-methods.md`. The shipped pinned movie is its
   degenerate case and answers most of the same want with one boolean.
-- Pinned movie: let a contributor pin one of their own undrawn titles so it
-  comes up when the bowl picks them, instead of a random title of theirs.
-  Applies under person-first and rotation, ignored by title-first, skipped
-  when tonight's filters exclude it. Nobody else's odds move. Plan in
-  `output/designs/pinned-movie.md`.
 - One slip per person for the same title: duplicate prevention is currently per
   `(bowl_id, tmdb_id)`, so a member who wants a title someone else already added
   cannot add it and therefore cannot pin it. Letting each contributor hold their

@@ -255,6 +255,7 @@ describe("useBowl handleDraw integration", () => {
     expect(mocks.selectCalls).toEqual(
       expect.arrayContaining([
         expect.objectContaining({ table: "bowl_movies", columns: expect.stringContaining("note") }),
+        expect.objectContaining({ table: "bowl_movies", columns: expect.stringContaining("is_pinned") }),
         expect.objectContaining({ table: "bowl_draw_events", columns: expect.stringContaining("note") }),
       ])
     );
@@ -661,6 +662,88 @@ describe("useBowl handleDraw integration", () => {
     expect(
       mocks.rpcCalls.filter(({ name }) => name === "get_bowl_profile_directory")
     ).toHaveLength(2);
+  });
+
+  it("moves the contributor pin through the narrow RPC and patches both owned rows", async () => {
+    const movies = [
+      {
+        id: "m1",
+        bowl_id: "bowl-1",
+        added_by: "user-1",
+        tmdb_id: 101,
+        title: "New Pin",
+        is_pinned: false,
+      },
+      {
+        id: "m2",
+        bowl_id: "bowl-1",
+        added_by: "user-1",
+        tmdb_id: 102,
+        title: "Old Pin",
+        is_pinned: true,
+      },
+    ];
+    mocks.remainingQueue.push(movies);
+    mocks.watchedQueue.push([]);
+    mocks.rpcResponses.push({ data: { ...movies[0], is_pinned: true }, error: null });
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let pinResult;
+    await act(async () => {
+      pinResult = await result.current.handleSetMoviePin("m1", true);
+    });
+
+    expect(mocks.rpcCalls).toContainEqual({
+      name: "set_own_bowl_movie_pin",
+      params: { p_bowl_movie_id: "m1", p_pinned: true },
+    });
+    expect(pinResult).toEqual(
+      expect.objectContaining({ ok: true, movie: expect.objectContaining({ is_pinned: true }) })
+    );
+    expect(result.current.bowl.remaining.map(({ id, is_pinned }) => ({ id, is_pinned }))).toEqual([
+      { id: "m1", is_pinned: true },
+      { id: "m2", is_pinned: false },
+    ]);
+  });
+
+  it.each([
+    [
+      { code: "42501", message: "permission denied" },
+      "You don't have permission to pin this movie.",
+    ],
+    [
+      { code: "P0001", message: "This movie is no longer available to pin." },
+      "This movie is no longer available to pin.",
+    ],
+  ])("returns a mapped pin failure without throwing", async (rpcError, expectedMessage) => {
+    const movie = {
+      id: "m1",
+      bowl_id: "bowl-1",
+      added_by: "user-1",
+      tmdb_id: 101,
+      title: "Movie A",
+      is_pinned: false,
+    };
+    mocks.remainingQueue.push([movie], [movie]);
+    mocks.watchedQueue.push([], []);
+    mocks.rpcResponses.push({ data: null, error: rpcError });
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let pinResult;
+    await act(async () => {
+      pinResult = await result.current.handleSetMoviePin("m1", true);
+    });
+
+    expect(pinResult).toEqual({
+      ok: false,
+      code: "pin_update_failed",
+      message: expectedMessage,
+    });
+    expect(result.current.bowl.remaining[0].is_pinned).toBe(false);
   });
 
   it("retries custom add with synthetic tmdb id when null tmdb_id is rejected", async () => {
@@ -1127,6 +1210,37 @@ describe("useBowl handleDraw integration", () => {
     expect(mocks.insertPayloads).toHaveLength(0);
     expect(mocks.updatePayloads).toHaveLength(0);
     expect(result.current.bowl.remaining).toEqual([existingRemaining]);
+  });
+
+  it("names the existing contributor when rejecting an active TMDB duplicate", async () => {
+    const existingRemaining = {
+      id: "r1",
+      tmdb_id: 101,
+      title: "Movie A",
+      added_by: "user-2",
+      drawn_at: null,
+    };
+    mocks.remainingQueue.push([existingRemaining]);
+    mocks.watchedQueue.push([]);
+    mocks.profileDirectoryRows = [{ user_id: "user-2", email: "dan@example.com" }];
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let addDuplicateResult;
+    await act(async () => {
+      addDuplicateResult = await result.current.handleAddMovie({
+        id: 101,
+        title: "Movie A",
+        genres: [],
+      });
+    });
+
+    expect(addDuplicateResult).toEqual({
+      ok: false,
+      code: "duplicate_movie",
+      message: '"Movie A" is already in the bowl — dan added it, so it can come up on their turn.',
+    });
   });
 
   it("allows repeated custom titles", async () => {

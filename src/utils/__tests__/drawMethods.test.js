@@ -44,7 +44,16 @@ describe("normalizeDrawMethod", () => {
       expect(method.disclosure).toBeTruthy();
       expect(method.tvLabel).toBeTruthy();
       expect(method.selectionMode).toBeTruthy();
+      expect(typeof method.honorsPin).toBe("boolean");
     });
+    expect(getDrawMethod("person_first").honorsPin).toBe(true);
+    expect(getDrawMethod("rotation").honorsPin).toBe(true);
+    expect(getDrawMethod("title_first")).toEqual(
+      expect.objectContaining({
+        honorsPin: false,
+        pinNote: expect.stringMatching(/title-first/i),
+      })
+    );
   });
 });
 
@@ -72,6 +81,34 @@ describe("person_first", () => {
 
     expect(counts.get("user-1")).toBe(1);
     expect(counts.get("user-2")).toBe(1);
+  });
+
+  it("prefers the pinned title only after choosing its contributor bucket", () => {
+    const pool = LOPSIDED_POOL.map((movie) => ({
+      ...movie,
+      is_pinned: movie.id === "u1-3",
+    }));
+
+    const pinnedSelection = method.pick(pool, {
+      randomFn: makeSequenceRandom([0, 0]),
+    });
+    const otherContributorSelection = method.pick(pool, {
+      randomFn: makeSequenceRandom([0.75, 0]),
+    });
+
+    expect(pinnedSelection.id).toBe("u1-3");
+    expect(otherContributorSelection.id).toBe("u2-1");
+  });
+
+  it("finds a pin inside wrapped streaming candidates", () => {
+    const wrapped = LOPSIDED_POOL.map((movie) => ({
+      movie: { ...movie, is_pinned: movie.id === "u1-2" },
+      providers: [],
+    }));
+
+    expect(
+      method.pick(wrapped, { randomFn: makeSequenceRandom([0, 0]) }).movie.id
+    ).toBe("u1-2");
   });
 
   it("reports equal odds per contributor with movie counts", () => {
@@ -119,6 +156,31 @@ describe("title_first", () => {
       },
     ]);
   });
+
+  it("ignores a pin and keeps choosing uniformly across titles", () => {
+    const pool = [
+      { id: "pinned", added_by: "user-1", is_pinned: true },
+      { id: "random-pick", added_by: "user-1", is_pinned: false },
+    ];
+
+    expect(
+      method.pick(pool, { randomFn: makeSequenceRandom([0.75]) }).id
+    ).toBe("random-pick");
+  });
+});
+
+it("pins do not change reported contributor odds", () => {
+  const pinnedPool = LOPSIDED_POOL.map((movie) => ({
+    ...movie,
+    is_pinned: movie.id === "u1-2" || movie.id === "u2-1",
+  }));
+
+  expect(buildDrawOddsStats(pinnedPool, "person_first")).toEqual(
+    buildDrawOddsStats(LOPSIDED_POOL, "person_first")
+  );
+  expect(buildDrawOddsStats(pinnedPool, "title_first")).toEqual(
+    buildDrawOddsStats(LOPSIDED_POOL, "title_first")
+  );
 });
 
 describe("every method", () => {

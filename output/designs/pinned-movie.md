@@ -1,8 +1,8 @@
 # The Pinned Movie
 
-Status: plan, not implemented. Nothing in the repo sets or reads a pin today —
-there is no `is_pinned` column, no save RPC, and no control on the My Movies
-card. Everything below is a proposal.
+Status: implemented. The schema and draw authority live in
+`20260829170000_add_pinned_bowl_movies.sql`; the client control lives in My
+Movies and follows the behavior below.
 
 ## Product Idea
 
@@ -525,11 +525,10 @@ already achieves — nothing more is needed.
   nudge; making it public turns it into a claim on the room.
 - ~~Should returning a drawn movie restore the pin?~~ **Decided: no.** Re-pinning
   is one tap, and a pin that silently reappears months later is a surprise.
-- **Does the duplicate-refusal copy need the contributor's name?** Naming who
-  already added it is the useful half of the message, but it discloses one slip's
-  contributor before the draw. Probably fine — you learn it by being refused,
-  about a title you already chose — but it is a real edge of the concealment
-  rule.
+- ~~Does the duplicate-refusal copy need the contributor's name?~~ **Implemented:
+  yes, when a name is already available.** You learn it only after trying to add
+  the same title, and the generic refusal remains the fallback when no name
+  resolves.
 - **Does a pin deserve to survive a filter it barely misses?** No. Recording it
   because it is the tempting wrong answer, and because someone will ask.
 - **Should a bowl owner be able to turn pins off?** Only if pins turn out to

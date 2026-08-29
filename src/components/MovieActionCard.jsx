@@ -8,6 +8,10 @@ export default function MovieActionCard({
   onSecondaryAction,
   disableWhileSyncing = true,
   isFilterExcluded = false,
+  isPinned = false,
+  pinStatusMessage = null,
+  onTogglePin,
+  pinDisabled = false,
 }) {
   const dateLabel = dateValue ? new Date(dateValue).toLocaleDateString() : null;
   const isCustomEntry = Boolean(
@@ -18,6 +22,11 @@ export default function MovieActionCard({
     : movie.poster || null;
   const isSyncing = movie.local_status === "syncing";
   const disableActions = disableWhileSyncing && isSyncing;
+  const showPinControl = typeof onTogglePin === "function";
+  const pinControlDisabled = pinDisabled || isSyncing;
+  const pinLabel = isPinned
+    ? `Unpin "${movie.title}"`
+    : `Pin "${movie.title}" so it comes up first when you're picked`;
 
   return (
     <article
@@ -30,33 +39,76 @@ export default function MovieActionCard({
       }`}
       data-filter-excluded={isFilterExcluded ? "true" : undefined}
     >
-      <div className={`flex flex-1 flex-col ${isFilterExcluded ? "opacity-45 grayscale" : ""}`}>
-        {posterUrl ? (
-          <img
-            src={posterUrl}
-            alt={movie.title}
-            className="h-44 w-full rounded-xl object-cover shadow-md shadow-black/30"
-          />
-        ) : (
-          <div className="flex h-44 w-full items-center justify-center rounded-xl bg-slate-800 p-2">
-            <p className="text-center text-xs font-semibold text-slate-200">{movie.title}</p>
+      <div className="flex flex-1 flex-col">
+        <div className="relative">
+          <div className={isFilterExcluded ? "opacity-45 grayscale" : ""}>
+            {posterUrl ? (
+              <img
+                src={posterUrl}
+                alt={movie.title}
+                className="h-44 w-full rounded-xl object-cover shadow-md shadow-black/30"
+              />
+            ) : (
+              <div className="flex h-44 w-full items-center justify-center rounded-xl bg-slate-800 p-2">
+                <p className="text-center text-xs font-semibold text-slate-200">{movie.title}</p>
+              </div>
+            )}
+          </div>
+          {showPinControl && (
+            <button
+              type="button"
+              className={`icon-btn absolute right-2 top-2 h-8 w-8 border-slate-600 bg-slate-950/90 text-sm shadow-lg shadow-black/40 ${
+                isPinned ? "border-rose-600 text-rose-300" : "text-slate-200"
+              }`}
+              aria-label={pinLabel}
+              aria-pressed={isPinned}
+              title={pinLabel}
+              disabled={pinControlDisabled}
+              onClick={() => onTogglePin(movie, !isPinned)}
+            >
+              <svg
+                aria-hidden="true"
+                viewBox="0 0 24 24"
+                className="h-4 w-4"
+                fill={isPinned ? "currentColor" : "none"}
+                stroke="currentColor"
+                strokeWidth="2"
+                strokeLinecap="round"
+                strokeLinejoin="round"
+              >
+                <path d="M12 17v5" />
+                <path d="M5 3h14l-3 6v5l2 2H6l2-2V9L5 3Z" />
+              </svg>
+            </button>
+          )}
+        </div>
+        <div className={isFilterExcluded ? "opacity-45 grayscale" : ""}>
+          <p className="mt-2.5 min-h-[2.5rem] line-clamp-2 text-xs font-semibold leading-snug text-slate-100">
+            {movie.title}
+          </p>
+          {isCustomEntry && (
+            <span className="mb-1 inline-flex rounded-full border border-amber-700/70 bg-amber-950/50 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
+              Custom
+            </span>
+          )}
+          {dateLabel && dateLabelPrefix && (
+            <p className="mb-2 text-[11px] text-slate-400">
+              {dateLabelPrefix}: {dateLabel}
+            </p>
+          )}
+          {isSyncing && <p className="mb-2 text-[11px] font-medium text-rose-300">Syncing...</p>}
+          {isFilterExcluded && <span className="sr-only">Outside current filters</span>}
+        </div>
+        {isPinned && (
+          <div className="mb-2 space-y-1">
+            <span className="inline-flex rounded-full border border-rose-700/70 bg-rose-950/70 px-2 py-0.5 text-[10px] font-semibold text-rose-200">
+              Pinned
+            </span>
+            {pinStatusMessage && (
+              <p className="text-[11px] leading-snug text-slate-300">{pinStatusMessage}</p>
+            )}
           </div>
         )}
-        <p className="mt-2.5 min-h-[2.5rem] line-clamp-2 text-xs font-semibold leading-snug text-slate-100">
-          {movie.title}
-        </p>
-        {isCustomEntry && (
-          <span className="mb-1 inline-flex rounded-full border border-amber-700/70 bg-amber-950/50 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
-            Custom
-          </span>
-        )}
-        {dateLabel && dateLabelPrefix && (
-          <p className="mb-2 text-[11px] text-slate-400">
-            {dateLabelPrefix}: {dateLabel}
-          </p>
-        )}
-        {isSyncing && <p className="mb-2 text-[11px] font-medium text-rose-300">Syncing...</p>}
-        {isFilterExcluded && <span className="sr-only">Outside current filters</span>}
       </div>
       <div className="mt-auto grid grid-cols-2 gap-1">
         <button
