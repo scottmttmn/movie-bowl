@@ -29,8 +29,25 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   details and manual history. Implementation-ready plan in
   `output/designs/movie-comments.md`.
 - TV Theater mode: trailer pre-roll (phase 1) is implemented. Remaining phases cover provider deep links, LAN auto-start, and a native TV shell. See `output/designs/tv-theater-mode.md`.
-- Personal movie ordering: let contributors rank their own undrawn titles, independently of contributor rotation. Needs a separate design for method scope, link-guest ownership, accessible reordering, and where new or returned movies land.
-- Within-person title weights: let a contributor set relative odds among their own titles without changing anyone else's odds. Recorded in `output/designs/bowl-draw-methods.md`.
+- Personal movie ordering: let contributors rank their own undrawn titles, independently of contributor rotation. Needs a separate design for method scope, link-guest ownership, accessible reordering, and where new or returned movies land. The pinned movie below is the one-title version and should ship first.
+- Within-person title weights: let a contributor set relative odds among their own
+  titles without changing anyone else's odds. Recorded in
+  `output/designs/bowl-draw-methods.md`. The pinned movie below is its
+  degenerate case and answers most of the same want with one boolean.
+- Pinned movie: let a contributor pin one of their own undrawn titles so it
+  comes up when the bowl picks them, instead of a random title of theirs.
+  Applies under person-first and rotation, ignored by title-first, skipped
+  when tonight's filters exclude it. Nobody else's odds move. Plan in
+  `output/designs/pinned-movie.md`.
+- One slip per person for the same title: duplicate prevention is currently per
+  `(bowl_id, tmdb_id)`, so a member who wants a title someone else already added
+  cannot add it and therefore cannot pin it. Letting each contributor hold their
+  own slip, deduped when either is drawn, is the coherent fix — person-first
+  odds are unaffected because a contributor's share is fixed at 1/N, and the
+  registry table already counts duplicate slips. Open questions on pool
+  double-counting and making sibling retirement visible. Analysed under
+  "Edge Case: Somebody Else Already Added It" in
+  `output/designs/pinned-movie.md`; needs its own design before any code.
 - Solo draw: draw privately from only your own titles, in one bowl or pooled across all of them. See `output/designs/solo-draw.md`.
 
 ## Technical Debt / Maintenance
