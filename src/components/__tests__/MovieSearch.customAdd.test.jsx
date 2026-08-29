@@ -11,6 +11,11 @@ vi.mock("../../lib/streamingProviders", () => ({
   fetchStreamingProviders: vi.fn(async () => ({ providers: [], region: "US", fetchedAt: null })),
 }));
 
+function openCommentField() {
+  fireEvent.click(screen.getByRole("button", { name: /comment \(optional\)/i }));
+  return screen.getByLabelText(/comment \(optional\)/i);
+}
+
 describe("MovieSearch custom add", () => {
   it("adds a custom entry when user clicks add custom", async () => {
     const onAddMovie = vi.fn(async () => {});
@@ -18,7 +23,7 @@ describe("MovieSearch custom add", () => {
 
     const input = screen.getByPlaceholderText("Search movies...");
     fireEvent.change(input, { target: { value: "Wildcard" } });
-    fireEvent.change(screen.getByLabelText(/comment \(optional\)/i), {
+    fireEvent.change(openCommentField(), {
       target: { value: "  Perfect for a double feature.  " },
     });
 
@@ -35,6 +40,7 @@ describe("MovieSearch custom add", () => {
         })
       );
     });
-    expect(screen.getByLabelText(/comment \(optional\)/i)).toHaveValue("");
+    expect(screen.queryByLabelText(/comment \(optional\)/i)).toBeNull();
+    expect(openCommentField()).toHaveValue("");
   });
 });

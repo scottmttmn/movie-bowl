@@ -260,7 +260,8 @@ describe("BowlDashboard guards", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /\+ add movie/i }));
     fireEvent.change(screen.getByPlaceholderText(/search movies/i), { target: { value: "Wildcard Night" } });
-    fireEvent.click(screen.getByRole("button", { name: /add "wildcard night"/i }));
+    // The custom-title card waits for the search to settle before it offers itself.
+    fireEvent.click(await screen.findByRole("button", { name: /add "wildcard night"/i }));
 
     await waitFor(() => {
       expect(mocks.state.handleAddMovie).toHaveBeenCalledWith(
