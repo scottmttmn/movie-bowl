@@ -32,6 +32,11 @@ vi.mock("../../hooks/useBowl", () => ({
     errorMessage: null,
     handleDraw: mocks.handleDraw,
     handleReaddMovie: mocks.handleReaddMovie,
+    filterMetadataFetchers: {
+      fetchMovieDetails: (tmdbId) => mocks.getTmdbMovieDetails(tmdbId),
+      fetchProviders: async () => ({ providers: [], region: "US", fetchedAt: null }),
+      fetchFilterMetadata: async () => null,
+    },
   }),
 }));
 
@@ -51,6 +56,8 @@ vi.mock("../../lib/streamingProviders", () => ({
   fetchStreamingProviders: async () => ({ providers: [], region: "US", fetchedAt: null }),
 }));
 
+import { clearDrawSelectionCache } from "../../utils/drawSelection";
+import { MPAA_RATING_OPTIONS } from "../../utils/movieRatings";
 import TvTonightScreen from "../screens/TvTonightScreen";
 
 const DRAWN_MOVIE = {
@@ -66,6 +73,14 @@ const DETAILS_BY_ID = {
   202: { title: "Dune", trailer: { key: "dune" } },
   303: { title: "Tenet", trailer: { key: "tenet" } },
 };
+
+function withUsRating(certification) {
+  return {
+    release_dates: {
+      results: [{ iso_3166_1: "US", release_dates: [{ certification }] }],
+    },
+  };
+}
 
 function renderTonight() {
   return render(
@@ -106,6 +121,8 @@ describe("TV theater mode", () => {
   beforeEach(() => {
     window.localStorage.clear();
     window.sessionStorage.clear();
+    // Ratings are cached in-module for an hour, so each case starts clean.
+    clearDrawSelectionCache();
     // Pin the candidate shuffle so preview order is assertable; Fisher-Yates
     // leaves the list untouched when every draw picks the last slot.
     vi.spyOn(Math, "random").mockReturnValue(0.999999);
@@ -115,6 +132,9 @@ describe("TV theater mode", () => {
     mocks.drawSettings = {
       prioritizeStreaming: false,
       selectedRatings: ["PG", "PG-13", "R"],
+      includeUnknownRatings: true,
+      includeUnknownGenres: true,
+      includeUnknownRuntime: true,
       theaterModeEnabled: true,
       theaterTrailerCount: 2,
     };
@@ -195,6 +215,29 @@ describe("TV theater mode", () => {
     expect(
       JSON.parse(window.localStorage.getItem("movie-bowl:tv:recent-trailers"))
     ).toEqual(expect.arrayContaining(["dune", "tenet"]));
+  });
+
+  it("previews a title the draw filters can still reach over one they exclude", async () => {
+    mocks.drawSettings = {
+      ...mocks.drawSettings,
+      selectedRatings: ["PG-13"],
+      includeUnknownRatings: false,
+      theaterTrailerCount: 1,
+    };
+    mocks.getTmdbMovieDetails.mockImplementation(async (tmdbId) => ({
+      ...(DETAILS_BY_ID[tmdbId] || {}),
+      ...withUsRating(tmdbId === 303 ? "PG-13" : "R"),
+    }));
+
+    await drawWithTheaterMode();
+
+    await screen.findByRole("dialog", { name: /previews before arrival/i });
+    // Dune is R and the bowl is drawing PG-13 only, so it cannot come up next.
+    expect(screen.getByTitle(/movie bowl previews/i)).toHaveAttribute(
+      "src",
+      expect.stringContaining("/embed/tenet")
+    );
+    expect(screen.getByText(/preview 1 of 1/i)).toBeInTheDocument();
   });
 
   it("advances past a preview that fails to play", async () => {
@@ -307,7 +350,13 @@ describe("TV theater mode", () => {
   });
 
   it("keeps the plain reveal flow when theater mode is off", async () => {
-    mocks.drawSettings = { ...mocks.drawSettings, theaterModeEnabled: false };
+    // An exhaustive rating filter resolves the pool without a single lookup,
+    // so the only TMDB calls left to count are the ones previews would make.
+    mocks.drawSettings = {
+      ...mocks.drawSettings,
+      theaterModeEnabled: false,
+      selectedRatings: MPAA_RATING_OPTIONS,
+    };
 
     renderTonight();
     fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
