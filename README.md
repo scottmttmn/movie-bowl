@@ -79,6 +79,7 @@ VITE_SUPABASE_ANON_KEY=...
 TMDB_READ_ACCESS_TOKEN=...
 SUPABASE_URL=...
 SUPABASE_SERVICE_ROLE_KEY=...
+CRON_SECRET=...
 APP_BASE_URL=https://moviebowl.app
 RESEND_API_KEY=...
 INVITE_EMAIL_FROM="Movie Bowl <invites@mail.moviebowl.app>"
@@ -193,12 +194,17 @@ These are visible in the browser bundle by design.
 - `TMDB_READ_ACCESS_TOKEN`
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `CRON_SECRET`
+- `FILTER_METADATA_DAILY_MAX_TITLES` (optional; defaults to 180)
 - `APP_BASE_URL`
 - `RESEND_API_KEY`
 - `INVITE_EMAIL_FROM`
 
 Do not prefix server-only values with `VITE_`. `SUPABASE_SERVICE_ROLE_KEY`
 bypasses RLS, so every route that uses it must do its own authorization.
+
+`CRON_SECRET` protects the once-daily Vercel filter-metadata refresh. Vercel
+sends it as a bearer token when invoking the configured cron route.
 
 ## Production Setup
 
@@ -253,6 +259,17 @@ bypasses RLS, so every route that uses it must do its own authorization.
   - `POST /api/add-links/consume`
 - Link users do not need to sign in.
 
+### Filter metadata refresh
+
+- Vercel calls `GET /api/cron/refresh-filter-metadata` once per day.
+- The worker uses combined TMDB certification/provider requests, processes at
+  most six titles concurrently, and exits before the Hobby function deadline.
+- Successful snapshots remain available when a later refresh fails.
+- Inactive cache rows are removed, and no TMDB-derived snapshot is retained
+  beyond TMDB's six-month cache limit.
+- Adding a signed-in user's TMDB movie also starts a non-blocking single-title
+  warmup through `POST /api/tmdb/movie/warm-filter-metadata`.
+
 ## Data Model
 
 Tables the app touches:
@@ -264,6 +281,7 @@ Tables the app touches:
 - `bowl_invites`
 - `bowl_draw_permissions`
 - `tv_pairing_requests` (server-only; no direct client access)
+- `tmdb_filter_metadata` (server-maintained; read through a membership RPC)
 - `bowl_add_links`
 - `bowl_draw_events` — immutable bowl-side record of each draw
 - `user_watch_events` — per-participant personal history
@@ -281,6 +299,7 @@ RPCs the client calls (preferred over multi-statement client writes, because
 they are the atomic and permission-checked path):
 
 `get_my_bowls_with_counts`, `get_bowl_profile_directory`,
+`get_bowl_filter_metadata`,
 `get_my_invite_sender_directory`, `draw_bowl_movie`, `return_bowl_draw_to_bowl`,
 `save_bowl_draw_access`, `delete_owned_bowl`, `consume_bowl_add_link`,
 `create_manual_watch_event`, `update_user_watch_event`, `delete_user_watch_event`.

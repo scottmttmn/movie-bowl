@@ -139,6 +139,30 @@ describe("useDrawPoolCount", () => {
     expect(fetchMovieDetails).toHaveBeenCalled();
   });
 
+  it("counts a large bowl automatically when every lookup is in the persistent snapshot", async () => {
+    const fetchMovieDetails = vi.fn(async () => ({
+      release_dates: {
+        results: [{ iso_3166_1: "US", release_dates: [{ certification: "R" }] }],
+      },
+    }));
+    const movies = Array.from(
+      { length: AUTO_LOOKUP_TITLE_LIMIT + 1 },
+      (unused, index) => movie(`cached-${index + 1}`)
+    );
+
+    const { result } = renderHook(() => useDrawPoolCount(movies, {
+      ratingFilter: { allowedRatings: ["R"], includeUnknown: false },
+      genreFilter: ALL_GENRES,
+      runtimeFilter: ALL_RUNTIMES,
+    }, {
+      fetchMovieDetails,
+      hasCompleteMetadataSnapshot: true,
+    }));
+
+    await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.unfiltered));
+    expect(fetchMovieDetails).toHaveBeenCalledTimes(AUTO_LOOKUP_TITLE_LIMIT + 1);
+  });
+
   it("counts automatically when the bowl is small enough to look up", async () => {
     const fetchMovieDetails = vi.fn(async (tmdbId) => ({
       release_dates: {

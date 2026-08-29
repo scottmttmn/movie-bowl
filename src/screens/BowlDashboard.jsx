@@ -52,6 +52,7 @@ export default function BowlDashboard() {
       handleUpdateMovieNote,
       handleDeleteMovie,
       handleReaddMovie,
+      filterMetadataFetchers,
     } = useBowl(bowlId, { drawMethod });
 
     const [showSearch, setShowSearch] = useState(false);
@@ -105,6 +106,7 @@ export default function BowlDashboard() {
     } = useBowlStreamingMatches(bowl.remaining, userStreamingServices, {
       autoScan: false,
       enabled: !isDrawFilteredByServices,
+      fetchProviders: filterMetadataFetchers?.fetchProviders,
     });
 
     const navigate = useNavigate();
@@ -241,7 +243,7 @@ export default function BowlDashboard() {
       eligibleMovieIds: drawPoolEligibleMovieIds,
       lookupProgress: drawPoolLookupProgress,
       runLookups: runDrawPoolLookups,
-    } = useDrawPoolCount(bowl.remaining, drawFilters);
+    } = useDrawPoolCount(bowl.remaining, drawFilters, filterMetadataFetchers);
     const drawPoolLookupCompleted = drawPoolLookupProgress?.completed || 0;
     const drawPoolLookupTotal = drawPoolLookupProgress?.total || 0;
     const drawPoolLookupPercent = drawPoolLookupTotal > 0
@@ -253,6 +255,7 @@ export default function BowlDashboard() {
       runLookups: runMyMovieEligibilityLookups,
     } = useMyMovieEligibility(bowl.remaining, myMovies, drawFilters, {
       enabled: showMyMovies && didApplyDefaultDrawSettings,
+      ...filterMetadataFetchers,
       sharedEligibleMovieIds: drawPoolEligibleMovieIds,
       isSharedEligibilityPending: drawPoolStatus === DRAW_POOL_STATUS.counting,
     });
@@ -490,7 +493,9 @@ export default function BowlDashboard() {
 
       const [detailsResult, providersResult] = await Promise.allSettled([
         getTmdbMovieDetails(tmdbId),
-        fetchStreamingProviders(tmdbId, { region: "US" }),
+        filterMetadataFetchers?.fetchProviders
+          ? filterMetadataFetchers.fetchProviders(tmdbId)
+          : fetchStreamingProviders(tmdbId, { region: "US" }),
       ]);
 
       if (detailsResult.status === "rejected") {

@@ -1,8 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
-import { getTmdbMovieDetails } from "../lib/tmdbApi";
-import { fetchStreamingProviders } from "../lib/streamingProviders";
-import { fetchMovieFilterMetadata } from "../lib/movieFilterMetadata";
+import { warmTmdbMovieFilterMetadata } from "../lib/tmdbApi";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { getDrawSelection, getResolvedDrawPool } from "../utils/drawSelection";
 import { DEFAULT_DRAW_METHOD, getDrawMethod } from "../utils/drawMethods";
@@ -21,6 +19,7 @@ import {
   normalizeMovieNote,
 } from "../utils/movieNote";
 import { getBrowserTimeZone } from "../utils/getBrowserTimeZone";
+import useBowlFilterMetadata from "./useBowlFilterMetadata";
 
 const DUPLICATE_MOVIE_MESSAGE = "This movie is already in the bowl.";
 
@@ -138,6 +137,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
     remaining: [],
     watched: [],
   });
+  const filterMetadataFetchers = useBowlFilterMetadata(bowlId, bowl.remaining);
 
   // Simple loading/error flags for DB-backed state.
   const [isLoading, setIsLoading] = useState(true);
@@ -299,7 +299,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
     const activeDrawMethod = options.drawMethod ?? drawMethod;
     const method = getDrawMethod(activeDrawMethod);
     const watchedTimeZone = getBrowserTimeZone();
-    const fetchProviders = (tmdbId) => fetchStreamingProviders(tmdbId, { region: "US" });
+    const fetchProviders = filterMetadataFetchers.fetchProviders;
     const selectionOptions = {
       remainingMovies: drawableRemaining,
       prioritizeByServices: options.prioritizeByServices,
@@ -309,8 +309,8 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       genreFilter: options.genreFilter,
       runtimeFilter: options.runtimeFilter,
       fetchProviders,
-      fetchMovieDetails: (tmdbId) => getTmdbMovieDetails(tmdbId),
-      fetchFilterMetadata: (tmdbId) => fetchMovieFilterMetadata(tmdbId),
+      fetchMovieDetails: filterMetadataFetchers.fetchMovieDetails,
+      fetchFilterMetadata: filterMetadataFetchers.fetchFilterMetadata,
     };
 
     let selected;
@@ -399,7 +399,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       streamingRegion: selected.region || "US",
       streamingFetchedAt: selected.fetchedAt || null,
     };
-  }, [bowlId, bowl.remaining, loadBowlMovies, drawMethod]);
+  }, [bowlId, bowl.remaining, loadBowlMovies, drawMethod, filterMetadataFetchers]);
 
   // Insert a movie into the DB for this bowl. We store snapshot fields from TMDB.
   const handleAddMovie = useCallback(
@@ -448,6 +448,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
 
       const { data: authData, error: authError } = await supabase.auth.getSession();
       const user = authData?.session?.user;
+      const accessToken = authData?.session?.access_token;
 
       if (authError || !user) {
         console.error("[useBowl] Not authenticated", authError);
@@ -542,6 +543,13 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
             })
           ),
         }));
+        if (movieTmdbId && accessToken) {
+          Promise.resolve()
+            .then(() => warmTmdbMovieFilterMetadata(movieTmdbId, bowlId, accessToken))
+            .catch((error) => {
+              console.error("[useBowl] Failed to warm filter metadata", error);
+            });
+        }
         return addResult(true);
       } catch (error) {
         const duplicateMovie = isDuplicateMovieError(error);
@@ -725,5 +733,6 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
     handleUpdateMovieNote,
     handleDeleteMovie,
     handleReaddMovie,
+    filterMetadataFetchers,
   };
 }

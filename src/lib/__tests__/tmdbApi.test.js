@@ -4,6 +4,7 @@ import {
   getTmdbMovieFilterMetadata,
   getTmdbMovieProviders,
   searchTmdbMovies,
+  warmTmdbMovieFilterMetadata,
 } from "../tmdbApi";
 import { OFFLINE_MESSAGE } from "../../utils/networkErrors";
 
@@ -120,6 +121,28 @@ describe("tmdbApi", () => {
 
     await expect(getTmdbMovieFilterMetadata("77 ")).resolves.toEqual(metadata);
     expect(global.fetch).toHaveBeenCalledWith("/api/tmdb/movie/filter-metadata?id=77");
+  });
+
+  it("warms one added movie without tying it to the add response", async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ status: "refreshed" }),
+    });
+
+    await expect(warmTmdbMovieFilterMetadata(77, "bowl-1", "access-token"))
+      .resolves.toEqual({ status: "refreshed" });
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/tmdb/movie/warm-filter-metadata",
+      {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+          Authorization: "Bearer access-token",
+        },
+        body: JSON.stringify({ id: 77, bowlId: "bowl-1" }),
+        keepalive: true,
+      }
+    );
   });
 
   it("returns null trailer when no official YouTube trailer exists", async () => {

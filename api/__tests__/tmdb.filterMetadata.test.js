@@ -69,7 +69,8 @@ describe("api/tmdb/movie/filter-metadata", () => {
     expect(res.body.details["watch/providers"]).toBeUndefined();
     expect(typeof res.body.fetchedAt).toBe("string");
     expect(mocks.tmdbFetch).toHaveBeenCalledWith(
-      "/movie/77?append_to_response=release_dates,watch/providers"
+      "/movie/77?append_to_response=release_dates,watch/providers",
+      { signal: undefined }
     );
   });
 

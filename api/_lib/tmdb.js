@@ -12,12 +12,13 @@ function getTmdbToken() {
   return token;
 }
 
-export async function tmdbFetch(pathWithQuery) {
+export async function tmdbFetch(pathWithQuery, options = {}) {
   const token = getTmdbToken();
   const response = await fetch(`${TMDB_BASE_URL}${pathWithQuery}`, {
     headers: {
       Authorization: `Bearer ${token}`,
     },
+    signal: options.signal,
   });
 
   const data = await response.json().catch(() => ({}));

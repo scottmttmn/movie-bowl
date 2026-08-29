@@ -74,4 +74,15 @@ describe("AboutPage", () => {
       screen.getByText(/the bowl selects a member first, then one of their movies/i)
     ).toBeInTheDocument();
   });
+
+  it("attributes TMDB and JustWatch data", () => {
+    renderAboutPage();
+
+    expect(screen.getByText(/uses the TMDB API but is not endorsed or certified/i))
+      .toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /the movie database/i }))
+      .toHaveAttribute("href", "https://www.themoviedb.org");
+    expect(screen.getByRole("link", { name: "JustWatch" }))
+      .toHaveAttribute("href", "https://www.justwatch.com");
+  });
 });

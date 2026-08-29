@@ -6,6 +6,8 @@ const mocks = vi.hoisted(() => ({
   watchedQueue: [],
   profileDirectoryRows: [],
   profileDirectoryError: null,
+  filterMetadataRows: [],
+  filterMetadataError: null,
   rpcCalls: [],
   rpcResponses: [],
   selectCalls: [],
@@ -20,10 +22,11 @@ const mocks = vi.hoisted(() => ({
   fetchStreamingProviders: vi.fn(),
   getTmdbMovieDetails: vi.fn(),
   fetchMovieFilterMetadata: vi.fn(),
+  warmTmdbMovieFilterMetadata: vi.fn(),
   supabase: {
     auth: {
       getSession: vi.fn(async () => ({
-        data: { session: { user: { id: "user-1" } } },
+        data: { session: { user: { id: "user-1" }, access_token: "access-token" } },
         error: null,
       })),
     },
@@ -33,6 +36,12 @@ const mocks = vi.hoisted(() => ({
         return {
           data: mocks.profileDirectoryRows,
           error: mocks.profileDirectoryError,
+        };
+      }
+      if (name === "get_bowl_filter_metadata") {
+        return {
+          data: mocks.filterMetadataRows,
+          error: mocks.filterMetadataError,
         };
       }
       return mocks.rpcResponses.shift() || { data: null, error: null };
@@ -152,6 +161,7 @@ vi.mock("../../lib/streamingProviders", () => ({
 }));
 vi.mock("../../lib/tmdbApi", () => ({
   getTmdbMovieDetails: mocks.getTmdbMovieDetails,
+  warmTmdbMovieFilterMetadata: mocks.warmTmdbMovieFilterMetadata,
 }));
 vi.mock("../../lib/movieFilterMetadata", () => ({
   fetchMovieFilterMetadata: mocks.fetchMovieFilterMetadata,
@@ -179,6 +189,8 @@ describe("useBowl handleDraw integration", () => {
     mocks.watchedQueue = [];
     mocks.profileDirectoryRows = [];
     mocks.profileDirectoryError = null;
+    mocks.filterMetadataRows = [];
+    mocks.filterMetadataError = null;
     mocks.rpcCalls = [];
     mocks.rpcResponses = [];
     mocks.selectCalls = [];
@@ -193,6 +205,8 @@ describe("useBowl handleDraw integration", () => {
     mocks.fetchStreamingProviders.mockReset();
     mocks.getTmdbMovieDetails.mockReset();
     mocks.fetchMovieFilterMetadata.mockReset();
+    mocks.warmTmdbMovieFilterMetadata.mockReset();
+    mocks.warmTmdbMovieFilterMetadata.mockResolvedValue(null);
     mocks.supabase.from.mockClear();
   });
 
@@ -318,6 +332,53 @@ describe("useBowl handleDraw integration", () => {
     expect(mocks.fetchMovieFilterMetadata).toHaveBeenCalledTimes(2);
     expect(mocks.getTmdbMovieDetails).not.toHaveBeenCalled();
     expect(mocks.fetchStreamingProviders).not.toHaveBeenCalled();
+  });
+
+  it("draws from one persistent bowl snapshot without live TMDB lookups", async () => {
+    const netflixMovie = { id: "m-cache-netflix", tmdb_id: 9401, title: "PG Netflix" };
+    const maxMovie = { id: "m-cache-max", tmdb_id: 9402, title: "R Max" };
+    mocks.remainingQueue.push([netflixMovie, maxMovie], [netflixMovie]);
+    mocks.watchedQueue.push([], [{ ...maxMovie, drawn_at: "2026-08-28T00:00:00.000Z" }]);
+    mocks.filterMetadataRows = [
+      {
+        tmdb_id: 9401,
+        region: "US",
+        certification: "PG",
+        providers: ["Netflix"],
+        fetched_at: "2026-08-28T08:00:00.000Z",
+      },
+      {
+        tmdb_id: 9402,
+        region: "US",
+        certification: "R",
+        providers: ["Max"],
+        fetched_at: "2026-08-28T08:00:00.000Z",
+      },
+    ];
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await waitFor(() => expect(result.current.filterMetadataFetchers.status).toBe("ready"));
+    expect(
+      mocks.rpcCalls.filter(({ name }) => name === "get_bowl_filter_metadata")
+    ).toHaveLength(1);
+
+    await act(async () => {
+      await result.current.handleDraw({
+        ratingFilter: { allowedRatings: ["R"], includeUnknown: false },
+        prioritizeByServices: true,
+        prioritizeByServiceRank: true,
+        userStreamingServices: ["Netflix", "Max"],
+      });
+    });
+
+    expectDrawRpc("m-cache-max");
+    expect(mocks.fetchMovieFilterMetadata).not.toHaveBeenCalled();
+    expect(mocks.getTmdbMovieDetails).not.toHaveBeenCalled();
+    expect(mocks.fetchStreamingProviders).not.toHaveBeenCalled();
+    expect(
+      mocks.rpcCalls.filter(({ name }) => name === "get_bowl_filter_metadata")
+    ).toHaveLength(2);
   });
 
   it("sends the resolved pool to the atomic rotation RPC and hydrates its selection", async () => {
@@ -686,6 +747,11 @@ describe("useBowl handleDraw integration", () => {
         })
       );
     });
+    expect(mocks.warmTmdbMovieFilterMetadata).toHaveBeenCalledWith(
+      101,
+      "bowl-1",
+      "access-token"
+    );
   });
 
   it("rolls back optimistic add and sets error message when insert fails", async () => {

@@ -1,5 +1,4 @@
-import { tmdbFetch } from "../../_lib/tmdb.js";
-import { normalizeStreamingServices } from "../../../src/utils/streamingServices.js";
+import { fetchTmdbFilterMetadata } from "../../_lib/tmdbFilterMetadata.js";
 
 export default async function handler(req, res) {
   if (req.method !== "GET") {
@@ -14,24 +13,8 @@ export default async function handler(req, res) {
   }
 
   try {
-    const data = await tmdbFetch(
-      `/movie/${encodeURIComponent(id)}?append_to_response=release_dates,watch/providers`
-    );
-    const providerResults = data?.["watch/providers"]?.results || {};
-    const regionData = providerResults.US || {};
-    const providers = normalizeStreamingServices([
-      ...(regionData.flatrate || []),
-      ...(regionData.ads || []),
-    ].map((provider) => provider?.provider_name).filter(Boolean));
-    const details = { ...(data || {}) };
-    delete details["watch/providers"];
-
-    res.status(200).json({
-      details,
-      providers,
-      region: "US",
-      fetchedAt: new Date().toISOString(),
-    });
+    const metadata = await fetchTmdbFilterMetadata(id, { region: "US" });
+    res.status(200).json(metadata);
   } catch (error) {
     console.error("[api/tmdb/movie/filter-metadata] Failed to fetch filter metadata", error);
     const status = error?.statusCode || 500;

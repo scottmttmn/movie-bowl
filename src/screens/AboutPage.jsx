@@ -202,7 +202,32 @@ export default function AboutPage() {
             </a>
           </div>
         </div>
-        <p className="mt-6 text-xs text-slate-500">TMDB data used for movie metadata and availability.</p>
+        <div className="mx-auto mt-7 max-w-xl text-xs leading-5 text-slate-500">
+          <a
+            href="https://www.themoviedb.org"
+            target="_blank"
+            rel="noreferrer"
+            className="mx-auto block w-14 opacity-80 transition hover:opacity-100"
+            aria-label="The Movie Database"
+          >
+            <img src="/tmdb-logo.svg" alt="" />
+          </a>
+          <p className="mt-3">
+            This product uses the TMDB API but is not endorsed or certified by TMDB.
+          </p>
+          <p>
+            Streaming availability data provided by{" "}
+            <a
+              href="https://www.justwatch.com"
+              target="_blank"
+              rel="noreferrer"
+              className="underline decoration-slate-700 underline-offset-2 hover:text-slate-300"
+            >
+              JustWatch
+            </a>
+            {" "}through TMDB.
+          </p>
+        </div>
       </section>
     </main>
   );

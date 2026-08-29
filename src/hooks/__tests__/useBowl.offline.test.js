@@ -57,6 +57,7 @@ vi.mock("../../lib/streamingProviders", () => ({
 }));
 vi.mock("../../lib/tmdbApi", () => ({
   getTmdbMovieDetails: vi.fn(async () => ({})),
+  warmTmdbMovieFilterMetadata: vi.fn(async () => null),
 }));
 
 import useBowl from "../useBowl";

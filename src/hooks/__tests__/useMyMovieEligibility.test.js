@@ -107,6 +107,25 @@ describe("useMyMovieEligibility", () => {
     expect(fetchMovieDetails).toHaveBeenCalledTimes(3);
   });
 
+  it("does not require authorization when the persistent snapshot is complete", async () => {
+    const movies = [movie("cached-1"), movie("cached-2"), movie("cached-3")];
+    const fetchMovieDetails = vi.fn(async () => pgDetails());
+    const { result } = renderHook(() => useMyMovieEligibility(
+      movies,
+      movies,
+      filters,
+      {
+        enabled: true,
+        fetchMovieDetails,
+        autoLookupLimit: 2,
+        hasCompleteMetadataSnapshot: true,
+      }
+    ));
+
+    await waitFor(() => expect(result.current.status).toBe(MY_MOVIE_ELIGIBILITY_STATUS.ready));
+    expect(result.current.eligibleMovieIds).toHaveLength(3);
+  });
+
   it("resets explicit lookup authorization when filters change", async () => {
     const movies = [movie("m11"), movie("m12"), movie("m13")];
     const fetchMovieDetails = vi.fn(async () => pgDetails());

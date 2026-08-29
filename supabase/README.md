@@ -37,6 +37,32 @@ supabase db push
 
 4. Commit migration files to git.
 
+## Local pgTAP verification and cleanup
+
+Run database tests against a disposable local Supabase project, never against
+the hosted database. This repository's checked-in migration history does not
+currently include the original schema baseline. If a clean `supabase start`
+fails because an early migration expects an existing table, export only the
+linked project's `public` schema (no rows) to a temporary file and use that as
+the disposable project's baseline. Do not commit that export.
+
+After every disposable pgTAP run:
+
+1. Stop the exact test project and delete its test-only Docker volume:
+
+   ```bash
+   supabase stop --workdir /path/to/disposable-project --no-backup
+   ```
+
+2. Delete the disposable project directory and temporary schema-only export.
+   These must always be explicit paths under a temporary directory.
+3. Run `docker system df -v` and remove only the unused image IDs that were
+   newly pulled for the test with `docker image rm IMAGE_ID...`. Supabase can
+   download them again on the next database test.
+
+Do not use a broad `docker system prune`; other local projects may depend on
+unrelated Docker images or volumes.
+
 ## Drift rule
 
 Avoid dashboard-only schema/policy changes. If an emergency dashboard edit happens, immediately backfill it into a migration file and commit.
@@ -52,6 +78,21 @@ The equal-probability contributor draw migration promotes pending queue rows int
 positive TMDB IDs among a bowl's undrawn movies. Its private registry preserves
 pre-existing duplicate rows while blocking additional copies. Custom entries
 and watched movies are not included in the uniqueness rule.
+
+## Filter metadata cache note
+
+`20260828120000_add_tmdb_filter_metadata_cache.sql` adds a private, global cache
+of normalized US certifications and streaming providers for active TMDB movies.
+The active-movie registry seeds missing cache rows automatically. Authenticated
+bowl members can read only their bowl's cache snapshot through
+`get_bowl_filter_metadata`; refresh claims and writes are restricted to the
+server service role. The Vercel daily worker keeps successful snapshots for use
+when a later TMDB refresh fails, prunes titles no longer active in any bowl, and
+expires TMDB-derived values before the six-month caching limit.
+
+Rollback is available via:
+
+- `supabase/rollback/20260828120000_remove_tmdb_filter_metadata_cache.sql`
 
 ## Public add links note
 

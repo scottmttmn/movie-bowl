@@ -22,7 +22,7 @@ npm run build        # production build — run this for any UI/app change
 ```
 
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
-A clean checkout is expected to be fully green (83 test files / 572 tests, lint
+A clean checkout is expected to be fully green (87 test files / 590 tests, lint
 with zero warnings); if something fails, it is your change. Those counts are a
 tripwire, not trivia — refresh them in the same commit that adds or removes
 tests, or the next person cannot tell a stale number from a lost test.
@@ -99,6 +99,7 @@ RPCs used by the client — prefer these over multi-statement client writes,
 because they are the atomic/permission-checked path:
 
 `get_my_bowls_with_counts`, `get_bowl_profile_directory`,
+`get_bowl_filter_metadata`,
 `get_my_invite_sender_directory`, `draw_bowl_movie`,
 `draw_bowl_movie_by_rotation`, `return_bowl_draw_to_bowl`,
 `save_bowl_draw_access`, `save_bowl_draw_method`, `delete_owned_bowl`,
@@ -117,6 +118,12 @@ Apply with `supabase db push` and commit the file. For permission-sensitive
 changes, add a pgTAP test in `supabase/tests/` and a revert in
 `supabase/rollback/` (rollbacks live outside `migrations/` and must be moved
 back with a fresh timestamp to run). See `supabase/README.md`.
+
+When pgTAP needs a schema-only hosted baseline, use a disposable local
+Supabase project and never export hosted rows. After the run, stop that exact
+project with `--no-backup`, delete its temporary directory and schema export,
+and remove only Docker images newly pulled for the test. Never use a broad
+Docker prune. The cleanup checklist is in `supabase/README.md`.
 
 ## The draw
 
@@ -186,6 +193,9 @@ then a generic 500. They run in Node and are excluded from coverage; they are
 **not** part of the Vite build, so `npm run dev` alone cannot exercise them.
 
 - `api/tmdb/*` proxies TMDB so `TMDB_READ_ACCESS_TOKEN` stays server-side.
+- `api/cron/refresh-filter-metadata` maintains the private daily certification
+  and provider cache. It requires `CRON_SECRET`, uses the service role, and must
+  remain compatible with Vercel Hobby's once-daily schedule and 60-second cap.
 - `api/add-links/*` and `api/invites/send.js` use the service-role client from
   `api/_lib/supabaseAdmin.js`. This key bypasses RLS — every route using it must
   do its own authorization, and none of it may ever reach a `VITE_` variable.

@@ -657,6 +657,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
     errorMessage: bowlError,
     handleDraw,
     handleReaddMovie,
+    filterMetadataFetchers,
   } = useBowl(bowlId, { drawMethod: bowlMeta.drawMethod });
   const {
     streamingServices,
@@ -703,7 +704,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
     totalCount: drawPoolTotalCount,
     contributorReach: drawPoolContributorReach,
     streamingMatch: drawPoolStreamingMatch,
-  } = useDrawPoolCount(bowl.remaining, drawOptions);
+  } = useDrawPoolCount(bowl.remaining, drawOptions, filterMetadataFetchers);
   const isStreamingPrioritized =
     Boolean(drawOptions.prioritizeByServices) && streamingServices.length > 0;
   const hasResolvedPrioritizedPool =

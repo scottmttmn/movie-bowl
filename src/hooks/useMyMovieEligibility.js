@@ -38,6 +38,7 @@ export default function useMyMovieEligibility(
     autoLookupLimit = AUTO_MY_MOVIE_ELIGIBILITY_LIMIT,
     sharedEligibleMovieIds = null,
     isSharedEligibilityPending = false,
+    hasCompleteMetadataSnapshot = false,
   } = {}
 ) {
   const [result, setResult] = useState(null);
@@ -108,7 +109,10 @@ export default function useMyMovieEligibility(
     enabled &&
     !hasSharedEligibility &&
     !isSharedEligibilityPending &&
-    (!needsLookups || ownLookupTitleCount <= autoLookupLimit || didRequestLookup);
+    (!needsLookups ||
+      hasCompleteMetadataSnapshot ||
+      ownLookupTitleCount <= autoLookupLimit ||
+      didRequestLookup);
 
   useEffect(() => {
     runTokenRef.current += 1;

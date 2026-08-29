@@ -58,6 +58,7 @@ export default function useDrawPoolCount(
     fetchProviders = defaultFetchProviders,
     fetchFilterMetadata = defaultFetchFilterMetadata,
     autoLookupLimit = AUTO_LOOKUP_TITLE_LIMIT,
+    hasCompleteMetadataSnapshot = false,
   } = {}
 ) {
   const [result, setResult] = useState(null);
@@ -116,7 +117,10 @@ export default function useDrawPoolCount(
 
   const shouldCount =
     poolMovies.length > 0 &&
-    (!needsLookups || lookupEligibleTitleCount <= autoLookupLimit || didRequestLookup);
+    (!needsLookups ||
+      hasCompleteMetadataSnapshot ||
+      lookupEligibleTitleCount <= autoLookupLimit ||
+      didRequestLookup);
 
   useEffect(() => {
     runTokenRef.current += 1;

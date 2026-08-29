@@ -26,6 +26,35 @@ async function apiGet(url) {
   return data;
 }
 
+async function apiPost(url, body, accessToken) {
+  let response;
+  try {
+    response = await fetch(url, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        Authorization: `Bearer ${accessToken}`,
+      },
+      body: JSON.stringify(body),
+      keepalive: true,
+    });
+  } catch (error) {
+    if (isOfflineError(error)) {
+      const offlineError = new Error(OFFLINE_MESSAGE);
+      offlineError.name = "OfflineError";
+      offlineError.cause = error;
+      throw offlineError;
+    }
+    throw error;
+  }
+
+  const data = await response.json().catch(() => ({}));
+  if (!response.ok) {
+    throw new Error(data?.error || `Request failed with ${response.status}`);
+  }
+  return data;
+}
+
 export async function searchTmdbMovies(query) {
   const q = String(query || "").trim();
   if (!q) return { results: [] };
@@ -52,4 +81,16 @@ export async function getTmdbMovieFilterMetadata(id) {
   const tmdbId = String(id || "").trim();
   if (!tmdbId) throw new Error("Missing movie id");
   return apiGet(`/api/tmdb/movie/filter-metadata?id=${encodeURIComponent(tmdbId)}`);
+}
+
+export async function warmTmdbMovieFilterMetadata(id, bowlId, accessToken) {
+  const tmdbId = Number(id);
+  if (!Number.isInteger(tmdbId) || tmdbId <= 0 || !bowlId || !accessToken) {
+    return null;
+  }
+  return apiPost(
+    "/api/tmdb/movie/warm-filter-metadata",
+    { id: tmdbId, bowlId },
+    accessToken
+  );
 }
