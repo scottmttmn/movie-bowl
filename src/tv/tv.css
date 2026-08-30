@@ -3,9 +3,11 @@
    desktop page on a television. index.html pins the TV viewport to 1920px,
    which makes 1vw exactly 19.2px there whatever the panel's density, so the
    root can scale with it. One dial for all 47 sizes; adjust here, not below.
+   TvApp adds .tv-root rather than this matching on :has(), which a dated
+   television WebView would ignore without any visible failure.
    Headline clamps that already carry a vw term are barely affected, which is
    why large type looked right while labels did not. */
-html:has(.tv-app) {
+html.tv-root {
   font-size: clamp(18px, 1.4vw, 27px);
 }
 
