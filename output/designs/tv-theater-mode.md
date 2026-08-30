@@ -1,7 +1,9 @@
 # TV Theater Mode
 
-Status: future product concept; not scheduled for implementation. The roadmap
-below sequences the work if it is picked up; it is not a commitment to build.
+Status: **partly shipped.** Phase 1 (trailer pre-roll) and phase 2 (provider
+title links and the voice card) are implemented, and a validation harness for
+phase 4 lives in `tv-android/`. Phase 3 has no code. The roadmap below sequences
+the rest; later phases are not a commitment to build.
 
 ## Product Idea
 
@@ -241,9 +243,13 @@ Gate: if this does not feel like magic in the room, do not build phase 4.
 
 ### Phase 4 — Android TV shell
 
-A Kotlin WebView around `/tv` plus a `launchDeepLink(url)` bridge firing an
-ACTION_VIEW intent. Sideload for personal use first; a store listing is a
-separate decision carrying its own review and maintenance burden.
+**A validation harness for this already exists in `tv-android/`** — a Java
+(not Kotlin) WebView shell with D-pad translation, QR pairing, fullscreen
+trailer hosting, and provider handoff, built against the Google TV emulator.
+Its own README lists what store-readiness would still need: pairing rate
+limits, release signing, artwork, privacy review, and a physical-device pass.
+Sideload for personal use first; a store listing is a separate decision
+carrying its own review and maintenance burden.
 
 ### Not on this roadmap
 

@@ -101,18 +101,55 @@ exactly the thing that has to chase that churn.
   it is a real launch and navigation, not a resumed task brought forward.
 
 So the full chain works on the actual target hardware using nothing but the web
-URL the free plan already returns. That is phase 4's `launchDeepLink(url)`
-bridge, demonstrated before the shell exists.
+URL the free plan already returns — the handoff `tv-android/` already fires,
+proven by hand on a physical box rather than the emulator it was built against.
 
 Two domains verified against one package, across four authorized package names,
 is also the robustness argument in miniature: whichever domain and app-era a
 cached link happens to name, Android resolves it to whatever is installed.
 
-**This is one service.** A service whose TV APK is a separate package missing
-from its assetlinks file fails the native path no matter which Watchmode plan is
-in play — the other half of why paying does not help. Repeat the three commands
-per service as it matters. That check, not the vendor tier, is the entry
-criterion for phases 3 and 4.
+### Per-service package audit
+
+Read from each domain's `assetlinks.json` on August 30, 2026 and checked against
+the `<queries>` block in `tv-android/app/src/main/AndroidManifest.xml`. TV builds
+are frequently separate packages from phone builds, so the question is whether
+the package the shell names is the one its domain authorizes.
+
+| Service | Package in `<queries>` | Authorized by the domain |
+| --- | --- | --- |
+| Max | `com.wbd.stream` | Yes — also verified on device, cold-starts on the title |
+| Netflix | `com.netflix.ninja` | Yes |
+| Hulu | `com.hulu.livingroomplus` | Yes |
+| Disney+ | `com.disney.disneyplus` | Yes |
+| Apple TV+ | `com.apple.atve.androidtv.appletv` | Yes |
+| Paramount+ | `com.cbs.ott` | Yes |
+| Peacock | `com.peacocktv.peacockandroid` | Yes |
+| Prime Video | `com.amazon.amazonvideo.livingroom` | **No — absent** |
+
+Seven of eight name exactly the package their domain authorizes. Only Prime
+Video misses: `amazon.com` lists `com.amazon.avod` and
+`com.amazon.avod.thirdpartyclient`, neither of which the manifest queries.
+
+A box with Prime installed reports `com.amazon.amazonvideo.livingroom`, so the
+manifest names the right package and `isPackageInstalled` can see it — the
+absence from assetlinks is real, not a typo on our side. That is survivable:
+`openExternal` sets an explicit package, which does not need verification, so
+the handoff still reaches Prime *if* its TV build declares a matching
+`amazon.com` https filter. If it does not, the intent throws and the viewer gets
+the existing explanation card. Confirm with a Prime title URL before assuming
+either outcome.
+
+**Domain verification matters less here than it first appears.** `openExternal`
+sets an explicit package on the intent whenever the provider is visible and
+installed, and an explicit package bypasses the rule that Android 12+ skips
+unverified web links; the app then needs only a matching `https` intent filter,
+not a completed verification. What this audit really protects is package
+*visibility* — a wrong name in `<queries>` makes an installed app invisible,
+which is the failure the table exists to catch.
+
+Still unproven per service: whether the app lands on the *title* rather than its
+own home screen. Max does. The others need the `am start` check with a real
+title URL, and the answer may differ by provider.
 
 The endpoint and field names were confirmed against current documentation;
 see the implementation notes above. `api/_lib/providerLinks.js` owns the
