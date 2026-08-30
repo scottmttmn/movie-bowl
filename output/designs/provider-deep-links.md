@@ -115,10 +115,26 @@ through `normalizeServiceName` so the stored names match
 written whole and read whole and never queried by service, which is the same
 reason `providers` is a `text[]` on the row today rather than a child table.
 
-Store only sources the user could actually be sent to: vendor `type` of `sub`
-or `free`. Rent and buy links are dropped at normalization — the saved service
-list is a list of subscriptions, and "Open Prime Video" must never land someone
-on a $4.99 checkout page.
+**Store every source type the vendor returns, including rent and buy. Filter
+at resolution, not at write.** V1 only ever launches a `sub` or `free` source —
+the saved service list is a list of subscriptions, and "Open Prime Video" must
+not land someone on a $4.99 checkout page they did not ask for. But that is a
+product judgment about tonight's handoff, not a judgment about the data, and the
+two should not be welded together at the point of no return.
+
+Dropping rent and buy at normalization costs nothing today and is expensive to
+undo: one request returns every source for a title, so keeping them adds no
+quota and a few hundred bytes a row, while re-deciding later would mean
+re-fetching every cached title at full vendor cost. Keep them, and the decision
+stays a one-line change to the resolver.
+
+One interaction to know before that day comes: the claim queue below only claims
+titles whose `tmdb_filter_metadata.providers` is non-empty, and that array is
+built from TMDB's `flatrate` and `ads` only (`api/_lib/tmdbFilterMetadata.js`).
+So v1 stores rent and buy links for titles that are *also* on some subscription
+service, and a rent-only title is never fetched at all. Promoting rent/buy to a
+launch path means revisiting that condition too, and paying for the titles it
+currently skips.
 
 Seed and prune with triggers on `bowl_active_tmdb_movies`, copied from
 `seed_tmdb_filter_metadata_cache` / `prune_tmdb_filter_metadata_cache`. Backfill
@@ -240,6 +256,13 @@ link bump the user down to their second-choice service would mean a stale cache
 silently reorders someone's streaming preferences, which is a worse bug than the
 extra tap it saves.
 
+Only `sub` and `free` links are launch candidates. A stored rent or buy link is
+read past as though the service had no link at all, which falls that service
+back to its search URL rather than skipping the service — the priority-order
+rule above still holds. This is the one place v1's "no checkout screens"
+judgment is expressed, so it is also the only place to change when we decide a
+rent link is worth offering.
+
 `deepLinks` is carried through unused on the web. It is what Phase 4's bridge
 reads, and threading it now costs nothing.
 
@@ -290,16 +313,17 @@ product state to get wrong.
 
 - `src/utils/__tests__/webLaunch.test.js` — title URL preferred; search URL when
   the service has no link; **service choice unchanged when the higher-priority
-  service has no link**; unknown service; empty title; empty `providerLinks`
-  behaving exactly as today.
+  service has no link**; a service whose only link is rent or buy falling back
+  to its search URL rather than being skipped; unknown service; empty title;
+  empty `providerLinks` behaving exactly as today.
 - `src/lib/__tests__/providerLinks.test.js` — TTL cache, in-flight dedupe, RPC
   error returning empty.
 - `api/__tests__/providerLinks.warm.test.js` — 405, 400, 401, non-member
   refused, budget exhausted returning 202, kill switch returning 503, vendor 429
   recording a failure and a backoff.
 - `api/__tests__/providerLinkRefresh.test.js` — claim/complete/fail round trip,
-  budget accounting, vendor payload normalization including rent/buy dropped and
-  service names normalized.
+  budget accounting, vendor payload normalization including rent and buy sources
+  retained with their `type` intact and service names normalized.
 - `api/__tests__/cron.refreshFilterMetadata.test.js` — extended: the filter pass
   is unchanged when links are disabled, and the link pass only runs with time
   left on the shared deadline.
@@ -321,7 +345,9 @@ the tripwire rule there.
 - **Region stays US-only.** The schema is keyed by region because the filter
   cache is, but nothing resolves anything but `"US"` today and this phase does
   not change that.
-- **Subscription and free sources only.** Rent and buy are dropped.
+- **Subscription and free sources launch; every type is stored.** Rent and buy
+  are cached with their `type` and ignored by the resolver, so offering them
+  later is a resolver change rather than a re-fetch of the whole cache.
 - **Thirty-day staleness.** A title's URL on a service is stable while the title
   is on the service, and provider *membership* is already tracked daily by the
   filter cache.
@@ -338,6 +364,13 @@ the tripwire rule there.
   priority one, as today. Is there a case for preferring the service where the
   link is a *play* URL over one where it is a detail page? Not until we can see
   which is which in the data.
+- What would rent and buy links be *for*? The data is there from day one, so
+  this can be answered by looking rather than guessing. The candidates worth
+  weighing: a title on none of your services shows nothing at all on the handoff
+  today, and "Rent on Prime Video" beats a dead end; and a bowl could mark which
+  titles cost money before someone adds them. Both put a price tag behind a
+  button, so neither belongs in the phase that is only trying to stop sending
+  people to a search page.
 - The warm call spends quota on a title someone drew. A bowl drawn ten times in
   an evening spends ten warms at most, and only on titles the cron had not
   reached. If that proves noisy, gate the warm on the title being missing rather
