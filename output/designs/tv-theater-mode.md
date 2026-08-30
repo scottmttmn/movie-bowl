@@ -226,11 +226,27 @@ The "1 of 3 · Title" progress line goes with them. A cinema shows nothing, and
 the pre-roll already announces the count before it starts, which is where that
 information belongs — during the previews it only invites counting down.
 
-That leaves Pause as the overlay's only chrome, which is worth one more step: a
-button parked on screen for the whole pre-roll is still furniture. The video
-player pattern fits — fade it out, bring it back on any keypress. The one
-constraint is that it has to stay focusable while hidden, or the D-pad has
-nothing to hold and Back becomes the only working key.
+Pause should not be a button at all. Bind it to OK — the video player gesture
+everyone already knows — and show an indicator only while paused, so nothing is
+on screen during playback.
+
+The overlay can carry no focusable element safely, which is not obvious:
+
+- `useTvSpatialNavigation` returns early when nothing is focusable, so the
+  arrows no-op rather than erroring.
+- Back is a key handler, not a focus target, so exit survives with no controls.
+- `isTheaterPlaying` feeds `isDialogOpen`, which puts `aria-hidden="true"` on
+  the reveal beneath, and `isFocusable` skips anything inside an `aria-hidden`
+  subtree — so focus cannot fall through to "Open [service]" behind the
+  trailer.
+
+(An `opacity: 0` button would also stay focusable, since only `display: none`
+and `visibility: hidden` are filtered. That is a workaround for a problem the
+keypress does not have.)
+
+Verify Back during the pre-roll on hardware before removing the buttons. The
+path exists but has not been exercised — the buttons were always there — and it
+becomes the only way out.
 
 ### Phase 2 — Real deep links and the voice card (web only)
 

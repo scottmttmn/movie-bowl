@@ -10,9 +10,13 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   survives unadvertised. Keep Pause both for the doorbell case and because it
   carries `data-tv-autofocus`, without which the overlay has nothing focusable.
   The "1 of 3 · Title" progress line goes too — the count is announced before
-  the previews start, and on screen it only invites counting down. That leaves
-  Pause as the only chrome, so consider fading it and revealing it on a
-  keypress, keeping it focusable while hidden. Decided from live use; see the
+  the previews start, and on screen it only invites counting down. Pause should
+  not be a button either: bind it to OK and show an indicator only while
+  paused, leaving playback chrome-free. An overlay with no focusable element is
+  safe — the navigation hook no-ops on an empty set, Back is a key handler
+  rather than a focus target, and the reveal beneath is already `aria-hidden`
+  so focus cannot fall through to it. Verify Back during the pre-roll on
+  hardware first; it becomes the only exit. Decided from live use; see the
   phase 1 revision in `output/designs/tv-theater-mode.md`.
 - Trailer captions during the pre-roll: `cc_load_policy=0` on the embed URL in
   `getAutoplayTrailerUrl` asks YouTube not to show captions, which suits the
