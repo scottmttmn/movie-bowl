@@ -22,9 +22,22 @@ function resolveBuildId() {
         .trim()
 
     const sha = git('rev-parse --short=12 HEAD')
+
+    // Tracked edits only. A deploy builder drops untracked files of its own into
+    // the checkout -- an .npmrc for registry auth, its own scratch -- and none of
+    // those are the source this id names. Counting them tagged every production
+    // build as dirty, which threw away the whole point of using the commit.
+    const modified = git('status --porcelain --untracked-files=no')
+
     // Uncommitted work would otherwise let two genuinely different builds share
     // an id, which is the one thing an id must never do.
-    return git('status --porcelain') ? `${sha}-${Date.now()}` : sha
+    if (!modified) return sha
+
+    // Name them, so a suffix showing up in a deploy log is something you can
+    // read rather than something you have to reproduce.
+    console.warn(`[vite.config] Uncommitted changes, tagging build id:\n${modified}`)
+
+    return `${sha}-${Date.now()}`
   } catch {
     // No git and no Vercel metadata. The clock still makes each build distinct,
     // it just cannot tell which commit is live or recognise a rebuild.
