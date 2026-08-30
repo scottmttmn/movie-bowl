@@ -86,14 +86,32 @@ still being authorized means a box that never updated past the HBO Max era opens
 the same URL we would cache today. A package- or scheme-shaped native link is
 exactly the thing that has to chase that churn.
 
-**What this does not yet establish** is whether the *Android TV* build is among
-those packages — none of the four is identifiably a leanback build, and TV APKs
-are frequently separate from phone ones. If the TV package is absent from a
-service's assetlinks file, the native path fails for that service no matter
-which Watchmode plan is in play, which is the other half of why paying does not
-help. Settling it costs one command on a Google TV box with the app installed:
-`adb shell pm list packages | grep wbd`, checked against the list above. That
-check is the real entry criterion for phases 3 and 4 — not the vendor tier.
+**Verified on hardware, August 30, 2026** — onn Full HD Streaming Device
+(Google TV, Android 14), reached over wireless debugging:
+
+- The Android TV build is `com.wbd.stream`, the same package as the phone app
+  and the first entry in the assetlinks file above. TV APKs are often separate
+  from phone ones, so this was the open question; for Max it is settled.
+- `pm get-app-links com.wbd.stream` reports both `play.max.com` and
+  `play.hbomax.com` as **verified** on the device — the app declares the intent
+  filters and Android completed verification, which is the half assetlinks alone
+  cannot show.
+- `am start -a android.intent.action.VIEW -d "https://play.max.com/movie/<id>"`
+  opened Max on that title.
+
+So the full chain works on the actual target hardware using nothing but the web
+URL the free plan already returns. That is phase 4's `launchDeepLink(url)`
+bridge, demonstrated before the shell exists.
+
+Two domains verified against one package, across four authorized package names,
+is also the robustness argument in miniature: whichever domain and app-era a
+cached link happens to name, Android resolves it to whatever is installed.
+
+**This is one service.** A service whose TV APK is a separate package missing
+from its assetlinks file fails the native path no matter which Watchmode plan is
+in play — the other half of why paying does not help. Repeat the three commands
+per service as it matters. That check, not the vendor tier, is the entry
+criterion for phases 3 and 4.
 
 The endpoint and field names were confirmed against current documentation;
 see the implementation notes above. `api/_lib/providerLinks.js` owns the
