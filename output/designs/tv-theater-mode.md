@@ -46,7 +46,11 @@ and a preview of possible future movie nights.
 - Number of trailers, such as 1-4
 - Approximate pre-roll duration
 - Automatically start the feature when supported
-- Trailer captions preference
+- Trailer captions preference. Live use argues the default should be off — a
+  cinema's previews are not captioned — but not unconditionally off, which
+  would shut out hard-of-hearing viewers. `cc_load_policy=0` on the embed URL
+  is the lever, and it is a request rather than a guarantee: a viewer whose
+  YouTube account forces captions on will still see them.
 
 The first version should favor one simple choice, such as "Play three trailers,"
 instead of exposing a dense set of TV controls.
@@ -200,6 +204,28 @@ skip plus exit on the remote, and a per-user preference set on the phone.
 Gate: does the group enjoy the pre-roll, or do they want the movie now? If it is
 not fun, stop here — every later phase is handoff work that stands on its own.
 
+#### Revision from live use (August 30, 2026)
+
+The pre-roll plays well on a real television, and the controls are the part that
+breaks the spell. "Next preview" and "Skip to movie" should both go: you cannot
+do either at a cinema, and the presence of the buttons invites the room to treat
+the previews as a queue to get through rather than part of the evening.
+
+Removing them costs no capability. "Skip to movie" only calls `onExit`, and the
+spatial navigation's back handler already routes Back to `endTheater` — the
+escape stays, it simply stops being advertised. That also matches the phase's
+own instinct that the draw is final before the trailers begin.
+
+Keep Pause. A cinema does not pause, but a living room has a doorbell, and a
+room with no pause reaches for the television's own remote, which can drop it
+out of the app. Pause also carries `data-tv-autofocus`, so it is what keeps the
+overlay focusable at all; removing all three would leave the D-pad nothing to
+hold.
+
+Open: whether the "1 of 3 · Title" progress line goes too. A cinema shows
+nothing, and the pre-roll already announces the count before it starts, but the
+room may still want to know how much is left.
+
 ### Phase 2 — Real deep links and the voice card (web only)
 
 Implemented in `provider-deep-links.md`, disabled by default until configured.
@@ -270,8 +296,9 @@ drive a TV assistant programmatically — no third-party API exists for the last
 
 - Should Theater mode be a user preference, a per-TV preference, or chosen each
   movie night?
-- Should the group be able to skip trailers, or should only pause and exit be
-  available?
+- ~~Should the group be able to skip trailers, or should only pause and exit be
+  available?~~ Answered by living with it: pause and exit only, with exit
+  unlabelled on the Back button. See the phase 1 revision above.
 - Should trailer selection remain completely random or lightly favor movies from
   different contributors and genres?
 - If a trailer fails, should it be silently replaced or should the pre-roll become

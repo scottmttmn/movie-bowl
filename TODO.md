@@ -4,6 +4,29 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## UX / UI Polish
 
+- Theater mode controls break the cinema spell: drop "Next preview" and "Skip to
+  movie" from the pre-roll overlay, keeping Pause. Neither is possible at a
+  cinema, and neither is needed — Back already calls `endTheater`, so the escape
+  survives unadvertised. Keep Pause both for the doorbell case and because it
+  carries `data-tv-autofocus`, without which the overlay has nothing focusable.
+  Open: whether the progress line goes too. Decided from live use; see the
+  phase 1 revision in `output/designs/tv-theater-mode.md`.
+- Trailer captions during the pre-roll: `cc_load_policy=0` on the embed URL in
+  `getAutoplayTrailerUrl` asks YouTube not to show captions, which suits the
+  cinema feel. It is a request, not a guarantee — an account that forces
+  captions on still gets them — and it should be a preference defaulting to off
+  rather than a hard-coded off, so hard-of-hearing viewers keep the choice.
+- TV pairing page outlives the pairing: `TvActivationPage` does render a "TV
+  connected" block, but that is transient state. Navigating away and coming
+  back remounts at `status: "idle"` and re-renders the form with the code from
+  the URL — so twenty minutes later the phone offers an actionable Connect
+  button for a code that is single-use and already expired. Two halves:
+  `replace: true` after success keeps Back from landing there, and the page
+  needs to recognise an already-consumed request on revisit. Prefer remembering
+  approved codes client-side over a status endpoint: an endpoint that answers
+  for any code becomes a way to probe which codes exist, and pairing rows are
+  deliberately server-role only.
+
 - Offline read cache: connectivity is now detected and explained (global banner, honest error copy, draw/add refused up front, reload on reconnect), but nothing is cached, so reloading a bowl with no connection still shows an empty bowl behind the banner rather than the last known movies. Caching the last-loaded bowl read-only would close that, and needs a decision on staleness copy and invalidation before any code.
 - Invite inbox polish: state handling for accepted, declined, and stale invites. Visibility is covered by the top nav badge and `/invites` page.
 - Draw filter UX follow-up: keep evaluating whether runtime, genre, and rating controls still feel too dense after recent cleanup.
