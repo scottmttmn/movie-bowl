@@ -81,7 +81,7 @@ export default function MyMoviesStrip({
               isFilterExcluded={isFilterExcluded}
               isPinned={Boolean(movie.is_pinned)}
               pinStatusMessage={pinStatusMessage}
-              onTogglePin={method.honorsPin ? onTogglePin : undefined}
+              onTogglePin={method.honorsPin && !isFilterExcluded ? onTogglePin : undefined}
             />
           );
         })}

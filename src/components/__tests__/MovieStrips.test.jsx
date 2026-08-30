@@ -173,6 +173,7 @@ describe("movie strip components", () => {
     const movies = [
       { id: "eligible", source: "added", title: "Eligible" },
       { id: "excluded-pinned", source: "added", title: "Excluded Pinned", is_pinned: true },
+      { id: "excluded", source: "added", title: "Excluded" },
       { id: "eligible-pinned", source: "added", title: "Eligible Pinned", is_pinned: true },
       { id: "syncing", source: "added", title: "Syncing", local_status: "syncing" },
     ];
@@ -193,6 +194,7 @@ describe("movie strip components", () => {
       expect.stringContaining("Eligible Pinned"),
       expect.stringContaining("Eligible"),
       expect.stringContaining("Excluded Pinned"),
+      expect.stringContaining("Excluded"),
       expect.stringContaining("Syncing"),
     ]);
     expect(cards[0]).toHaveTextContent("Up first when you're picked");
@@ -200,7 +202,13 @@ describe("movie strip components", () => {
     expect(cards[2]).toHaveTextContent("Outside tonight's filters");
 
     const pressedPins = screen.getAllByRole("button", { pressed: true });
-    expect(pressedPins).toHaveLength(2);
+    expect(pressedPins).toHaveLength(1);
+    expect(
+      screen.queryByRole("button", { name: /unpin "excluded pinned"/i })
+    ).not.toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /pin "excluded"/i })
+    ).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /pin "eligible"/i })).toHaveAttribute(
       "aria-pressed",
       "false"
