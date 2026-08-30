@@ -65,14 +65,45 @@ in the detail URL.
 | Apple TV+ | `/movie/<id>` | no reliable param | No |
 | Paramount+ | `/movies/<slug>` | `/movies/video/<id>` | No — different id |
 
-**Every row of this table is expected behavior, not verified behavior.** It must
-be checked against real Watchmode payloads in a signed-in browser before any of
-it is written into code — `provider-deep-links.md` records what a live lookup
-actually returned and when, and this deserves the same treatment. The Netflix row
-is the one worth verifying first; it carries the feature on its own.
-
 So the honest ceiling: auto-navigate always, genuinely autoplay on one or two
 services of eight, and only where that television browser is signed in.
+
+## Verification status
+
+**Every row of that table is expected behavior. None of it is verified, and the
+Netflix row — which carries the whole feature — is the one to settle first.**
+
+An attempt on August 30, 2026 from a dev container could not close it, and the
+reasons are worth recording so nobody repeats the same dead ends:
+
+- **What Watchmode actually returns for Netflix is unknown to this repo.** Every
+  `netflix.com/title/...` string in the codebase is a hand-written test fixture
+  with a synthetic id (`123`, `2`). They pin what our normalizer accepts, not
+  what the vendor sends. `providerLinks.js:27` passes `web_url` through
+  `safeProviderUrl`, which validates the scheme and nothing else — the path is
+  never inspected, so the code has no opinion about Netflix's URL shape at all.
+- The live Arrival lookup recorded in `provider-deep-links.md` verified the
+  request, auth, and quota path. It did not record the returned URLs, so it says
+  nothing about shape.
+- `api.watchmode.com` is egress-blocked from the dev container and no
+  `WATCHMODE_API_KEY` is configured there, so the payload cannot be sampled
+  without a deployed environment.
+- That `/title/<id>` and `/watch/<id>` share one id namespace has decent
+  circumstantial support — Wikidata's Netflix ID property registers both as
+  formatter URLs for a single id value — but the primary source was not
+  reachable to confirm.
+- **Whether `/watch/<id>` actually starts playback cannot be tested without a
+  signed-in Netflix session**, which no automated check should be carrying
+  credentials for. Netflix's own help article on a bookmarked link auto-playing
+  a title is consistent with it, and is not proof.
+
+The test that settles it takes about five minutes in a deployed environment with
+the key set: draw a title known to be on Netflix, read the stored `web_url` out
+of the provider-links cache, confirm it is a `/title/<id>` path, then paste the
+same id as `/watch/<id>` into a signed-in browser and see whether the movie
+starts. If it does not, the Netflix row falls and this plan is left with Prime
+Video's autoplay param — which is thinner than the feature needs, and would be
+grounds to drop the idea rather than build it.
 
 ## The change
 
