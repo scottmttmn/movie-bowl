@@ -62,12 +62,16 @@ export default function AddMovieModal({
   webLaunchCandidate = null,
   onEditNote = null,
   noteHeading = null,
+  onTogglePin = null,
+  pinDisabledReason = "",
 }) {
   const [displayedNote, setDisplayedNote] = useState(() => normalizeMovieNote(movie?.note));
   const [noteDraft, setNoteDraft] = useState(() => movie?.note || "");
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [noteEditError, setNoteEditError] = useState("");
+  const [isSavingPin, setIsSavingPin] = useState(false);
+  const [pinError, setPinError] = useState("");
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -89,6 +93,10 @@ export default function AddMovieModal({
     setIsSavingNote(false);
     setNoteEditError("");
   }, [movie?.id, movie?.note]);
+
+  useEffect(() => {
+    setPinError("");
+  }, [movie?.id, movie?.is_pinned]);
 
   // This modal is used in two contexts:
   // 1) "Add movie" flow (movie is undefined): show search UI.
@@ -176,6 +184,22 @@ export default function AddMovieModal({
     }
   };
 
+  const togglePin = async () => {
+    if (!onTogglePin || pinDisabledReason || isSavingPin) return;
+    setIsSavingPin(true);
+    setPinError("");
+    try {
+      const result = await onTogglePin(!movie.is_pinned);
+      if (result === false || result?.ok === false) {
+        setPinError(result?.message || "Could not update this pin. Please try again.");
+      }
+    } catch {
+      setPinError("Could not update this pin. Please try again.");
+    } finally {
+      setIsSavingPin(false);
+    }
+  };
+
   return (
     <div className="modal-overlay z-50" role="presentation">
       <div className="modal-surface max-h-[92vh] max-w-4xl overflow-y-auto p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="movie-detail-title">
@@ -225,6 +249,28 @@ export default function AddMovieModal({
           <div className="mb-4">
             <p className="text-sm font-semibold text-slate-100">Added by</p>
             <p className="text-sm text-slate-300">{addedByLabel}</p>
+          </div>
+        )}
+
+        {onTogglePin && (
+          <div className="mb-4" role="group" aria-label="Movie pin">
+            <div className="flex flex-wrap items-center justify-between gap-3">
+              <p className="text-sm font-semibold text-slate-100">Your pin</p>
+              <button
+                type="button"
+                className="btn btn-secondary px-3 py-1.5 text-sm"
+                aria-pressed={Boolean(movie.is_pinned)}
+                aria-describedby="movie-pin-explanation"
+                disabled={isSavingPin || Boolean(pinDisabledReason)}
+                onClick={togglePin}
+              >
+                {isSavingPin ? "Saving pin..." : movie.is_pinned ? "Unpin movie" : "Pin movie"}
+              </button>
+            </div>
+            <p id="movie-pin-explanation" className="mt-1 text-sm text-slate-400">
+              {pinDisabledReason || "When you're picked, this movie comes up first if it matches the draw filters. Pinning another movie replaces your current pin in this bowl."}
+            </p>
+            {pinError && <p className="mt-2 text-sm text-rose-300" role="alert">{pinError}</p>}
           </div>
         )}
 

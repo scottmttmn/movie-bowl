@@ -1,8 +1,8 @@
 # The Pinned Movie
 
 Status: implemented. The schema and draw authority live in
-`20260829170000_add_pinned_bowl_movies.sql`; the client control lives in My
-Movies and follows the behavior below.
+`20260829170000_add_pinned_bowl_movies.sql`; the client controls live on My
+Movies posters and in their movie details, following the behavior below.
 
 ## Product Idea
 
@@ -138,14 +138,26 @@ rule belongs.
 
 - Control label (screen reader): **Pin "Title" so it comes up first when you're
   picked** / **Unpin "Title"**
-- Badge on the pinned card: **Pinned**
-- Eligible, once eligibility is `ready`: **Up first when you're picked**
-- Excluded, once eligibility is `ready`: **Outside tonight's filters — a random
-  title of yours would come up instead**
-- Eligibility `idle`, `manual`, or `checking`: the badge alone, with no claim
-  about tonight. The point of this feature is not guessing.
+- The poster icon is the only pin indicator on the card. There is no text badge
+  or helper caption, so pinning does not make cards taller.
+- Saved pins remain visible as a noninteractive poster icon when filters or the
+  draw method make the control unavailable.
 - Save failure: **Could not pin this movie. Please try again.** — rendered in
   the existing `myMoviesErrorMessage` slot.
+
+### My Movies details
+
+- Own undrawn movies offer **Pin movie** / **Unpin movie** under **Your pin**.
+- Explanation: **When you're picked, this movie comes up first if it matches
+  the draw filters. Pinning another movie replaces your current pin in this bowl.**
+- For a resolved exclusion, disable the action and explain: **This movie is
+  outside tonight's filters, so its pin won't affect this draw. Change the
+  filters to pin or unpin it.**
+- Title-first disables the action and displays the registry's `pinNote`.
+- A pending save disables the button; a failed save shows an inline error and
+  allows retry without changing the displayed pin state.
+- Search, watched titles, syncing additions, and guest submissions do not gain
+  this control.
 
 ### Duplicate add refusal
 
@@ -163,19 +175,20 @@ section below for why this is the whole fix for now.
 
 1. You open My Movies in a bowl. Your titles are already ordered eligible-first,
    as they are today.
-2. You tap the pin control in the corner of one card. The badge appears, the
-   card moves to the front of the strip, and the line under the title says
-   whether it is actually in tonight's pool.
-3. If you pin a second title, the badge moves. There is no confirmation step and
+2. You tap the pin control in the corner of one card, or Pin movie in its
+   details. The icon fills, and an eligible pinned card moves to the front of
+   the strip. Details explain how the pin works.
+3. If you pin a second title, the filled icon moves. There is no confirmation step and
    no "you already have a pin" dialog — moving a pin is the whole gesture.
 4. Somebody draws. If the bowl picks you and your pin survived the filters, your
    pinned movie is the reveal. If it did not survive, one of your eligible
-   titles comes up, which is what the card told you would happen.
+   titles comes up, as the details explanation describes.
 5. After a draw of your pinned movie, the pin is gone. The next thing you pin is
    a fresh decision.
 
 In a `title_first` bowl, the strip header carries the registry's `pinNote` and
-the pin controls are not rendered at all. A pin saved in another bowl is
+the card pin controls are not rendered; details show a disabled action with the
+same explanation. A pin saved in another bowl is
 untouched; pins are per slip, so there is nothing to migrate or explain.
 
 ## Data Model
@@ -296,9 +309,14 @@ component and stays untouched.
 
 **`MyMoviesStrip`** ordering becomes: pinned-and-eligible, then the rest of the
 eligible, then excluded, then syncing. A pinned-but-excluded card keeps its
-badge and its excluded treatment and stays in the excluded group. The ordering
+poster icon and its excluded treatment and stays in the excluded group. The ordering
 must not contradict the eligibility it is rendering — the pin does not beat the
 filter, so it does not get to look like it does.
+
+**`AddMovieModal`** offers Pin/Unpin and explanatory text when opened from an
+owned, persisted, undrawn My Movies entry. It uses the existing pin mutation;
+the callback is absent in search, watched, reveal, and guest contexts. Filter
+and draw-method restrictions match the poster control.
 
 **Method disclosure and `DrawMethodInfoModal`** pick up the new sentence from
 the registry with no component change. So does Bowl Settings, and so does the TV
@@ -363,12 +381,16 @@ commit that adds them.
   the regression test that the feature is fairness-neutral, so write it even
   though no code changed.
 - `MyMoviesStrip`: ordering across the pinned × eligible matrix, including
-  pinned-and-excluded staying in the excluded group with its badge, and syncing
+  pinned-and-excluded staying in the excluded group with its poster icon, and syncing
   rows staying last with the control disabled.
 - `MyMoviesStrip`: the `pinNote` renders and pin controls are absent in a
   title-first bowl.
 - `MovieActionCard`: `aria-pressed` reflects state; the control is absent when
   the pin props are not passed.
+- Movie details: pin/unpin updates, duplicate-submit prevention, retry after
+  failure, disabled reasons, and no pin control in search or watched details.
+- Browser smoke: move a pin between titles from details, reload to verify
+  persistence, then unpin; cards retain no text badge or helper caption.
 - `useBowl`: the pin handler sends the expected RPC arguments, returns an
   `{ ok, code, message }` result rather than throwing, surfaces the permission
   and not-found errors as the copy above, and reflects a cleared pin after a
@@ -394,7 +416,7 @@ commit that adds them.
 
 Run `npm run test:run` and `npm run build`. Manual QA: pin a title and draw
 until your bucket comes up; pin a title and then set a filter that excludes it,
-confirming the card says so and the draw picks something else of yours; pin in a
+confirming the card is greyed, details explain why, and the draw picks something else of yours; pin in a
 rotation bowl and confirm your turn does not arrive sooner; switch a bowl to
 title-first and confirm the note appears and the pin is inert; draw your pinned
 movie and confirm the pin is gone, including after returning it to the bowl.
@@ -412,9 +434,9 @@ movie and confirm the pin is gone, including after returning it to the bowl.
 - **Client and SQL selection drift.** "Prefer the pinned candidate" now lives in
   `drawMethods.js` and in the rotation RPC, the same shape of risk as the bucket
   key. Test both sides.
-- **A stale claim about eligibility.** The card's state line is only as fresh as
-  `eligibleMovieIds`. Render no claim at all when eligibility has not resolved,
-  rather than a stale one.
+- **A stale claim about eligibility.** Details only identify an exclusion once
+  `eligibleMovieIds` has resolved. Otherwise, explain the general filter rule
+  without claiming the title is in tonight's pool.
 - **Scope creep into ordering.** The first request after this ships will be a
   second pin. That is the personal-ordering feature, and it needs its own design
   covering link-guest ownership, accessible reordering, and where new and

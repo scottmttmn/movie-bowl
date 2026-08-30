@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import AddMovieModal from "../AddMovieModal";
 
@@ -11,6 +11,7 @@ describe("AddMovieModal", () => {
     render(<AddMovieModal onClose={vi.fn()} onAddMovie={vi.fn()} userStreamingServices={["Netflix"]} />);
     expect(screen.getByText("Search Movies")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Search movies...")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Movie pin" })).not.toBeInTheDocument();
   });
 
   it("renders detail mode with movie metadata", () => {
@@ -31,6 +32,61 @@ describe("AddMovieModal", () => {
     expect(screen.getByText("Available on")).toBeInTheDocument();
     expect(screen.getByText("Your services")).toBeInTheDocument();
     expect(screen.getByText("Netflix")).toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Movie pin" })).not.toBeInTheDocument();
+  });
+
+  it("saves a pin without allowing duplicate requests and reflects the updated movie", async () => {
+    let resolvePin;
+    const onTogglePin = vi.fn(() => new Promise((resolve) => { resolvePin = resolve; }));
+    const movie = { id: "movie-1", title: "Dune", is_pinned: false };
+    const { rerender } = render(
+      <AddMovieModal movie={movie} onClose={vi.fn()} onTogglePin={onTogglePin} />
+    );
+
+    expect(screen.getByText(/Pinning another movie replaces your current pin/i)).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Pin movie" }));
+    expect(screen.getByRole("button", { name: "Saving pin..." })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Saving pin..." }));
+    expect(onTogglePin).toHaveBeenCalledExactlyOnceWith(true);
+
+    await act(async () => resolvePin({ ok: true }));
+    rerender(
+      <AddMovieModal movie={{ ...movie, is_pinned: true }} onClose={vi.fn()} onTogglePin={onTogglePin} />
+    );
+    expect(screen.getByRole("button", { name: "Unpin movie" })).toHaveAttribute("aria-pressed", "true");
+    onTogglePin.mockResolvedValue({ ok: true });
+    fireEvent.click(screen.getByRole("button", { name: "Unpin movie" }));
+    await waitFor(() => expect(onTogglePin).toHaveBeenLastCalledWith(false));
+  });
+
+  it.each(["failure result", "rejection"])("keeps the pin unchanged and allows retry after a %s", async (failure) => {
+    const onTogglePin = vi.fn();
+    if (failure === "rejection") onTogglePin.mockRejectedValueOnce(new Error("Offline"));
+    else onTogglePin.mockResolvedValueOnce({ ok: false, message: "Your pin could not be saved." });
+    onTogglePin.mockResolvedValue({ ok: true });
+    render(<AddMovieModal movie={{ id: "movie-1", title: "Dune", is_pinned: true }} onClose={vi.fn()} onTogglePin={onTogglePin} />);
+
+    fireEvent.click(screen.getByRole("button", { name: "Unpin movie" }));
+    expect(await screen.findByRole("alert")).toHaveTextContent(
+      failure === "rejection" ? "Could not update this pin. Please try again." : "Your pin could not be saved."
+    );
+    expect(screen.getByRole("button", { name: "Unpin movie" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Unpin movie" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Unpin movie" }));
+    await waitFor(() => expect(onTogglePin).toHaveBeenCalledTimes(2));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("explains why a pin cannot be changed and prevents saving", () => {
+    const onTogglePin = vi.fn();
+    const reason = "This bowl draws title-first, so pins don't change anything here.";
+    render(<AddMovieModal movie={{ title: "Dune", is_pinned: true }} onClose={vi.fn()} onTogglePin={onTogglePin} pinDisabledReason={reason} />);
+
+    const button = screen.getByRole("button", { name: "Unpin movie" });
+    expect(button).toBeDisabled();
+    expect(button).toHaveAccessibleDescription(reason);
+    fireEvent.click(button);
+    expect(onTogglePin).not.toHaveBeenCalled();
   });
 
   it("falls back to the local-part of profiles.email for member-added movies", () => {

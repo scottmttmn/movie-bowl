@@ -61,11 +61,6 @@ export default function MyMoviesStrip({
           const isEligible = eligibleIdSet.has(String(movie.id));
           const isFilterExcluded =
             hasResolvedEligibility && movie.local_status !== "syncing" && !isEligible;
-          const pinStatusMessage = movie.is_pinned && hasResolvedEligibility
-            ? isEligible
-              ? "Up first when you're picked"
-              : "Outside tonight's filters — a random title of yours would come up instead"
-            : null;
 
           return (
             <MovieActionCard
@@ -80,7 +75,6 @@ export default function MyMoviesStrip({
               disableWhileSyncing
               isFilterExcluded={isFilterExcluded}
               isPinned={Boolean(movie.is_pinned)}
-              pinStatusMessage={pinStatusMessage}
               onTogglePin={method.honorsPin && !isFilterExcluded ? onTogglePin : undefined}
             />
           );

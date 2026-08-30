@@ -459,6 +459,27 @@ class FakeBackend {
       return;
     }
 
+    if (rpcName === "set_own_bowl_movie_pin") {
+      const movie = this.state.bowl_movies.find((row) =>
+        row.id === args.p_bowl_movie_id && row.added_by === this.state.currentUser.id &&
+        !row.drawn_at && !row.added_by_name && !row.added_via_link_id
+      );
+      if (!movie) {
+        await fulfillJson(route, { message: "This movie is no longer available to pin.", code: "P0001" }, 400);
+        return;
+      }
+      if (args.p_pinned) {
+        for (const row of this.state.bowl_movies) {
+          if (row.bowl_id === movie.bowl_id && row.added_by === movie.added_by && !row.drawn_at) {
+            row.is_pinned = false;
+          }
+        }
+      }
+      movie.is_pinned = args.p_pinned;
+      await fulfillJson(route, movie);
+      return;
+    }
+
     if (rpcName === "update_own_bowl_movie_note") {
       const movie = this.state.bowl_movies.find(
         (row) =>

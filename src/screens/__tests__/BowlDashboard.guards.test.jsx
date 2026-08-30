@@ -380,6 +380,10 @@ describe("BowlDashboard guards", () => {
 
     expect(within(myMoviesSection).getAllByRole("button", { name: /details/i })[1]).toBeEnabled();
     expect(within(myMoviesSection).getAllByRole("button", { name: /delete/i })[1]).toBeEnabled();
+    fireEvent.click(within(myMoviesSection).getAllByRole("button", { name: /details/i })[1]);
+    const pinGroup = await screen.findByRole("group", { name: "Movie pin" });
+    expect(within(pinGroup).getByRole("button", { name: "Pin movie" })).toBeDisabled();
+    expect(pinGroup).toHaveTextContent("This movie is outside tonight's filters");
   });
 
   it("routes My Movies delete to bowl delete for added items", async () => {
@@ -475,6 +479,35 @@ describe("BowlDashboard guards", () => {
     });
   });
 
+  it("pins and unpins an owned movie from details through the existing mutation", async () => {
+    mocks.state.bowlData = {
+      remaining: [{ id: "detail-pin", title: "Pin Me", added_by: "u1", is_pinned: false }],
+      watched: [],
+    };
+    renderDashboard();
+    fireEvent.click(await screen.findByRole("button", { name: "Details", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Pin movie" }));
+    await waitFor(() => expect(mocks.state.handleSetMoviePin).toHaveBeenCalledWith("detail-pin", true));
+    expect(await screen.findByRole("button", { name: "Unpin movie" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Unpin movie" }));
+    await waitFor(() => expect(mocks.state.handleSetMoviePin).toHaveBeenLastCalledWith("detail-pin", false));
+    expect(await screen.findByRole("button", { name: "Pin movie" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  it("keeps saved pins inactive in title-first movie details", async () => {
+    mocks.state.bowlRow.draw_method = "title_first";
+    mocks.state.bowlData = {
+      remaining: [{ id: "detail-pin", title: "Pin Me", added_by: "u1", is_pinned: true }],
+      watched: [],
+    };
+    renderDashboard();
+    fireEvent.click(await screen.findByRole("button", { name: "Details", exact: true }));
+    const pinGroup = await screen.findByRole("group", { name: "Movie pin" });
+    expect(within(pinGroup).getByRole("button", { name: "Unpin movie" })).toBeDisabled();
+    expect(pinGroup).toHaveTextContent("This bowl draws title-first, so pins don't change anything here.");
+    expect(mocks.state.handleSetMoviePin).not.toHaveBeenCalled();
+  });
+
   it("keeps Add Movie enabled when only one active member exists", async () => {
     mocks.state.memberRows = [{ user_id: "u1" }];
     mocks.state.bowlData = { remaining: [], watched: [] };
@@ -525,6 +558,7 @@ describe("BowlDashboard guards", () => {
     fireEvent.click(within(watchedSection).getByRole("button", { name: /^show$/i }));
     fireEvent.click(screen.getByRole("button", { name: /movie a/i }));
     await waitFor(() => expect(screen.getByRole("button", { name: /move to bowl/i })).toBeInTheDocument());
+    expect(screen.queryByRole("group", { name: "Movie pin" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /move to bowl/i }));
 
     expect(screen.getByText(/move back to bowl\?/i)).toBeInTheDocument();

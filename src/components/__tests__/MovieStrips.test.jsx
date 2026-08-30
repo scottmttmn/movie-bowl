@@ -197,9 +197,11 @@ describe("movie strip components", () => {
       expect.stringContaining("Excluded"),
       expect.stringContaining("Syncing"),
     ]);
-    expect(cards[0]).toHaveTextContent("Up first when you're picked");
+    expect(screen.queryByText("Pinned", { exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByText(/Up first when you're picked/i)).not.toBeInTheDocument();
     expect(cards[2]).toHaveAttribute("data-filter-excluded", "true");
-    expect(cards[2]).toHaveTextContent("Outside tonight's filters");
+    expect(cards[2]).toContainElement(screen.getByRole("img", { name: "Pinned", exact: true }));
+    expect(screen.queryByText(/Outside tonight's filters/i)).not.toBeInTheDocument();
 
     const pressedPins = screen.getAllByRole("button", { pressed: true });
     expect(pressedPins).toHaveLength(1);
@@ -222,7 +224,7 @@ describe("movie strip components", () => {
     );
   });
 
-  it("explains title-first and omits pin controls without clearing the badge", () => {
+  it("explains title-first and keeps only the saved pin icon on the poster", () => {
     render(
       <MyMoviesStrip
         movies={[{ id: "pinned", source: "added", title: "Pinned Movie", is_pinned: true }]}
@@ -234,7 +236,8 @@ describe("movie strip components", () => {
     );
 
     expect(screen.getByText(/title-first, so pins don't change anything/i)).toBeInTheDocument();
-    expect(screen.getByText("Pinned")).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Pinned", exact: true })).toBeInTheDocument();
+    expect(screen.queryByText("Pinned", { exact: true })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /unpin/i })).not.toBeInTheDocument();
   });
 

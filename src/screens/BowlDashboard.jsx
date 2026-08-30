@@ -14,7 +14,7 @@ import useBowlStreamingMatches, {
   STREAMING_MATCH_STATUS,
 } from "../hooks/useBowlStreamingMatches";
 import useDrawPoolCount, { DRAW_POOL_STATUS } from "../hooks/useDrawPoolCount";
-import useMyMovieEligibility from "../hooks/useMyMovieEligibility";
+import useMyMovieEligibility, { MY_MOVIE_ELIGIBILITY_STATUS } from "../hooks/useMyMovieEligibility";
 import AddMovieModal from "../components/AddMovieModal";
 import DrawAnimationModal from "../components/DrawAnimationModal";
 import { useNavigate, useParams } from "react-router-dom";
@@ -261,6 +261,22 @@ export default function BowlDashboard() {
       sharedEligibleMovieIds: drawPoolEligibleMovieIds,
       isSharedEligibilityPending: drawPoolStatus === DRAW_POOL_STATUS.counting,
     });
+    const selectedOwnedMovie = selectedDetailContext === "myAdds"
+      ? myMovies.find((movie) => movie.id === selectedDetailMovie?.id)
+      : null;
+    const canManageDetailPin = Boolean(
+      selectedOwnedMovie && !selectedOwnedMovie.drawn_at &&
+      !selectedOwnedMovie.added_by_name && !selectedOwnedMovie.added_via_link_id &&
+      selectedOwnedMovie.local_status !== "syncing"
+    );
+    const detailPinExcluded = canManageDetailPin &&
+      myMovieEligibilityStatus === MY_MOVIE_ELIGIBILITY_STATUS.ready &&
+      !eligibleMyMovieIds.some((id) => String(id) === String(selectedOwnedMovie.id));
+    const detailPinDisabledReason = !getDrawMethod(drawMethod).honorsPin
+      ? getDrawMethod(drawMethod).pinNote
+      : detailPinExcluded
+        ? "This movie is outside tonight's filters, so its pin won't affect this draw. Change the filters to pin or unpin it."
+        : "";
     const hasResolvedPrioritizedPool =
       isDrawFilteredByServices &&
       drawPoolTotalCount > 0 &&
@@ -1164,6 +1180,19 @@ return (
               <AddMovieModal
                 movie={selectedDetailMovie}
                 userStreamingServices={userStreamingServices}
+                pinDisabledReason={detailPinDisabledReason}
+                onTogglePin={canManageDetailPin
+                  ? async (pinned) => {
+                      const movieId = selectedDetailMovie.id;
+                      const result = await handleSetMoviePin(movieId, pinned);
+                      if (result?.ok) {
+                        setSelectedDetailMovie((current) => current?.id === movieId
+                          ? { ...current, is_pinned: result.movie?.is_pinned ?? pinned }
+                          : current);
+                      }
+                      return result;
+                    }
+                  : null}
                 detailPrimaryActionLabel={selectedDetailContext === "watched" ? "Move to Bowl" : null}
                 onDetailPrimaryAction={
                   selectedDetailContext === "watched"
