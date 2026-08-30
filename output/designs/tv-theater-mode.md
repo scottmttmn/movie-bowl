@@ -202,8 +202,9 @@ picks the vendor, the cache shape, and the quota enforcement point. Summary:
 
 - Add a deep-link provider behind the existing serverless API layer, with the
   key server-side, a monthly usage counter, and a kill switch.
-- Cache results in Supabase keyed by TMDB ID and region, so lookups scale with
-  movies added rather than with draws.
+- Look a title up when it is drawn, not before, and cache the answer in Supabase
+  keyed by TMDB ID and region, so lookups scale with distinct titles actually
+  drawn — on the order of ten requests a month.
 - Upgrade the launch candidate to prefer a direct provider title URL, falling
   back to today's search URL when a lookup is missing or the quota is spent.
 - Show the spoken assistant command on the handoff card.
