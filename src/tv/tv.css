@@ -8,7 +8,7 @@
    Headline clamps that already carry a vw term are barely affected, which is
    why large type looked right while labels did not. */
 html.tv-root {
-  font-size: clamp(22px, 1.7vw, 34px);
+  font-size: clamp(22px, 1.6vw, 32px);
 }
 
 .tv-app {
@@ -35,6 +35,12 @@ html.tv-root {
 
 .tv-app [data-tv-focusable] {
   outline: none;
+  /* Nothing above the buttons is focusable, and the page scrolls only when
+     focus moves. Without room reserved above, focusing a low control scrolls
+     the title off the top with no way back — the remote cannot scroll, it can
+     only move focus. Reserving space means returning focus upward brings the
+     header back with it. */
+  scroll-margin-block: 30vh 14vh;
 }
 
 .tv-app [data-tv-focusable]:focus,
