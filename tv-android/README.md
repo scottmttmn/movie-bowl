@@ -73,10 +73,43 @@ Then:
 Debug WebView inspection is enabled. Once the app is running, it can be inspected
 from desktop Chrome at `chrome://inspect`.
 
+## Run on a physical Google TV device
+
+The emulator instructions above do not transfer unchanged: `10.0.2.2` is an
+emulator-only alias for the Mac, and `release` has no signing config, so its APK
+cannot be installed. The `sideload` variant exists for this — the production
+URL, signed with the debug keystore, and still debuggable so `chrome://inspect`
+works during the QA pass below.
+
+```bash
+adb connect <tv-ip>:<port>          # or: adb pair <tv-ip>:<pairing-port> first
+./gradlew assembleSideload
+adb install -r app/build/outputs/apk/sideload/app-sideload.apk
+```
+
+Google TV hides sideloaded apps from the main row; launch it from the "Your
+apps" list, or with:
+
+```bash
+adb shell monkey -p app.moviebowl.tv -c android.intent.category.LEANBACK_LAUNCHER 1
+```
+
+To point a physical device at the local web app instead of production, pass the
+Mac's LAN address and serve on all interfaces:
+
+```bash
+vercel dev --listen 0.0.0.0:3000
+./gradlew installDebug -PtvDebugHost=192.168.1.50
+```
+
 ## Build targets
 
 - Debug: `http://10.0.2.2:3000/tv`, with local cleartext traffic enabled.
-- Release: `https://moviebowl.app/tv`, with cleartext traffic disabled.
+  Override the host with `-PtvDebugHost=<lan-ip>` for a physical device.
+- Sideload: `https://moviebowl.app/tv`, debug-signed and debuggable, for
+  physical-device testing.
+- Release: `https://moviebowl.app/tv`, cleartext disabled, unsigned. Store
+  signing is deliberately left undone; do not let `sideload` stand in for it.
 
 The URL values live in `app/build.gradle.kts`.
 
@@ -104,11 +137,20 @@ Verify these behaviors with only the virtual remote:
 ## Provider handoff behavior
 
 Movie Bowl sends the selected title as standard Android search extras while
-opening the provider's HTTPS link. Provider apps differ in what they accept.
-For example, the current Max Google TV app opens successfully but ignores the
-title extras and lands on its empty search screen. Until a provider publishes a
-supported title-search or playback deep link, the honest fallback is to open the
-installed app without promising that its search field will be populated.
+opening the provider's HTTPS link. Provider apps differ in what they accept, and
+what the link itself carries matters more than the extras.
+
+With a *search* URL the extras are the only signal, and they are widely ignored:
+Max opened but landed on its empty search screen. With a provider *title* URL —
+what `api/provider-links/lookup` caches once Watchmode is configured — the URL
+carries the title on its own. Verified August 30, 2026 on an onn Full HD
+Streaming Device (Google TV, Android 14): an ACTION_VIEW intent at
+`play.max.com/movie/<id>` cold-started Max on that title, extras irrelevant.
+
+So the honest promise depends on which link the handoff got. Without provider
+links enabled, open the installed app without promising a populated search
+field. With them, expect the title itself, while remembering this is confirmed
+for one service — the others need the same check and may differ.
 
 The drawn-result snapshot is kept in WebView session storage for up to 30 minutes
 after a provider action. It survives an app handoff and a renderer reload, but is
@@ -130,4 +172,5 @@ accessible to server code using the service role.
 This is a validation harness, not yet a store-ready Google TV application. Before
 publishing, it will need abuse-rate limiting for pairing creation, TV-quality
 review, provider-link capability testing, release signing, artwork, privacy
-review, and a physical-device test pass.
+review, and a physical-device test pass. The `sideload` variant makes that last
+one possible; it is not release signing, and it is not a substitute for it.
