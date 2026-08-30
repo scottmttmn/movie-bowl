@@ -1,28 +1,56 @@
 import React, { Suspense } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import useAuth from "./hooks/useAuth";
+import useAppUpdate from "./hooks/useAppUpdate";
 import usePendingInvites, { PendingInvitesProvider } from "./hooks/usePendingInvites";
 import TopNav from "./components/TopNav";
 import OfflineBanner from "./components/OfflineBanner";
+import UpdateBanner from "./components/UpdateBanner";
+import AppErrorBoundary from "./components/AppErrorBoundary";
+import { recoverFromStaleChunkError } from "./utils/appVersion";
 import { supabase } from "./lib/supabase";
 
-const MyBowlsScreen = React.lazy(() => import("./screens/MyBowlsScreen"));
-const BowlDashboard = React.lazy(() => import("./screens/BowlDashboard"));
-const LoginPage = React.lazy(() => import("./screens/LoginPage"));
-const UserSettings = React.lazy(() => import("./screens/UserSettings"));
-const BowlSettings = React.lazy(() => import("./screens/BowlSettings"));
-const AboutPage = React.lazy(() => import("./screens/AboutPage"));
-const PublicAddLinkPage = React.lazy(() => import("./screens/PublicAddLinkPage"));
-const WatchListPage = React.lazy(() => import("./screens/WatchListPage"));
-const InvitesPage = React.lazy(() => import("./screens/InvitesPage"));
-const HomeRedirect = React.lazy(() => import("./screens/HomeRedirect"));
-const TvApp = React.lazy(() => import("./tv/TvApp"));
-const TvAuthGate = React.lazy(() => import("./tv/TvAuthGate"));
-const TvActivationPage = React.lazy(() => import("./screens/TvActivationPage"));
+// Every screen is loaded on demand, which means every navigation can outlive
+// the build it was compiled into: a deploy replaces the hashed chunks, and an
+// open tab asks for a file that is no longer there. Reload once on that failure
+// -- the fresh document points at chunks that do exist -- and leave anything
+// the reload cannot fix to the error boundary.
+function lazyScreen(importScreen) {
+  return React.lazy(() =>
+    importScreen().catch((error) => {
+      if (recoverFromStaleChunkError(error)) {
+        // The reload is already in flight. Never settling keeps the Suspense
+        // fallback up instead of flashing an error on the way out.
+        return new Promise(() => {});
+      }
+
+      throw error;
+    })
+  );
+}
+
+const MyBowlsScreen = lazyScreen(() => import("./screens/MyBowlsScreen"));
+const BowlDashboard = lazyScreen(() => import("./screens/BowlDashboard"));
+const LoginPage = lazyScreen(() => import("./screens/LoginPage"));
+const UserSettings = lazyScreen(() => import("./screens/UserSettings"));
+const BowlSettings = lazyScreen(() => import("./screens/BowlSettings"));
+const AboutPage = lazyScreen(() => import("./screens/AboutPage"));
+const PublicAddLinkPage = lazyScreen(() => import("./screens/PublicAddLinkPage"));
+const WatchListPage = lazyScreen(() => import("./screens/WatchListPage"));
+const InvitesPage = lazyScreen(() => import("./screens/InvitesPage"));
+const HomeRedirect = lazyScreen(() => import("./screens/HomeRedirect"));
+const TvApp = lazyScreen(() => import("./tv/TvApp"));
+const TvAuthGate = lazyScreen(() => import("./tv/TvAuthGate"));
+const TvActivationPage = lazyScreen(() => import("./screens/TvActivationPage"));
 
 function AppShell({ children }) {
   const { session, signOut } = useAuth();
   const { pendingInviteCount } = usePendingInvites();
+  // App-wide, so the reloads it takes on its own reach the TV too. Only the
+  // notice below is phone-and-desktop: a TV screen is sized to the viewport and
+  // driven by a D-pad, so a strip that pushes it down and offers a button no
+  // remote can reach would be worse than waiting for the automatic reload.
+  const { updateReady } = useAppUpdate();
   const location = useLocation();
   const isLoginRoute = location.pathname === "/login";
   const isSettingsRoute = location.pathname === "/settings";
@@ -55,7 +83,10 @@ function AppShell({ children }) {
         />
       )}
 
-      <div className={shouldShowTopNav ? "pt-16" : ""}>{children}</div>
+      <div className={shouldShowTopNav ? "pt-16" : ""}>
+        {updateReady && !isTvRoute && <UpdateBanner />}
+        {children}
+      </div>
 
       {/* Global, so no screen has to explain a dropped connection on its own */}
       <OfflineBanner />
@@ -208,63 +239,65 @@ function App() {
   return (
     <Router>
       <Layout>
-        <Suspense
-          fallback={
-            <div className="page-container py-10">
-              <div className="panel mx-auto max-w-lg text-sm text-slate-400" role="status">
-                Loading…
+        <AppErrorBoundary>
+          <Suspense
+            fallback={
+              <div className="page-container py-10">
+                <div className="panel mx-auto max-w-lg text-sm text-slate-400" role="status">
+                  Loading…
+                </div>
               </div>
-            </div>
-          }
-        >
-          <Routes>
-            <Route path="/settings" element={
-              <RequireAuth><UserSettings />
-              </RequireAuth>
-            } />
-            <Route path="/login" element={<LoginPage />} />
-            <Route path="/about" element={<AboutPage />} />
-            <Route path="/activate-tv" element={<TvActivationPage />} />
-            <Route path="/accept-invite/:token" element={<AcceptInvite />} />
-            <Route path="/add-to-bowl/:token" element={<PublicAddLinkPage />} />
-            <Route path="/watch-list" element={
-              <RequireAuth>
-                <WatchListPage />
-              </RequireAuth>
-            } />
-            <Route path="/invites" element={
-              <RequireAuth>
-                <InvitesPage />
-              </RequireAuth>
-            } />
-            <Route path="/tv/*" element={
-              <TvAuthGate>
-                <TvApp />
-              </TvAuthGate>
-            } />
-            <Route path="/" element={
-              <RequireAuth>
-                <HomeRedirect />
-              </RequireAuth>
-            } />
-            <Route path="/bowls" element={
-              <RequireAuth>
-                <MyBowlsScreen />
-              </RequireAuth>
-            } />
-            <Route path="/bowl/:bowlId" element={
-              <RequireAuth>
-                <BowlDashboard />
-              </RequireAuth>
-            } />
-            <Route path="/bowl/:bowlId/settings" element={
-              <RequireAuth>
-                <BowlSettings />
-              </RequireAuth>
-            } />
+            }
+          >
+            <Routes>
+              <Route path="/settings" element={
+                <RequireAuth><UserSettings />
+                </RequireAuth>
+              } />
+              <Route path="/login" element={<LoginPage />} />
+              <Route path="/about" element={<AboutPage />} />
+              <Route path="/activate-tv" element={<TvActivationPage />} />
+              <Route path="/accept-invite/:token" element={<AcceptInvite />} />
+              <Route path="/add-to-bowl/:token" element={<PublicAddLinkPage />} />
+              <Route path="/watch-list" element={
+                <RequireAuth>
+                  <WatchListPage />
+                </RequireAuth>
+              } />
+              <Route path="/invites" element={
+                <RequireAuth>
+                  <InvitesPage />
+                </RequireAuth>
+              } />
+              <Route path="/tv/*" element={
+                <TvAuthGate>
+                  <TvApp />
+                </TvAuthGate>
+              } />
+              <Route path="/" element={
+                <RequireAuth>
+                  <HomeRedirect />
+                </RequireAuth>
+              } />
+              <Route path="/bowls" element={
+                <RequireAuth>
+                  <MyBowlsScreen />
+                </RequireAuth>
+              } />
+              <Route path="/bowl/:bowlId" element={
+                <RequireAuth>
+                  <BowlDashboard />
+                </RequireAuth>
+              } />
+              <Route path="/bowl/:bowlId/settings" element={
+                <RequireAuth>
+                  <BowlSettings />
+                </RequireAuth>
+              } />
 
-          </Routes>
-        </Suspense>
+            </Routes>
+          </Suspense>
+        </AppErrorBoundary>
       </Layout>
     </Router>
   );

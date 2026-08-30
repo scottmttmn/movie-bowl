@@ -5,7 +5,7 @@ import reactRefresh from 'eslint-plugin-react-refresh'
 import { defineConfig, globalIgnores } from 'eslint/config'
 
 export default defineConfig([
-  globalIgnores(['dist', 'coverage']),
+  globalIgnores(['dist', 'coverage', 'playwright-report', 'test-results']),
   {
     files: ['**/*.{js,jsx}'],
     extends: [
@@ -15,7 +15,8 @@ export default defineConfig([
     ],
     languageOptions: {
       ecmaVersion: 2020,
-      globals: globals.browser,
+      // Injected by vite.config.js at build time.
+      globals: { ...globals.browser, __APP_BUILD_ID__: 'readonly' },
       parserOptions: {
         ecmaVersion: 'latest',
         ecmaFeatures: { jsx: true },
@@ -34,6 +35,7 @@ export default defineConfig([
       'src/test/**/*.js',
       'e2e/**/*.js',
       'playwright.config.js',
+      'vite.config.js',
     ],
     languageOptions: {
       globals: {

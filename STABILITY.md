@@ -100,6 +100,8 @@ Run this when shipping meaningful app behavior, especially if auth, DB, installs
 - confirm watch list still loads
 - confirm public add link still works
 - confirm required Vercel env vars exist
+- confirm `/version.json` on the deployed site returns the new build id (an open
+  tab relies on it to refresh itself instead of going blank)
 - confirm new Supabase migrations are applied
 
 If browser/app-shell metadata changed, also verify:

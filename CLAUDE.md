@@ -22,7 +22,7 @@ npm run build        # production build — run this for any UI/app change
 ```
 
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
-A clean checkout is expected to be fully green (88 test files / 617 tests, lint
+A clean checkout is expected to be fully green (91 test files / 651 tests, lint
 with zero warnings); if something fails, it is your change. Those counts are a
 tripwire, not trivia — refresh them in the same commit that adds or removes
 tests, or the next person cannot tell a stale number from a lost test.
@@ -69,6 +69,27 @@ output/designs/      design specs and roadmaps for shipped + planned features
   `/api/tmdb/*` — the browser must never see the TMDB token.
 - `screens/` compose hooks and components for one route. They are large; prefer
   extending an existing screen's section over adding a parallel one.
+
+### Staying current across deploys
+
+A deploy replaces the hashed bundle, so a tab that is already open is running
+code whose lazy chunks no longer exist -- historically a blank screen until
+someone refreshed by hand. Three pieces prevent that, all reading
+`utils/appVersion.js`:
+
+- `vite.config.js` stamps each build with an id (the Vercel commit, else the
+  clock) and emits it to `/version.json`, outside the hashed bundle.
+- `useAppUpdate` (rendered by `UpdateBanner`, mounted app-wide) compares the two
+  and reloads unprompted where nothing can be interrupted -- on load, on
+  returning to an app backgrounded for a minute, on a bfcache restore. While
+  someone is mid-session it only offers the banner.
+- `lazyScreen` in `App.jsx`, the `vite:preloadError` listener in `main.jsx`, and
+  `AppErrorBoundary` recover the failure itself when it beats the check.
+
+Every reload goes through `reloadForNewBuild`, which fires at most once a minute
+via `sessionStorage` so a genuinely broken build cannot become a refresh loop --
+and which is why an explicit tap on the banner calls `location.reload()` direct.
+The check is production-only; the dev server has HMR and no manifest to serve.
 
 ### Routes (`src/App.jsx`)
 
