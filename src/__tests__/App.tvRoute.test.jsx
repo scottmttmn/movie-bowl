@@ -7,6 +7,11 @@ const mocks = vi.hoisted(() => ({
     loading: false,
     signOut: vi.fn(),
   },
+  updateReady: false,
+}));
+
+vi.mock("../hooks/useAppUpdate", () => ({
+  default: () => ({ updateReady: mocks.updateReady }),
 }));
 
 vi.mock("../hooks/useAuth", () => ({
@@ -48,6 +53,7 @@ describe("App TV route", () => {
       loading: false,
       signOut: vi.fn(),
     };
+    mocks.updateReady = false;
     window.history.pushState({}, "", "/");
   });
 
@@ -69,6 +75,24 @@ describe("App TV route", () => {
       expect(screen.getByText("Movie Bowl TV App")).toBeInTheDocument();
     });
     expect(screen.queryByTestId("top-nav")).not.toBeInTheDocument();
+  });
+
+  it("keeps the update notice off the TV, which cannot focus or fit it", async () => {
+    mocks.auth = {
+      session: { user: { id: "user-1", email: "viewer@example.com" } },
+      loading: false,
+      signOut: vi.fn(),
+    };
+    mocks.updateReady = true;
+    window.history.pushState({}, "", "/tv");
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByText("Movie Bowl TV App")).toBeInTheDocument();
+    });
+    // The TV still reloads itself; it just never renders the banner.
+    expect(screen.queryByTestId("update-banner")).not.toBeInTheDocument();
   });
 
   it("shows TV pairing instead of the standard login to an unauthenticated television", async () => {

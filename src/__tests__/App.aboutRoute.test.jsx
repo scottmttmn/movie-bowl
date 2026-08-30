@@ -7,6 +7,11 @@ const mocks = vi.hoisted(() => ({
     loading: false,
     signOut: vi.fn(),
   },
+  updateReady: false,
+}));
+
+vi.mock("../hooks/useAppUpdate", () => ({
+  default: () => ({ updateReady: mocks.updateReady }),
 }));
 
 vi.mock("../hooks/useAuth", () => ({
@@ -61,11 +66,24 @@ describe("App about route", () => {
       loading: false,
       signOut: vi.fn(),
     };
+    mocks.updateReady = false;
     window.history.pushState({}, "", "/");
   });
 
   afterEach(() => {
     cleanup();
+  });
+
+  it("offers the update above the page once a new build is out", async () => {
+    mocks.updateReady = true;
+    window.history.pushState({}, "", "/about");
+
+    render(<App />);
+
+    await waitFor(() => {
+      expect(screen.getByTestId("update-banner")).toBeInTheDocument();
+    });
+    expect(screen.getByRole("button", { name: "Update now" })).toBeInTheDocument();
   });
 
   it("renders /about when not authenticated", async () => {
