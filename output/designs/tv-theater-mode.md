@@ -104,7 +104,10 @@ that runs the bridge, and are a good validation step before any native app.
 
 A thin Android TV WebView shell around the existing `/tv` route, with a small
 JS bridge exposing a `launchDeepLink(url)` call that fires an ACTION_VIEW
-intent. The existing spatial navigation already handles D-pad input, so the
+intent. The intent carries the cached *web* URL, not a native scheme: Android
+App Links resolve it into the provider's app. Confirmed end to end for Max on
+an onn Google TV box running Android 14 — see the hardware note in
+`provider-deep-links.md`. The existing spatial navigation already handles D-pad input, so the
 web UI carries over as-is. Most provider apps open on the title's detail page
 (one OK-press from play); some start playback directly. Roku/tvOS/Tizen/webOS
 ports are separate platforms and are out of scope for a first native version.
@@ -226,6 +229,13 @@ A Roku ECP call or an ADB VIEW intent fired by a bridge on the home network.
 Not distributable and not a product feature; the point is to feel the complete
 ritual end to end and learn whether automatic playback actually beats a single
 OK press.
+
+The intent half is already demonstrated: fired by hand from a laptop over
+wireless debugging, a title URL cold-starts Max on the title (see the hardware
+note in `provider-deep-links.md`). What remains is the glue that fires it when a
+draw lands, since an HTTPS page cannot reach the LAN. The gate question is
+therefore answerable before any bridge exists — draw, then fire the intent by
+hand from the couch, and see whether the room cares.
 
 Gate: if this does not feel like magic in the room, do not build phase 4.
 

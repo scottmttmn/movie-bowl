@@ -10,7 +10,9 @@ behavioral reference, with these vendor-driven corrections:
   `X-API-Key` authentication. A TMDB lookup is one HTTP request but two quota
   credits; the default 500-request budget allows at most 1,000 credits.
 - Native iOS/Android links require a paid Watchmode plan. They are optional in
-  the stored shape; web title links work with the intended free setup.
+  the stored shape; web title links work with the intended free setup — and for
+  Android, including Android TV, the web URL is the better input to an
+  ACTION_VIEW intent anyway. See "Vendor" below.
 - The free plan requires linked attribution on screens using its data and
   deletion/refresh within 30 days. Direct links have attribution. The existing
   daily filter-metadata job deletes rows at 29 days, even with lookups off;
@@ -63,11 +65,54 @@ An earlier draft of this plan picked it on quota shape — a monthly bucket
 absorbing bursts that a daily bucket rejects. Under the lookup-at-draw design
 below that argument is dead: we spend on the order of ten requests a month, and
 every candidate's free tier is enormous relative to that. What actually decides
-it is the data. Watchmode takes a TMDB id directly (`movie-<tmdbId>`) and
-returns per-source `web_url` alongside `ios_url` and `android_url`, and those
-Android URLs are exactly what a Phase 4 `launchDeepLink(url)` bridge fires as an
-ACTION_VIEW intent. A vendor that returns only web URLs would have to be
-replaced before phase 4 rather than extended.
+it is the data: Watchmode takes a TMDB id directly (`movie-<tmdbId>`), which no
+candidate matched, and returns a per-source `web_url`.
+
+An earlier version of this paragraph also claimed the paid `android_url` was
+what a Phase 4 `launchDeepLink(url)` bridge fires, and that a web-only vendor
+would have to be replaced before phase 4. **That was wrong, and it inverted the
+argument.** On Android the https URL *is* the deep link: an ACTION_VIEW intent
+carrying a provider's web URL resolves into that provider's app through Android
+App Links, with no custom scheme involved.
+
+Max's Digital Asset Links file (`play.max.com/.well-known/assetlinks.json`,
+read August 30, 2026) shows why the free plan is not merely adequate here but
+better. The domain grants `handle_all_urls` to four packages — `com.wbd.stream`,
+`com.wbd.stream.debug`, `com.hbo.hbonow`, and `com.wbd.hbomax` — on one set of
+signing fingerprints, spanning the whole HBO Now → HBO Max → Max rebrand. Fire
+the https URL and Android picks whichever is installed. We never name a package,
+so the cached link cannot rot when a service renames its app; `com.hbo.hbonow`
+still being authorized means a box that never updated past the HBO Max era opens
+the same URL we would cache today. A package- or scheme-shaped native link is
+exactly the thing that has to chase that churn.
+
+**Verified on hardware, August 30, 2026** — onn Full HD Streaming Device
+(Google TV, Android 14), reached over wireless debugging:
+
+- The Android TV build is `com.wbd.stream`, the same package as the phone app
+  and the first entry in the assetlinks file above. TV APKs are often separate
+  from phone ones, so this was the open question; for Max it is settled.
+- `pm get-app-links com.wbd.stream` reports both `play.max.com` and
+  `play.hbomax.com` as **verified** on the device — the app declares the intent
+  filters and Android completed verification, which is the half assetlinks alone
+  cannot show.
+- `am start -a android.intent.action.VIEW -d "https://play.max.com/movie/<id>"`
+  opened Max on that title, from a cold start — re-run after `am force-stop`, so
+  it is a real launch and navigation, not a resumed task brought forward.
+
+So the full chain works on the actual target hardware using nothing but the web
+URL the free plan already returns. That is phase 4's `launchDeepLink(url)`
+bridge, demonstrated before the shell exists.
+
+Two domains verified against one package, across four authorized package names,
+is also the robustness argument in miniature: whichever domain and app-era a
+cached link happens to name, Android resolves it to whatever is installed.
+
+**This is one service.** A service whose TV APK is a separate package missing
+from its assetlinks file fails the native path no matter which Watchmode plan is
+in play — the other half of why paying does not help. Repeat the three commands
+per service as it matters. That check, not the vendor tier, is the entry
+criterion for phases 3 and 4.
 
 The endpoint and field names were confirmed against current documentation;
 see the implementation notes above. `api/_lib/providerLinks.js` owns the
