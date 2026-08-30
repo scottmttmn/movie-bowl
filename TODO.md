@@ -9,7 +9,10 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   cinema, and neither is needed — Back already calls `endTheater`, so the escape
   survives unadvertised. Keep Pause both for the doorbell case and because it
   carries `data-tv-autofocus`, without which the overlay has nothing focusable.
-  Open: whether the progress line goes too. Decided from live use; see the
+  The "1 of 3 · Title" progress line goes too — the count is announced before
+  the previews start, and on screen it only invites counting down. That leaves
+  Pause as the only chrome, so consider fading it and revealing it on a
+  keypress, keeping it focusable while hidden. Decided from live use; see the
   phase 1 revision in `output/designs/tv-theater-mode.md`.
 - Trailer captions during the pre-roll: `cc_load_policy=0` on the embed URL in
   `getAutoplayTrailerUrl` asks YouTube not to show captions, which suits the

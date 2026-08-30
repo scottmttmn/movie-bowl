@@ -222,9 +222,15 @@ out of the app. Pause also carries `data-tv-autofocus`, so it is what keeps the
 overlay focusable at all; removing all three would leave the D-pad nothing to
 hold.
 
-Open: whether the "1 of 3 · Title" progress line goes too. A cinema shows
-nothing, and the pre-roll already announces the count before it starts, but the
-room may still want to know how much is left.
+The "1 of 3 · Title" progress line goes with them. A cinema shows nothing, and
+the pre-roll already announces the count before it starts, which is where that
+information belongs — during the previews it only invites counting down.
+
+That leaves Pause as the overlay's only chrome, which is worth one more step: a
+button parked on screen for the whole pre-roll is still furniture. The video
+player pattern fits — fade it out, bring it back on any keypress. The one
+constraint is that it has to stay focusable while hidden, or the D-pad has
+nothing to hold and Back becomes the only working key.
 
 ### Phase 2 — Real deep links and the voice card (web only)
 
