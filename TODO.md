@@ -23,7 +23,11 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   because focus inside the iframe sends keys to YouTube's document rather than
   ours, it may swallow Back too. `getAutoplayTrailerUrl` is shared with the
   explicit "Watch trailer" action, which should keep its scrubber, so this is
-  an option on the builder. Decided from live use; see the
+  an option on the builder. Ads get no detection — the IFrame API exposes no ad
+  state and the `getDuration()` heuristic misfires — but check whether
+  `controls=0` also hides YouTube's "Skip Ad" button, which would make an ad
+  unskippable with only a full pre-roll exit as recourse. Decided from live
+  use; see the
   phase 1 revision in `output/designs/tv-theater-mode.md`.
 - Trailer captions during the pre-roll: `cc_load_policy=0` on the embed URL in
   `getAutoplayTrailerUrl` asks YouTube not to show captions, which suits the

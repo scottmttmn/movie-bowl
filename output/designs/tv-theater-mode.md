@@ -262,6 +262,19 @@ than a blanket change — `TvTonightScreen.jsx:463` uses it for the explicit
 "Watch trailer" action, where someone who chose to watch a trailer should keep
 the scrubber.
 
+Ads are the case Back should cover rather than code. They are uncommon on
+official trailer uploads, and the IFrame API exposes no ad state — the usual
+heuristic of watching `getDuration()` change is fragile enough to misfire on
+ordinary videos — so detection is not worth building. Backing out of the
+pre-roll is a fine answer to a rare annoyance.
+
+One thing to check before `controls=0` and this ship together: YouTube's
+"Skip Ad" button is player chrome. If hiding the controls hides that too, an
+ad becomes unskippable inside the overlay and Back — which ends the whole
+pre-roll, not just the trailer — is the only way out. That is a worse trade
+than the ad. If it turns out to be the case, the fallback worth considering is
+Back advancing to the next preview rather than leaving.
+
 Verify Back during the pre-roll on hardware before removing the buttons. The
 path exists but has not been exercised — the buttons were always there — and it
 becomes the only way out.
