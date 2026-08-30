@@ -212,6 +212,14 @@ free-plan limitations. Summary:
 This improves the phone experience too, so it is worth doing even if theater
 mode never ships.
 
+### Phase 2.5 — Web auto-start (optional probe, web only)
+
+Navigate the television to the feature at the end of the pre-roll instead of
+ending on a focused button. Reaches real playback only where a provider's detail
+URL rewrites into a watch URL, so it is partial by nature — but it is a pure
+client change on top of phase 2 and answers phase 3's gate without hardware.
+Skippable: phase 3 does not depend on it. See `web-autostart-handoff.md`.
+
 ### Phase 3 — Personal auto-start over the LAN (household only)
 
 A Roku ECP call or an ADB VIEW intent fired by a bridge on the home network.
