@@ -61,6 +61,7 @@ const mocks = vi.hoisted(() => {
     },
     getTmdbMovieDetails: vi.fn(async () => ({})),
     fetchStreamingProviders: vi.fn(async () => ({ providers: [], region: "US", fetchedAt: null })),
+    fetchProviderLinks: vi.fn(),
   };
 });
 
@@ -86,6 +87,7 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
 }));
 
 vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
+vi.mock("../../lib/providerLinks", () => ({ fetchProviderLinks: mocks.fetchProviderLinks }));
 
 vi.mock("../../lib/streamingProviders", () => ({
   fetchStreamingProviders: mocks.fetchStreamingProviders,
@@ -123,6 +125,7 @@ function confirmDraw() {
 
 describe("BowlDashboard draw flow", () => {
   beforeEach(() => {
+    mocks.fetchProviderLinks.mockReset().mockResolvedValue({ links: [] });
     mocks.state.navigate.mockReset();
     mocks.state.authUserId = "u1";
     mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1" };
@@ -356,6 +359,33 @@ describe("BowlDashboard draw flow", () => {
       "noopener,noreferrer"
     );
     expect(screen.getByText(/opened netflix in a new tab/i)).toBeInTheDocument();
+    openSpy.mockRestore();
+  });
+
+  it("reveals before the lookup resolves, then upgrades the same service without reopening the card", async () => {
+    let finishLookup;
+    mocks.fetchProviderLinks.mockReturnValue(new Promise((resolve) => { finishLookup = resolve; }));
+    const openSpy = vi.spyOn(window, "open").mockReturnValue({});
+    mocks.state.streamingServices = ["Netflix", "Hulu"];
+    mocks.state.defaultDrawSettings.enablePreferredWebLaunch = true;
+    mocks.state.handleDraw.mockResolvedValue({ id: "m1", tmdb_id: 101, title: "Arrival" });
+    fetchStreamingProviders.mockResolvedValue({ providers: ["Netflix", "Hulu"] });
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    vi.useFakeTimers();
+    confirmDraw();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+    vi.useRealTimers();
+    const button = await screen.findByRole("button", { name: /open on web in netflix/i });
+    expect(mocks.fetchProviderLinks).toHaveBeenCalledExactlyOnceWith(101, "bowl-1");
+    fireEvent.click(button);
+    expect(openSpy).toHaveBeenLastCalledWith("https://www.netflix.com/search?q=Arrival", "_blank", "noopener,noreferrer");
+    expect(screen.queryByText(/hold the mic button/i)).not.toBeInTheDocument();
+    await act(async () => { finishLookup({ links: [{ service: "Netflix", type: "sub", webUrl: "https://www.netflix.com/title/123" }] }); });
+    expect(screen.getByRole("button", { name: /open on web in netflix/i })).toBe(button);
+    fireEvent.click(button);
+    expect(openSpy).toHaveBeenLastCalledWith("https://www.netflix.com/title/123", "_blank", "noopener,noreferrer");
+    expect(screen.getByRole("link", { name: "Watchmode" })).toBeInTheDocument();
     openSpy.mockRestore();
   });
 

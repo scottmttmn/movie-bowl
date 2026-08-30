@@ -1136,6 +1136,31 @@
   line-height: 1.4;
 }
 
+.tv-voice-handoff {
+  margin-top: 1.25rem;
+  padding: 1rem 1.25rem;
+  border-left: 3px solid var(--tv-accent);
+  background: rgba(255, 255, 255, 0.04);
+  border-radius: 0 0.65rem 0.65rem 0;
+}
+
+.tv-voice-handoff p {
+  margin: 0 0 0.4rem;
+  color: var(--tv-muted);
+  font-size: 0.95rem;
+}
+
+.tv-voice-handoff strong {
+  font-size: clamp(1.1rem, 1.8vw, 1.55rem);
+  line-height: 1.4;
+}
+
+.tv-provider-attribution {
+  margin-top: 0.75rem;
+  color: var(--tv-muted);
+  font-size: 0.8rem;
+}
+
 .tv-theater-overlay {
   position: fixed;
   z-index: 190;

@@ -4,6 +4,7 @@ const mocks = vi.hoisted(() => ({
   runDailyFilterMetadataRefresh: vi.fn(),
   recordFilterMetadataRefreshRun: vi.fn(),
   getSupabaseAdmin: vi.fn(() => ({ name: "admin" })),
+  pruneProviderLinks: vi.fn(),
 }));
 
 vi.mock("../_lib/filterMetadataRefresh.js", () => ({
@@ -13,6 +14,7 @@ vi.mock("../_lib/filterMetadataRefresh.js", () => ({
 vi.mock("../_lib/supabaseAdmin.js", () => ({
   getSupabaseAdmin: mocks.getSupabaseAdmin,
 }));
+vi.mock("../_lib/providerLinks.js", () => ({ pruneProviderLinks: mocks.pruneProviderLinks }));
 
 import handler from "../cron/refresh-filter-metadata.js";
 
@@ -33,6 +35,7 @@ function createRes() {
 
 describe("api/cron/refresh-filter-metadata", () => {
   beforeEach(() => {
+    mocks.pruneProviderLinks.mockReset().mockResolvedValue(null);
     process.env.CRON_SECRET = "daily-secret";
     delete process.env.FILTER_METADATA_DAILY_MAX_TITLES;
     mocks.runDailyFilterMetadataRefresh.mockReset();
@@ -89,6 +92,7 @@ describe("api/cron/refresh-filter-metadata", () => {
     }, res);
 
     expect(res.statusCode).toBe(200);
+    expect(mocks.pruneProviderLinks).toHaveBeenCalledWith({ name: "admin" });
     expect(res.body).toMatchObject({
       claimed: 2,
       succeeded: 2,

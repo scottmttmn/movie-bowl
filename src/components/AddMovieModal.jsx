@@ -2,6 +2,7 @@ import React, { useEffect, useState } from "react";
 import MovieSearch from "./MovieSearch";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { matchUserServices, normalizeStreamingServices } from "../utils/streamingServices";
+import ProviderLinksAttribution from "./ProviderLinksAttribution";
 import { getMovieAttributionLabel } from "../utils/drawBuckets";
 import {
   MAX_MOVIE_NOTE_LENGTH,
@@ -333,6 +334,9 @@ export default function AddMovieModal({
                 >
                   {`Open on Web in ${webLaunchCandidate.serviceName}`}
                 </button>
+                {webLaunchCandidate.linkType === "title" && (
+                  <div className="mt-2"><ProviderLinksAttribution /></div>
+                )}
               </div>
             )}
 

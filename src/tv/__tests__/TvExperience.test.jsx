@@ -46,6 +46,7 @@ const mocks = vi.hoisted(() => ({
   handleReaddMovie: vi.fn(),
   getTmdbMovieDetails: vi.fn(),
   fetchStreamingProviders: vi.fn(),
+  fetchProviderLinks: vi.fn(),
   streamingServices: ["Netflix", "Max"],
   prioritizeStreaming: true,
   providersByTmdbId: { 101: ["Netflix"] },
@@ -84,6 +85,7 @@ vi.mock("../../hooks/useBowl", () => ({
 vi.mock("../../lib/streamingProviders", () => ({
   fetchStreamingProviders: (...args) => mocks.fetchStreamingProviders(...args),
 }));
+vi.mock("../../lib/providerLinks", () => ({ fetchProviderLinks: mocks.fetchProviderLinks }));
 
 vi.mock("../../hooks/useUserStreamingServices", () => ({
   default: () => ({
@@ -165,6 +167,7 @@ function setElementRect(element, { left, top, width, height }) {
 
 describe("Movie Bowl TV experience", () => {
   beforeEach(() => {
+    mocks.fetchProviderLinks.mockReset().mockResolvedValue({ links: [] });
     window.localStorage.clear();
     window.sessionStorage.clear();
     mocks.handleDraw.mockReset();
@@ -541,6 +544,39 @@ describe("Movie Bowl TV experience", () => {
     expect(
       screen.queryByRole("button", { name: /we're not watching this/i })
     ).not.toBeInTheDocument();
+  });
+
+  it("upgrades a focused launch link without changing services and displays a non-focusable voice card", async () => {
+    let finishLookup;
+    mocks.fetchProviderLinks.mockReturnValue(new Promise((resolve) => { finishLookup = resolve; }));
+    mocks.handleDraw.mockResolvedValue({ id: "movie-1", tmdb_id: 101, title: "Arrival", streamingProviders: ["Netflix"] });
+    mocks.getTmdbMovieDetails.mockResolvedValue({ title: "Arrival" });
+    renderTonight();
+    fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(1800); });
+    vi.useRealTimers();
+    const link = await screen.findByRole("link", { name: /^open netflix$/i });
+    expect(link).toHaveAttribute("href", "https://www.netflix.com/search?q=Arrival");
+    link.focus();
+    const voiceCard = screen.getByText(/hold the mic button/i).closest(".tv-voice-handoff");
+    expect(voiceCard).toHaveTextContent("Play Arrival on Netflix");
+    expect(voiceCard.querySelector("[data-tv-focusable], button, a, [tabindex]")).toBeNull();
+    expect(voiceCard).not.toHaveAttribute("data-tv-focusable");
+    await act(async () => { finishLookup({ links: [{ service: "Netflix", type: "sub", webUrl: "https://www.netflix.com/title/123" }] }); });
+    expect(screen.getByRole("link", { name: /^open netflix$/i })).toBe(link);
+    expect(link).toHaveAttribute("href", "https://www.netflix.com/title/123");
+    expect(link).toHaveFocus();
+    expect(screen.getByRole("link", { name: "Watchmode" })).toBeInTheDocument();
+  });
+
+  it("hides the voice card when no preferred service matches", async () => {
+    mocks.streamingServices = [];
+    window.sessionStorage.setItem("movie-bowl:tv:external-return", JSON.stringify({ bowlId: "family", movie: { id: "movie-1", title: "Arrival", streamingProviders: ["Netflix"] }, savedAt: Date.now() }));
+    renderTonight();
+    await screen.findByRole("heading", { name: /arrival/i });
+    expect(screen.queryByText(/hold the mic button/i)).not.toBeInTheDocument();
   });
 
   it("restores the drawn result after an external provider handoff reload", async () => {

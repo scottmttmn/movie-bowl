@@ -3,6 +3,7 @@ import {
   runDailyFilterMetadataRefresh,
 } from "../_lib/filterMetadataRefresh.js";
 import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { pruneProviderLinks } from "../_lib/providerLinks.js";
 
 export const config = { maxDuration: 60 };
 
@@ -38,6 +39,7 @@ export default async function handler(req, res) {
 
   try {
     supabaseAdmin = getSupabaseAdmin();
+    await pruneProviderLinks(supabaseAdmin);
     const stats = await runDailyFilterMetadataRefresh(supabaseAdmin, {
       maxTitles: getPositiveInteger(
         process.env.FILTER_METADATA_DAILY_MAX_TITLES,

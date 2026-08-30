@@ -55,6 +55,7 @@ vi.mock("../../lib/tmdbApi", () => ({
 vi.mock("../../lib/streamingProviders", () => ({
   fetchStreamingProviders: async () => ({ providers: [], region: "US", fetchedAt: null }),
 }));
+vi.mock("../../lib/providerLinks", () => ({ fetchProviderLinks: async () => ({ links: [] }) }));
 
 import { clearDrawSelectionCache } from "../../utils/drawSelection";
 import { MPAA_RATING_OPTIONS } from "../../utils/movieRatings";
@@ -209,6 +210,8 @@ describe("TV theater mode", () => {
       screen.queryByRole("dialog", { name: /previews before arrival/i })
     ).not.toBeInTheDocument();
     expect(screen.getByText(/tonight's pick/i)).toBeInTheDocument();
+    expect(screen.getByText(/hold the mic button/i)).toBeVisible();
+    expect(screen.getByText(/play arrival on netflix/i)).toBeVisible();
     expect(
       screen.getByRole("link", { name: /^open netflix$/i })
     ).toBeInTheDocument();

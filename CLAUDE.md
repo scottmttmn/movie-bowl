@@ -22,7 +22,7 @@ npm run build        # production build — run this for any UI/app change
 ```
 
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
-A clean checkout is expected to be fully green (91 test files / 651 tests, lint
+A clean checkout is expected to be fully green (95 test files / 695 tests, lint
 with zero warnings); if something fails, it is your change. Those counts are a
 tripwire, not trivia — refresh them in the same commit that adds or removes
 tests, or the next person cannot tell a stale number from a lost test.
@@ -218,9 +218,17 @@ then a generic 500. They run in Node and are excluded from coverage; they are
 **not** part of the Vite build, so `npm run dev` alone cannot exercise them.
 
 - `api/tmdb/*` proxies TMDB so `TMDB_READ_ACCESS_TOKEN` stays server-side.
+- `api/provider-links/lookup` verifies the bearer token and bowl/title access
+  before a Watchmode lookup. It defaults off unless `PROVIDER_LINKS_ENABLED=true`
+  and `WATCHMODE_API_KEY` is set. `PROVIDER_LINKS_MONTHLY_BUDGET` is enforced
+  atomically in Supabase (default 500 HTTP requests, currently 1,000 Watchmode
+  credits). Add and draw events warm the private cache; public adds do not.
 - `api/cron/refresh-filter-metadata` maintains the private daily certification
   and provider cache. It requires `CRON_SECRET`, uses the service role, and must
   remain compatible with Vercel Hobby's once-daily schedule and 60-second cap.
+  It also deletes provider-link rows at 29 days, even with lookups disabled,
+  to satisfy the free vendor plan's 30-day retention limit. This spends no
+  Watchmode quota. Apply the provider-link migration before deploying this call.
 - `api/add-links/*` and `api/invites/send.js` use the service-role client from
   `api/_lib/supabaseAdmin.js`. This key bypasses RLS — every route using it must
   do its own authorization, and none of it may ever reach a `VITE_` variable.

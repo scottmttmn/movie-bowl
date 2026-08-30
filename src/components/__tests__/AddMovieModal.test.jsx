@@ -307,6 +307,16 @@ describe("AddMovieModal", () => {
     expect(screen.queryByTitle("Movie B trailer")).not.toBeInTheDocument();
   });
 
+  it("attributes only direct links and never shows a TV voice card on the phone", () => {
+    const props = { movie: { title: "Arrival" }, onClose: vi.fn() };
+    const candidate = { serviceName: "Netflix", url: "https://www.netflix.com/title/123", linkType: "title" };
+    const { rerender } = render(<AddMovieModal {...props} webLaunchCandidate={candidate} />);
+    expect(screen.getByRole("link", { name: "Watchmode" })).toHaveAttribute("href", "https://www.watchmode.com/");
+    expect(screen.queryByText(/hold the mic button/i)).not.toBeInTheDocument();
+    rerender(<AddMovieModal {...props} webLaunchCandidate={{ ...candidate, linkType: "search" }} />);
+    expect(screen.queryByRole("link", { name: "Watchmode" })).not.toBeInTheDocument();
+  });
+
   it("renders web launch action when a web launch candidate is provided", () => {
     const onLaunchPreferredWeb = vi.fn();
     render(

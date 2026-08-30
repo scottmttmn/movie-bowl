@@ -23,6 +23,7 @@ const mocks = vi.hoisted(() => ({
   getTmdbMovieDetails: vi.fn(),
   fetchMovieFilterMetadata: vi.fn(),
   warmTmdbMovieFilterMetadata: vi.fn(),
+  fetchProviderLinks: vi.fn(),
   supabase: {
     auth: {
       getSession: vi.fn(async () => ({
@@ -156,6 +157,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
+vi.mock("../../lib/providerLinks", () => ({ fetchProviderLinks: mocks.fetchProviderLinks }));
 vi.mock("../../lib/streamingProviders", () => ({
   fetchStreamingProviders: mocks.fetchStreamingProviders,
 }));
@@ -185,6 +187,7 @@ function expectDrawRpc(movieId) {
 
 describe("useBowl handleDraw integration", () => {
   beforeEach(() => {
+    mocks.fetchProviderLinks.mockReset().mockResolvedValue({ links: [] });
     mocks.remainingQueue = [];
     mocks.watchedQueue = [];
     mocks.profileDirectoryRows = [];
@@ -802,6 +805,7 @@ describe("useBowl handleDraw integration", () => {
     );
 
     let added;
+    expect(mocks.fetchProviderLinks).not.toHaveBeenCalled();
     await act(async () => {
       resolveInsert({
         data: {
@@ -821,6 +825,7 @@ describe("useBowl handleDraw integration", () => {
     });
 
     expect(added).toEqual(expect.objectContaining({ ok: true }));
+    expect(mocks.fetchProviderLinks).toHaveBeenCalledExactlyOnceWith(101, "bowl-1");
     await waitFor(() => {
       expect(result.current.bowl.remaining[0]).toEqual(
         expect.objectContaining({
@@ -857,6 +862,23 @@ describe("useBowl handleDraw integration", () => {
       expect(result.current.bowl.remaining).toHaveLength(0);
       expect(result.current.errorMessage).toMatch(/could not add this movie/i);
     });
+    expect(mocks.fetchProviderLinks).not.toHaveBeenCalled();
+  });
+
+  it("does not fail an add when its provider lookup fails, and skips custom titles", async () => {
+    mocks.fetchProviderLinks.mockRejectedValue(new Error("vendor down"));
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => {
+      expect(await result.current.handleAddMovie({ id: 101, title: "Arrival" })).toMatchObject({ ok: true });
+    });
+    expect(result.current.errorMessage).toBeNull();
+    expect(result.current.bowl.remaining).toHaveLength(1);
+    mocks.fetchProviderLinks.mockClear();
+    await act(async () => {
+      expect(await result.current.handleAddMovie({ title: "Home movie" })).toMatchObject({ ok: true });
+    });
+    expect(mocks.fetchProviderLinks).not.toHaveBeenCalled();
   });
 
   it("returns a duplicate result and rolls back when the database rejects a racing add", async () => {

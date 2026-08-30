@@ -103,6 +103,11 @@ Run this when shipping meaningful app behavior, especially if auth, DB, installs
 - confirm `/version.json` on the deployed site returns the new build id (an open
   tab relies on it to refresh itself instead of going blank)
 - confirm new Supabase migrations are applied
+- with provider links enabled, draw on phone and TV: the preferred service
+  stays the same when its title link arrives; TV shows the voice command
+- disable provider links (or force the lookup to fail) and confirm the reveal
+  remains usable with the existing service search URL and no lookup error
+- confirm the daily job expires provider-link rows even while lookups are off
 
 If browser/app-shell metadata changed, also verify:
 

@@ -44,6 +44,7 @@ test("a member can create a bowl, add and draw a title, see history, and return 
 
   await page.goto("/bowl/bowl-1");
   await expect(page.getByText("1 watched", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Show", exact: true }).click();
   await page.getByRole("button", { name: "Smoke Feature" }).click();
   await page.getByRole("button", { name: "Move to Bowl" }).click();
   await expect(page.getByRole("dialog", { name: "Move back to bowl?" })).toBeVisible();

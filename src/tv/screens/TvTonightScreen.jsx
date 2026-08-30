@@ -25,7 +25,10 @@ import {
   describeStreamingMatch,
   STREAMING_MATCH_TONE,
 } from "../../utils/streamingMatchSummary";
-import { resolvePreferredWebLaunchCandidate } from "../../utils/webLaunch";
+import { resolvePreferredLaunchTarget } from "../../utils/webLaunch";
+import useDrawProviderLinks from "../../hooks/useDrawProviderLinks";
+import TvVoiceHandoffCard from "../components/TvVoiceHandoffCard";
+import ProviderLinksAttribution from "../../components/ProviderLinksAttribution";
 import TvBrand from "../components/TvBrand";
 import TvTheaterPreroll from "../components/TvTheaterPreroll";
 import { useTvBowlAccess } from "../hooks/useTvBowls";
@@ -583,6 +586,9 @@ function TvRevealScreen({
               )}
             </div>
 
+            <TvVoiceHandoffCard title={movie.title} launchTarget={webLaunchCandidate} />
+            {webLaunchCandidate?.linkType === "title" && <ProviderLinksAttribution tv />}
+
             {providerLaunchMessage && (
               <p className="tv-provider-launch-message" role="status">
                 {providerLaunchMessage}
@@ -695,6 +701,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
   const [isDrawing, setIsDrawing] = useState(false);
   const [drawAnimationTitle, setDrawAnimationTitle] = useState("");
   const [drawnMovie, setDrawnMovie] = useState(() => readExternalReturn(bowlId));
+  const { providerLinks, startLookup: startProviderLookup } = useDrawProviderLinks(bowlId, drawnMovie);
   const [showTrailer, setShowTrailer] = useState(false);
   const [pendingReturn, setPendingReturn] = useState(null);
   const [isReturningMovie, setIsReturningMovie] = useState(false);
@@ -788,12 +795,13 @@ export default function TvTonightScreen({ userId, userEmail }) {
   const preferredWebLaunchCandidate = useMemo(() => {
     if (!drawnMovie) return null;
 
-    return resolvePreferredWebLaunchCandidate({
+    return resolvePreferredLaunchTarget({
+      providerLinks,
       userServices: streamingServices,
       movieProviders: drawnMovie.streamingProviders || [],
       title: drawnMovie.title || "",
     });
-  }, [drawnMovie, streamingServices]);
+  }, [drawnMovie, streamingServices, providerLinks]);
 
   const chooseAnotherBowl = () => {
     clearExternalReturn();
@@ -948,6 +956,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
         window.setTimeout(resolve, MIN_DRAW_ANIMATION_MS)
       );
       const drawPromise = handleDraw(drawOptions).then((movie) => {
+        startProviderLookup(movie);
         if (movie?.title) setDrawAnimationTitle(movie.title);
         return movie;
       });

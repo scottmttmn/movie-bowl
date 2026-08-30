@@ -512,6 +512,11 @@ class FakeBackend {
     const body = request.postDataJSON?.() ?? null;
     this.requests.push({ method, pathname: url.pathname, body });
 
+    if (url.pathname === "/api/provider-links/lookup" && method === "POST") {
+      await fulfillJson(route, { links: [] });
+      return;
+    }
+
     if (url.pathname === "/api/tmdb/search" && method === "GET") {
       await fulfillJson(route, { results: this.state.tmdbSearchResults });
       return;

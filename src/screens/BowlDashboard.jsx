@@ -8,6 +8,7 @@ import FilterChipSelect from "../components/FilterChipSelect";
 import BowlIllustration from "../components/BowlIllustration";
 import DrawMethodInfoModal from "../components/DrawMethodInfoModal";
 import useBowl from "../hooks/useBowl";
+import useDrawProviderLinks from "../hooks/useDrawProviderLinks";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import useBowlStreamingMatches, {
   STREAMING_MATCH_STATUS,
@@ -23,7 +24,7 @@ import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 import { matchUserServices } from "../utils/streamingServices";
-import { resolvePreferredWebLaunchCandidate } from "../utils/webLaunch";
+import { resolvePreferredLaunchTarget } from "../utils/webLaunch";
 import {
   forgetLastOpenedBowl,
   getLastOpenedBowlId,
@@ -58,6 +59,7 @@ export default function BowlDashboard() {
 
     const [showSearch, setShowSearch] = useState(false);
     const [drawnMovie, setDrawnMovie] = useState(null);
+    const { providerLinks, startLookup: startProviderLookup } = useDrawProviderLinks(bowlId, drawnMovie);
     const [selectedDetailMovie, setSelectedDetailMovie] = useState(null);
     const [selectedDetailContext, setSelectedDetailContext] = useState(null);
     const [showWatched, setShowWatched] = useState(false);
@@ -321,7 +323,8 @@ export default function BowlDashboard() {
       if (!drawnMovie || !defaultDrawSettings.enablePreferredWebLaunch) return null;
       if (drawnMovieMatchingProviders.length === 0) return null;
 
-      return resolvePreferredWebLaunchCandidate({
+      return resolvePreferredLaunchTarget({
+        providerLinks,
         userServices: userStreamingServices,
         movieProviders: drawnMovie.streamingProviders || [],
         title: drawnMovie.title || "",
@@ -331,6 +334,7 @@ export default function BowlDashboard() {
       defaultDrawSettings.enablePreferredWebLaunch,
       drawnMovieMatchingProviders,
       userStreamingServices,
+      providerLinks,
     ]);
 
     useEffect(() => {
@@ -559,6 +563,7 @@ export default function BowlDashboard() {
           userStreamingServices,
           ...drawFilters,
         }).then((movie) => {
+          startProviderLookup(movie);
           if (movie?.title) {
             setDrawAnimationTitle(movie.title);
           }

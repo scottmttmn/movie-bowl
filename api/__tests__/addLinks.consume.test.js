@@ -1,6 +1,8 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const rpcMock = vi.fn();
+const providerLookupMock = vi.fn();
+vi.mock("../_lib/providerLinks.js", () => ({ fetchProviderLinks: providerLookupMock }));
 
 vi.mock("../_lib/supabaseAdmin.js", () => ({
   getSupabaseAdmin: () => ({
@@ -28,6 +30,7 @@ function createRes() {
 describe("api/add-links/consume", () => {
   beforeEach(() => {
     rpcMock.mockReset();
+    providerLookupMock.mockClear();
   });
 
   afterEach(() => {
@@ -87,6 +90,7 @@ describe("api/add-links/consume", () => {
       })
     );
     expect(res.statusCode).toBe(200);
+    expect(providerLookupMock).not.toHaveBeenCalled();
     expect(res.body).toMatchObject({
       ok: true,
       remainingAdds: 2,

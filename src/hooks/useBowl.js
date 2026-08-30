@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { warmTmdbMovieFilterMetadata } from "../lib/tmdbApi";
+import { fetchProviderLinks } from "../lib/providerLinks";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { getDrawSelection, getResolvedDrawPool } from "../utils/drawSelection";
 import { DEFAULT_DRAW_METHOD, getDrawMethod } from "../utils/drawMethods";
@@ -584,6 +585,8 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
           ),
         }));
         if (movieTmdbId && accessToken) {
+          // This route is member-only; public add links never warm metered data.
+          void fetchProviderLinks(movieTmdbId, bowlId).catch(() => {});
           Promise.resolve()
             .then(() => warmTmdbMovieFilterMetadata(movieTmdbId, bowlId, accessToken))
             .catch((error) => {

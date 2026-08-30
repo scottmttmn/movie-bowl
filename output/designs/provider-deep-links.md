@@ -1,6 +1,29 @@
 # Provider Deep Links
 
-Status: **plan, not implemented.** Nothing below exists in code.
+Status: **implemented; disabled by default pending configuration and deployment.**
+
+Implementation verified on August 30, 2026, including a successful live US
+lookup of Arrival with the configured key. The design below remains the
+behavioral reference, with these vendor-driven corrections:
+
+- Watchmode accepts `GET /v1/title/movie-<tmdbId>/sources/?regions=US` and
+  `X-API-Key` authentication. A TMDB lookup is one HTTP request but two quota
+  credits; the default 500-request budget allows at most 1,000 credits.
+- Native iOS/Android links require a paid Watchmode plan. They are optional in
+  the stored shape; web title links work with the intended free setup.
+- The free plan requires linked attribution on screens using its data and
+  deletion/refresh within 30 days. Direct links have attribution. The existing
+  daily filter-metadata job deletes rows at 29 days, even with lookups off;
+  lookup-time and browser expiration refuse older data. This is retention
+  cleanup only, not pre-warming, and spends no vendor requests.
+- The begin RPC takes an additional server-supplied `p_monthly_budget` argument.
+  Browser caching is scoped by account, bowl, and title. Lookups start during
+  the reveal animation through `useDrawProviderLinks`; restored TV results use
+  the same path. Native app behavior is unchanged.
+
+Activation and cancellation cleanup are documented under “Provider title
+links” in `README.md`. Sources: [API docs](https://api.watchmode.com/docs/),
+[plans](https://api.watchmode.com/), [terms](https://api.watchmode.com/tc).
 
 This is Phase 2 of `tv-theater-mode.md` — "Real deep links and the voice card" —
 written out far enough to build from. It replaces the provider *search* URL the
@@ -46,10 +69,9 @@ Android URLs are exactly what a Phase 4 `launchDeepLink(url)` bridge fires as an
 ACTION_VIEW intent. A vendor that returns only web URLs would have to be
 replaced before phase 4 rather than extended.
 
-Confirm the endpoint shape and field names against current docs in the first
-hour of the spike rather than trusting this paragraph — the plan below only
-assumes "some vendor maps a TMDB id to per-service title URLs," and
-`api/_lib/providerLinks.js` is the one file that knows more than that.
+The endpoint and field names were confirmed against current documentation;
+see the implementation notes above. `api/_lib/providerLinks.js` owns the
+vendor-specific details.
 
 Keep no payment card attached. The overrun failure mode must stay a 429, never
 a bill.
@@ -90,11 +112,10 @@ only. `consecutive_failures` and `retry_after` survive the simplification
 because without them a title the vendor does not know about spends a request on
 every single draw, forever.
 
-Rows are created on first lookup. Nothing seeds them and nothing prunes them:
-there is no trigger on `bowl_movies`, no backfill, and no lifecycle to get
-wrong. A title deleted from every bowl leaves a few hundred stale bytes behind,
-and a household that drew a thousand distinct titles over five years has a
-thousand rows. That is not a problem worth a trigger.
+Rows are created on first lookup. There is no trigger on `bowl_movies`, no
+backfill, and no bowl-membership lifecycle. The existing daily job deletes
+successful cache rows at 29 days to satisfy the free plan's retention limit;
+rows are recreated only when someone next adds or draws the title.
 
 This also disposes of the bug the previous draft carried: pruning on
 `bowl_active_tmdb_movies` would have deleted the links row for tonight's movie
@@ -163,7 +184,7 @@ create table public.title_provider_link_usage (
 
 The enforcement point is the RPC that opens a lookup, not the application:
 
-`begin_title_provider_link_fetch(p_tmdb_id, p_region, p_bowl_id, p_user_id)`
+`begin_title_provider_link_fetch(p_tmdb_id, p_region, p_bowl_id, p_user_id, p_monthly_budget)`
 does everything that must be atomic, in this order — confirms the user shares a
 bowl with the title, returns the cached row when it is fresh, refuses when
 `retry_after` has not passed, refuses when the month's `request_count` has hit

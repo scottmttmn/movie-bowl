@@ -101,6 +101,25 @@ Rollback is available via:
 - `supabase/rollback/20260828120000_remove_tmdb_filter_metadata_cache.sql`
 - `supabase/rollback/20260829010000_remove_filter_metadata_refresh_run_history.sql`
 
+## Provider title-link cache
+
+`20260830120000_add_title_provider_links.sql` creates private provider-link and
+monthly request-count tables. Only the service role can call begin, complete,
+fail, and prune RPCs. Begin verifies the signed-in user's bowl/title access
+before reading cached data or atomically reserving budget. Drawn slips remain
+eligible; custom IDs and non-US regions are rejected. Empty successes are
+cached and failures back off.
+
+The existing daily filter-metadata cron also deletes vendor rows at 29 days,
+including when lookups are disabled, to keep within Watchmode's free-plan
+30-day retention limit. Lookup-time expiration independently refuses old data.
+This cleanup does not refresh links or spend vendor quota. Monitor cron errors.
+
+Apply the migration before deploying the new server code. Rollback is
+`supabase/rollback/20260830120000_remove_title_provider_links.sql`; revert the
+server cleanup call before dropping its RPC. Account cancellation also requires
+deleting stored vendor rows, as documented in the root README.
+
 ## Pinned movie note
 
 `20260829170000_add_pinned_bowl_movies.sql` lets an authenticated contributor

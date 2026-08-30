@@ -197,14 +197,14 @@ not fun, stop here — every later phase is handoff work that stands on its own.
 
 ### Phase 2 — Real deep links and the voice card (web only)
 
-Planned in detail in `provider-deep-links.md` (plan, not implementation), which
-picks the vendor, the cache shape, and the quota enforcement point. Summary:
+Implemented in `provider-deep-links.md`, disabled by default until configured.
+That document covers the vendor, cache, quota enforcement, and current
+free-plan limitations. Summary:
 
 - Add a deep-link provider behind the existing serverless API layer, with the
   key server-side, a monthly usage counter, and a kill switch.
-- Look a title up when it is drawn, not before, and cache the answer in Supabase
-  keyed by TMDB ID and region, so lookups scale with distinct titles actually
-  drawn — on the order of ten requests a month.
+- Look a title up after a member adds it and when it is drawn; cache the answer
+  in Supabase keyed by TMDB ID and region. Public adds do not spend quota.
 - Upgrade the launch candidate to prefer a direct provider title URL, falling
   back to today's search URL when a lookup is missing or the quota is spent.
 - Show the spoken assistant command on the handoff card.

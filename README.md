@@ -65,6 +65,9 @@ contributor first — so the person who added 25 movies does not get 25× the od
 
 ## Local Setup
 
+Provider title links are optional and disabled by default. See
+[Provider title links](#provider-title-links) for activation and cache maintenance.
+
 1. Install dependencies (Node `>=20.19 <21` or `>=22.12`):
 
 ```bash
@@ -382,3 +385,59 @@ screenshot, and video in `test-results/`; the HTML report is written to
 A clean checkout is expected to be fully green, with lint reporting zero
 warnings. Run `npm run test:run`, `npm run test:e2e`, and `npm run build` before
 committing anything non-trivial.
+
+## Provider title links
+
+Phone and TV draw results can open the chosen service's title page instead of
+its search page. The saved service order and the phone's opt-in setting are
+unchanged. Only subscription/free sources launch; rental and purchase links
+are cached but never selected. TV also displays a spoken assistant command.
+A title link does not guarantee automatic playback or bypass a subscription.
+
+To activate:
+
+1. Apply `supabase/migrations/20260830120000_add_title_provider_links.sql` before
+   deploying the server code. The new tables and maintenance RPCs are private
+   to the service role; the lookup route verifies both the bearer token and
+   access to the requested bowl/title.
+2. Create a Watchmode key with US access. The intended free, non-commercial
+   setup has no payment card attached. Store these **server-only** values in
+   local `.env` and the relevant Vercel environment (never use `VITE_`):
+
+   ```dotenv
+   WATCHMODE_API_KEY=...
+   PROVIDER_LINKS_ENABLED=false
+   PROVIDER_LINKS_MONTHLY_BUDGET=500
+   ```
+
+3. Verify the existing daily `/api/cron/refresh-filter-metadata` job is running,
+   then set `PROVIDER_LINKS_ENABLED=true` and restart/redeploy. Use `vercel dev`
+   locally because Vite alone does not serve the lookup API.
+
+Lookups happen after a signed-in member adds a TMDB movie and during a draw's
+animation. Public add links, custom titles, and detail/browse screens do not
+spend requests. A ten-minute browser cache deduplicates calls, and Supabase
+caches results for up to 30 days. Failures back off from five minutes to one
+day. The monthly budget is reserved atomically before HTTP and counts requests,
+including failed requests; Watchmode currently charges **two credits per TMDB
+lookup**, so the default caps this integration at 1,000 credits per UTC month.
+Requests made outside this integration are not counted by this budget.
+
+The free plan requires attribution and deletion/refresh within 30 days. Direct
+links display Watchmode attribution. The existing daily job deletes rows at
+29 days (no vendor requests), even when lookups are disabled; lookups and the
+browser cache also refuse expired data. Monitor failures of that daily job.
+If the Watchmode account is cancelled, disable lookups and delete the stored
+vendor data using `delete from public.title_provider_links;` as an administrator.
+
+Missing key, disabled flag, lookup errors, and quota exhaustion all retain the
+existing search fallback. The immediate rollback is to disable the flag and
+redeploy (open clients can retain a cached result for ten minutes). The schema
+rollback is in `supabase/rollback/20260830120000_remove_title_provider_links.sql`;
+revert the server's cleanup call before removing its RPC.
+
+Native iOS/Android URLs are optional: Watchmode's free plan does not include
+them. They are retained when supplied, but this phase uses web URLs only.
+Vendor details verified against [Watchmode's API documentation](https://api.watchmode.com/docs/),
+[plan information](https://api.watchmode.com/), and
+[caching terms](https://api.watchmode.com/tc) on August 30, 2026.
