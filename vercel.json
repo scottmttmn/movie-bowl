@@ -22,6 +22,14 @@
   ],
   "rewrites": [
     {
+      "source": "/api/provider-links/lookup",
+      "destination": "/api/movie-cache?action=provider-links"
+    },
+    {
+      "source": "/api/tmdb/movie/warm-filter-metadata",
+      "destination": "/api/movie-cache?action=warm-filter-metadata"
+    },
+    {
       "source": "/((?!api/|@vite/).*)",
       "has": [
         { "type": "header", "key": "accept", "value": ".*text/html.*" }

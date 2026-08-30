@@ -436,6 +436,11 @@ redeploy (open clients can retain a cached result for ten minutes). The schema
 rollback is in `supabase/rollback/20260830120000_remove_title_provider_links.sql`;
 revert the server's cleanup call before removing its RPC.
 
+The provider lookup and filter-metadata warmup URLs share `api/movie-cache.js`
+through explicit rewrites in `vercel.json`. Their private handlers live in
+`api/_lib/`; keeping them together holds the deployment at Vercel Hobby's
+12-function limit without changing the client URLs or authentication checks.
+
 Native iOS/Android URLs are optional: Watchmode's free plan does not include
 them. They are retained when supplied, but this phase uses web URLs only.
 Vendor details verified against [Watchmode's API documentation](https://api.watchmode.com/docs/),

@@ -18,7 +18,7 @@ vi.mock("../_lib/supabaseAdmin.js", () => ({
   getSupabaseAdmin: () => mocks.admin,
 }));
 
-import handler from "../tmdb/movie/warm-filter-metadata.js";
+import handler from "../_lib/warmFilterMetadata.js";
 
 const BOWL_ID = "10000000-0000-4000-8000-000000000001";
 

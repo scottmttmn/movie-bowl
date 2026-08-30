@@ -208,13 +208,17 @@ Server-side controls, none of them ever a `VITE_` variable:
 
 One route, and it is the only thing that talks to the vendor.
 
-`api/provider-links/lookup.js`: POST only, `{ id, bowlId }`, bearer token,
+`POST /api/provider-links/lookup`: `{ id, bowlId }`, bearer token,
 `supabaseAdmin.auth.getUser`, then `begin_title_provider_link_fetch`. On a fresh
 cache hit it returns the links without spending anything; on a miss it calls the
 vendor, writes the row, and returns them; when the RPC refuses — not a member,
 budget spent, backing off, kill switch — it returns what it has, which is
 usually `{ links: [] }`. The client's behavior is identical in every case, so
 the failure modes do not need to be distinguishable to it.
+
+The deployed URL rewrites to `api/movie-cache.js`; its implementation is
+`api/_lib/lookupProviderLinks.js`. Sharing the function with filter-metadata
+warmup keeps the app within Vercel Hobby's 12-function limit.
 
 There is no separate Supabase read path. An earlier draft had a
 `get_title_provider_links` RPC for reads and a serverless route for writes, but
@@ -350,7 +354,7 @@ a web page on a TV, and it is why phases 3 and 4 exist.
 Two commits now that the pre-warm is gone, each shippable and revertible alone.
 
 1. **Lookup and resolution.** Migration, pgTAP, rollback,
-   `api/_lib/providerLinks.js`, `api/provider-links/lookup.js`,
+   `api/_lib/providerLinks.js`, `api/_lib/lookupProviderLinks.js`,
    `lib/providerLinks.js`, `resolvePreferredLaunchTarget`, both surfaces
    upgraded, and the lookup fired from both call sites — `useBowl.handleAddMovie`
    and the draw. This is the phase's user-visible change, and it is small enough

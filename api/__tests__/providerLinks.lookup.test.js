@@ -3,7 +3,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ getUser: vi.fn(), rpc: vi.fn(), fetchProviderLinks: vi.fn() }));
 vi.mock("../_lib/supabaseAdmin.js", () => ({ getSupabaseAdmin: () => ({ auth: { getUser: mocks.getUser }, rpc: mocks.rpc }) }));
 vi.mock("../_lib/providerLinks.js", () => ({ fetchProviderLinks: mocks.fetchProviderLinks }));
-import handler from "../provider-links/lookup.js";
+import handler from "../_lib/lookupProviderLinks.js";
 
 const bowlId = "10000000-0000-4000-8000-000000000001";
 const links = [{ service: "Netflix", type: "sub", webUrl: "https://www.netflix.com/title/123" }];
