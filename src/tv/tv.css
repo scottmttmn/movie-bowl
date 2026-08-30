@@ -1,3 +1,14 @@
+/* Every rem in this file resolves against the document root, not .tv-app, so
+   the ramp below was anchored to the browser's default 16px and read as a
+   desktop page on a television. index.html pins the TV viewport to 1920px,
+   which makes 1vw exactly 19.2px there whatever the panel's density, so the
+   root can scale with it. One dial for all 47 sizes; adjust here, not below.
+   Headline clamps that already carry a vw term are barely affected, which is
+   why large type looked right while labels did not. */
+html:has(.tv-app) {
+  font-size: clamp(18px, 1.4vw, 27px);
+}
+
 .tv-app {
   --tv-bg: #05070d;
   --tv-panel: rgba(14, 20, 34, 0.88);
@@ -13,7 +24,7 @@
     radial-gradient(circle at 50% -16%, rgba(225, 29, 72, 0.22), transparent 36rem),
     radial-gradient(circle at 90% 90%, rgba(51, 65, 85, 0.22), transparent 32rem),
     linear-gradient(145deg, #090d17 0%, var(--tv-bg) 58%, #020307 100%);
-  font-size: clamp(16px, 1.05vw, 21px);
+  font-size: 1rem;
 }
 
 .tv-app button {
