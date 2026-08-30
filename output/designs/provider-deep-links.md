@@ -136,9 +136,55 @@ service, and a rent-only title is never fetched at all. Promoting rent/buy to a
 launch path means revisiting that condition too, and paying for the titles it
 currently skips.
 
-Seed and prune with triggers on `bowl_active_tmdb_movies`, copied from
-`seed_tmdb_filter_metadata_cache` / `prune_tmdb_filter_metadata_cache`. Backfill
-the existing rows in the same migration, as that one did.
+## Lifecycle: seed off `bowl_movies`, not the active registry
+
+Seed and prune with triggers shaped like `seed_tmdb_filter_metadata_cache` /
+`prune_tmdb_filter_metadata_cache`, and backfill in the same migration as that
+one did — but hang them on `bowl_movies` (any row with `tmdb_id > 0`), **not** on
+`bowl_active_tmdb_movies`.
+
+This is the one place copying the filter cache verbatim would be wrong, and it
+is worth being explicit about because the mistake is invisible until a draw.
+`bowl_active_tmdb_movies` tracks *undrawn* titles:
+`sync_bowl_active_tmdb_movies` deletes the row the moment `drawn_at` is set
+(`20260723200000_prevent_duplicate_active_movies.sql:80-91`), which is what
+prunes the filter cache for a drawn title. Correct there — filter metadata only
+serves titles still in the pool.
+
+Deep links need the opposite title. Pruning on the active registry would delete
+the links row for tonight's movie during the draw that selected it, microseconds
+before the warm call fires against a row that no longer exists — so a one-bowl
+household would fall back to a search URL on every draw, forever, and the cache
+would never hold a single row for a title anyone actually watched.
+
+Keying on `bowl_movies` keeps a title's links for as long as any bowl holds the
+row at all, drawn or not. That is the right span: a drawn title can come back
+through `return_bowl_draw_to_bowl`, appears in the watch list, and is the one
+most likely to be launched. The cost is a slightly larger cache — titles that
+were drawn and never returned keep a row until someone deletes them — which is
+a few hundred bytes against a lookup we would otherwise pay for twice.
+
+### Where the calls actually happen
+
+The whole quota story in one pass through a title's life:
+
+| Moment | Vendor calls |
+| --- | --- |
+| A member adds the movie | 0 — the trigger seeds a row with `fetched_at` null |
+| The nightly cron reaches it | 1 — the first real call |
+| Anyone opens its detail, sees providers, filters on it | 0 |
+| It is drawn | 0 or 1 — the warm, only when the row is stale or unfetched |
+| Reveal, TV handoff, other members opening the same title | 0 — cached reads |
+| Every 30 days while any bowl holds it | 1 |
+| Returned to the bowl | 0 |
+| Deleted from the last bowl holding it | 0, and the row is pruned |
+
+Steady state is one call per title per month, plus at most one warm per draw of
+a title the cron had not reached. Nothing a member does while browsing,
+filtering, or drawing spends quota on its own.
+
+Custom titles never appear here at all: they carry a negative synthetic
+`tmdb_id`, the seed trigger checks `tmdb_id > 0`, and no row is ever created.
 
 ## Quota, enforced where it cannot drift
 
@@ -213,6 +259,13 @@ same RPC that hands out the claim. It returns `202 { status: "current" }` when
 nothing was claimable — already fresh, budget spent, or kill switch off — which
 collapses "we chose not to" and "we already have it" into one uninteresting
 answer for the client, because the client's behavior is identical either way.
+
+The warm's claim does **not** inherit the cron's "providers is non-empty"
+condition. It cannot: `tmdb_filter_metadata` is pruned on the active registry,
+so the filter row for the title being drawn may already be gone by the time the
+warm runs. It also should not — a person drawing a title is a stronger signal
+that a link is wanted than any heuristic the queue applies to titles nobody has
+touched.
 
 `useBowl.handleDraw` fires it once, unawaited, after the draw commits. The
 reveal renders immediately with whatever the read path has, and swaps in the
@@ -330,7 +383,8 @@ product state to get wrong.
 - `supabase/tests/<ts>_add_title_provider_links.sql` — `anon` and
   `authenticated` cannot read the table directly; the read RPC returns rows to a
   member and raises `42501` for a non-member; the claim RPC refuses over budget;
-  prune fires when the last bowl drops the title.
+  **drawing a title keeps its links row** while the filter cache row is pruned;
+  prune fires only when the last `bowl_movies` row for the title is deleted.
 
 No new e2e spec. The flow it would cover — draw, then "Open [service]" — is
 already in the smoke suite, and the assertion that matters is that the button
