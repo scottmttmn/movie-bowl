@@ -285,4 +285,22 @@ describe("movie strip components", () => {
     render(<WatchedMoviesStrip movies={[]} />);
     expect(screen.getByText("0 watched")).toBeInTheDocument();
   });
+
+  it("can collapse watched posters while keeping its count visible", () => {
+    const onToggleExpanded = vi.fn();
+    render(
+      <WatchedMoviesStrip
+        movies={[{ id: "1", title: "Movie One", poster_path: "/one.jpg" }]}
+        isExpanded={false}
+        onToggleExpanded={onToggleExpanded}
+      />
+    );
+
+    expect(screen.getByText("1 watched")).toBeInTheDocument();
+    expect(screen.queryByAltText("Movie One")).not.toBeInTheDocument();
+    const showButton = screen.getByRole("button", { name: "Show" });
+    expect(showButton).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(showButton);
+    expect(onToggleExpanded).toHaveBeenCalledTimes(1);
+  });
 });

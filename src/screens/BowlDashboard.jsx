@@ -60,7 +60,7 @@ export default function BowlDashboard() {
     const [drawnMovie, setDrawnMovie] = useState(null);
     const [selectedDetailMovie, setSelectedDetailMovie] = useState(null);
     const [selectedDetailContext, setSelectedDetailContext] = useState(null);
-    const [showMyMovies, setShowMyMovies] = useState(false);
+    const [showWatched, setShowWatched] = useState(false);
     const [prioritizeStreaming, setPrioritizeStreaming] = useState(false);
     const [useStreamingRank, setUseStreamingRank] = useState(true);
     const [selectedRatings, setSelectedRatings] = useState(MPAA_RATING_OPTIONS);
@@ -255,7 +255,7 @@ export default function BowlDashboard() {
       eligibleMovieIds: eligibleMyMovieIds,
       runLookups: runMyMovieEligibilityLookups,
     } = useMyMovieEligibility(bowl.remaining, myMovies, drawFilters, {
-      enabled: showMyMovies && didApplyDefaultDrawSettings,
+      enabled: didApplyDefaultDrawSettings && myMovies.length > 0,
       ...filterMetadataFetchers,
       sharedEligibleMovieIds: drawPoolEligibleMovieIds,
       isSharedEligibilityPending: drawPoolStatus === DRAW_POOL_STATUS.counting,
@@ -1040,20 +1040,7 @@ return (
             )}
 
 
-            <section className="panel mt-5 w-full max-w-full min-w-0 overflow-x-auto">
-                <WatchedMoviesStrip
-                  movies={bowl.watched}
-                  onSelectMovie={async (movie) => {
-                    setSelectedDetailContext("watched");
-                    setSelectedDetailMovie(await buildDetailMovie(movie));
-                  }}
-                />
-                {readdErrorMessage && (
-                  <p className="mt-2 text-sm text-amber-300">{readdErrorMessage}</p>
-                )}
-            </section>
-
-            <section className="panel mt-4 w-full max-w-full min-w-0">
+            <section className="panel mt-5 w-full max-w-full min-w-0">
               <div className="flex items-center justify-between gap-3">
                 <div className="text-left">
                   <div className="flex items-baseline gap-2">
@@ -1064,51 +1051,57 @@ return (
                   </div>
                   <p className="text-xs text-slate-400">Your undrawn picks in this bowl.</p>
                 </div>
-                <button
-                  type="button"
-                  onClick={() => setShowMyMovies((prev) => !prev)}
-                  className="btn btn-ghost px-3 py-2 text-sm"
-                >
-                  {showMyMovies ? "Hide" : "Show"}
-                </button>
               </div>
 
-              {showMyMovies && (
-                <div className="mt-3">
-                  {myMovies.length === 0 ? (
-                    <p className="text-sm text-slate-400">You have no movies in this section.</p>
-                  ) : (
-                    <MyMoviesStrip
-                      movies={myMovies}
-                      eligibilityStatus={myMovieEligibilityStatus}
-                      eligibleMovieIds={eligibleMyMovieIds}
-                      onRunEligibilityLookups={runMyMovieEligibilityLookups}
-                      drawMethod={drawMethod}
-                      onTogglePin={async (movie, pinned) => {
-                        setMyMoviesErrorMessage(null);
-                        const result = await handleSetMoviePin(movie.id, pinned);
-                        if (!result.ok) {
-                          setMyMoviesErrorMessage(result.message);
-                        }
-                      }}
-                      onViewMovie={async (movie) => {
-                        setSelectedDetailContext("myAdds");
-                        setSelectedDetailMovie(await buildDetailMovie(movie));
-                      }}
-                      onDeleteMovie={async (movie) => {
-                        setMyMoviesErrorMessage(null);
-                        const shouldDelete = window.confirm(`Delete "${movie.title}" from this bowl?`);
-                        if (!shouldDelete) return;
-                        const deleted = await handleDeleteMovie(movie.id);
-                        if (!deleted) {
-                          setMyMoviesErrorMessage("Could not delete this movie. Please try again.");
-                        }
-                      }}
-                    />
-                  )}
-                </div>
-              )}
+              <div className="mt-3">
+                {myMovies.length === 0 ? (
+                  <p className="text-sm text-slate-400">You have no movies in this section.</p>
+                ) : (
+                  <MyMoviesStrip
+                    movies={myMovies}
+                    eligibilityStatus={myMovieEligibilityStatus}
+                    eligibleMovieIds={eligibleMyMovieIds}
+                    onRunEligibilityLookups={runMyMovieEligibilityLookups}
+                    drawMethod={drawMethod}
+                    onTogglePin={async (movie, pinned) => {
+                      setMyMoviesErrorMessage(null);
+                      const result = await handleSetMoviePin(movie.id, pinned);
+                      if (!result.ok) {
+                        setMyMoviesErrorMessage(result.message);
+                      }
+                    }}
+                    onViewMovie={async (movie) => {
+                      setSelectedDetailContext("myAdds");
+                      setSelectedDetailMovie(await buildDetailMovie(movie));
+                    }}
+                    onDeleteMovie={async (movie) => {
+                      setMyMoviesErrorMessage(null);
+                      const shouldDelete = window.confirm(`Delete "${movie.title}" from this bowl?`);
+                      if (!shouldDelete) return;
+                      const deleted = await handleDeleteMovie(movie.id);
+                      if (!deleted) {
+                        setMyMoviesErrorMessage("Could not delete this movie. Please try again.");
+                      }
+                    }}
+                  />
+                )}
+              </div>
               {myMoviesErrorMessage && <p className="mt-2 text-sm text-rose-300">{myMoviesErrorMessage}</p>}
+            </section>
+
+            <section className="panel mt-4 w-full max-w-full min-w-0 overflow-x-auto">
+                <WatchedMoviesStrip
+                  movies={bowl.watched}
+                  isExpanded={showWatched}
+                  onToggleExpanded={() => setShowWatched((prev) => !prev)}
+                  onSelectMovie={async (movie) => {
+                    setSelectedDetailContext("watched");
+                    setSelectedDetailMovie(await buildDetailMovie(movie));
+                  }}
+                />
+                {readdErrorMessage && (
+                  <p className="mt-2 text-sm text-amber-300">{readdErrorMessage}</p>
+                )}
             </section>
             
 
