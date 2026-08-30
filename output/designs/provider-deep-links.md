@@ -129,9 +129,11 @@ The whole quota story in one pass through a title's life:
 
 | Moment | Vendor calls |
 | --- | --- |
-| A member adds the movie | 0 — nothing exists for it yet |
+| A signed-in member adds the movie | 1 |
+| Someone adds it through a public add link | 0 — see below |
 | Anyone opens its detail, sees providers, filters on it | 0 |
-| It is drawn for the first time | 1 |
+| It is drawn, and the add-time lookup landed | 0 — cache hit |
+| It is drawn and no fresh row exists | 1 |
 | The reveal, the TV handoff, other members opening the same draw | 0 |
 | It is drawn again inside 30 days | 0 |
 | It is drawn again after 30 days | 1 |
@@ -140,8 +142,9 @@ The whole quota story in one pass through a title's life:
 Custom titles never appear at all: they carry a negative synthetic `tmdb_id`,
 the route rejects anything `<= 0`, and no row is ever created.
 
-A household drawing twice a week spends about ten requests a month. The free
-tier stopped being a design constraint the moment the cron went away.
+A household adding twenty titles and drawing eight times a month spends about
+twenty-five requests. The free tier stopped being a design constraint the moment
+the cron went away.
 
 ## Quota, enforced where it cannot drift
 
@@ -202,11 +205,47 @@ in-flight dedupe copied from `lib/streamingProviders.js`, exposes
 `clearProviderLinksCache()` for tests, and returns `{ links: [] }` on any error.
 Every failure in this feature is a fallback, never a message.
 
+### Two call sites: add and draw
+
+Call the same route twice in a title's life — once when a signed-in member adds
+it, once when it is drawn — and let the freshness check make the second one free
+whenever the first worked.
+
+This is not the pre-warm returning under another name, and the difference is the
+cost curve rather than the call count. The nightly pass re-fetched every title
+every thirty days forever, so it scaled with catalog size times time and spent
+most of its budget on titles nobody touched. An add-time lookup is one call per
+title, once, at the moment a person typed it in: it scales with human effort,
+and each title is paid for exactly once. Twenty adds a month is twenty requests.
+
+What it buys is the tail. The draw-time lookup usually resolves inside the
+reveal window (below), but "usually" is doing real work in that sentence — a
+cold serverless function is the slow path, not the vendor. A title added last
+week is already cached, so the draw is a hit and there is no window to lose.
+
+Fire it from `useBowl.handleAddMovie`, unawaited, after the insert commits.
+Nothing waits on it, and a failure leaves exactly the state we would have had
+without it: no row, and a draw-time lookup later.
+
+**Not from the public add-link path.** `/add-to-bowl/:token` renders outside
+`RequireAuth` (`App.jsx:61`, `:261`) and `api/add-links/consume.js` runs on the
+service role, so an add-time call there would let anyone holding a shared link
+spend metered quota by adding titles. The monthly budget caps the damage, but
+the right answer is not to open the tap: titles arriving through an add link get
+looked up when they are drawn, by a member who is signed in.
+
+One refinement deliberately skipped: the add modal already knows the movie's
+TMDB providers, so it could skip the lookup for titles on no subscription
+service at all. That is the pre-warm design's provider join in miniature, it
+saves a handful of requests a month against a budget we are nowhere near, and it
+adds a branch that has to stay correct. Call unconditionally.
+
 ### Timing: the reveal window pays for the lookup
 
-The one real cost of dropping the pre-warm is that the first draw of a title now
-waits on a live vendor call. In practice it does not wait at all, because the
-draw already spends longer than the lookup does.
+When the add-time lookup has not happened — a title from an add link, or one
+added before this shipped — the draw waits on a live vendor call. In practice it
+does not wait at all, because the draw already spends longer than the lookup
+does.
 
 `runDraw` (`BowlDashboard.jsx:547-575`) resolves the draw RPC, then holds the
 reveal behind `Promise.all([drawPromise, minAnimationDelay])` with a 1500 ms
@@ -224,6 +263,11 @@ href if the lookup lands while the card is open. The href only ever gets more
 specific and always points at the same service, so a swap under a focused TV
 element or a hovering thumb changes where the app lands, never which app opens.
 If the vendor is slow or down, the room gets today's search URL and no error.
+
+The window is wide but not unbounded, and the part most likely to overrun it is
+a cold function rather than the vendor's own latency. That is the whole argument
+for the add-time call above: it moves the uncertain wait to a moment when
+nobody is looking at it.
 
 ## Resolution
 
@@ -287,9 +331,9 @@ Two commits now that the pre-warm is gone, each shippable and revertible alone.
 1. **Lookup and resolution.** Migration, pgTAP, rollback,
    `api/_lib/providerLinks.js`, `api/provider-links/lookup.js`,
    `lib/providerLinks.js`, `resolvePreferredLaunchTarget`, both surfaces
-   upgraded, the lookup fired from the draw. This is the phase's user-visible
-   change, and it is small enough to review in one pass — which the three-slice
-   version was not.
+   upgraded, and the lookup fired from both call sites — `useBowl.handleAddMovie`
+   and the draw. This is the phase's user-visible change, and it is small enough
+   to review in one pass — which the three-slice version was not.
 2. **Voice card.** TV only.
 
 Ship slice 1 with `PROVIDER_LINKS_ENABLED=false` until the vendor key is in
@@ -321,6 +365,10 @@ product state to get wrong.
   and increments `request_count` exactly once per authorized fetch.
 - `BowlDashboard.drawFlow` — the reveal renders its launch button before the
   lookup resolves, and upgrades the href when it lands.
+- `useBowl` — adding a movie fires the lookup once after the insert commits; a
+  failed lookup does not fail or alter the add; **the public add-link path fires
+  nothing**. `useBowl` gains behavior here, so this is required rather than
+  assumed covered downstream, per the shared-component rule in `CLAUDE.md`.
 
 No new e2e spec. The flow it would cover — draw, then "Open [service]" — is
 already in the smoke suite, and the assertion that matters is that the button
@@ -332,9 +380,12 @@ the tripwire rule there.
 
 ## Decisions taken
 
-- **Look up at draw time; no pre-warm.** The nightly pass, the claim queue, the
-  seed and prune triggers, and the budget split against the filter-metadata cron
-  all existed to have links ready for titles nobody drew. Deleted.
+- **Look up at add and at draw; no pre-warm.** The nightly pass, the claim
+  queue, the seed and prune triggers, and the budget split against the
+  filter-metadata cron all existed to have links ready for titles nobody drew.
+  Deleted. Two event-driven calls, each paid once, replace them.
+- **Add-time lookups are for signed-in members only.** The public add-link path
+  would otherwise let anyone holding a shared URL spend metered quota.
 - **Region stays US-only.** The schema is keyed by region for symmetry with the
   filter cache, but nothing resolves anything but `"US"` today.
 - **Subscription and free sources launch; every type is stored.** Rent and buy
