@@ -244,6 +244,24 @@ The overlay can carry no focusable element safely, which is not obvious:
 and `visibility: hidden` are filtered. That is a workaround for a problem the
 keypress does not have.)
 
+Removing our buttons is only half of it: the YouTube player brings its own.
+`getAutoplayTrailerUrl` sets `autoplay`, `enablejsapi`, `rel`, `playsinline`
+and `origin` — so the full player chrome is showing, scrubber and click-through
+to YouTube included, and `disablekb` is unset, which means YouTube's keyboard
+shortcuts are live. On a television the D-pad *is* the arrow keys, so a viewer
+whose focus reaches the player can seek the trailer with the same buttons they
+navigate with. The pre-roll wants `controls=0`, `disablekb=1`, `fs=0` and
+`iv_load_policy=3` beside the `cc_load_policy=0` above.
+
+This compounds the exit risk rather than sitting beside it: key events inside
+the iframe go to YouTube's document, not ours, so focus landing in the player
+may swallow Back entirely.
+
+`getAutoplayTrailerUrl` is shared, so this is an option on the builder rather
+than a blanket change — `TvTonightScreen.jsx:463` uses it for the explicit
+"Watch trailer" action, where someone who chose to watch a trailer should keep
+the scrubber.
+
 Verify Back during the pre-roll on hardware before removing the buttons. The
 path exists but has not been exercised — the buttons were always there — and it
 becomes the only way out.

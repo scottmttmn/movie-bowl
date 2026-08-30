@@ -16,7 +16,14 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   safe — the navigation hook no-ops on an empty set, Back is a key handler
   rather than a focus target, and the reveal beneath is already `aria-hidden`
   so focus cannot fall through to it. Verify Back during the pre-roll on
-  hardware first; it becomes the only exit. Decided from live use; see the
+  hardware first; it becomes the only exit. Removing our controls is only half
+  of it — the embed shows YouTube's own, and with `disablekb` unset its
+  keyboard shortcuts are live, so on a TV the D-pad seeks the trailer. The
+  pre-roll wants `controls=0`, `disablekb=1`, `fs=0`, `iv_load_policy=3`; and
+  because focus inside the iframe sends keys to YouTube's document rather than
+  ours, it may swallow Back too. `getAutoplayTrailerUrl` is shared with the
+  explicit "Watch trailer" action, which should keep its scrubber, so this is
+  an option on the builder. Decided from live use; see the
   phase 1 revision in `output/designs/tv-theater-mode.md`.
 - Trailer captions during the pre-roll: `cc_load_policy=0` on the embed URL in
   `getAutoplayTrailerUrl` asks YouTube not to show captions, which suits the
