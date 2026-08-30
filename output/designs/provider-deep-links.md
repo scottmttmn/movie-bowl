@@ -97,7 +97,8 @@ exactly the thing that has to chase that churn.
   filters and Android completed verification, which is the half assetlinks alone
   cannot show.
 - `am start -a android.intent.action.VIEW -d "https://play.max.com/movie/<id>"`
-  opened Max on that title.
+  opened Max on that title, from a cold start — re-run after `am force-stop`, so
+  it is a real launch and navigation, not a resumed task brought forward.
 
 So the full chain works on the actual target hardware using nothing but the web
 URL the free plan already returns. That is phase 4's `launchDeepLink(url)`

@@ -230,6 +230,13 @@ Not distributable and not a product feature; the point is to feel the complete
 ritual end to end and learn whether automatic playback actually beats a single
 OK press.
 
+The intent half is already demonstrated: fired by hand from a laptop over
+wireless debugging, a title URL cold-starts Max on the title (see the hardware
+note in `provider-deep-links.md`). What remains is the glue that fires it when a
+draw lands, since an HTTPS page cannot reach the LAN. The gate question is
+therefore answerable before any bridge exists — draw, then fire the intent by
+hand from the couch, and see whether the room cares.
+
 Gate: if this does not feel like magic in the room, do not build phase 4.
 
 ### Phase 4 — Android TV shell
