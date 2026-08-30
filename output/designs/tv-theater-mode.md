@@ -46,7 +46,11 @@ and a preview of possible future movie nights.
 - Number of trailers, such as 1-4
 - Approximate pre-roll duration
 - Automatically start the feature when supported
-- Trailer captions preference
+- Trailer captions preference. Live use argues the default should be off — a
+  cinema's previews are not captioned — but not unconditionally off, which
+  would shut out hard-of-hearing viewers. `cc_load_policy=0` on the embed URL
+  is the lever, and it is a request rather than a guarantee: a viewer whose
+  YouTube account forces captions on will still see them.
 
 The first version should favor one simple choice, such as "Play three trailers,"
 instead of exposing a dense set of TV controls.
@@ -200,6 +204,81 @@ skip plus exit on the remote, and a per-user preference set on the phone.
 Gate: does the group enjoy the pre-roll, or do they want the movie now? If it is
 not fun, stop here — every later phase is handoff work that stands on its own.
 
+#### Revision from live use (August 30, 2026)
+
+The pre-roll plays well on a real television, and the controls are the part that
+breaks the spell. "Next preview" and "Skip to movie" should both go: you cannot
+do either at a cinema, and the presence of the buttons invites the room to treat
+the previews as a queue to get through rather than part of the evening.
+
+Removing them costs no capability. "Skip to movie" only calls `onExit`, and the
+spatial navigation's back handler already routes Back to `endTheater` — the
+escape stays, it simply stops being advertised. That also matches the phase's
+own instinct that the draw is final before the trailers begin.
+
+Keep Pause. A cinema does not pause, but a living room has a doorbell, and a
+room with no pause reaches for the television's own remote, which can drop it
+out of the app. Pause also carries `data-tv-autofocus`, so it is what keeps the
+overlay focusable at all; removing all three would leave the D-pad nothing to
+hold.
+
+The "1 of 3 · Title" progress line goes with them. A cinema shows nothing, and
+the pre-roll already announces the count before it starts, which is where that
+information belongs — during the previews it only invites counting down.
+
+Pause should not be a button at all. Bind it to OK — the video player gesture
+everyone already knows — and show an indicator only while paused, so nothing is
+on screen during playback.
+
+The overlay can carry no focusable element safely, which is not obvious:
+
+- `useTvSpatialNavigation` returns early when nothing is focusable, so the
+  arrows no-op rather than erroring.
+- Back is a key handler, not a focus target, so exit survives with no controls.
+- `isTheaterPlaying` feeds `isDialogOpen`, which puts `aria-hidden="true"` on
+  the reveal beneath, and `isFocusable` skips anything inside an `aria-hidden`
+  subtree — so focus cannot fall through to "Open [service]" behind the
+  trailer.
+
+(An `opacity: 0` button would also stay focusable, since only `display: none`
+and `visibility: hidden` are filtered. That is a workaround for a problem the
+keypress does not have.)
+
+Removing our buttons is only half of it: the YouTube player brings its own.
+`getAutoplayTrailerUrl` sets `autoplay`, `enablejsapi`, `rel`, `playsinline`
+and `origin` — so the full player chrome is showing, scrubber and click-through
+to YouTube included, and `disablekb` is unset, which means YouTube's keyboard
+shortcuts are live. On a television the D-pad *is* the arrow keys, so a viewer
+whose focus reaches the player can seek the trailer with the same buttons they
+navigate with. The pre-roll wants `controls=0`, `disablekb=1`, `fs=0` and
+`iv_load_policy=3` beside the `cc_load_policy=0` above.
+
+This compounds the exit risk rather than sitting beside it: key events inside
+the iframe go to YouTube's document, not ours, so focus landing in the player
+may swallow Back entirely.
+
+`getAutoplayTrailerUrl` is shared, so this is an option on the builder rather
+than a blanket change — `TvTonightScreen.jsx:463` uses it for the explicit
+"Watch trailer" action, where someone who chose to watch a trailer should keep
+the scrubber.
+
+Ads are the case Back should cover rather than code. They are uncommon on
+official trailer uploads, and the IFrame API exposes no ad state — the usual
+heuristic of watching `getDuration()` change is fragile enough to misfire on
+ordinary videos — so detection is not worth building. Backing out of the
+pre-roll is a fine answer to a rare annoyance.
+
+One thing to check before `controls=0` and this ship together: YouTube's
+"Skip Ad" button is player chrome. If hiding the controls hides that too, an
+ad becomes unskippable inside the overlay and Back — which ends the whole
+pre-roll, not just the trailer — is the only way out. That is a worse trade
+than the ad. If it turns out to be the case, the fallback worth considering is
+Back advancing to the next preview rather than leaving.
+
+Verify Back during the pre-roll on hardware before removing the buttons. The
+path exists but has not been exercised — the buttons were always there — and it
+becomes the only way out.
+
 ### Phase 2 — Real deep links and the voice card (web only)
 
 Implemented in `provider-deep-links.md`, disabled by default until configured.
@@ -270,8 +349,9 @@ drive a TV assistant programmatically — no third-party API exists for the last
 
 - Should Theater mode be a user preference, a per-TV preference, or chosen each
   movie night?
-- Should the group be able to skip trailers, or should only pause and exit be
-  available?
+- ~~Should the group be able to skip trailers, or should only pause and exit be
+  available?~~ Answered by living with it: pause and exit only, with exit
+  unlabelled on the Back button. See the phase 1 revision above.
 - Should trailer selection remain completely random or lightly favor movies from
   different contributors and genres?
 - If a trailer fails, should it be silently replaced or should the pre-roll become

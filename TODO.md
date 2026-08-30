@@ -4,6 +4,47 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## UX / UI Polish
 
+- Theater mode controls break the cinema spell: drop "Next preview" and "Skip to
+  movie" from the pre-roll overlay, keeping Pause. Neither is possible at a
+  cinema, and neither is needed — Back already calls `endTheater`, so the escape
+  survives unadvertised. Keep Pause both for the doorbell case and because it
+  carries `data-tv-autofocus`, without which the overlay has nothing focusable.
+  The "1 of 3 · Title" progress line goes too — the count is announced before
+  the previews start, and on screen it only invites counting down. Pause should
+  not be a button either: bind it to OK and show an indicator only while
+  paused, leaving playback chrome-free. An overlay with no focusable element is
+  safe — the navigation hook no-ops on an empty set, Back is a key handler
+  rather than a focus target, and the reveal beneath is already `aria-hidden`
+  so focus cannot fall through to it. Verify Back during the pre-roll on
+  hardware first; it becomes the only exit. Removing our controls is only half
+  of it — the embed shows YouTube's own, and with `disablekb` unset its
+  keyboard shortcuts are live, so on a TV the D-pad seeks the trailer. The
+  pre-roll wants `controls=0`, `disablekb=1`, `fs=0`, `iv_load_policy=3`; and
+  because focus inside the iframe sends keys to YouTube's document rather than
+  ours, it may swallow Back too. `getAutoplayTrailerUrl` is shared with the
+  explicit "Watch trailer" action, which should keep its scrubber, so this is
+  an option on the builder. Ads get no detection — the IFrame API exposes no ad
+  state and the `getDuration()` heuristic misfires — but check whether
+  `controls=0` also hides YouTube's "Skip Ad" button, which would make an ad
+  unskippable with only a full pre-roll exit as recourse. Decided from live
+  use; see the
+  phase 1 revision in `output/designs/tv-theater-mode.md`.
+- Trailer captions during the pre-roll: `cc_load_policy=0` on the embed URL in
+  `getAutoplayTrailerUrl` asks YouTube not to show captions, which suits the
+  cinema feel. It is a request, not a guarantee — an account that forces
+  captions on still gets them — and it should be a preference defaulting to off
+  rather than a hard-coded off, so hard-of-hearing viewers keep the choice.
+- TV pairing page outlives the pairing: `TvActivationPage` does render a "TV
+  connected" block, but that is transient state. Navigating away and coming
+  back remounts at `status: "idle"` and re-renders the form with the code from
+  the URL — so twenty minutes later the phone offers an actionable Connect
+  button for a code that is single-use and already expired. Two halves:
+  `replace: true` after success keeps Back from landing there, and the page
+  needs to recognise an already-consumed request on revisit. Prefer remembering
+  approved codes client-side over a status endpoint: an endpoint that answers
+  for any code becomes a way to probe which codes exist, and pairing rows are
+  deliberately server-role only.
+
 - Offline read cache: connectivity is now detected and explained (global banner, honest error copy, draw/add refused up front, reload on reconnect), but nothing is cached, so reloading a bowl with no connection still shows an empty bowl behind the banner rather than the last known movies. Caching the last-loaded bowl read-only would close that, and needs a decision on staleness copy and invalidation before any code.
 - Invite inbox polish: state handling for accepted, declined, and stale invites. Visibility is covered by the top nav badge and `/invites` page.
 - Draw filter UX follow-up: keep evaluating whether runtime, genre, and rating controls still feel too dense after recent cleanup.
