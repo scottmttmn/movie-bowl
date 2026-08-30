@@ -197,6 +197,9 @@ not fun, stop here — every later phase is handoff work that stands on its own.
 
 ### Phase 2 — Real deep links and the voice card (web only)
 
+Planned in detail in `provider-deep-links.md` (plan, not implementation), which
+picks the vendor, the cache shape, and the quota enforcement point. Summary:
+
 - Add a deep-link provider behind the existing serverless API layer, with the
   key server-side, a monthly usage counter, and a kill switch.
 - Cache results in Supabase keyed by TMDB ID and region, so lookups scale with
