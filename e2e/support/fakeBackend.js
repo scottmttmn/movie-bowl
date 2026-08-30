@@ -30,6 +30,7 @@ function createInitialState() {
     bowl_draw_events: [],
     user_watch_events: [],
     bowl_invites: [],
+    bowl_add_links: [],
     bowl_draw_permissions: [],
     addLinks: {},
     tmdbSearchResults: [],

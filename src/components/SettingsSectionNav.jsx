@@ -11,6 +11,20 @@ const COLUMN_CLASSES = {
   4: "sm:grid-cols-2 lg:grid-cols-4",
 };
 
+function jumpToSection(event) {
+  if (event.button !== 0 || event.metaKey || event.ctrlKey || event.shiftKey || event.altKey) return;
+  const href = event.currentTarget.getAttribute("href");
+  if (!href?.startsWith("#")) return;
+  const section = document.getElementById(href.slice(1));
+  if (!section) return;
+
+  // Section jumps should not become extra stops for the page's Back button.
+  // Keep href for copying a section link or opening it in another tab.
+  event.preventDefault();
+  section.focus({ preventScroll: true });
+  section.scrollIntoView({ block: "start" });
+}
+
 export default function SettingsSectionNav({
   items,
   ariaLabel = "Settings sections",
@@ -26,6 +40,7 @@ export default function SettingsSectionNav({
         <a
           key={item.href}
           href={item.href}
+          onClick={jumpToSection}
           className="surface-card block px-3.5 py-3 transition hover:border-slate-600 hover:bg-slate-900/60"
         >
           <span className="eyebrow block text-[0.65rem]">{item.label}</span>

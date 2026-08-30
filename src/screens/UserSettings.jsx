@@ -351,6 +351,7 @@ export default function UserSettings() {
         <div className="space-y-4">
           <section
             id="streaming-services"
+            tabIndex={-1}
             ref={streamingServicesRef}
             className="panel scroll-mt-24"
             aria-labelledby="streaming-services-heading"
@@ -613,7 +614,7 @@ export default function UserSettings() {
             </div>
           </section>
 
-          <section id="draw-defaults" className="panel scroll-mt-24" aria-labelledby="draw-defaults-heading">
+          <section id="draw-defaults" tabIndex={-1} className="panel scroll-mt-24" aria-labelledby="draw-defaults-heading">
             <h2 id="draw-defaults-heading" className="section-title">Draw filter defaults</h2>
             <p className="mt-1 text-sm text-slate-400">
               Every bowl you open starts from these filters. You can still change them for a single draw.
@@ -862,7 +863,7 @@ export default function UserSettings() {
             </div>
           </section>
 
-          <section id="tv-playback" className="panel scroll-mt-24" aria-labelledby="tv-playback-heading">
+          <section id="tv-playback" tabIndex={-1} className="panel scroll-mt-24" aria-labelledby="tv-playback-heading">
             <h2 id="tv-playback-heading" className="section-title">TV &amp; playback</h2>
             <p className="mt-1 text-sm text-slate-400">
               How the TV app behaves once a movie is drawn.

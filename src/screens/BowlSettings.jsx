@@ -831,7 +831,7 @@ export default function BowlSettings() {
           <div className="space-y-4">
             {/* Gated on load: naming the wrong method, even for a frame, is
                 exactly the falsehood this setting exists to prevent. */}
-            <section id="drawing" className="panel scroll-mt-24" aria-labelledby="drawing-heading">
+            <section id="drawing" tabIndex={-1} className="panel scroll-mt-24" aria-labelledby="drawing-heading">
               <h2 id="drawing-heading" className="section-title">Drawing</h2>
               <p className="mt-1 text-sm text-slate-400">
                 How this bowl picks a movie, and who is allowed to pick one.
@@ -973,7 +973,7 @@ export default function BowlSettings() {
               )}
             </section>
 
-            <section id="people" className="panel scroll-mt-24" aria-labelledby="people-heading">
+            <section id="people" tabIndex={-1} className="panel scroll-mt-24" aria-labelledby="people-heading">
               <div className="flex items-start justify-between gap-3">
                 <h2 id="people-heading" className="section-title">People</h2>
                 <span className="shrink-0 rounded-full border border-slate-700 bg-slate-950/60 px-3 py-1 text-xs font-semibold text-slate-300">
@@ -1109,7 +1109,7 @@ export default function BowlSettings() {
             </section>
 
             {currentUserId && (
-              <section id="add-links" className="panel scroll-mt-24" aria-labelledby="add-links-heading">
+              <section id="add-links" tabIndex={-1} className="panel scroll-mt-24" aria-labelledby="add-links-heading">
                 <h2 id="add-links-heading" className="section-title">Add links</h2>
                 <p className="mt-1 text-sm text-slate-400">
                   A public link that lets anyone add a fixed number of movies without joining the bowl.
