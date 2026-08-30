@@ -52,6 +52,8 @@ supabase/
   migrations/        source of truth for schema, RLS, functions
   tests/             pgTAP tests for security-sensitive migrations
   rollback/          staged reverts, kept out of migrations/ on purpose
+tv-android/          Google TV WebView shell around /tv (Java, Gradle); a
+                     validation harness, not a store build. Has its own README
 output/designs/      design specs and roadmaps for shipped + planned features
 ```
 

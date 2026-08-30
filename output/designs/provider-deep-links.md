@@ -101,8 +101,8 @@ exactly the thing that has to chase that churn.
   it is a real launch and navigation, not a resumed task brought forward.
 
 So the full chain works on the actual target hardware using nothing but the web
-URL the free plan already returns. That is phase 4's `launchDeepLink(url)`
-bridge, demonstrated before the shell exists.
+URL the free plan already returns — the handoff `tv-android/` already fires,
+proven by hand on a physical box rather than the emulator it was built against.
 
 Two domains verified against one package, across four authorized package names,
 is also the robustness argument in miniature: whichever domain and app-era a
@@ -129,11 +129,15 @@ the package the shell names is the one its domain authorizes.
 Seven of eight name exactly the package their domain authorizes. Only Prime
 Video misses: `amazon.com` lists `com.amazon.avod` and
 `com.amazon.avod.thirdpartyclient`, neither of which the manifest queries.
-Either the manifest names the wrong package for Google TV — in which case
-`isPackageInstalled` cannot see the app and the handoff reports "isn't installed
-on this TV" for an app that is — or Prime's Google TV build is genuinely not
-authorized for those URLs. `adb shell pm list packages | grep -i amazon` on a
-box with Prime installed distinguishes the two.
+
+A box with Prime installed reports `com.amazon.amazonvideo.livingroom`, so the
+manifest names the right package and `isPackageInstalled` can see it — the
+absence from assetlinks is real, not a typo on our side. That is survivable:
+`openExternal` sets an explicit package, which does not need verification, so
+the handoff still reaches Prime *if* its TV build declares a matching
+`amazon.com` https filter. If it does not, the intent throws and the viewer gets
+the existing explanation card. Confirm with a Prime title URL before assuming
+either outcome.
 
 **Domain verification matters less here than it first appears.** `openExternal`
 sets an explicit package on the intent whenever the provider is visible and

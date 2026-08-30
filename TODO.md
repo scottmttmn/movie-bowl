@@ -32,8 +32,9 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 - TV Theater mode: trailer pre-roll (phase 1) and provider title links with the
   voice card (phase 2) are implemented. Provider lookups default off until the
   migration and Watchmode configuration are deployed; activation instructions
-  are in `README.md`. Remaining roadmap work includes LAN auto-start and native
-  playback handoff. See `output/designs/tv-theater-mode.md` and
+  are in `README.md`. A Google TV validation harness lives in `tv-android/`;
+  its provider handoff is confirmed on physical hardware for Max. Remaining
+  roadmap work is LAN auto-start (no code) and making the shell store-ready. See `output/designs/tv-theater-mode.md` and
   `output/designs/provider-deep-links.md`.
 - Web auto-start handoff: end the pre-roll by navigating the television to the
   feature instead of parking on the "Open [service]" button. Pure client change
