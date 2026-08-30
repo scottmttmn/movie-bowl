@@ -577,7 +577,7 @@ describe("BowlDashboard guards", () => {
     expect(screen.getByText("Added by")).toBeInTheDocument();
     expect(screen.getByText("owner")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /show trailer/i })).toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: /open on web in/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /open on web in/i })).not.toBeInTheDocument();
     expect(screen.queryByTitle("Movie A trailer")).not.toBeInTheDocument();
 
     const trailerButton = screen.getByRole("button", { name: /show trailer/i });

@@ -60,8 +60,6 @@ export default function AddMovieModal({
   detailPrimaryActionError = "",
   isDetailPrimaryActionLoading = false,
   webLaunchCandidate = null,
-  webLaunchStatus = null,
-  onLaunchPreferredWeb = null,
   onEditNote = null,
   noteHeading = null,
 }) {
@@ -145,7 +143,6 @@ export default function AddMovieModal({
   const trailerRegionId = resolvedMovieId != null
     ? `movie-trailer-${String(resolvedMovieId).replace(/[^a-zA-Z0-9_-]+/g, "-")}`
     : "movie-trailer";
-  const hasLaunchSection = Boolean(webLaunchCandidate) || Boolean(webLaunchStatus);
   const resolvedNoteHeading =
     noteHeading || (movie.source_kind === "manual" ? "Your comment" : "Why it’s in the bowl");
 
@@ -319,43 +316,28 @@ export default function AddMovieModal({
           )}
         </div>
 
-        {hasLaunchSection && (
+        {webLaunchCandidate && (
           <div className="mb-5 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
             <p className="mb-1 text-sm font-semibold text-slate-100">Open to watch</p>
-            {webLaunchCandidate && (
-              <div className="mt-2">
-                <p className="mb-2 text-sm text-slate-400">
-                  Web launch match: {webLaunchCandidate.serviceName}.
-                </p>
-                <button
-                  type="button"
-                  onClick={onLaunchPreferredWeb}
-                  className="btn btn-secondary"
-                >
-                  {`Open on Web in ${webLaunchCandidate.serviceName}`}
-                </button>
-                {webLaunchCandidate.linkType === "title" && (
-                  <div className="mt-2"><ProviderLinksAttribution /></div>
-                )}
-              </div>
-            )}
-
-            {webLaunchStatus && (
-              <div
-                className={`mt-3 rounded-lg px-3 py-2 text-sm ${
-                  webLaunchStatus.ok ? "bg-emerald-950/50 text-emerald-300" : "bg-rose-950/50 text-rose-300"
-                }`}
+            <div className="mt-2">
+              <p className="mb-2 text-sm text-slate-400">
+                Web launch match: {webLaunchCandidate.serviceName}.
+              </p>
+              {/* A secure window.open returns null even when it succeeds.
+                  Let the browser follow the link without guessing its result. */}
+              <a
+                href={webLaunchCandidate.url}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="btn btn-secondary"
               >
-                <p className="font-medium">{webLaunchStatus.message}</p>
-                {Array.isArray(webLaunchStatus.details) && webLaunchStatus.details.length > 0 && (
-                  <ul className="mt-2 space-y-1">
-                    {webLaunchStatus.details.map((detail) => (
-                      <li key={detail}>{detail}</li>
-                    ))}
-                  </ul>
-                )}
-              </div>
-            )}
+                {`Open on Web in ${webLaunchCandidate.serviceName}`}
+                <span className="sr-only"> (opens in a new tab)</span>
+              </a>
+              {webLaunchCandidate.linkType === "title" && (
+                <div className="mt-2"><ProviderLinksAttribution /></div>
+              )}
+            </div>
           </div>
         )}
 

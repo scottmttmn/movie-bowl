@@ -92,7 +92,6 @@ export default function BowlDashboard() {
     const [pendingReaddMovie, setPendingReaddMovie] = useState(null);
     const [isReadding, setIsReadding] = useState(false);
     const [didApplyDefaultDrawSettings, setDidApplyDefaultDrawSettings] = useState(false);
-    const [webLaunchStatus, setWebLaunchStatus] = useState(null);
     const {
       streamingServices: userStreamingServices,
       defaultDrawSettings,
@@ -525,26 +524,6 @@ export default function BowlDashboard() {
         streamingRegion: providerData.region || "US",
         streamingFetchedAt: providerData.fetchedAt || null,
       };
-    };
-
-    const handleLaunchPreferredWeb = () => {
-      if (!defaultDrawSettings.enablePreferredWebLaunch || !preferredWebLaunchCandidate?.url) return;
-      setWebLaunchStatus(null);
-      const popup = window.open(preferredWebLaunchCandidate.url, "_blank", "noopener,noreferrer");
-
-      if (!popup) {
-        setWebLaunchStatus({
-          ok: false,
-          message: "Your browser blocked opening the streaming site.",
-          details: ["Allow pop-ups for this site and try again."],
-        });
-        return;
-      }
-
-      setWebLaunchStatus({
-        ok: true,
-        message: `Opened ${preferredWebLaunchCandidate.serviceName} in a new tab.`,
-      });
     };
 
     // Fired by a completed hold on the draw button, or by the keyboard path's
@@ -1178,12 +1157,7 @@ return (
                     ? preferredWebLaunchCandidate
                     : null
                 }
-                webLaunchStatus={webLaunchStatus}
-                onLaunchPreferredWeb={handleLaunchPreferredWeb}
-                onClose={() => {
-                  setDrawnMovie(null);
-                  setWebLaunchStatus(null);
-                }}
+                onClose={() => setDrawnMovie(null)}
               />
             )}
             {selectedDetailMovie && (

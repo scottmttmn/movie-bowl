@@ -320,8 +320,7 @@ describe("BowlDashboard draw flow", () => {
     vi.useRealTimers();
   });
 
-  it("shows web launch only in drawn modal and opens provider site in a new tab", async () => {
-    const openSpy = vi.spyOn(window, "open").mockReturnValue({});
+  it("shows a secure provider link in the drawn modal", async () => {
     mocks.state.streamingServices = ["Netflix", "Hulu"];
     mocks.state.defaultDrawSettings.enablePreferredWebLaunch = true;
     mocks.state.handleDraw.mockResolvedValue({
@@ -350,22 +349,15 @@ describe("BowlDashboard draw flow", () => {
     });
     vi.useRealTimers();
 
-    const webButton = await screen.findByRole("button", { name: /open on web in netflix/i });
-    fireEvent.click(webButton);
-
-    expect(openSpy).toHaveBeenCalledWith(
-      "https://www.netflix.com/search?q=Movie%20A",
-      "_blank",
-      "noopener,noreferrer"
-    );
-    expect(screen.getByText(/opened netflix in a new tab/i)).toBeInTheDocument();
-    openSpy.mockRestore();
+    const webLink = await screen.findByRole("link", { name: /open on web in netflix/i });
+    expect(webLink).toHaveAttribute("href", "https://www.netflix.com/search?q=Movie%20A");
+    expect(webLink).toHaveAttribute("target", "_blank");
+    expect(webLink).toHaveAttribute("rel", "noopener noreferrer");
   });
 
   it("reveals before the lookup resolves, then upgrades the same service without reopening the card", async () => {
     let finishLookup;
     mocks.fetchProviderLinks.mockReturnValue(new Promise((resolve) => { finishLookup = resolve; }));
-    const openSpy = vi.spyOn(window, "open").mockReturnValue({});
     mocks.state.streamingServices = ["Netflix", "Hulu"];
     mocks.state.defaultDrawSettings.enablePreferredWebLaunch = true;
     mocks.state.handleDraw.mockResolvedValue({ id: "m1", tmdb_id: 101, title: "Arrival" });
@@ -376,20 +368,17 @@ describe("BowlDashboard draw flow", () => {
     confirmDraw();
     await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
     vi.useRealTimers();
-    const button = await screen.findByRole("button", { name: /open on web in netflix/i });
+    const link = await screen.findByRole("link", { name: /open on web in netflix/i });
     expect(mocks.fetchProviderLinks).toHaveBeenCalledExactlyOnceWith(101, "bowl-1");
-    fireEvent.click(button);
-    expect(openSpy).toHaveBeenLastCalledWith("https://www.netflix.com/search?q=Arrival", "_blank", "noopener,noreferrer");
+    expect(link).toHaveAttribute("href", "https://www.netflix.com/search?q=Arrival");
     expect(screen.queryByText(/hold the mic button/i)).not.toBeInTheDocument();
     await act(async () => { finishLookup({ links: [{ service: "Netflix", type: "sub", webUrl: "https://www.netflix.com/title/123" }] }); });
-    expect(screen.getByRole("button", { name: /open on web in netflix/i })).toBe(button);
-    fireEvent.click(button);
-    expect(openSpy).toHaveBeenLastCalledWith("https://www.netflix.com/title/123", "_blank", "noopener,noreferrer");
+    expect(screen.getByRole("link", { name: /open on web in netflix/i })).toBe(link);
+    expect(link).toHaveAttribute("href", "https://www.netflix.com/title/123");
     expect(screen.getByRole("link", { name: "Watchmode" })).toBeInTheDocument();
-    openSpy.mockRestore();
   });
 
-  it("shows a web launch error when popup is blocked", async () => {
+  it("does not infer a blocked popup from an unavailable window handle", async () => {
     const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
     mocks.state.streamingServices = ["Netflix"];
     mocks.state.defaultDrawSettings.enablePreferredWebLaunch = true;
@@ -419,8 +408,10 @@ describe("BowlDashboard draw flow", () => {
     });
     vi.useRealTimers();
 
-    fireEvent.click(await screen.findByRole("button", { name: /open on web in netflix/i }));
-    expect(screen.getByText(/your browser blocked opening the streaming site/i)).toBeInTheDocument();
+    fireEvent.click(await screen.findByRole("link", { name: /open on web in netflix/i }));
+    expect(openSpy).not.toHaveBeenCalled();
+    expect(screen.queryByText(/blocked opening the streaming site|allow pop-ups/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/opened netflix in a new tab/i)).not.toBeInTheDocument();
     openSpy.mockRestore();
   });
 });

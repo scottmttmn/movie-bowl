@@ -317,19 +317,19 @@ describe("AddMovieModal", () => {
     expect(screen.queryByRole("link", { name: "Watchmode" })).not.toBeInTheDocument();
   });
 
-  it("renders web launch action when a web launch candidate is provided", () => {
-    const onLaunchPreferredWeb = vi.fn();
+  it("renders a secure new-tab link when a web launch candidate is provided", () => {
     render(
       <AddMovieModal
         movie={{ title: "Dune", release_date: "2021-10-22", runtime: 155, streamingProviders: ["Netflix"] }}
         onClose={vi.fn()}
         userStreamingServices={["Netflix"]}
         webLaunchCandidate={{ serviceName: "Netflix", url: "https://www.netflix.com/search?q=Dune%202021" }}
-        onLaunchPreferredWeb={onLaunchPreferredWeb}
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /open on web in netflix/i }));
-    expect(onLaunchPreferredWeb).toHaveBeenCalledTimes(1);
+    const link = screen.getByRole("link", { name: /open on web in netflix.*opens in a new tab/i });
+    expect(link).toHaveAttribute("href", "https://www.netflix.com/search?q=Dune%202021");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
   });
 });
