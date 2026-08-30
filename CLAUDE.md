@@ -77,8 +77,12 @@ code whose lazy chunks no longer exist -- historically a blank screen until
 someone refreshed by hand. Three pieces prevent that, all reading
 `utils/appVersion.js`:
 
-- `vite.config.js` stamps each build with an id (the Vercel commit, else the
-  clock) and emits it to `/version.json`, outside the hashed bundle.
+- `vite.config.js` stamps each build with an id and emits it to `/version.json`,
+  outside the hashed bundle. The id is `VERCEL_GIT_COMMIT_SHA`, else the
+  checkout's own commit, else the clock. It never reflects the state of the
+  working tree: the deploy builder's checkout is never clean by our standards,
+  and tagging that as dirty made every production build unique again, which is
+  the one thing the commit is there to avoid.
 - `useAppUpdate` (rendered by `UpdateBanner`, mounted app-wide) compares the two
   and reloads unprompted where nothing can be interrupted -- on load, on
   returning to an app backgrounded for a minute, on a bfcache restore. While
