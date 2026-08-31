@@ -4,18 +4,12 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Implemented, pending release
 
-- Default bowls and global Add are implemented locally. Deploy
-  `20260831120000_add_user_bowl_defaults.sql` before the connected client.
+- Default bowls and global Add are committed and pushed. Migration
+  `20260831120000_add_user_bowl_defaults.sql` was applied on August 31, 2026.
   Stars, stable Home routing, the shared plus/filmstrip add dialog, explicit
   destinations, and pending/uncertain write handling are covered by tests.
   Finish physical-phone keyboard and separate-device release smoke checks.
   See the [implementation record](output/designs/default-bowl-and-global-add-implementation.md#implementation-record--august-31-2026).
-- Four older pgTAP suites fail against the current linked-schema baseline,
-  identically with and without the default-bowl migration. Investigate their
-  public attribution, cross-participant history, and private-function access
-  assertions before treating the complete SQL suite as a release gate. Exact
-  cases are recorded in the implementation document; production behavior was
-  not changed to make those older assertions pass.
 
 ## UX / UI Polish
 

@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(26);
+select plan(29);
 
 insert into auth.users (id, email)
 values
@@ -369,6 +369,53 @@ select is(
   'rotation writes one durable bowl event per draw'
 );
 
+select results_eq(
+  $sql$
+    select user_id, count(*)
+    from public.user_watch_events
+    where bowl_name = 'Rotation Cycle' and source_kind = 'bowl_draw'
+    group by user_id
+  $sql$,
+  $$values ('00000000-0000-0000-0000-000000000041'::uuid, 4::bigint)$$,
+  'the owner can read only their four personal rotation events'
+);
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000042","email":"rotation-member@example.com","role":"authenticated"}',
+  true
+);
+
+select results_eq(
+  $sql$
+    select user_id, count(*)
+    from public.user_watch_events
+    where bowl_name = 'Rotation Cycle' and source_kind = 'bowl_draw'
+    group by user_id
+  $sql$,
+  $$values ('00000000-0000-0000-0000-000000000042'::uuid, 4::bigint)$$,
+  'the member can read only their four personal rotation events'
+);
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000043","email":"rotation-outsider@example.com","role":"authenticated"}',
+  true
+);
+
+select is(
+  (
+    select count(*)
+    from public.user_watch_events
+    where bowl_name = 'Rotation Cycle' and source_kind = 'bowl_draw'
+  ),
+  0::bigint,
+  'an outsider cannot read any participant personal rotation events'
+);
+
+-- Audit persistence across participants as postgres; client reads above enforce RLS.
+reset role;
+
 select is(
   (
     select count(*)
@@ -378,6 +425,13 @@ select is(
   ),
   8::bigint,
   'rotation preserves one watch event per bowl participant'
+);
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000041","email":"rotation-owner@example.com","role":"authenticated"}',
+  true
 );
 
 select throws_ok(

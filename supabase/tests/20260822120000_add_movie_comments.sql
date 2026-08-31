@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(39);
+select plan(42);
 
 insert into auth.users (id, email)
 values
@@ -201,6 +201,53 @@ select is(
   'the shared draw event receives the comment snapshot'
 );
 
+select results_eq(
+  $sql$
+    select user_id, note
+    from public.user_watch_events
+    where tmdb_id = 6101 and source_kind = 'bowl_draw'
+  $sql$,
+  $sql$values ('00000000-0000-0000-0000-000000000061'::uuid, E'Dinner recommendation\nfrom Tim.')$sql$,
+  'the owner can read only their personal comment snapshot'
+);
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000062","email":"comment-member@example.com","role":"authenticated"}',
+  true
+);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000062', true);
+
+select results_eq(
+  $sql$
+    select user_id, note
+    from public.user_watch_events
+    where tmdb_id = 6101 and source_kind = 'bowl_draw'
+  $sql$,
+  $sql$values ('00000000-0000-0000-0000-000000000062'::uuid, E'Dinner recommendation\nfrom Tim.')$sql$,
+  'the member can read only their personal comment snapshot'
+);
+
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000063","email":"comment-outsider@example.com","role":"authenticated"}',
+  true
+);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000063', true);
+
+select is(
+  (
+    select count(*)
+    from public.user_watch_events
+    where tmdb_id = 6101 and source_kind = 'bowl_draw'
+  ),
+  0::bigint,
+  'an outsider cannot read any participant personal comment snapshots'
+);
+
+-- Audit persistence across participants as postgres; client reads above enforce RLS.
+reset role;
+
 select is(
   (
     select count(*)::integer
@@ -212,6 +259,14 @@ select is(
   2,
   'every participant receives the same personal comment snapshot'
 );
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000061","email":"comment-owner@example.com","role":"authenticated"}',
+  true
+);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000061', true);
 
 select throws_ok(
   $sql$

@@ -1,6 +1,7 @@
 # Default Bowl and Global Add — Implementation Plan
 
-Status: implemented locally on August 31, 2026; not deployed.
+Status: implemented, committed, and pushed; database migration applied on
+August 31, 2026. Deployed-app smoke checks remain.
 The implementation record at the end lists verification results and release
 checks. The plan below preserves the decisions made before implementation.
 
@@ -514,7 +515,33 @@ project and its volume, removed the schema export/login files, and removed
 the seven newly pulled unused Supabase images. The four pre-existing Docker
 images were preserved.
 
-Release still requires deploying the migration before the client, investigating
-the older SQL baseline failures, checking a physical phone's software keyboard
-and independent devices, and running the deployed-app smoke checklist. Browser
-viewport tests do not establish physical iOS/Android keyboard behavior.
+The database migration was subsequently applied on August 31. Release still
+requires checking a physical phone's software keyboard and independent devices,
+and running the deployed-app smoke checklist. Browser viewport tests do not
+establish physical iOS/Android keyboard behavior.
+
+### SQL suite follow-up — August 31, 2026
+
+Reproduced all four failures against a fresh schema-only export after the
+default-bowl migration was applied. They were stale test assumptions, with no
+production behavior or permission changes needed:
+
+- Public-link additions retain the guest label and link ID with `added_by IS
+  NULL`; they do not attribute the movie to the signed-in link creator.
+- Draw access is exercised through `draw_bowl_movie`, using real fixture slips,
+  rather than calling the private `can_draw_from_bowl` helper as a client.
+  Coverage includes selected-member success, outsider denial, permission
+  removal, restored all-member access, and the helper remaining private.
+- Rotation and comment suites now verify each participant can read only their
+  own personal history and an outsider can read none. The original totals of
+  eight history rows and two comment snapshots are still checked as postgres
+  to verify persistence for all participants before restoring the client role.
+
+All 13 pgTAP suites pass, with 350 assertions, including nine new permission
+and visibility assertions. Validation used a disposable local database with
+synthetic fixtures and no hosted rows. Application code and migrations were
+unchanged.
+
+Cleanup removed the exact disposable project and volume, schema export, test
+logs, and five newly pulled unused Docker images. All four pre-existing images
+were preserved.

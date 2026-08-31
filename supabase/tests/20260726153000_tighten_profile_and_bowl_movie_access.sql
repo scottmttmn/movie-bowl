@@ -434,11 +434,13 @@ select is(
     select count(*)
     from public.bowl_movies
     where tmdb_id = 505
-      and added_by = '00000000-0000-0000-0000-000000000001'
+      and bowl_id = '10000000-0000-0000-0000-000000000001'
+      and added_by is null
+      and added_via_link_id = '30000000-0000-0000-0000-000000000001'
       and added_by_name = 'Guest'
   ),
   1::bigint,
-  'the public add-link function preserves contributor attribution'
+  'the public add-link function preserves guest and link attribution without claiming a signed-in contributor'
 );
 
 select is(

@@ -46,6 +46,18 @@ fails because an early migration expects an existing table, export only the
 linked project's `public` schema (no rows) to a temporary file and use that as
 the disposable project's baseline. Do not commit that export.
 
+Run the checked-in suites against that local project:
+
+```bash
+supabase test db /path/to/movie-bowl/supabase/tests --local --workdir /path/to/disposable-project
+```
+
+Test client operations under `authenticated` or `anon` through public RPCs;
+private helpers such as `can_draw_from_bowl` must remain inaccessible. Personal
+watch history is readable only by its user. Verify each user's visibility
+under their role, then `reset role` for assertions auditing persisted rows
+across participants. Restore the client role and JWT before further RPC calls.
+
 After every disposable pgTAP run:
 
 1. Stop the exact test project and delete its test-only Docker volume:
@@ -99,11 +111,14 @@ Rollback is in `rollback/20260831120000_remove_user_bowl_defaults.sql`: retire
 dependent clients first. It discards preferences, not bowls or movie/history
 data. Prefer reverting the client while keeping this additive schema.
 
-The August 31 verification also found four pre-existing failures in older SQL
-suites, reproduced after rolling back this migration. See the
+The August 31 follow-up corrected four older suites' stale expectations about
+guest attribution, private helper access, and personal-history visibility.
+All 13 SQL suites now pass (350 assertions) against a disposable copy of the
+current schema, including this migration. No database permissions or behavior
+were changed. See the
 [implementation record](../output/designs/default-bowl-and-global-add-implementation.md#implementation-record--august-31-2026)
-for exact cases and test coverage. Do not run these fixture scripts against
-the hosted database.
+for the original failures and follow-up coverage. Do not run these fixture
+scripts against the hosted database.
 
 ## Active movie uniqueness note
 
@@ -177,6 +192,7 @@ Current behavior:
 
 - public add links support per-link default contributor labels
 - per-movie public-link attribution is stored on `public.bowl_movies.added_by_name`
+- public-link movies have `added_by IS NULL`; the guest is not the link creator
 - links are deleted rather than revoked
 - a link is auto-deleted immediately when its final allowed add is consumed
 

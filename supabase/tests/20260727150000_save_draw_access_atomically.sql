@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(30);
+select plan(33);
 
 insert into auth.users (id, email)
 values
@@ -48,6 +48,23 @@ values
     'Member'
   );
 
+insert into public.bowl_movies (id, bowl_id, added_by, tmdb_id, title)
+values
+  (
+    '20000000-0000-0000-0000-000000000021',
+    '10000000-0000-0000-0000-000000000021',
+    '00000000-0000-0000-0000-000000000021',
+    2101,
+    'Selected Member Draw'
+  ),
+  (
+    '20000000-0000-0000-0000-000000000022',
+    '10000000-0000-0000-0000-000000000021',
+    '00000000-0000-0000-0000-000000000021',
+    2102,
+    'Restored Member Draw'
+  );
+
 select ok(
   has_function_privilege(
     'authenticated',
@@ -64,6 +81,24 @@ select ok(
     'EXECUTE'
   ),
   'anonymous users cannot call the atomic draw access function'
+);
+
+select ok(
+  not has_function_privilege(
+    'authenticated',
+    'public.can_draw_from_bowl(uuid)',
+    'EXECUTE'
+  ),
+  'authenticated users cannot call the private draw permission helper'
+);
+
+select ok(
+  not has_function_privilege(
+    'anon',
+    'public.can_draw_from_bowl(uuid)',
+    'EXECUTE'
+  ),
+  'anonymous users cannot call the private draw permission helper'
 );
 
 select is(
@@ -335,9 +370,11 @@ select set_config(
   true
 );
 
-select ok(
-  public.can_draw_from_bowl('10000000-0000-0000-0000-000000000021'),
-  'a selected member can draw'
+select lives_ok(
+  $sql$
+    select public.draw_bowl_movie('20000000-0000-0000-0000-000000000021')
+  $sql$,
+  'a selected member can draw through the public RPC'
 );
 
 reset role;
@@ -349,9 +386,13 @@ select set_config(
   true
 );
 
-select ok(
-  not public.can_draw_from_bowl('10000000-0000-0000-0000-000000000021'),
-  'an outsider cannot draw'
+select throws_ok(
+  $sql$
+    select public.draw_bowl_movie('20000000-0000-0000-0000-000000000022')
+  $sql$,
+  '42501',
+  'You do not have permission to draw in this bowl.',
+  'an outsider cannot draw through the public RPC'
 );
 
 reset role;
@@ -384,6 +425,24 @@ select is(
   array['00000000-0000-0000-0000-000000000023'::uuid],
   'replacing the list removes prior permissions'
 );
+
+set local role authenticated;
+select set_config(
+  'request.jwt.claims',
+  '{"sub":"00000000-0000-0000-0000-000000000022","email":"access-member-one@example.com","role":"authenticated"}',
+  true
+);
+
+select throws_ok(
+  $sql$
+    select public.draw_bowl_movie('20000000-0000-0000-0000-000000000022')
+  $sql$,
+  '42501',
+  'You do not have permission to draw in this bowl.',
+  'removing a selected member revokes their ability to draw through the public RPC'
+);
+
+reset role;
 
 create function public.test_reject_draw_permission_delete()
 returns trigger
@@ -494,9 +553,11 @@ select set_config(
   true
 );
 
-select ok(
-  public.can_draw_from_bowl('10000000-0000-0000-0000-000000000021'),
-  'every current member can draw in all-members mode'
+select lives_ok(
+  $sql$
+    select public.draw_bowl_movie('20000000-0000-0000-0000-000000000022')
+  $sql$,
+  'the formerly removed member can draw through the public RPC in all-members mode'
 );
 
 reset role;
