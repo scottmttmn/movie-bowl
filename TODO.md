@@ -4,6 +4,10 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Implemented, pending release
 
+- Successful TV pairing approvals now replace the code-bearing browser history
+  entry and remember the approved code locally. Revisiting the original QR URL
+  shows a non-actionable completed/expired state without exposing a code-status
+  probing endpoint.
 - The add dialog now shows movies added this session, with inline comments
   and confirmed removal on each row. The old next-movie comment field is
   removed from signed-in bowl adds; public-link and manual-history forms are
@@ -48,17 +52,6 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   cinema feel. It is a request, not a guarantee — an account that forces
   captions on still gets them — and it should be a preference defaulting to off
   rather than a hard-coded off, so hard-of-hearing viewers keep the choice.
-- TV pairing page outlives the pairing: `TvActivationPage` does render a "TV
-  connected" block, but that is transient state. Navigating away and coming
-  back remounts at `status: "idle"` and re-renders the form with the code from
-  the URL — so twenty minutes later the phone offers an actionable Connect
-  button for a code that is single-use and already expired. Two halves:
-  `replace: true` after success keeps Back from landing there, and the page
-  needs to recognise an already-consumed request on revisit. Prefer remembering
-  approved codes client-side over a status endpoint: an endpoint that answers
-  for any code becomes a way to probe which codes exist, and pairing rows are
-  deliberately server-role only.
-
 - Offline read cache: connectivity is now detected and explained (global banner, honest error copy, draw/add refused up front, reload on reconnect), but nothing is cached, so reloading a bowl with no connection still shows an empty bowl behind the banner rather than the last known movies. Caching the last-loaded bowl read-only would close that, and needs a decision on staleness copy and invalidation before any code.
 - Invite inbox polish: state handling for accepted, declined, and stale invites. Visibility is covered by the top nav badge and `/invites` page.
 - Draw filter UX follow-up: keep evaluating whether runtime, genre, and rating controls still feel too dense after recent cleanup.

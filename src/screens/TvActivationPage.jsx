@@ -4,15 +4,51 @@ import useAuth from "../hooks/useAuth";
 import { approveTvPairing } from "../lib/tvPairing";
 import bowlImage from "../assets/bowl-illustration-v3.webp";
 
-function formatCode(value) {
-  const normalized = String(value || "")
+const APPROVED_TV_PAIRING_CODES_KEY = "movie-bowl:approved-tv-pairing-codes";
+
+function normalizeCode(value) {
+  return String(value || "")
     .toUpperCase()
     .replace(/[^A-Z0-9]/g, "")
     .slice(0, 8);
+}
+
+function formatCode(value) {
+  const normalized = normalizeCode(value);
 
   return normalized.length > 4
     ? `${normalized.slice(0, 4)}-${normalized.slice(4)}`
     : normalized;
+}
+
+function readApprovedCodes() {
+  try {
+    const parsed = JSON.parse(window.localStorage.getItem(APPROVED_TV_PAIRING_CODES_KEY) || "[]");
+    return Array.isArray(parsed) ? parsed.filter((value) => typeof value === "string") : [];
+  } catch {
+    // Pairing still works when storage is unavailable; only revisit recognition degrades.
+    return [];
+  }
+}
+
+function wasCodeApproved(code) {
+  const normalized = normalizeCode(code);
+  return Boolean(normalized) && readApprovedCodes().includes(normalized);
+}
+
+function rememberApprovedCode(code) {
+  const normalized = normalizeCode(code);
+  if (!normalized) return;
+
+  const retained = readApprovedCodes().filter((value) => value !== normalized);
+  try {
+    window.localStorage.setItem(
+      APPROVED_TV_PAIRING_CODES_KEY,
+      JSON.stringify([normalized, ...retained])
+    );
+  } catch {
+    // The successful approval is still valid when private browsing blocks storage.
+  }
 }
 
 export default function TvActivationPage() {
@@ -23,6 +59,7 @@ export default function TvActivationPage() {
     () => formatCode(new URLSearchParams(location.search).get("code")),
     [location.search]
   );
+  const isRememberedCode = useMemo(() => wasCodeApproved(initialCode), [initialCode]);
   const [code, setCode] = useState(initialCode);
   const [status, setStatus] = useState("idle");
   const [message, setMessage] = useState("");
@@ -39,12 +76,14 @@ export default function TvActivationPage() {
         code,
         accessToken: session.access_token,
       });
+      rememberApprovedCode(code);
       setStatus("success");
       setMessage(
         result.alreadyApproved
           ? "This TV was already approved. It should connect momentarily."
           : "Connected. Your TV will continue automatically."
       );
+      navigate(location.pathname, { replace: true });
     } catch (error) {
       setStatus("error");
       setMessage(error?.message || "Could not connect the TV.");
@@ -70,13 +109,21 @@ export default function TvActivationPage() {
           sign out there.
         </p>
 
-        {loading ? (
-          <p className="status-info text-left" role="status">Checking your account…</p>
-        ) : status === "success" ? (
+        {status === "success" ? (
           <div className="status-success text-left" role="status">
             <p className="font-semibold">TV connected</p>
             <p className="mt-1">{message}</p>
           </div>
+        ) : isRememberedCode ? (
+          <div className="status-warning text-left" role="status">
+            <p className="font-semibold">TV pairing completed</p>
+            <p className="mt-1">
+              This pairing code has already been completed or expired. Request a new code on your
+              TV if you need to connect again.
+            </p>
+          </div>
+        ) : loading ? (
+          <p className="status-info text-left" role="status">Checking your account…</p>
         ) : !session ? (
           <div className="space-y-4 text-left">
             {code ? (
