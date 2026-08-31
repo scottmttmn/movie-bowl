@@ -32,8 +32,10 @@ contributor first — so the person who added 25 movies does not get 25× the od
 - Or use contributor rotation: people who have never had a title drawn go
   first, then the least recently selected eligible contributor gets the next
   turn. Ties and the title within that person's pool are random.
-- Narrow the pool before drawing with rating, genre, and runtime filters, each
-  with an "include unknown" escape hatch.
+- Narrow the pool in the bowl’s Filters overlay with rating, genre, runtime,
+  and streaming priority. Changes save automatically across your bowls and are
+  used by the TV when it loads your preferences. Reset clears filters without
+  changing playback settings.
 - Optionally prioritize titles available on your streaming services.
 - See the bowl's active draw method explained without surfacing competitive odds.
 - Return a drawn movie to the bowl without erasing the fact that it was drawn.

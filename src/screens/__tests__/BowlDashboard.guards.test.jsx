@@ -123,6 +123,7 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
       includeUnknownRuntime: true,
     },
     loading: false,
+    saveDefaultDrawSettings: vi.fn(async () => ({ error: null })),
   }),
 }));
 

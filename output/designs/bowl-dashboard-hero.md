@@ -1,6 +1,7 @@
 # Bowl Dashboard hero redesign
 
-Status: slice 1 (hero) implemented; slice 2 (filters overlay) planned.
+Status: hero and filters overlay implemented. Filters also autosave; see
+`retire-draw-filter-defaults.md`.
 
 Distilled from a Claude Design mobile exploration ("Bowl Dashboard Mobile")
 plus the decisions made when reconciling it with the shipped dashboard. The
@@ -48,7 +49,7 @@ truth). The contributor-reach warning kept a persistent surface: when any draw
 setting shuts someone out of a person-first bowl, the pool segment and the ⓘ
 turn amber, and the modal names who is excluded.
 
-### Filters overlay (slice 2, planned)
+### Filters overlay (implemented)
 
 - Filter icon and settings gear sit top right next to the bowl name; the
   filter icon carries a rose dot when any filter or streaming priority is

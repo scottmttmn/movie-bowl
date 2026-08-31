@@ -9,7 +9,7 @@ test("settings section jumps preserve both page and browser Back navigation", as
     await page.getByRole("menuitem", { name: "Settings", exact: true }).click();
     await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
 
-    for (const [label, section] of [["Streaming", "streaming-services"], ["Draw filters", "draw-defaults"], ["TV playback", "tv-playback"]]) {
+    for (const [label, section] of [["Streaming", "streaming-services"], ["TV playback", "tv-playback"]]) {
       await page.getByRole("navigation", { name: "Settings sections" }).getByRole("link", { name: new RegExp(`^${label}`) }).click();
       await expect(page.locator(`#${section}`)).toBeFocused();
       await expect(page).toHaveURL(/\/settings$/);

@@ -26,17 +26,17 @@ later feature lands in the right section instead of at the bottom.
 
 ## The shape now
 
-A hero, three sections that each answer one question, and a reset footer.
+A hero, two sections that each answer one question, and a playback reset footer.
+Draw filters now live only in the dashboard overlay and autosave; see
+`retire-draw-filter-defaults.md`.
 
 | Section | Question it answers |
 | --- | --- |
-| Streaming services | What can I play, in what order, and how do draws use that? |
-| Draw filter defaults | What does every bowl's filter panel start from? |
+| Streaming services | What can I play, in what order, and should a drawn movie offer a web launch? |
 | TV & playback | What happens on the TV once a movie is drawn? |
 
 - **Hero summary tiles** read back each section's current state ("3 services •
-  Ranked priority", "PG, PG-13, R • 4 genres • 80-165 min", "Theater mode on •
-  2 previews") and double as the jump nav — they are anchors to the three
+  Netflix first", "Theater mode on • 2 previews") and double as the jump nav — they are anchors to the two
   section ids, so the page needs no separate nav and no scroll-spy JS. They
   live in `components/SettingsSectionNav.jsx`, shared with Bowl Settings (see
   `bowl-settings-redesign.md`).
@@ -48,20 +48,17 @@ A hero, three sections that each answer one question, and a reset footer.
   now a single rose line rendered from that.
 - **Checkbox rows became chips** — same `<input type="checkbox">` underneath,
   visually hidden, so the semantics and the label association survive.
-- **The three streaming behavior toggles moved next to the services**, under a
-  "How draws use them" heading. With no services picked they are disabled and
-  say why ("Pick at least one service to turn this on") instead of silently
-  refusing.
-- **Draw filter defaults is only the filters** — ratings, genres, length —
-  each a disclosure whose collapsed row already shows its value.
-- **`SettingToggle` and `SettingDisclosure`** are local components in the
-  screen. They stay local until a second screen needs them.
+- **Playback handoff stays with services.** The preferred website toggle is
+  disabled with an explanation until a service is picked. Prioritizing services
+  and following their ranking during a draw are edited in the bowl's Filters
+  overlay alongside ratings, genres, and runtime.
+- **`SettingToggle`** remains local to the screen. The removed filter editor's
+  disclosure helper and state are gone.
 
 ## Deliberately unchanged
 
-- Every setting, its storage shape, and the autosave contract. This is a
-  layout and grouping change; `useUserStreamingServices` and
-  `normalizeDefaultDrawSettings` were not touched.
+- The profile storage shape and autosave contract. Playback saves send only
+  playback keys and the shared hook merges them with the loaded filter values.
 - The `#streaming-services` hash link from the bowl dashboard and My Bowls
   still scrolls to the same section — it just no longer has a tab to select.
 - No account section. Email and Log out already live in the top nav menu, and
@@ -69,8 +66,6 @@ A hero, three sections that each answer one question, and a reset footer.
 
 ## Reset scope
 
-"Reset to defaults" restores everything in `default_draw_settings` — which now
-spans two sections plus the streaming toggles — but never the service list.
-That is why it sits in a footer below all three panels rather than inside one
-of them, and why both the footer copy and the confirm dialog name what it
-covers and what it keeps.
+“Reset playback” restores preferred web launch, theater mode, and trailer count.
+It keeps the service list, ranking, and remembered filters. Both the footer copy
+and confirmation say what is reset and what is kept.

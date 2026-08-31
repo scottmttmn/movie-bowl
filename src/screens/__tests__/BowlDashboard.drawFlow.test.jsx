@@ -83,6 +83,7 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
     streamingServices: mocks.state.streamingServices,
     defaultDrawSettings: mocks.state.defaultDrawSettings,
     loading: false,
+    saveDefaultDrawSettings: vi.fn(async () => ({ error: null })),
   }),
 }));
 

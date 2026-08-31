@@ -1,6 +1,8 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MPAA_RATING_OPTIONS } from "../../utils/movieRatings";
+import { AUTOSAVE_DELAY_MS } from "../../hooks/useAutosave";
+import { DEFAULT_DRAW_SETTINGS } from "../../utils/drawSettings";
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -30,6 +32,10 @@ const mocks = vi.hoisted(() => {
       includeUnknownRuntime: true,
     },
     locationHash: "",
+    preferencesLoading: false,
+    preferencesLoadError: null,
+    saveDefaultDrawSettings: vi.fn(async () => ({ error: null })),
+    reloadPreferences: vi.fn(),
   };
 
   const supabase = {
@@ -79,7 +85,10 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
   default: () => ({
     streamingServices: mocks.state.streamingServices,
     defaultDrawSettings: mocks.state.defaultDrawSettings,
-    loading: false,
+    loading: mocks.state.preferencesLoading,
+    loadError: mocks.state.preferencesLoadError,
+    saveDefaultDrawSettings: mocks.state.saveDefaultDrawSettings,
+    reloadStreamingServices: mocks.state.reloadPreferences,
   }),
 }));
 
@@ -114,6 +123,14 @@ function confirmDraw() {
 describe("BowlDashboard draw preferences", () => {
   beforeEach(() => {
     mocks.state.navigate.mockReset();
+    mocks.state.preferencesLoading = false;
+    mocks.state.preferencesLoadError = null;
+    mocks.state.saveDefaultDrawSettings.mockReset();
+    mocks.state.saveDefaultDrawSettings.mockImplementation(async (settings) => {
+      mocks.state.defaultDrawSettings = { ...mocks.state.defaultDrawSettings, ...settings };
+      return { error: null };
+    });
+    mocks.state.reloadPreferences.mockClear();
     mocks.state.authUserId = "u1";
     mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1" };
     mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
@@ -141,7 +158,12 @@ describe("BowlDashboard draw preferences", () => {
 
   afterEach(() => {
     cleanup();
+    vi.useRealTimers();
   });
+
+  const settleAutosave = async () => {
+    await act(async () => { await vi.advanceTimersByTimeAsync(AUTOSAVE_DELAY_MS + 50); });
+  };
 
   it("owner draw uses the owner's streaming services in prioritize payload", async () => {
     mocks.state.streamingServices = ["Netflix", "Max"];
@@ -374,5 +396,112 @@ describe("BowlDashboard draw preferences", () => {
     fireEvent.click(screen.getByRole("button", { name: /edit streaming service ranking/i }));
 
     expect(mocks.state.navigate).toHaveBeenCalledWith("/settings#streaming-services");
+  });
+
+  it("waits for saved filters without writing hydration back, including zero runtime and absent genres", async () => {
+    mocks.state.preferencesLoading = true;
+    const { rerender } = renderDashboard();
+    await screen.findByText("Bowl 1");
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: "Filters", exact: true }));
+    expect(screen.getByRole("button", { name: "Reset" })).toBeDisabled();
+    mocks.state.defaultDrawSettings = { ...DEFAULT_DRAW_SETTINGS, runtimeMaxMinutes: 0, selectedGenres: ["Comedy"] };
+    mocks.state.preferencesLoading = false;
+    rerender(<BowlDashboard />);
+    await settleAutosave();
+    expect(mocks.state.saveDefaultDrawSettings).not.toHaveBeenCalled();
+    fireEvent.click(screen.getByRole("button", { name: /edit runtime/i }));
+    expect(screen.getByLabelText("draw-runtime-max")).toHaveValue(0);
+    fireEvent.click(screen.getByRole("button", { name: /edit genres/i }));
+    expect(screen.getByRole("button", { name: "Only Comedy", exact: true })).toBeInTheDocument();
+  });
+
+  it("remembers filter edits after leaving the bowl and persists reset without playback keys", async () => {
+    mocks.state.defaultDrawSettings = { ...DEFAULT_DRAW_SETTINGS, theaterModeEnabled: true, theaterTrailerCount: 2, enablePreferredWebLaunch: true };
+    const { unmount } = renderDashboard();
+    await screen.findByText("Bowl 1");
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: "Filters", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: /edit runtime/i }));
+    fireEvent.change(screen.getByLabelText("draw-runtime-max"), { target: { value: "120" } });
+    await settleAutosave();
+    expect(mocks.state.saveDefaultDrawSettings).toHaveBeenCalledTimes(1);
+    const savedFilters = mocks.state.saveDefaultDrawSettings.mock.calls[0][0];
+    expect(savedFilters.runtimeMaxMinutes).toBe(120);
+    expect(savedFilters).not.toHaveProperty("theaterModeEnabled");
+    expect(savedFilters).not.toHaveProperty("theaterTrailerCount");
+    expect(savedFilters).not.toHaveProperty("enablePreferredWebLaunch");
+    unmount();
+    renderDashboard();
+    fireEvent.click(screen.getByRole("button", { name: "Filters", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: /edit runtime/i }));
+    expect(screen.getByLabelText("draw-runtime-max")).toHaveValue(120);
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    await settleAutosave();
+    expect(mocks.state.saveDefaultDrawSettings.mock.calls.at(-1)[0]).toEqual({ ...savedFilters, runtimeMaxMinutes: 500 });
+    expect(mocks.state.defaultDrawSettings).toMatchObject({ theaterModeEnabled: true, theaterTrailerCount: 2, enablePreferredWebLaunch: true });
+  });
+
+  it("keeps failed edits usable and exposes retry even after closing the overlay", async () => {
+    mocks.state.saveDefaultDrawSettings.mockResolvedValue({ error: new Error("Offline") });
+    renderDashboard();
+    await screen.findByText("Bowl 1");
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: "Filters", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: /edit runtime/i }));
+    fireEvent.change(screen.getByLabelText("draw-runtime-max"), { target: { value: "120" } });
+    await settleAutosave();
+    expect(screen.getByRole("alert")).toHaveTextContent("These filters still work for this draw");
+    fireEvent.click(screen.getByRole("button", { name: "Done" }));
+    expect(screen.getByRole("alert")).toHaveTextContent("couldn't be saved for next time");
+    mocks.state.saveDefaultDrawSettings.mockResolvedValue({ error: null });
+    await act(async () => fireEvent.click(screen.getByRole("button", { name: "Retry" })));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(mocks.state.saveDefaultDrawSettings).toHaveBeenCalledTimes(2);
+    fireEvent.click(screen.getByRole("button", { name: "Filters", exact: true }));
+    expect(screen.getByLabelText("draw-runtime-max")).toHaveValue(120);
+  });
+
+  it("flushes the final edit when navigating away before autosave runs", async () => {
+    const { unmount } = renderDashboard();
+    await screen.findByText("Bowl 1");
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: "Filters", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: /edit runtime/i }));
+    fireEvent.change(screen.getByLabelText("draw-runtime-max"), { target: { value: "140" } });
+    unmount();
+    await act(async () => {});
+    expect(mocks.state.saveDefaultDrawSettings).toHaveBeenCalledTimes(1);
+    expect(mocks.state.saveDefaultDrawSettings.mock.calls[0][0]).toMatchObject({ runtimeMaxMinutes: 140 });
+    expect(document.body.style.overflow).toBe("");
+  });
+
+  it("keeps keyboard focus in the overlay and returns it on Escape without adding history", async () => {
+    renderDashboard();
+    await screen.findByText("Bowl 1");
+    const trigger = screen.getByRole("button", { name: "Filters", exact: true });
+    trigger.focus();
+    fireEvent.click(trigger);
+    expect(screen.getByRole("dialog", { name: "Narrow the draw" })).toHaveFocus();
+    fireEvent.keyDown(document.activeElement, { key: "Tab", shiftKey: true });
+    expect(screen.getByRole("button", { name: "Done" })).toHaveFocus();
+    fireEvent.keyDown(document.activeElement, { key: "Tab" });
+    expect(screen.getByRole("button", { name: "Reset" })).toHaveFocus();
+    fireEvent.keyDown(document.activeElement, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(trigger).toHaveFocus();
+    expect(mocks.state.navigate).not.toHaveBeenCalled();
+  });
+
+  it("requires a successful preference load before enabling filter edits", async () => {
+    mocks.state.preferencesLoadError = new Error("Network unavailable");
+    renderDashboard();
+    await screen.findByText("Bowl 1");
+    fireEvent.click(screen.getByRole("button", { name: "Filters", exact: true }));
+    expect(screen.getByRole("button", { name: "Reset" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /edit runtime/i })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(mocks.state.reloadPreferences).toHaveBeenCalledTimes(1);
+    expect(mocks.state.saveDefaultDrawSettings).not.toHaveBeenCalled();
   });
 });

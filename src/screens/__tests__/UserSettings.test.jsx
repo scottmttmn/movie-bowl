@@ -11,6 +11,8 @@ const mocks = vi.hoisted(() => ({
       prioritizeStreaming: false,
       useStreamingRank: true,
       enablePreferredWebLaunch: false,
+      theaterModeEnabled: false,
+      theaterTrailerCount: 3,
       selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
       includeUnknownRatings: true,
       selectedGenres: null,
@@ -57,6 +59,8 @@ describe("UserSettings", () => {
       prioritizeStreaming: false,
       useStreamingRank: true,
       enablePreferredWebLaunch: false,
+      theaterModeEnabled: false,
+      theaterTrailerCount: 3,
       selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
       includeUnknownRatings: true,
       selectedGenres: null,
@@ -228,15 +232,14 @@ describe("UserSettings", () => {
 
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       "#streaming-services",
-      "#draw-defaults",
       "#tv-playback",
     ]);
     expect(links[0]).toHaveTextContent("2 services");
-    expect(links[0]).toHaveTextContent("Ranked priority");
-    expect(links[1]).toHaveTextContent("All ratings");
-    expect(links[1]).toHaveTextContent("All genres");
-    expect(links[2]).toHaveTextContent("Theater mode on");
-    expect(links[2]).toHaveTextContent("2 previews");
+    expect(links[0]).toHaveTextContent("Netflix first");
+    expect(links[1]).toHaveTextContent("Theater mode on");
+    expect(links[1]).toHaveTextContent("2 previews");
+    expect(screen.queryByRole("heading", { name: "Draw filter defaults" })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText(/default prioritize streaming services/i)).not.toBeInTheDocument();
   });
 
   it("prompts for a service before the streaming toggles can be used", () => {
@@ -247,9 +250,8 @@ describe("UserSettings", () => {
     expect(
       screen.getByText(/nothing picked yet\. choose services below/i)
     ).toBeInTheDocument();
-    expect(screen.getByLabelText(/default prioritize streaming services/i)).toBeDisabled();
     expect(screen.getByLabelText(/enable preferred web launch/i)).toBeDisabled();
-    expect(screen.getAllByText(/pick at least one service to turn this on/i)).toHaveLength(2);
+    expect(screen.getByText(/pick at least one service to turn this on/i)).toBeInTheDocument();
   });
 
   it("scrolls to the streaming section when linked to by hash", () => {
@@ -262,117 +264,54 @@ describe("UserSettings", () => {
     expect(scrollIntoView).toHaveBeenCalled();
   });
 
-  it("updates default draw settings controls", () => {
+  it("resets only playback and leaves remembered filters and service ranking intact", () => {
+    mocks.hook.defaultDrawSettings = {
+      ...mocks.hook.defaultDrawSettings,
+      prioritizeStreaming: true,
+      useStreamingRank: false,
+      selectedRatings: ["PG"],
+      selectedGenres: ["Comedy"],
+      runtimeMaxMinutes: 120,
+      enablePreferredWebLaunch: true,
+      theaterModeEnabled: true,
+      theaterTrailerCount: 2,
+    };
     renderSettings();
-
-    fireEvent.click(screen.getByLabelText(/default prioritize streaming services/i));
-    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        prioritizeStreaming: true,
-        useStreamingRank: true,
-      })
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /edit ratings/i }));
-    fireEvent.click(screen.getByRole("button", { name: /default rating PG-13/i }));
-    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        selectedRatings: ["G", "PG", "R", "NC-17"],
-      })
-    );
-
-    const ratingsPanel = screen.getByRole("region", { name: /default rating controls/i });
-    fireEvent.click(within(ratingsPanel).getByRole("button", { name: /clear/i }));
-    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        selectedRatings: [],
-      })
-    );
-
-    fireEvent.click(within(ratingsPanel).getByRole("button", { name: /all/i }));
-    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
-      })
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /only PG-13/i }));
-    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        selectedRatings: ["PG-13"],
-      })
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /edit genres/i }));
-    fireEvent.click(screen.getByRole("button", { name: /default genre Action/i }));
-    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        selectedGenres: expect.not.arrayContaining(["Action"]),
-      })
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /only Comedy/i }));
-    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        selectedGenres: ["Comedy"],
-      })
-    );
-
-    fireEvent.click(screen.getByRole("button", { name: /edit runtime/i }));
-
-    fireEvent.change(screen.getByRole("spinbutton", { name: /default_draw_runtime_max/i }), {
-      target: { value: "180" },
-    });
-    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runtimeMaxMinutes: 180,
-      })
-    );
-
-    fireEvent.change(screen.getByRole("spinbutton", { name: /default_draw_runtime_min/i }), {
-      target: { value: "90" },
-    });
-    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        runtimeMinMinutes: 90,
-      })
-    );
-
-    // Autosave persists a reset immediately, so it is gated behind a confirm.
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
-    const callsBeforeReset = mocks.hook.setDefaultDrawSettings.mock.calls.length;
-    fireEvent.click(screen.getByRole("button", { name: /reset to defaults/i }));
-    expect(confirmSpy).toHaveBeenCalled();
-    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledTimes(callsBeforeReset);
-
+    fireEvent.click(screen.getByRole("button", { name: "Reset playback" }));
+    expect(mocks.hook.setDefaultDrawSettings).not.toHaveBeenCalled();
     confirmSpy.mockReturnValue(true);
-    fireEvent.click(screen.getByRole("button", { name: /reset to defaults/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Reset playback" }));
     expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith({
-      prioritizeStreaming: false,
-      useStreamingRank: true,
+      ...mocks.hook.defaultDrawSettings,
       enablePreferredWebLaunch: false,
-      selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
-      includeUnknownRatings: true,
-      selectedGenres: null,
-      includeUnknownGenres: true,
-      runtimeMinMinutes: 0,
-      runtimeMaxMinutes: 500,
-      includeUnknownRuntime: true,
+      theaterModeEnabled: false,
+      theaterTrailerCount: 3,
     });
+    expect(mocks.hook.setStreamingServices).not.toHaveBeenCalled();
+  });
 
+  it("saves playback edits without sending any draw filter keys", async () => {
+    vi.useFakeTimers();
+    const { rerender } = renderSettings();
     fireEvent.click(screen.getByLabelText(/enable preferred web launch/i));
     expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        enablePreferredWebLaunch: true,
-      })
+      expect.objectContaining({ enablePreferredWebLaunch: true })
     );
-
-    fireEvent.click(screen.getByLabelText(/enable tv theater mode/i));
-    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
-      expect.objectContaining({
-        theaterModeEnabled: true,
-      })
-    );
+    mocks.hook.defaultDrawSettings = {
+      ...mocks.hook.defaultDrawSettings,
+      enablePreferredWebLaunch: true,
+      theaterModeEnabled: true,
+      theaterTrailerCount: 2,
+    };
+    rerender(<UserSettings />);
+    await settleAutosave();
+    expect(mocks.hook.saveDefaultDrawSettings).toHaveBeenCalledExactlyOnceWith({
+      enablePreferredWebLaunch: true,
+      theaterModeEnabled: true,
+      theaterTrailerCount: 2,
+    });
+    expect(mocks.hook.saveStreamingServices).not.toHaveBeenCalled();
   });
 
   it("shows an empty state when search finds no services", () => {

@@ -3,18 +3,12 @@ import { useLocation, useNavigate } from "react-router-dom";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import useAutosave, { valuesAreEqual } from "../hooks/useAutosave";
 import AutosaveStatus from "../components/AutosaveStatus";
-import FilterChipSelect from "../components/FilterChipSelect";
 import SettingsSectionNav from "../components/SettingsSectionNav";
 import { AVAILABLE_STREAMING_SERVICES } from "../utils/streamingServices";
 import {
   DEFAULT_DRAW_SETTINGS,
-  DRAW_GENRE_OPTIONS,
-  normalizeDefaultDrawSettings,
-  RUNTIME_FILTER_MAX_MINUTES,
-  RUNTIME_FILTER_MIN_MINUTES,
   THEATER_TRAILER_COUNT_OPTIONS,
 } from "../utils/drawSettings";
-import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 
 const MAJOR_STREAMING_SERVICES = [
   "Netflix",
@@ -70,44 +64,12 @@ function SettingToggle({
   );
 }
 
-// A filter whose current value is readable while collapsed — the summary is the
-// point, so nobody has to open three panels to see what a draw will start from.
-function SettingDisclosure({ id, title, summary, editLabel, open, onToggle, children }) {
-  return (
-    <div className="surface-card overflow-hidden">
-      <button
-        type="button"
-        className="flex w-full items-center justify-between gap-3 px-3.5 py-3 text-left transition hover:bg-slate-900/70"
-        onClick={onToggle}
-        aria-expanded={open}
-        aria-controls={`${id}-panel`}
-      >
-        <span className="min-w-0">
-          <span className="block text-base font-semibold text-slate-100">{title}</span>
-          <span className="mt-0.5 block truncate text-sm text-slate-400">{summary}</span>
-        </span>
-        <span className="shrink-0 text-xs font-semibold text-rose-300">
-          {open ? `Hide ${editLabel}` : `Edit ${editLabel}`}
-        </span>
-      </button>
-      {open && (
-        <div id={`${id}-panel`} className="border-t border-slate-800 px-3.5 py-3.5">
-          {children}
-        </div>
-      )}
-    </div>
-  );
-}
-
 export default function UserSettings() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
   const [draggedService, setDraggedService] = useState(null);
   const [dropIndex, setDropIndex] = useState(null);
-  const [showDefaultRatings, setShowDefaultRatings] = useState(false);
-  const [showDefaultGenres, setShowDefaultGenres] = useState(false);
-  const [showDefaultRuntime, setShowDefaultRuntime] = useState(false);
   const streamingServicesRef = useRef(null);
   const {
     streamingServices,
@@ -116,6 +78,8 @@ export default function UserSettings() {
     setDefaultDrawSettings,
     toggleService,
     loading,
+    loadError,
+    reloadStreamingServices,
     saveStreamingServices,
     saveDefaultDrawSettings,
   } = useUserStreamingServices();
@@ -178,69 +142,9 @@ export default function UserSettings() {
     );
   }, [searchTerm]);
 
-  const selectedDefaultGenres = Array.isArray(defaultDrawSettings.selectedGenres)
-    ? defaultDrawSettings.selectedGenres
-    : DRAW_GENRE_OPTIONS;
-  const defaultRatingSummary = useMemo(() => {
-    const selectedCount = defaultDrawSettings.selectedRatings.length;
-    if (selectedCount === MPAA_RATING_OPTIONS.length && defaultDrawSettings.includeUnknownRatings) {
-      return "All ratings";
-    }
-    if (selectedCount === 0 && !defaultDrawSettings.includeUnknownRatings) {
-      return "No ratings selected";
-    }
-    const parts = [];
-    if (selectedCount === MPAA_RATING_OPTIONS.length) {
-      parts.push("All rated");
-    } else if (selectedCount > 0) {
-      parts.push(defaultDrawSettings.selectedRatings.join(", "));
-    }
-    if (defaultDrawSettings.includeUnknownRatings) parts.push("Unknown");
-    return parts.join(" • ");
-  }, [defaultDrawSettings.includeUnknownRatings, defaultDrawSettings.selectedRatings]);
-  const defaultGenreSummary = useMemo(() => {
-    if (defaultDrawSettings.selectedGenres === null && defaultDrawSettings.includeUnknownGenres) {
-      return "All genres";
-    }
-    if (selectedDefaultGenres.length === 0 && !defaultDrawSettings.includeUnknownGenres) {
-      return "No genres selected";
-    }
-    const parts = [];
-    if (defaultDrawSettings.selectedGenres === null) {
-      parts.push("All listed genres");
-    } else if (selectedDefaultGenres.length <= 3) {
-      parts.push(selectedDefaultGenres.join(", "));
-    } else {
-      parts.push(`${selectedDefaultGenres.length} genres`);
-    }
-    if (defaultDrawSettings.includeUnknownGenres) parts.push("Unknown");
-    return parts.filter(Boolean).join(" • ");
-  }, [
-    defaultDrawSettings.includeUnknownGenres,
-    defaultDrawSettings.selectedGenres,
-    selectedDefaultGenres,
-  ]);
-  const defaultRuntimeSummary = useMemo(() => {
-    const base = `${defaultDrawSettings.runtimeMinMinutes}-${defaultDrawSettings.runtimeMaxMinutes} min`;
-    return defaultDrawSettings.includeUnknownRuntime ? `${base} • Unknown` : base;
-  }, [
-    defaultDrawSettings.includeUnknownRuntime,
-    defaultDrawSettings.runtimeMaxMinutes,
-    defaultDrawSettings.runtimeMinMinutes,
-  ]);
-
-  const streamingTileSummary = useMemo(() => {
-    if (!hasServices) return "No services picked yet";
-    const count = `${streamingServices.length} service${streamingServices.length === 1 ? "" : "s"}`;
-    if (!defaultDrawSettings.prioritizeStreaming) return `${count} • Not prioritized`;
-    return `${count} • ${defaultDrawSettings.useStreamingRank ? "Ranked priority" : "Equal priority"}`;
-  }, [
-    defaultDrawSettings.prioritizeStreaming,
-    defaultDrawSettings.useStreamingRank,
-    hasServices,
-    streamingServices.length,
-  ]);
-  const filtersTileSummary = `${defaultRatingSummary} • ${defaultGenreSummary} • ${defaultRuntimeSummary}`;
+  const streamingTileSummary = hasServices
+    ? `${streamingServices.length} service${streamingServices.length === 1 ? "" : "s"} • ${streamingServices[0]} first`
+    : "No services picked yet";
   const playbackTileSummary = defaultDrawSettings.theaterModeEnabled
     ? `Theater mode on • ${defaultDrawSettings.theaterTrailerCount} preview${
         defaultDrawSettings.theaterTrailerCount === 1 ? "" : "s"
@@ -253,12 +157,18 @@ export default function UserSettings() {
   }, [location.hash]);
 
   const settingsSnapshot = useMemo(
-    () => ({ streamingServices, defaultDrawSettings }),
+    () => ({
+      streamingServices,
+      defaultDrawSettings: {
+        enablePreferredWebLaunch: defaultDrawSettings.enablePreferredWebLaunch,
+        theaterModeEnabled: defaultDrawSettings.theaterModeEnabled,
+        theaterTrailerCount: defaultDrawSettings.theaterTrailerCount,
+      },
+    }),
     [streamingServices, defaultDrawSettings]
   );
 
-  // Writes only the halves that actually changed, so flipping one draw toggle
-  // does not rewrite the streaming list as well.
+  // Only playback keys are edited here; the dashboard owns the draw filters.
   const persistSettings = useCallback(
     async (next, previous) => {
       const pendingWrites = [];
@@ -279,17 +189,20 @@ export default function UserSettings() {
   const { status: saveStatus, error: saveError, retry: retrySave } = useAutosave({
     value: settingsSnapshot,
     save: persistSettings,
-    enabled: !loading,
+    enabled: !loading && !loadError,
   });
 
-  const handleResetDefaults = () => {
-    // Autosave persists this straight away, so confirm before discarding a
-    // hand-tuned set of filters.
+  const handleResetPlayback = () => {
     const confirmed = window.confirm(
-      "Reset your draw filters, streaming preferences, and TV playback back to their defaults? Your service list is kept."
+      "Reset web launch and TV playback? Your service list, ranking, and remembered draw filters are kept."
     );
     if (!confirmed) return;
-    setDefaultDrawSettings(normalizeDefaultDrawSettings(DEFAULT_DRAW_SETTINGS));
+    setDefaultDrawSettings({
+      ...defaultDrawSettings,
+      enablePreferredWebLaunch: DEFAULT_DRAW_SETTINGS.enablePreferredWebLaunch,
+      theaterModeEnabled: DEFAULT_DRAW_SETTINGS.theaterModeEnabled,
+      theaterTrailerCount: DEFAULT_DRAW_SETTINGS.theaterTrailerCount,
+    });
   };
 
   // Show loading indicator while fetching data
@@ -297,6 +210,18 @@ export default function UserSettings() {
     return (
       <div className="page-container py-8">
         <div className="panel text-sm text-slate-400" role="status">Loading...</div>
+      </div>
+    );
+  }
+
+  if (loadError) {
+    return (
+      <div className="page-container py-8">
+        <div className="status-error flex flex-wrap items-center justify-between gap-3" role="alert">
+          <p>Couldn't load your preferences. Retry before making changes.</p>
+          <button type="button" className="btn btn-secondary" onClick={reloadStreamingServices}>Retry</button>
+          <button type="button" className="btn btn-ghost" onClick={() => navigate(-1)}>Back</button>
+        </div>
       </div>
     );
   }
@@ -310,7 +235,7 @@ export default function UserSettings() {
               <p className="eyebrow">Your preferences</p>
               <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">Settings</h1>
               <p className="mt-2 max-w-md text-sm text-slate-400">
-                These follow you into every bowl — they prefill each draw and shape what the TV app plays.
+                Choose your streaming services and playback preferences. Draw filters are saved from each bowl’s Filters button.
               </p>
             </div>
             <div className="flex flex-col items-start gap-3 min-[420px]:flex-row min-[420px]:items-center sm:flex-col sm:items-end">
@@ -325,7 +250,6 @@ export default function UserSettings() {
             className="mt-6"
             items={[
               { href: "#streaming-services", label: "Streaming", value: streamingTileSummary },
-              { href: "#draw-defaults", label: "Draw filters", value: filtersTileSummary },
               { href: "#tv-playback", label: "TV playback", value: playbackTileSummary },
             ]}
           />
@@ -554,45 +478,7 @@ export default function UserSettings() {
             </div>
 
             <div className="mt-6 space-y-4 border-t border-slate-800 pt-5">
-              <h3 className="eyebrow">How draws use them</h3>
-              <SettingToggle
-                id="default-prioritize-streaming"
-                name="default_prioritize_streaming"
-                ariaLabel="Default prioritize streaming services"
-                label="Prioritize my streaming services"
-                description="Prefer titles available on your saved services."
-                note={hasServices ? "" : "Pick at least one service to turn this on."}
-                checked={defaultDrawSettings.prioritizeStreaming}
-                disabled={!hasServices}
-                onChange={(event) => {
-                  const checked = event.target.checked;
-                  setDefaultDrawSettings({
-                    ...defaultDrawSettings,
-                    prioritizeStreaming: checked,
-                    useStreamingRank: checked ? true : defaultDrawSettings.useStreamingRank,
-                  });
-                }}
-              />
-
-              {defaultDrawSettings.prioritizeStreaming && hasServices && (
-                <div className="border-t border-slate-800 pt-4">
-                  <SettingToggle
-                    id="default-use-streaming-rank"
-                    name="default_use_streaming_rank"
-                    ariaLabel="Default use streaming rank"
-                    label="Follow my ranking order"
-                    description="If off, every matching service is treated equally."
-                    checked={defaultDrawSettings.useStreamingRank}
-                    onChange={(event) =>
-                      setDefaultDrawSettings({
-                        ...defaultDrawSettings,
-                        useStreamingRank: event.target.checked,
-                      })
-                    }
-                  />
-                </div>
-              )}
-
+              <h3 className="eyebrow">Playback handoff</h3>
               <div className="border-t border-slate-800 pt-4">
                 <SettingToggle
                   id="enable-preferred-web-launch"
@@ -611,255 +497,6 @@ export default function UserSettings() {
                   }
                 />
               </div>
-            </div>
-          </section>
-
-          <section id="draw-defaults" tabIndex={-1} className="panel scroll-mt-24" aria-labelledby="draw-defaults-heading">
-            <h2 id="draw-defaults-heading" className="section-title">Draw filter defaults</h2>
-            <p className="mt-1 text-sm text-slate-400">
-              Every bowl you open starts from these filters. You can still change them for a single draw.
-            </p>
-
-            <div className="mt-5 space-y-2.5">
-              <SettingDisclosure
-                id="default-rating-settings"
-                title="Ratings"
-                editLabel="ratings"
-                summary={defaultRatingSummary}
-                open={showDefaultRatings}
-                onToggle={() => setShowDefaultRatings((prev) => !prev)}
-              >
-                <FilterChipSelect
-                  ariaLabel="Default rating controls"
-                  options={MPAA_RATING_OPTIONS}
-                  selectedValues={defaultDrawSettings.selectedRatings}
-                  optionAriaLabelPrefix="Default rating"
-                  onToggle={(rating) =>
-                    setDefaultDrawSettings({
-                      ...defaultDrawSettings,
-                      selectedRatings: defaultDrawSettings.selectedRatings.includes(rating)
-                        ? defaultDrawSettings.selectedRatings.filter((value) => value !== rating)
-                        : [...defaultDrawSettings.selectedRatings, rating],
-                    })
-                  }
-                  onOnly={(rating) =>
-                    setDefaultDrawSettings({
-                      ...defaultDrawSettings,
-                      selectedRatings: [rating],
-                    })
-                  }
-                  onSelectAll={() =>
-                    setDefaultDrawSettings({
-                      ...defaultDrawSettings,
-                      selectedRatings: MPAA_RATING_OPTIONS,
-                    })
-                  }
-                  onClear={() =>
-                    setDefaultDrawSettings({
-                      ...defaultDrawSettings,
-                      selectedRatings: [],
-                    })
-                  }
-                  unknownEnabled={defaultDrawSettings.includeUnknownRatings}
-                  unknownLabel="Unrated/Unknown"
-                  onToggleUnknown={(value) =>
-                    setDefaultDrawSettings({
-                      ...defaultDrawSettings,
-                      includeUnknownRatings: value,
-                    })
-                  }
-                />
-              </SettingDisclosure>
-
-              <SettingDisclosure
-                id="default-genre-settings"
-                title="Genres"
-                editLabel="genres"
-                summary={defaultGenreSummary}
-                open={showDefaultGenres}
-                onToggle={() => setShowDefaultGenres((prev) => !prev)}
-              >
-                <p className="mb-2 text-sm text-slate-400">
-                  Choose which genres should be included by default.
-                </p>
-                <FilterChipSelect
-                  ariaLabel="Default genre controls"
-                  options={DRAW_GENRE_OPTIONS}
-                  selectedValues={selectedDefaultGenres}
-                  optionAriaLabelPrefix="Default genre"
-                  onToggle={(genre) => {
-                    const base = Array.isArray(defaultDrawSettings.selectedGenres)
-                      ? defaultDrawSettings.selectedGenres
-                      : DRAW_GENRE_OPTIONS;
-                    setDefaultDrawSettings({
-                      ...defaultDrawSettings,
-                      selectedGenres: base.includes(genre)
-                        ? base.filter((value) => value !== genre)
-                        : [...base, genre],
-                    });
-                  }}
-                  onOnly={(genre) =>
-                    setDefaultDrawSettings({
-                      ...defaultDrawSettings,
-                      selectedGenres: [genre],
-                    })
-                  }
-                  onSelectAll={() =>
-                    setDefaultDrawSettings({
-                      ...defaultDrawSettings,
-                      selectedGenres: null,
-                    })
-                  }
-                  onClear={() =>
-                    setDefaultDrawSettings({
-                      ...defaultDrawSettings,
-                      selectedGenres: [],
-                    })
-                  }
-                  unknownEnabled={defaultDrawSettings.includeUnknownGenres}
-                  unknownLabel="Uncategorized/Unknown"
-                  onToggleUnknown={(value) =>
-                    setDefaultDrawSettings({
-                      ...defaultDrawSettings,
-                      includeUnknownGenres: value,
-                    })
-                  }
-                />
-              </SettingDisclosure>
-
-              <SettingDisclosure
-                id="default-runtime-settings"
-                title="Length"
-                editLabel="runtime"
-                summary={defaultRuntimeSummary}
-                open={showDefaultRuntime}
-                onToggle={() => setShowDefaultRuntime((prev) => !prev)}
-              >
-                <p className="text-sm text-slate-400">
-                  Set the acceptable runtime range to prefill bowl draw filters.
-                </p>
-                <div className="mt-3 grid gap-3 sm:grid-cols-2">
-                  <label htmlFor="default-draw-runtime-min" className="text-sm text-slate-300">
-                    Minimum minutes
-                    <input
-                      id="default-draw-runtime-min"
-                      name="default_draw_runtime_min"
-                      aria-label="default_draw_runtime_min"
-                      type="number"
-                      min={RUNTIME_FILTER_MIN_MINUTES}
-                      max={defaultDrawSettings.runtimeMaxMinutes}
-                      value={defaultDrawSettings.runtimeMinMinutes}
-                      onChange={(event) => {
-                        const value = Number.parseInt(event.target.value || "0", 10);
-                        if (!Number.isFinite(value)) return;
-                        setDefaultDrawSettings({
-                          ...defaultDrawSettings,
-                          runtimeMinMinutes: Math.max(
-                            RUNTIME_FILTER_MIN_MINUTES,
-                            Math.min(defaultDrawSettings.runtimeMaxMinutes, value)
-                          ),
-                        });
-                      }}
-                      className="input-field mt-1 w-full"
-                    />
-                  </label>
-                  <label htmlFor="default-draw-runtime-max" className="text-sm text-slate-300">
-                    Maximum minutes
-                    <input
-                      id="default-draw-runtime-max"
-                      name="default_draw_runtime_max"
-                      aria-label="default_draw_runtime_max"
-                      type="number"
-                      min={defaultDrawSettings.runtimeMinMinutes}
-                      max={RUNTIME_FILTER_MAX_MINUTES}
-                      value={defaultDrawSettings.runtimeMaxMinutes}
-                      onChange={(event) => {
-                        const value = Number.parseInt(event.target.value || "0", 10);
-                        if (!Number.isFinite(value)) return;
-                        setDefaultDrawSettings({
-                          ...defaultDrawSettings,
-                          runtimeMaxMinutes: Math.max(
-                            defaultDrawSettings.runtimeMinMinutes,
-                            Math.min(RUNTIME_FILTER_MAX_MINUTES, value)
-                          ),
-                        });
-                      }}
-                      className="input-field mt-1 w-full"
-                    />
-                  </label>
-                </div>
-                <div className="mt-3 space-y-3">
-                  <label htmlFor="default-draw-runtime-min-slider" className="block text-sm text-slate-300">
-                    Minimum runtime
-                    <input
-                      id="default-draw-runtime-min-slider"
-                      name="default_draw_runtime_min_slider"
-                      aria-label="default_draw_runtime_min_slider"
-                      type="range"
-                      min={RUNTIME_FILTER_MIN_MINUTES}
-                      max={defaultDrawSettings.runtimeMaxMinutes}
-                      value={defaultDrawSettings.runtimeMinMinutes}
-                      onChange={(event) =>
-                        setDefaultDrawSettings({
-                          ...defaultDrawSettings,
-                          runtimeMinMinutes: Math.max(
-                            RUNTIME_FILTER_MIN_MINUTES,
-                            Math.min(
-                              defaultDrawSettings.runtimeMaxMinutes,
-                              Number.parseInt(event.target.value || "0", 10) || RUNTIME_FILTER_MIN_MINUTES
-                            )
-                          ),
-                        })
-                      }
-                      className="mt-1 w-full"
-                    />
-                  </label>
-                  <label htmlFor="default-draw-runtime-max-slider" className="block text-sm text-slate-300">
-                    Maximum runtime
-                    <input
-                      id="default-draw-runtime-max-slider"
-                      name="default_draw_runtime_max_slider"
-                      aria-label="default_draw_runtime_max_slider"
-                      type="range"
-                      min={defaultDrawSettings.runtimeMinMinutes}
-                      max={RUNTIME_FILTER_MAX_MINUTES}
-                      value={defaultDrawSettings.runtimeMaxMinutes}
-                      onChange={(event) =>
-                        setDefaultDrawSettings({
-                          ...defaultDrawSettings,
-                          runtimeMaxMinutes: Math.max(
-                            defaultDrawSettings.runtimeMinMinutes,
-                            Math.min(
-                              RUNTIME_FILTER_MAX_MINUTES,
-                              Number.parseInt(event.target.value || "0", 10) || RUNTIME_FILTER_MAX_MINUTES
-                            )
-                          ),
-                        })
-                      }
-                      className="mt-1 w-full"
-                    />
-                  </label>
-                </div>
-                <label
-                  htmlFor="default-draw-runtime-unknown"
-                  className="mt-3 inline-flex items-center gap-1.5 text-sm text-slate-300"
-                >
-                  <input
-                    id="default-draw-runtime-unknown"
-                    name="default_draw_runtime_unknown"
-                    aria-label="Default include unknown runtime"
-                    type="checkbox"
-                    checked={defaultDrawSettings.includeUnknownRuntime}
-                    onChange={(event) =>
-                      setDefaultDrawSettings({
-                        ...defaultDrawSettings,
-                        includeUnknownRuntime: event.target.checked,
-                      })
-                    }
-                  />
-                  Include unknown runtime
-                </label>
-              </SettingDisclosure>
             </div>
           </section>
 
@@ -916,11 +553,10 @@ export default function UserSettings() {
 
           <div className="panel-muted flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-slate-400">
-              Put your draw filters, streaming preferences, and TV playback back the way they shipped. Your service
-              list is kept.
+              Reset web launch and TV playback. Your service list, ranking, and remembered draw filters are kept.
             </p>
-            <button type="button" className="btn btn-danger sm:shrink-0" onClick={handleResetDefaults}>
-              Reset to defaults
+            <button type="button" className="btn btn-danger sm:shrink-0" onClick={handleResetPlayback}>
+              Reset playback
             </button>
           </div>
         </div>

@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import HoldToDrawButton from "../components/HoldToDrawButton";
 import BowlStatLine from "../components/BowlStatLine";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
@@ -10,6 +10,8 @@ import DrawMethodInfoModal from "../components/DrawMethodInfoModal";
 import useBowl from "../hooks/useBowl";
 import useDrawProviderLinks from "../hooks/useDrawProviderLinks";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
+import useAutosave from "../hooks/useAutosave";
+import AutosaveStatus from "../components/AutosaveStatus";
 import useBowlStreamingMatches, {
   STREAMING_MATCH_STATUS,
 } from "../hooks/useBowlStreamingMatches";
@@ -73,6 +75,7 @@ export default function BowlDashboard() {
     const [runtimeMaxMinutes, setRuntimeMaxMinutes] = useState(RUNTIME_FILTER_MAX_MINUTES);
     const [includeUnknownRuntime, setIncludeUnknownRuntime] = useState(true);
     const [showDrawFilters, setShowDrawFilters] = useState(false);
+    const filterDialogRef = useRef(null);
     const [showRatingFilters, setShowRatingFilters] = useState(false);
     const [showGenreFilters, setShowGenreFilters] = useState(false);
     const [showRuntimeFilters, setShowRuntimeFilters] = useState(false);
@@ -96,7 +99,60 @@ export default function BowlDashboard() {
       streamingServices: userStreamingServices,
       defaultDrawSettings,
       loading: isLoadingUserPreferences,
+      loadError: preferencesLoadError,
+      reloadStreamingServices: reloadUserPreferences,
+      saveDefaultDrawSettings,
     } = useUserStreamingServices();
+
+    const rememberedFilters = useMemo(() => ({
+      prioritizeStreaming,
+      useStreamingRank,
+      selectedRatings,
+      includeUnknownRatings,
+      selectedGenres,
+      includeUnknownGenres,
+      runtimeMinMinutes,
+      runtimeMaxMinutes,
+      includeUnknownRuntime,
+    }), [prioritizeStreaming, useStreamingRank, selectedRatings, includeUnknownRatings,
+      selectedGenres, includeUnknownGenres, runtimeMinMinutes, runtimeMaxMinutes, includeUnknownRuntime]);
+    const { status: filterSaveStatus, retry: retryFilterSave } = useAutosave({
+      value: rememberedFilters,
+      save: saveDefaultDrawSettings,
+      enabled: didApplyDefaultDrawSettings && !isLoadingUserPreferences && !preferencesLoadError,
+    });
+
+    useEffect(() => {
+      if (!showDrawFilters) return;
+      const dialog = filterDialogRef.current;
+      const previousFocus = document.activeElement;
+      const previousOverflow = document.body.style.overflow;
+      document.body.style.overflow = "hidden";
+      dialog?.focus();
+      const handleKeyDown = (event) => {
+        if (event.key === "Escape") {
+          event.preventDefault();
+          setShowDrawFilters(false);
+        }
+        if (event.key !== "Tab") return;
+        const controls = [...dialog.querySelectorAll('button:not(:disabled), input:not(:disabled), a[href], select:not(:disabled)')];
+        const first = controls[0];
+        const last = controls.at(-1);
+        if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+          event.preventDefault();
+          last?.focus();
+        } else if (!event.shiftKey && document.activeElement === last) {
+          event.preventDefault();
+          first?.focus();
+        }
+      };
+      document.addEventListener("keydown", handleKeyDown);
+      return () => {
+        document.body.style.overflow = previousOverflow;
+        document.removeEventListener("keydown", handleKeyDown);
+        if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
+      };
+    }, [showDrawFilters]);
 
     const isDrawFilteredByServices = prioritizeStreaming && userStreamingServices.length > 0;
     const {
@@ -165,6 +221,10 @@ export default function BowlDashboard() {
       const available = new Set(availableDrawGenres);
       return selectedGenres.filter((genre) => available.has(genre));
     }, [selectedGenres, availableDrawGenres]);
+    const drawGenreOptions = useMemo(
+      () => [...new Set([...availableDrawGenres, ...(selectedGenres || [])])].sort((a, b) => a.localeCompare(b)),
+      [availableDrawGenres, selectedGenres]
+    );
     const activeRatingSelections = useMemo(
       () =>
         selectedRatings.filter((rating) => MPAA_RATING_OPTIONS.includes(rating)),
@@ -184,7 +244,7 @@ export default function BowlDashboard() {
       return parts.join(" • ");
     }, [selectedRatings, includeUnknownRatings]);
     const genreSummary = useMemo(() => {
-      const activeGenres = Array.isArray(selectedGenres) ? selectedDrawGenres : availableDrawGenres;
+      const activeGenres = Array.isArray(selectedGenres) ? selectedGenres : availableDrawGenres;
       if (activeGenres.length === 0 && !includeUnknownGenres) return "No genres selected";
       if (!Array.isArray(selectedGenres) && includeUnknownGenres) return "All genres";
       const parts = [];
@@ -197,7 +257,7 @@ export default function BowlDashboard() {
       }
       if (includeUnknownGenres) parts.push("Unknown");
       return parts.filter(Boolean).join(" • ");
-    }, [selectedGenres, selectedDrawGenres, availableDrawGenres, includeUnknownGenres]);
+    }, [selectedGenres, availableDrawGenres, includeUnknownGenres]);
     const runtimeSummary = useMemo(() => {
       const base = `${runtimeMinMinutes}-${runtimeMaxMinutes} min`;
       return includeUnknownRuntime ? `${base} • Unknown` : base;
@@ -353,7 +413,7 @@ export default function BowlDashboard() {
     ]);
 
     useEffect(() => {
-      if (didApplyDefaultDrawSettings || isLoadingUserPreferences) return;
+      if (didApplyDefaultDrawSettings || isLoadingUserPreferences || preferencesLoadError) return;
 
       const defaults = defaultDrawSettings || DEFAULT_DRAW_SETTINGS;
       setPrioritizeStreaming(Boolean(defaults.prioritizeStreaming));
@@ -362,11 +422,11 @@ export default function BowlDashboard() {
       setIncludeUnknownRatings(Boolean(defaults.includeUnknownRatings));
       setSelectedGenres(defaults.selectedGenres ?? null);
       setIncludeUnknownGenres(Boolean(defaults.includeUnknownGenres));
-      setRuntimeMinMinutes(defaults.runtimeMinMinutes || DEFAULT_DRAW_SETTINGS.runtimeMinMinutes);
-      setRuntimeMaxMinutes(defaults.runtimeMaxMinutes || DEFAULT_DRAW_SETTINGS.runtimeMaxMinutes);
+      setRuntimeMinMinutes(defaults.runtimeMinMinutes ?? DEFAULT_DRAW_SETTINGS.runtimeMinMinutes);
+      setRuntimeMaxMinutes(defaults.runtimeMaxMinutes ?? DEFAULT_DRAW_SETTINGS.runtimeMaxMinutes);
       setIncludeUnknownRuntime(Boolean(defaults.includeUnknownRuntime));
       setDidApplyDefaultDrawSettings(true);
-    }, [defaultDrawSettings, didApplyDefaultDrawSettings, isLoadingUserPreferences]);
+    }, [defaultDrawSettings, didApplyDefaultDrawSettings, isLoadingUserPreferences, preferencesLoadError]);
 
     useEffect(() => {
       let cancelled = false;
@@ -590,6 +650,8 @@ return (
                     className={`icon-btn relative ${showDrawFilters ? "border-rose-700 text-rose-300" : ""}`}
                     aria-label={showDrawFilters ? "Hide filters" : "Filters"}
                     title={showDrawFilters ? "Hide filters" : "Filters"}
+                    aria-haspopup="dialog"
+                    aria-expanded={showDrawFilters}
                     data-filter-active={isFilterEngaged ? "true" : undefined}
                   >
                     <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
@@ -613,6 +675,16 @@ return (
             )}
             {!isLoading && errorMessage && (
               <div className="status-error mb-3">{errorMessage}</div>
+            )}
+            {!showDrawFilters && (preferencesLoadError || filterSaveStatus === "error") && (
+              <div className="status-error mb-3 flex flex-wrap items-center justify-between gap-3" role="alert">
+                <p>{preferencesLoadError
+                  ? "Couldn't load your saved filters. Retry before changing them."
+                  : "Your filters work for this draw, but couldn't be saved for next time."}</p>
+                <button type="button" className="btn btn-secondary" onClick={preferencesLoadError ? reloadUserPreferences : retryFilterSave}>
+                  Retry
+                </button>
+              </div>
             )}
 
             <section className="page-hero my-3">
@@ -687,13 +759,15 @@ return (
                 onClick={() => setShowDrawFilters(false)}
               >
                 <div
-                  className="modal-surface flex max-h-[calc(100dvh-5.5rem)] w-full max-w-xl flex-col overflow-hidden rounded-t-none sm:max-w-md sm:rounded-3xl"
+                  className="modal-surface flex max-h-[calc(100dvh-5.5rem)] w-full max-w-xl flex-col overflow-clip rounded-t-none sm:max-w-md sm:rounded-3xl"
                   role="dialog"
                   aria-modal="true"
                   aria-labelledby="draw-filters-title"
+                  ref={filterDialogRef}
+                  tabIndex={-1}
                   onClick={(event) => event.stopPropagation()}
                 >
-                  <div className="flex items-start justify-between gap-3 border-b border-slate-800 px-4 py-3.5 sm:px-5">
+                  <div className="flex shrink-0 items-start justify-between gap-3 border-b border-slate-800 px-4 py-3.5 sm:px-5">
                     <div>
                       <h3 id="draw-filters-title" className="text-lg font-semibold text-slate-100">
                         Narrow the draw
@@ -755,11 +829,17 @@ return (
                       type="button"
                       onClick={resetDrawFilters}
                       className="btn btn-ghost px-3 py-1.5 text-sm text-rose-300"
+                      disabled={!didApplyDefaultDrawSettings || isLoadingUserPreferences || Boolean(preferencesLoadError)}
                     >
                       Reset
                     </button>
                   </div>
-                  <div className="flex-1 overflow-y-auto px-4 py-3.5 sm:px-5">
+                  <div className="min-h-0 min-w-0 flex-1 overflow-y-auto overscroll-contain">
+                    <fieldset
+                      className="min-w-0 px-4 py-3.5 sm:px-5 disabled:opacity-50"
+                      disabled={!didApplyDefaultDrawSettings || isLoadingUserPreferences || Boolean(preferencesLoadError)}
+                      aria-label="Draw filters"
+                    >
                       <div className="flex items-center justify-between gap-3">
                         <div className="text-left">
                           <p className="text-base font-semibold text-slate-100">Streaming Match Preferences</p>
@@ -874,11 +954,11 @@ return (
                         </button>
                         {showGenreFilters && (
                           <div id="draw-genre-filter-panel" className="mt-2">
-                            {availableDrawGenres.length > 0 ? (
+                            {drawGenreOptions.length > 0 ? (
                               <FilterChipSelect
                                 ariaLabel="Draw genre controls"
-                                options={availableDrawGenres}
-                                selectedValues={selectedDrawGenres}
+                                options={drawGenreOptions}
+                                selectedValues={selectedGenres ?? availableDrawGenres}
                                 optionAriaLabelPrefix="Draw genre"
                                 onToggle={(genre) =>
                                   setSelectedGenres((prev) => {
@@ -920,7 +1000,7 @@ return (
                         {showRuntimeFilters && (
                           <div id="draw-runtime-filter-panel" className="mt-2 rounded-lg border border-slate-700 bg-slate-900 p-3">
                             <p className="text-sm text-slate-300">
-                              Set the acceptable runtime range for this draw.
+                              Set the acceptable runtime range.
                             </p>
                             <div className="mt-3 grid gap-3 sm:grid-cols-2">
                               <label htmlFor="draw-runtime-min" className="text-sm text-slate-300">
@@ -1025,8 +1105,31 @@ return (
                           Add services in Settings to enable prioritized draw.
                         </p>
                       )}
+                    </fieldset>
                   </div>
-                  <div className="border-t border-slate-800 px-4 py-3 sm:px-5">
+                  <div className="shrink-0 border-t border-slate-800 px-4 py-3 sm:px-5">
+                    <div className="mb-3">
+                      {preferencesLoadError ? (
+                        <div role="alert" className="text-sm text-rose-300">
+                          Couldn't load your saved filters.
+                          <button type="button" className="ml-2 underline" onClick={reloadUserPreferences}>Retry</button>
+                        </div>
+                      ) : isLoadingUserPreferences ? (
+                        <p role="status" className="text-sm text-slate-400">Loading saved filters…</p>
+                      ) : (
+                        <>
+                          <AutosaveStatus status={filterSaveStatus} />
+                          {filterSaveStatus === "error" ? (
+                            <div role="alert" className="mt-1 text-sm text-rose-300">
+                              These filters still work for this draw. Retry to remember them.
+                              <button type="button" className="ml-2 underline" onClick={retryFilterSave}>Retry</button>
+                            </div>
+                          ) : (
+                            <p className="mt-0.5 text-xs text-slate-400">Remembered across your bowls and TV.</p>
+                          )}
+                        </>
+                      )}
+                    </div>
                     <button
                       type="button"
                       onClick={() => setShowDrawFilters(false)}
