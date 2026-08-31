@@ -41,7 +41,7 @@ export function getYouTubeVideoId(trailer) {
   return match?.[1] ? decodeURIComponent(match[1]) : "";
 }
 
-export function getAutoplayTrailerUrl(trailer) {
+export function getAutoplayTrailerUrl(trailer, { preroll = false } = {}) {
   const videoId = getYouTubeVideoId(trailer);
   if (!videoId) return trailer?.embedUrl || "";
 
@@ -53,5 +53,16 @@ export function getAutoplayTrailerUrl(trailer) {
   url.searchParams.set("rel", "0");
   url.searchParams.set("playsinline", "0");
   url.searchParams.set("origin", window.location.origin);
+
+  // Removing our own controls does not stop the room skipping ahead: the embed
+  // ships YouTube's, and with disablekb unset its keyboard shortcuts are live,
+  // so on a television the D-pad seeks the trailer. Only the pre-roll wants
+  // this — someone who chose "Watch trailer" on the reveal keeps the scrubber.
+  if (preroll) {
+    url.searchParams.set("controls", "0");
+    url.searchParams.set("disablekb", "1");
+    url.searchParams.set("fs", "0");
+    url.searchParams.set("iv_load_policy", "3");
+  }
   return url.toString();
 }
