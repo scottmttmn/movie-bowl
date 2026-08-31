@@ -4,6 +4,11 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Implemented, pending release
 
+- The add dialog now shows movies added this session, with inline comments
+  and confirmed removal on each row. The old next-movie comment field is
+  removed from signed-in bowl adds; public-link and manual-history forms are
+  unchanged. Verify physical-phone keyboard behavior before release. See
+  the follow-up in `output/designs/default-bowl-and-global-add-implementation.md`.
 - Default bowls and global Add are committed and pushed. Migration
   `20260831120000_add_user_bowl_defaults.sql` was applied on August 31, 2026.
   Stars, stable Home routing, the shared plus/filmstrip add dialog, explicit
@@ -73,10 +78,6 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   the draw method registry, and curation for bowls that have outgrown their own
   memory. Brainstorm only — no specs, no commitments. See
   `output/designs/future-ideas.md`.
-- Movie comments: let contributors optionally record why a movie belongs in
-  the bowl, then reveal that context with the draw and retain it in watched
-  details and manual history. Implementation-ready plan in
-  `output/designs/movie-comments.md`.
 - TV Theater mode: trailer pre-roll (phase 1) and provider title links with the
   voice card (phase 2) are implemented. Provider lookups default off until the
   migration and Watchmode configuration are deployed; activation instructions

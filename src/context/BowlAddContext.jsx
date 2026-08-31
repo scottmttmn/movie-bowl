@@ -1,13 +1,14 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import useUserBowls from "../hooks/useUserBowls";
 import { bowlMovieService, addResult } from "../lib/addBowlMovie";
+import { bowlMovieActions } from "../lib/bowlMovieActions";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { notifyBowlChange } from "../lib/bowlChanges";
 import { describeNetworkError } from "../utils/networkErrors";
 
 const BowlAddContext = createContext(null);
-const initial = { open: false, id: 0, initializing: false, initializationError: null, destination: null, pending: false, result: null, operation: null };
+const initial = { open: false, id: 0, initializing: false, initializationError: null, destination: null, pending: false, result: null, operation: null, additions: [], actionAnnouncement: "" };
 
 export function BowlAddProvider({ children }) {
   const { userId, refresh, bowls, loading, error } = useUserBowls();
@@ -30,7 +31,7 @@ export function BowlAddProvider({ children }) {
     // The fixed header must not open a competing dialog during a draw/reveal.
     if (!latest.current.open && document.querySelector('[aria-modal="true"], [data-blocks-global-add]')) return;
     setInvoker(document.activeElement);
-    if (latest.current.pending || latest.current.result?.code === "outcome_unknown") {
+    if (latest.current.pending || latest.current.result?.code === "outcome_unknown" || latest.current.additions.some((entry) => entry.pending)) {
       update({ open: true });
       return;
     }
@@ -60,7 +61,11 @@ export function BowlAddProvider({ children }) {
 
   const finish = useCallback((operation, result) => {
     if (!mounted.current) return;
-    update({ pending: false, operation, result });
+    const additions = result.ok && result.movie?.id
+      ? [{ movie: { ...operation.movie, ...result.movie }, bowlId: operation.bowlId, bowlName: operation.bowlName,
+        pending: null, error: null }, ...latest.current.additions.filter((entry) => entry.movie.id !== result.movie.id)]
+      : latest.current.additions;
+    update({ pending: false, operation, result, additions });
     if (result.ok || result.code === "access_lost") void refresh({ force: true });
   }, [refresh, update]);
 
@@ -107,12 +112,42 @@ export function BowlAddProvider({ children }) {
     return result;
   }, [update, finish, userId]);
 
+  const changeAddedMovie = useCallback(async (movieId, action, note) => {
+    const entry = latest.current.additions.find((item) => item.movie.id === movieId);
+    if (!entry || entry.pending) return addResult(false, "pending", "This movie is still being updated.");
+    if (!bowls.some((bowl) => bowl.id === entry.bowlId)) {
+      return addResult(false, "access_lost", "You no longer have access to this bowl.");
+    }
+    const sessionId = latest.current.id;
+    const current = () => mounted.current && latest.current.id === sessionId;
+    const patchEntry = (patch) => update({ additions: latest.current.additions.map((item) =>
+      item.movie.id === movieId ? { ...item, ...patch } : item) });
+    patchEntry({ pending: action, error: null });
+    const result = await bowlMovieActions[action === "comment" ? "updateNote" : "remove"]({
+      accountId: userId, bowlId: entry.bowlId, movieId, note, isCurrent: current,
+    });
+    if (!current()) return result;
+    if (result.ok && action === "remove") {
+      update({ additions: latest.current.additions.filter((item) => item.movie.id !== movieId),
+        actionAnnouncement: `Removed ${entry.movie.title} from ${entry.bowlName}`,
+        ...(latest.current.operation?.submissionId === movieId ? { result: null } : {}) });
+    } else {
+      patchEntry({ pending: null, error: result.ok ? null : result,
+        ...(result.ok ? { movie: { ...entry.movie, ...result.movie } } : {}) });
+      if (result.ok) update({ actionAnnouncement: `Comment saved for ${entry.movie.title}` });
+    }
+    return result;
+  }, [bowls, userId, update]);
+
   const value = useMemo(() => ({ ...session, bowlsLoading: loading, bowlsError: error || session.initializationError,
+    actionsPending: session.additions.some((entry) => entry.pending),
+    updateAddedMovieNote: (id, note) => changeAddedMovie(id, "comment", note),
+    removeAddedMovie: (id) => changeAddedMovie(id, "remove"),
     openGlobalAdd: () => open(), openBowlAdd: open, close, setDestination, submit, checkStatus,
     getInvoker, clearFeedback: () => {
       if (latest.current.result?.code !== "outcome_unknown") update({ result: null });
     },
-  }), [session, loading, error, open, close, setDestination, submit, checkStatus, update, getInvoker]);
+  }), [session, loading, error, open, close, setDestination, submit, checkStatus, update, getInvoker, changeAddedMovie]);
   return <BowlAddContext.Provider value={value}>{children}</BowlAddContext.Provider>;
 }
 

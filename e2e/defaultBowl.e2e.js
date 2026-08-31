@@ -76,13 +76,12 @@ test("five bowls scroll above search and remain usable in narrow, short viewport
   await page.screenshot({ path: testInfo.outputPath("selector-short-320.png") });
 });
 
-test("movie details stay in the dialog and preserve the search and comment on Back", async ({ page, backend }, testInfo) => {
+test("movie details preserve search on Back, and comments are added after the movie", async ({ page, backend }, testInfo) => {
   seed(backend); backend.state.tmdbSearchResults = [{ id: 42, title: "The Feature", release_date: "2026-01-01" }];
   await backend.authenticate(page); await page.goto("/bowls");
   await page.getByRole("button", { name: "Add a movie", exact: true }).click();
   await page.getByPlaceholder("Search movies...").fill("Feature");
-  await page.getByRole("button", { name: "Comment (optional)" }).click();
-  await page.getByRole("textbox", { name: "Comment (optional)" }).fill("Save this comment");
+  await expect(page.getByRole("button", { name: "Comment (optional)" })).toHaveCount(0);
   await page.getByRole("button", { name: "Details", exact: true }).click();
   await expect(page.getByRole("button", { name: "Add to Friday Night", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Back to search" })).toBeFocused();
@@ -91,12 +90,17 @@ test("movie details stay in the dialog and preserve the search and comment on Ba
   await page.keyboard.press("Escape");
   await expect(page.getByPlaceholder("Search movies...")).toHaveValue("Feature");
   await expect(page.getByPlaceholder("Search movies...")).toBeFocused();
-  await expect(page.getByRole("textbox", { name: "Comment (optional)" })).toHaveValue("Save this comment");
   await page.getByRole("button", { name: "Details", exact: true }).click();
   await page.getByRole("button", { name: "Add to Friday Night", exact: true }).click();
   await expect(page.getByPlaceholder("Search movies...")).toHaveValue("");
   await expect(page.getByPlaceholder("Search movies...")).toBeFocused();
-  expect(backend.state.bowl_movies[0]).toMatchObject({ bowl_id: "default-bowl-0", tmdb_id: 42, note: "Save this comment" });
+  expect(backend.state.bowl_movies[0]).toMatchObject({ bowl_id: "default-bowl-0", tmdb_id: 42, note: null });
+  await page.getByRole("button", { name: "Add comment for The Feature" }).click();
+  await page.getByRole("textbox", { name: "Comment for The Feature" }).fill("Save this comment");
+  await page.getByRole("button", { name: "Save comment", exact: true }).click();
+  await expect(page.getByText("Save this comment", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Edit comment for The Feature" })).toBeFocused();
+  expect(backend.state.bowl_movies[0].note).toBe("Save this comment");
 });
 
 test("closing and reopening during an insert keeps one operation and the original destination", async ({ page, backend }) => {
@@ -166,4 +170,66 @@ test("long duplicate bowl names stay distinguishable without clipping search", a
   await options.getByRole("button", { name: /Family movie nights.*Owner · bowl-1/ }).click();
   await expect(page.getByPlaceholder("Search movies...")).toBeFocused();
   expect(backend.state.defaults["user-smoke"]).toBe("default-bowl-0");
+});
+
+test("session additions scroll, retain their bowls, and support comments and confirmed removal", async ({ page, backend }, testInfo) => {
+  seed(backend); await backend.authenticate(page); await page.setViewportSize({ width: 320, height: 568 });
+  await page.goto("/bowl/default-bowl-0");
+  await page.getByRole("button", { name: "Add a movie", exact: true }).click();
+  await addCustom(page, "The first feature with a very long title that wraps");
+  await chooseButton(page).click();
+  await page.getByRole("button", { name: "Family Movies", exact: true }).click();
+  for (const title of ["Second feature", "Third feature", "Fourth feature", "Fifth feature", "Sixth feature"]) await addCustom(page, title);
+  const list = page.getByRole("list", { name: "Movies added this session" });
+  await expect(list.getByRole("listitem")).toHaveCount(6);
+  await expect(list.getByRole("listitem").first()).toContainText("Sixth feature");
+  await expect(list.getByRole("listitem").last()).toContainText("Friday Night");
+  expect(await page.locator(".bowl-add-scroll").evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true);
+  const firstTitle = "The first feature with a very long title that wraps";
+  await page.getByRole("button", { name: `Add comment for ${firstTitle}`, exact: true }).click();
+  await page.getByRole("textbox", { name: `Comment for ${firstTitle}`, exact: true }).fill("Recommended by Tim at dinner.");
+  await expect(page.getByPlaceholder("Search movies...")).toBeInViewport({ ratio: 1 });
+  await expect(page.getByRole("button", { name: "Close add movie" })).toBeInViewport({ ratio: 1 });
+  expect(await page.locator(".bowl-add-surface").evaluate((node) => node.scrollWidth <= node.clientWidth)).toBe(true);
+  await page.getByRole("button", { name: "Save comment", exact: true }).click();
+  await expect(page.getByText("Recommended by Tim at dinner.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: `Edit comment for ${firstTitle}`, exact: true })).toBeFocused();
+  expect(backend.state.bowl_movies.find((movie) => movie.title === firstTitle)).toMatchObject({ bowl_id: "default-bowl-0", note: "Recommended by Tim at dinner." });
+  await page.screenshot({ path: testInfo.outputPath("session-added-320.png") });
+  await page.getByRole("button", { name: "Remove Sixth feature from Family Movies", exact: true }).click();
+  await page.screenshot({ path: testInfo.outputPath("session-remove-320.png") });
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  expect(backend.state.bowl_movies).toHaveLength(6);
+  await page.getByRole("button", { name: "Remove Sixth feature from Family Movies", exact: true }).click();
+  await page.getByRole("button", { name: "Remove from bowl", exact: true }).click();
+  await expect(list.getByRole("listitem")).toHaveCount(5);
+  expect(backend.state.bowl_movies.some((movie) => movie.title === "Sixth feature")).toBe(false);
+  await expect(page.getByPlaceholder("Search movies...")).toBeFocused();
+  await page.getByRole("button", { name: "Close add movie" }).click();
+  await expect(page.getByRole("button", { name: "Add a movie", exact: true })).toBeFocused();
+  await page.getByRole("button", { name: "Add a movie", exact: true }).click();
+  await expect(page.getByRole("list", { name: "Movies added this session" })).toHaveCount(0);
+  expect(backend.state.bowl_movies).toHaveLength(5);
+});
+
+test("a draw on another device prevents comment edits and removal of a session addition", async ({ page, backend }) => {
+  seed(backend); await backend.authenticate(page); await page.goto("/bowls");
+  await page.getByRole("button", { name: "Add a movie", exact: true }).click();
+  await addCustom(page, "Drawn before editing");
+  await addCustom(page, "Drawn before removal");
+  backend.state.bowl_movies.forEach((movie) => { movie.drawn_at = new Date().toISOString(); });
+  await page.getByRole("button", { name: "Add comment for Drawn before editing" }).click();
+  await page.getByRole("textbox", { name: "Comment for Drawn before editing" }).fill("Keep this draft");
+  await page.getByRole("button", { name: "Save comment", exact: true }).click();
+  await expect(page.getByRole("alert")).toContainText("may already have been drawn");
+  await expect(page.getByRole("textbox", { name: "Comment for Drawn before editing" })).toHaveValue("Keep this draft");
+  await page.getByRole("button", { name: "Cancel", exact: true }).click();
+  await page.getByRole("button", { name: "Remove Drawn before removal from Friday Night" }).click();
+  await page.getByRole("button", { name: "Remove from bowl", exact: true }).click();
+  await expect(page.getByText("This movie is no longer available to remove. It may already have been drawn or removed.", { exact: true })).toBeVisible();
+  await expect(page.getByRole("list", { name: "Movies added this session" }).getByRole("listitem")).toHaveCount(2);
+  expect(backend.state.bowl_movies).toHaveLength(2);
+  expect(backend.state.bowl_movies.every((movie) => movie.note == null)).toBe(true);
+  expect(backend.consoleErrors).toEqual(["Failed to load resource: the server responded with a status of 400 (Bad Request)"]);
+  backend.consoleErrors.length = 0;
 });

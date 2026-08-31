@@ -146,6 +146,7 @@ const mocks = vi.hoisted(() => ({
           return query;
         }),
         then: (resolve) => {
+          if (state.mode === "delete") return resolve({ data: [{ id: mocks.deleteEqFilters.find((filter) => filter.key === "id")?.value }], error: null });
           if (state.mode === "update" && mocks.updateResponses.length > 0) {
             return resolve(mocks.updateResponses.shift());
           }
@@ -232,6 +233,23 @@ describe("useBowl handleDraw integration", () => {
     // A later read can legitimately remove it (for example, a remote draw).
     await act(async () => { await result.current.reload(); });
     expect(result.current.bowl.remaining).toEqual([]);
+  });
+
+  it.each(["comment", "remove"])("keeps a confirmed %s over a stale refresh, without affecting another bowl", async (action) => {
+    const movie = { id: "m1", bowl_id: "bowl-1", title: "Feature", added_by: "user-1", note: "Original" };
+    mocks.remainingQueue.push([movie]);
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    let finishRead;
+    mocks.remainingQueue.push(new Promise((resolve) => { finishRead = resolve; }));
+    let refresh;
+    act(() => { refresh = result.current.reload(); });
+    await waitFor(() => expect(result.current.isLoading).toBe(true));
+    act(() => notifyBowlChange({ type: "movie", action, userId: "user-1", bowlId: "other-bowl", movieId: "m1", movie: { ...movie, note: "Wrong bowl" } }));
+    expect(result.current.bowl.remaining[0].note).toBe("Original");
+    act(() => notifyBowlChange({ type: "movie", action, userId: "user-1", bowlId: "bowl-1", movieId: "m1", movie: { ...movie, note: "Updated" } }));
+    await act(async () => { finishRead([movie]); await refresh; });
+    expect(result.current.bowl.remaining).toEqual(action === "remove" ? [] : [expect.objectContaining({ id: "m1", note: "Updated" })]);
   });
 
   it("returns an add failure if the session lookup throws before dispatch", async () => {

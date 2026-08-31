@@ -6,6 +6,7 @@ import useUserBowls from "../hooks/useUserBowls";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import useModalFocus from "../hooks/useModalFocus";
 import MovieSearch from "./MovieSearch";
+import AddedMoviesList from "./AddedMoviesList";
 
 function choiceDescription(bowl, bowls) {
   const matches = bowls.filter((other) => other.name === bowl.name);
@@ -21,6 +22,7 @@ export default function BowlAddDialog() {
   const { streamingServices } = useUserStreamingServices();
   const dialog = useRef(null);
   const search = useRef(null);
+  const additions = useRef(null);
   const choices = useRef(null);
   const selectorButton = useRef(null);
   const [expanded, setExpanded] = useState(false);
@@ -64,7 +66,7 @@ export default function BowlAddDialog() {
   useModalFocus(dialog, { active: add.open, getInvoker: add.getInvoker, onEscape: () => {
     if (expanded) { setExpanded(false); selectorButton.current?.focus(); }
     else if (details) { search.current?.back(); setDetails(false); }
-    else add.close();
+    else if (!additions.current?.dismiss()) add.close();
   } });
 
   const choose = (bowl) => {
@@ -138,6 +140,8 @@ export default function BowlAddDialog() {
       </div> : <>
         {details && selector}
         {destination ? <MovieSearch controllerRef={search} inlineDetails disabled={disabled} submissionPending={add.pending}
+          includeComment={false}
+          searchFooter={<AddedMoviesList add={add} bowls={bowls} controllerRef={additions} onRemoved={() => search.current?.focusSearch()} />}
           hideResults={expanded || bowls.length === 0} searchHeader={selector} feedback={feedback}
           userStreamingServices={streamingServices} onDetailChange={setDetails}
           onDraftChange={() => { if (!uncertain) add.clearFeedback(); }}

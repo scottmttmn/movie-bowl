@@ -14,20 +14,21 @@ in a bowl long enough that even the person who added one no longer remembers
 where it came from or what made it worth watching. Revealing the comment with
 the movie restores that context without exposing more of the bowl beforehand.
 
-Comments are supporting context, not another browsing surface. They appear in
-movie details and draw reveals, never on the compact cards or poster strips.
+Comments appear in movie details and draw reveals, with a short preview on
+the add dialog's session list. Bowl cards and poster strips remain unchanged.
 
 ## Product Decisions
 
 - A comment is optional. Adding a movie without one remains the normal path.
-- Adding stays one tap. The existing add form gains a multiline field; there is
-  no confirmation step and no separate "add with comment" action.
-- The comment applies to the next movie added through that form and clears only
-  after a successful add. Failed adds preserve it so the user can retry.
+- Signed-in bowl adds stay one tap. Once a movie is saved, its row in
+  **Added this session** offers a comment icon that opens an inline editor
+  with Save and Cancel. There is no comment field before adding.
+- Public add-link guests still attach a comment to the next movie through
+  their form. Failed adds preserve that draft so the guest can retry.
 - Signed-in members, public add-link guests, and people creating manual watch
   history entries can all leave comments.
 - A signed-in contributor can edit the comment on one of their own undrawn
-  movies from its My Movies detail view.
+  movies from its session row or My Movies detail view.
 - A public-link guest cannot edit a comment after submitting it because the
   guest has no durable identity or authenticated ownership of the slip.
 - Once a movie is drawn, its shared comment is a historical snapshot. It is
@@ -44,7 +45,18 @@ movie details and draw reveals, never on the compact cards or poster strips.
 Use one nullable `note` value throughout the data model even though the UI copy
 can reflect the context.
 
-### Bowl add form
+### Signed-in bowl add dialog
+
+- Session list: **Added this session**, newest first, containing confirmed adds.
+- Icon labels: **Add comment for [title]** / **Edit comment for [title]**.
+- Editor label: **Comment for [title]**; actions: **Save comment** and **Cancel**.
+- Saved comments show a short preview and a filled comment icon.
+- Each row stays associated with the bowl it was added to, even after changing
+  the destination. The adjacent trash button confirms removal from that bowl.
+- Closing ends the session list; pending operations can be reattached on
+  reopening. Saved movies and comments remain in the bowl.
+
+### Public add-link form
 
 - Label: **Comment (optional)**
 - Placeholder: **Recommended by Tim at dinner…**

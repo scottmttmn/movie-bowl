@@ -3,7 +3,8 @@
 Status: implemented, committed, and pushed; database migration applied on
 August 31, 2026. Deployed-app smoke checks remain.
 The implementation record at the end lists verification results and release
-checks. The plan below preserves the decisions made before implementation.
+checks. The plan below preserves the decisions made before implementation;
+the August 31 session-list follow-up supersedes its pre-add comment behavior.
 
 The [design specification](default-bowl-and-global-add.md) owns presentation,
 copy, and interaction details. This plan owns persistence, integration,
@@ -545,3 +546,40 @@ unchanged.
 Cleanup removed the exact disposable project and volume, schema export, test
 logs, and five newly pulled unused Docker images. All four pre-existing images
 were preserved.
+
+### Session list and comments after adding — August 31, 2026
+
+The signed-in add dialog now removes the next-movie comment field and shows
+**Added this session**, newest first, after confirmed additions. Each row has
+a poster, title/year, a comment icon, and a trash icon. Bowl names appear when
+multiple destinations need to be distinguished. Changing the destination
+never changes the bowl targeted by an existing row's actions.
+
+The comment icon opens an inline editor with Save/Cancel and the existing
+500-character limit. Saving shows a short preview and a filled icon; clearing
+the text removes the comment. Failed saves preserve the draft. Trash opens
+an inline **Remove from bowl** confirmation and removes the row only after
+the database confirms deletion. Access loss, already drawn/deleted movies,
+and network errors are reported on the affected row. No new migration is
+needed, and public-link and manual-history comment forms are unchanged.
+
+Search and the bowl selector remain above one scrolling results/session-list
+area. Add completion resets search and scrolls back to the latest addition.
+Escape dismisses an inline editor/confirmation before closing the dialog.
+Closing normally starts a fresh list next time, without undoing saved changes;
+pending adds, comment saves, removals, and uncertain adds survive dismissal
+and reattach if reopened before completion. Account changes dispose the old
+session. Bowl screens share the same comment/removal service and preserve
+confirmed edits/removals over reads begun before those mutations completed.
+
+Verification: 101 Vitest files / 768 tests pass, including session isolation,
+failed-save drafts, clearing comments, removal confirmation, captured bowls,
+stale reads, and stale/unauthorized mutations. The 18 focused desktop/mobile
+browser cases pass, including six additions, long titles at 320px, comments
+after adding, and another device drawing a movie before an edit/removal.
+ESLint and the production build pass. No database SQL changed.
+
+The full browser smoke suite also passes: 36 tests, with two existing TV skips
+on mobile. Visual review covered the compact list and removal confirmation at
+320px, plus opening the dialog in the in-app browser against synthetic data.
+Physical mobile keyboards remain a device-level release check.

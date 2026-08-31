@@ -1,10 +1,11 @@
 import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ refresh: vi.fn(), add: vi.fn(), checkStatus: vi.fn(), details: vi.fn(), providers: vi.fn() }));
+const mocks = vi.hoisted(() => ({ refresh: vi.fn(), add: vi.fn(), checkStatus: vi.fn(), updateNote: vi.fn(), remove: vi.fn(), details: vi.fn(), providers: vi.fn() }));
 const bowls = [{ id: "a", name: "Friday Night" }, { id: "b", name: "Family Movies" }];
 vi.mock("../useUserBowls", () => ({ default: () => ({ userId: "u1", bowls, refresh: mocks.refresh, loading: false, error: null }) }));
 vi.mock("../../lib/addBowlMovie", () => ({ bowlMovieService: { add: mocks.add, checkStatus: mocks.checkStatus }, addResult: (ok, code, message) => ({ ok, code, message }) }));
+vi.mock("../../lib/bowlMovieActions", () => ({ bowlMovieActions: { updateNote: mocks.updateNote, remove: mocks.remove } }));
 vi.mock("../../lib/tmdbApi", () => ({ getTmdbMovieDetails: mocks.details }));
 vi.mock("../../lib/streamingProviders", () => ({ fetchStreamingProviders: mocks.providers }));
 import useBowlAdd, { BowlAddProvider } from "../useBowlAdd";
@@ -26,6 +27,70 @@ async function open(bowlId) {
 }
 
 describe("shared add session", () => {
+  it("keeps confirmed additions newest first across bowls, but clears the list for a new session", async () => {
+    mocks.add.mockImplementation(async (op) => ({ ok: true, movie: { ...op.movie, id: op.submissionId, bowl_id: op.bowlId } }));
+    const { result } = await open();
+    await act(async () => { await result.current.submit(custom); });
+    act(() => { result.current.clearFeedback(); result.current.setDestination(bowls[1]); });
+    await act(async () => { await result.current.submit({ ...custom, title: "Second" }); });
+    expect(result.current.additions.map((entry) => [entry.movie.title, entry.bowlId])).toEqual([["Second", "b"], ["Wildcard", "a"]]);
+    const first = result.current.additions[1];
+    mocks.updateNote.mockResolvedValue({ ok: true, movie: { id: first.movie.id, note: "After adding" } });
+    await act(async () => { await result.current.updateAddedMovieNote(first.movie.id, "After adding"); });
+    expect(mocks.updateNote).toHaveBeenCalledWith(expect.objectContaining({ accountId: "u1", bowlId: "a", movieId: first.movie.id }));
+    expect(result.current.additions[1].movie.note).toBe("After adding");
+    act(() => result.current.close());
+    await act(async () => { await result.current.openGlobalAdd(); });
+    expect(result.current.additions).toEqual([]);
+  });
+
+  it("only lists a reconciled add once and never lists a failed add", async () => {
+    mocks.add.mockResolvedValueOnce({ ok: false, code: "duplicate_movie" });
+    const { result } = await open();
+    await act(async () => { await result.current.submit(custom); });
+    expect(result.current.additions).toEqual([]);
+    mocks.add.mockResolvedValueOnce({ ok: false, code: "outcome_unknown" });
+    await act(async () => { await result.current.submit(custom); });
+    expect(result.current.additions).toEqual([]);
+    mocks.checkStatus.mockResolvedValue({ ok: true, movie: { id: "confirmed" } });
+    await act(async () => { await result.current.checkStatus(); await result.current.checkStatus(); });
+    expect(result.current.additions).toHaveLength(1);
+  });
+
+  it("preserves a pending row action across close/reopen, prevents repeats, and retains failed removals", async () => {
+    let finish;
+    mocks.remove.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const { result } = await open();
+    await act(async () => { await result.current.submit(custom); });
+    const id = result.current.id; let pending;
+    act(() => { pending = result.current.removeAddedMovie("saved"); });
+    await act(async () => { await result.current.removeAddedMovie("saved"); });
+    act(() => result.current.close());
+    await act(async () => { await result.current.openGlobalAdd(); });
+    expect(result.current.id).toBe(id); expect(result.current.actionsPending).toBe(true);
+    expect(mocks.remove).toHaveBeenCalledOnce();
+    await act(async () => { finish({ ok: false, code: "update_failed", message: "Try again" }); await pending; });
+    expect(result.current.additions).toHaveLength(1);
+    expect(result.current.additions[0]).toMatchObject({ pending: null, error: { message: "Try again" } });
+    mocks.remove.mockResolvedValue({ ok: true });
+    await act(async () => { await result.current.removeAddedMovie("saved"); });
+    expect(result.current.additions).toEqual([]);
+    expect(result.current.actionAnnouncement).toBe("Removed Wildcard from Friday Night");
+  });
+
+  it("disposes pending row actions when the account provider unmounts", async () => {
+    let finish;
+    mocks.updateNote.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    const view = await open();
+    await act(async () => { await view.result.current.submit(custom); });
+    let pending;
+    act(() => { pending = view.result.current.updateAddedMovieNote("saved", "Old account"); });
+    const operation = mocks.updateNote.mock.calls[0][0];
+    view.unmount();
+    expect(operation.isCurrent()).toBe(false);
+    await act(async () => { finish({ ok: true, movie: { id: "saved", note: "Old account" } }); await pending; });
+  });
+
   it("starts global adds at the saved default and contextual adds at the requested bowl", async () => {
     const { result } = await open();
     expect(result.current.destination.id).toBe("a");

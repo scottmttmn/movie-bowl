@@ -361,7 +361,7 @@ class FakeBackend {
     if (method === "DELETE") {
       const matchingRows = new Set(filterRows(this.state[table], url.searchParams));
       this.state[table] = this.state[table].filter((row) => !matchingRows.has(row));
-      await fulfillJson(route, []);
+      await fulfillJson(route, responseShape(request, [...matchingRows]));
       return;
     }
 

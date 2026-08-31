@@ -16,6 +16,7 @@ export default function MovieSearch({
     submissionPending = false,
     hideResults = false,
     searchHeader = null,
+    searchFooter = null,
     feedback = null,
     controllerRef = null,
     onDetailChange,
@@ -44,6 +45,7 @@ export default function MovieSearch({
     const [commentDraft, setCommentDraft] = useState("");
     const [isCommentOpen, setIsCommentOpen] = useState(false);
     const inputRef = useRef(null);
+    const scrollRef = useRef(null);
     const commentInputRef = useRef(null);
     const latestRequestRef = useRef(0);
     const recognitionRef = useRef(null);
@@ -175,6 +177,7 @@ export default function MovieSearch({
     };
 
     const resetAfterSuccessfulAdd = () => {
+        if (scrollRef.current) scrollRef.current.scrollTop = 0;
         setSearchError(null);
         setDetailActionError("");
         setDetailMovie(null);
@@ -513,7 +516,7 @@ export default function MovieSearch({
                 {feedback}
             </div>
 
-            <div className={inlineDetails ? "bowl-add-scroll" : undefined} hidden={hideResults}>
+            <div ref={scrollRef} className={inlineDetails ? "bowl-add-scroll" : undefined} hidden={hideResults}>
             {includeComment && (
                 <div className="mt-3 rounded-xl border border-slate-700/80 bg-slate-950/35 text-left">
                     <button
@@ -685,6 +688,7 @@ export default function MovieSearch({
               </div>
             )}
 
+            {searchFooter}
             </div>
           </div>
             {detailMovie && (

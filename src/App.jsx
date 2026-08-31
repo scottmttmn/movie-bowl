@@ -100,7 +100,7 @@ function AppShell({ children }) {
         </div>}
         {children}
       </div>
-      {shouldShowTopNav && (bowlAdd.open || bowlAdd.pending || bowlAdd.result?.code === "outcome_unknown") && <BowlAddDialog key={bowlAdd.id} />}
+      {shouldShowTopNav && (bowlAdd.open || bowlAdd.pending || bowlAdd.actionsPending || bowlAdd.result?.code === "outcome_unknown") && <BowlAddDialog key={bowlAdd.id} />}
 
       {/* Global, so no screen has to explain a dropped connection on its own */}
       <OfflineBanner />

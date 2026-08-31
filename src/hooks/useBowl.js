@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { bowlMovieActions } from "../lib/bowlMovieActions";
 import { bowlMovieService, addResult, getPositiveTmdbId, isDuplicateMovieError, getDuplicateMovieMessage } from "../lib/addBowlMovie";
 import { subscribeBowlChanges, notifyBowlChange } from "../lib/bowlChanges";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
@@ -15,10 +16,6 @@ import {
   isOffline,
   isOfflineError,
 } from "../utils/networkErrors";
-import {
-  getMovieNoteValidationError,
-  normalizeMovieNote,
-} from "../utils/movieNote";
 import { getBrowserTimeZone } from "../utils/getBrowserTimeZone";
 import useBowlFilterMetadata from "./useBowlFilterMetadata";
 
@@ -58,24 +55,6 @@ function getDrawFailureMessage(error) {
     return "That movie is no longer available to draw.";
   }
   return "Could not draw a movie. Please try again.";
-}
-
-function getNoteUpdateFailureMessage(error) {
-  if (isOfflineError(error)) return OFFLINE_MESSAGE;
-
-  const errorCode = String(error?.code || "");
-  const errorMessageText = String(error?.message || "").toLowerCase();
-
-  if (errorMessageText.includes("500 characters or fewer")) {
-    return "Comment must be 500 characters or fewer.";
-  }
-  if (errorCode === "42501" || errorMessageText.includes("permission denied")) {
-    return "You don't have permission to edit this comment.";
-  }
-  if (errorMessageText.includes("no longer available")) {
-    return "This comment is no longer available to edit. The movie may already have been drawn.";
-  }
-  return "Could not save this comment. Please try again.";
 }
 
 function getPinUpdateFailureMessage(error) {
@@ -136,14 +115,14 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
   const [errorMessage, setErrorMessage] = useState(null);
   const loadedUserId = useRef(null);
   const loadSequence = useRef(0);
-  const addRevision = useRef(0);
-  const recentAdds = useRef(new Map());
+  const movieRevision = useRef(0);
+  const recentMovieChanges = useRef(new Map());
   // Set when a load fails for connectivity reasons, so reconnecting can retry it.
   const failedWhileOfflineRef = useRef(false);
 
   const loadBowlMovies = useCallback(async () => {
     const sequence = ++loadSequence.current;
-    const revisionAtStart = addRevision.current;
+    const revisionAtStart = movieRevision.current;
     if (!bowlId) {
       setBowl({ remaining: [], watched: [] });
       setIsLoading(false);
@@ -214,14 +193,14 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
 
       const profileEmailByUserId = createProfileEmailByUserId(profileRows || []);
       if (sequence !== loadSequence.current) return;
-      // A read begun before an add committed may contain an older snapshot.
-      // Preserve those confirmed additions until a subsequent fresh read.
-      const additionsDuringRead = [];
-      for (const [id, addition] of recentAdds.current) {
+      // A read begun before a mutation committed may contain an older snapshot.
+      // Preserve confirmed adds, edits, and removals until a subsequent fresh read.
+      const changesDuringRead = [];
+      for (const [id, addition] of recentMovieChanges.current) {
         if (addition.bowlId === bowlId && addition.revision > revisionAtStart) {
-          additionsDuringRead.push(addition.movie);
+          changesDuringRead.push({ id, movie: addition.movie });
         } else {
-          recentAdds.current.delete(id);
+          recentMovieChanges.current.delete(id);
         }
       }
 
@@ -229,11 +208,12 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         const pendingRemaining = (prev.remaining || []).filter(
           (movie) => movie?.local_status === "syncing"
         );
-        const nextRemaining = (remaining || []).map((movie) =>
+        let nextRemaining = (remaining || []).map((movie) =>
           attachContributorProfile(movie, profileEmailByUserId)
         );
-        for (const movie of additionsDuringRead) {
-          if (!movie.drawn_at && !nextRemaining.some((row) => row.id === movie.id)) {
+        for (const { id, movie } of changesDuringRead) {
+          nextRemaining = nextRemaining.filter((row) => row.id !== id);
+          if (movie && !movie.drawn_at) {
             nextRemaining.push(attachContributorProfile(movie, profileEmailByUserId));
           }
         }
@@ -422,10 +402,18 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
   }, [bowlId, bowl.remaining, loadBowlMovies, drawMethod, filterMetadataFetchers]);
 
   useEffect(() => subscribeBowlChanges((change) => {
-    if (change.type !== "add" || change.bowlId !== bowlId || change.userId !== loadedUserId.current) return;
+    if (change.bowlId !== bowlId || change.userId !== loadedUserId.current) return;
+    if (change.type === "movie") {
+      const movie = change.action === "remove" ? null : change.movie;
+      recentMovieChanges.current.set(change.movieId, { bowlId, movie, revision: ++movieRevision.current });
+      setBowl((previous) => ({ ...previous, remaining: previous.remaining.flatMap((row) =>
+        row.id !== change.movieId ? [row] : movie && !movie.drawn_at ? [{ ...row, ...movie }] : []) }));
+      return;
+    }
+    if (change.type !== "add") return;
     if (change.phase === "success" && change.movie) {
-      recentAdds.current.set(change.movie.id, {
-        bowlId, movie: change.movie, revision: ++addRevision.current,
+      recentMovieChanges.current.set(change.movie.id, {
+        bowlId, movie: change.movie, revision: ++movieRevision.current,
       });
     }
     setBowl((previous) => {
@@ -451,59 +439,13 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
     return result;
   }, [bowlId]);
 
-  const handleUpdateMovieNote = useCallback(
-    async (movieId, note) => {
-      if (!bowlId || !movieId) {
-        return addResult(false, "invalid_movie", "Choose a movie comment to edit.");
-      }
-
-      const validationError = getMovieNoteValidationError(note);
-      if (validationError) {
-        return addResult(false, "comment_too_long", validationError);
-      }
-      if (isOffline()) {
-        return addResult(false, "offline", OFFLINE_MESSAGE);
-      }
-
-      try {
-        const { data, error } = await supabase.rpc("update_own_bowl_movie_note", {
-          p_bowl_movie_id: movieId,
-          p_note: normalizeMovieNote(note),
-        });
-
-        if (error) {
-          console.error("[useBowl] Failed to update movie comment", error);
-          const message = getNoteUpdateFailureMessage(error);
-          notifyBowlChange({ type: "context", bowlId });
-          await loadBowlMovies();
-          return addResult(false, "comment_update_failed", message);
-        }
-
-        const updatedMovie = Array.isArray(data) ? data[0] : data;
-        const normalizedNote = normalizeMovieNote(updatedMovie?.note ?? note);
-        setBowl((prev) => ({
-          ...prev,
-          remaining: (prev.remaining || []).map((movie) =>
-            String(movie?.id || "") === String(movieId)
-              ? { ...movie, ...(updatedMovie || {}), note: normalizedNote }
-              : movie
-          ),
-        }));
-        return {
-          ...addResult(true),
-          movie: updatedMovie || { id: movieId, note: normalizedNote },
-        };
-      } catch (error) {
-        console.error("[useBowl] Unexpected error updating movie comment", error);
-        return addResult(
-          false,
-          "comment_update_failed",
-          getNoteUpdateFailureMessage(error)
-        );
-      }
-    },
-    [bowlId, loadBowlMovies]
-  );
+  const handleUpdateMovieNote = useCallback(async (movieId, note) => {
+    const result = await bowlMovieActions.updateNote({
+      accountId: loadedUserId.current, bowlId, movieId, note,
+    });
+    if (!result.ok) await loadBowlMovies();
+    return result;
+  }, [bowlId, loadBowlMovies]);
 
   const handleSetMoviePin = useCallback(
     async (movieId, pinned) => {
@@ -582,40 +524,14 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
     [bowlId, bowl.remaining, loadBowlMovies]
   );
 
-  const handleDeleteMovie = useCallback(
-    async (movieId) => {
-      if (!bowlId || !movieId) return false;
-
-      const { data: authData, error: authError } = await supabase.auth.getSession();
-      const user = authData?.session?.user;
-
-      if (authError || !user) {
-        console.error("[useBowl] Not authenticated", authError);
-        return false;
-      }
-
-      const { error } = await supabase
-        .from("bowl_movies")
-        .delete()
-        .eq("id", movieId)
-        .eq("bowl_id", bowlId)
-        .eq("added_by", user.id)
-        .is("drawn_at", null);
-
-      if (error) {
-        console.error("[useBowl] Failed to delete movie", error);
-        // This path only reports a boolean, so an offline failure would
-        // otherwise disappear: surface it on the shared error line.
-        if (isOfflineError(error)) setErrorMessage(OFFLINE_MESSAGE);
-        return false;
-      }
-
-      notifyBowlChange({ type: "context", bowlId });
-      await loadBowlMovies();
-      return true;
-    },
-    [bowlId, loadBowlMovies]
-  );
+  const handleDeleteMovie = useCallback(async (movieId) => {
+    const result = await bowlMovieActions.remove({
+      accountId: loadedUserId.current, bowlId, movieId,
+    });
+    await loadBowlMovies();
+    if (!result.ok) setErrorMessage(result.message);
+    return result.ok;
+  }, [bowlId, loadBowlMovies]);
 
   const handleReaddMovie = useCallback(
     async (movieId) => {
