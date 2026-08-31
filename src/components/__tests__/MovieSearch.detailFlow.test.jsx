@@ -66,14 +66,14 @@ describe("MovieSearch detail flow", () => {
     fireEvent.click(screen.getByRole("button", { name: /details/i }));
 
     await waitFor(() => {
-      expect(screen.getByText("Movie A (2020)")).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: "Movie A", level: 2 })).toBeInTheDocument();
     });
-    expect(screen.getByText("Runtime: 123 minutes")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /show trailer/i })).toBeInTheDocument();
+    expect(screen.getByText("123 min")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /watch trailer/i })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /open on web in/i })).not.toBeInTheDocument();
     expect(screen.queryByTitle("Movie A trailer")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /show trailer/i }));
+    fireEvent.click(screen.getByRole("button", { name: /watch trailer/i }));
     expect(screen.getByTitle("Movie A trailer")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /add movie/i }));
@@ -197,13 +197,13 @@ describe("MovieSearch detail flow", () => {
 
     await screen.findByText("Movie A");
     fireEvent.click(screen.getByRole("button", { name: /details/i }));
-    await screen.findByText("Movie A (2020)");
+    await screen.findByRole("heading", { name: "Movie A", level: 2 });
     fireEvent.click(screen.getByRole("button", { name: /add movie/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "This movie is already in the bowl."
     );
-    expect(screen.getByText("Movie A (2020)")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Movie A", level: 2 })).toBeInTheDocument();
   });
 
   it("keeps search results open after a duplicate add is rejected", async () => {

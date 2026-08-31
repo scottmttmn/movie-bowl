@@ -204,7 +204,7 @@ describe("BowlDashboard draw flow", () => {
     });
 
     expect(screen.queryByText(/drawing a title from the bowl/i)).not.toBeInTheDocument();
-    expect(screen.getByText("Movie A (2020)")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Movie A", level: 2 })).toBeInTheDocument();
     expect(screen.getByText("Added by")).toBeInTheDocument();
     expect(screen.getByText("owner")).toBeInTheDocument();
     vi.useRealTimers();
@@ -237,7 +237,7 @@ describe("BowlDashboard draw flow", () => {
       await Promise.resolve();
     });
 
-    expect(screen.getByText("Movie A (2020)")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Movie A", level: 2 })).toBeInTheDocument();
     vi.useRealTimers();
   });
 
@@ -291,12 +291,12 @@ describe("BowlDashboard draw flow", () => {
     });
 
     vi.useRealTimers();
-    await waitFor(() => expect(screen.getByText("Movie A (2020)")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Movie A", level: 2 })).toBeInTheDocument());
     expect(getTmdbMovieDetails).toHaveBeenCalledWith(101);
-    expect(screen.getByRole("button", { name: /show trailer/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /watch trailer/i })).toBeInTheDocument();
     expect(screen.queryByTitle("Movie A trailer")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /show trailer/i }));
+    fireEvent.click(screen.getByRole("button", { name: /watch trailer/i }));
     expect(screen.getByTitle("Movie A trailer")).toBeInTheDocument();
   });
 

@@ -11,6 +11,7 @@ test("movie details can move and remove a saved pin while cards show only poster
     id: `pin-movie-${index}`, bowl_id: "pin-bowl", title, tmdb_id: -(index + 1),
     added_by: "user-smoke", added_at: "2026-08-30T12:00:00.000Z", drawn_at: null,
     is_pinned: index === 0,
+    note: index === 1 ? "A longer recommendation for movie night. ".repeat(12) : null,
   })));
   await page.goto("/bowl/pin-bowl");
 
@@ -22,16 +23,23 @@ test("movie details can move and remove a saved pin while cards show only poster
 
   await secondCard.getByRole("button", { name: "Details" }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByText(/Pinning another movie replaces your current pin/)).toBeVisible();
+  await expect(dialog.getByText(/One pin per bowl/)).toBeVisible();
   await dialog.getByRole("button", { name: "Pin movie", exact: true }).click();
   await expect(dialog.getByRole("button", { name: "Unpin movie", exact: true })).toHaveAttribute("aria-pressed", "true");
-  await dialog.getByRole("button", { name: "Close", exact: true }).first().click();
+  await dialog.getByRole("button", { name: "Edit Comment", exact: true }).click();
+  await dialog.getByRole("textbox", { name: "Comment (optional)", exact: true }).fill("Remember this recommendation.");
+  await dialog.getByRole("button", { name: "Save Comment", exact: true }).click();
+  await expect(dialog.getByText("Remember this recommendation.", { exact: true })).toBeVisible();
+  const closeButton = dialog.getByRole("button", { name: "Close", exact: true });
+  await expect(closeButton).toBeInViewport();
+  await closeButton.click();
   await expect(secondCard.getByRole("button", { name: 'Unpin "Second Movie"' })).toBeVisible();
   await expect(firstCard.getByRole("button", { name: /Pin "First Movie" so/ })).toHaveAttribute("aria-pressed", "false");
 
   await page.reload();
   await expect(secondCard.getByRole("button", { name: 'Unpin "Second Movie"' })).toHaveAttribute("aria-pressed", "true");
   await secondCard.getByRole("button", { name: "Details" }).click();
+  await expect(dialog.getByText("Remember this recommendation.", { exact: true })).toBeVisible();
   await dialog.getByRole("button", { name: "Unpin movie", exact: true }).click();
   await expect(dialog.getByRole("button", { name: "Pin movie", exact: true })).toHaveAttribute("aria-pressed", "false");
   await dialog.getByRole("button", { name: "Close", exact: true }).first().click();

@@ -384,7 +384,7 @@ describe("BowlDashboard guards", () => {
     fireEvent.click(within(myMoviesSection).getAllByRole("button", { name: /details/i })[1]);
     const pinGroup = await screen.findByRole("group", { name: "Movie pin" });
     expect(within(pinGroup).getByRole("button", { name: "Pin movie" })).toBeDisabled();
-    expect(pinGroup).toHaveTextContent("This movie is outside tonight's filters");
+    expect(within(pinGroup).getByRole("button", { name: "Pin movie" })).toHaveAccessibleDescription(/This movie is outside tonight's filters/);
   });
 
   it("routes My Movies delete to bowl delete for added items", async () => {
@@ -505,7 +505,7 @@ describe("BowlDashboard guards", () => {
     fireEvent.click(await screen.findByRole("button", { name: "Details", exact: true }));
     const pinGroup = await screen.findByRole("group", { name: "Movie pin" });
     expect(within(pinGroup).getByRole("button", { name: "Unpin movie" })).toBeDisabled();
-    expect(pinGroup).toHaveTextContent("This bowl draws title-first, so pins don't change anything here.");
+    expect(within(pinGroup).getByRole("button", { name: "Unpin movie" })).toHaveAccessibleDescription("This bowl draws title-first, so pins don't change anything here.");
     expect(mocks.state.handleSetMoviePin).not.toHaveBeenCalled();
   });
 
@@ -607,15 +607,15 @@ describe("BowlDashboard guards", () => {
     fireEvent.click(within(watchedSection).getByRole("button", { name: /^show$/i }));
     fireEvent.click(screen.getByRole("button", { name: /movie a/i }));
 
-    await waitFor(() => expect(screen.getByText("Movie A (2020)")).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Movie A", level: 2 })).toBeInTheDocument());
     expect(mocks.getTmdbMovieDetails).toHaveBeenCalledWith(101);
     expect(screen.getByText("Added by")).toBeInTheDocument();
     expect(screen.getByText("owner")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /show trailer/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /watch trailer/i })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /open on web in/i })).not.toBeInTheDocument();
     expect(screen.queryByTitle("Movie A trailer")).not.toBeInTheDocument();
 
-    const trailerButton = screen.getByRole("button", { name: /show trailer/i });
+    const trailerButton = screen.getByRole("button", { name: /watch trailer/i });
     act(() => {
       fireEvent.click(trailerButton);
     });

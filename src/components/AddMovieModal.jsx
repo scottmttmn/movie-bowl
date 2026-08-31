@@ -3,6 +3,7 @@ import MovieSearch from "./MovieSearch";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { matchUserServices, normalizeStreamingServices } from "../utils/streamingServices";
 import ProviderLinksAttribution from "./ProviderLinksAttribution";
+import MoviePosterPin from "./MoviePosterPin";
 import { getMovieAttributionLabel } from "../utils/drawBuckets";
 import {
   MAX_MOVIE_NOTE_LENGTH,
@@ -16,38 +17,6 @@ function formatDisplayDate(value) {
   const dateOnly = String(value).match(/^\d{4}-\d{2}-\d{2}$/);
   const date = dateOnly ? new Date(`${dateOnly[0]}T12:00:00`) : new Date(value);
   return Number.isNaN(date.getTime()) ? null : date.toLocaleDateString();
-}
-
-function TrailerDisclosure({ movie, trailerRegionId }) {
-  const [isTrailerVisible, setIsTrailerVisible] = useState(false);
-
-  return (
-    <div className="mb-4">
-      <button
-        type="button"
-        className="btn btn-secondary px-3 py-2 text-sm"
-        aria-expanded={isTrailerVisible}
-        aria-controls={trailerRegionId}
-        onClick={() => setIsTrailerVisible((prev) => !prev)}
-      >
-        {isTrailerVisible ? "Hide Trailer" : "Show Trailer"}
-      </button>
-      {isTrailerVisible && (
-        <div
-          id={trailerRegionId}
-          className="mt-3 aspect-video overflow-hidden rounded-xl border border-slate-700 bg-slate-950"
-        >
-          <iframe
-            src={movie.trailer.embedUrl}
-            title={`${movie.title} trailer`}
-            className="h-full w-full"
-            allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-            allowFullScreen
-          />
-        </div>
-      )}
-    </div>
-  );
 }
 
 export default function AddMovieModal({
@@ -72,6 +41,8 @@ export default function AddMovieModal({
   const [noteEditError, setNoteEditError] = useState("");
   const [isSavingPin, setIsSavingPin] = useState(false);
   const [pinError, setPinError] = useState("");
+  const [isTrailerVisible, setIsTrailerVisible] = useState(false);
+  const [failedPosterUrl, setFailedPosterUrl] = useState(null);
 
   useEffect(() => {
     const handleKeyDown = (event) => {
@@ -97,6 +68,10 @@ export default function AddMovieModal({
   useEffect(() => {
     setPinError("");
   }, [movie?.id, movie?.is_pinned]);
+
+  useEffect(() => {
+    setIsTrailerVisible(false);
+  }, [movie?.id, movie?.tmdb_id]);
 
   // This modal is used in two contexts:
   // 1) "Add movie" flow (movie is undefined): show search UI.
@@ -133,11 +108,11 @@ export default function AddMovieModal({
   }
 
   // Compute poster URL in the UI so we can store raw TMDB poster_path in the DB.
-  const posterUrl = getPosterUrl(movie, "w500");
+  const posterUrl = movie.poster_path ? getPosterUrl(movie, "w500") : movie.poster || null;
 
   const year = movie.release_date
     ? movie.release_date.split("-")[0]
-    : "—";
+    : null;
   const resolvedMovieId = movie.tmdb_id ?? movie.id ?? null;
   const isCustomEntry = Boolean(
     movie.isCustomEntry || resolvedMovieId == null || Number(resolvedMovieId) <= 0
@@ -202,225 +177,201 @@ export default function AddMovieModal({
 
   return (
     <div className="modal-overlay z-50" role="presentation">
-      <div className="modal-surface max-h-[92vh] max-w-4xl overflow-y-auto p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="movie-detail-title">
-        <button
-          onClick={onClose}
-          className="icon-btn absolute top-4 right-4"
-          aria-label="Close"
-        >
-          ✕
-        </button>
-
-        {posterUrl && (
-          <div className="mx-auto mb-5 max-h-[46vh] max-w-2xl overflow-hidden rounded-2xl border border-slate-800 bg-slate-950">
-            <img
-              src={posterUrl}
-              alt={movie.title}
-              className="h-full max-h-[46vh] w-full object-contain"
-            />
-          </div>
-        )}
-
-        <div className="mb-1 flex items-center gap-2">
-          <h2 id="movie-detail-title" className="pr-10 text-2xl font-semibold tracking-tight text-slate-100 sm:text-3xl">
-            {movie.title} ({year})
-          </h2>
-          {isCustomEntry && (
-            <span className="rounded-full border border-amber-700/70 bg-amber-950/50 px-2 py-0.5 text-xs font-semibold text-amber-300">
-              Custom
-            </span>
-          )}
+      <div className="modal-surface flex max-h-[92dvh] max-w-3xl flex-col overflow-clip" role="dialog" aria-modal="true" aria-labelledby="movie-detail-title">
+        <div className="flex shrink-0 items-center justify-between gap-4 px-5 py-3 sm:px-7 sm:py-4">
+          <p className="eyebrow">Movie details</p>
+          <button type="button" onClick={onClose} className="icon-btn shrink-0" aria-label="Close">✕</button>
         </div>
 
-        <div className="mb-4 flex flex-wrap gap-2 text-xs">
-          {Number(movie.runtime) > 0 && (
-            <span className="rounded-full border border-slate-700 bg-slate-800 px-2.5 py-1 text-slate-300">
-              Runtime: {movie.runtime} minutes
-            </span>
-          )}
-          {watchedDateLabel && (
-            <span className="rounded-full border border-slate-700 bg-slate-800 px-2.5 py-1 text-slate-300">
-              Watched on: {watchedDateLabel}
-            </span>
-          )}
-        </div>
-
-        {addedByLabel && (
-          <div className="mb-4">
-            <p className="text-sm font-semibold text-slate-100">Added by</p>
-            <p className="text-sm text-slate-300">{addedByLabel}</p>
-          </div>
-        )}
-
-        {onTogglePin && (
-          <div className="mb-4" role="group" aria-label="Movie pin">
-            <div className="flex flex-wrap items-center justify-between gap-3">
-              <p className="text-sm font-semibold text-slate-100">Your pin</p>
-              <button
-                type="button"
-                className="btn btn-secondary px-3 py-1.5 text-sm"
-                aria-pressed={Boolean(movie.is_pinned)}
-                aria-describedby="movie-pin-explanation"
-                disabled={isSavingPin || Boolean(pinDisabledReason)}
-                onClick={togglePin}
+        <div className="min-h-0 space-y-6 overflow-y-auto overscroll-contain px-5 pb-6 sm:px-7 sm:pb-7">
+          <div>
+            <div className="grid grid-cols-[minmax(80px,1fr)_minmax(0,2fr)] items-start gap-4 sm:grid-cols-[176px_minmax(0,1fr)] sm:gap-6">
+              <div
+                className="relative"
+                role={onTogglePin ? "group" : undefined}
+                aria-label={onTogglePin ? "Movie pin" : undefined}
               >
-                {isSavingPin ? "Saving pin..." : movie.is_pinned ? "Unpin movie" : "Pin movie"}
-              </button>
-            </div>
-            <p id="movie-pin-explanation" className="mt-1 text-sm text-slate-400">
-              {pinDisabledReason || "When you're picked, this movie comes up first if it matches the draw filters. Pinning another movie replaces your current pin in this bowl."}
-            </p>
-            {pinError && <p className="mt-2 text-sm text-rose-300" role="alert">{pinError}</p>}
-          </div>
-        )}
+                {posterUrl && failedPosterUrl !== posterUrl ? (
+                  <img
+                    src={posterUrl}
+                    alt={movie.title}
+                    className="aspect-[2/3] w-full rounded-xl object-cover shadow-lg shadow-black/30"
+                    onError={() => setFailedPosterUrl(posterUrl)}
+                  />
+                ) : (
+                  <div className="surface-card flex aspect-[2/3] flex-col items-center justify-center gap-3 p-3 text-slate-500" role="img" aria-label={`No poster for ${movie.title}`}>
+                    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-8 w-8" fill="none" stroke="currentColor" strokeWidth="1.5">
+                      <rect x="3" y="3" width="18" height="18" rx="2" />
+                      <path d="M7 3v18M17 3v18M3 8h4m-4 8h4M17 8h4m-4 8h4" />
+                    </svg>
+                    <span className="text-center text-xs">No poster</span>
+                  </div>
+                )}
+                {onTogglePin && (
+                  <MoviePosterPin
+                    isPinned={movie.is_pinned}
+                    label={isSavingPin ? "Saving pin..." : movie.is_pinned ? "Unpin movie" : "Pin movie"}
+                    describedBy="movie-pin-explanation"
+                    disabled={Boolean(pinDisabledReason)}
+                    isSaving={isSavingPin}
+                    onClick={togglePin}
+                  />
+                )}
+              </div>
 
-        {(displayedNote || onEditNote) && (
-          <div className="mb-4">
-            {(displayedNote || isEditingNote) && (
-              <p className="mb-1 text-sm font-semibold text-slate-100">
-                {resolvedNoteHeading}
-              </p>
-            )}
-            {isEditingNote ? (
-              <div>
-                <textarea
-                  className="input-field min-h-28 resize-y whitespace-pre-wrap"
-                  value={noteDraft}
-                  maxLength={MAX_MOVIE_NOTE_LENGTH}
-                  placeholder="Recommended by Tim at dinner…"
-                  onChange={(event) => setNoteDraft(event.target.value)}
-                  disabled={isSavingNote}
-                  aria-label="Comment (optional)"
-                />
-                <div className="mt-1 flex items-start justify-between gap-3 text-xs text-slate-400">
-                  <span>{noteEditError || "Add a reminder of why this movie belongs in the bowl."}</span>
-                  <span className="shrink-0">{noteDraft.length}/{MAX_MOVIE_NOTE_LENGTH}</span>
+              <div className="min-w-0 py-1">
+                <h2 id="movie-detail-title" className="break-words text-2xl font-semibold leading-tight tracking-tight text-slate-100 sm:text-3xl">
+                  {movie.title}
+                </h2>
+                <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-slate-400">
+                  {year && <span>{year}</span>}
+                  {Number(movie.runtime) > 0 && <span>{movie.runtime} min</span>}
+                  {isCustomEntry && <span className="text-xs font-medium text-amber-300">Custom</span>}
                 </div>
-                <div className="mt-2 flex flex-wrap gap-2">
+                {addedByLabel && (
+                  <p className="mt-3 break-words text-sm text-slate-400">
+                    <span>Added by</span>{" "}<span className="text-slate-200">{addedByLabel}</span>
+                  </p>
+                )}
+                {watchedDateLabel && <p className="mt-2 text-sm text-slate-400">Watched on: {watchedDateLabel}</p>}
+                {hasTrailer && (
                   <button
                     type="button"
-                    className="btn btn-primary px-3 py-1.5 text-sm"
-                    onClick={saveNote}
-                    disabled={isSavingNote}
+                    className="btn btn-primary mt-5 w-full px-3 text-sm sm:w-auto sm:px-5"
+                    aria-expanded={isTrailerVisible}
+                    aria-controls={trailerRegionId}
+                    onClick={() => setIsTrailerVisible((prev) => !prev)}
                   >
-                    {isSavingNote ? "Saving..." : "Save Comment"}
+                    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="currentColor">
+                      <path d="M8 4.5v15l12-7.5z" />
+                    </svg>
+                    {isTrailerVisible ? "Hide trailer" : "Watch trailer"}
                   </button>
-                  <button
-                    type="button"
-                    className="btn btn-secondary px-3 py-1.5 text-sm"
-                    onClick={() => {
+                )}
+              </div>
+            </div>
+            {onTogglePin && (
+              <div className="mt-3">
+                <p id="movie-pin-explanation" className="text-xs leading-relaxed text-slate-400">
+                  {pinDisabledReason || "One pin per bowl. Up first when you're picked, if filters match."}
+                </p>
+                {pinError && <p className="mt-2 text-sm text-rose-300" role="alert">{pinError}</p>}
+              </div>
+            )}
+          </div>
+
+          {hasTrailer && isTrailerVisible && (
+            <div id={trailerRegionId} className="surface-card aspect-video overflow-hidden">
+              <iframe
+                src={movie.trailer.embedUrl}
+                title={`${movie.title} trailer`}
+                className="h-full w-full"
+                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
+                allowFullScreen
+              />
+            </div>
+          )}
+
+          <section className="border-t border-slate-700/60 pt-5" aria-labelledby="movie-streaming-title">
+            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+              <h3 id="movie-streaming-title" className="text-sm font-semibold text-slate-200">Where to watch</h3>
+              {matchingProviders.length > 0 && <p className="text-xs text-emerald-300">✓ Your services</p>}
+            </div>
+            {availableProviders.length > 0 ? (
+              <ul className="flex flex-wrap gap-2" aria-label="Streaming services">
+                {availableProviders.map((provider) => {
+                  const isMatch = matchingProviders.includes(provider);
+                  return (
+                    <li key={provider} className={`rounded-lg border px-3 py-1.5 text-sm ${isMatch ? "border-emerald-800/60 bg-emerald-950/30 text-emerald-300" : "border-slate-700/70 text-slate-300"}`}>
+                      {isMatch && <span aria-hidden="true" className="mr-1.5">✓</span>}
+                      {provider}
+                      {isMatch && <span className="sr-only"> (in your services)</span>}
+                    </li>
+                  );
+                })}
+              </ul>
+            ) : (
+              <p className="text-sm text-slate-400">No US streaming providers found right now.</p>
+            )}
+            {availableProviders.length > 0 && matchingProviders.length === 0 && (
+              <p className="mt-2 text-xs text-slate-400">None of your saved services match this title.</p>
+            )}
+            {webLaunchCandidate && (
+              <div className="mt-4">
+                {/* Native links avoid mistaking a secure window.open result for a blocked popup. */}
+                <a href={webLaunchCandidate.url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary w-full text-sm sm:w-auto">
+                  {`Open on Web in ${webLaunchCandidate.serviceName}`}
+                  <span className="sr-only"> (opens in a new tab)</span>
+                </a>
+                {webLaunchCandidate.linkType === "title" && <div className="mt-2"><ProviderLinksAttribution /></div>}
+              </div>
+            )}
+          </section>
+
+          {(displayedNote || isEditingNote) ? (
+            <section className="surface-card p-4" aria-labelledby="movie-note-title">
+              <div className="mb-2 flex items-center justify-between gap-3">
+                <h3 id="movie-note-title" className="text-xs font-medium text-slate-400">{resolvedNoteHeading}</h3>
+                {onEditNote && !isEditingNote && (
+                  <button type="button" className="btn btn-ghost -my-2 -mr-2 px-2 text-xs" aria-label="Edit Comment" onClick={() => {
+                    setNoteDraft(displayedNote || "");
+                    setNoteEditError("");
+                    setIsEditingNote(true);
+                  }}>Edit</button>
+                )}
+              </div>
+              {isEditingNote ? (
+                <div>
+                  <textarea
+                    className="input-field min-h-28 resize-y whitespace-pre-wrap text-sm"
+                    value={noteDraft}
+                    maxLength={MAX_MOVIE_NOTE_LENGTH}
+                    placeholder="Recommended by Tim at dinner…"
+                    onChange={(event) => setNoteDraft(event.target.value)}
+                    disabled={isSavingNote}
+                    aria-label="Comment (optional)"
+                    aria-describedby="movie-note-help"
+                    aria-invalid={Boolean(noteEditError)}
+                    autoFocus
+                  />
+                  <div className="mt-2 flex items-start justify-between gap-3 text-xs text-slate-400">
+                    <span id="movie-note-help" role={noteEditError ? "alert" : undefined}>{noteEditError || "A little context for movie night."}</span>
+                    <span className="shrink-0">{noteDraft.length}/{MAX_MOVIE_NOTE_LENGTH}</span>
+                  </div>
+                  <div className="mt-3 flex flex-wrap gap-2">
+                    <button type="button" className="btn btn-primary px-3 text-sm" onClick={saveNote} disabled={isSavingNote}>
+                      {isSavingNote ? "Saving..." : "Save Comment"}
+                    </button>
+                    <button type="button" className="btn btn-ghost px-3 text-sm" disabled={isSavingNote} onClick={() => {
                       setNoteDraft(displayedNote || "");
                       setNoteEditError("");
                       setIsEditingNote(false);
-                    }}
-                    disabled={isSavingNote}
-                  >
-                    Cancel
-                  </button>
+                    }}>Cancel</button>
+                  </div>
                 </div>
+              ) : <p className="whitespace-pre-wrap break-words text-sm leading-relaxed text-slate-200">{displayedNote}</p>}
+            </section>
+          ) : onEditNote ? (
+            <button type="button" className="btn btn-ghost -ml-3 px-3 text-sm" onClick={() => {
+              setNoteDraft("");
+              setNoteEditError("");
+              setIsEditingNote(true);
+            }}>+ Add a comment</button>
+          ) : null}
+        </div>
+
+        {(detailPrimaryActionError || (onDetailPrimaryAction && detailPrimaryActionLabel)) && (
+          <div className="shrink-0 space-y-3 border-t border-slate-700/60 px-5 py-4 sm:px-7">
+            {detailPrimaryActionError && <div className="status-error text-sm" role="alert">{detailPrimaryActionError}</div>}
+            {onDetailPrimaryAction && detailPrimaryActionLabel && (
+              <div className="flex justify-end">
+                <button type="button" onClick={async () => { await onDetailPrimaryAction(movie); }} className="btn btn-secondary w-full sm:w-auto" disabled={isDetailPrimaryActionLoading}>
+                  {isDetailPrimaryActionLoading ? "Adding..." : detailPrimaryActionLabel}
+                </button>
               </div>
-            ) : (
-              <>
-                {displayedNote && (
-                  <p className="whitespace-pre-wrap text-sm text-slate-300">{displayedNote}</p>
-                )}
-                {onEditNote && (
-                  <button
-                    type="button"
-                    className="mt-2 text-sm font-medium text-rose-300 hover:text-rose-200"
-                    onClick={() => {
-                      setNoteDraft(displayedNote || "");
-                      setNoteEditError("");
-                      setIsEditingNote(true);
-                    }}
-                  >
-                    Edit Comment
-                  </button>
-                )}
-              </>
             )}
           </div>
         )}
-
-        {hasTrailer && <TrailerDisclosure key={trailerRegionId} movie={movie} trailerRegionId={trailerRegionId} />}
-
-        <div className="mb-4">
-          <p className="mb-1 text-sm font-semibold text-slate-100">Available on</p>
-          {availableProviders.length > 0 ? (
-            <p className="text-sm text-slate-300">{availableProviders.join(", ")}</p>
-          ) : (
-            <p className="text-sm text-slate-400">No US streaming providers found right now.</p>
-          )}
-        </div>
-
-        <div className="mb-5">
-          <p className="mb-1 text-sm font-semibold text-slate-100">Your services</p>
-          {matchingProviders.length > 0 ? (
-            <p className="text-sm text-emerald-300">{matchingProviders.join(", ")}</p>
-          ) : (
-            <p className="text-sm text-slate-400">None of your saved services match this title.</p>
-          )}
-        </div>
-
-        {webLaunchCandidate && (
-          <div className="mb-5 rounded-xl border border-slate-700 bg-slate-800/50 p-4">
-            <p className="mb-1 text-sm font-semibold text-slate-100">Open to watch</p>
-            <div className="mt-2">
-              <p className="mb-2 text-sm text-slate-400">
-                Web launch match: {webLaunchCandidate.serviceName}.
-              </p>
-              {/* A secure window.open returns null even when it succeeds.
-                  Let the browser follow the link without guessing its result. */}
-              <a
-                href={webLaunchCandidate.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="btn btn-secondary"
-              >
-                {`Open on Web in ${webLaunchCandidate.serviceName}`}
-                <span className="sr-only"> (opens in a new tab)</span>
-              </a>
-              {webLaunchCandidate.linkType === "title" && (
-                <div className="mt-2"><ProviderLinksAttribution /></div>
-              )}
-            </div>
-          </div>
-        )}
-
-        {detailPrimaryActionError && (
-          <div
-            className="mb-3 rounded-lg border border-rose-900/60 bg-rose-950/50 px-3 py-2 text-sm text-rose-300"
-            role="alert"
-          >
-            {detailPrimaryActionError}
-          </div>
-        )}
-
-        <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          {onDetailPrimaryAction && detailPrimaryActionLabel && (
-            <button
-              onClick={async () => {
-                await onDetailPrimaryAction(movie);
-              }}
-              className="btn btn-secondary"
-              disabled={isDetailPrimaryActionLoading}
-            >
-              {isDetailPrimaryActionLoading ? "Adding..." : detailPrimaryActionLabel}
-            </button>
-          )}
-
-          {/* Just dismisses the modal */}
-          <button
-            onClick={onClose}
-            className={
-              onDetailPrimaryAction && detailPrimaryActionLabel
-                ? "btn btn-primary"
-                : "btn btn-secondary"
-            }
-          >
-            Close
-          </button>
-        </div>
       </div>
     </div>
   );

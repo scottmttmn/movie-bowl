@@ -147,9 +147,10 @@ rule belongs.
 
 ### My Movies details
 
-- Own undrawn movies offer **Pin movie** / **Unpin movie** under **Your pin**.
-- Explanation: **When you're picked, this movie comes up first if it matches
-  the draw filters. Pinning another movie replaces your current pin in this bowl.**
+- Own undrawn movies offer the same poster pin icon as My Movies, with accessible
+  **Pin movie** / **Unpin movie** labels and no separate pin form or badge.
+- Compact explanation below the poster and title: **One pin per bowl. Up first
+  when you're picked, if filters match.**
 - For a resolved exclusion, disable the action and explain: **This movie is
   outside tonight's filters, so its pin won't affect this draw. Change the
   filters to pin or unpin it.**

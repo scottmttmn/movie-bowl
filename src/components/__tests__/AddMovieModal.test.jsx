@@ -25,13 +25,16 @@ describe("AddMovieModal", () => {
     };
 
     render(<AddMovieModal movie={movie} onClose={vi.fn()} userStreamingServices={["Netflix"]} />);
-    expect(screen.getByText("Dune (2021)")).toBeInTheDocument();
-    expect(screen.getByText("Runtime: 155 minutes")).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Dune", level: 2 })).toBeInTheDocument();
+    expect(screen.getByText("155 min")).toBeInTheDocument();
     expect(screen.getByText("Added by")).toBeInTheDocument();
     expect(screen.getByText("Dad")).toBeInTheDocument();
-    expect(screen.getByText("Available on")).toBeInTheDocument();
-    expect(screen.getByText("Your services")).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Where to watch" })).toBeInTheDocument();
+    expect(screen.getByText("✓ Your services")).toBeInTheDocument();
     expect(screen.getByText("Netflix")).toBeInTheDocument();
+    expect(screen.getAllByText("Netflix")).toHaveLength(1);
+    expect(screen.getByText("Netflix")).toHaveTextContent("(in your services)");
+    expect(screen.getByText("Prime Video")).not.toHaveTextContent("(in your services)");
     expect(screen.queryByRole("group", { name: "Movie pin" })).not.toBeInTheDocument();
   });
 
@@ -43,7 +46,9 @@ describe("AddMovieModal", () => {
       <AddMovieModal movie={movie} onClose={vi.fn()} onTogglePin={onTogglePin} />
     );
 
-    expect(screen.getByText(/Pinning another movie replaces your current pin/i)).toBeInTheDocument();
+    expect(screen.getByText(/One pin per bowl/i)).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Movie pin" })).toContainElement(screen.getByRole("button", { name: "Pin movie" }));
+    expect(screen.queryByText("Your pin")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Pin movie" }));
     expect(screen.getByRole("button", { name: "Saving pin..." })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Saving pin..." }));
@@ -164,6 +169,61 @@ describe("AddMovieModal", () => {
     expect(screen.queryByText("Why it’s in the bowl")).not.toBeInTheDocument();
   });
 
+  it("adds, cancels, and clears a comment without leaving an empty note card", async () => {
+    const onEditNote = vi.fn(async (note) => ({ ok: true, movie: { note: note.trim() } }));
+    render(<AddMovieModal movie={{ id: "1", title: "Dune" }} onClose={vi.fn()} onEditNote={onEditNote} />);
+
+    expect(screen.queryByRole("region", { name: "Why it’s in the bowl" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /add a comment/i }));
+    expect(screen.getByLabelText("Comment (optional)")).toHaveFocus();
+    fireEvent.change(screen.getByLabelText("Comment (optional)"), { target: { value: "Discard this" } });
+    fireEvent.click(screen.getByRole("button", { name: "Cancel" }));
+    expect(onEditNote).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: /add a comment/i }));
+    expect(screen.getByLabelText("Comment (optional)")).toHaveValue("");
+    fireEvent.change(screen.getByLabelText("Comment (optional)"), { target: { value: "For movie night" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Comment" }));
+    expect(await screen.findByText("For movie night", { selector: "p" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Edit Comment" }));
+    fireEvent.change(screen.getByLabelText("Comment (optional)"), { target: { value: "   " } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Comment" }));
+    expect(await screen.findByRole("button", { name: /add a comment/i })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Why it’s in the bowl" })).not.toBeInTheDocument();
+  });
+
+  it("keeps a failed comment draft and announces the error before retrying", async () => {
+    let finishSave;
+    const onEditNote = vi.fn(() => new Promise((resolve) => { finishSave = resolve; }));
+    render(<AddMovieModal movie={{ id: "1", title: "Dune", note: "Original note" }} onClose={vi.fn()} onEditNote={onEditNote} />);
+    fireEvent.click(screen.getByRole("button", { name: "Edit Comment" }));
+    fireEvent.change(screen.getByLabelText("Comment (optional)"), { target: { value: "Keep this draft" } });
+    fireEvent.click(screen.getByRole("button", { name: "Save Comment" }));
+    expect(screen.getByRole("button", { name: "Saving..." })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Cancel" })).toBeDisabled();
+    await act(async () => finishSave({ ok: false, message: "Could not save. Try again." }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not save. Try again.");
+    expect(screen.getByLabelText("Comment (optional)")).toHaveValue("Keep this draft");
+    expect(screen.getByLabelText("Comment (optional)")).toHaveAttribute("aria-invalid", "true");
+
+    onEditNote.mockResolvedValue({ ok: true });
+    fireEvent.click(screen.getByRole("button", { name: "Save Comment" }));
+    expect(await screen.findByText("Keep this draft", { selector: "p" })).toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+  });
+
+  it("falls back when a poster fails and tries the next movie's poster", () => {
+    const props = { onClose: vi.fn(), onTogglePin: vi.fn() };
+    const { rerender } = render(<AddMovieModal {...props} movie={{ id: 1, title: "Dune", poster_path: "/dune.jpg" }} />);
+    fireEvent.error(screen.getByRole("img", { name: "Dune" }));
+    expect(screen.getByRole("img", { name: "No poster for Dune" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Pin movie" })).toBeEnabled();
+    rerender(<AddMovieModal {...props} movie={{ id: 2, title: "Arrival", poster_path: "/arrival.jpg" }} />);
+    expect(screen.getByRole("img", { name: "Arrival" })).toHaveAttribute("src", "https://image.tmdb.org/t/p/w500/arrival.jpg");
+    expect(screen.queryByRole("img", { name: "No poster for Dune" })).not.toBeInTheDocument();
+  });
+
   it("offers comment editing only when an edit action is supplied", async () => {
     const onEditNote = vi.fn(async (note) => ({
       ok: true,
@@ -216,7 +276,7 @@ describe("AddMovieModal", () => {
       />
     );
 
-    const toggle = screen.getByRole("button", { name: /show trailer/i });
+    const toggle = screen.getByRole("button", { name: /watch trailer/i });
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByTitle("Dune trailer")).not.toBeInTheDocument();
 
@@ -229,7 +289,7 @@ describe("AddMovieModal", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: /hide trailer/i }));
-    expect(screen.getByRole("button", { name: /show trailer/i })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /watch trailer/i })).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByTitle("Dune trailer")).not.toBeInTheDocument();
   });
 
@@ -253,7 +313,7 @@ describe("AddMovieModal", () => {
       />
     );
 
-    expect(screen.queryByRole("button", { name: /show trailer/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /watch trailer/i })).not.toBeInTheDocument();
     expect(screen.queryByTitle("Dune trailer")).not.toBeInTheDocument();
   });
 
@@ -338,7 +398,7 @@ describe("AddMovieModal", () => {
       />
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /show trailer/i }));
+    fireEvent.click(screen.getByRole("button", { name: /watch trailer/i }));
     expect(screen.getByTitle("Movie A trailer")).toBeInTheDocument();
 
     rerender(
@@ -359,7 +419,7 @@ describe("AddMovieModal", () => {
       />
     );
 
-    expect(screen.getByRole("button", { name: /show trailer/i })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /watch trailer/i })).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByTitle("Movie B trailer")).not.toBeInTheDocument();
   });
 
