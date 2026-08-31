@@ -341,6 +341,8 @@ class FakeBackend {
           row.accepted_at ??= null;
         }
         this.state[table].push(row);
+        if (table === "bowls") this.resolveDefault(row.owner_id);
+        if (table === "bowl_members") this.resolveDefault(row.user_id);
         return row;
       });
       await fulfillJson(route, responseShape(request, insertedRows), 201, {
@@ -366,7 +368,41 @@ class FakeBackend {
     await this.unhandled(route, `Unhandled table request ${method} ${table}`);
   }
 
+  accessibleBowlRows(userId = this.state.currentUser.id) {
+    return this.state.bowls.filter((bowl) => bowl.owner_id === userId
+      || this.state.bowl_members.some((member) => member.bowl_id === bowl.id && member.user_id === userId))
+      .map((bowl) => ({ ...bowl,
+        remaining_count: this.state.bowl_movies.filter((movie) => movie.bowl_id === bowl.id && movie.drawn_at == null).length,
+        member_count: new Set([bowl.owner_id, ...this.state.bowl_members.filter((member) => member.bowl_id === bowl.id).map((member) => member.user_id)]).size,
+        last_activity_at: bowl.updated_at || bowl.created_at || null,
+      }));
+  }
+
+  resolveDefault(userId = this.state.currentUser.id) {
+    this.state.defaults ||= {};
+    const bowls = this.accessibleBowlRows(userId);
+    if (!bowls.some((bowl) => bowl.id === this.state.defaults[userId])) {
+      const ranked = [...bowls].sort((a, b) => b.remaining_count - a.remaining_count
+        || a.name.trim().toLowerCase().localeCompare(b.name.trim().toLowerCase()) || a.id.localeCompare(b.id));
+      this.state.defaults[userId] = ranked[0]?.id || null;
+    }
+    return { default_bowl_id: this.state.defaults[userId], bowls };
+  }
+
   async handleRpc(route, rpcName, args) {
+    if (rpcName === "get_my_bowl_context" || rpcName === "set_my_default_bowl") {
+      if (rpcName === "set_my_default_bowl") {
+        if (!this.accessibleBowlRows().some((bowl) => bowl.id === args.p_bowl_id)) {
+          await fulfillJson(route, { code: "42501", message: "That bowl is no longer available." }, 403);
+          return;
+        }
+        this.state.defaults ||= {};
+        this.state.defaults[this.state.currentUser.id] = args.p_bowl_id;
+      }
+      await fulfillJson(route, this.resolveDefault());
+      return;
+    }
+
     if (rpcName === "get_my_bowls_with_counts") {
       const rows = this.state.bowls.map((bowl) => ({
         ...bowl,
@@ -546,6 +582,17 @@ class FakeBackend {
 
     if (url.pathname === "/api/tmdb/movie/providers" && method === "GET") {
       await fulfillJson(route, { results: { US: { flatrate: [], ads: [] } } });
+      return;
+    }
+
+    if (url.pathname === "/api/tmdb/movie/details" && method === "GET") {
+      const movie = this.state.tmdbSearchResults.find((row) => String(row.id) === url.searchParams.get("id"));
+      await fulfillJson(route, { ...movie, runtime: 110, genres: [{ name: "Drama" }], overview: "A movie for the next gathering." });
+      return;
+    }
+
+    if (url.pathname === "/api/tmdb/movie/warm-filter-metadata" && method === "POST") {
+      await fulfillJson(route, { ok: true });
       return;
     }
 

@@ -434,7 +434,7 @@ describe("WatchListPage", () => {
     render(<WatchListPage />);
 
     await screen.findByText("Owned Favorite");
-    fireEvent.click(screen.getByRole("button", { name: /add watched movie/i }));
+    fireEvent.click(screen.getByRole("button", { name: /log a watched movie/i }));
 
     expect(screen.getByTestId("watch-history-editor")).toHaveTextContent("adding history");
     fireEvent.click(screen.getByRole("button", { name: /save history entry/i }));

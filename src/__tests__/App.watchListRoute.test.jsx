@@ -15,6 +15,7 @@ vi.mock("../hooks/useAuth", () => ({
 
 vi.mock("../lib/supabase", () => ({
   supabase: {
+    rpc: vi.fn(async () => ({ data: { bowls: [], default_bowl_id: null }, error: null })),
     auth: {
       getSession: vi.fn(async () => ({ data: { session: null }, error: null })),
     },

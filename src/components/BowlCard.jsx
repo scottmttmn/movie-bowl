@@ -1,11 +1,12 @@
-export default function BowlCard({ bowl, onSelect }) {
+export default function BowlCard({ bowl, onSelect, isDefault = false, onMakeDefault, defaultDisabled = false }) {
   return (
+    <div className="panel bowl-card group relative">
     <button
       type="button"
-      className="panel bowl-card group w-full cursor-pointer text-left transition duration-200 hover:-translate-y-1 hover:border-slate-700 hover:shadow-2xl hover:shadow-black/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60"
+      className="w-full cursor-pointer text-left transition duration-200 hover:-translate-y-1 hover:border-slate-700 hover:shadow-2xl hover:shadow-black/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60"
       onClick={() => onSelect(bowl.id)}
     >
-      <div className="flex items-start justify-between gap-3">
+      <div className="flex items-start justify-between gap-3 pr-14">
         <div className="min-w-0">
           <div className="flex items-center gap-2">
             <span
@@ -36,5 +37,18 @@ export default function BowlCard({ bowl, onSelect }) {
         </div>
       </div>
     </button>
+    {onMakeDefault && <button
+      type="button"
+      className={`icon-btn absolute right-3 top-3 h-11 w-11 ${isDefault ? "text-rose-400" : "text-slate-400"}`}
+      aria-label={isDefault ? `Default bowl: ${bowl.name}` : `Make ${bowl.name} my default bowl`}
+      aria-pressed={isDefault}
+      disabled={defaultDisabled}
+      onClick={onMakeDefault}
+    >
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-[18px] w-[18px]" fill={isDefault ? "currentColor" : "none"} stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
+        <path d="m12 3 2.8 5.7 6.2.9-4.5 4.4 1.1 6.2-5.6-3-5.6 3 1.1-6.2L3 9.6l6.2-.9Z" />
+      </svg>
+    </button>}
+    </div>
   );
 }

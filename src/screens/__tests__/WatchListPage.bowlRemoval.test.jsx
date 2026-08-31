@@ -122,7 +122,7 @@ async function saveManualEntry() {
     expect(screen.getByText("Watch History")).toBeInTheDocument();
   });
 
-  fireEvent.click(screen.getByRole("button", { name: "Add watched movie" }));
+  fireEvent.click(screen.getByRole("button", { name: "Log a watched movie" }));
   fireEvent.click(screen.getByRole("button", { name: "Save history entry" }));
 }
 

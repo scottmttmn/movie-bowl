@@ -11,7 +11,9 @@ contributor first — so the person who added 25 movies does not get 25× the od
 **Bowls**
 
 - Create bowls, invite people by email, and manage members.
-- Return straight to the bowl you last opened; the full list stays at `/bowls`.
+- Return straight to your saved default bowl; change it with a star on My Bowls.
+- Add movies from the navigation with the plus/filmstrip button. The dialog
+  starts at your default bowl; “Add to this bowl” uses the bowl you're viewing.
 - Manage who is allowed to draw, per bowl (everyone, or a selected allow-list).
 - Create public add links so people without accounts can add a fixed number of
   titles.
@@ -143,7 +145,7 @@ output/designs/      design specs and roadmaps for shipped + planned features
 
 ### Routes
 
-`/` (redirects to your last opened bowl), `/bowls`, `/bowl/:bowlId`,
+`/` (resolves your saved default bowl, or `/bowls` when you have none), `/bowls`, `/bowl/:bowlId`,
 `/bowl/:bowlId/settings`, `/settings`, `/watch-list`, `/invites`, `/about`,
 `/login`, `/accept-invite/:token`, `/add-to-bowl/:token`, `/tv/*`.
 

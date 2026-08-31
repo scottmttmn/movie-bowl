@@ -1,8 +1,9 @@
 # Future Ideas
 
-Status: brainstorm. Nothing here is scheduled, specified, or committed to. These
-are deliberately larger than the `TODO.md` backlog — each one changes what Movie
-Bowl *is*, not how a screen looks. Open questions are genuinely open.
+Status: brainstorm, except for idea 3, which has a design specification and
+implementation plan linked below. Nothing here is implemented by this document
+or scheduled. These are deliberately larger than the `TODO.md` backlog — each
+one changes what Movie Bowl *is*, not how a screen looks.
 
 The spine running through all of them: Movie Bowl's real product is not a list,
 and it is not a random number. It is **a fair, explainable ritual for deciding**.
@@ -88,25 +89,36 @@ the same animation land at the same instant. Collective hold is phase two.
 
 ## 3. One bowl is the unit
 
-**The idea.** Almost nobody has five bowls. People have one, maybe two. The app
-is built as though you have many: the bowl is a container, `/bowls` is the hub
-the logo points at, and adding a movie exists *only inside a bowl* —
-`AddMovieModal` is rendered by `BowlDashboard` and `WatchListPage` and nowhere
-else. So adding costs navigation before it costs typing. Open the app, land
+**Design specification:** [Default Bowl and Global Add](default-bowl-and-global-add.md)
+is the source of truth for the agreed behavior and UI. The
+[implementation plan](default-bowl-and-global-add-implementation.md) resolves
+persistence, migration, access repair, shared add state, testing, and rollout.
+The first version is implemented locally as of August 31, 2026,
+but has not been deployed. The concept and its original rationale remain here.
+
+**The idea.** Almost nobody has five bowls. People have one, maybe two. Before
+this work, the app treated `/bowls` as its hub and put bowl additions inside
+the dashboard. Adding cost navigation before it cost typing. Open the app, land
 somewhere, get into the right bowl, find the add control, then search. The
 search was never the expensive part.
 
 Commit to one bowl as the default shape of the product:
 
-- **A default bowl, remembered.** `HomeRedirect` already picks one — your single
-  bowl, or the last one you opened. Promote that from a routing convenience to a
-  real product concept.
-- **Add goes global.** A permanent `+` in `TopNav`, live on every screen,
-  opening the existing modal against the default bowl.
+- **A stable default bowl.** For new users, the first bowl they create or join
+  becomes their default. Save the choice per account so it follows them across
+  devices. Opening another bowl does not change it. This replaces `HomeRedirect`'s
+  current last-opened routing convenience with an explicit product concept.
+- **Add goes global.** A permanent plus/filmstrip button in `TopNav` wherever it
+  appears for signed-in users opens the shared add dialog against the default
+  bowl. Show the destination clearly in the modal; retain the existing bowl
+  artwork beside the app name.
 - **Multi-bowl becomes the exception path**, not a step everyone pays for. "Add
   to a different bowl" is a secondary control inside the modal: one extra tap in
-  the rare case instead of a mandatory step in the common one.
-- **`/bowls` demotes** from hub to a management screen in the menu.
+  the rare case instead of a mandatory step in the common one. Switching for
+  one addition does not change the saved default.
+- **Home and the logo open the default bowl.** `/bowls` becomes the My Bowls
+  management screen in the menu, where users can open another bowl or change
+  their default.
 - **Then voice capture is possible at all.** "Hey Siri, add Sinners to Movie
   Bowl" through an App Intent works only when there is exactly one destination
   and nothing to disambiguate. This is the piece an earlier draft of this
@@ -115,6 +127,32 @@ Commit to one bowl as the default shape of the product:
   a podcast — have no link in them. They have a spoken title and a risk of
   forgetting it. A single unambiguous destination is what makes capturing that
   possible; the share sheet never was.
+
+**Default selection and replacement — decided August 30, 2026.**
+
+- **A star on each My Bowls card changes the default in one tap.** Follow the
+  compact icon treatment of the pinned-movie control, but use an outlined star
+  for other bowls and a filled star for the default. Call the action "Make this
+  my default bowl" and the selected state "Default bowl". This is a personal
+  choice available to owners and members, not a movie pin or a list-ordering
+  control; it has no effect on draws or other members' defaults.
+- **Exactly one default while the user has bowls.** Selecting another star
+  moves the default. Tapping the selected star leaves it selected; there is no
+  separate unset step. Selecting the star must not also open the bowl.
+- **If the default is left, deleted, or otherwise no longer accessible, choose
+  the remaining bowl with the most undrawn movies.** Count all persisted movies
+  still in that bowl, across contributors, before draw filters or streaming
+  preferences. Break ties alphabetically by bowl name, then by stable bowl ID
+  if names also match. This also handles one remaining bowl and all-empty bowls.
+- **Existing accounts use the same selection rule at rollout.** When an account
+  has no saved default, choose its accessible bowl with the most undrawn movies,
+  breaking ties by name then ID, exactly as when replacing a lost default. Do
+  not use the first-created bowl or last-opened local storage value for this
+  initialization, and do not overwrite an already saved, accessible default.
+- **Save the chosen default once.** Do not keep changing the default as movie
+  counts change. A failed load or offline state is not evidence that the user
+  lost access. With no bowls left, clear the default and show My Bowls; the next
+  bowl created or joined becomes the default.
 
 **Why it fits.** The redirect already concedes the point, and the modal is
 already bowl-agnostic — it emits a movie through `onAddMovie` and lets the
@@ -126,17 +164,22 @@ global `+` needs a bowl-bound add handler living above the bowl routes. That is
 the real work in this idea, and it touches the highest-risk file in the repo. It
 is not a button.
 
-**Smallest bold version.** The global `+` against the remembered default bowl.
-Voice comes after, and only if the first part lands.
+**Smallest bold version.** The saved default, its star control and replacement
+rule, Home routing, and the global `+` against that default. Voice comes after,
+and only if the first part lands.
 
-**Risks and open questions.**
+**Implementation risks and resolved questions.**
 - The two-bowl user is the one who gets hurt if "add to a different bowl" is
   buried. It has to be visible in the modal, not hidden behind a menu.
-- Is the default implicit (last opened, as today) or explicitly chosen? Implicit
-  is invisible until it is wrong, and then it is very wrong.
-- `WatchListPage` already uses the same modal to log history you watched
-  elsewhere. One global `+` with two possible meanings needs resolving before it
-  ships, not after.
+- Persistence and migration are specified in the implementation plan: an
+  account-owned preference table, authenticated RPCs, acquisition triggers,
+  one shared fallback ranking, and repair after confirmed access changes.
+- The shared add extraction must preserve existing guards and capture the
+  destination before metadata loads. The plan covers pending/unknown writes,
+  focus and scroll behavior, regression tests, and database-first rollout.
+- The history distinction is resolved in the design spec: global Add always
+  adds to a bowl; Watch History's separate `Log a watched movie` action retains
+  the manual-history workflow. Do not introduce a mode switch in global Add.
 
 ---
 

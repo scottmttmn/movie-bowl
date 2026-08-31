@@ -3,6 +3,7 @@ import AddMovieModal from "../components/AddMovieModal";
 import RemoveFromBowlsModal from "../components/RemoveFromBowlsModal";
 import WatchHistoryEntryModal from "../components/WatchHistoryEntryModal";
 import { getPosterUrl } from "../utils/getPosterUrl";
+import { notifyBowlChange } from "../lib/bowlChanges";
 import { supabase } from "../lib/supabase";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
@@ -421,6 +422,7 @@ export default function WatchListPage() {
         return;
       }
 
+      notifyBowlChange({ userId: user.id });
       setBowlRemoval(null);
     } catch (error) {
       console.error("[WatchListPage] Unexpected error removing movie from bowls", error);
@@ -496,7 +498,7 @@ export default function WatchListPage() {
                 setIsEntryEditorOpen(true);
               }}
             >
-              Add watched movie
+              Log a watched movie
             </button>
             <button
               type="button"

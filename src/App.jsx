@@ -3,6 +3,10 @@ import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavig
 import useAuth from "./hooks/useAuth";
 import useAppUpdate from "./hooks/useAppUpdate";
 import usePendingInvites, { PendingInvitesProvider } from "./hooks/usePendingInvites";
+import useBowlAdd, { BowlAddProvider } from "./hooks/useBowlAdd";
+import BowlAddDialog from "./components/BowlAddDialog";
+import { UserBowlsProvider } from "./hooks/useUserBowls";
+import { notifyBowlChange } from "./lib/bowlChanges";
 import TopNav from "./components/TopNav";
 import OfflineBanner from "./components/OfflineBanner";
 import UpdateBanner from "./components/UpdateBanner";
@@ -45,6 +49,7 @@ const TvActivationPage = lazyScreen(() => import("./screens/TvActivationPage"));
 
 function AppShell({ children }) {
   const { session, signOut } = useAuth();
+  const bowlAdd = useBowlAdd();
   const { pendingInviteCount } = usePendingInvites();
   // App-wide, so the reloads it takes on its own reach the TV too. Only the
   // notice below is phone-and-desktop: a TV screen is sized to the viewport and
@@ -80,13 +85,22 @@ function AppShell({ children }) {
           userEmail={userEmail}
           isAuthenticated={Boolean(session)}
           pendingInviteCount={pendingInviteCount}
+          onAddMovie={bowlAdd.openGlobalAdd}
         />
       )}
 
       <div className={shouldShowTopNav ? "pt-16" : ""}>
         {updateReady && !isTvRoute && <UpdateBanner />}
+        {shouldShowTopNav && !bowlAdd.open && bowlAdd.result && <div className="page-container pt-3">
+          <div className={bowlAdd.result.ok ? "status-success" : "status-error"} role={bowlAdd.result.ok ? "status" : "alert"}>
+            {bowlAdd.result.ok ? `Added ${bowlAdd.operation.movie.title} to ${bowlAdd.operation.bowlName}` : `${bowlAdd.operation.movie.title} — ${bowlAdd.operation.bowlName}: ${bowlAdd.result.message}`}
+            {bowlAdd.result.code === "outcome_unknown" && <button className="btn btn-secondary ml-2" onClick={bowlAdd.checkStatus} disabled={bowlAdd.pending}>Check add status</button>}
+            {bowlAdd.result.code !== "outcome_unknown" && <button className="icon-btn ml-2" aria-label="Dismiss add result" onClick={bowlAdd.clearFeedback}>✕</button>}
+          </div>
+        </div>}
         {children}
       </div>
+      {shouldShowTopNav && (bowlAdd.open || bowlAdd.pending || bowlAdd.result?.code === "outcome_unknown") && <BowlAddDialog key={bowlAdd.id} />}
 
       {/* Global, so no screen has to explain a dropped connection on its own */}
       <OfflineBanner />
@@ -97,11 +111,18 @@ function AppShell({ children }) {
 function Layout({ children }) {
   const { session } = useAuth();
 
+  const { pathname } = useLocation();
+  const bowlContextEnabled = Boolean(session) && pathname !== "/login"
+    && pathname !== "/tv" && !pathname.startsWith("/tv/")
+    && !pathname.startsWith("/add-to-bowl/");
+
   // Re-key on the signed-in user so invites reload on login, logout, and
   // account switches without the provider needing its own auth subscription.
   return (
     <PendingInvitesProvider key={session?.user?.id || "anonymous"}>
-      <AppShell>{children}</AppShell>
+      <UserBowlsProvider userId={session?.user?.id} enabled={bowlContextEnabled}>
+        <BowlAddProvider><AppShell>{children}</AppShell></BowlAddProvider>
+      </UserBowlsProvider>
     </PendingInvitesProvider>
   );
 }
@@ -204,6 +225,8 @@ function AcceptInvite() {
             return;
           }
         }
+
+        notifyBowlChange({ userId: session.user.id, bowlId: invite.bowl_id });
 
         const { error: acceptError } = await supabase
           .from("bowl_invites")

@@ -3,6 +3,7 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
   remainingQueue: [],
+  lastRemaining: [],
   watchedQueue: [],
   profileDirectoryRows: [],
   profileDirectoryError: null,
@@ -33,6 +34,7 @@ const mocks = vi.hoisted(() => ({
     },
     rpc: vi.fn(async (name, params) => {
       mocks.rpcCalls.push({ name, params });
+      if (name === "get_my_bowl_context") return { data: { default_bowl_id: "bowl-1", bowls: [{ id: "bowl-1" }] }, error: null };
       if (name === "get_bowl_profile_directory") {
         return {
           data: mocks.profileDirectoryRows,
@@ -91,7 +93,7 @@ const mocks = vi.hoisted(() => ({
         order: vi.fn(async () => {
           if (state.kind === "remaining") {
             return {
-              data: mocks.remainingQueue.shift() || [],
+              data: (mocks.lastRemaining = await (mocks.remainingQueue.shift() ?? mocks.lastRemaining)),
               error: null,
             };
           }
@@ -173,6 +175,7 @@ vi.mock("../../utils/getBrowserTimeZone", () => ({
 }));
 
 import useBowl from "../useBowl";
+import { notifyBowlChange } from "../../lib/bowlChanges";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../../utils/appLimits";
 
 function expectDrawRpc(movieId) {
@@ -189,6 +192,7 @@ describe("useBowl handleDraw integration", () => {
   beforeEach(() => {
     mocks.fetchProviderLinks.mockReset().mockResolvedValue({ links: [] });
     mocks.remainingQueue = [];
+    mocks.lastRemaining = [];
     mocks.watchedQueue = [];
     mocks.profileDirectoryRows = [];
     mocks.profileDirectoryError = null;
@@ -211,6 +215,34 @@ describe("useBowl handleDraw integration", () => {
     mocks.warmTmdbMovieFilterMetadata.mockReset();
     mocks.warmTmdbMovieFilterMetadata.mockResolvedValue(null);
     mocks.supabase.from.mockClear();
+  });
+
+  it("preserves a confirmed add over a refresh that began before it committed", async () => {
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    let finishRead;
+    mocks.remainingQueue.push(new Promise((resolve) => { finishRead = resolve; }));
+    let refresh;
+    act(() => { refresh = result.current.reload(); });
+    await waitFor(() => expect(result.current.isLoading).toBe(true));
+    const movie = { id: "new-slip", bowl_id: "bowl-1", title: "New Movie", added_by: "user-1", drawn_at: null };
+    act(() => notifyBowlChange({ type: "add", phase: "success", userId: "user-1", bowlId: "bowl-1", submissionId: "new-slip", movie }));
+    await act(async () => { finishRead([]); await refresh; });
+    expect(result.current.bowl.remaining).toEqual([movie]);
+    // A later read can legitimately remove it (for example, a remote draw).
+    await act(async () => { await result.current.reload(); });
+    expect(result.current.bowl.remaining).toEqual([]);
+  });
+
+  it("returns an add failure if the session lookup throws before dispatch", async () => {
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    mocks.supabase.auth.getSession.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    let added;
+    await act(async () => { added = await result.current.handleAddMovie({ title: "Custom" }); });
+    expect(added).toMatchObject({ ok: false, code: "add_failed" });
+    expect(mocks.insertPayloads).toEqual([]);
+    expect(result.current.errorMessage).toBe(added.message);
   });
 
   it("updates DB and refreshes bowl state after draw", async () => {
@@ -753,7 +785,7 @@ describe("useBowl handleDraw integration", () => {
     mocks.remainingQueue.push([], []);
     mocks.watchedQueue.push([], []);
     mocks.insertResponses.push(
-      { data: null, error: { message: 'null value in column "tmdb_id"' } },
+      { data: null, error: { code: "23502", message: 'null value in column "tmdb_id"' } },
       { data: [{ id: "row-1" }], error: null }
     );
 
@@ -800,7 +832,7 @@ describe("useBowl handleDraw integration", () => {
       expect.objectContaining({
         title: "Movie A",
         local_status: "syncing",
-        local_temp_id: expect.stringContaining("temp:"),
+        local_temp_id: expect.any(String),
       })
     );
 
@@ -845,7 +877,7 @@ describe("useBowl handleDraw integration", () => {
   it("rolls back optimistic add and sets error message when insert fails", async () => {
     mocks.remainingQueue.push([], []);
     mocks.watchedQueue.push([], []);
-    mocks.insertResponses.push({ data: null, error: { message: "insert failed" } });
+    mocks.insertResponses.push({ data: null, error: { code: "P0001", message: "insert failed" } });
 
     const { result } = renderHook(() => useBowl("bowl-1"));
     await waitFor(() => expect(result.current.isLoading).toBe(false));

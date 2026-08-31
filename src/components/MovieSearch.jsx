@@ -1,5 +1,5 @@
 // MovieSearch component handles querying TMDB and returning selectable results.
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect, useRef, useImperativeHandle } from "react";
 import {getPosterUrl} from "../utils/getPosterUrl"
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { matchUserServices } from "../utils/streamingServices";
@@ -10,6 +10,17 @@ import { MAX_MOVIE_NOTE_LENGTH, normalizeMovieNote } from "../utils/movieNote";
 
 export default function MovieSearch({
     onAddMovie,
+    onSubmitMovie,
+    inlineDetails = false,
+    disabled = false,
+    submissionPending = false,
+    hideResults = false,
+    searchHeader = null,
+    feedback = null,
+    controllerRef = null,
+    onDetailChange,
+    onDraftChange,
+    detailActionLabel = "Add Movie",
     userStreamingServices = [],
     includeComment = true,
 }) {
@@ -26,7 +37,10 @@ export default function MovieSearch({
     const [providersByMovieId, setProvidersByMovieId] = useState({});
     const [detailMovie, setDetailMovie] = useState(null);
     const [detailActionError, setDetailActionError] = useState("");
-    const [isAdding, setIsAdding] = useState(false);
+    const [locallyAdding, setIsAdding] = useState(false);
+    const isAdding = locallyAdding || disabled;
+    const isSubmitting = locallyAdding || submissionPending;
+    const submittingRef = useRef(false);
     const [commentDraft, setCommentDraft] = useState("");
     const [isCommentOpen, setIsCommentOpen] = useState(false);
     const inputRef = useRef(null);
@@ -36,6 +50,15 @@ export default function MovieSearch({
     const isMountedRef = useRef(true);
     const suppressNextAutoSearchRef = useRef(false);
     const finalTranscriptRef = useRef("");
+    const [focusRequest, setFocusRequest] = useState(0);
+    const handledFocusRequest = useRef(0);
+
+    useEffect(() => {
+        if (focusRequest === handledFocusRequest.current || isAdding || detailMovie) return;
+        if (inputRef.current?.closest("[hidden]")) return;
+        inputRef.current?.focus();
+        handledFocusRequest.current = focusRequest;
+    }, [focusRequest, isAdding, detailMovie]);
 
     const stopRecognition = () => {
         if (recognitionRef.current) {
@@ -100,6 +123,7 @@ export default function MovieSearch({
               return next;
             });
         } catch (error) {
+            if (requestId !== latestRequestRef.current) return;
             console.error("Failed to fetch movies", error);
             setSearchResults([]);
             setSearchError(
@@ -139,6 +163,7 @@ export default function MovieSearch({
     const normalizeAddResult = (result) => {
         if (result?.ok === false) {
             return {
+                ...result,
                 ok: false,
                 message: result.message || "Could not add this movie. Please try again.",
             };
@@ -153,26 +178,41 @@ export default function MovieSearch({
         setSearchError(null);
         setDetailActionError("");
         setDetailMovie(null);
+        onDetailChange?.(false);
+        latestRequestRef.current += 1;
         setSearchTerm("");
         setSearchResults([]);
         setIsSearching(false);
         setHighlightedIndex(0);
         setCommentDraft("");
         setIsCommentOpen(false);
-        inputRef.current?.focus();
+        setFocusRequest((request) => request + 1);
     };
 
-    // Add movie with full details fetched inside
+    useImperativeHandle(controllerRef, () => ({
+        focusSearch: () => inputRef.current?.focus(),
+        blurSearch: () => inputRef.current?.blur(),
+        reset: resetAfterSuccessfulAdd,
+        back: () => { setDetailMovie(null); setDetailActionError(""); onDetailChange?.(false); setFocusRequest((request) => request + 1); },
+    }));
+
+    const submitDraft = async (movie, detailed = false) => {
+        const draft = attachCurrentComment(movie);
+        if (onSubmitMovie) return onSubmitMovie({ ...draft, detailsLoaded: detailed });
+        const hydrated = detailed || draft.isCustomEntry ? draft : await buildDetailedMovie(draft);
+        return onAddMovie({ ...hydrated, note: draft.note });
+    };
+
+    // The bowl flow captures its destination before its controller hydrates.
+    // Other consumers keep their existing hydrated-movie callback contract.
     const addMovie = async (movie) => {
-        if (isAdding) return;
+        if (isAdding || submittingRef.current) return;
+        submittingRef.current = true;
         setIsAdding(true);
         try {
-            const detailedMovie = await buildDetailedMovie(movie);
-            const result = normalizeAddResult(
-                await onAddMovie(attachCurrentComment(detailedMovie))
-            );
+            const result = normalizeAddResult(await submitDraft(movie));
             if (!result.ok) {
-                setSearchError(result.message);
+                if (!onSubmitMovie) setSearchError(result.message);
                 return;
             }
             resetAfterSuccessfulAdd();
@@ -182,21 +222,23 @@ export default function MovieSearch({
               describeNetworkError(error, "Failed to load movie details. Please try again.")
             );
         } finally {
+            submittingRef.current = false;
             setIsAdding(false);
         }
     };
 
     const addCustomMovie = async () => {
         const customTitle = searchTerm.trim();
-        if (!customTitle || isAdding) return;
+        if (!customTitle || isAdding || submittingRef.current) return;
+        submittingRef.current = true;
         setIsAdding(true);
 
         try {
             const result = normalizeAddResult(
-                await onAddMovie(attachCurrentComment(buildCustomMovie(customTitle)))
+                await submitDraft(buildCustomMovie(customTitle), true)
             );
             if (!result.ok) {
-                setSearchError(result.message);
+                if (!onSubmitMovie) setSearchError(result.message);
                 return;
             }
             resetAfterSuccessfulAdd();
@@ -206,6 +248,7 @@ export default function MovieSearch({
               describeNetworkError(error, "Failed to add custom entry. Please try again.")
             );
         } finally {
+            submittingRef.current = false;
             setIsAdding(false);
         }
     };
@@ -215,6 +258,7 @@ export default function MovieSearch({
             const detailedMovie = await buildDetailedMovie(movie);
             setDetailActionError("");
             setDetailMovie(detailedMovie);
+            onDetailChange?.(true);
         } catch (error) {
             console.error("Failed to open movie details", error);
             setSearchError(
@@ -381,11 +425,14 @@ export default function MovieSearch({
 
     // Render search UI and list of results
     return (
-        <div className="mt-2">
+        <div className={inlineDetails ? "bowl-add-search" : "mt-2"}>
+          <div className={inlineDetails ? "bowl-add-search-form" : undefined} hidden={inlineDetails && Boolean(detailMovie)}>
             <div className="sticky top-0 z-10 -mx-1 bg-slate-900/95 px-1 pb-3 backdrop-blur">
+                {searchHeader}
                 <div className="flex items-start gap-2">
                     <input
                         ref={inputRef}
+                        disabled={disabled}
                         autoFocus
                         id="movie-search-input"
                         name="movie_search"
@@ -396,6 +443,7 @@ export default function MovieSearch({
                         onChange={(e) => {
                             const value = e.target.value;
                             setSearchTerm(value);
+                            onDraftChange?.();
                             setVoiceError(null);
                             setVoiceStatusMessage("");
                             if (!value.trim()) {
@@ -420,6 +468,7 @@ export default function MovieSearch({
                     {isVoiceSupported && (
                         <button
                             type="button"
+                            disabled={disabled}
                             onClick={toggleVoiceInput}
                             className={`icon-btn h-11 w-11 flex-shrink-0 ${isListening ? "animate-pulse border-rose-500 bg-rose-950/50 text-rose-200 shadow-lg shadow-rose-950/30" : ""}`}
                             aria-label={isListening ? "Stop voice input" : "Start voice input"}
@@ -450,7 +499,7 @@ export default function MovieSearch({
                     <p className="mt-2 text-sm text-slate-300" role="status">
                         {searchResults.length} {searchResults.length === 1 ? "result" : "results"} below — tap Add to pick one.
                     </p>
-                ) : isVoiceSupported && !voiceStatusMessage && !voiceError ? (
+                ) : !inlineDetails && isVoiceSupported && !voiceStatusMessage && !voiceError ? (
                     <p className="mt-2 text-sm text-slate-400">Speak a movie title or type to search.</p>
                 ) : null}
                 {!isListening && !isSearching && voiceStatusMessage && !voiceError && (
@@ -461,8 +510,10 @@ export default function MovieSearch({
                         {voiceError}
                     </div>
                 )}
+                {feedback}
             </div>
 
+            <div className={inlineDetails ? "bowl-add-scroll" : undefined} hidden={hideResults}>
             {includeComment && (
                 <div className="mt-3 rounded-xl border border-slate-700/80 bg-slate-950/35 text-left">
                     <button
@@ -492,6 +543,7 @@ export default function MovieSearch({
                                 Comment (optional)
                             </label>
                             <textarea
+                                disabled={isAdding}
                                 ref={commentInputRef}
                                 id="movie-comment-input"
                                 name="movie_comment"
@@ -569,7 +621,7 @@ export default function MovieSearch({
                                   className="btn btn-primary min-w-20 px-3 py-2 text-xs"
                                   disabled={isAdding}
                                 >
-                                  {isAdding ? "Adding..." : "Add"}
+                                  {isSubmitting ? "Adding..." : "Add"}
                                 </button>
                                 <button
                                   type="button"
@@ -628,38 +680,46 @@ export default function MovieSearch({
                   className="btn btn-secondary px-3 py-2 text-sm sm:py-1.5 sm:text-xs"
                   disabled={isAdding}
                 >
-                  {isAdding ? "Adding..." : `Add "${searchTerm.trim()}"`}
+                  {isSubmitting ? "Adding..." : `Add "${searchTerm.trim()}"`}
                 </button>
               </div>
             )}
 
+            </div>
+          </div>
             {detailMovie && (
               <AddMovieModal
+                inline={inlineDetails}
                 movie={detailMovie}
                 userStreamingServices={userStreamingServices}
-                detailPrimaryActionLabel="Add Movie"
+                detailPrimaryActionLabel={detailActionLabel}
                 detailPrimaryActionError={detailActionError}
-                isDetailPrimaryActionLoading={isAdding}
+                isDetailPrimaryActionLoading={isSubmitting}
+                isDetailPrimaryActionDisabled={disabled}
                 onDetailPrimaryAction={async (selectedMovie) => {
-                  if (isAdding) return;
+                  if (isAdding || submittingRef.current) return;
+                  submittingRef.current = true;
                   setIsAdding(true);
                   setDetailActionError("");
                   try {
                     const result = normalizeAddResult(
-                      await onAddMovie(attachCurrentComment(selectedMovie))
+                      await submitDraft(selectedMovie, true)
                     );
                     if (!result.ok) {
-                      setDetailActionError(result.message);
+                      if (!onSubmitMovie) setDetailActionError(result.message);
                       return;
                     }
                     resetAfterSuccessfulAdd();
                   } finally {
+                    submittingRef.current = false;
                     setIsAdding(false);
                   }
                 }}
                 onClose={() => {
                   setDetailActionError("");
                   setDetailMovie(null);
+                  onDetailChange?.(false);
+                  setFocusRequest((request) => request + 1);
                 }}
               />
             )}

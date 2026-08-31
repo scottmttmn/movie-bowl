@@ -40,7 +40,7 @@ describe("MovieSearch custom add", () => {
         })
       );
     });
-    expect(screen.queryByLabelText(/comment \(optional\)/i)).toBeNull();
+    await waitFor(() => expect(screen.queryByLabelText(/comment \(optional\)/i)).toBeNull());
     expect(openCommentField()).toHaveValue("");
   });
 });

@@ -780,3 +780,37 @@
     opacity: 0.32;
   }
 }
+
+/* The add dialog shares one header and one results scroller. The bowl list is
+   the only temporary nested scroller, immediately beneath its name button. */
+.bowl-add-overlay {
+  position: fixed;
+  inset-inline: 0;
+  z-index: 80;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  padding: 16px;
+  background: rgb(2 6 23 / 85%);
+  backdrop-filter: blur(4px);
+}
+.bowl-add-overlay [hidden], .bowl-add-overlay[hidden] { display: none !important; }
+.bowl-add-surface {
+  display: flex;
+  flex-direction: column;
+  max-height: 100%;
+  max-width: 640px;
+  padding: 16px;
+  overflow: hidden;
+}
+.bowl-add-search, .bowl-add-search-form, .bowl-add-inline-details {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+}
+.bowl-add-search-form > .sticky { flex-shrink: 0; }
+.bowl-add-scroll { overflow-y: auto; overscroll-behavior: contain; min-height: 0; }
+.bowl-add-scroll #movie-search-listbox { max-height: none; overflow: visible; }
+.bowl-add-overlay button { min-height: 44px; }
+@media (min-width: 640px) { .bowl-add-surface { padding: 24px; } }

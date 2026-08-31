@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from "react";
+import React, { useEffect, useRef, useState } from "react";
 import MovieSearch from "./MovieSearch";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { matchUserServices, normalizeStreamingServices } from "../utils/streamingServices";
@@ -21,6 +21,7 @@ function formatDisplayDate(value) {
 
 export default function AddMovieModal({
   movie,
+  inline = false,
   onClose,
   onAddMovie,
   userStreamingServices = [],
@@ -28,6 +29,7 @@ export default function AddMovieModal({
   onDetailPrimaryAction = null,
   detailPrimaryActionError = "",
   isDetailPrimaryActionLoading = false,
+  isDetailPrimaryActionDisabled = false,
   webLaunchCandidate = null,
   onEditNote = null,
   noteHeading = null,
@@ -43,10 +45,16 @@ export default function AddMovieModal({
   const [pinError, setPinError] = useState("");
   const [isTrailerVisible, setIsTrailerVisible] = useState(false);
   const [failedPosterUrl, setFailedPosterUrl] = useState(null);
+  const backButton = useRef(null);
 
   useEffect(() => {
+    if (inline) backButton.current?.focus();
+  }, [inline]);
+
+  useEffect(() => {
+    if (inline) return undefined;
     const handleKeyDown = (event) => {
-      if (event.key === "Escape") {
+      if (event.key === "Escape" && !event.defaultPrevented) {
         onClose?.();
       }
     };
@@ -55,7 +63,7 @@ export default function AddMovieModal({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose]);
+  }, [onClose, inline]);
 
   useEffect(() => {
     setDisplayedNote(normalizeMovieNote(movie?.note));
@@ -176,14 +184,14 @@ export default function AddMovieModal({
   };
 
   return (
-    <div className="modal-overlay z-50" role="presentation">
-      <div className="modal-surface flex max-h-[92dvh] max-w-3xl flex-col overflow-clip" role="dialog" aria-modal="true" aria-labelledby="movie-detail-title">
-        <div className="flex shrink-0 items-center justify-between gap-4 px-5 py-3 sm:px-7 sm:py-4">
-          <p className="eyebrow">Movie details</p>
-          <button type="button" onClick={onClose} className="icon-btn shrink-0" aria-label="Close">✕</button>
+    <div className={inline ? "bowl-add-inline-details" : "modal-overlay z-50"} role={inline ? undefined : "presentation"}>
+      <div className={inline ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "modal-surface flex max-h-[92dvh] max-w-3xl flex-col overflow-clip"} role={inline ? undefined : "dialog"} aria-modal={inline ? undefined : "true"} aria-labelledby="movie-detail-title">
+        <div className={inline ? "mb-3 shrink-0" : "flex shrink-0 items-center justify-between gap-4 px-5 py-3 sm:px-7 sm:py-4"}>
+          {!inline && <p className="eyebrow">Movie details</p>}
+          <button ref={backButton} type="button" onClick={onClose} className={inline ? "btn btn-ghost whitespace-nowrap px-0 text-sm" : "icon-btn shrink-0"} aria-label={inline ? "Back to search" : "Close"}>{inline ? "← Back to search" : "✕"}</button>
         </div>
 
-        <div className="min-h-0 space-y-6 overflow-y-auto overscroll-contain px-5 pb-6 sm:px-7 sm:pb-7">
+        <div className={`min-h-0 space-y-6 overflow-y-auto overscroll-contain pb-6 ${inline ? "" : "px-5 sm:px-7 sm:pb-7"}`}>
           <div>
             <div className="grid grid-cols-[minmax(80px,1fr)_minmax(0,2fr)] items-start gap-4 sm:grid-cols-[176px_minmax(0,1fr)] sm:gap-6">
               <div
@@ -361,11 +369,11 @@ export default function AddMovieModal({
         </div>
 
         {(detailPrimaryActionError || (onDetailPrimaryAction && detailPrimaryActionLabel)) && (
-          <div className="shrink-0 space-y-3 border-t border-slate-700/60 px-5 py-4 sm:px-7">
+          <div className={`shrink-0 space-y-3 border-t border-slate-700/60 pt-4 ${inline ? "" : "px-5 pb-4 sm:px-7"}`}>
             {detailPrimaryActionError && <div className="status-error text-sm" role="alert">{detailPrimaryActionError}</div>}
             {onDetailPrimaryAction && detailPrimaryActionLabel && (
               <div className="flex justify-end">
-                <button type="button" onClick={async () => { await onDetailPrimaryAction(movie); }} className="btn btn-secondary w-full sm:w-auto" disabled={isDetailPrimaryActionLoading}>
+                <button type="button" onClick={async () => { await onDetailPrimaryAction(movie); }} className="btn btn-secondary w-full sm:w-auto" disabled={isDetailPrimaryActionLoading || isDetailPrimaryActionDisabled}>
                   {isDetailPrimaryActionLoading ? "Adding..." : detailPrimaryActionLabel}
                 </button>
               </div>

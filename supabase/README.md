@@ -72,6 +72,39 @@ Avoid dashboard-only schema/policy changes. If an emergency dashboard edit happe
 `public.bowl_movie_queue` remains for compatibility with older migrations and rows, but active app code no longer writes to it.
 The equal-probability contributor draw migration promotes pending queue rows into `public.bowl_movies`.
 
+## Personal default bowls
+
+`20260831120000_add_user_bowl_defaults.sql` adds `user_bowl_defaults` and the
+authenticated `get_my_bowl_context()` / `set_my_default_bowl(uuid)` RPCs.
+Deploy this migration before the default-bowl/global-add client. Older clients
+can continue using the unchanged `get_my_bowls_with_counts` RPC.
+
+The first creation or membership acquisition initializes a new account's
+default. Backfill and access-loss repair rank accessible bowls by persisted
+undrawn count descending, trimmed case-insensitive name in the `C` collation,
+then UUID. Ownership alone grants access. Valid defaults stay put; they are
+not recomputed when counts change. Per-user advisory locks serialize initial
+selection and explicit changes. Deletion clears the foreign key; the next
+context read repairs the choice outside the delete cascade. RLS allows only
+own-row reads; direct preference writes and helper calls are private.
+
+The matching pgTAP file has 30 assertions. Run the separate-connection race
+checks against the disposable local project:
+
+```sh
+python3 scripts/test-default-bowl-concurrency.py --container supabase_db_movie-bowl-defaults-db.SUFFIX
+```
+
+Rollback is in `rollback/20260831120000_remove_user_bowl_defaults.sql`: retire
+dependent clients first. It discards preferences, not bowls or movie/history
+data. Prefer reverting the client while keeping this additive schema.
+
+The August 31 verification also found four pre-existing failures in older SQL
+suites, reproduced after rolling back this migration. See the
+[implementation record](../output/designs/default-bowl-and-global-add-implementation.md#implementation-record--august-31-2026)
+for exact cases and test coverage. Do not run these fixture scripts against
+the hosted database.
+
 ## Active movie uniqueness note
 
 `20260723200000_prevent_duplicate_active_movies.sql` prevents new duplicate

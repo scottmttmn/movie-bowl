@@ -75,7 +75,7 @@ export default function WatchHistoryEntryModal({
         </button>
 
         <h2 id="watch-history-entry-title" className="pr-12 text-2xl font-semibold tracking-tight text-slate-100">
-          {isEditing ? "Edit watch history" : "Add to watch history"}
+          {isEditing ? "Edit watch history" : "Log a watched movie"}
         </h2>
 
         {!selectedMovie ? (

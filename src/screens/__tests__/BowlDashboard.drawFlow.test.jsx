@@ -65,6 +65,7 @@ const mocks = vi.hoisted(() => {
   };
 });
 
+vi.mock("../../hooks/useBowlAdd", () => ({ default: () => ({ openBowlAdd: vi.fn() }) }));
 vi.mock("../../hooks/useBowl", () => ({
   default: () => ({
     bowl: mocks.state.bowlData,

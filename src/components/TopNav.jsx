@@ -8,12 +8,21 @@ export default function TopNav({
   isInvitesRoute = false,
   isBowlsRoute = false,
   onSignOut,
+  onAddMovie,
   userEmail = "",
   isAuthenticated = true,
   pendingInviteCount = 0,
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const menuRef = useRef(null);
+  const [blockingOverlay, setBlockingOverlay] = useState(false);
+  useEffect(() => {
+    const update = () => setBlockingOverlay(Boolean(document.querySelector('[aria-modal="true"], [data-blocks-global-add]')));
+    update();
+    const observer = new MutationObserver(update);
+    observer.observe(document.body, { childList: true, subtree: true, attributes: true, attributeFilter: ["aria-modal", "data-blocks-global-add"] });
+    return () => observer.disconnect();
+  }, []);
   const hasPendingInvites = isAuthenticated && pendingInviteCount > 0;
   const pendingInviteLabel = `${pendingInviteCount} pending invite${
     pendingInviteCount === 1 ? "" : "s"
@@ -47,9 +56,9 @@ export default function TopNav({
     <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-800/80 bg-slate-950/88 shadow-lg shadow-black/10 backdrop-blur-xl">
       <div className="page-container flex h-16 items-center justify-between">
         <Link
-          to="/bowls"
-          aria-label="Go to My Bowls"
-          className="inline-flex items-center gap-2.5 rounded-xl text-xl font-semibold tracking-tight text-slate-100 transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60 sm:text-2xl"
+          to="/"
+          aria-label="Go to your default bowl"
+          className="inline-flex items-center gap-2.5 rounded-xl text-lg min-[360px]:text-xl font-semibold tracking-tight text-slate-100 transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60 sm:text-2xl"
         >
           <span className="flex h-9 w-9 items-center justify-center">
             <img
@@ -61,6 +70,13 @@ export default function TopNav({
           </span>
           Movie Bowl
         </Link>
+        <div className="flex shrink-0 items-center gap-2">
+          {isAuthenticated && onAddMovie && <button type="button" className="btn btn-secondary h-11 w-16 gap-1.5 px-2"
+            aria-label="Add a movie" title="Add a movie" disabled={blockingOverlay}
+            onClick={() => { setIsMenuOpen(false); onAddMovie(); }}>
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 4v16M17 4v16M3 9h4m-4 6h4M17 9h4m-4 6h4" /></svg>
+          </button>}
         <div className="relative" ref={menuRef}>
           <button
             type="button"
@@ -190,6 +206,7 @@ export default function TopNav({
               )}
             </div>
           )}
+        </div>
         </div>
       </div>
     </header>

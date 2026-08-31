@@ -24,6 +24,7 @@ const mocks = vi.hoisted(() => {
     },
     drawOdds: [{ bucketKey: "user:u1", member: "owner@example.com", movieCount: 4, drawOdds: 1 }],
     handleDraw: vi.fn(async () => null),
+    openBowlAdd: vi.fn(),
     handleAddMovie: vi.fn(async () => true),
     handleUpdateMovieNote: vi.fn(async (_movieId, note) => ({
       ok: true,
@@ -87,6 +88,7 @@ const mocks = vi.hoisted(() => {
   };
 });
 
+vi.mock("../../hooks/useBowlAdd", () => ({ default: () => ({ openBowlAdd: mocks.state.openBowlAdd }) }));
 vi.mock("../../hooks/useBowl", () => ({
   default: (_bowlId, options) => {
     // The screen owns the bowl row, so what it hands the hook is the wiring
@@ -190,7 +192,7 @@ describe("BowlDashboard guards", () => {
 
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    expect(screen.getByRole("button", { name: /\+ add movie/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /add to this bowl/i })).toBeEnabled();
     expect(screen.queryByText(/lowest active member/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/draw odds/i)).not.toBeInTheDocument();
 
@@ -261,22 +263,11 @@ describe("BowlDashboard guards", () => {
     expect(screen.getByText(/each person is equally likely to be selected/i)).toBeInTheDocument();
   });
 
-  it("adds a custom movie directly", async () => {
+  it("opens the shared add session for the viewed bowl", async () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
-
-    fireEvent.click(screen.getByRole("button", { name: /\+ add movie/i }));
-    fireEvent.change(screen.getByPlaceholderText(/search movies/i), { target: { value: "Wildcard Night" } });
-    // The custom-title card waits for the search to settle before it offers itself.
-    fireEvent.click(await screen.findByRole("button", { name: /add "wildcard night"/i }));
-
-    await waitFor(() => {
-      expect(mocks.state.handleAddMovie).toHaveBeenCalledWith(
-        expect.objectContaining({
-          title: "Wildcard Night",
-        })
-      );
-    });
+    fireEvent.click(screen.getByRole("button", { name: /add to this bowl/i }));
+    expect(mocks.state.openBowlAdd).toHaveBeenCalledWith("bowl-1");
   });
 
   it("shows only current user's undrawn picks in My Movies", async () => {
@@ -515,7 +506,7 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    expect(screen.getByRole("button", { name: /\+ add movie/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: /add to this bowl/i })).toBeEnabled();
   });
 
   it("disables Add Movie when undrawn movie limit is reached", async () => {
@@ -530,7 +521,7 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    expect(screen.getByRole("button", { name: /\+ add movie/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /add to this bowl/i })).toBeDisabled();
     expect(
       screen.getByText(new RegExp(`undrawn movie limit \\(${MAX_UNDRAWN_MOVIES_PER_BOWL}\\)`, "i"))
     ).toBeInTheDocument();

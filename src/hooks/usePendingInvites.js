@@ -7,6 +7,7 @@ import {
   useMemo,
   useState,
 } from "react";
+import { notifyBowlChange } from "../lib/bowlChanges";
 import { supabase } from "../lib/supabase";
 
 // Pending bowl invites are shared state: the top nav shows a count badge while
@@ -111,6 +112,8 @@ export function PendingInvitesProvider({ children }) {
         return { error: "Failed to join bowl from invite." };
       }
     }
+
+    notifyBowlChange({ userId: user.id, bowlId: invite.bowl_id });
 
     const { error: acceptError } = await supabase
       .from("bowl_invites")

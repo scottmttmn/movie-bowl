@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 import TopNav from "../TopNav";
@@ -6,6 +6,31 @@ import TopNav from "../TopNav";
 describe("TopNav", () => {
   afterEach(() => {
     cleanup();
+  });
+
+  it("offers one accessible Add control and closes the navigation menu before opening it", () => {
+    const onAddMovie = vi.fn();
+    render(<MemoryRouter><TopNav onAddMovie={onAddMovie} /></MemoryRouter>);
+    fireEvent.click(screen.getByRole("button", { name: "Navigation menu" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a movie" }));
+    expect(onAddMovie).toHaveBeenCalledOnce();
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Go to your default bowl" })).toHaveAttribute("href", "/");
+  });
+
+  it("disables global Add while a modal or draw animation owns the screen", async () => {
+    const { rerender } = render(<MemoryRouter><TopNav onAddMovie={vi.fn()} /></MemoryRouter>);
+    rerender(<MemoryRouter><TopNav onAddMovie={vi.fn()} /><div aria-modal="true" /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add a movie" })).toBeDisabled());
+    rerender(<MemoryRouter><TopNav onAddMovie={vi.fn()} /><div data-blocks-global-add /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add a movie" })).toBeDisabled());
+    rerender(<MemoryRouter><TopNav onAddMovie={vi.fn()} /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByRole("button", { name: "Add a movie" })).toBeEnabled());
+  });
+
+  it("does not show global Add to signed-out visitors", () => {
+    render(<MemoryRouter><TopNav isAuthenticated={false} onAddMovie={vi.fn()} /></MemoryRouter>);
+    expect(screen.queryByRole("button", { name: "Add a movie" })).not.toBeInTheDocument();
   });
 
   it("opens and closes the navigation menu", () => {

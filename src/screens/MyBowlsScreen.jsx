@@ -4,6 +4,9 @@ import BowlCard from "../components/BowlCard";
 import NewBowlButton from "../components/NewBowlButton";
 import CreateBowlModal from "../components/CreateBowlModal";
 import PendingInviteList from "../components/PendingInviteList";
+import useUserBowls from "../hooks/useUserBowls";
+import { notifyBowlChange } from "../lib/bowlChanges";
+import { sortBowlsByRecentActivity } from "../utils/bowlOrdering";
 import usePendingInvites from "../hooks/usePendingInvites";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import { sendInviteEmails } from "../lib/inviteEmails";
@@ -13,25 +16,11 @@ import { parseInviteEmails } from "../utils/parseInviteEmails";
 
 // Supabase client is centralized in src/lib/supabase.js
 
-function getBowlActivityTime(bowl) {
-  const time = new Date(bowl?.lastActivityAt || 0).getTime();
-  return Number.isFinite(time) ? time : 0;
-}
-
-function sortBowlsByRecentActivity(bowls) {
-  return [...bowls].sort((a, b) => {
-    const activityDifference = getBowlActivityTime(b) - getBowlActivityTime(a);
-    if (activityDifference !== 0) return activityDifference;
-    return String(a?.name || "").localeCompare(String(b?.name || ""));
-  });
-}
-
 export default function MyBowlsScreen() {
-  // Bowls shown on the home screen. Loaded from Supabase for the logged-in user.
-  const [bowls, setBowls] = useState([]);
-
-  // Simple loading flag so we can avoid flashing mock content.
-  const [isLoading, setIsLoading] = useState(true);
+  const { bowls, defaultBowlId, loading: isLoading, error: loadError, refresh,
+    setDefaultBowl, savingDefault } = useUserBowls();
+  const [defaultMessage, setDefaultMessage] = useState(null);
+  const [defaultError, setDefaultError] = useState(null);
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [newBowlName, setNewBowlName] = useState("");
   const [inviteEmails, setInviteEmails] = useState("");
@@ -62,77 +51,15 @@ export default function MyBowlsScreen() {
     bowls.length === 0 &&
     pendingInvites.length === 0;
 
-  useEffect(() => {
-    // Load bowls the user owns, plus bowls they are a member of.
-    const loadBowls = async () => {
-      setIsLoading(true);
+  useEffect(() => { void refresh(); }, [refresh]);
 
-      const { data: authData, error: authError } = await supabase.auth.getSession();
-      const user = authData?.session?.user;
-
-      if (authError || !user) {
-        // If the user is not authenticated, show an empty list.
-        setBowls([]);
-        setIsLoading(false);
-        return;
-      }
-
-      // Determine access from authoritative ownership + membership tables.
-      const [{ data: ownedRows, error: ownedError }, { data: memberRows, error: memberError }] =
-        await Promise.all([
-          supabase.from("bowls").select("id").eq("owner_id", user.id),
-          supabase.from("bowl_members").select("bowl_id").eq("user_id", user.id),
-        ]);
-
-      if (ownedError || memberError) {
-        console.error("Failed to load user bowl access", ownedError || memberError);
-        setBowls([]);
-        setIsLoading(false);
-        return;
-      }
-
-      const allowedBowlIds = new Set([
-        ...(ownedRows || []).map((row) => row.id),
-        ...(memberRows || []).map((row) => row.bowl_id),
-      ]);
-
-      if (allowedBowlIds.size === 0) {
-        setBowls([]);
-        setIsLoading(false);
-        return;
-      }
-
-      // Load bowl cards + counts from RPC, then filter to only accessible bowls.
-      const { data: rows, error: bowlsError } = await supabase.rpc(
-        "get_my_bowls_with_counts"
-      );
-
-      if (bowlsError) {
-        console.error("Failed to load bowls", bowlsError);
-        setBowls([]);
-        setIsLoading(false);
-        return;
-      }
-
-      setBowls(
-        (rows || [])
-          .filter((b) => allowedBowlIds.has(b.id))
-          .map((b) => ({
-            id: b.id,
-            name: b.name,
-            remainingCount: Number(b.remaining_count || 0),
-            memberCount: Number(b.member_count || 0),
-            role: b.owner_id === user.id ? "Owner" : "Member",
-            lastActivityAt: b.last_activity_at || b.updated_at || b.created_at || null,
-          }))
-      );
-
-      setIsLoading(false);
-      return;
-    };
-
-    loadBowls();
-  }, []);
+  const handleDefault = async (bowl) => {
+    if (savingDefault || bowl.id === defaultBowlId) return;
+    setDefaultMessage(null);
+    setDefaultError(null);
+    if (await setDefaultBowl(bowl.id)) setDefaultMessage(`${bowl.name} is now your default bowl`);
+    else setDefaultError("Could not change your default bowl. Please try again.");
+  };
 
   const handleAcceptInvite = async (invite) => {
     setInviteActionMessage(null);
@@ -239,6 +166,8 @@ export default function MyBowlsScreen() {
       return;
     }
 
+    notifyBowlChange({ userId: user.id, bowlId: newBowl.id });
+
     // Insert bowl member as owner
     const { error: memberError } = await supabase
       .from("bowl_members")
@@ -292,16 +221,7 @@ export default function MyBowlsScreen() {
       }
     }
 
-    // Update local state with new bowl
-    const bowlToAdd = {
-      id: newBowl.id,
-      name: newBowl.name,
-      remainingCount: 0,
-      memberCount: 1,
-      role: "Owner",
-      lastActivityAt: newBowl.last_activity_at || newBowl.updated_at || newBowl.created_at || new Date().toISOString(),
-    };
-    setBowls((prev) => [...prev, bowlToAdd]);
+    await refresh({ force: true });
     setNewBowlName("");
     setInviteEmails("");
     setIsModalOpen(false);
@@ -319,6 +239,8 @@ export default function MyBowlsScreen() {
     <div className="my-bowls-screen page-container py-6 sm:py-8">
       <header className="mb-8">
         <div className="mb-4 space-y-2" aria-live="polite">
+          {defaultMessage && <div className="status-success" role="status">{defaultMessage}</div>}
+          {defaultError && <div className="status-error" role="alert">{defaultError}</div>}
           {createErrorMessage && <div className="status-error">{createErrorMessage}</div>}
           {createActionMessage && <div className="status-success">{createActionMessage}</div>}
           {inviteErrorMessage && <div className="status-error">{inviteErrorMessage}</div>}
@@ -346,6 +268,10 @@ export default function MyBowlsScreen() {
         {isLoading || isStreamingServicesLoading || isInvitesLoading ? (
           <div className="panel text-sm text-slate-400" role="status">
             Loading bowls…
+          </div>
+        ) : loadError ? (
+          <div className="status-error" role="alert">
+            {loadError} <button className="btn btn-secondary mt-3" onClick={() => refresh()}>Retry</button>
           </div>
         ) : shouldShowGuidedSetup ? (
           <div className="space-y-4">
@@ -458,7 +384,7 @@ export default function MyBowlsScreen() {
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {ownedBowls.map((bowl) => (
-                    <BowlCard key={bowl.id} bowl={bowl} onSelect={handleSelectBowl} />
+                    <BowlCard key={bowl.id} bowl={bowl} onSelect={handleSelectBowl} isDefault={bowl.id === defaultBowlId} onMakeDefault={() => handleDefault(bowl)} defaultDisabled={savingDefault} />
                   ))}
                 </div>
               )}
@@ -478,7 +404,7 @@ export default function MyBowlsScreen() {
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {sharedBowls.map((bowl) => (
-                    <BowlCard key={bowl.id} bowl={bowl} onSelect={handleSelectBowl} />
+                    <BowlCard key={bowl.id} bowl={bowl} onSelect={handleSelectBowl} isDefault={bowl.id === defaultBowlId} onMakeDefault={() => handleDefault(bowl)} defaultDisabled={savingDefault} />
                   ))}
                 </div>
               )}

@@ -22,7 +22,7 @@ npm run build        # production build — run this for any UI/app change
 ```
 
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
-A clean checkout is expected to be fully green (97 test files / 722 tests, lint
+A clean checkout is expected to be fully green (99 test files / 749 tests, lint
 with zero warnings); if something fails, it is your change. Those counts are a
 tripwire, not trivia — refresh them in the same commit that adds or removes
 tests, or the next person cannot tell a stale number from a lost test.
@@ -113,14 +113,19 @@ Everything except `/login`, `/about`, `/accept-invite/:token`, and
 `/add-to-bowl/*` deliberately render without the top nav. Screens are
 `React.lazy` imports — add new ones the same way.
 
-`/` does not render a list: it redirects to the remembered bowl from local
-storage, or to the single bowl if the user has exactly one, else `/bowls`.
+`/` resolves the account's saved default through `get_my_bowl_context`, or
+opens `/bowls` when there are no accessible bowls. A failed read shows Retry.
+Explicit `/bowl/:bowlId` links never change the default. `useUserBowls` shares
+the account context; My Bowls stars use `set_my_default_bowl`. Global Add uses
+the default, while “Add to this bowl” captures the viewed bowl. Both use the
+same `BowlAddProvider` and `bowlMovieService`; keep pending operations above
+routes and retain uncertain outcomes for status checks without reinserting.
 
 ## Data model
 
 Tables the app touches: `profiles`, `bowls`, `bowl_members`, `bowl_movies`,
 `bowl_invites`, `bowl_draw_permissions`, `bowl_add_links`, `bowl_draw_events`,
-`user_watch_events`. `bowl_movie_queue` is legacy and is not written to.
+`user_watch_events`, `user_bowl_defaults`. `bowl_movie_queue` is legacy and is not written to.
 
 The bowl-history split matters: a draw writes one immutable `bowl_draw_events`
 row (bowl activity) plus one `user_watch_events` row per participant (personal
@@ -130,7 +135,8 @@ bowl sets `returned_at` on the draw event; it never deletes the fact of the draw
 RPCs used by the client — prefer these over multi-statement client writes,
 because they are the atomic/permission-checked path:
 
-`get_my_bowls_with_counts`, `get_bowl_profile_directory`,
+`get_my_bowls_with_counts` (legacy/TV), `get_my_bowl_context`,
+`set_my_default_bowl`, `get_bowl_profile_directory`,
 `get_bowl_filter_metadata`,
 `get_my_invite_sender_directory`, `draw_bowl_movie`,
 `draw_bowl_movie_by_rotation`, `return_bowl_draw_to_bowl`,

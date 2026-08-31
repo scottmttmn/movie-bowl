@@ -30,7 +30,7 @@ export default function DrawAnimationModal() {
   }, []);
 
   return (
-    <div className="sr-only" role="status" aria-live="polite" data-phase={phase}>
+    <div data-blocks-global-add className="sr-only" role="status" aria-live="polite" data-phase={phase}>
       Movie Bowl. Drawing a title from the bowl...
     </div>
   );

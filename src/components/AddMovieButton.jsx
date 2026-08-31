@@ -7,7 +7,7 @@ export default function AddMovieButton({ onClick, disabled = false, variant = "s
         disabled={disabled}
         className={`${buttonClass} min-w-40 disabled:opacity-50 disabled:cursor-not-allowed`}
       >
-        + Add Movie
+        Add to this bowl
       </button>
     );
   }

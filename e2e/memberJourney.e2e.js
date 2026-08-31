@@ -12,17 +12,19 @@ test("a member can create a bowl, add and draw a title, see history, and return 
   await page.getByPlaceholder("Bowl Name").fill("Smoke Night");
   await page.getByRole("button", { name: "Create", exact: true }).click();
 
-  const bowlCard = page.getByRole("button", { name: /Smoke Night/ });
+  const bowlCard = page.getByRole("button", { name: /Owner Smoke Night Open/ });
   await expect(bowlCard).toBeVisible();
   await bowlCard.click();
 
   await expect(page).toHaveURL(/\/bowl\/bowl-1$/);
   await expect(page.getByRole("heading", { name: "Smoke Night", level: 1 })).toBeVisible();
 
-  await page.getByRole("button", { name: "+ Add Movie" }).click();
+  await page.getByRole("button", { name: "Add to this bowl" }).click();
   await page.getByPlaceholder("Search movies...").fill("Smoke Feature");
   await page.getByRole("button", { name: 'Add "Smoke Feature"' }).click();
 
+  await expect(page.getByRole("status").filter({ hasText: "Added to Smoke Night" })).toBeVisible();
+  await page.getByRole("button", { name: "Close add movie" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /1 movies? in the bowl/i })).toBeVisible();
 

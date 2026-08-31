@@ -1,4 +1,4 @@
-import { cleanup, render, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
@@ -41,6 +41,7 @@ const mocks = vi.hoisted(() => {
   return { state, supabase };
 });
 
+vi.mock("../../hooks/useBowlAdd", () => ({ default: () => ({ openBowlAdd: vi.fn() }) }));
 vi.mock("../../hooks/useBowl", () => ({
   default: () => ({
     bowl: { remaining: [], watched: [] },
@@ -91,9 +92,8 @@ vi.mock("react-router-dom", async () => {
 });
 
 import BowlDashboard from "../BowlDashboard";
-import { getLastOpenedBowlId, rememberLastOpenedBowl } from "../../utils/lastOpenedBowl";
 
-describe("BowlDashboard last opened bowl", () => {
+describe("BowlDashboard explicit access and retry", () => {
   beforeEach(() => {
     window.localStorage.clear();
     mocks.state.navigate.mockReset();
@@ -111,52 +111,35 @@ describe("BowlDashboard last opened bowl", () => {
     window.localStorage.clear();
   });
 
-  it("remembers a bowl once access is confirmed", async () => {
+  it("opening a deep link does not write a last-opened preference", async () => {
     render(<BowlDashboard />);
-
-    await waitFor(() => expect(getLastOpenedBowlId("u1")).toBe("bowl-1"));
+    await waitFor(() => expect(screen.getByRole("heading", { name: "Bowl 1" })).toBeInTheDocument());
+    expect(localStorage.getItem("movie-bowl:last-bowl:u1")).toBeNull();
+    expect(mocks.state.navigate).not.toHaveBeenCalled();
   });
 
-  it("does not remember a bowl the user cannot open", async () => {
-    mocks.state.bowlError = { message: "Not found" };
-
+  it("sends a confirmed missing bowl to My Bowls, never back to Home", async () => {
+    mocks.state.bowlRow = null;
+    mocks.state.bowlError = { code: "PGRST116", message: "No rows" };
     render(<BowlDashboard />);
-
     await waitFor(() => expect(mocks.state.navigate).toHaveBeenCalledWith("/bowls", { replace: true }));
-    expect(getLastOpenedBowlId("u1")).toBe("");
-  });
-
-  it("clears a stale memory and sends the user to the list, never back to /", async () => {
-    rememberLastOpenedBowl("u1", "bowl-1");
-    mocks.state.bowlError = { message: "Not found" };
-
-    render(<BowlDashboard />);
-
-    await waitFor(() => expect(mocks.state.navigate).toHaveBeenCalledWith("/bowls", { replace: true }));
-    // Redirecting to "/" here would bounce straight back into this bowl.
     expect(mocks.state.navigate).not.toHaveBeenCalledWith("/", { replace: true });
-    expect(getLastOpenedBowlId("u1")).toBe("");
   });
 
-  it("drops the memory when membership no longer exists", async () => {
-    rememberLastOpenedBowl("u1", "bowl-1");
-    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "someone-else", draw_access_mode: "all_members" };
+  it("sends revoked membership to My Bowls", async () => {
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "other", draw_access_mode: "all_members" };
     mocks.state.membershipRow = null;
-
     render(<BowlDashboard />);
-
     await waitFor(() => expect(mocks.state.navigate).toHaveBeenCalledWith("/bowls", { replace: true }));
-    expect(getLastOpenedBowlId("u1")).toBe("");
   });
 
-  it("keeps a different remembered bowl when an unrelated bowl fails to open", async () => {
-    rememberLastOpenedBowl("u1", "bowl-9");
-    mocks.state.bowlId = "bowl-1";
-    mocks.state.bowlError = { message: "Not found" };
-
+  it("keeps transport errors separate from access loss and allows retry", async () => {
+    mocks.state.bowlError = { message: "Network unavailable" };
     render(<BowlDashboard />);
-
-    await waitFor(() => expect(mocks.state.navigate).toHaveBeenCalledWith("/bowls", { replace: true }));
-    expect(getLastOpenedBowlId("u1")).toBe("bowl-9");
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not load this bowl");
+    expect(mocks.state.navigate).not.toHaveBeenCalled();
+    mocks.state.bowlError = null;
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByRole("heading", { name: "Bowl 1" })).toBeInTheDocument();
   });
 });

@@ -6,7 +6,7 @@ import useAutosave, { valuesAreEqual } from "../hooks/useAutosave";
 import { sendInviteEmails } from "../lib/inviteEmails";
 import { supabase } from "../lib/supabase";
 import { parseInviteEmails } from "../utils/parseInviteEmails";
-import { forgetLastOpenedBowl, getLastOpenedBowlId } from "../utils/lastOpenedBowl";
+import { notifyBowlChange } from "../lib/bowlChanges";
 import {
   DEFAULT_DRAW_METHOD,
   DRAW_METHOD_OPTIONS,
@@ -58,12 +58,8 @@ export default function BowlSettings() {
   const { bowlId } = useParams();
   const navigate = useNavigate();
 
-  // Leaving or deleting the bowl must also drop it as the remembered landing
-  // spot, otherwise "/" would send the user straight back into it.
   const leaveBowlList = (userId) => {
-    if (userId && getLastOpenedBowlId(userId) === bowlId) {
-      forgetLastOpenedBowl(userId);
-    }
+    notifyBowlChange({ userId, bowlId });
     navigate("/bowls", { replace: true });
   };
 
@@ -167,6 +163,7 @@ export default function BowlSettings() {
             return { error: new Error("Failed to update bowl name.") };
           }
           setBowlName(nextName);
+          notifyBowlChange({ bowlId });
         }
 
         if (!valuesAreEqual(next.drawMethod, previous.drawMethod)) {
@@ -582,6 +579,7 @@ export default function BowlSettings() {
         return;
       }
 
+      notifyBowlChange({ bowlId });
       setActionMessage("Member removed.");
       await loadBowlAndMembers();
     } catch (err) {

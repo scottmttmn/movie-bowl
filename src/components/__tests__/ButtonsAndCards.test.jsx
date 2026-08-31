@@ -13,7 +13,7 @@ describe("button and card components", () => {
   it("fires AddMovieButton click", () => {
     const onClick = vi.fn();
     render(<AddMovieButton onClick={onClick} />);
-    fireEvent.click(screen.getByRole("button", { name: /\+ add movie/i }));
+    fireEvent.click(screen.getByRole("button", { name: /add to this bowl/i }));
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 
@@ -35,6 +35,17 @@ describe("button and card components", () => {
 
     fireEvent.click(screen.getByText("Friday Bowl"));
     expect(onSelect).toHaveBeenCalledWith("b1");
+  });
+
+  it("keeps the default star separate from opening the bowl", () => {
+    const onSelect = vi.fn(); const onMakeDefault = vi.fn();
+    const { container, rerender } = render(<BowlCard bowl={{ id: "b1", name: "Friday Night" }} onSelect={onSelect} onMakeDefault={onMakeDefault} />);
+    fireEvent.click(screen.getByRole("button", { name: "Make Friday Night my default bowl" }));
+    expect(onMakeDefault).toHaveBeenCalledOnce();
+    expect(onSelect).not.toHaveBeenCalled();
+    expect(container.querySelector("button button")).toBeNull();
+    rerender(<BowlCard bowl={{ id: "b1", name: "Friday Night" }} onSelect={onSelect} onMakeDefault={onMakeDefault} isDefault />);
+    expect(screen.getByRole("button", { name: "Default bowl: Friday Night" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("renders BowlIllustration with the draw animation layer", () => {

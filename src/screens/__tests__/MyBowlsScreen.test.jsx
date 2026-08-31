@@ -32,7 +32,14 @@ const mocks = vi.hoisted(() => {
         return { data: { session: { user: state.sessionUser } }, error: null };
       }),
     },
-    rpc: vi.fn(async (name) => {
+    rpc: vi.fn(async (name, params) => {
+      if (name === "get_my_bowl_context" || name === "set_my_default_bowl") {
+        const rows = [...state.rpcRows, ...state.insertedBowls.flat().map((row) => ({ ...row, id: "bowl-1" }))]
+          .filter((row) => row.owner_id === state.sessionUser.id || [...state.memberRows, ...state.insertedMembers.flat()]
+            .some((member) => member.bowl_id === row.id));
+        if (params?.p_bowl_id) state.defaultBowlId = params.p_bowl_id;
+        return { data: { bowls: rows, default_bowl_id: state.defaultBowlId || rows[0]?.id || null }, error: null };
+      }
       if (name === "get_my_invite_sender_directory") {
         return {
           data: state.profileRows.map((row) => ({
@@ -216,6 +223,7 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
+import { UserBowlsProvider } from "../../hooks/useUserBowls";
 import MyBowlsScreen from "../MyBowlsScreen";
 import { PendingInvitesProvider } from "../../hooks/usePendingInvites";
 
@@ -223,7 +231,7 @@ import { PendingInvitesProvider } from "../../hooks/usePendingInvites";
 function renderMyBowls() {
   return render(
     <PendingInvitesProvider>
-      <MyBowlsScreen />
+      <UserBowlsProvider userId="u1"><MyBowlsScreen /></UserBowlsProvider>
     </PendingInvitesProvider>
   );
 }
@@ -237,6 +245,7 @@ describe("MyBowlsScreen", () => {
     mocks.state.initialAuthenticated = false;
     mocks.state.sessionUser = { id: "u1", email: "user@example.com" };
     mocks.state.rpcRows = [];
+    mocks.state.defaultBowlId = null;
     mocks.state.memberRows = [];
     mocks.state.pendingInvites = [];
     mocks.state.profileRows = [];
@@ -439,7 +448,7 @@ describe("MyBowlsScreen", () => {
     mocks.state.streamingServicesLoading = false;
     rerender(
       <PendingInvitesProvider>
-        <MyBowlsScreen />
+        <UserBowlsProvider userId="u1"><MyBowlsScreen /></UserBowlsProvider>
       </PendingInvitesProvider>
     );
 
@@ -641,7 +650,7 @@ describe("MyBowlsScreen", () => {
       ])
     );
     expect(mocks.state.updatedInvites).toHaveLength(1);
-    expect(screen.queryByText("Friday Bowl")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /accept/i })).not.toBeInTheDocument();
   });
 
   it("accept invite tolerates duplicate-member error and still marks accepted", async () => {

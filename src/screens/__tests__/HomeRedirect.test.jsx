@@ -1,108 +1,48 @@
-import { cleanup, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
-
-const mocks = vi.hoisted(() => {
-  const state = {
-    session: { user: { id: "u1", email: "user@example.com" } },
-    bowlRows: [],
-    rpcError: null,
-  };
-
-  return {
-    state,
-    supabase: {
-      rpc: vi.fn(async () => ({
-        data: state.rpcError ? null : state.bowlRows,
-        error: state.rpcError,
-      })),
-    },
-  };
-});
-
-vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
-vi.mock("../../hooks/useAuth", () => ({
-  default: () => ({ session: mocks.state.session, loading: false }),
-}));
-
+import { MemoryRouter, Route, Routes, useParams } from "react-router-dom";
+const mocks = vi.hoisted(() => ({ context: { bowls: [], default_bowl_id: null }, error: null, rpc: vi.fn() }));
+vi.mock("../../lib/supabase", () => ({ supabase: { rpc: mocks.rpc } }));
 import HomeRedirect from "../HomeRedirect";
-import { rememberLastOpenedBowl } from "../../utils/lastOpenedBowl";
-
+import { UserBowlsProvider } from "../../hooks/useUserBowls";
+function Destination() { return <p>Bowl {useParams().bowlId}</p>; }
 function renderHome() {
-  return render(
-    <MemoryRouter initialEntries={["/"]}>
-      <Routes>
-        <Route path="/" element={<HomeRedirect />} />
-        <Route path="/bowls" element={<div>My Bowls Screen</div>} />
-        <Route path="/bowl/:bowlId" element={<div>Bowl Dashboard</div>} />
-      </Routes>
-    </MemoryRouter>
-  );
+  return render(<MemoryRouter><UserBowlsProvider userId="u1"><Routes>
+    <Route path="/" element={<HomeRedirect />} />
+    <Route path="/bowls" element={<p>My Bowls Screen</p>} />
+    <Route path="/bowl/:bowlId" element={<Destination />} />
+  </Routes></UserBowlsProvider></MemoryRouter>);
 }
-
-describe("HomeRedirect", () => {
-  beforeEach(() => {
-    window.localStorage.clear();
-    mocks.supabase.rpc.mockClear();
-    mocks.state.session = { user: { id: "u1", email: "user@example.com" } };
-    mocks.state.bowlRows = [];
-    mocks.state.rpcError = null;
-  });
-
-  afterEach(() => {
-    cleanup();
-    window.localStorage.clear();
-  });
-
-  it("sends a returning user straight to the bowl they last opened", async () => {
-    rememberLastOpenedBowl("u1", "bowl-7");
-
+beforeEach(() => {
+  mocks.context = { bowls: [], default_bowl_id: null }; mocks.error = null;
+  mocks.rpc.mockReset().mockImplementation(async () => ({ data: mocks.context, error: mocks.error }));
+  vi.spyOn(console, "error").mockImplementation(() => {});
+});
+afterEach(() => { cleanup(); vi.restoreAllMocks(); localStorage.clear(); });
+describe("HomeRedirect account defaults", () => {
+  it("uses the saved default and ignores an old last-opened hint", async () => {
+    localStorage.setItem("movie-bowl:last-bowl:u1", "other");
+    mocks.context = { default_bowl_id: "a", bowls: [{ id: "a", name: "Default" }, { id: "b", name: "Other" }] };
     renderHome();
-
-    expect(screen.getByText("Bowl Dashboard")).toBeInTheDocument();
-    // The remembered id is read synchronously, so no lookup is needed.
-    expect(mocks.supabase.rpc).not.toHaveBeenCalled();
+    expect(await screen.findByText("Bowl a")).toBeInTheDocument();
+    expect(mocks.rpc).toHaveBeenCalledWith("get_my_bowl_context");
   });
-
-  it("ignores a bowl remembered for a different user", async () => {
-    rememberLastOpenedBowl("someone-else", "bowl-7");
-    mocks.state.bowlRows = [{ id: "a" }, { id: "b" }];
-
-    renderHome();
-
-    await waitFor(() => expect(screen.getByText("My Bowls Screen")).toBeInTheDocument());
+  it("opens the sole saved bowl", async () => {
+    mocks.context = { default_bowl_id: "only", bowls: [{ id: "only", name: "Only" }] };
+    renderHome(); expect(await screen.findByText("Bowl only")).toBeInTheDocument();
   });
-
-  it("skips the list when the user has exactly one bowl", async () => {
-    mocks.state.bowlRows = [{ id: "only-bowl" }];
-
-    renderHome();
-
-    await waitFor(() => expect(screen.getByText("Bowl Dashboard")).toBeInTheDocument());
+  it("opens My Bowls only after confirming there are no bowls", async () => {
+    renderHome(); expect(await screen.findByText("My Bowls Screen")).toBeInTheDocument();
   });
-
-  it("shows the list when the user has several bowls", async () => {
-    mocks.state.bowlRows = [{ id: "a" }, { id: "b" }];
-
-    renderHome();
-
-    await waitFor(() => expect(screen.getByText("My Bowls Screen")).toBeInTheDocument());
+  it("keeps a failed read on Home and supports retry without guessing", async () => {
+    mocks.error = { message: "offline" }; renderHome();
+    expect(await screen.findByRole("alert")).toHaveTextContent("Could not load");
+    expect(screen.queryByText("My Bowls Screen")).not.toBeInTheDocument();
+    mocks.error = null; fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    expect(await screen.findByText("My Bowls Screen")).toBeInTheDocument();
   });
-
-  it("shows the list when the user has no bowls yet", async () => {
-    mocks.state.bowlRows = [];
-
-    renderHome();
-
-    await waitFor(() => expect(screen.getByText("My Bowls Screen")).toBeInTheDocument());
-  });
-
-  it("falls back to the list when the lookup fails", async () => {
-    mocks.state.rpcError = { message: "boom" };
-    vi.spyOn(console, "error").mockImplementation(() => {});
-
-    renderHome();
-
-    await waitFor(() => expect(screen.getByText("My Bowls Screen")).toBeInTheDocument());
+  it("rejects an inconsistent context rather than redirecting to an inaccessible bowl", async () => {
+    mocks.context = { default_bowl_id: "missing", bowls: [{ id: "a", name: "A" }] };
+    renderHome(); await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
   });
 });

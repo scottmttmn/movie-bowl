@@ -44,6 +44,7 @@ const mocks = vi.hoisted(() => {
   return { state, supabase };
 });
 
+vi.mock("../../hooks/useBowlAdd", () => ({ default: () => ({ openBowlAdd: vi.fn() }) }));
 vi.mock("../../hooks/useBowl", () => ({
   default: () => ({
     bowl: mocks.state.bowlData,

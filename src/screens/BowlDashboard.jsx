@@ -27,11 +27,8 @@ import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 import { matchUserServices } from "../utils/streamingServices";
 import { resolvePreferredLaunchTarget } from "../utils/webLaunch";
-import {
-  forgetLastOpenedBowl,
-  getLastOpenedBowlId,
-  rememberLastOpenedBowl,
-} from "../utils/lastOpenedBowl";
+import useBowlAdd from "../hooks/useBowlAdd";
+import { notifyBowlChange } from "../lib/bowlChanges";
 import {
   DEFAULT_DRAW_SETTINGS,
   RUNTIME_FILTER_MAX_MINUTES,
@@ -51,7 +48,6 @@ export default function BowlDashboard() {
       isLoading,
       errorMessage,
       handleDraw,
-      handleAddMovie,
       handleUpdateMovieNote,
       handleSetMoviePin,
       handleDeleteMovie,
@@ -59,7 +55,9 @@ export default function BowlDashboard() {
       filterMetadataFetchers,
     } = useBowl(bowlId, { drawMethod });
 
-    const [showSearch, setShowSearch] = useState(false);
+    const bowlAdd = useBowlAdd();
+    const [accessError, setAccessError] = useState(null);
+    const [accessAttempt, setAccessAttempt] = useState(0);
     const [drawnMovie, setDrawnMovie] = useState(null);
     const { providerLinks, startLookup: startProviderLookup } = useDrawProviderLinks(bowlId, drawnMovie);
     const [selectedDetailMovie, setSelectedDetailMovie] = useState(null);
@@ -440,22 +438,23 @@ export default function BowlDashboard() {
         return text.includes("bowl_draw_permissions") && text.includes("does not exist");
       };
 
-      // "/" redirects to the remembered bowl, so every bail-out here has to land
-      // on the list instead. Sending an unopenable bowl back to "/" would bounce
-      // straight back into this screen.
       const abandonBowl = (userId) => {
-        if (userId && getLastOpenedBowlId(userId) === bowlId) {
-          forgetLastOpenedBowl(userId);
-        }
-        if (!cancelled) navigate("/bowls", { replace: true });
+        if (cancelled) return;
+        notifyBowlChange({ userId, bowlId });
+        navigate("/bowls", { replace: true });
+      };
+      const failAccessRead = () => {
+        if (!cancelled) setAccessError("Could not load this bowl. Please try again.");
       };
 
       const loadBowlName = async () => {
         if (!bowlId) return;
+        if (!cancelled) setAccessError(null);
 
         const { data: authData, error: authError } = await supabase.auth.getSession();
         const userId = authData?.session?.user?.id;
-        if (authError || !userId) {
+        if (authError) { failAccessRead(); return; }
+        if (!userId) {
           abandonBowl(userId);
           return;
         }
@@ -491,7 +490,9 @@ export default function BowlDashboard() {
           error = fallback.error;
         }
 
-        if (error || !data || cancelled) {
+        if (cancelled) return;
+        if (error && error.code !== "PGRST116") { failAccessRead(); return; }
+        if (!data) {
           abandonBowl(userId);
           return;
         }
@@ -505,14 +506,12 @@ export default function BowlDashboard() {
             .eq("user_id", userId)
             .maybeSingle();
 
-          if (memberError || !memberRow) {
+          if (memberError) { failAccessRead(); return; }
+          if (!memberRow) {
             abandonBowl(userId);
             return;
           }
         }
-
-        // Access is confirmed, so this is a bowl worth returning to.
-        rememberLastOpenedBowl(userId, bowlId);
 
         const { data: memberRows, error: membersError } = await supabase
           .from("bowl_members")
@@ -556,7 +555,7 @@ export default function BowlDashboard() {
       return () => {
         cancelled = true;
       };
-    }, [bowlId, navigate]);
+    }, [bowlId, navigate, accessAttempt]);
 
     const buildDetailMovie = async (movie) => {
       const tmdbId = Number(movie?.tmdb_id ?? movie?.id);
@@ -635,6 +634,10 @@ export default function BowlDashboard() {
         setDrawAnimationTitle("");
       }
     };
+
+    if (accessError) return <div className="page-container py-8"><div className="status-error" role="alert">
+      {accessError}<button className="btn btn-secondary ml-3" onClick={() => setAccessAttempt((attempt) => attempt + 1)}>Retry</button>
+    </div></div>;
 
 return (
     <div className="bowl-dashboard page-container overflow-hidden pb-12 pt-5 sm:pt-7">
@@ -730,7 +733,7 @@ return (
                     disabled={isAddBlocked}
                     onClick={() => {
                       setAddGuardMessage(null);
-                      setShowSearch(true);
+                      bowlAdd?.openBowlAdd(bowlId);
                     }}
                   />
                 </div>
@@ -1207,30 +1210,6 @@ return (
                 )}
             </section>
             
-
-            <div className="my-5 text-center">
-              {showSearch && (
-                <AddMovieModal
-                  userStreamingServices={userStreamingServices}
-                  onClose={() => setShowSearch(false)}
-                  onAddMovie={async (movie) => {
-                    if ((bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
-                      const message =
-                        `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`;
-                      setAddGuardMessage(message);
-                      return { ok: false, code: "limit_reached", message };
-                    }
-
-                    const result = await handleAddMovie(movie);
-                    const ok = result === true || result?.ok === true;
-                    if (ok) {
-                      setShowSearch(false);
-                    }
-                    return result === true ? { ok: true } : result;
-                  }}
-                />
-              )}
-            </div>
 
             {showMethodInfo && (
               <DrawMethodInfoModal
