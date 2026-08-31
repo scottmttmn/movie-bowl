@@ -273,6 +273,27 @@ describe("TV theater mode", () => {
     expect(screen.queryByText(/paused/i)).toBeNull();
   });
 
+  it("takes focus back when the player claims it, so Select still pauses", async () => {
+    await drawWithTheaterMode();
+    const overlay = await screen.findByRole("dialog", {
+      name: /previews before arrival/i,
+    });
+    await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
+
+    // The player takes focus when it starts. From inside the iframe our Select
+    // handler never sees the key, which is exactly how pause failed on a real
+    // television while Back — translated by the Android shell above the page —
+    // kept working.
+    const frame = screen.getByTitle(/movie bowl previews/i);
+    frame.focus();
+    fireEvent.blur(window);
+
+    expect(overlay).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: "Enter" });
+    expect(player.pauseVideo).toHaveBeenCalled();
+  });
+
   it("asks the embed for a player the remote cannot seek", async () => {
     await drawWithTheaterMode();
     await screen.findByRole("dialog", { name: /previews before arrival/i });

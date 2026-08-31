@@ -7,6 +7,8 @@ const FEATURE_CARD_MS = 3600;
 export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
   const playerId = `tv-preroll-${useId().replace(/:/g, "")}`;
   const overlayRef = useRef(null);
+  const iframeRef = useRef(null);
+  const reclaimFocusRef = useRef(() => {});
   const playerRef = useRef(null);
   const indexRef = useRef(0);
   const advanceRef = useRef(() => {});
@@ -76,8 +78,12 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
 
         playerRef.current = new youtube.Player(playerId, {
           events: {
-            onReady: (event) => event.target.playVideo(),
+            onReady: (event) => {
+              event.target.playVideo();
+              reclaimFocusRef.current();
+            },
             onStateChange: (event) => {
+              reclaimFocusRef.current();
               if (event.data === 0 || event.data === youtube.PlayerState?.ENDED) {
                 advanceRef.current();
               }
@@ -113,6 +119,25 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
     const timer = window.setTimeout(() => finishRef.current(), FEATURE_CARD_MS);
     return () => window.clearTimeout(timer);
   }, [phase]);
+
+  // The player takes focus when it starts and again on each loadVideoById, and
+  // from inside the iframe our Select handler never sees the key. That is why
+  // Back kept working while pause did not: Back is translated by the Android
+  // shell above the page, so focus cannot swallow it. Take focus back whenever
+  // the player claims it — the window blurs when an iframe does.
+  const reclaimFocus = useCallback(() => {
+    const overlay = overlayRef.current;
+    if (!overlay) return;
+    if (document.activeElement === iframeRef.current) {
+      overlay.focus({ preventScroll: true });
+    }
+  }, []);
+
+  useEffect(() => {
+    reclaimFocusRef.current = reclaimFocus;
+    window.addEventListener("blur", reclaimFocus);
+    return () => window.removeEventListener("blur", reclaimFocus);
+  }, [reclaimFocus]);
 
   const togglePause = useCallback(() => {
     const player = playerRef.current;
@@ -157,6 +182,7 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
       aria-label={`Previews before ${featureTitle}`}
     >
       <iframe
+        ref={iframeRef}
         id={playerId}
         src={firstTrailerUrl}
         title="Movie Bowl previews"
