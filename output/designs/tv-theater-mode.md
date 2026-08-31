@@ -253,9 +253,13 @@ whose focus reaches the player can seek the trailer with the same buttons they
 navigate with. The pre-roll wants `controls=0`, `disablekb=1`, `fs=0` and
 `iv_load_policy=3` beside the `cc_load_policy=0` above.
 
-This compounds the exit risk rather than sitting beside it: key events inside
-the iframe go to YouTube's document, not ours, so focus landing in the player
-may swallow Back entirely.
+This looked like it compounded the exit risk — keys pressed inside the iframe
+go to YouTube's document, not ours. Checked on hardware (onn Google TV,
+August 31, 2026): the D-pad never reaches YouTube's controls, and left/right
+with our button focused do not seek. So focus does not appear to enter the
+player on its own. That remote carries no transport keys, which is the vector
+that would bypass focus entirely, so the parameters stay worth setting as
+hardening for remotes we do not own — they are simply not a prerequisite.
 
 `getAutoplayTrailerUrl` is shared, so this is an option on the builder rather
 than a blanket change — `TvTonightScreen.jsx:463` uses it for the explicit
@@ -268,16 +272,21 @@ heuristic of watching `getDuration()` change is fragile enough to misfire on
 ordinary videos — so detection is not worth building. Backing out of the
 pre-roll is a fine answer to a rare annoyance.
 
-One thing to check before `controls=0` and this ship together: YouTube's
-"Skip Ad" button is player chrome. If hiding the controls hides that too, an
-ad becomes unskippable inside the overlay and Back — which ends the whole
-pre-roll, not just the trailer — is the only way out. That is a worse trade
-than the ad. If it turns out to be the case, the fallback worth considering is
-Back advancing to the next preview rather than leaving.
+Whether `controls=0` also hides YouTube's "Skip Ad" button was written here as
+a blocker, on the reasoning that an unskippable ad would trap the room. With
+Back verified that reasoning does not hold: an ad plays, Back exits, the room
+lands on the reveal with the movie waiting. It costs the remaining previews,
+which is the same outcome as bailing out for any other reason. Ship
+`controls=0` and watch for it; if an unskippable ad ever does turn up, that is
+the moment to weigh Back advancing to the next preview instead of leaving.
 
-Verify Back during the pre-roll on hardware before removing the buttons. The
-path exists but has not been exercised — the buttons were always there — and it
-becomes the only way out.
+This cannot be tested to a schedule anyway — ads cannot be summoned, and on
+official trailer uploads they are rare.
+
+Back during the pre-roll is verified (onn Google TV, Android 14, August 31,
+2026): it exits from the opening announcement, from mid-trailer, and from the
+Feature Presentation card, landing on the reveal with the drawn movie intact.
+It can carry the exit alone, so the buttons can go.
 
 ### Phase 2 — Real deep links and the voice card (web only)
 
