@@ -22,6 +22,10 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## UX / UI Polish
 
+- TV pairing typography from physical onn. Full HD hardware: the instructional
+  copy is difficult to read at viewing distance and the fallback pairing code
+  is too small. Increase both, with the code getting the stronger size bump;
+  keep the QR code at its current size, which tested well on the same screen.
 - Theater mode controls break the cinema spell: drop "Next preview" and "Skip to
   movie" from the pre-roll overlay, keeping Pause. Neither is possible at a
   cinema, and neither is needed — Back already calls `endTheater`, so the escape
