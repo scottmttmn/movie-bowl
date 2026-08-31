@@ -37,19 +37,25 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   paused, leaving playback chrome-free. An overlay with no focusable element is
   safe — the navigation hook no-ops on an empty set, Back is a key handler
   rather than a focus target, and the reveal beneath is already `aria-hidden`
-  so focus cannot fall through to it. Verify Back during the pre-roll on
-  hardware first; it becomes the only exit. Removing our controls is only half
-  of it — the embed shows YouTube's own, and with `disablekb` unset its
-  keyboard shortcuts are live, so on a TV the D-pad seeks the trailer. The
+  so focus cannot fall through to it. Back during the pre-roll is verified on
+  hardware — it exits from the announcement, mid-trailer, and the Feature
+  Presentation card alike — so it can carry the exit alone. Removing our
+  controls is only half of it — the embed shows YouTube's own, and with
+  `disablekb` unset its keyboard shortcuts are live, so on a TV the D-pad seeks
+  the trailer. The
   pre-roll wants `controls=0`, `disablekb=1`, `fs=0`, `iv_load_policy=3`; and
   because focus inside the iframe sends keys to YouTube's document rather than
   ours, it may swallow Back too. `getAutoplayTrailerUrl` is shared with the
   explicit "Watch trailer" action, which should keep its scrubber, so this is
-  an option on the builder. Ads get no detection — the IFrame API exposes no ad
-  state and the `getDuration()` heuristic misfires — but check whether
-  `controls=0` also hides YouTube's "Skip Ad" button, which would make an ad
-  unskippable with only a full pre-roll exit as recourse. Decided from live
-  use; see the
+  an option on the builder. On the remote tested, the D-pad never reaches
+  YouTube's controls and left/right do not seek, so the params are hardening
+  for remotes we do not own rather than a prerequisite — that remote has no
+  transport keys, which is the vector that would bypass focus entirely. Ads get
+  no detection — the IFrame API exposes no ad state and the `getDuration()`
+  heuristic misfires. Whether `controls=0` hides the "Skip Ad" button is no
+  longer a blocker: with Back verified, an unskippable ad costs the remaining
+  previews rather than trapping the room, so ship and watch for it. Decided
+  from live use; see the
   phase 1 revision in `output/designs/tv-theater-mode.md`.
 - Trailer captions during the pre-roll: `cc_load_policy=0` on the embed URL in
   `getAutoplayTrailerUrl` asks YouTube not to show captions, which suits the
