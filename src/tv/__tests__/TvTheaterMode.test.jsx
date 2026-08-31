@@ -176,7 +176,6 @@ describe("TV theater mode", () => {
     });
     expect(overlay).toBeInTheDocument();
     expect(screen.getByText(/2 previews/i)).toBeInTheDocument();
-    expect(screen.getByText(/preview 1 of 2/i)).toBeInTheDocument();
 
     // The first preview autoplays through the iframe's own src.
     expect(screen.getByTitle(/movie bowl previews/i)).toHaveAttribute(
@@ -191,7 +190,6 @@ describe("TV theater mode", () => {
     });
     expect(player.loadVideoById).toHaveBeenCalledWith("tenet");
     expect(window.YT.Player).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(/preview 2 of 2/i)).toBeInTheDocument();
 
     // The final preview ends on the Feature Presentation transition.
     vi.useFakeTimers();
@@ -240,7 +238,7 @@ describe("TV theater mode", () => {
       "src",
       expect.stringContaining("/embed/tenet")
     );
-    expect(screen.getByText(/preview 1 of 1/i)).toBeInTheDocument();
+    expect(screen.getByText(/one preview/i)).toBeInTheDocument();
   });
 
   it("advances past a preview that fails to play", async () => {
@@ -253,25 +251,38 @@ describe("TV theater mode", () => {
     });
 
     expect(player.loadVideoById).toHaveBeenCalledWith("tenet");
-    expect(screen.getByText(/preview 2 of 2/i)).toBeInTheDocument();
   });
 
-  it("lets the remote pause and skip straight to the movie", async () => {
+  it("pauses on Select and shows nothing else while playing", async () => {
     await drawWithTheaterMode();
     await screen.findByRole("dialog", { name: /previews before arrival/i });
     await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
 
-    fireEvent.click(screen.getByRole("button", { name: /^pause$/i }));
+    // A cinema offers no controls, so the overlay draws none: the previews
+    // cannot be skipped and the feature cannot be jumped to.
+    expect(screen.queryByRole("button", { name: /next preview/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /skip to movie/i })).toBeNull();
+    expect(screen.queryByText(/paused/i)).toBeNull();
+
+    fireEvent.keyDown(document, { key: "Enter" });
     expect(player.pauseVideo).toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: /^play$/i }));
+    expect(screen.getByText(/paused/i)).toBeInTheDocument();
+
+    fireEvent.keyDown(document, { key: "Enter" });
     expect(player.playVideo).toHaveBeenCalled();
+    expect(screen.queryByText(/paused/i)).toBeNull();
+  });
 
-    fireEvent.click(screen.getByRole("button", { name: /skip to movie/i }));
+  it("asks the embed for a player the remote cannot seek", async () => {
+    await drawWithTheaterMode();
+    await screen.findByRole("dialog", { name: /previews before arrival/i });
 
-    expect(
-      screen.queryByRole("dialog", { name: /previews before arrival/i })
-    ).not.toBeInTheDocument();
-    expect(screen.getByText(/tonight's pick/i)).toBeInTheDocument();
+    // Our own controls are gone, but YouTube ships its own, and its keyboard
+    // shortcuts map onto the D-pad. Losing these turns the ritual back into a
+    // seekable video.
+    const src = screen.getByTitle(/movie bowl previews/i).getAttribute("src");
+    expect(src).toContain("controls=0");
+    expect(src).toContain("disablekb=1");
   });
 
   it("exits the previews on the remote back button", async () => {

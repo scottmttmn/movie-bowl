@@ -1065,7 +1065,6 @@ export default function TvTonightScreen({ userId, userEmail }) {
             queue={trailerQueue}
             featureTitle={drawnMovie.title}
             onFinish={endTheater}
-            onExit={endTheater}
           />
         )}
         <TvReturnDialog

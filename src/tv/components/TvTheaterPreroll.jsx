@@ -4,12 +4,7 @@ import { getAutoplayTrailerUrl, loadYouTubeIframeApi } from "../utils/youtubePla
 const ANNOUNCEMENT_MS = 4200;
 const FEATURE_CARD_MS = 3600;
 
-export default function TvTheaterPreroll({
-  queue,
-  featureTitle,
-  onFinish,
-  onExit,
-}) {
+export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
   const playerId = `tv-preroll-${useId().replace(/:/g, "")}`;
   const overlayRef = useRef(null);
   const playerRef = useRef(null);
@@ -17,7 +12,6 @@ export default function TvTheaterPreroll({
   const advanceRef = useRef(() => {});
   const finishRef = useRef(onFinish);
 
-  const [index, setIndex] = useState(0);
   const [isPaused, setIsPaused] = useState(false);
   const [phase, setPhase] = useState("trailers");
   const [showAnnouncement, setShowAnnouncement] = useState(true);
@@ -25,7 +19,7 @@ export default function TvTheaterPreroll({
   // The queue is fixed for the life of the overlay, so the iframe keeps one
   // src for the whole sequence and later previews arrive via loadVideoById.
   const firstTrailerUrl = useMemo(
-    () => getAutoplayTrailerUrl(queue[0]?.trailer),
+    () => getAutoplayTrailerUrl(queue[0]?.trailer, { preroll: true }),
     [queue]
   );
 
@@ -41,7 +35,6 @@ export default function TvTheaterPreroll({
     }
 
     indexRef.current = next;
-    setIndex(next);
     setIsPaused(false);
     setShowAnnouncement(false);
 
@@ -56,6 +49,13 @@ export default function TvTheaterPreroll({
   useLayoutEffect(() => {
     const overlay = overlayRef.current;
     if (!overlay) return;
+
+    // The reveal underneath is aria-hidden, but the navigation hook's Select
+    // branch only checks for data-tv-focusable — so leaving focus on "Open
+    // [service]" behind the overlay would let Enter launch a provider app
+    // mid-preview. Holding focus on the overlay itself also means Select has
+    // no default action to fight with.
+    overlay.focus({ preventScroll: true });
 
     const requestFullscreen =
       overlay.requestFullscreen || overlay.webkitRequestFullscreen;
@@ -114,21 +114,36 @@ export default function TvTheaterPreroll({
     return () => window.clearTimeout(timer);
   }, [phase]);
 
-  const togglePause = () => {
+  const togglePause = useCallback(() => {
     const player = playerRef.current;
     if (!player) return;
 
-    if (isPaused) {
-      player.playVideo?.();
-      setIsPaused(false);
-      return;
-    }
+    setIsPaused((paused) => {
+      if (paused) player.playVideo?.();
+      else player.pauseVideo?.();
+      return !paused;
+    });
+  }, []);
 
-    player.pauseVideo?.();
-    setIsPaused(true);
-  };
+  // A cinema has no controls to press, so the only gesture is the one every
+  // video player already teaches: Select toggles playback. Nothing is drawn
+  // until it is paused.
+  useEffect(() => {
+    const onKeyDown = (event) => {
+      const isSelect =
+        event.key === "Enter" ||
+        event.key === " " ||
+        event.key === "MediaPlayPause" ||
+        Number(event.keyCode) === 13;
+      if (!isSelect) return;
+      event.preventDefault();
+      togglePause();
+    };
 
-  const currentTitle = queue[index]?.title || "";
+    document.addEventListener("keydown", onKeyDown);
+    return () => document.removeEventListener("keydown", onKeyDown);
+  }, [togglePause]);
+
   const previewLabel =
     queue.length === 1 ? "One preview" : `${queue.length} previews`;
 
@@ -136,6 +151,7 @@ export default function TvTheaterPreroll({
     <section
       ref={overlayRef}
       className="tv-theater-overlay"
+      tabIndex={-1}
       role="dialog"
       aria-modal="true"
       aria-label={`Previews before ${featureTitle}`}
@@ -164,42 +180,11 @@ export default function TvTheaterPreroll({
             </div>
           )}
 
-          <div className="tv-theater-chrome">
-            <p className="tv-theater-progress">
-              Preview {index + 1} of {queue.length}
-              {currentTitle && ` · ${currentTitle}`}
+          {isPaused && (
+            <p className="tv-theater-paused" role="status">
+              Paused
             </p>
-            <div className="tv-theater-controls">
-              <button
-                type="button"
-                className="tv-theater-button"
-                data-tv-focusable
-                data-tv-nav-group="theater"
-                data-tv-autofocus="true"
-                onClick={togglePause}
-              >
-                {isPaused ? "Play" : "Pause"}
-              </button>
-              <button
-                type="button"
-                className="tv-theater-button"
-                data-tv-focusable
-                data-tv-nav-group="theater"
-                onClick={advance}
-              >
-                Next preview
-              </button>
-              <button
-                type="button"
-                className="tv-theater-button"
-                data-tv-focusable
-                data-tv-nav-group="theater"
-                onClick={onExit}
-              >
-                Skip to movie
-              </button>
-            </div>
-          </div>
+          )}
         </>
       )}
     </section>
