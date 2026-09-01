@@ -294,6 +294,28 @@ describe("TV theater mode", () => {
     expect(player.pauseVideo).toHaveBeenCalled();
   });
 
+  it("keeps the reveal beneath out of reach while previews play", async () => {
+    await drawWithTheaterMode();
+    await screen.findByRole("dialog", { name: /previews before arrival/i });
+    await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
+
+    // Pressing right then OK on a real television moved focus to the reveal's
+    // provider button behind the overlay and launched Max mid-preview. Our own
+    // navigation already declined to go there, so the traversal was the
+    // WebView's own — which aria-hidden does not constrain. inert does.
+    const reveal = document.querySelector(".tv-reveal-page");
+    expect(reveal).toHaveAttribute("inert");
+    expect(reveal).toContainElement(
+      screen.getByRole("link", { name: /open netflix/i, hidden: true })
+    );
+
+    fireEvent.keyDown(document, { key: "ArrowRight" });
+    expect(document.activeElement).not.toHaveAttribute("data-tv-focusable");
+
+    fireEvent.keyDown(document, { key: "Enter" });
+    expect(player.pauseVideo).toHaveBeenCalled();
+  });
+
   it("asks the embed for a player the remote cannot seek", async () => {
     await drawWithTheaterMode();
     await screen.findByRole("dialog", { name: /previews before arrival/i });

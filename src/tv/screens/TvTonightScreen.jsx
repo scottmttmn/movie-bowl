@@ -503,11 +503,20 @@ function TvRevealScreen({
   const runtimeLabel = movie.runtime ? `${movie.runtime} min` : null;
   const trailer = movie.trailer;
 
+  // aria-hidden hides this from assistive tech and from our own navigation
+  // hook's filter, but it is not a focus guard. The television's WebView runs
+  // its own D-pad traversal when the page does not handle a key, and that walks
+  // straight into these controls: right then OK during previews opened the
+  // provider app. inert takes them out of the focus order itself, which is the
+  // only thing that holds when our JS never sees the press.
+  const isCoveredByOverlay = isDialogOpen || showTrailer;
+
   return (
     <>
       <main
         className="tv-page tv-reveal-page is-kept"
-        aria-hidden={isDialogOpen || showTrailer ? "true" : undefined}
+        aria-hidden={isCoveredByOverlay ? "true" : undefined}
+        inert={isCoveredByOverlay}
       >
         <header className="tv-topbar">
           <TvBrand context="Tonight’s movie" />
@@ -1084,10 +1093,15 @@ export default function TvTonightScreen({ userId, userEmail }) {
     !bowlMeta.canDraw ||
     isPreferencesLoading;
 
+  // Same reason as the reveal: aria-hidden keeps this out of our navigation,
+  // but only inert keeps it out of the WebView's own D-pad traversal.
+  const isBehindDialog = Boolean(showDrawConfirm || pendingReturn);
+
   return (
     <main className="tv-page tv-tonight-page">
       <div
-        aria-hidden={showDrawConfirm || pendingReturn ? "true" : undefined}
+        aria-hidden={isBehindDialog ? "true" : undefined}
+        inert={isBehindDialog}
       >
         <TvTonightHeader
           bowlName={bowlMeta.name}
