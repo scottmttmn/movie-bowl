@@ -941,6 +941,34 @@ html.tv-root {
   flex-direction: column;
 }
 
+.tv-history-detail-page {
+  overflow-y: auto;
+}
+
+.tv-history-detail-header-actions {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+}
+
+.tv-history-detail-page .tv-reveal {
+  margin-top: clamp(22px, 3vh, 44px);
+}
+
+.tv-history-detail-page .tv-reveal-poster {
+  width: clamp(250px, 21vw, 370px);
+}
+
+.tv-history-detail-page .tv-kept-badge {
+  border-color: rgba(125, 211, 252, 0.55);
+  background: #075985;
+  box-shadow: 0 16px 36px -18px rgba(56, 189, 248, 0.8);
+}
+
+.tv-history-detail-page .tv-reveal-copy h1 {
+  font-size: clamp(2.8rem, 4.5vw, 5.7rem);
+}
+
 .tv-reveal-bowl-name {
   max-width: 28rem;
   overflow: hidden;
@@ -1018,6 +1046,13 @@ html.tv-root {
   font-weight: 680;
 }
 
+.tv-history-metadata {
+  margin: 0.65rem 0 0;
+  color: #7dd3fc;
+  font-size: 0.75rem;
+  font-weight: 700;
+}
+
 .tv-overview {
   display: -webkit-box;
   max-width: 52rem;
@@ -1090,6 +1125,36 @@ html.tv-root {
   flex-wrap: wrap;
   gap: 0.85rem;
   margin-top: 2rem;
+}
+
+.tv-history-return-action {
+  display: flex;
+  gap: 1.5rem;
+  align-items: center;
+  justify-content: space-between;
+  max-width: 52rem;
+  margin-top: 1.5rem;
+  padding-top: 1.35rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+}
+
+.tv-history-return-action > div {
+  display: grid;
+  gap: 0.25rem;
+}
+
+.tv-history-return-action strong {
+  color: #e2e8f0;
+  font-size: 0.78rem;
+}
+
+.tv-history-return-action span {
+  color: #64748b;
+  font-size: 0.68rem;
+}
+
+.tv-history-return-action .tv-button {
+  flex: 0 0 auto;
 }
 
 .tv-trailer-overlay {
@@ -1493,6 +1558,10 @@ html.tv-root {
   .tv-provider-row,
   .tv-reveal-actions {
     justify-content: center;
+  }
+
+  .tv-history-return-action {
+    flex-direction: column;
   }
 
   .tv-movie-note {

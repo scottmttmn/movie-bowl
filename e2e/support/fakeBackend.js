@@ -545,7 +545,8 @@ class FakeBackend {
         await fulfillJson(route, { message: "Draw event not found", code: "P0001" }, 400);
         return;
       }
-      drawEvent.returned_at = new Date().toISOString();
+      const returnedAt = new Date();
+      drawEvent.returned_at = returnedAt.toISOString();
       const movie = this.state.bowl_movies.find(
         (row) => row.id === drawEvent.source_bowl_movie_id
       );
@@ -553,9 +554,16 @@ class FakeBackend {
         movie.drawn_at = null;
         movie.drawn_by = null;
       }
-      this.state.user_watch_events = this.state.user_watch_events.filter(
-        (row) => row.source_draw_event_id !== drawEvent.id
-      );
+      const drawnAt = new Date(drawEvent.drawn_at);
+      const isBoundedUndo =
+        !Number.isNaN(drawnAt.getTime()) &&
+        returnedAt.getTime() <= drawnAt.getTime() + 2 * 60 * 60 * 1000;
+      if (isBoundedUndo) {
+        this.state.user_watch_events = this.state.user_watch_events.filter(
+          (row) =>
+            row.source_draw_event_id !== drawEvent.id || row.source_kind !== "bowl_draw"
+        );
+      }
       await fulfillJson(route, null);
       return;
     }

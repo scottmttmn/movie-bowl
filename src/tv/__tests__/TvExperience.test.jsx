@@ -36,7 +36,11 @@ const mocks = vi.hoisted(() => ({
         id: "draw-1",
         drawEventId: "draw-1",
         bowlMovieId: "movie-1",
+        tmdb_id: 101,
         title: "Arrival",
+        drawn_at: "2026-08-31T19:00:00.000Z",
+        added_by_name: "Alex",
+        note: "Smart science fiction for movie night.",
       },
     ],
   },
@@ -195,7 +199,11 @@ describe("Movie Bowl TV experience", () => {
           id: "draw-1",
           drawEventId: "draw-1",
           bowlMovieId: "movie-1",
+          tmdb_id: 101,
           title: "Arrival",
+          drawn_at: "2026-08-31T19:00:00.000Z",
+          added_by_name: "Alex",
+          note: "Smart science fiction for movie night.",
         },
       ],
     };
@@ -472,14 +480,25 @@ describe("Movie Bowl TV experience", () => {
     expect(screen.getByText("Bowl picker route")).toBeInTheDocument();
   });
 
-  it("navigates from the draw control into Watch History and returns a selected movie", async () => {
+  it("opens a Watch History detail page before offering the secondary return action", async () => {
     mocks.handleReaddMovie.mockResolvedValue({ ok: true });
+    mocks.getTmdbMovieDetails.mockResolvedValue({
+      title: "Arrival",
+      release_date: "2016-11-11",
+      runtime: 116,
+      genres: ["Science Fiction", "Drama"],
+      overview: "A linguist works to communicate with alien visitors.",
+      trailer: { embedUrl: "https://www.youtube.com/embed/arrival" },
+    });
 
     renderTonight();
 
+    expect(
+      screen.getByText(/select a title to see its details, note, and where to watch/i)
+    ).toBeInTheDocument();
     const drawButton = screen.getByRole("button", { name: /draw a movie/i });
     const historyButton = screen.getByRole("button", {
-      name: /move arrival from watch history back to the bowl/i,
+      name: /view details for arrival in watch history/i,
     });
     const changeBowlButton = screen.getByRole("button", { name: /change bowl/i });
 
@@ -493,9 +512,26 @@ describe("Movie Bowl TV experience", () => {
     expect(historyButton).toHaveFocus();
 
     fireEvent.keyDown(window, { key: "Enter" });
+    expect(screen.getByRole("heading", { name: /arrival/i })).toBeInTheDocument();
+    expect(screen.getByText("Smart science fiction for movie night.")).toBeInTheDocument();
+    expect(screen.getByText(/added by alex/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^close$/i })).toHaveFocus();
+    });
+    expect(mocks.getTmdbMovieDetails).toHaveBeenCalledWith(101);
+    expect(mocks.fetchStreamingProviders).toHaveBeenCalledWith(101);
+    expect(mocks.handleReaddMovie).not.toHaveBeenCalled();
+
+    fireEvent.click(
+      screen.getByRole("button", { name: /^put movie back in bowl$/i })
+    );
     expect(
-      screen.getByRole("dialog", { name: /move “arrival” back to the bowl/i })
+      screen.getByRole("dialog", { name: /put “arrival” back in the bowl/i })
     ).toBeInTheDocument();
+    expect(screen.getByText(/within the last two hours/i)).toBeInTheDocument();
+    await waitFor(() => {
+      expect(screen.getByRole("button", { name: /^close$/i })).toHaveFocus();
+    });
     expect(mocks.handleReaddMovie).not.toHaveBeenCalled();
 
     fireEvent.click(
@@ -506,6 +542,28 @@ describe("Movie Bowl TV experience", () => {
       expect(mocks.handleReaddMovie).toHaveBeenCalledWith("draw-1");
     });
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("uses remote Back to close Watch History details and restore strip focus", async () => {
+    renderTonight();
+
+    const historyButton = screen.getByRole("button", {
+      name: /view details for arrival in watch history/i,
+    });
+    fireEvent.click(historyButton);
+
+    const closeButton = screen.getByRole("button", { name: /^close$/i });
+    await waitFor(() => expect(closeButton).toHaveFocus());
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    await waitFor(() => {
+      expect(
+        screen.getByRole("button", {
+          name: /view details for arrival in watch history/i,
+        })
+      ).toHaveFocus();
+    });
+    expect(mocks.handleReaddMovie).not.toHaveBeenCalled();
   });
 
   it("treats the draw as tonight's pick without asking for acceptance", async () => {

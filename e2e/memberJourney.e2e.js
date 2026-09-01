@@ -49,8 +49,8 @@ test("a member can create a bowl, add and draw a title, see history, and return 
   await page.getByRole("button", { name: "Show", exact: true }).click();
   await page.getByRole("button", { name: "Smoke Feature" }).click();
   await page.getByRole("button", { name: "Move to Bowl" }).click();
-  await expect(page.getByRole("dialog", { name: "Move back to bowl?" })).toBeVisible();
-  await page.getByRole("button", { name: "Remove & move back" }).click();
+  await expect(page.getByRole("dialog", { name: "Put movie back in bowl?" })).toBeVisible();
+  await page.getByRole("button", { name: "Put movie back in bowl" }).click();
 
   await expect(page.getByText("0 watched", { exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: /1 movies? in the bowl/i })).toBeVisible();

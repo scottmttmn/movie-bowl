@@ -4,6 +4,14 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Implemented, pending release
 
+- TV Watch History is now browse-first: a poster opens a viewing-distance movie
+  detail page with the bowl note, date/contributor context, trailer, current
+  providers, and provider handoff. Close is the default action; putting the
+  movie back is secondary and confirmed. Migration
+  `20260831200000_bound_return_history_cleanup.sql` implements the inclusive
+  two-hour cleanup window without adding a Vercel Function. Apply and verify
+  the migration before deploying the new copy. See
+  `output/designs/tv-watch-history-details-and-safe-return.md`.
 - Successful TV pairing approvals now replace the code-bearing browser history
   entry and remember the approved code locally. Revisiting the original QR URL
   shows a non-actionable completed/expired state without exposing a code-status

@@ -20,6 +20,7 @@ test("the signed-out TV route shows pairing instead of the standard login", asyn
 test("a paired TV can use remote selection to open a bowl", async ({ page, backend }, testInfo) => {
   test.skip(testInfo.project.name === "mobile-chromium", "TV smoke coverage uses the desktop viewport.");
 
+  await page.setViewportSize({ width: 1920, height: 1080 });
   await backend.authenticate(page);
   backend.state.bowls.push({
     id: "bowl-tv",
@@ -63,4 +64,159 @@ test("a paired TV can use remote selection to open a bowl", async ({ page, backe
   await expect(page.getByRole("heading", { name: "TV Smoke Feature" })).toBeVisible({
     timeout: 15_000,
   });
+});
+
+test("TV Watch History opens details and applies the bounded return cleanup", async ({
+  page,
+  backend,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile-chromium", "TV smoke coverage uses the desktop viewport.");
+
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await backend.authenticate(page);
+  const now = Date.now();
+  const recentDrawnAt = new Date(now - 60 * 60 * 1000).toISOString();
+  const olderDrawnAt = new Date(now - 3 * 60 * 60 * 1000).toISOString();
+  backend.state.bowls.push({
+    id: "bowl-tv-history",
+    name: "TV History Bowl",
+    owner_id: "user-smoke",
+    draw_access_mode: "all_members",
+    draw_method: "person_first",
+    created_at: olderDrawnAt,
+  });
+  backend.state.bowl_members.push({
+    id: "member-tv-history",
+    bowl_id: "bowl-tv-history",
+    user_id: "user-smoke",
+    role: "Owner",
+  });
+  backend.state.bowl_movies.push(
+    {
+      id: "movie-tv-ready",
+      bowl_id: "bowl-tv-history",
+      tmdb_id: -200,
+      title: "Ready Feature",
+      added_by: "user-smoke",
+      added_at: olderDrawnAt,
+      drawn_at: null,
+    },
+    {
+      id: "movie-tv-recent",
+      bowl_id: "bowl-tv-history",
+      tmdb_id: -201,
+      title: "Recent History Feature",
+      note: "The recent bowl note.",
+      added_by: "user-smoke",
+      added_by_name: "Sam",
+      added_at: olderDrawnAt,
+      drawn_at: recentDrawnAt,
+      drawn_by: "user-smoke",
+    },
+    {
+      id: "movie-tv-older",
+      bowl_id: "bowl-tv-history",
+      tmdb_id: -202,
+      title: "Older History Feature",
+      note: "The older bowl note.",
+      added_by: "user-smoke",
+      added_by_name: "Jo",
+      added_at: olderDrawnAt,
+      drawn_at: olderDrawnAt,
+      drawn_by: "user-smoke",
+    }
+  );
+  backend.state.bowl_draw_events.push(
+    {
+      id: "draw-tv-recent",
+      bowl_id: "bowl-tv-history",
+      source_bowl_movie_id: "movie-tv-recent",
+      tmdb_id: -201,
+      title: "Recent History Feature",
+      note: "The recent bowl note.",
+      added_by: "user-smoke",
+      added_by_name: "Sam",
+      drawn_at: recentDrawnAt,
+      returned_at: null,
+    },
+    {
+      id: "draw-tv-older",
+      bowl_id: "bowl-tv-history",
+      source_bowl_movie_id: "movie-tv-older",
+      tmdb_id: -202,
+      title: "Older History Feature",
+      note: "The older bowl note.",
+      added_by: "user-smoke",
+      added_by_name: "Jo",
+      drawn_at: olderDrawnAt,
+      returned_at: null,
+    }
+  );
+  backend.state.user_watch_events.push(
+    {
+      id: "watch-tv-recent",
+      user_id: "user-smoke",
+      source_draw_event_id: "draw-tv-recent",
+      source_kind: "bowl_draw",
+      title: "Recent History Feature",
+      watched_on: recentDrawnAt.slice(0, 10),
+    },
+    {
+      id: "watch-tv-older",
+      user_id: "user-smoke",
+      source_draw_event_id: "draw-tv-older",
+      source_kind: "bowl_draw",
+      title: "Older History Feature",
+      watched_on: olderDrawnAt.slice(0, 10),
+    }
+  );
+
+  await page.goto("/tv/bowl/bowl-tv-history");
+
+  const drawButton = page.getByRole("button", { name: /Draw a movie/ });
+  const recentCard = page.getByRole("button", {
+    name: "View details for Recent History Feature in Watch History",
+  });
+  await expect(drawButton).toBeFocused();
+  await drawButton.press("ArrowDown");
+  await expect(recentCard).toBeFocused();
+  await recentCard.press("Enter");
+
+  await expect(page.getByRole("heading", { name: "Recent History Feature" })).toBeVisible();
+  await expect(page.getByText("The recent bowl note.")).toBeVisible();
+  const detailClose = page.getByRole("button", { name: "Close", exact: true });
+  await expect(detailClose).toBeFocused();
+  expect(backend.state.bowl_draw_events[0].returned_at).toBeNull();
+  expect(backend.state.user_watch_events).toHaveLength(2);
+
+  await detailClose.press("Enter");
+  await expect(recentCard).toBeFocused();
+  await recentCard.press("Enter");
+  await page.getByRole("button", { name: "Put movie back in bowl" }).press("Enter");
+  await expect(
+    page.getByRole("dialog", { name: "Put “Recent History Feature” back in the bowl?" })
+  ).toBeVisible();
+  await expect(page.getByRole("button", { name: "Close", exact: true })).toBeFocused();
+  await page.getByRole("button", { name: "Put movie back in bowl" }).press("Enter");
+
+  await expect(page.getByText("Recent History Feature is back in the bowl.")).toBeVisible();
+  expect(
+    backend.state.user_watch_events.some(
+      (event) => event.source_draw_event_id === "draw-tv-recent"
+    )
+  ).toBe(false);
+
+  const olderCard = page.getByRole("button", {
+    name: "View details for Older History Feature in Watch History",
+  });
+  await olderCard.press("Enter");
+  await page.getByRole("button", { name: "Put movie back in bowl" }).press("Enter");
+  await page.getByRole("button", { name: "Put movie back in bowl" }).press("Enter");
+
+  await expect(page.getByText("Older History Feature is back in the bowl.")).toBeVisible();
+  expect(
+    backend.state.user_watch_events.some(
+      (event) => event.source_draw_event_id === "draw-tv-older"
+    )
+  ).toBe(true);
 });

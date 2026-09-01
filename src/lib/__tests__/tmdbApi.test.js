@@ -1,5 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
+  clearTmdbMovieDetailsCache,
   getTmdbMovieDetails,
   getTmdbMovieFilterMetadata,
   getTmdbMovieProviders,
@@ -10,6 +11,7 @@ import { OFFLINE_MESSAGE } from "../../utils/networkErrors";
 
 describe("tmdbApi", () => {
   beforeEach(() => {
+    clearTmdbMovieDetailsCache();
     global.fetch = vi.fn();
   });
 
@@ -110,6 +112,31 @@ describe("tmdbApi", () => {
 
     expect(global.fetch).toHaveBeenNthCalledWith(1, "/api/tmdb/movie/details?id=77");
     expect(global.fetch).toHaveBeenNthCalledWith(2, "/api/tmdb/movie/providers?id=77");
+  });
+
+  it("deduplicates and briefly caches repeated movie detail requests", async () => {
+    let resolveDetails;
+    global.fetch.mockReturnValue(
+      new Promise((resolve) => {
+        resolveDetails = resolve;
+      })
+    );
+
+    const first = getTmdbMovieDetails(91);
+    const second = getTmdbMovieDetails("91");
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+
+    resolveDetails({
+      ok: true,
+      json: async () => ({ id: 91, title: "Cached Movie", videos: { results: [] } }),
+    });
+
+    await expect(Promise.all([first, second])).resolves.toEqual([
+      expect.objectContaining({ id: 91, title: "Cached Movie" }),
+      expect.objectContaining({ id: 91, title: "Cached Movie" }),
+    ]);
+    await expect(getTmdbMovieDetails(91)).resolves.toMatchObject({ id: 91 });
+    expect(global.fetch).toHaveBeenCalledTimes(1);
   });
 
   it("fetches combined filter metadata through the proxy", async () => {

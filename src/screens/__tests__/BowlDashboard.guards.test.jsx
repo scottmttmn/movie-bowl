@@ -527,7 +527,7 @@ describe("BowlDashboard guards", () => {
     ).toBeInTheDocument();
   });
 
-  it("shows the history-removal confirmation before moving a watched item back to bowl", async () => {
+  it("explains bounded history cleanup before putting a watched item back in the bowl", async () => {
     mocks.state.memberRows = [{ user_id: "u1" }];
     mocks.state.bowlData = {
       remaining: [],
@@ -553,15 +553,15 @@ describe("BowlDashboard guards", () => {
     expect(screen.queryByRole("group", { name: "Movie pin" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /move to bowl/i }));
 
-    expect(screen.getByText(/move back to bowl\?/i)).toBeInTheDocument();
+    expect(screen.getByText(/put movie back in bowl\?/i)).toBeInTheDocument();
     expect(
-      screen.getByText(/marks "movie a" as not watched for everyone/i)
+      screen.getByText(/puts "movie a" back into the bowl for everyone/i)
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/want to watch it again.*cancel and use add movie/i)
+      screen.getByText(/within the last two hours.*watch history entries/i)
     ).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /remove & move back/i }));
+    fireEvent.click(screen.getByRole("button", { name: /put movie back in bowl/i }));
 
     await waitFor(() => expect(mocks.state.handleReaddMovie).toHaveBeenCalledWith("draw-1"));
   });
@@ -650,7 +650,7 @@ describe("BowlDashboard guards", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /move to bowl/i })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /move to bowl/i }));
 
-    fireEvent.click(screen.getByRole("button", { name: /remove & move back/i }));
+    fireEvent.click(screen.getByRole("button", { name: /put movie back in bowl/i }));
 
     await waitFor(() => expect(mocks.state.handleReaddMovie).toHaveBeenCalledWith("draw-1"));
   });

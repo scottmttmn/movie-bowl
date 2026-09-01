@@ -1,6 +1,17 @@
 import { selectOfficialTrailer } from "../utils/selectTrailer";
 import { OFFLINE_MESSAGE, isOfflineError } from "../utils/networkErrors";
 
+const MOVIE_DETAILS_CACHE_TTL_MS = 10 * 60 * 1000;
+const movieDetailsCache = new Map();
+const movieDetailsInflight = new Map();
+let movieDetailsGeneration = 0;
+
+export function clearTmdbMovieDetailsCache() {
+  movieDetailsGeneration += 1;
+  movieDetailsCache.clear();
+  movieDetailsInflight.clear();
+}
+
 async function apiGet(url) {
   let response;
   try {
@@ -64,11 +75,35 @@ export async function searchTmdbMovies(query) {
 export async function getTmdbMovieDetails(id) {
   const tmdbId = String(id || "").trim();
   if (!tmdbId) throw new Error("Missing movie id");
-  const data = await apiGet(`/api/tmdb/movie/details?id=${encodeURIComponent(tmdbId)}`);
-  return {
-    ...data,
-    trailer: selectOfficialTrailer(data?.videos?.results),
-  };
+  const cached = movieDetailsCache.get(tmdbId);
+  if (cached?.expiresAt > Date.now()) return cached.value;
+  if (movieDetailsInflight.has(tmdbId)) return movieDetailsInflight.get(tmdbId);
+
+  const requestGeneration = movieDetailsGeneration;
+  const request = apiGet(
+    `/api/tmdb/movie/details?id=${encodeURIComponent(tmdbId)}`
+  )
+    .then((data) => {
+      const value = {
+        ...data,
+        trailer: selectOfficialTrailer(data?.videos?.results),
+      };
+      if (requestGeneration === movieDetailsGeneration) {
+        movieDetailsCache.set(tmdbId, {
+          value,
+          expiresAt: Date.now() + MOVIE_DETAILS_CACHE_TTL_MS,
+        });
+      }
+      return value;
+    })
+    .finally(() => {
+      if (requestGeneration === movieDetailsGeneration) {
+        movieDetailsInflight.delete(tmdbId);
+      }
+    });
+
+  movieDetailsInflight.set(tmdbId, request);
+  return request;
 }
 
 export async function getTmdbMovieProviders(id) {
