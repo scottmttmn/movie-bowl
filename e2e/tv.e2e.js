@@ -58,6 +58,7 @@ test("a paired TV can use remote selection to open a bowl", async ({ page, backe
 
   await expect(page).toHaveURL(/\/tv\/bowl\/bowl-tv$/);
   await expect(page.getByRole("heading", { name: /Let the bowl decide/i })).toBeVisible();
+  await expect(page.getByText("OK to select", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: /Draw a movie/ }).press("Enter");
   await expect(page.getByRole("dialog", { name: "Reveal one movie?" })).toBeVisible();
   await page.getByRole("button", { name: "Reveal a movie" }).press("Enter");
@@ -223,10 +224,25 @@ test("TV Watch History opens details and applies the bounded return cleanup", as
   await expect(page.getByText(/everyone's Watch History unchanged/i)).toBeVisible();
   await page.getByRole("button", { name: "Put movie back in bowl" }).press("Enter");
 
-  await expect(page.getByText("Older History Feature is back in the bowl.")).toBeVisible();
+  await expect(
+    page.getByText(
+      "Older History Feature is back in the bowl and remains in Watch History."
+    )
+  ).toBeVisible();
   expect(
     backend.state.user_watch_events.some(
       (event) => event.source_draw_event_id === "draw-tv-older"
     )
   ).toBe(true);
+
+  const returnedOlderCard = page.getByRole("button", {
+    name: "View details for Older History Feature in Watch History, back in bowl",
+  });
+  await expect(returnedOlderCard).toBeVisible();
+  await expect(returnedOlderCard).toContainText("Back in bowl");
+  await returnedOlderCard.press("Enter");
+  await expect(page.getByText(/Picked .* • Added by Jo • Back in bowl/i)).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: "Put movie back in bowl" })
+  ).toHaveCount(0);
 });

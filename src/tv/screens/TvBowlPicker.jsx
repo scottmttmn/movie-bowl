@@ -168,11 +168,6 @@ export default function TvBowlPicker({
         </section>
       )}
 
-      <footer className="tv-remote-hint" aria-hidden="true">
-        <span>Use ↑ ↓ ← → to move</span>
-        <span>OK to select</span>
-        <span>Back to exit</span>
-      </footer>
     </main>
   );
 }

@@ -17,6 +17,7 @@ import {
   isOfflineError,
 } from "../utils/networkErrors";
 import { getBrowserTimeZone } from "../utils/getBrowserTimeZone";
+import { belongsInBowlWatchHistory } from "../utils/watchHistory";
 import useBowlFilterMetadata from "./useBowlFilterMetadata";
 
 function sortByAddedAtAscending(movies = []) {
@@ -100,13 +101,18 @@ function attachContributorProfile(row, profileEmailByUserId) {
 // useBowl is the core state engine for a bowl.
 // It manages bowl state and defines how that state transitions (add + draw).
 
-export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {}) {
+export default function useBowl(
+  bowlId,
+  { drawMethod = DEFAULT_DRAW_METHOD, includeReturnedHistory = false } = {}
+) {
   // Primary bowl state:
   // - remaining: movies not yet drawn (drawn_at is null)
   // - watched: bowl draw events that have not been returned to the bowl
+  // - watchHistory: active draws plus older returns that preserved personal history
   const [bowl, setBowl] = useState({
     remaining: [],
     watched: [],
+    watchHistory: [],
   });
   const filterMetadataFetchers = useBowlFilterMetadata(bowlId, bowl.remaining);
 
@@ -124,7 +130,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
     const sequence = ++loadSequence.current;
     const revisionAtStart = movieRevision.current;
     if (!bowlId) {
-      setBowl({ remaining: [], watched: [] });
+      setBowl({ remaining: [], watched: [], watchHistory: [] });
       setIsLoading(false);
       return;
     }
@@ -139,7 +145,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       if (sequence !== loadSequence.current) return;
 
       if (authError || !user) {
-        setBowl({ remaining: [], watched: [] });
+        setBowl({ remaining: [], watched: [], watchHistory: [] });
         return;
       }
 
@@ -165,14 +171,21 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
 
       // Draw events are separate from current bowl slips so a return to the
       // bowl never erases the fact that the bowl made a draw.
-      const { data: watchedEvents, error: watchedError } = await supabase
+      let drawEventsQuery = supabase
         .from("bowl_draw_events")
         .select(
-          "id, bowl_id, source_bowl_movie_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, added_by, added_by_name, drawn_at, drawn_by, snapshot_at"
+          "id, bowl_id, source_bowl_movie_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, added_by, added_by_name, drawn_at, drawn_by, snapshot_at, returned_at, returned_by"
         )
-        .eq("bowl_id", bowlId)
-        .is("returned_at", null)
-        .order("drawn_at", { ascending: false });
+        .eq("bowl_id", bowlId);
+
+      if (!includeReturnedHistory) {
+        drawEventsQuery = drawEventsQuery.is("returned_at", null);
+      }
+
+      const { data: drawEvents, error: watchedError } = await drawEventsQuery.order(
+        "drawn_at",
+        { ascending: false }
+      );
 
       if (watchedError) {
         console.error("[useBowl] Failed to load watched movies", watchedError);
@@ -228,19 +241,25 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
           });
         });
 
+        const mappedDrawEvents = (drawEvents || []).map((event) => {
+          const eventWithProfile = attachContributorProfile(
+            event,
+            profileEmailByUserId
+          );
+          return {
+            ...eventWithProfile,
+            drawEventId: event.id,
+            bowlMovieId: event.source_bowl_movie_id,
+          };
+        });
+        const activeDrawEvents = mappedDrawEvents.filter(
+          (event) => !event.returned_at
+        );
+
         return {
           remaining: sortByAddedAtAscending([...nextRemaining, ...mergedPending]),
-          watched: (watchedEvents || []).map((event) => {
-            const eventWithProfile = attachContributorProfile(
-              event,
-              profileEmailByUserId
-            );
-            return {
-              ...eventWithProfile,
-              drawEventId: event.id,
-              bowlMovieId: event.source_bowl_movie_id,
-            };
-          }),
+          watched: activeDrawEvents,
+          watchHistory: mappedDrawEvents.filter(belongsInBowlWatchHistory),
         };
       });
     } catch (err) {
@@ -250,11 +269,11 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       setErrorMessage(
         describeNetworkError(err, "Unexpected error loading bowl movies.")
       );
-      setBowl({ remaining: [], watched: [] });
+      setBowl({ remaining: [], watched: [], watchHistory: [] });
     } finally {
       if (sequence === loadSequence.current) setIsLoading(false);
     }
-  }, [bowlId]);
+  }, [bowlId, includeReturnedHistory]);
 
   useEffect(() => {
     // Load DB-backed bowl movies whenever the bowl changes.

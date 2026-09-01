@@ -587,6 +587,33 @@ describe("Movie Bowl TV experience", () => {
     ).toBeInTheDocument();
   });
 
+  it("keeps an older returned pick in TV Watch History without another return action", async () => {
+    const returnedMovie = {
+      ...mocks.bowlData.watched[0],
+      drawn_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
+      returned_at: new Date().toISOString(),
+    };
+    mocks.bowlData = {
+      ...mocks.bowlData,
+      watched: [],
+      watchHistory: [returnedMovie],
+    };
+
+    renderTonight();
+
+    const returnedHistoryButton = screen.getByRole("button", {
+      name: /view details for arrival in watch history, back in bowl/i,
+    });
+    expect(returnedHistoryButton).toHaveTextContent(/back in bowl/i);
+    fireEvent.click(returnedHistoryButton);
+
+    expect(screen.getByText(/picked .* • added by alex • back in bowl/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("button", { name: /^put movie back in bowl$/i })
+    ).not.toBeInTheDocument();
+    expect(mocks.handleReaddMovie).not.toHaveBeenCalled();
+  });
+
   it("uses remote Back to close Watch History details and restore strip focus", async () => {
     renderTonight();
 

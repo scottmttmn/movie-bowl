@@ -7,7 +7,9 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 - TV Watch History is now browse-first: a poster opens a viewing-distance movie
   detail page with the bowl note, date/contributor context, trailer, current
   providers, and provider handoff. Close is the default action; putting the
-  movie back is secondary and confirmed. Migration
+  movie back is secondary and confirmed. Two-hour undos disappear from the TV
+  history strip; older returns remain browseable as `Back in bowl`, without a
+  second return action. Migration
   `20260831200000_bound_return_history_cleanup.sql` implements the inclusive
   two-hour cleanup window without adding a Vercel Function. Apply and verify
   the migration before deploying the new copy. See

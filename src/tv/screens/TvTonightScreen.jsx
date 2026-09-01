@@ -28,6 +28,7 @@ import {
   STREAMING_MATCH_TONE,
 } from "../../utils/streamingMatchSummary";
 import { resolvePreferredLaunchTarget } from "../../utils/webLaunch";
+import { isWithinReturnHistoryCleanupWindow } from "../../utils/watchHistory";
 import useDrawProviderLinks from "../../hooks/useDrawProviderLinks";
 import TvVoiceHandoffCard from "../components/TvVoiceHandoffCard";
 import ProviderLinksAttribution from "../../components/ProviderLinksAttribution";
@@ -52,7 +53,6 @@ import {
 } from "../utils/youtubePlayer";
 
 const MIN_DRAW_ANIMATION_MS = 1800;
-const RETURN_HISTORY_CLEANUP_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 // Avoid leaving the result screen in a permanent loading state if preview
 // enrichment stalls. The Android wrapper explicitly permits media autoplay.
@@ -80,14 +80,6 @@ function formatPickedDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   return TV_PICKED_DATE_FORMATTER.format(date);
-}
-
-function isWithinReturnHistoryCleanupWindow(movie, now = Date.now()) {
-  const drawnAt = new Date(movie?.drawn_at || movie?.drawnAt || "").getTime();
-  return (
-    Number.isFinite(drawnAt) &&
-    now <= drawnAt + RETURN_HISTORY_CLEANUP_WINDOW_MS
-  );
 }
 
 function mergeHistoryMovieDetails(movie, details, providerData) {
@@ -435,6 +427,7 @@ function TvRecentDraws({ movies, restoreFocusId, onFocusRestored, onSelect }) {
         {recentMovies.map((movie) => {
           const focusId = movie.drawEventId || movie.id;
           const shouldRestoreFocus = String(focusId) === String(restoreFocusId);
+          const isBackInBowl = Boolean(movie.returned_at || movie.returnedAt);
 
           return (
             <button
@@ -444,7 +437,9 @@ function TvRecentDraws({ movies, restoreFocusId, onFocusRestored, onSelect }) {
               data-tv-focusable
               data-tv-nav-group="watch-history"
               data-tv-autofocus={shouldRestoreFocus ? "true" : undefined}
-              aria-label={`View details for ${movie.title} in Watch History`}
+              aria-label={`View details for ${movie.title} in Watch History${
+                isBackInBowl ? ", back in bowl" : ""
+              }`}
               onFocus={() => {
                 if (shouldRestoreFocus) onFocusRestored?.();
               }}
@@ -453,6 +448,7 @@ function TvRecentDraws({ movies, restoreFocusId, onFocusRestored, onSelect }) {
               <img src={getPosterUrl(movie, "w185")} alt="" />
               <span>
                 <strong>{movie.title}</strong>
+                {isBackInBowl && <small>Back in bowl</small>}
               </span>
             </button>
           );
@@ -740,11 +736,6 @@ function TvRevealScreen({
           )}
         </TvMovieDetailStage>
 
-        <footer className="tv-remote-hint" aria-hidden="true">
-          <span>Use ↑ ↓ ← → to move</span>
-          <span>OK to select</span>
-          <span>Back to return</span>
-        </footer>
       </main>
 
       {showTrailer && trailer?.embedUrl && (
@@ -777,9 +768,11 @@ function TvHistoryDetailScreen({
   const trailer = movie.trailer;
   const pickedDate = formatPickedDate(movie.drawn_at || movie.drawnAt);
   const addedBy = getMovieAttributionLabel(movie);
+  const isBackInBowl = Boolean(movie.returned_at || movie.returnedAt);
   const historyMetadata = [
     pickedDate ? `Picked ${pickedDate}` : null,
     addedBy ? `Added by ${addedBy}` : null,
+    isBackInBowl ? "Back in bowl" : null,
   ];
   const willRemoveGeneratedHistory = isWithinReturnHistoryCleanupWindow(movie);
   const isCoveredByOverlay = isDialogOpen || showTrailer;
@@ -851,11 +844,6 @@ function TvHistoryDetailScreen({
           )}
         </TvMovieDetailStage>
 
-        <footer className="tv-remote-hint" aria-hidden="true">
-          <span>Use ↑ ↓ ← → to move</span>
-          <span>OK to select</span>
-          <span>Back to close</span>
-        </footer>
       </main>
 
       {showTrailer && trailer?.embedUrl && (
@@ -946,7 +934,10 @@ export default function TvTonightScreen({ userId, userEmail }) {
     handleDraw,
     handleReaddMovie,
     filterMetadataFetchers,
-  } = useBowl(bowlId, { drawMethod: bowlMeta.drawMethod });
+  } = useBowl(bowlId, {
+    drawMethod: bowlMeta.drawMethod,
+    includeReturnedHistory: true,
+  });
   const {
     streamingServices,
     defaultDrawSettings,
@@ -969,6 +960,10 @@ export default function TvTonightScreen({ userId, userEmail }) {
   const [pendingReturn, setPendingReturn] = useState(null);
   const [isReturningMovie, setIsReturningMovie] = useState(false);
   const [returnErrorMessage, setReturnErrorMessage] = useState(null);
+  const watchHistoryMovies = useMemo(
+    () => bowl.watchHistory ?? bowl.watched ?? [],
+    [bowl.watchHistory, bowl.watched]
+  );
   const [tonightMessage, setTonightMessage] = useState(null);
   const [trailerQueue, setTrailerQueue] = useState([]);
   const [trailerQueueStatus, setTrailerQueueStatus] = useState("idle");
@@ -1130,7 +1125,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
 
     const selectedDrawEventId =
       selectedHistoryMovie.drawEventId || selectedHistoryMovie.id;
-    const stillInHistory = (bowl.watched || []).some(
+    const stillInHistory = watchHistoryMovies.some(
       (movie) => String(movie.drawEventId || movie.id) === String(selectedDrawEventId)
     );
     if (stillInHistory) return;
@@ -1143,7 +1138,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
     setIsHistoryEnriching(false);
     setShowTrailer(false);
     setTonightMessage(`${title} is no longer in Watch History.`);
-  }, [bowl.watched, selectedHistoryMovie, isReturningMovie]);
+  }, [watchHistoryMovies, selectedHistoryMovie, isReturningMovie]);
 
   // Resolve previews as soon as the draw is committed. Theater mode starts the
   // queue automatically; ordinary draws remain on the result screen.
@@ -1319,6 +1314,9 @@ export default function TvTonightScreen({ userId, userEmail }) {
   const confirmReturnToBowl = async () => {
     if (!pendingReturn || isReturningMovie) return;
 
+    const staysInWatchHistory = !isWithinReturnHistoryCleanupWindow(
+      pendingReturn.movie
+    );
     setIsReturningMovie(true);
     setReturnErrorMessage(null);
 
@@ -1336,14 +1334,18 @@ export default function TvTonightScreen({ userId, userEmail }) {
       historyLoadSequenceRef.current += 1;
       setPendingReturn(null);
       setSelectedHistoryMovie(null);
-      setHistoryFocusId(null);
+      setHistoryFocusId(staysInWatchHistory ? pendingReturn.drawEventId : null);
       setIsHistoryEnriching(false);
       setDrawnMovie(null);
       setIsTheaterPending(false);
       setIsTheaterPlaying(false);
       setShowTrailer(false);
       setShowDrawConfirm(false);
-      setTonightMessage(`${returnedTitle} is back in the bowl.`);
+      setTonightMessage(
+        staysInWatchHistory
+          ? `${returnedTitle} is back in the bowl and remains in Watch History.`
+          : `${returnedTitle} is back in the bowl.`
+      );
     } finally {
       setIsReturningMovie(false);
     }
@@ -1411,7 +1413,10 @@ export default function TvTonightScreen({ userId, userEmail }) {
           bowlName={bowlMeta.name}
           movie={selectedHistoryMovie}
           streamingServices={streamingServices}
-          canReturn={bowlMeta.canDraw}
+          canReturn={
+            bowlMeta.canDraw &&
+            !(selectedHistoryMovie.returned_at || selectedHistoryMovie.returnedAt)
+          }
           isEnriching={isHistoryEnriching}
           showTrailer={showTrailer}
           isDialogOpen={Boolean(pendingReturn)}
@@ -1565,17 +1570,12 @@ export default function TvTonightScreen({ userId, userEmail }) {
         </section>
 
         <TvRecentDraws
-          movies={bowl.watched}
+          movies={watchHistoryMovies}
           restoreFocusId={historyFocusId}
           onFocusRestored={() => setHistoryFocusId(null)}
           onSelect={openHistoryDetails}
         />
 
-        <footer className="tv-remote-hint" aria-hidden="true">
-          <span>Use ↑ ↓ ← → to move</span>
-          <span>OK to select</span>
-          <span>Back to choose a bowl</span>
-        </footer>
       </div>
 
       {showDrawConfirm && (

@@ -105,6 +105,13 @@ const mocks = vi.hoisted(() => ({
             };
           }
 
+          if (table === "bowl_draw_events") {
+            return {
+              data: mocks.watchedQueue.shift() || [],
+              error: null,
+            };
+          }
+
           return { data: [], error: null };
         }),
         update: vi.fn((payload) => {
@@ -312,6 +319,46 @@ describe("useBowl handleDraw integration", () => {
         expect.objectContaining({ table: "bowl_draw_events", columns: expect.stringContaining("note") }),
       ])
     );
+  });
+
+  it("keeps older returns in bowl Watch History while hiding bounded undos", async () => {
+    const activeDraw = {
+      id: "draw-active",
+      title: "Active draw",
+      drawn_at: "2026-09-01T12:00:00.000Z",
+      returned_at: null,
+    };
+    const boundedUndo = {
+      id: "draw-undone",
+      title: "Accidental draw",
+      drawn_at: "2026-09-01T12:00:00.000Z",
+      returned_at: "2026-09-01T14:00:00.000Z",
+    };
+    const olderReturn = {
+      id: "draw-returned",
+      title: "Returned later",
+      drawn_at: "2026-09-01T12:00:00.000Z",
+      returned_at: "2026-09-01T14:00:00.001Z",
+    };
+
+    mocks.remainingQueue.push([]);
+    mocks.watchedQueue.push([activeDraw, boundedUndo, olderReturn]);
+
+    const { result } = renderHook(() =>
+      useBowl("bowl-1", { includeReturnedHistory: true })
+    );
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.bowl.watched.map((movie) => movie.id)).toEqual([
+      "draw-active",
+    ]);
+    expect(result.current.bowl.watchHistory.map((movie) => movie.id)).toEqual([
+      "draw-active",
+      "draw-returned",
+    ]);
+    expect(
+      mocks.selectCalls.find(({ table }) => table === "bowl_draw_events")?.columns
+    ).toContain("returned_at");
   });
 
   it("prioritizes titles matching user streaming services", async () => {
