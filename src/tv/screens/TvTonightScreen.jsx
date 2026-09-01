@@ -52,6 +52,7 @@ import {
 } from "../utils/youtubePlayer";
 
 const MIN_DRAW_ANIMATION_MS = 1800;
+const RETURN_HISTORY_CLEANUP_WINDOW_MS = 2 * 60 * 60 * 1000;
 
 // Avoid leaving the result screen in a permanent loading state if preview
 // enrichment stalls. The Android wrapper explicitly permits media autoplay.
@@ -79,6 +80,14 @@ function formatPickedDate(value) {
   const date = new Date(value);
   if (Number.isNaN(date.getTime())) return null;
   return TV_PICKED_DATE_FORMATTER.format(date);
+}
+
+function isWithinReturnHistoryCleanupWindow(movie, now = Date.now()) {
+  const drawnAt = new Date(movie?.drawn_at || movie?.drawnAt || "").getTime();
+  return (
+    Number.isFinite(drawnAt) &&
+    now <= drawnAt + RETURN_HISTORY_CLEANUP_WINDOW_MS
+  );
 }
 
 function mergeHistoryMovieDetails(movie, details, providerData) {
@@ -772,6 +781,7 @@ function TvHistoryDetailScreen({
     pickedDate ? `Picked ${pickedDate}` : null,
     addedBy ? `Added by ${addedBy}` : null,
   ];
+  const willRemoveGeneratedHistory = isWithinReturnHistoryCleanupWindow(movie);
   const isCoveredByOverlay = isDialogOpen || showTrailer;
 
   return (
@@ -802,7 +812,6 @@ function TvHistoryDetailScreen({
           movie={movie}
           streamingServices={streamingServices}
           kicker="Previously picked"
-          badgeLabel="Watch History"
           historyMetadata={historyMetadata}
           webLaunchCandidate={webLaunchCandidate}
           providerLaunchMessage={providerLaunchMessage}
@@ -818,8 +827,16 @@ function TvHistoryDetailScreen({
           {canReturn && (
             <div className="tv-history-return-action">
               <div>
-                <strong>Didn&apos;t watch it?</strong>
-                <span>Put this movie back into the current bowl.</span>
+                <strong>
+                  {willRemoveGeneratedHistory
+                    ? "Didn't watch it?"
+                    : "Want it back in the bowl?"}
+                </strong>
+                <span>
+                  {willRemoveGeneratedHistory
+                    ? "Putting it back now will remove this pick from everyone's Watch History."
+                    : "Putting it back will leave Watch History unchanged."}
+                </span>
               </div>
               <button
                 type="button"
@@ -862,6 +879,7 @@ function TvReturnDialog({
   if (!request) return null;
 
   const title = request.movie?.title || "this movie";
+  const willRemoveGeneratedHistory = isWithinReturnHistoryCleanupWindow(request.movie);
 
   return (
     <div className="tv-dialog-backdrop" role="presentation">
@@ -873,10 +891,17 @@ function TvReturnDialog({
       >
         <p className="tv-kicker">Watch History</p>
         <h2 id="tv-return-title">Put “{title}” back in the bowl?</h2>
-        <p>
-          If it was picked within the last two hours, the Watch History entries
-          created by that pick will also be removed. Older Watch History stays intact.
-        </p>
+        {willRemoveGeneratedHistory ? (
+          <p>
+            This pick is still within the two-hour undo window. Putting it back will
+            remove the Watch History entries created by this pick.
+          </p>
+        ) : (
+          <p>
+            This pick is outside the two-hour undo window. Putting it back will leave
+            everyone&apos;s Watch History unchanged.
+          </p>
+        )}
         {errorMessage && (
           <p className="tv-dialog-error" role="alert">
             {errorMessage}

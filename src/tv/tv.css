@@ -959,12 +959,6 @@ html.tv-root {
   width: clamp(250px, 21vw, 370px);
 }
 
-.tv-history-detail-page .tv-kept-badge {
-  border-color: rgba(125, 211, 252, 0.55);
-  background: #075985;
-  box-shadow: 0 16px 36px -18px rgba(56, 189, 248, 0.8);
-}
-
 .tv-history-detail-page .tv-reveal-copy h1 {
   font-size: clamp(2.8rem, 4.5vw, 5.7rem);
 }
