@@ -182,6 +182,10 @@ export default function MovieSearch({
     const resetAfterSuccessfulAdd = () => {
         if (scrollRef.current) scrollRef.current.scrollTop = 0;
         setSearchError(null);
+        setVoiceError(null);
+        setVoiceStatusMessage("");
+        finalTranscriptRef.current = "";
+        suppressNextAutoSearchRef.current = false;
         setDetailActionError("");
         setDetailMovie(null);
         onDetailChange?.(false);
