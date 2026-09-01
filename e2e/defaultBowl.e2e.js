@@ -11,7 +11,7 @@ const chooseButton = (page) => page.getByRole("button", { name: /^Choose bowl\. 
 async function addCustom(page, title) {
   await page.getByPlaceholder("Search movies...").fill(title);
   await page.getByRole("button", { name: `Add "${title}"`, exact: true }).click();
-  await expect(page.getByRole("status").filter({ hasText: /^Added to / })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: `Added ${title} to ` })).toBeVisible();
   await expect(page.getByPlaceholder("Search movies...")).toHaveValue("");
   await expect(page.getByPlaceholder("Search movies...")).toBeFocused();
 }
@@ -95,6 +95,7 @@ test("movie details preserve search on Back, and comments are added after the mo
   await expect(page.getByPlaceholder("Search movies...")).toHaveValue("");
   await expect(page.getByPlaceholder("Search movies...")).toBeFocused();
   expect(backend.state.bowl_movies[0]).toMatchObject({ bowl_id: "default-bowl-0", tmdb_id: 42, note: null });
+  await page.getByRole("button", { name: /Added this session/ }).click();
   await page.getByRole("button", { name: "Add comment for The Feature" }).click();
   await page.getByRole("textbox", { name: "Comment for The Feature" }).fill("Save this comment");
   await page.getByRole("button", { name: "Save comment", exact: true }).click();
@@ -138,7 +139,7 @@ test("losing the destination preserves the draft and requires an explicit replac
   await expect(page.getByRole("button", { name: 'Add "Saved Draft"' })).toBeDisabled();
   await page.getByRole("button", { name: "Use Family Movies" }).click();
   await page.getByRole("button", { name: 'Add "Saved Draft"' }).click();
-  await expect(page.getByRole("status").filter({ hasText: "Added to Family Movies" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Added Saved Draft to Family Movies" })).toBeVisible();
   expect(backend.state.bowl_movies[0].bowl_id).toBe("default-bowl-1");
 });
 
@@ -180,11 +181,12 @@ test("session additions scroll, retain their bowls, and support comments and con
   await chooseButton(page).click();
   await page.getByRole("button", { name: "Family Movies", exact: true }).click();
   for (const title of ["Second feature", "Third feature", "Fourth feature", "Fifth feature", "Sixth feature"]) await addCustom(page, title);
+  await page.getByRole("button", { name: /Added this session/ }).click();
   const list = page.getByRole("list", { name: "Movies added this session" });
   await expect(list.getByRole("listitem")).toHaveCount(6);
   await expect(list.getByRole("listitem").first()).toContainText("Sixth feature");
   await expect(list.getByRole("listitem").last()).toContainText("Friday Night");
-  expect(await page.locator(".bowl-add-scroll").evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true);
+  expect(await page.locator(".bowl-add-scroll:visible").evaluate((node) => node.scrollHeight > node.clientHeight)).toBe(true);
   const firstTitle = "The first feature with a very long title that wraps";
   await page.getByRole("button", { name: `Add comment for ${firstTitle}`, exact: true }).click();
   await page.getByRole("textbox", { name: `Comment for ${firstTitle}`, exact: true }).fill("Recommended by Tim at dinner.");
@@ -202,9 +204,11 @@ test("session additions scroll, retain their bowls, and support comments and con
   expect(backend.state.bowl_movies).toHaveLength(6);
   await page.getByRole("button", { name: "Remove Sixth feature from Family Movies", exact: true }).click();
   await page.getByRole("button", { name: "Remove from bowl", exact: true }).click();
-  await expect(list.getByRole("listitem")).toHaveCount(5);
-  expect(backend.state.bowl_movies.some((movie) => movie.title === "Sixth feature")).toBe(false);
+  await expect(list).toHaveCount(0);
   await expect(page.getByPlaceholder("Search movies...")).toBeFocused();
+  await page.getByRole("button", { name: /Added this session/ }).click();
+  await expect(page.getByRole("list", { name: "Movies added this session" }).getByRole("listitem")).toHaveCount(5);
+  expect(backend.state.bowl_movies.some((movie) => movie.title === "Sixth feature")).toBe(false);
   await page.getByRole("button", { name: "Close add movie" }).click();
   await expect(page.getByRole("button", { name: "Add a movie", exact: true })).toBeFocused();
   await page.getByRole("button", { name: "Add a movie", exact: true }).click();
@@ -218,6 +222,7 @@ test("a draw on another device prevents comment edits and removal of a session a
   await addCustom(page, "Drawn before editing");
   await addCustom(page, "Drawn before removal");
   backend.state.bowl_movies.forEach((movie) => { movie.drawn_at = new Date().toISOString(); });
+  await page.getByRole("button", { name: /Added this session/ }).click();
   await page.getByRole("button", { name: "Add comment for Drawn before editing" }).click();
   await page.getByRole("textbox", { name: "Comment for Drawn before editing" }).fill("Keep this draft");
   await page.getByRole("button", { name: "Save comment", exact: true }).click();
@@ -232,4 +237,69 @@ test("a draw on another device prevents comment edits and removal of a session a
   expect(backend.state.bowl_movies.every((movie) => movie.note == null)).toBe(true);
   expect(backend.consoleErrors).toEqual(["Failed to load resource: the server responded with a status of 400 (Bad Request)"]);
   backend.consoleErrors.length = 0;
+});
+
+test("global Add locks the document and closes after browser navigation", async ({ page, backend }) => {
+  seed(backend); await backend.authenticate(page);
+  await page.goto("/bowl/default-bowl-0");
+  await page.goto("/bowls");
+  await page.evaluate(() => {
+    document.body.style.minHeight = "2000px";
+    window.scrollTo(0, 600);
+  });
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(600);
+  await page.evaluate(() => document.querySelector('[aria-label="Add a movie"]')?.click());
+  await expect(page.getByRole("heading", { name: "Add a movie" })).toHaveClass(/sr-only/);
+  expect(await page.evaluate(() => ({
+    rootOverflow: document.documentElement.style.overflow,
+    rootOverscroll: document.documentElement.style.overscrollBehavior,
+    bodyOverflow: document.body.style.overflow,
+    bodyOverscroll: document.body.style.overscrollBehavior,
+    bodyPosition: document.body.style.position,
+    bodyTop: document.body.style.top,
+    shellInert: document.querySelector(".app-shell")?.inert,
+  }))).toEqual({
+    rootOverflow: "hidden",
+    rootOverscroll: "none",
+    bodyOverflow: "hidden",
+    bodyOverscroll: "none",
+    bodyPosition: "fixed",
+    bodyTop: "-600px",
+    shellInert: true,
+  });
+  await page.getByRole("button", { name: "Close add movie" }).click();
+  await expect.poll(() => page.evaluate(() => window.scrollY)).toBe(600);
+  await page.evaluate(() => document.querySelector('[aria-label="Add a movie"]')?.click());
+  await page.goBack();
+  await expect(page).toHaveURL(/\/bowl\/default-bowl-0$/);
+  await expect(page.getByRole("dialog", { name: "Add a movie" })).toHaveCount(0);
+  expect(await page.evaluate(() => ({
+    rootOverflow: document.documentElement.style.overflow,
+    bodyOverflow: document.body.style.overflow,
+    bodyPosition: document.body.style.position,
+    shellInert: Boolean(document.querySelector(".app-shell")?.inert),
+  }))).toEqual({ rootOverflow: "", bodyOverflow: "", bodyPosition: "", shellInert: false });
+});
+
+test("short keyboard-height view prioritizes results and keeps session history compact", async ({ page, backend }, testInfo) => {
+  seed(backend);
+  backend.state.tmdbSearchResults = [
+    { id: 41, title: "First Match", release_date: "2026-01-01" },
+    { id: 42, title: "Second Match", release_date: "2025-01-01" },
+    { id: 43, title: "Third Match", release_date: "2024-01-01" },
+  ];
+  await backend.authenticate(page);
+  await page.setViewportSize({ width: 320, height: 400 });
+  await page.goto("/bowls");
+  await page.getByRole("button", { name: "Add a movie", exact: true }).click();
+  await page.getByPlaceholder("Search movies...").fill("Match");
+  const firstResult = page.getByRole("option", { name: /First Match/ });
+  await expect(firstResult).toBeInViewport({ ratio: 1 });
+  await expect(page.getByRole("status").filter({ hasText: "3 results below" })).toHaveClass(/sr-only/);
+  await firstResult.getByRole("button", { name: "Add", exact: true }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Added First Match to Friday Night" })).toBeVisible();
+  const sessionButton = page.getByRole("button", { name: /Added this session 1/ });
+  await expect(sessionButton).toBeInViewport({ ratio: 1 });
+  await expect(page.getByRole("list", { name: "Movies added this session" })).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("add-short-keyboard-height.png") });
 });

@@ -12,7 +12,7 @@ test("a member can create a bowl, add and draw a title, see history, and return 
   await page.getByPlaceholder("Bowl Name").fill("Smoke Night");
   await page.getByRole("button", { name: "Create", exact: true }).click();
 
-  const bowlCard = page.getByRole("button", { name: /Owner Smoke Night Open/ });
+  const bowlCard = page.getByRole("button", { name: /Owner Smoke Night Remaining 0 Members 1/ });
   await expect(bowlCard).toBeVisible();
   await bowlCard.click();
 
@@ -23,7 +23,7 @@ test("a member can create a bowl, add and draw a title, see history, and return 
   await page.getByPlaceholder("Search movies...").fill("Smoke Feature");
   await page.getByRole("button", { name: 'Add "Smoke Feature"' }).click();
 
-  await expect(page.getByRole("status").filter({ hasText: "Added to Smoke Night" })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Added Smoke Feature to Smoke Night" })).toBeVisible();
   await page.getByRole("button", { name: "Close add movie" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(page.getByRole("button", { name: /1 movies? in the bowl/i })).toBeVisible();

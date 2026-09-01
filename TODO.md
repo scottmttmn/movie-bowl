@@ -4,30 +4,25 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Implemented, pending release
 
-- TV Watch History is now browse-first: a poster opens a viewing-distance movie
-  detail page with the bowl note, date/contributor context, trailer, current
-  providers, and provider handoff. Close is the default action; putting the
-  movie back is secondary and confirmed. Two-hour undos disappear from the TV
-  history strip; older returns remain browseable as `Back in bowl`, without a
-  second return action. Migration
-  `20260831200000_bound_return_history_cleanup.sql` implements the inclusive
-  two-hour cleanup window without adding a Vercel Function. Apply and verify
-  the migration before deploying the new copy. See
-  `output/designs/tv-watch-history-details-and-safe-return.md`.
 - Successful TV pairing approvals now replace the code-bearing browser history
   entry and remember the approved code locally. Revisiting the original QR URL
   shows a non-actionable completed/expired state without exposing a code-status
   probing endpoint.
-- The add dialog now shows movies added this session, with inline comments
-  and confirmed removal on each row. The old next-movie comment field is
-  removed from signed-in bowl adds; public-link and manual-history forms are
-  unchanged. Verify physical-phone keyboard behavior before release. See
-  the follow-up in `output/designs/default-bowl-and-global-add-implementation.md`.
+- The signed-in add dialog has a mobile repair ready after testing the installed
+  Chrome app on a Samsung phone. Destination and close controls now share one
+  compact header, session additions live behind a count that opens their own
+  management view, and document-level locking prevents scrolling the app behind
+  the dialog. Route changes close the dialog instead of carrying it onto an
+  unrelated screen. Redeploy, then repeat the installed-app keyboard and
+  background-scroll checks. Public-link and manual-history forms are unchanged.
+  See the follow-up in
+  `output/designs/default-bowl-and-global-add-implementation.md`.
 - Default bowls and global Add are committed and pushed. Migration
   `20260831120000_add_user_bowl_defaults.sql` was applied on August 31, 2026.
   Stars, stable Home routing, the shared plus/filmstrip add dialog, explicit
   destinations, and pending/uncertain write handling are covered by tests.
-  Finish physical-phone keyboard and separate-device release smoke checks.
+  Finish the post-redeploy physical-phone and separate-device release smoke
+  checks.
   See the [implementation record](output/designs/default-bowl-and-global-add-implementation.md#implementation-record--august-31-2026).
 
 ## UX / UI Polish

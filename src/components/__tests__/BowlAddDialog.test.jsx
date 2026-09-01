@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, useNavigate } from "react-router-dom";
 
 const mocks = vi.hoisted(() => ({ add: vi.fn(), updateNote: vi.fn(), remove: vi.fn(), refresh: vi.fn() }));
 const bowls = [{ id: "a", name: "Friday Night" }, { id: "b", name: "Family Movies" }];
@@ -16,7 +16,9 @@ import BowlAddDialog from "../BowlAddDialog";
 
 function Harness() {
   const add = useBowlAdd();
-  return <><button onClick={add.openGlobalAdd}>Open add</button>
+  const navigate = useNavigate();
+  return <><div className="app-shell"><button onClick={add.openGlobalAdd}>Open add</button>
+    <button data-testid="navigate-away" onClick={() => navigate("/activate-tv")}>Navigate away</button></div>
     {(add.open || add.actionsPending) && <BowlAddDialog key={add.id} />}</>;
 }
 beforeEach(() => {
@@ -35,15 +37,61 @@ async function open() {
 async function addMovie(title) {
   fireEvent.change(screen.getByPlaceholderText("Search movies..."), { target: { value: title } });
   fireEvent.click(await screen.findByRole("button", { name: `Add "${title}"`, exact: true }));
-  await screen.findByRole("button", { name: `Add comment for ${title}` });
+  await waitFor(() => expect(screen.getAllByRole("status").some((node) =>
+    node.textContent.includes(`Added ${title} to`))).toBe(true));
   await waitFor(() => expect(screen.getByPlaceholderText("Search movies...")).toHaveValue(""));
+}
+async function openSession() {
+  fireEvent.click(screen.getByRole("button", { name: /Added this session/ }));
+  return screen.findByRole("list", { name: "Movies added this session" });
 }
 
 describe("add dialog session list", () => {
+  it("locks the document without showing a redundant visible title", async () => {
+    await open();
+    expect(document.documentElement.style.overflow).toBe("hidden");
+    expect(document.documentElement.style.overscrollBehavior).toBe("none");
+    expect(document.body.style).toMatchObject({
+      overflow: "hidden",
+      overscrollBehavior: "none",
+      position: "fixed",
+      top: "0px",
+      left: "0px",
+      right: "0px",
+      width: "100%",
+    });
+    expect(document.querySelector(".app-shell").inert).toBe(true);
+    expect(screen.getByRole("heading", { name: "Add a movie" })).toHaveClass("sr-only");
+    expect(screen.getByText("Add to", { exact: true })).toBeVisible();
+    fireEvent.click(screen.getByRole("button", { name: "Close add movie" }));
+    await waitFor(() => expect(document.body.style.position).toBe(""));
+    expect(document.documentElement.style.overflow).toBe("");
+    expect(document.querySelector(".app-shell").inert).not.toBe(true);
+    fireEvent.click(screen.getByRole("button", { name: "Open add" }));
+    await screen.findByPlaceholderText("Search movies...");
+    fireEvent.click(screen.getByTestId("navigate-away"));
+    await waitFor(() => expect(screen.queryByRole("dialog", { name: "Add a movie" })).not.toBeInTheDocument());
+    expect(document.body.style.position).toBe("");
+    expect(document.querySelector(".app-shell").inert).not.toBe(true);
+  });
+
+  it("keeps additions behind a compact session control until requested", async () => {
+    await open(); await addMovie("First movie");
+    expect(screen.queryByRole("list", { name: "Movies added this session" })).not.toBeInTheDocument();
+    const sessionButton = screen.getByRole("button", { name: /Added this session/ });
+    expect(sessionButton).toHaveTextContent("1");
+    await openSession();
+    expect(screen.getByRole("button", { name: /Back to search/ })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Add comment for First movie" })).toBeVisible();
+    fireEvent.focus(screen.getByPlaceholderText("Search movies..."));
+    expect(screen.queryByRole("list", { name: "Movies added this session" })).not.toBeInTheDocument();
+  });
+
   it("adds first, then saves, retries, edits, and clears a comment on that specific movie", async () => {
     await open();
     expect(screen.queryByRole("button", { name: /Comment \(optional\)/ })).not.toBeInTheDocument();
     await addMovie("First movie");
+    await openSession();
     expect(mocks.add.mock.calls[0][0].movie.note).toBeUndefined();
     expect(screen.queryByRole("textbox", { name: /Comment for/ })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add comment for First movie" }));
@@ -69,7 +117,7 @@ describe("add dialog session list", () => {
     fireEvent.click(screen.getByRole("button", { name: /Choose bowl/ }));
     fireEvent.click(screen.getByRole("button", { name: "Family Movies", exact: true }));
     await addMovie("Second movie");
-    const list = screen.getByRole("list", { name: "Movies added this session" });
+    const list = await openSession();
     const rows = within(list).getAllByRole("listitem");
     expect(rows[0]).toHaveTextContent("Second movie"); expect(rows[0]).toHaveTextContent("Family Movies");
     expect(rows[1]).toHaveTextContent("First movie"); expect(rows[1]).toHaveTextContent("Friday Night");
@@ -79,9 +127,11 @@ describe("add dialog session list", () => {
     expect(mocks.remove).not.toHaveBeenCalled();
     fireEvent.click(within(rows[1]).getByRole("button", { name: "Remove First movie from Friday Night" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove from bowl", exact: true }));
-    await waitFor(() => expect(within(list).getAllByRole("listitem")).toHaveLength(1));
-    expect(mocks.remove).toHaveBeenCalledWith(expect.objectContaining({ bowlId: "a", accountId: "user" }));
+    await waitFor(() => expect(screen.queryByRole("list", { name: "Movies added this session" })).not.toBeInTheDocument());
     expect(screen.getByPlaceholderText("Search movies...")).toHaveFocus();
+    const updatedList = await openSession();
+    expect(within(updatedList).getAllByRole("listitem")).toHaveLength(1);
+    expect(mocks.remove).toHaveBeenCalledWith(expect.objectContaining({ bowlId: "a", accountId: "user" }));
     fireEvent.click(screen.getByRole("button", { name: "Close add movie" }));
     fireEvent.click(screen.getByRole("button", { name: "Open add" }));
     await screen.findByPlaceholderText("Search movies...");
@@ -90,6 +140,7 @@ describe("add dialog session list", () => {
 
   it("cancels the inline editor with Escape before closing the dialog", async () => {
     await open(); await addMovie("First movie");
+    await openSession();
     fireEvent.click(screen.getByRole("button", { name: "Add comment for First movie" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Comment for First movie" }), { target: { value: "Discard me" } });
     fireEvent.keyDown(window, { key: "Escape" });
@@ -102,6 +153,7 @@ describe("add dialog session list", () => {
 
   it("keeps a pending save across dismissal and shows stale-movie errors without discarding the draft", async () => {
     await open(); await addMovie("First movie");
+    await openSession();
     fireEvent.click(screen.getByRole("button", { name: "Add comment for First movie" }));
     fireEvent.change(screen.getByRole("textbox", { name: "Comment for First movie" }), { target: { value: "Keep me" } });
     let finish;

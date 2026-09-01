@@ -21,10 +21,10 @@ contributor first — so the person who added 25 movies does not get 25× the od
 **Movies**
 
 - Add movies from TMDB search, or add custom/manual entries.
-- The add dialog keeps a list of movies added during the session. Use each
-  movie's comment button to add or edit a note, or its trash button to remove
-  it from its original bowl after confirming. Closing ends the list, not the
-  saved additions; pending saves continue safely.
+- The add dialog keeps a compact count of movies added during the session.
+  Open it to add or edit a comment, or remove a movie from its original bowl
+  after confirming. Closing ends the list, not the saved additions; pending
+  saves continue safely.
 - Open full movie details from a newly drawn movie, from search results, or from
   a watched movie card.
 - Watch official TMDB trailers inline from movie detail views.

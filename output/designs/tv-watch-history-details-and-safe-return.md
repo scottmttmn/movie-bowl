@@ -1,7 +1,8 @@
 # TV Watch History Details and Safe Return
 
-Status: implemented in the repository; migration and release verification are
-pending. Product direction settled August 31, 2026.
+Status: implemented and released. The migration was applied August 31, 2026;
+phone and TV release verification completed September 1, 2026. Product
+direction settled August 31, 2026.
 
 ## Decision Summary
 
@@ -493,11 +494,11 @@ The repository implementation follows the closed decisions above:
   bounded undos are omitted, while older returned draws remain browseable as
   `Back in bowl`. The phone bowl strip keeps its existing active-draw contract.
 - Focused TV, TMDB-cache, and phone guard tests pass; ESLint and the production
-  build pass. A local authenticated browser visual check still requires an
-  active TV pairing, and physical Android TV verification remains a release
-  step.
+  build pass. The production migration is applied, and the deployed return flow
+  has been verified on phone and TV.
 
-MB-001 stays open until the database migration has been deployed and verified.
+MB-001 was closed on September 1, 2026 after the production migration and
+deployed phone/TV behavior were verified.
 
 ## Decisions That Are Closed
 

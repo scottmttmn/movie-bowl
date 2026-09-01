@@ -17,10 +17,13 @@ export default function MovieSearch({
     hideResults = false,
     searchHeader = null,
     searchFooter = null,
+    alternateBody = null,
     feedback = null,
+    autoFocusSearch = true,
     controllerRef = null,
     onDetailChange,
     onDraftChange,
+    onSearchFocus,
     detailActionLabel = "Add Movie",
     userStreamingServices = [],
     includeComment = true,
@@ -436,13 +439,14 @@ export default function MovieSearch({
                     <input
                         ref={inputRef}
                         disabled={disabled}
-                        autoFocus
+                        autoFocus={autoFocusSearch}
                         id="movie-search-input"
                         name="movie_search"
                         type="text"
                         value={searchTerm}
                         placeholder="Search movies..."
                         className="input-field flex-1"
+                        onFocus={onSearchFocus}
                         onChange={(e) => {
                             const value = e.target.value;
                             setSearchTerm(value);
@@ -499,7 +503,7 @@ export default function MovieSearch({
                         <span>Searching movies…</span>
                     </p>
                 ) : searchResults.length > 0 ? (
-                    <p className="mt-2 text-sm text-slate-300" role="status">
+                    <p className={inlineDetails ? "sr-only" : "mt-2 text-sm text-slate-300"} role="status">
                         {searchResults.length} {searchResults.length === 1 ? "result" : "results"} below — tap Add to pick one.
                     </p>
                 ) : !inlineDetails && isVoiceSupported && !voiceStatusMessage && !voiceError ? (
@@ -516,7 +520,7 @@ export default function MovieSearch({
                 {feedback}
             </div>
 
-            <div ref={scrollRef} className={inlineDetails ? "bowl-add-scroll" : undefined} hidden={hideResults}>
+            <div ref={scrollRef} className={inlineDetails ? "bowl-add-scroll" : undefined} hidden={hideResults || Boolean(alternateBody)}>
             {includeComment && (
                 <div className="mt-3 rounded-xl border border-slate-700/80 bg-slate-950/35 text-left">
                     <button
@@ -690,6 +694,7 @@ export default function MovieSearch({
 
             {searchFooter}
             </div>
+            {!hideResults && alternateBody && <div className="bowl-add-scroll">{alternateBody}</div>}
           </div>
             {detailMovie && (
               <AddMovieModal

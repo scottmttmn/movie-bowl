@@ -1,7 +1,8 @@
 # Default Bowl and Global Add — Implementation Plan
 
 Status: implemented, committed, and pushed; database migration applied on
-August 31, 2026. Deployed-app smoke checks remain.
+August 31, 2026. An installed-Android dialog repair is implemented locally and
+awaits deployment plus physical-device verification.
 The implementation record at the end lists verification results and release
 checks. The plan below preserves the decisions made before implementation;
 the August 31 session-list follow-up supersedes its pre-add comment behavior.
@@ -585,3 +586,39 @@ The full browser smoke suite also passes: 36 tests, with two existing TV skips
 on mobile. Visual review covered the compact list and removal confirmation at
 320px, plus opening the dialog in the in-app browser against synthetic data.
 Physical mobile keyboards remain a device-level release check.
+
+### Installed Android dialog repair — September 1, 2026
+
+Physical testing of the installed Chrome app on a Samsung phone found two
+reproducible problems. The page could scroll behind Global Add, and the software
+keyboard left too little room when the full **Added this session** list shared
+the search view. A separate one-off observation showed **Connect your
+television** after background scrolling. That screen did not recur, the TV was
+off, and the app's earlier voice-capture test does not navigate to TV pairing;
+the repair therefore does not claim that the dialog caused the activation
+screen.
+
+The pending client release locks both the document root and body, fixes the body
+at its captured scroll coordinates, makes the application shell inert, restores
+the exact position on close, and closes the dialog if browser navigation changes
+the route. This prevents an open portal from surviving over a different screen.
+
+The visible **Add a movie** heading is removed while its accessible dialog name
+is retained. **Add to [bowl]** and Close share one compact row. Confirmed
+additions no longer expand beneath search; a small **Added this session [count]**
+control opens a dedicated comment/removal view and **Back to search** returns
+focus to the search field. Result-count copy is screen-reader-only inside the
+compact inline layout, leaving more height for actual matches.
+
+Verification is green: 102 Vitest files / 783 tests, zero-warning ESLint, and
+the production build. The complete Playwright matrix passes 41 tests with three
+intentional mobile-TV skips. New desktop/mobile coverage checks scroll locking
+and restoration, route changes, compact session management, focus return, and a
+320×400 keyboard-height viewport. Visual review of that viewport confirms the
+single header, add confirmation, and session count all remain visible. No
+database or persisted-data change is required.
+
+Release remains open until this client is deployed and the Samsung installed
+app repeats the keyboard, background-scroll, close/reopen, and browser-Back
+checks. The non-reproducible TV activation observation should be logged
+separately if it returns with a repeatable route/history sequence.
