@@ -95,6 +95,9 @@ is the source of truth for the agreed behavior and UI. The
 persistence, migration, access repair, shared add state, testing, and rollout.
 The first version is implemented locally as of August 31, 2026,
 but has not been deployed. The concept and its original rationale remain here.
+The next capture step now has a proposed
+[Gemini-first voice roadmap](gemini-voice-capture.md); its Android App Action
+spike is a release gate, not evidence that the integration already works.
 
 **The idea.** Almost nobody has five bowls. People have one, maybe two. Before
 this work, the app treated `/bowls` as its hub and put bowl additions inside
@@ -119,14 +122,16 @@ Commit to one bowl as the default shape of the product:
 - **Home and the logo open the default bowl.** `/bowls` becomes the My Bowls
   management screen in the menu, where users can open another bowl or change
   their default.
-- **Then voice capture is possible at all.** "Hey Siri, add Sinners to Movie
-  Bowl" through an App Intent works only when there is exactly one destination
-  and nothing to disambiguate. This is the piece an earlier draft of this
-  document got wrong: it proposed sharing from other apps, which needs a link in
-  your hand. The moments where you actually hear about a movie — a conversation,
-  a podcast — have no link in them. They have a spoken title and a risk of
-  forgetting it. A single unambiguous destination is what makes capturing that
-  possible; the share sheet never was.
+- **Then voice capture is possible at all.** Prioritize Gemini on Android:
+  “Hey Google, add Sinners to my Movie Bowl list” through an App Action works
+  only when there is exactly one default destination and nothing to
+  disambiguate at the bowl layer. Keep the capture contract assistant-neutral
+  so Siri can become a later adapter. This is the piece an earlier draft of
+  this document got wrong: it proposed sharing from other apps, which needs a
+  link in your hand. The moments where you actually hear about a movie — a
+  conversation, a podcast — have no link in them. They have a spoken title and
+  a risk of forgetting it. A single unambiguous destination is what makes
+  capturing that possible; the share sheet never was.
 
 **Default selection and replacement — decided August 30, 2026.**
 
@@ -165,8 +170,9 @@ the real work in this idea, and it touches the highest-risk file in the repo. It
 is not a button.
 
 **Smallest bold version.** The saved default, its star control and replacement
-rule, Home routing, and the global `+` against that default. Voice comes after,
-and only if the first part lands.
+rule, Home routing, and the global `+` against that default. That prerequisite
+has landed; the Gemini-first capture roadmap remains separate, unimplemented
+work.
 
 **Implementation risks and resolved questions.**
 - The two-bowl user is the one who gets hurt if "add to a different bowl" is

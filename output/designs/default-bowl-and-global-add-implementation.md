@@ -452,8 +452,10 @@ this plan is not evidence that the implementation passed.
    but must not delete bowls, movies, memberships, or watch history.
 
 Update the root README, Supabase README, TODO, and design status when behavior
-actually ships. Voice capture and universal concurrent capacity enforcement
-remain separate work; neither is required to complete this feature.
+actually ships. The proposed
+[Gemini-first voice-capture roadmap](gemini-voice-capture.md) and universal
+concurrent capacity enforcement remain separate work; neither is required to
+complete this feature.
 
 ## Implementation record — August 31, 2026
 

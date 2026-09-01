@@ -75,12 +75,17 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Future Product Concepts
 
-- Bigger swings, unscheduled: attendance-aware movie nights, a live draw
-  every client sees at once, voice capture after the default-bowl work,
-  shareable ticket stubs and bowl recaps, a composable house-rules layer over
-  the draw method registry, and curation for bowls that have outgrown their own
-  memory. Brainstorm only — no specs, no commitments. See
-  `output/designs/future-ideas.md`.
+- Gemini-first voice capture: use an Android App Action to carry a spoken movie
+  title into one confirmation screen against the authoritative default bowl.
+  The first gate is a Google Play internal-build spike on a physical phone with
+  Gemini as the default assistant; no Android phone app or integration exists
+  yet. Proposed product, architecture, safety rules, phases, and verification:
+  `output/designs/gemini-voice-capture.md`.
+- Bigger swings, unscheduled: attendance-aware movie nights, a live draw every
+  client sees at once, shareable ticket stubs and bowl recaps, a composable
+  house-rules layer over the draw method registry, and curation for bowls that
+  have outgrown their own memory. Brainstorm only — no specs, no commitments.
+  See `output/designs/future-ideas.md`.
 - TV Theater mode: trailer pre-roll (phase 1) and provider title links with the
   voice card (phase 2) are implemented. Provider lookups default off until the
   migration and Watchmode configuration are deployed; activation instructions
