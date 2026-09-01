@@ -264,11 +264,11 @@ describe("TV theater mode", () => {
     expect(screen.queryByRole("button", { name: /skip to movie/i })).toBeNull();
     expect(screen.queryByText(/paused/i)).toBeNull();
 
-    fireEvent.keyDown(document, { key: "Enter" });
+    fireEvent.keyDown(window, { key: "Enter" });
     expect(player.pauseVideo).toHaveBeenCalled();
     expect(screen.getByText(/paused/i)).toBeInTheDocument();
 
-    fireEvent.keyDown(document, { key: "Enter" });
+    fireEvent.keyDown(window, { key: "Enter" });
     expect(player.playVideo).toHaveBeenCalled();
     expect(screen.queryByText(/paused/i)).toBeNull();
   });
@@ -290,7 +290,7 @@ describe("TV theater mode", () => {
 
     expect(overlay).toHaveFocus();
 
-    fireEvent.keyDown(document, { key: "Enter" });
+    fireEvent.keyDown(window, { key: "Enter" });
     expect(player.pauseVideo).toHaveBeenCalled();
   });
 
@@ -309,11 +309,36 @@ describe("TV theater mode", () => {
       screen.getByRole("link", { name: /open netflix/i, hidden: true })
     );
 
-    fireEvent.keyDown(document, { key: "ArrowRight" });
+    fireEvent.keyDown(window, { key: "ArrowRight" });
     expect(document.activeElement).not.toHaveAttribute("data-tv-focusable");
 
-    fireEvent.keyDown(document, { key: "Enter" });
+    fireEvent.keyDown(window, { key: "Enter" });
     expect(player.pauseVideo).toHaveBeenCalled();
+  });
+
+  it("pauses on the synthetic event the Android shell dispatches", async () => {
+    await drawWithTheaterMode();
+    await screen.findByRole("dialog", { name: /previews before arrival/i });
+    await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
+
+    // The shell consumes the remote's key and re-dispatches its own with
+    // window.dispatchEvent, whose path is window alone. Listening on document
+    // looks identical in a test that fires on document, and does nothing at
+    // all on a television — which is how Select stayed dead while the arrows
+    // and Back worked.
+    act(() => {
+      window.dispatchEvent(
+        new KeyboardEvent("keydown", {
+          key: "Enter",
+          keyCode: 23,
+          bubbles: true,
+          cancelable: true,
+        })
+      );
+    });
+
+    expect(player.pauseVideo).toHaveBeenCalled();
+    expect(screen.getByText(/paused/i)).toBeInTheDocument();
   });
 
   it("asks the embed for a player the remote cannot seek", async () => {
