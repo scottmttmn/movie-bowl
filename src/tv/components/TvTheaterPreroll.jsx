@@ -153,6 +153,13 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
   // A cinema has no controls to press, so the only gesture is the one every
   // video player already teaches: Select toggles playback. Nothing is drawn
   // until it is paused.
+  //
+  // This listens on window, not document, and the difference is the whole
+  // feature. The Android shell consumes every key it maps and re-dispatches a
+  // synthetic one with window.dispatchEvent, whose path is window alone — a
+  // document listener never sees it, which is exactly how Select did nothing
+  // on a television while the arrows and Back worked. useTvSpatialNavigation
+  // has always listened on window for the same reason.
   useEffect(() => {
     const onKeyDown = (event) => {
       const isSelect =
@@ -165,8 +172,8 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
       togglePause();
     };
 
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
+    window.addEventListener("keydown", onKeyDown);
+    return () => window.removeEventListener("keydown", onKeyDown);
   }, [togglePause]);
 
   const previewLabel =
