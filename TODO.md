@@ -87,9 +87,10 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 - Gemini-first voice capture: use an Android App Action to carry a spoken movie
   title into one confirmation screen against the authoritative default bowl.
-  The first gate is a Google Play internal-build spike on a physical phone with
-  Gemini as the default assistant; no Android phone app or integration exists
-  yet. Proposed product, architecture, safety rules, phases, and verification:
+  The disposable Gate 0 App Actions probe now lives in `android-mobile/`; its
+  preview, Google Play internal build, and physical-phone invocation matrix
+  still need to run with Gemini as the default assistant. Proposed product,
+  architecture, safety rules, phases, and verification:
   `output/designs/gemini-voice-capture.md`.
 - Bigger swings, unscheduled: attendance-aware movie nights, a live draw every
   client sees at once, shareable ticket stubs and bowl recaps, a composable

@@ -36,3 +36,10 @@ tv-android/local.properties
 tv-android/**/build/
 tv-android/captures/
 tv-android/*.iml
+
+# Android phone voice-capture probe
+android-mobile/.gradle/
+android-mobile/local.properties
+android-mobile/**/build/
+android-mobile/captures/
+android-mobile/*.iml

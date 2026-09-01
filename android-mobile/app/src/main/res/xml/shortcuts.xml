@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<shortcuts xmlns:android="http://schemas.android.com/apk/res/android">
+    <capability android:name="actions.intent.UPDATE_ITEM_LIST">
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="app.moviebowl.voicecaptureprobe.MainActivity"
+            android:targetPackage="app.moviebowl.voicecaptureprobe">
+            <parameter
+                android:key="itemListName"
+                android:name="itemList.name" />
+            <parameter
+                android:key="itemListElementName"
+                android:name="itemList.itemListElement.name"
+                android:required="true" />
+        </intent>
+
+        <!-- Required fallback for a recognized but underspecified request. -->
+        <intent
+            android:action="android.intent.action.VIEW"
+            android:targetClass="app.moviebowl.voicecaptureprobe.MainActivity"
+            android:targetPackage="app.moviebowl.voicecaptureprobe" />
+    </capability>
+</shortcuts>

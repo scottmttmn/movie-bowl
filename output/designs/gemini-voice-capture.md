@@ -1,8 +1,9 @@
 # Gemini-first voice capture
 
 Status: proposed product and implementation roadmap, recorded August 31, 2026.
-No voice-assistant integration or Android phone application has been
-implemented. The saved default bowl and shared global Add flow are implemented;
+The disposable Gate 0 App Actions probe was scaffolded in `android-mobile/` on
+September 1, 2026; preview, Play internal testing, and physical Gemini testing
+have not run. The saved default bowl and shared global Add flow are implemented;
 their remaining deployed-app checks stay independent of this work.
 
 ## Decision
@@ -106,11 +107,11 @@ Gemini / “Hey Google”
 
 ### Android mobile application
 
-Create a separate Android-phone project, tentatively `android-mobile/`. Do not
-extend `tv-android/`: that package requires Leanback, declares no touchscreen,
-forces landscape, opens `/tv`, and exists as a Google TV validation harness.
-Its WebView and D-pad code are the wrong product surface even though some build
-configuration can be copied.
+The separate `android-mobile/` project begins as the disposable Gate 0 probe.
+Do not extend `tv-android/`: that package requires Leanback, declares no
+touchscreen, forces landscape, opens `/tv`, and exists as a Google TV validation
+harness. Its WebView and D-pad code are the wrong product surface even though
+some build configuration can be copied.
 
 The recommended phone shell is a **Trusted Web Activity (TWA)** rather than a
 second WebView client. A TWA renders the responsive web app through the user's
@@ -284,9 +285,11 @@ After the confirmed flow has real use:
 
 ## Release blockers and open facts
 
-- The physical Gemini App Action spike has not run.
-- No Android phone package ID, Play listing, signing setup, or internal-testing
-  application exists.
+- The Gate 0 probe is scaffolded, but its App Actions preview and physical
+  Gemini invocation matrix have not run.
+- The probe package ID is intentionally disposable. No production Android phone
+  package ID, Play listing, signing setup, or internal-testing application
+  exists.
 - The web app does not yet expose the manifest and Digital Asset Links needed by
   the recommended TWA path.
 - TWA authentication and Supabase magic-link return need a physical-phone proof.

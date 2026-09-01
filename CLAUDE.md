@@ -54,6 +54,8 @@ supabase/
   rollback/          staged reverts, kept out of migrations/ on purpose
 tv-android/          Google TV WebView shell around /tv (Java, Gradle); a
                      validation harness, not a store build. Has its own README
+android-mobile/      Disposable Android App Actions probe for the Gemini voice
+                     capture Gate 0. It does not contain the product app.
 output/designs/      design specs and roadmaps for shipped + planned features
 ```
 

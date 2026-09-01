@@ -1,0 +1,9 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <color name="probe_background">#08111F</color>
+    <color name="probe_panel">#111E30</color>
+    <color name="probe_border">#2B3B50</color>
+    <color name="probe_text">#F8FAFC</color>
+    <color name="probe_muted">#A8B4C5</color>
+    <color name="probe_accent">#F7C873</color>
+</resources>

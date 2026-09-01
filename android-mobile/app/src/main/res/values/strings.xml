@@ -1,0 +1,13 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Movie Bowl Voice Probe</string>
+    <string name="probe_eyebrow">Gate 0 · App Actions</string>
+    <string name="probe_title">Voice capture probe</string>
+    <string name="probe_explanation">This diagnostic screen shows the exact values Android delivers from an App Action.</string>
+    <string name="status_waiting">Waiting for a movie title</string>
+    <string name="status_received">Invocation received</string>
+    <string name="list_name_label">LIST NAME</string>
+    <string name="item_name_label">MOVIE TITLE</string>
+    <string name="intent_action_label">ANDROID INTENT ACTION</string>
+    <string name="probe_safety_note">This probe cannot sign in, search for a movie, or add anything to a bowl.</string>
+</resources>
