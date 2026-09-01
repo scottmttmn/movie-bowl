@@ -679,7 +679,7 @@ function TvReturnDialog({
             disabled={isReturning}
             onClick={onConfirm}
           >
-            {isReturning ? "Returning to bowl…" : "Return to bowl"}
+            {isReturning ? "Putting movie back…" : "Put movie back in bowl"}
           </button>
         </div>
       </section>

@@ -498,7 +498,9 @@ describe("Movie Bowl TV experience", () => {
     ).toBeInTheDocument();
     expect(mocks.handleReaddMovie).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: /^return to bowl$/i }));
+    fireEvent.click(
+      screen.getByRole("button", { name: /^put movie back in bowl$/i })
+    );
 
     await waitFor(() => {
       expect(mocks.handleReaddMovie).toHaveBeenCalledWith("draw-1");
