@@ -69,4 +69,27 @@ describe("CreateBowlModal", () => {
     expect(onCreate).toHaveBeenCalledTimes(2);
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("disables click and enter submission while creation is pending", () => {
+    const onCreate = vi.fn();
+
+    render(
+      <CreateBowlModal
+        isOpen
+        isCreating
+        bowlName="Friday Bowl"
+        inviteEmails=""
+        onChangeBowlName={vi.fn()}
+        onChangeInviteEmails={vi.fn()}
+        onCreate={onCreate}
+        onClose={vi.fn()}
+      />
+    );
+
+    fireEvent.keyDown(screen.getByPlaceholderText("Bowl Name"), { key: "Enter" });
+    fireEvent.click(screen.getByRole("button", { name: /creating/i }));
+
+    expect(screen.getByRole("button", { name: /creating/i })).toBeDisabled();
+    expect(onCreate).not.toHaveBeenCalled();
+  });
 });

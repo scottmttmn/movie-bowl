@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useRef, useState } from "react";
 import { bowlCreationService } from "../lib/createBowl";
 import { MAX_BOWLS_PER_USER } from "../utils/appLimits";
 
@@ -12,6 +12,8 @@ export default function useCreateBowl({
   const [inviteEmails, setInviteEmails] = useState("");
   const [errorMessage, setErrorMessage] = useState(null);
   const [actionMessage, setActionMessage] = useState(null);
+  const [isCreating, setIsCreating] = useState(false);
+  const createInFlight = useRef(null);
   const isLimitReached = ownedBowlCount >= MAX_BOWLS_PER_USER;
 
   const open = () => {
@@ -33,21 +35,37 @@ export default function useCreateBowl({
     setIsOpen(false);
   };
 
-  const create = async () => {
+  const create = () => {
+    if (createInFlight.current) return createInFlight.current;
+
     setErrorMessage(null);
     setActionMessage(null);
+    setIsCreating(true);
 
-    const result = await service.create({ bowlName, inviteEmails, ownedBowlCount });
-    setErrorMessage(result.errorMessage);
-    setActionMessage(result.actionMessage);
+    const input = { bowlName, inviteEmails, ownedBowlCount };
+    // Start in a microtask so the promise guard is installed before injected
+    // services can resolve or throw, closing the rapid Enter/click race.
+    const operation = Promise.resolve()
+      .then(() => service.create(input))
+      .then(async (result) => {
+        setErrorMessage(result.errorMessage);
+        setActionMessage(result.actionMessage);
 
-    if (!result.ok) return result;
+        if (!result.ok) return result;
 
-    await refresh({ force: true });
-    setBowlName("");
-    setInviteEmails("");
-    setIsOpen(false);
-    return result;
+        await refresh({ force: true });
+        setBowlName("");
+        setInviteEmails("");
+        setIsOpen(false);
+        return result;
+      })
+      .finally(() => {
+        createInFlight.current = null;
+        setIsCreating(false);
+      });
+
+    createInFlight.current = operation;
+    return operation;
   };
 
   return {
@@ -57,6 +75,7 @@ export default function useCreateBowl({
     create,
     errorMessage,
     inviteEmails,
+    isCreating,
     isLimitReached,
     isOpen,
     open,
