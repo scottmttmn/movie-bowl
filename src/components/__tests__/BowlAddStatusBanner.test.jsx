@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ add: vi.fn(), checkStatus: vi.fn(), refresh: vi.fn() }));
 const bowls = [{ id: "a", name: "Friday Night" }];
 vi.mock("../../hooks/useUserBowls", () => ({ default: () => ({ userId: "user", bowls, defaultBowlId: "a", refresh: mocks.refresh, loading: false, error: null }) }));
-vi.mock("../../lib/addBowlMovie", () => ({ bowlMovieService: { add: mocks.add, checkStatus: mocks.checkStatus }, addResult: (ok, code, message) => ({ ok, code, message }), getSubmissionKey: ({ accountId, bowlId, movie }) => `${accountId}:${bowlId}:${String(movie?.title || "").trim().toLowerCase()}` }));
+vi.mock("../../lib/addBowlMovie", () => ({ bowlMovieService: { add: mocks.add, checkStatus: mocks.checkStatus }, addResult: (ok, code, message) => ({ ok, code, message }), getSubmissionKey: ({ accountId, bowlId, movie }) => `${accountId}:${bowlId}:${String(movie?.title || "").trim().toLowerCase()}`, isUnsettledAddCode: (code) => ["outcome_unknown", "add_not_committed"].includes(code) }));
 vi.mock("../../lib/bowlMovieActions", () => ({ bowlMovieActions: { updateNote: vi.fn(), remove: vi.fn() } }));
 vi.mock("../../lib/tmdbApi", () => ({ getTmdbMovieDetails: vi.fn() }));
 vi.mock("../../lib/streamingProviders", () => ({ fetchStreamingProviders: vi.fn() }));
@@ -35,10 +35,13 @@ beforeEach(() => {
 afterEach(cleanup);
 
 describe("global add status banner", () => {
-  it("offers a same-id retry for an add that never committed, and still dismisses", async () => {
+  it("keeps an uncommitted add undismissable and retries it under the same id", async () => {
     mocks.add.mockResolvedValueOnce({ ok: false, code: "add_not_committed", message: "has not been added" });
     await submitOnce();
     await screen.findByText(/has not been added/);
+    // Not ordinary feedback: dismissing it would free the same title to be sent
+    // again under a new id while the first write may still land.
+    expect(screen.queryByRole("button", { name: "Dismiss add result" })).toBeNull();
     const submissionId = mocks.add.mock.calls[0][0].submissionId;
     mocks.add.mockResolvedValueOnce({ ok: true, movie: { id: "saved" } });
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
