@@ -183,6 +183,63 @@ describe("useSentInvitations", () => {
     expect(mocks.state.createCalls[2].requestId).not.toBe(mocks.state.createCalls[1].requestId);
   });
 
+  it("rotates the request id when a retry carries a different payload", async () => {
+    mocks.state.createResult = { data: null, error: { message: "timeout" } };
+    const { result } = await renderSent();
+
+    await act(async () => {
+      await result.current.send({ bowlId: "bowl-1", bowlName: "Friday Night", emails: ["a@example.com"] });
+    });
+    // Same addresses, different bowl: the recorded batch would not match, and the
+    // RPC rejects a reused id carrying a different payload permanently.
+    await act(async () => {
+      await result.current.send({ bowlId: "bowl-2", bowlName: "Family", emails: ["a@example.com"] });
+    });
+    // Same bowl, an address added.
+    await act(async () => {
+      await result.current.send({ bowlId: "bowl-2", bowlName: "Family", emails: ["a@example.com", "b@example.com"] });
+    });
+
+    const ids = mocks.state.createCalls.map((call) => call.requestId);
+    expect(new Set(ids).size).toBe(3);
+  });
+
+  it("reuses the id for an identical retry regardless of address order", async () => {
+    mocks.state.createResult = { data: null, error: { message: "timeout" } };
+    const { result } = await renderSent();
+
+    await act(async () => {
+      await result.current.send({ bowlId: "bowl-1", bowlName: "Friday Night", emails: ["a@example.com", "b@example.com"] });
+    });
+    await act(async () => {
+      await result.current.send({ bowlId: "bowl-1", bowlName: "Friday Night", emails: ["b@example.com", "a@example.com"] });
+    });
+
+    expect(mocks.state.createCalls[0].requestId).toBe(mocks.state.createCalls[1].requestId);
+  });
+
+  it("collapses concurrent sends so recipients are emailed once", async () => {
+    mocks.state.createResult = {
+      data: { invitations: [{ invited_email: "new@example.com", status: "created", token: "tok-new" }] },
+      error: null,
+    };
+    const { sendInviteEmails } = await import("../../lib/inviteEmails");
+    const { result } = await renderSent();
+
+    let first;
+    let second;
+    await act(async () => {
+      const input = { bowlId: "bowl-1", bowlName: "Friday Night", emails: ["new@example.com"] };
+      first = result.current.send(input);
+      second = result.current.send(input);
+      await first;
+    });
+
+    expect(second).toBe(first);
+    expect(mocks.state.createCalls).toHaveLength(1);
+    expect(sendInviteEmails).toHaveBeenCalledTimes(1);
+  });
+
   it("distinguishes revoked, already accepted, and no longer pending", async () => {
     const { result } = await renderSent();
     const revoke = () => result.current.revoke({ bowlId: "bowl-1", invitationId: "s1", invitedEmail: "friend@example.com" });

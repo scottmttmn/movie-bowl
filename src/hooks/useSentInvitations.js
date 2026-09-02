@@ -16,9 +16,14 @@ export default function useSentInvitations(ownedBowls) {
   const [isSending, setIsSending] = useState(false);
   const generation = useRef(0);
   const mounted = useRef(true);
-  // Held across retries so a resend after a timeout replays the same batch
-  // instead of creating a second live invitation.
-  const requestId = useRef(null);
+  // A request id is only replayable for the payload it was minted for. The RPC
+  // rejects a reused id carrying a different batch permanently, and the form
+  // stays editable after a failure, so the id is keyed to the payload and
+  // rotates whenever the bowl or the address set changes.
+  const pendingRequest = useRef(null);
+  // One send at a time. Two calls sharing a request id both receive the replayed
+  // `created` rows and would each email the recipients.
+  const sendInFlight = useRef(null);
 
   useEffect(() => {
     mounted.current = true;
@@ -57,17 +62,27 @@ export default function useSentInvitations(ownedBowls) {
     setIsLoading(false);
   }, [ownedBowlIds]);
 
-  useEffect(() => { void load(); }, [load]);
+  useEffect(() => {
+    let cancelled = false;
+    void Promise.resolve().then(() => { if (!cancelled) return load(); });
+    return () => { cancelled = true; };
+  }, [load]);
 
-  const send = useCallback(async ({ bowlId, bowlName, emails, senderEmail }) => {
-    if (!requestId.current) requestId.current = crypto.randomUUID();
+  const send = useCallback((input) => {
+    if (sendInFlight.current) return sendInFlight.current;
+    const { bowlId, bowlName, emails, senderEmail } = input;
+
+    const payloadKey = JSON.stringify([bowlId, [...emails].sort()]);
+    if (!pendingRequest.current || pendingRequest.current.key !== payloadKey) {
+      pendingRequest.current = { key: payloadKey, id: crypto.randomUUID() };
+    }
+    const requestId = pendingRequest.current.id;
+
     setIsSending(true);
-    try {
-      const { data, error } = await createBowlInvitations({
-        bowlId,
-        emails,
-        requestId: requestId.current,
-      });
+    // Deferred by a microtask so the in-flight guard is installed before an
+    // injected client can resolve.
+    const operation = Promise.resolve().then(async () => {
+      const { data, error } = await createBowlInvitations({ bowlId, emails, requestId });
       if (error || !Array.isArray(data?.invitations)) {
         console.error("[useSentInvitations] Failed to create invitations", error);
         return { ok: false, message: "Invitations could not be created. Try again." };
@@ -75,7 +90,7 @@ export default function useSentInvitations(ownedBowls) {
 
       // The batch is authoritative; email delivery is a follow-up that can fail
       // on its own without unmaking any of these rows.
-      requestId.current = null;
+      pendingRequest.current = null;
       const outcomes = data.invitations;
       const created = outcomes.filter((row) => row.status === "created" && row.token);
       const alreadyMember = outcomes.filter((row) => row.status === "already_member");
@@ -111,9 +126,16 @@ export default function useSentInvitations(ownedBowls) {
         ok: true,
         message: `${count} invitation${plural} created, but ${emailResult.failed || count} email${(emailResult.failed || count) === 1 ? "" : "s"} could not be sent. Copy and share their invitation links below.`,
       };
-    } finally {
+    }).catch((error) => {
+      console.error("[useSentInvitations] Unexpected send failure", error);
+      return { ok: false, message: "Invitations could not be created. Try again." };
+    }).finally(() => {
+      if (sendInFlight.current === operation) sendInFlight.current = null;
       if (mounted.current) setIsSending(false);
-    }
+    });
+
+    sendInFlight.current = operation;
+    return operation;
   }, [load]);
 
   const revoke = useCallback(async ({ bowlId, invitationId, invitedEmail }) => {

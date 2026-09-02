@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useNavigate, useSearchParams } from "react-router-dom";
+import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import ConfirmDialog from "../components/ConfirmDialog";
 import CopyButton from "../components/CopyButton";
 import CreateBowlModal from "../components/CreateBowlModal";
@@ -17,13 +17,25 @@ import { parseInviteEmails } from "../utils/parseInviteEmails";
 export default function InvitesPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
+  const { hash } = useLocation();
   const { session } = useAuth();
   const accountEmail = session?.user?.email || "";
-  const { bowls, refresh: refreshBowls } = useUserBowls();
+  const {
+    bowls,
+    loading: isBowlsLoading,
+    error: bowlsError,
+    refresh: refreshBowls,
+  } = useUserBowls();
+  // Until the context resolves, ownership is unknown -- which is not the same as
+  // owning nothing. Deciding otherwise would offer Create to an owner already at
+  // the limit, because the client-side guard counts the bowls it can see.
+  const isOwnershipKnown = !isBowlsLoading && !bowlsError;
   const ownedBowls = useMemo(() => bowls.filter((bowl) => bowl.role === "Owner"), [bowls]);
   const {
     invites: received,
     isLoading: isReceivedLoading,
+    error: receivedLoadError,
+    reloadInvites,
     acceptInvite,
     declineInvite,
   } = usePendingInvites();
@@ -34,12 +46,15 @@ export default function InvitesPage() {
   const [formError, setFormError] = useState(null);
   const [resultMessage, setResultMessage] = useState(null);
   const [receivedError, setReceivedError] = useState(null);
+  const [receivedMessage, setReceivedMessage] = useState(null);
   const [sentMessage, setSentMessage] = useState(null);
+  const [sentError, setSentError] = useState(null);
   const [pendingAccept, setPendingAccept] = useState(null);
   const [declineTarget, setDeclineTarget] = useState(null);
   const [revokeTarget, setRevokeTarget] = useState(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const inviteHeadingRef = useRef(null);
+  const sentHeadingRef = useRef(null);
   const resultRef = useRef(null);
 
   const ownedBowlCount = ownedBowls.length;
@@ -61,9 +76,24 @@ export default function InvitesPage() {
     return ownedBowls.length === 1 ? ownedBowls[0].id : "";
   }, [bowlChoice, isRequestedBowlOwned, requestedBowlId, ownedBowls]);
 
+  // Bowl Settings links to #invite-people to send and #sent to manage what it
+  // already sent. Landing both on the form sends half of them to the wrong job.
   useEffect(() => {
-    if (isRequestedBowlOwned) inviteHeadingRef.current?.focus();
-  }, [isRequestedBowlOwned]);
+    if (!isRequestedBowlOwned) return;
+    if (hash === "#sent") sentHeadingRef.current?.focus();
+    else inviteHeadingRef.current?.focus();
+  }, [isRequestedBowlOwned, hash]);
+
+  // The provider loads once on mount, so an inbox opened later in the session
+  // would otherwise never discover an invitation that arrived in between.
+  useEffect(() => {
+    const refreshOnForeground = () => {
+      if (document.visibilityState !== "hidden") void reloadInvites();
+    };
+    void Promise.resolve().then(() => reloadInvites());
+    document.addEventListener("visibilitychange", refreshOnForeground);
+    return () => document.removeEventListener("visibilitychange", refreshOnForeground);
+  }, [reloadInvites]);
 
   const parsed = parseInviteEmails(emailDraft);
   const sendLabel = parsed.validEmails.length > 1
@@ -91,9 +121,8 @@ export default function InvitesPage() {
       setDeclineTarget(null);
       return;
     }
-    setSentMessage(null);
-    setResultMessage(null);
     setReceivedError(null);
+    setReceivedMessage(`Invitation to ${declineTarget?.bowl_name || "that bowl"} declined.`);
     setDeclineTarget(null);
   };
 
@@ -131,8 +160,14 @@ export default function InvitesPage() {
 
   const handleRevoke = async () => {
     setIsConfirming(true);
+    setSentError(null);
     const result = await sent.revoke(revokeTarget);
     setIsConfirming(false);
+    if (!result.ok) {
+      // Keep the dialog open: the row is still there and still revocable.
+      setSentError(result.message);
+      return;
+    }
     setRevokeTarget(null);
     setSentMessage(result.message);
   };
@@ -170,10 +205,19 @@ export default function InvitesPage() {
               {accountEmail ? `Invitations sent to ${accountEmail}.` : "Invitations sent to your account."}
             </p>
             {receivedError && <p className="status-error mt-3" role="alert">{receivedError}</p>}
+            {receivedMessage && <p className="status-success mt-3" role="status">{receivedMessage}</p>}
+            {receivedLoadError && (
+              <div className="mt-3">
+                <p className="status-error" role="alert">{receivedLoadError}</p>
+                <button type="button" className="btn btn-secondary mt-2" onClick={() => { void reloadInvites(); }}>
+                  Try again
+                </button>
+              </div>
+            )}
 
-            {isReceivedLoading ? (
+            {isReceivedLoading && received.length === 0 ? (
               <p className="panel mt-3 text-sm text-slate-400" role="status">Checking for invitations…</p>
-            ) : received.length === 0 ? (
+            ) : received.length === 0 && !receivedLoadError ? (
               <div className="mt-3 rounded-2xl border border-dashed border-slate-700 bg-slate-950/35 p-5">
                 <p className="text-sm font-medium text-slate-200">No pending invitations</p>
                 <p className="mt-1 text-sm text-slate-400">New invitations will appear here.</p>
@@ -227,12 +271,15 @@ export default function InvitesPage() {
 
           <section aria-labelledby="sent-heading" id="sent">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 id="sent-heading" className="section-title">Pending invitations sent</h2>
+              <h2 id="sent-heading" ref={sentHeadingRef} tabIndex={-1} className="section-title">
+                Pending invitations sent
+              </h2>
               {sent.invitations.length > 0 && (
                 <span className="text-sm text-slate-400">{sent.invitations.length} pending</span>
               )}
             </div>
             {sentMessage && <p className="status-success mt-3" role="status">{sentMessage}</p>}
+            {sentError && <p className="status-error mt-3" role="alert">{sentError}</p>}
             {sent.loadError && (
               <div className="mt-3">
                 <p className="status-error" role="alert">{sent.loadError}</p>
@@ -305,7 +352,18 @@ export default function InvitesPage() {
           <h2 id="invite-people-heading" ref={inviteHeadingRef} tabIndex={-1} className="section-title">
             Invite people
           </h2>
-          {ownedBowlCount === 0 ? (
+          {!isOwnershipKnown ? (
+            <>
+              <p className="mt-1 text-sm text-slate-400" role="status">
+                {bowlsError ? "Could not load your bowls." : "Loading your bowls…"}
+              </p>
+              {bowlsError && (
+                <button type="button" className="btn btn-secondary mt-3" onClick={() => { void refreshBowls({ force: true }); }}>
+                  Try again
+                </button>
+              )}
+            </>
+          ) : ownedBowlCount === 0 ? (
             <>
               <p className="mt-1 text-sm text-slate-400">
                 You can join shared bowls, but only an owner can invite new members.
@@ -378,7 +436,8 @@ export default function InvitesPage() {
         keepLabel="Keep invitation"
         confirmLabel="Revoke invitation"
         isBusy={isConfirming}
-        onKeep={() => setRevokeTarget(null)}
+        errorMessage={sentError}
+        onKeep={() => { setSentError(null); setRevokeTarget(null); }}
         onConfirm={() => { void handleRevoke(); }}
       />
       <CreateBowlModal
