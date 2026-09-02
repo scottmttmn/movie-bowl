@@ -123,6 +123,17 @@ describe("shared bowl add service", () => {
     expect(h.state.rows.filter((row) => row.tmdb_id === 101)).toHaveLength(1);
     expect(h.publish).toHaveBeenLastCalledWith(expect.objectContaining({ phase: "success" }));
   });
+  it("claims its own row even when that row is the one filling the bowl", async () => {
+    const h = harness(); const op = h.operation();
+    h.insert.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    expect(await h.service.add(op)).toMatchObject({ ok: false, code: "add_not_committed" });
+    // The delayed original becomes the 500th undrawn row. The limit is not this
+    // submission's problem: it already succeeded.
+    h.state.rows = Array.from({ length: 499 }, (_, index) => ({ id: `filler-${index}`, bowl_id: "a", tmdb_id: 9000 + index }));
+    h.state.rows.push({ id: op.submissionId, bowl_id: "a", added_by: "u1", tmdb_id: 101, title: "Movie", note: null, drawn_at: null });
+    expect(await h.service.add(op)).toMatchObject({ ok: true, movie: { id: op.submissionId } });
+    expect(h.insert).toHaveBeenCalledTimes(1);
+  });
   it("does not interpret another user's row as confirmation", async () => {
     const h = harness(); const op = h.operation();
     h.state.rows = [{ id: op.submissionId, bowl_id: "a", added_by: "u2", tmdb_id: 101, title: "Movie" }];

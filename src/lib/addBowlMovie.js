@@ -115,14 +115,17 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
       const { data: remaining, error: readError } = await client.from("bowl_movies")
         .select(BOWL_MOVIE_FIELDS).eq("bowl_id", bowlId).is("drawn_at", null).order("added_at", { ascending: true });
       if (readError) throw readError;
-      if ((remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
-        return addResult(false, "limit_reached", `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`);
-      }
+      // Ahead of both the limit and the duplicate check: this submission already
+      // succeeded, so neither is its problem. Its own late-landed row could be
+      // the one filling the bowl, or the one that looks like a duplicate.
       const landed = (remaining || []).find((row) => row.id === submissionId);
       if (landed && matchesSubmission(landed, operation)) {
         result = { ...addResult(true), movie: { ...landed, local_status: null, local_temp_id: null } };
         publish({ type: "add", phase: "success", userId: accountId, bowlId, submissionId, movie: result.movie });
         return warm(result);
+      }
+      if ((remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
+        return addResult(false, "limit_reached", `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`);
       }
       existingMovie = tmdbId && (remaining || []).find((row) => getPositiveTmdbId(row) === tmdbId);
       if (existingMovie) {

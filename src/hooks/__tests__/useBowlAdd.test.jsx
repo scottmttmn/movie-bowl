@@ -202,6 +202,24 @@ describe("shared add session", () => {
     expect(mocks.add).toHaveBeenCalledTimes(3);
   });
 
+  it("keeps a claim when the retry itself fails before dispatch", async () => {
+    mocks.add.mockResolvedValueOnce({ ok: false, code: "add_not_committed", message: "Not added" });
+    const { result } = await open();
+    await act(async () => { await result.current.submit(custom); });
+    const submissionId = mocks.add.mock.calls[0][0].submissionId;
+
+    // Offline says nothing about whether the first write is still on its way.
+    mocks.add.mockResolvedValueOnce({ ok: false, code: "offline", message: "You are offline." });
+    await act(async () => { await result.current.retryAdd(submissionId); });
+    expect(result.current.result.code).toBe("offline");
+    expect(result.current.unresolved).toHaveLength(1);
+    expect(result.current.unresolved[0].result.message).toBe("Not added");
+
+    await act(async () => { await result.current.submit(custom); });
+    expect(result.current.result.code).toBe("awaiting_confirmation");
+    expect(mocks.add).toHaveBeenCalledTimes(2);
+  });
+
   it("cannot dispatch under an account that unmounts while metadata loads", async () => {
     let finish; mocks.details.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
     const view = await open(); let pending;

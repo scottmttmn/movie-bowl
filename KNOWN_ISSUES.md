@@ -106,22 +106,32 @@ Last reviewed: 2026-09-01 at commit `bc6b7e3`.
 
   A retry also has to recognize its own late-landed row. `add` now looks for a
   row carrying its `submissionId` in the undrawn read and claims it as success
-  before the generic duplicate preflight, which would otherwise tell the person
-  their own title was already added by them.
+  ahead of both the undrawn limit and the duplicate preflight. Neither is that
+  submission's problem once it has succeeded, and its own row could be the one
+  filling the bowl or the one that looks like a duplicate.
+
+  Only a landed row releases a claim. A retry that fails before dispatch —
+  offline, a dropped request — says nothing about whether the first write is
+  still on its way, so the claim stands and keeps its own message while the
+  transient failure shows as ordinary dismissible feedback. This is keyed on
+  whether a claim already exists rather than on a list of codes, because a fresh
+  offline submission never dispatched and must not be claimed.
 
 **Verification and rollout plan**
 
 1. Service tests cover the clean miss, a failing status read that stays
    uncertain, another account's row, a late original write colliding with a
    same-id retry without producing a second slip, and a late-landed row with a
-   positive TMDB id being claimed rather than reported as a duplicate.
+   positive TMDB id being claimed rather than reported as a duplicate or as the
+   row that filled the bowl.
 2. Provider tests cover feedback dismissal that leaves the unfinished add
    standing, changing destination, submitting a different title, close/reopen,
    refusing the same title in the same bowl, and resolution by both status check
    and same-id retry — including that neither dismissal, a destination change,
    nor reopening releases the title, and that it is free again once settled.
    Banner tests cover both controls and that an unfinished add carries no
-   dismiss control.
+   dismiss control. A retry that fails offline is covered too: the claim stands
+   with its original message and the title is still refused.
 3. Deploy the client without a database migration, then confirm on a phone that
    an interrupted add offers a working retry and that Add stays usable while one
    submission is unresolved.
@@ -137,6 +147,12 @@ Last reviewed: 2026-09-01 at commit `bc6b7e3`.
   same custom entry could go out under a fresh id and duplicate if the first
   write landed late. Both unfinished codes are now claimed until resolved, and a
   retry claims its own late-landed row ahead of duplicate handling.
+- 2026-09-01 — follow-up review found two narrower versions of the same mistake.
+  A failed retry was releasing the claim even though it proved nothing about the
+  original write, and the undrawn limit was being enforced ahead of same-id
+  reconciliation, so a delayed original that became the 500th row was reported
+  as a failure. Releasing a claim now requires a landed row, and reconciliation
+  runs before every check that could blame the caller for their own write.
 
 ### MB-004 — History screens and all-history export stop at the hosted row cap
 
