@@ -114,7 +114,7 @@ describe("InvitesPage", () => {
   it("names the account in the received empty state", () => {
     renderHub();
 
-    expect(screen.getByText("No pending invitations")).toBeInTheDocument();
+    expect(screen.getByText("Nothing waiting for you right now.")).toBeInTheDocument();
     expect(screen.getByText(/sent to user@example.com/i)).toBeInTheDocument();
   });
 
@@ -306,7 +306,7 @@ describe("InvitesPage", () => {
     renderHub();
 
     expect(screen.getByText("Film Club")).toBeInTheDocument();
-    expect(screen.queryByText("No pending invitations")).not.toBeInTheDocument();
+    expect(screen.queryByText("Nothing waiting for you right now.")).not.toBeInTheDocument();
     const retry = within(screen.getByRole("heading", { level: 2, name: "Received invitations" }).closest("section"))
       .getByRole("button", { name: /try again/i });
     mocks.state.reloadInvites.mockClear();
@@ -368,7 +368,7 @@ describe("InvitesPage", () => {
     // The sent list is gated on the same context, and blank space there reads as
     // "you have sent nothing" rather than "this could not be loaded".
     expect(screen.getByText(/this list is unavailable/i)).toBeInTheDocument();
-    expect(screen.queryByText("No pending invitations sent")).not.toBeInTheDocument();
+    expect(screen.queryByText(/stay here until someone accepts/i)).not.toBeInTheDocument();
     // One failure, one alert: the send panel owns it, and the sent section
     // states its own consequence without announcing the same problem twice.
     expect(screen.getAllByRole("alert")).toHaveLength(1);

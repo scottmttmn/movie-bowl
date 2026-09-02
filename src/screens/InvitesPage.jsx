@@ -202,7 +202,7 @@ export default function InvitesPage() {
 
       <div className="flex flex-col gap-6 min-[900px]:flex-row min-[900px]:items-start">
         <div className="section-stack min-w-0 flex-1">
-          <section aria-labelledby="received-heading">
+          <section className="panel" aria-labelledby="received-heading">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 id="received-heading" className="section-title">Received invitations</h2>
               {received.length > 0 && (
@@ -226,10 +226,7 @@ export default function InvitesPage() {
             {isReceivedLoading && received.length === 0 ? (
               <p className="panel mt-3 text-sm text-slate-400" role="status">Checking for invitations…</p>
             ) : received.length === 0 && !receivedLoadError ? (
-              <div className="mt-3 rounded-2xl border border-dashed border-slate-700 bg-slate-950/35 p-5">
-                <p className="text-sm font-medium text-slate-200">No pending invitations</p>
-                <p className="mt-1 text-sm text-slate-400">New invitations will appear here.</p>
-              </div>
+              <p className="mt-3 text-sm text-slate-500">Nothing waiting for you right now.</p>
             ) : (
               <div className="mt-3 space-y-3">
                 {received.map((invite) => (
@@ -277,7 +274,7 @@ export default function InvitesPage() {
             )}
           </section>
 
-          <section aria-labelledby="sent-heading" id="sent">
+          <section className="panel" aria-labelledby="sent-heading" id="sent">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
               <h2 id="sent-heading" className="section-title">Pending invitations sent</h2>
               {sent.invitations.length > 0 && (
@@ -305,12 +302,9 @@ export default function InvitesPage() {
             ) : ownedBowlCount === 0 ? null : sent.isLoading && sent.invitations.length === 0 ? (
               <p className="panel mt-3 text-sm text-slate-400" role="status">Loading sent invitations…</p>
             ) : sent.invitations.length === 0 ? (
-              <div className="mt-3 rounded-2xl border border-dashed border-slate-700 bg-slate-950/35 p-5">
-                <p className="text-sm font-medium text-slate-200">No pending invitations sent</p>
-                <p className="mt-1 text-sm text-slate-400">
-                  Invitations you send stay here until they are accepted or revoked.
-                </p>
-              </div>
+              <p className="mt-3 text-sm text-slate-500">
+                Invitations you send stay here until someone accepts.
+              </p>
             ) : (
               <div className="mt-3 space-y-5">
                 {groupedSent.map(({ bowl, rows }) => (
