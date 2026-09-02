@@ -9,7 +9,13 @@ drop function if exists public.create_bowl_invites(uuid, text[], uuid);
 drop table if exists public.bowl_invite_batches;
 drop index if exists public.bowl_invites_one_pending_per_email_idx;
 
-grant all on table public.bowl_invites to anon, authenticated, service_role;
+-- Restore only the privileges the superseded client actually used, rather than
+-- a blanket grant. Every bowl_invites policy is scoped to authenticated, so anon
+-- access was never functional, and `grant all` would hand anon TRUNCATE -- which
+-- is not a row-level operation and which RLS therefore does not constrain.
+revoke all on table public.bowl_invites from public, anon;
+grant select, insert, update, delete on table public.bowl_invites to authenticated;
+grant all on table public.bowl_invites to service_role;
 
 create policy "Owners can create bowl invites"
   on public.bowl_invites
