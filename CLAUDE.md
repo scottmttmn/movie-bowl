@@ -22,7 +22,7 @@ npm run build        # production build — run this for any UI/app change
 ```
 
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
-A clean checkout is expected to be fully green (111 test files / 865 tests, lint
+A clean checkout is expected to be fully green (111 test files / 869 tests, lint
 with zero warnings); if something fails, it is your change. Those counts are a
 tripwire, not trivia — refresh them in the same commit that adds or removes
 tests, or the next person cannot tell a stale number from a lost test.
@@ -124,14 +124,21 @@ use the same `BowlAddProvider` and `bowlMovieService`; keep pending operations
 above routes and retain uncertain outcomes for status checks without
 reinserting.
 
+`/bowls` never redirects. `/` computes a destination; `/bowls` computes nothing
+and always renders, which is what makes it the recovery surface every resolution
+failure and confirmed access-loss state links to as `Browse bowls`. It is out of
+the navigation menu but not out of the app. Because it reads the same
+`useUserBowls` context whose failure sends people there, it renders its last good
+rows with the error beside them rather than swapping to an error-only view.
+
 The dashboard header names the bowl and opens `BowlPicker`, which is the one
 place the home bowl moves. Opening a bowl and making it home are deliberately
 separate actions: rows navigate and push, so browser Back returns to the
 previous bowl, and a single `Make [bowl] home` command below them writes the
 account default. The home bowl carries a non-interactive badge — never a star or
-an `aria-pressed` toggle, because a home bowl cannot be unset, only moved. My
-Bowls still carries the older star affordance until it becomes the directory
-surface; see `output/designs/dashboard-bowl-picker-and-home-bowl.md`.
+an `aria-pressed` toggle, because a home bowl cannot be unset, only moved. The
+directory marks the home bowl the same way and offers no control to move it; see
+`output/designs/dashboard-bowl-picker-and-home-bowl.md`.
 
 ## Data model
 

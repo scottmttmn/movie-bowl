@@ -23,7 +23,7 @@ import useDrawPoolCount, { DRAW_POOL_STATUS } from "../hooks/useDrawPoolCount";
 import useMyMovieEligibility, { MY_MOVIE_ELIGIBILITY_STATUS } from "../hooks/useMyMovieEligibility";
 import AddMovieModal from "../components/AddMovieModal";
 import DrawAnimationModal from "../components/DrawAnimationModal";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
@@ -701,7 +701,9 @@ export default function BowlDashboard() {
     };
 
     if (accessError) return <div className="page-container py-8"><div className="status-error" role="alert">
-      {accessError}<button className="btn btn-secondary ml-3" onClick={() => setAccessAttempt((attempt) => attempt + 1)}>Retry</button>
+      {accessError}
+      <button className="btn btn-secondary ml-3" onClick={() => setAccessAttempt((attempt) => attempt + 1)}>Retry</button>
+      <Link className="btn btn-ghost ml-2" to="/bowls">Browse bowls</Link>
     </div></div>;
 
 return (

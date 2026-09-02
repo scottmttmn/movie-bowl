@@ -37,15 +37,18 @@ describe("button and card components", () => {
     expect(onSelect).toHaveBeenCalledWith("b1");
   });
 
-  it("keeps the default star separate from opening the bowl", () => {
-    const onSelect = vi.fn(); const onMakeDefault = vi.fn();
-    const { container, rerender } = render(<BowlCard bowl={{ id: "b1", name: "Friday Night" }} onSelect={onSelect} onMakeDefault={onMakeDefault} />);
-    fireEvent.click(screen.getByRole("button", { name: "Make Friday Night my home bowl" }));
-    expect(onMakeDefault).toHaveBeenCalledOnce();
+  it("marks the home bowl without offering a control to move it", () => {
+    const onSelect = vi.fn();
+    const { rerender } = render(<BowlCard bowl={{ id: "b1", name: "Friday Night" }} onSelect={onSelect} />);
+    expect(screen.queryByText("Home")).not.toBeInTheDocument();
+
+    rerender(<BowlCard bowl={{ id: "b1", name: "Friday Night" }} onSelect={onSelect} isHome />);
+    expect(screen.getByText("Home")).toBeInTheDocument();
+    // A home bowl can only be moved, never unset, so nothing here may look like
+    // a toggle -- and the card must not gain a second control beside Open.
+    expect(document.querySelector("[aria-pressed]")).toBeNull();
+    expect(screen.getAllByRole("button")).toHaveLength(1);
     expect(onSelect).not.toHaveBeenCalled();
-    expect(container.querySelector("button button")).toBeNull();
-    rerender(<BowlCard bowl={{ id: "b1", name: "Friday Night" }} onSelect={onSelect} onMakeDefault={onMakeDefault} isDefault />);
-    expect(screen.getByRole("button", { name: "Home bowl: Friday Night" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("renders BowlIllustration with the draw animation layer", () => {

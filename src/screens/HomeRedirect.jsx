@@ -19,7 +19,7 @@ export default function HomeRedirect() {
         <p role={error ? "alert" : "status"}>{error || "Loading your bowls…"}</p>
         {error && <div className="flex gap-3">
           <button className="btn btn-secondary" onClick={resolve}>Retry</button>
-          <Link className="btn btn-ghost" to="/bowls">My Bowls</Link>
+          <Link className="btn btn-ghost" to="/bowls">Browse bowls</Link>
         </div>}
       </div>
     </div>

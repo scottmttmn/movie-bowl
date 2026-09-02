@@ -6,7 +6,6 @@ export default function TopNav({
   isSettingsRoute,
   isWatchListRoute = false,
   isInvitesRoute = false,
-  isBowlsRoute = false,
   onSignOut,
   onAddMovie,
   userEmail = "",
@@ -129,16 +128,6 @@ export default function TopNav({
               </Link>
               {isAuthenticated ? (
                 <>
-                  <Link
-                    to="/bowls"
-                    role="menuitem"
-                    onClick={() => setIsMenuOpen(false)}
-                    className={`flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white ${
-                      isBowlsRoute ? "pointer-events-none bg-slate-800 text-slate-400" : ""
-                    }`}
-                  >
-                    My Bowls
-                  </Link>
                   <Link
                     to="/invites"
                     role="menuitem"
