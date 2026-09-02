@@ -34,7 +34,7 @@ a dated decision-history note. A plan is ready for implementation only when it
 covers the invariant, affected boundaries, regression tests, historical data,
 and rollout or rollback.
 
-Last reviewed: 2026-09-01 at commit `2063c48`.
+Last reviewed: 2026-09-01 at commit `bc6b7e3`.
 
 ## Confirmed bugs
 
@@ -161,7 +161,7 @@ Last reviewed: 2026-09-01 at commit `2063c48`.
 ### MB-006 — Invite acceptance is split across two writes
 
 - **Severity:** P2
-- **Status:** Confirmed bug
+- **Status:** Fix ready; awaiting migration deployment
 - **First observed:** route in `df4c29a`; inbox path in `8cc5ae6`
 - **Invariant:** Accepting an invite must atomically establish membership and
   finalize exactly that invite for the authenticated email.
@@ -173,22 +173,67 @@ Last reviewed: 2026-09-01 at commit `2063c48`.
 - **Impact:** Retries can encounter confusing duplicate membership, stale
   invites remain actionable, and the two UI paths disagree about success.
 
-**Implementation plan**
+- **Repair:** `20260901120000_accept_bowl_invite_atomically.sql` adds
+  `accept_bowl_invite(text)`, a `SECURITY DEFINER` function that locks the
+  invite row, matches `invited_email` to `auth.email()` case-insensitively,
+  inserts membership with `on conflict do nothing`, and sets
+  `accepted_at = coalesce(accepted_at, now())` — all in one transaction. It is
+  keyed on the invite token, which both surfaces already carry, and returns the
+  bowl id. Execution is revoked from `public`/`anon` and granted only to
+  `authenticated`.
 
-1. Add one `SECURITY DEFINER` RPC that authenticates the caller, normalizes and
-   verifies the invite email, locks the invite, rejects consumed or otherwise
-   invalid state, inserts membership idempotently, marks the invite accepted,
-   and returns the bowl ID in one transaction.
-2. Revoke default execution and grant only `authenticated`. Avoid exposing
-   whether an invite exists when the email does not match.
-3. Route both the token page and invite inbox through the same client wrapper
-   and result codes. Remove both direct multi-write implementations.
-4. Add pgTAP tests for success, retry/idempotency, wrong account, stale invite,
-   concurrent acceptance, and a forced failure before commit. Add UI tests for
-   the shared success and error mapping.
-5. Existing partial states need no destructive repair: the RPC should recognize
-   existing membership and finalize a still-valid matching invite. Deploy the
-   migration before the client. Rollback restores the direct paths.
+  Both client paths now call `acceptBowlInvite` in `src/lib/bowlInvites.js`, and
+  the two direct multi-write implementations are gone. There is no client-side
+  auth pre-check left to disagree with the function.
+
+  Retrying is deliberately harmless rather than refused, which repairs the
+  partial states the old path could create: an existing member finalizes an
+  outstanding invite, and an invite already marked accepted still admits the
+  account it named. `coalesce` keeps the original acceptance time so a repeat
+  cannot rewrite when the join happened.
+
+- **Disclosure decision:** missing, mismatched, and other people's invites share
+  one refusal message. The function bypasses RLS, so distinguishing them would
+  let whoever holds a token learn that an invite exists and who it was addressed
+  to. This is not a UX regression: RLS already hid the invite row from a
+  non-matching account, so the route's "This invite was created for …" branch
+  was unreachable for anyone but the bowl owner. The single message now names
+  the wrong-account possibility explicitly, which is more useful than the
+  "Invite not found or no longer valid." that case actually produced.
+
+**Verification and rollout plan**
+
+1. pgTAP covers grants, definer and `search_path`, an unidentified caller,
+   another account's token, an unknown token, a null token, success, membership,
+   finalization, a harmless repeat that neither duplicates membership nor
+   rewrites the timestamp, and both partial-state repairs. All 19 assertions
+   pass, run on 2026-09-01 against a disposable local project seeded from a
+   schema-only export of the linked project per `supabase/README.md`, with the
+   new migration applied on top. The whole checked-in suite was run the same way
+   as a regression: 15 files, 389 assertions, all passing. The disposable
+   project was stopped with `--no-backup` and deleted along with the export; no
+   Docker images were newly pulled, so none were removed.
+2. The export confirmed the two constraints the function depends on:
+   `bowl_invites_token_key UNIQUE (token)`, so keying acceptance on the token
+   matches at most one invite, and `bowl_members_bowl_id_user_id_key
+   UNIQUE (bowl_id, user_id)`, which is what makes `on conflict do nothing`
+   idempotent rather than silently wrong. It also confirmed
+   `accept_bowl_invite` does not yet exist in the deployed schema.
+3. JS tests cover the shared wrapper's result mapping (success, refusal,
+   authentication, unexpected failure), both screens, and the token route,
+   including that neither client path writes `bowl_members` any more. The
+   Playwright sharing smoke still asserts membership and `accepted_at` together.
+4. **Apply the migration before deploying the client** — the client calls an RPC
+   that must already exist. Then accept a real invite from the inbox and from a
+   token link.
+5. Rollback is `supabase/rollback/20260901120000_restore_client_invite_acceptance.sql`
+   moved back into `migrations/` with a fresh timestamp, and a client revert.
+   Deploy the reverted client first, or acceptance has no path at all. Rows the
+   function created are correct acceptances and are left alone.
+
+**Decision history:** 2026-09-01 — keyed acceptance on the invite token both
+surfaces already load rather than adding a second entry point, and chose one
+uniform refusal over a diagnostic that a definer function would leak.
 
 ### MB-012 — Installed Android Add dialog leaks background scrolling and crowds results
 

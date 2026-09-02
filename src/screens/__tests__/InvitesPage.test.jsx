@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => {
     bowlNames: [],
     profileRows: [],
     updatedInvites: [],
+    acceptedTokens: [],
     deletedInvites: [],
     memberInsertError: null,
     deleteError: null,
@@ -21,10 +22,16 @@ const mocks = vi.hoisted(() => {
         error: null,
       })),
     },
-    rpc: vi.fn(async () => ({
-      data: state.profileRows.map((row) => ({ user_id: row.id, email: row.email })),
-      error: null,
-    })),
+    rpc: vi.fn(async (name, params) => {
+      if (name === "accept_bowl_invite") {
+        state.acceptedTokens.push(params?.p_token);
+        return { data: state.pendingInvites.find((row) => row.token === params?.p_token)?.bowl_id || null, error: null };
+      }
+      return {
+        data: state.profileRows.map((row) => ({ user_id: row.id, email: row.email })),
+        error: null,
+      };
+    }),
     from: vi.fn((table) => {
       if (table === "bowls") {
         return {
@@ -158,6 +165,7 @@ describe("InvitesPage", () => {
         bowl_id: "bowl-2",
         invited_email: "user@example.com",
         invited_by: "owner-1",
+        token: "invite-token-1",
         created_at: "2026-04-24T12:00:00.000Z",
       },
     ];
@@ -169,7 +177,8 @@ describe("InvitesPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /accept/i }));
 
     await waitFor(() => expect(mocks.state.navigate).toHaveBeenCalledWith("/bowl/bowl-2"));
-    expect(mocks.state.updatedInvites).toHaveLength(1);
+    expect(mocks.state.acceptedTokens).toEqual(["invite-token-1"]);
+    expect(mocks.state.updatedInvites).toEqual([]);
     expect(screen.queryByText("Friday Bowl")).not.toBeInTheDocument();
   });
 

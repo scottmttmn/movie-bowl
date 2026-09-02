@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => {
     insertedInvites: [],
     updatedInvites: [],
     deletedInvites: [],
+    acceptedTokens: [],
+    acceptInviteError: null,
     memberInsertError: null,
     streamingServices: [],
     streamingServicesLoading: false,
@@ -39,6 +41,11 @@ const mocks = vi.hoisted(() => {
             .some((member) => member.bowl_id === row.id));
         if (params?.p_bowl_id) state.defaultBowlId = params.p_bowl_id;
         return { data: { bowls: rows, default_bowl_id: state.defaultBowlId || rows[0]?.id || null }, error: null };
+      }
+      if (name === "accept_bowl_invite") {
+        if (state.acceptInviteError) return { data: null, error: state.acceptInviteError };
+        state.acceptedTokens.push(params?.p_token);
+        return { data: state.pendingInvites.find((row) => row.token === params?.p_token)?.bowl_id || null, error: null };
       }
       if (name === "get_my_invite_sender_directory") {
         return {
@@ -623,7 +630,7 @@ describe("MyBowlsScreen", () => {
     expect(screen.queryByText(/^invites$/i)).not.toBeInTheDocument();
   });
 
-  it("accepts invite, inserts membership, marks accepted, and navigates to bowl", async () => {
+  it("accepts an invite through one atomic call and navigates to bowl", async () => {
     mocks.state.initialAuthenticated = true;
     mocks.state.pendingInvites = [
       {
@@ -631,6 +638,7 @@ describe("MyBowlsScreen", () => {
         bowl_id: "bowl-2",
         invited_email: "user@example.com",
         invited_by: "owner-1",
+        token: "invite-token-1",
         accepted_at: null,
         created_at: "2026-03-01T00:00:00.000Z",
       },
@@ -644,24 +652,23 @@ describe("MyBowlsScreen", () => {
     fireEvent.click(screen.getByRole("button", { name: /accept/i }));
 
     await waitFor(() => expect(mocks.state.navigate).toHaveBeenCalledWith("/bowl/bowl-2"));
-    expect(mocks.state.insertedMembers).toEqual(
-      expect.arrayContaining([
-        [expect.objectContaining({ bowl_id: "bowl-2", user_id: "u1", role: "Member" })],
-      ])
-    );
-    expect(mocks.state.updatedInvites).toHaveLength(1);
+    // Membership and finalization belong to the RPC now, not to two client writes.
+    expect(mocks.state.acceptedTokens).toEqual(["invite-token-1"]);
+    expect(mocks.state.insertedMembers).toEqual([]);
+    expect(mocks.state.updatedInvites).toEqual([]);
     expect(screen.queryByRole("button", { name: /accept/i })).not.toBeInTheDocument();
   });
 
-  it("accept invite tolerates duplicate-member error and still marks accepted", async () => {
+  it("keeps a refused invite listed and explains why", async () => {
     mocks.state.initialAuthenticated = true;
-    mocks.state.memberInsertError = { message: "duplicate key value violates unique constraint" };
+    mocks.state.acceptInviteError = { code: "P0001", message: "This invite is no longer available." };
     mocks.state.pendingInvites = [
       {
         id: "inv-1",
         bowl_id: "bowl-2",
         invited_email: "user@example.com",
         invited_by: "owner-1",
+        token: "invite-token-1",
         accepted_at: null,
         created_at: "2026-03-01T00:00:00.000Z",
       },
@@ -674,8 +681,9 @@ describe("MyBowlsScreen", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: /accept/i })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /accept/i }));
 
-    await waitFor(() => expect(mocks.state.updatedInvites).toHaveLength(1));
-    expect(mocks.state.navigate).toHaveBeenCalledWith("/bowl/bowl-2");
+    await screen.findByText("This invite is no longer available.");
+    expect(mocks.state.navigate).not.toHaveBeenCalledWith("/bowl/bowl-2");
+    expect(screen.getByRole("button", { name: /accept/i })).toBeInTheDocument();
   });
 
   it("declines invite by deleting row and removes it from UI", async () => {

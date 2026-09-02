@@ -403,6 +403,24 @@ class FakeBackend {
       return;
     }
 
+    if (rpcName === "accept_bowl_invite") {
+      const email = String(this.state.currentUser.email || "").trim().toLowerCase();
+      const invite = this.state.bowl_invites.find((row) => row.token === args.p_token
+        && String(row.invited_email || "").trim().toLowerCase() === email);
+      if (!invite) {
+        await fulfillJson(route, { code: "P0001", message: "This invite is no longer available. It may have been used already, or it was sent to a different account." }, 400);
+        return;
+      }
+      // Membership and finalization land together, as the RPC guarantees.
+      if (!this.state.bowl_members.some((member) => member.bowl_id === invite.bowl_id
+        && member.user_id === this.state.currentUser.id)) {
+        this.state.bowl_members.push({ bowl_id: invite.bowl_id, user_id: this.state.currentUser.id, role: "Member" });
+      }
+      invite.accepted_at ||= new Date().toISOString();
+      await fulfillJson(route, invite.bowl_id);
+      return;
+    }
+
     if (rpcName === "get_my_bowls_with_counts") {
       const rows = this.state.bowls.map((bowl) => ({
         ...bowl,

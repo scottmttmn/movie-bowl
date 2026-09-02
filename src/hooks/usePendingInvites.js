@@ -7,7 +7,7 @@ import {
   useMemo,
   useState,
 } from "react";
-import { notifyBowlChange } from "../lib/bowlChanges";
+import { acceptBowlInvite } from "../lib/bowlInvites";
 import { supabase } from "../lib/supabase";
 
 // Pending bowl invites are shared state: the top nav shows a count badge while
@@ -89,41 +89,10 @@ export function PendingInvitesProvider({ children }) {
   }, [load]);
 
   const acceptInvite = useCallback(async (invite) => {
-    const { data: authData, error: authError } = await supabase.auth.getSession();
-    const user = authData?.session?.user;
-    const userEmail = String(user?.email || "").trim().toLowerCase();
+    const result = await acceptBowlInvite(invite?.token);
 
-    if (authError || !user || !userEmail) {
-      return { error: "You must be signed in to accept invites." };
-    }
-
-    const { error: memberError } = await supabase.from("bowl_members").insert([
-      {
-        bowl_id: invite.bowl_id,
-        user_id: user.id,
-        role: "Member",
-      },
-    ]);
-
-    if (memberError) {
-      const memberMessage = String(memberError.message || "").toLowerCase();
-      if (!memberMessage.includes("duplicate")) {
-        console.error("[usePendingInvites] Failed to accept invite membership", memberError);
-        return { error: "Failed to join bowl from invite." };
-      }
-    }
-
-    notifyBowlChange({ userId: user.id, bowlId: invite.bowl_id });
-
-    const { error: acceptError } = await supabase
-      .from("bowl_invites")
-      .update({ accepted_at: new Date().toISOString() })
-      .eq("id", invite.id)
-      .ilike("invited_email", userEmail);
-
-    if (acceptError) {
-      console.error("[usePendingInvites] Failed to mark invite as accepted", acceptError);
-      return { error: "Joined bowl, but failed to finalize invite acceptance." };
+    if (!result.ok) {
+      return { error: result.message };
     }
 
     setInvites((prev) => prev.filter((row) => row.id !== invite.id));
