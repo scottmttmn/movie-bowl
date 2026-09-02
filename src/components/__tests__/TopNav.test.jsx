@@ -44,7 +44,7 @@ describe("TopNav", () => {
     expect(screen.getByRole("menu")).toBeInTheDocument();
     expect(screen.getByLabelText(/signed in as user@example\.com/i)).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /about/i })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: /my bowls/i })).toBeInTheDocument();
+    expect(screen.queryByRole("menuitem", { name: /my bowls/i })).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /watch history/i })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /tv mode/i })).toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /settings/i })).toBeInTheDocument();

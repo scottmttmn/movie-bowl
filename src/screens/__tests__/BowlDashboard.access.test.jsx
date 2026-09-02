@@ -102,6 +102,7 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
+import { MemoryRouter } from "react-router-dom";
 import BowlDashboard from "../BowlDashboard";
 
 describe("BowlDashboard explicit access and retry", () => {
@@ -123,7 +124,7 @@ describe("BowlDashboard explicit access and retry", () => {
   });
 
   it("opening a deep link does not write a last-opened preference", async () => {
-    render(<BowlDashboard />);
+    render(<MemoryRouter><BowlDashboard /></MemoryRouter>);
     await waitFor(() => expect(screen.getByRole("heading", { name: "Bowl 1" })).toBeInTheDocument());
     expect(localStorage.getItem("movie-bowl:last-bowl:u1")).toBeNull();
     expect(mocks.state.navigate).not.toHaveBeenCalled();
@@ -132,7 +133,7 @@ describe("BowlDashboard explicit access and retry", () => {
   it("sends a confirmed missing bowl to My Bowls, never back to Home", async () => {
     mocks.state.bowlRow = null;
     mocks.state.bowlError = { code: "PGRST116", message: "No rows" };
-    render(<BowlDashboard />);
+    render(<MemoryRouter><BowlDashboard /></MemoryRouter>);
     await waitFor(() => expect(mocks.state.navigate).toHaveBeenCalledWith("/bowls", { replace: true }));
     expect(mocks.state.navigate).not.toHaveBeenCalledWith("/", { replace: true });
   });
@@ -140,17 +141,29 @@ describe("BowlDashboard explicit access and retry", () => {
   it("sends revoked membership to My Bowls", async () => {
     mocks.state.bowlRow = { name: "Bowl 1", owner_id: "other", draw_access_mode: "all_members" };
     mocks.state.membershipRow = null;
-    render(<BowlDashboard />);
+    render(<MemoryRouter><BowlDashboard /></MemoryRouter>);
     await waitFor(() => expect(mocks.state.navigate).toHaveBeenCalledWith("/bowls", { replace: true }));
   });
 
   it("keeps transport errors separate from access loss and allows retry", async () => {
     mocks.state.bowlError = { message: "Network unavailable" };
-    render(<BowlDashboard />);
+    render(<MemoryRouter><BowlDashboard /></MemoryRouter>);
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not load this bowl");
     expect(mocks.state.navigate).not.toHaveBeenCalled();
     mocks.state.bowlError = null;
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByRole("heading", { name: "Bowl 1" })).toBeInTheDocument();
+  });
+
+  it("offers Browse bowls beside Retry when a bowl cannot be read", async () => {
+    mocks.state.bowlError = { message: "Network unavailable" };
+
+    render(<MemoryRouter><BowlDashboard /></MemoryRouter>);
+
+    await waitFor(() => expect(screen.getByRole("alert")).toBeInTheDocument());
+    // Retry alone is a dead end when the failure persists; /bowls is the one
+    // route that always renders.
+    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /browse bowls/i })).toHaveAttribute("href", "/bowls");
   });
 });

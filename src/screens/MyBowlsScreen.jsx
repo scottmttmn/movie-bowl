@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
 import BowlCard from "../components/BowlCard";
 import NewBowlButton from "../components/NewBowlButton";
@@ -11,10 +11,7 @@ import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import { MAX_BOWLS_PER_USER } from "../utils/appLimits";
 
 export default function MyBowlsScreen() {
-  const { bowls, defaultBowlId, loading: isLoading, error: loadError, refresh,
-    setDefaultBowl, savingDefault } = useUserBowls();
-  const [defaultMessage, setDefaultMessage] = useState(null);
-  const [defaultError, setDefaultError] = useState(null);
+  const { bowls, defaultBowlId, loading: isLoading, error: loadError, refresh } = useUserBowls();
   const navigate = useNavigate();
   const {
     streamingServices,
@@ -42,22 +39,22 @@ export default function MyBowlsScreen() {
   const ownedBowls = sortBowlsByRecentActivity(bowls.filter((b) => b.role === "Owner"));
   const sharedBowls = sortBowlsByRecentActivity(bowls.filter((b) => b.role !== "Owner"));
   const hasStreamingServices = streamingServices.length > 0;
+  // Only a first load with nothing to show is a loading state. A refresh over
+  // rows we already have must not blank them.
+  const hasNoTrustworthyList =
+    bowls.length === 0
+    && !loadError
+    && (isLoading || isStreamingServicesLoading || isInvitesLoading);
   const shouldShowGuidedSetup =
     !isLoading &&
     !isStreamingServicesLoading &&
     !isInvitesLoading &&
+    !loadError &&
     bowls.length === 0 &&
     pendingInvites.length === 0;
 
   useEffect(() => { void refresh(); }, [refresh]);
 
-  const handleDefault = async (bowl) => {
-    if (savingDefault || bowl.id === defaultBowlId) return;
-    setDefaultMessage(null);
-    setDefaultError(null);
-    if (await setDefaultBowl(bowl.id)) setDefaultMessage(`${bowl.name} is now your home bowl`);
-    else setDefaultError("Could not change your home bowl. Please try again.");
-  };
 
   const handleSelectBowl = (bowlId) => {
     navigate(`/bowl/${bowlId}`);
@@ -71,15 +68,14 @@ export default function MyBowlsScreen() {
     <div className="my-bowls-screen page-container py-6 sm:py-8">
       <header className="mb-8">
         <div className="mb-4 space-y-2" aria-live="polite">
-          {defaultMessage && <div className="status-success" role="status">{defaultMessage}</div>}
-          {defaultError && <div className="status-error" role="alert">{defaultError}</div>}
           {createErrorMessage && !isModalOpen && <div className="status-error" role="alert">{createErrorMessage}</div>}
           {createActionMessage && <div className="status-success">{createActionMessage}</div>}
         </div>
         <div className="page-hero flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div>
-            <p className="eyebrow">Home</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">My Bowls</h1>
+            {/* This page stopped being Home when / became the resolver, and the
+                word now names one specific bowl. */}
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">My Bowls</h1>
             <p className="mt-2 max-w-xl text-sm text-slate-400 sm:text-base">
               Open an existing bowl or start a new one.
             </p>
@@ -95,11 +91,21 @@ export default function MyBowlsScreen() {
         )}
       </header>
       <div className="section-stack">
-        {isLoading || isStreamingServicesLoading || isInvitesLoading ? (
+        {/* This route is where a failed Home resolution sends people, and it
+            shares the very context whose failure sent them. So a refresh that
+            fails keeps the rows it already had, with the error beside them --
+            a recovery surface that goes blank under exactly the conditions that
+            bring people to it is not a recovery surface. */}
+        {loadError && bowls.length > 0 && (
+          <div className="status-error" role="alert">
+            {loadError} <button className="btn btn-secondary mt-3" onClick={() => refresh()}>Retry</button>
+          </div>
+        )}
+        {hasNoTrustworthyList ? (
           <div className="panel text-sm text-slate-400" role="status">
             Loading bowls…
           </div>
-        ) : loadError ? (
+        ) : loadError && bowls.length === 0 ? (
           <div className="status-error" role="alert">
             {loadError} <button className="btn btn-secondary mt-3" onClick={() => refresh()}>Retry</button>
           </div>
@@ -218,7 +224,7 @@ export default function MyBowlsScreen() {
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {ownedBowls.map((bowl) => (
-                    <BowlCard key={bowl.id} bowl={bowl} onSelect={handleSelectBowl} isDefault={bowl.id === defaultBowlId} onMakeDefault={() => handleDefault(bowl)} defaultDisabled={savingDefault} />
+                    <BowlCard key={bowl.id} bowl={bowl} onSelect={handleSelectBowl} isHome={bowl.id === defaultBowlId} />
                   ))}
                 </div>
               )}
@@ -238,7 +244,7 @@ export default function MyBowlsScreen() {
               ) : (
                 <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
                   {sharedBowls.map((bowl) => (
-                    <BowlCard key={bowl.id} bowl={bowl} onSelect={handleSelectBowl} isDefault={bowl.id === defaultBowlId} onMakeDefault={() => handleDefault(bowl)} defaultDisabled={savingDefault} />
+                    <BowlCard key={bowl.id} bowl={bowl} onSelect={handleSelectBowl} isHome={bowl.id === defaultBowlId} />
                   ))}
                 </div>
               )}

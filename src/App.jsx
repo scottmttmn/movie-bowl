@@ -64,7 +64,6 @@ function AppShell({ children }) {
   const isVoiceProbePrivacyRoute = location.pathname === "/voice-probe/privacy";
   const isWatchListRoute = location.pathname === "/watch-list";
   const isInvitesRoute = location.pathname === "/invites";
-  const isBowlsRoute = location.pathname === "/bowls";
   const isPublicAddRoute = location.pathname.startsWith("/add-to-bowl/");
   const isTvRoute = location.pathname === "/tv" || location.pathname.startsWith("/tv/");
   const shouldShowTopNav =
@@ -83,7 +82,6 @@ function AppShell({ children }) {
           isSettingsRoute={isSettingsRoute}
           isWatchListRoute={isWatchListRoute}
           isInvitesRoute={isInvitesRoute}
-          isBowlsRoute={isBowlsRoute}
           onSignOut={signOut}
           userEmail={userEmail}
           isAuthenticated={Boolean(session)}

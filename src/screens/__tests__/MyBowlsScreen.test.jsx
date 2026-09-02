@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
     initialAuthenticated: false,
     sessionUser: { id: "u1", email: "user@example.com" },
     rpcRows: [],
+    bowlContextError: null,
     memberRows: [],
     pendingInvites: [],
     profileRows: [],
@@ -37,6 +38,7 @@ const mocks = vi.hoisted(() => {
     },
     rpc: vi.fn(async (name, params) => {
       if (name === "get_my_bowl_context" || name === "set_my_default_bowl") {
+        if (state.bowlContextError) return { data: null, error: state.bowlContextError };
         const rows = [...state.rpcRows, ...state.insertedBowls.flat().map((row) => ({ ...row, id: "bowl-1" }))]
           .filter((row) => row.owner_id === state.sessionUser.id || [...state.memberRows, ...state.insertedMembers.flat()]
             .some((member) => member.bowl_id === row.id));
@@ -272,6 +274,7 @@ describe("MyBowlsScreen", () => {
     mocks.state.initialAuthenticated = false;
     mocks.state.sessionUser = { id: "u1", email: "user@example.com" };
     mocks.state.rpcRows = [];
+    mocks.state.bowlContextError = null;
     mocks.state.defaultBowlId = null;
     mocks.state.memberRows = [];
     mocks.state.pendingInvites = [];
@@ -598,6 +601,54 @@ describe("MyBowlsScreen", () => {
 
     expect(screen.getByRole("button", { name: /\+ new bowl/i })).toBeDisabled();
     expect(screen.getByText(/bowl limit reached \(10\)/i)).toBeInTheDocument();
+  });
+
+  it("keeps showing the bowls it already had when a refresh fails", async () => {
+    mocks.state.initialAuthenticated = true;
+    mocks.state.rpcRows = [
+      { id: "bowl-1", name: "Friday Bowl", remaining_count: 3, member_count: 2, owner_id: "u1" },
+    ];
+
+    renderMyBowls();
+    await waitFor(() => expect(screen.getByText("Friday Bowl")).toBeInTheDocument());
+
+    // This route is where a failed Home resolution sends people, and it reads
+    // the very context that failed. Going blank here would strand them.
+    mocks.state.bowlContextError = { message: "network" };
+    fireEvent.click(screen.getByRole("button", { name: /new bowl/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^cancel$/i }));
+    window.dispatchEvent(new Event("focus"));
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/could not load your bowls/i));
+    expect(screen.getByText("Friday Bowl")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+  });
+
+  it("shows an error and a retry when there is no trustworthy list at all", async () => {
+    mocks.state.initialAuthenticated = true;
+    mocks.state.bowlContextError = { message: "network" };
+
+    renderMyBowls();
+
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent(/could not load your bowls/i));
+    expect(screen.getByRole("button", { name: /retry/i })).toBeInTheDocument();
+    // Not onboarding: we do not know that this account has no bowls.
+    expect(screen.queryByText(/start your first movie bowl/i)).not.toBeInTheDocument();
+  });
+
+  it("marks the home bowl in the directory without offering to move it", async () => {
+    mocks.state.initialAuthenticated = true;
+    mocks.state.rpcRows = [
+      { id: "bowl-1", name: "Friday Bowl", remaining_count: 3, member_count: 2, owner_id: "u1" },
+    ];
+    mocks.state.defaultBowlId = "bowl-1";
+
+    renderMyBowls();
+
+    await waitFor(() => expect(screen.getByText("Friday Bowl")).toBeInTheDocument());
+    expect(screen.getByText("Home")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /my home bowl/i })).not.toBeInTheDocument();
+    expect(document.querySelector("[aria-pressed]")).toBeNull();
   });
 
   it("hands pending invitations to the hub instead of acting on them", async () => {

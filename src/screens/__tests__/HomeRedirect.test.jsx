@@ -38,6 +38,9 @@ describe("HomeRedirect account defaults", () => {
     mocks.error = { message: "offline" }; renderHome();
     expect(await screen.findByRole("alert")).toHaveTextContent("Could not load");
     expect(screen.queryByText("My Bowls Screen")).not.toBeInTheDocument();
+    // Retry is not the only way out: /bowls always renders, so it is the escape
+    // hatch when Home resolution keeps failing.
+    expect(screen.getByRole("link", { name: "Browse bowls" })).toHaveAttribute("href", "/bowls");
     mocks.error = null; fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(await screen.findByText("My Bowls Screen")).toBeInTheDocument();
   });
