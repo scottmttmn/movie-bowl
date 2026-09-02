@@ -14,6 +14,10 @@ const mocks = vi.hoisted(() => {
     drawPermissions: [],
     operations: [],
     insertedInvites: [],
+    inviteRpcCalls: [],
+    revokeRpcCalls: [],
+    createInviteOutcome: null,
+    revokeInviteOutcome: null,
     insertedAddLinks: [],
     insertedDrawPermissions: [],
     updatedBowls: [],
@@ -25,6 +29,7 @@ const mocks = vi.hoisted(() => {
       loadDrawPermissions: null,
       loadAddLinks: null,
       insertInvite: null,
+      createInvite: null,
       insertAddLink: null,
       insertDrawPermissions: null,
       updateBowl: null,
@@ -32,6 +37,7 @@ const mocks = vi.hoisted(() => {
       updateDrawAccessMode: null,
       deleteAddLink: null,
       deleteInvite: null,
+      revokeInvite: null,
       deleteMember: null,
       deleteDrawPermissions: null,
       deleteMovies: null,
@@ -82,7 +88,12 @@ const mocks = vi.hoisted(() => {
     if (queryState.action === "select" && table === "bowl_invites" && terminal === "order") {
       if (state.errors.loadInvites) return { data: null, error: state.errors.loadInvites };
       const bowlId = getEq(queryState.filters, "bowl_id");
-      const rows = state.invites.filter((i) => i.bowl_id === bowlId);
+      const pendingOnly = queryState.filters.some(
+        (filter) => filter.type === "is" && filter.key === "accepted_at" && filter.value === null
+      );
+      const rows = state.invites.filter(
+        (invite) => invite.bowl_id === bowlId && (!pendingOnly || invite.accepted_at == null)
+      );
       return { data: rows, error: null };
     }
 
@@ -319,6 +330,77 @@ const mocks = vi.hoisted(() => {
       return query;
     }),
     rpc: vi.fn(async (name, args) => {
+      if (name === "create_bowl_invites") {
+        state.inviteRpcCalls.push(args);
+        if (state.errors.createInvite) {
+          return { data: null, error: state.errors.createInvite };
+        }
+
+        const email = args?.p_emails?.[0];
+        const existing = state.invites.find(
+          (invite) =>
+            invite.bowl_id === args?.p_bowl_id &&
+            String(invite.invited_email || "").toLowerCase() === String(email || "").toLowerCase() &&
+            invite.accepted_at == null
+        );
+        const outcome = state.createInviteOutcome || (existing
+          ? {
+              invited_email: email,
+              status: "already_pending",
+              invitation_id: existing.id,
+              token: existing.token,
+            }
+          : {
+              invited_email: email,
+              status: "created",
+              invitation_id: `inv-new-${state.inviteRpcCalls.length}`,
+              token: `rpc-token-${state.inviteRpcCalls.length}`,
+            });
+
+        if (outcome.status === "created") {
+          state.invites = [
+            {
+              id: outcome.invitation_id,
+              bowl_id: args.p_bowl_id,
+              invited_email: outcome.invited_email,
+              token: outcome.token,
+              accepted_at: null,
+              created_at: "2026-09-02T00:00:00.000Z",
+            },
+            ...state.invites,
+          ];
+        }
+
+        return {
+          data: {
+            bowl_id: args.p_bowl_id,
+            request_id: args.p_request_id,
+            invitations: [outcome],
+          },
+          error: null,
+        };
+      }
+      if (name === "revoke_bowl_invite") {
+        state.revokeRpcCalls.push(args);
+        if (state.errors.revokeInvite) {
+          return { data: null, error: state.errors.revokeInvite };
+        }
+
+        const outcome = state.revokeInviteOutcome || "revoked";
+        if (outcome === "revoked") {
+          state.invites = state.invites.filter(
+            (invite) =>
+              !(invite.id === args?.p_invitation_id && invite.bowl_id === args?.p_bowl_id)
+          );
+        } else if (outcome === "already_accepted") {
+          state.invites = state.invites.map((invite) =>
+            invite.id === args?.p_invitation_id && invite.bowl_id === args?.p_bowl_id
+              ? { ...invite, accepted_at: "2026-09-02T12:00:00.000Z" }
+              : invite
+          );
+        }
+        return { data: outcome, error: null };
+      }
       if (name === "get_bowl_profile_directory") {
         return {
           data: state.members.map((member) => ({
@@ -460,12 +542,14 @@ const mocks = vi.hoisted(() => {
     }),
   };
 
-  return { state, supabase };
+  const sendInviteEmails = vi.fn(async () => state.sendInviteEmailsResult);
+
+  return { state, supabase, sendInviteEmails };
 });
 
 vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
 vi.mock("../../lib/inviteEmails", () => ({
-  sendInviteEmails: vi.fn(async () => mocks.state.sendInviteEmailsResult),
+  sendInviteEmails: mocks.sendInviteEmails,
 }));
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
@@ -513,6 +597,10 @@ describe("BowlSettings integration", () => {
     ];
     mocks.state.operations = [];
     mocks.state.insertedInvites = [];
+    mocks.state.inviteRpcCalls = [];
+    mocks.state.revokeRpcCalls = [];
+    mocks.state.createInviteOutcome = null;
+    mocks.state.revokeInviteOutcome = null;
     mocks.state.insertedAddLinks = [];
     mocks.state.insertedDrawPermissions = [];
     mocks.state.updatedBowls = [];
@@ -524,6 +612,7 @@ describe("BowlSettings integration", () => {
       loadDrawPermissions: null,
       loadAddLinks: null,
       insertInvite: null,
+      createInvite: null,
       insertAddLink: null,
       insertDrawPermissions: null,
       updateBowl: null,
@@ -531,6 +620,7 @@ describe("BowlSettings integration", () => {
       updateDrawAccessMode: null,
       deleteAddLink: null,
       deleteInvite: null,
+      revokeInvite: null,
       deleteMember: null,
       deleteDrawPermissions: null,
       deleteMovies: null,
@@ -544,6 +634,7 @@ describe("BowlSettings integration", () => {
       refreshQueuePromotions: null,
     };
     mocks.supabase.rpc.mockClear();
+    mocks.sendInviteEmails.mockClear();
     mocks.state.sendInviteEmailsResult = {
       sent: 1,
       failed: 0,
@@ -566,6 +657,15 @@ describe("BowlSettings integration", () => {
     });
 
     expect(screen.queryByRole("button", { name: /revoke/i })).not.toBeInTheDocument();
+    expect(mocks.state.revokeRpcCalls).toEqual([{
+      p_bowl_id: "bowl-1",
+      p_invitation_id: "inv-1",
+    }]);
+    expect(
+      mocks.state.operations.some(
+        (operation) => operation.table === "bowl_invites" && operation.action === "delete"
+      )
+    ).toBe(false);
   });
 
   it("allows non-owner member to leave and navigates home", async () => {
@@ -630,13 +730,59 @@ describe("BowlSettings integration", () => {
     });
     expect(screen.getByText(/invite created and email sent\./i)).toBeInTheDocument();
 
-    expect(mocks.state.insertedInvites).toHaveLength(1);
-    expect(mocks.state.insertedInvites[0][0]).toMatchObject({
-      bowl_id: "bowl-1",
-      invited_email: "newfriend@example.com",
-      invited_by: "owner-1",
+    expect(mocks.state.inviteRpcCalls).toHaveLength(1);
+    expect(mocks.state.inviteRpcCalls[0]).toMatchObject({
+      p_bowl_id: "bowl-1",
+      p_emails: ["newfriend@example.com"],
     });
+    expect(mocks.state.insertedInvites).toHaveLength(0);
     expect(screen.getByText("newfriend@example.com")).toBeInTheDocument();
+    expect(mocks.sendInviteEmails).toHaveBeenCalledWith([{
+      bowlId: "bowl-1",
+      bowlName: "Bowl 1",
+      invitedEmail: "newfriend@example.com",
+      invitedByEmail: "owner@example.com",
+      token: "rpc-token-1",
+    }]);
+  });
+
+  it("reuses an already-pending invite without sending another email", async () => {
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByPlaceholderText("friend@example.com")).toBeInTheDocument();
+    });
+
+    fireEvent.change(screen.getByPlaceholderText("friend@example.com"), {
+      target: { value: "friend@example.com" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^invite$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/an invite is already pending for friend@example\.com\./i)).toBeInTheDocument();
+    });
+    expect(screen.getByDisplayValue(/accept-invite\/token-1/i)).toBeInTheDocument();
+    expect(mocks.state.invites).toHaveLength(1);
+    expect(mocks.sendInviteEmails).not.toHaveBeenCalled();
+  });
+
+  it("reports when an invite was accepted before revoke", async () => {
+    mocks.state.revokeInviteOutcome = "already_accepted";
+
+    render(<BowlSettings />);
+
+    await waitFor(() => {
+      expect(screen.getByText("friend@example.com")).toBeInTheDocument();
+    });
+    fireEvent.click(screen.getByRole("button", { name: /revoke/i }));
+
+    await waitFor(() => {
+      expect(
+        screen.getByText(/was accepted before it could be revoked\./i)
+      ).toBeInTheDocument();
+    });
+    expect(mocks.state.invites).toHaveLength(1);
+    expect(screen.queryByText("friend@example.com")).not.toBeInTheDocument();
   });
 
   it("allows a member to create and delete their own add link", async () => {

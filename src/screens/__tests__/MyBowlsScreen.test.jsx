@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => {
     insertedBowls: [],
     insertedMembers: [],
     insertedInvites: [],
+    inviteRpcCalls: [],
     updatedInvites: [],
     deletedInvites: [],
     acceptedTokens: [],
@@ -46,6 +47,22 @@ const mocks = vi.hoisted(() => {
         if (state.acceptInviteError) return { data: null, error: state.acceptInviteError };
         state.acceptedTokens.push(params?.p_token);
         return { data: state.pendingInvites.find((row) => row.token === params?.p_token)?.bowl_id || null, error: null };
+      }
+      if (name === "create_bowl_invites") {
+        state.inviteRpcCalls.push(params);
+        return {
+          data: {
+            bowl_id: params.p_bowl_id,
+            request_id: params.p_request_id,
+            invitations: params.p_emails.map((email, index) => ({
+              invited_email: email,
+              status: "created",
+              invitation_id: `invite-${index + 1}`,
+              token: `token-${index + 1}`,
+            })),
+          },
+          error: null,
+        };
       }
       if (name === "get_my_invite_sender_directory") {
         return {
@@ -259,6 +276,7 @@ describe("MyBowlsScreen", () => {
     mocks.state.insertedBowls = [];
     mocks.state.insertedMembers = [];
     mocks.state.insertedInvites = [];
+    mocks.state.inviteRpcCalls = [];
     mocks.state.updatedInvites = [];
     mocks.state.deletedInvites = [];
     mocks.state.memberInsertError = null;
@@ -510,11 +528,11 @@ describe("MyBowlsScreen", () => {
       user_id: "u1",
       role: "Owner",
     });
-    expect(mocks.state.insertedInvites[0][0]).toMatchObject({
-      bowl_id: "bowl-1",
-      invited_email: "friend@example.com",
-      invited_by: "u1",
+    expect(mocks.state.inviteRpcCalls[0]).toMatchObject({
+      p_bowl_id: "bowl-1",
+      p_emails: ["friend@example.com"],
     });
+    expect(mocks.state.insertedInvites).toHaveLength(0);
   });
 
   it("shows creation errors inside the open dialog", async () => {

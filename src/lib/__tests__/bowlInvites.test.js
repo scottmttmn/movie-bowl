@@ -3,7 +3,11 @@ import { beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ rpc: vi.fn(), notify: vi.fn() }));
 vi.mock("../supabase", () => ({ supabase: { rpc: mocks.rpc } }));
 vi.mock("../bowlChanges", () => ({ notifyBowlChange: mocks.notify }));
-import { acceptBowlInvite } from "../bowlInvites";
+import {
+  acceptBowlInvite,
+  createBowlInvitations,
+  revokeBowlInvitation,
+} from "../bowlInvites";
 
 beforeEach(() => {
   vi.clearAllMocks();
@@ -40,5 +44,40 @@ describe("shared invite acceptance", () => {
     const result = await acceptBowlInvite("tok");
     expect(result).toMatchObject({ ok: false, code: "accept_failed" });
     expect(result.message).toBe("Could not accept this invite. Please try again.");
+  });
+});
+
+describe("owner invitation mutations", () => {
+  it("passes batch identity and addresses to the creation RPC", async () => {
+    const response = {
+      data: { bowl_id: "bowl-9", request_id: "request-1", invitations: [] },
+      error: null,
+    };
+    mocks.rpc.mockResolvedValue(response);
+
+    await expect(createBowlInvitations({
+      bowlId: "bowl-9",
+      emails: ["friend@example.com"],
+      requestId: "request-1",
+    })).resolves.toBe(response);
+    expect(mocks.rpc).toHaveBeenCalledWith("create_bowl_invites", {
+      p_bowl_id: "bowl-9",
+      p_emails: ["friend@example.com"],
+      p_request_id: "request-1",
+    });
+  });
+
+  it("passes bowl and invitation identity to guarded revoke", async () => {
+    const response = { data: "revoked", error: null };
+    mocks.rpc.mockResolvedValue(response);
+
+    await expect(revokeBowlInvitation({
+      bowlId: "bowl-9",
+      invitationId: "invite-1",
+    })).resolves.toBe(response);
+    expect(mocks.rpc).toHaveBeenCalledWith("revoke_bowl_invite", {
+      p_bowl_id: "bowl-9",
+      p_invitation_id: "invite-1",
+    });
   });
 });

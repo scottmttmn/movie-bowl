@@ -1,4 +1,5 @@
 import { notifyBowlChange } from "./bowlChanges";
+import { createBowlInvitations } from "./bowlInvites";
 import { sendInviteEmails } from "./inviteEmails";
 import { supabase } from "./supabase";
 import { MAX_BOWLS_PER_USER } from "../utils/appLimits";
@@ -17,7 +18,7 @@ export function createBowlCreationService({
   parseEmails = parseInviteEmails,
   publish = notifyBowlChange,
   sendEmails = sendInviteEmails,
-  tokenFactory = () => crypto.randomUUID(),
+  requestIdFactory = () => crypto.randomUUID(),
   maxOwnedBowls = MAX_BOWLS_PER_USER,
 } = {}) {
   async function create({ bowlName: rawBowlName, inviteEmails = "", ownedBowlCount = 0 }) {
@@ -105,15 +106,16 @@ export function createBowlCreationService({
       return createBowlResult({ ok: true, bowl: newBowl });
     }
 
-    const inviteRows = validEmails.map((email) => ({
-      bowl_id: newBowl.id,
-      invited_email: email,
-      invited_by: user.id,
-      token: tokenFactory(),
-    }));
-    const { error: inviteError } = await client.from("bowl_invites").insert(inviteRows);
+    const { data: inviteData, error: inviteError } = await createBowlInvitations(
+      {
+        bowlId: newBowl.id,
+        emails: validEmails,
+        requestId: requestIdFactory(),
+      },
+      client
+    );
 
-    if (inviteError) {
+    if (inviteError || !Array.isArray(inviteData?.invitations)) {
       console.error("Failed to create invites", inviteError);
       // The bowl and its owner membership are ready even though the optional
       // invitation work failed, so callers should still refresh and close.
@@ -125,19 +127,31 @@ export function createBowlCreationService({
       });
     }
 
-    const emailResult = await sendEmails(validEmails.map((email, index) => ({
-      bowlId: newBowl.id,
-      bowlName: newBowl.name,
-      invitedEmail: email,
-      invitedByEmail: user.email || null,
-      token: inviteRows[index].token,
-    })));
+    const invitationsToEmail = (inviteData?.invitations || [])
+      .filter((invitation) => invitation?.status === "created" && invitation?.token)
+      .map((invitation) => ({
+        bowlId: newBowl.id,
+        bowlName: newBowl.name,
+        invitedEmail: invitation.invited_email,
+        invitedByEmail: user.email || null,
+        token: invitation.token,
+      }));
+
+    if (invitationsToEmail.length === 0) {
+      return createBowlResult({
+        ok: true,
+        actionMessage: "Bowl created. No new invitations were needed.",
+        bowl: newBowl,
+      });
+    }
+
+    const emailResult = await sendEmails(invitationsToEmail);
 
     let actionMessage;
     if (!emailResult.error && emailResult.failed === 0) {
       actionMessage = `Bowl created and ${emailResult.sent} invite email${emailResult.sent === 1 ? "" : "s"} sent.`;
     } else if (emailResult.sent > 0) {
-      actionMessage = `Bowl created, but only ${emailResult.sent} of ${validEmails.length} invite email${validEmails.length === 1 ? "" : "s"} sent.`;
+      actionMessage = `Bowl created, but only ${emailResult.sent} of ${invitationsToEmail.length} invite email${invitationsToEmail.length === 1 ? "" : "s"} sent.`;
     } else {
       actionMessage = "Bowl created, but invite emails could not be sent. You can still share the invite links from Bowl Settings.";
     }

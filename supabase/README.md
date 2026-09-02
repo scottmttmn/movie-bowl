@@ -113,12 +113,39 @@ data. Prefer reverting the client while keeping this additive schema.
 
 The August 31 follow-up corrected four older suites' stale expectations about
 guest attribution, private helper access, and personal-history visibility.
-All 13 SQL suites now pass (350 assertions) against a disposable copy of the
-current schema, including this migration. No database permissions or behavior
-were changed. See the
+The current regression baseline is 16 SQL suites / 452 assertions against a
+disposable copy of the current schema. See the
 [implementation record](../output/designs/default-bowl-and-global-add-implementation.md#implementation-record--august-31-2026)
 for the original failures and follow-up coverage. Do not run these fixture
 scripts against the hosted database.
+
+## Invitation write hardening
+
+`20260902120000_harden_bowl_invitation_writes.sql` adds one live pending
+invitation per normalized bowl/email pair, a private persisted batch-request
+ledger, the idempotent owner-only `create_bowl_invites` RPC, and the guarded
+owner-only `revoke_bowl_invite` RPC. Tokens are generated in PostgreSQL. A
+same-key retry replays its recorded per-address outcomes and redacts invitation
+IDs and tokens that are no longer live instead of recreating them.
+
+The linked production schema was audited on September 2, 2026 before the
+migration was written: eight total invitation rows, zero pending rows, and zero
+duplicate pending groups. The migration checks again and stops with a clear
+error if duplicate pending rows appear before deployment; resolve those rows
+deliberately rather than editing the migration to discard one.
+
+The same release moves the current create-bowl and Bowl Settings owner paths to
+the RPCs, removes owner direct INSERT/DELETE policies, and removes the obsolete
+invitee UPDATE path. Invitee SELECT/DELETE remains for received-invitation
+decline and the cleanup after leaving a bowl. Deploy the migration immediately
+before the matching web client: the new client requires the RPCs, while older
+clients can no longer create or revoke invitations after the policy cutover.
+
+The matching pgTAP file has 63 assertions; the full database regression is 16
+suites / 452 assertions. Rollback is
+`rollback/20260902120000_restore_direct_bowl_invitation_writes.sql`; revert the
+client first. Rollback drops persisted request history, so retrying an old
+request UUID afterward no longer has an idempotency record.
 
 ## Active movie uniqueness note
 

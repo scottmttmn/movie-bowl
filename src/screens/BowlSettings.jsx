@@ -3,6 +3,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import AutosaveStatus from "../components/AutosaveStatus";
 import SettingsSectionNav from "../components/SettingsSectionNav";
 import useAutosave, { valuesAreEqual } from "../hooks/useAutosave";
+import { createBowlInvitations, revokeBowlInvitation } from "../lib/bowlInvites";
 import { sendInviteEmails } from "../lib/inviteEmails";
 import { supabase } from "../lib/supabase";
 import { parseInviteEmails } from "../utils/parseInviteEmails";
@@ -448,20 +449,34 @@ export default function BowlSettings() {
     const email = validEmails[0];
 
     try {
-      // Create an invite row. The invited user accepts after they log in.
-      const token = crypto.randomUUID();
+      const { data, error: createError } = await createBowlInvitations({
+        bowlId,
+        emails: [email],
+        requestId: crypto.randomUUID(),
+      });
 
-      const { error: insertError } = await supabase.from("bowl_invites").insert([
-        {
-          bowl_id: bowlId,
-          invited_email: email,
-          invited_by: currentUserId,
-          token,
-        },
-      ]);
+      if (createError) {
+        console.error("[BowlSettings] Failed to create invite", createError);
+        setErrorMessage("Failed to create invite.");
+        return;
+      }
 
-      if (insertError) {
-        console.error("[BowlSettings] Failed to create invite", insertError);
+      const invitation = data?.invitations?.[0];
+      if (!invitation) {
+        console.error("[BowlSettings] Invitation RPC returned no outcome", data);
+        setErrorMessage("Failed to create invite.");
+        return;
+      }
+
+      if (invitation.status === "already_member") {
+        setEmailToInvite("");
+        setActionMessage(`${email} is already a member of this bowl.`);
+        return;
+      }
+
+      const token = invitation.token;
+      if (!token) {
+        console.error("[BowlSettings] Live invitation outcome returned no token", invitation);
         setErrorMessage("Failed to create invite.");
         return;
       }
@@ -471,6 +486,17 @@ export default function BowlSettings() {
       setEmailToInvite("");
 
       await loadBowlAndMembers();
+
+      if (invitation.status === "already_pending") {
+        setActionMessage(`An invite is already pending for ${email}.`);
+        return;
+      }
+
+      if (invitation.status !== "created") {
+        console.error("[BowlSettings] Unexpected invitation outcome", invitation);
+        setErrorMessage("Failed to create invite.");
+        return;
+      }
 
       const emailResult = await sendInviteEmails([
         {
@@ -598,11 +624,10 @@ export default function BowlSettings() {
     }
 
     try {
-      const { error } = await supabase
-        .from("bowl_invites")
-        .delete()
-        .eq("id", inviteId)
-        .eq("bowl_id", bowlId);
+      const { data: outcome, error } = await revokeBowlInvitation({
+        bowlId,
+        invitationId: inviteId,
+      });
 
       if (error) {
         console.error("[BowlSettings] Failed to revoke invite", error);
@@ -610,8 +635,18 @@ export default function BowlSettings() {
         return;
       }
 
-      setActionMessage(`Invite revoked for ${invitedEmail}.`);
       await loadBowlAndMembers();
+
+      if (outcome === "revoked") {
+        setActionMessage(`Invite revoked for ${invitedEmail}.`);
+      } else if (outcome === "already_accepted") {
+        setActionMessage(`The invite for ${invitedEmail} was accepted before it could be revoked.`);
+      } else if (outcome === "not_pending") {
+        setActionMessage(`The invite for ${invitedEmail} is no longer pending.`);
+      } else {
+        console.error("[BowlSettings] Unexpected revoke outcome", outcome);
+        setErrorMessage("Failed to revoke invite.");
+      }
     } catch (err) {
       console.error("[BowlSettings] Unexpected error revoking invite", err);
       setErrorMessage("Unexpected error revoking invite.");
