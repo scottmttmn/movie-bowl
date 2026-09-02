@@ -9,14 +9,8 @@ const mocks = vi.hoisted(() => {
       signOut: vi.fn(),
     },
     navigateCalls: [],
-    invite: {
-      id: "invite-1",
-      bowl_id: "bowl-1",
-      invited_email: "invitee@example.com",
-      accepted_at: null,
-    },
-    memberInsertError: null,
-    inviteUpdateError: null,
+    acceptedTokens: [],
+    acceptResult: { data: "bowl-1", error: null },
   };
 
   const supabase = {
@@ -25,6 +19,11 @@ const mocks = vi.hoisted(() => {
       // route through the mocked useAuth hook instead.
       getSession: vi.fn(async () => ({ data: { session: null }, error: null })),
     },
+    rpc: vi.fn(async (name, params) => {
+      if (name !== "accept_bowl_invite") return { data: null, error: null };
+      state.acceptedTokens.push(params?.p_token);
+      return state.acceptResult;
+    }),
     from: vi.fn((table) => {
       const queryState = { table, action: "select", filters: [], payload: null };
       const query = {
@@ -46,21 +45,8 @@ const mocks = vi.hoisted(() => {
           queryState.filters.push({ key, value });
           return query;
         }),
-        single: vi.fn(async () => {
-          if (table === "bowl_invites" && queryState.action === "select") {
-            return { data: state.invite, error: state.invite ? null : { message: "Not found" } };
-          }
-          return { data: null, error: null };
-        }),
-        then: (resolve, reject) => {
-          if (table === "bowl_members" && queryState.action === "insert") {
-            return Promise.resolve({ data: queryState.payload, error: state.memberInsertError }).then(resolve, reject);
-          }
-          if (table === "bowl_invites" && queryState.action === "update") {
-            return Promise.resolve({ data: queryState.payload, error: state.inviteUpdateError }).then(resolve, reject);
-          }
-          return Promise.resolve({ data: null, error: null }).then(resolve, reject);
-        },
+        single: vi.fn(async () => ({ data: null, error: null })),
+        then: (resolve, reject) => Promise.resolve({ data: null, error: null }).then(resolve, reject),
       };
       return query;
     }),
@@ -110,14 +96,8 @@ describe("App accept invite route", () => {
       loading: false,
       signOut: vi.fn(),
     };
-    mocks.state.invite = {
-      id: "invite-1",
-      bowl_id: "bowl-1",
-      invited_email: "invitee@example.com",
-      accepted_at: null,
-    };
-    mocks.state.memberInsertError = null;
-    mocks.state.inviteUpdateError = null;
+    mocks.state.acceptedTokens = [];
+    mocks.state.acceptResult = { data: "bowl-1", error: null };
     window.history.pushState({}, "", "/");
   });
 
@@ -140,7 +120,7 @@ describe("App accept invite route", () => {
     });
   });
 
-  it("accepts a valid invite and navigates to the bowl", async () => {
+  it("accepts a valid invite in one call and navigates to the bowl", async () => {
     window.history.pushState({}, "", "/accept-invite/token-123");
 
     render(<App />);
@@ -149,7 +129,21 @@ describe("App accept invite route", () => {
       expect(screen.getByText("Bowl Dashboard Screen")).toBeInTheDocument();
     });
 
-    expect(mocks.supabase.from).toHaveBeenCalledWith("bowl_invites");
-    expect(mocks.supabase.from).toHaveBeenCalledWith("bowl_members");
+    // Membership and finalization are the RPC's business, not two client writes.
+    expect(mocks.state.acceptedTokens).toEqual(["token-123"]);
+    expect(mocks.supabase.from).not.toHaveBeenCalledWith("bowl_members");
+  });
+
+  it("reports a refused invite instead of claiming success", async () => {
+    mocks.state.acceptResult = {
+      data: null,
+      error: { code: "P0001", message: "This invite is no longer available." },
+    };
+    window.history.pushState({}, "", "/accept-invite/token-123");
+
+    render(<App />);
+
+    await screen.findByText("This invite is no longer available.");
+    expect(screen.queryByText("Bowl Dashboard Screen")).not.toBeInTheDocument();
   });
 });

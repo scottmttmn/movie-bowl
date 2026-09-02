@@ -5,14 +5,13 @@ import useAppUpdate from "./hooks/useAppUpdate";
 import usePendingInvites, { PendingInvitesProvider } from "./hooks/usePendingInvites";
 import useBowlAdd, { BowlAddProvider } from "./hooks/useBowlAdd";
 import BowlAddDialog from "./components/BowlAddDialog";
+import { acceptBowlInvite } from "./lib/bowlInvites";
 import { UserBowlsProvider } from "./hooks/useUserBowls";
-import { notifyBowlChange } from "./lib/bowlChanges";
 import TopNav from "./components/TopNav";
 import OfflineBanner from "./components/OfflineBanner";
 import UpdateBanner from "./components/UpdateBanner";
 import AppErrorBoundary from "./components/AppErrorBoundary";
 import { recoverFromStaleChunkError } from "./utils/appVersion";
-import { supabase } from "./lib/supabase";
 
 // Every screen is loaded on demand, which means every navigation can outlive
 // the build it was compiled into: a deploy replaces the hashed chunks, and an
@@ -176,70 +175,17 @@ function AcceptInvite() {
       }
 
       try {
-        const userEmail = (session.user.email || "").toLowerCase();
+        const result = await acceptBowlInvite(token);
 
-        const { data: invite, error: inviteError } = await supabase
-          .from("bowl_invites")
-          .select("id, bowl_id, invited_email, accepted_at")
-          .eq("token", token)
-          .single();
-
-        if (inviteError || !invite) {
-          console.error("[AcceptInvite] Failed to load invite", inviteError);
+        if (!result.ok) {
           setStatus("error");
-          setMessage("Invite not found or no longer valid.");
+          setMessage(result.message);
           return;
-        }
-
-        if (invite.accepted_at) {
-          setStatus("success");
-          setMessage("Invite already accepted. Redirecting…");
-          navigate(`/bowl/${invite.bowl_id}`, { replace: true });
-          return;
-        }
-
-        const invitedEmail = (invite.invited_email || "").toLowerCase();
-        if (!userEmail || userEmail !== invitedEmail) {
-          setStatus("error");
-          setMessage(
-            `This invite was created for ${invite.invited_email}. You are signed in as ${session.user.email}.`
-          );
-          return;
-        }
-
-        // Add membership. If already a member, continue.
-        const { error: memberError } = await supabase.from("bowl_members").insert([
-          {
-            bowl_id: invite.bowl_id,
-            user_id: session.user.id,
-            role: "Member",
-          },
-        ]);
-
-        if (memberError) {
-          const msg = (memberError.message || "").toLowerCase();
-          if (!msg.includes("duplicate")) {
-            console.error("[AcceptInvite] Failed to add member", memberError);
-            setStatus("error");
-            setMessage("Failed to add you to the bowl.");
-            return;
-          }
-        }
-
-        notifyBowlChange({ userId: session.user.id, bowlId: invite.bowl_id });
-
-        const { error: acceptError } = await supabase
-          .from("bowl_invites")
-          .update({ accepted_at: new Date().toISOString() })
-          .eq("id", invite.id);
-
-        if (acceptError) {
-          console.error("[AcceptInvite] Failed to mark invite accepted", acceptError);
         }
 
         setStatus("success");
         setMessage("Invite accepted. Redirecting…");
-        navigate(`/bowl/${invite.bowl_id}`, { replace: true });
+        navigate(`/bowl/${result.bowlId}`, { replace: true });
       } catch (err) {
         console.error("[AcceptInvite] Unexpected error", err);
         setStatus("error");
