@@ -560,7 +560,13 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
+import { MemoryRouter } from "react-router-dom";
 import BowlSettings from "../BowlSettings";
+
+// BowlSettings links into the Invitations hub, so it needs router context.
+function renderSettings() {
+  return render(<MemoryRouter><BowlSettings /></MemoryRouter>);
+}
 
 describe("BowlSettings integration", () => {
   afterEach(() => {
@@ -643,37 +649,13 @@ describe("BowlSettings integration", () => {
     };
   });
 
-  it("allows owner to revoke a pending invite", async () => {
-    render(<BowlSettings />);
-
-    await waitFor(() => {
-      expect(screen.getByText("friend@example.com")).toBeInTheDocument();
-    });
-
-    fireEvent.click(screen.getByRole("button", { name: /revoke/i }));
-
-    await waitFor(() => {
-      expect(screen.queryByText("friend@example.com")).not.toBeInTheDocument();
-    });
-
-    expect(screen.queryByRole("button", { name: /revoke/i })).not.toBeInTheDocument();
-    expect(mocks.state.revokeRpcCalls).toEqual([{
-      p_bowl_id: "bowl-1",
-      p_invitation_id: "inv-1",
-    }]);
-    expect(
-      mocks.state.operations.some(
-        (operation) => operation.table === "bowl_invites" && operation.action === "delete"
-      )
-    ).toBe(false);
-  });
 
   it("allows non-owner member to leave and navigates home", async () => {
     mocks.state.authUser = { id: "member-1", email: "member@example.com" };
 
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
 
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /leave bowl/i })).toBeInTheDocument();
@@ -694,7 +676,7 @@ describe("BowlSettings integration", () => {
 
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
 
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /leave bowl/i })).toBeInTheDocument();
@@ -713,82 +695,13 @@ describe("BowlSettings integration", () => {
     confirmSpy.mockRestore();
   });
 
-  it("allows owner to create an invite link and sends email", async () => {
-    render(<BowlSettings />);
 
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText("friend@example.com")).toBeInTheDocument();
-    });
 
-    fireEvent.change(screen.getByPlaceholderText("friend@example.com"), {
-      target: { value: "newfriend@example.com" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /^invite$/i }));
-
-    await waitFor(() => {
-      expect(screen.getByDisplayValue(/accept-invite\//i)).toBeInTheDocument();
-    });
-    expect(screen.getByText(/invite created and email sent\./i)).toBeInTheDocument();
-
-    expect(mocks.state.inviteRpcCalls).toHaveLength(1);
-    expect(mocks.state.inviteRpcCalls[0]).toMatchObject({
-      p_bowl_id: "bowl-1",
-      p_emails: ["newfriend@example.com"],
-    });
-    expect(mocks.state.insertedInvites).toHaveLength(0);
-    expect(screen.getByText("newfriend@example.com")).toBeInTheDocument();
-    expect(mocks.sendInviteEmails).toHaveBeenCalledWith([{
-      bowlId: "bowl-1",
-      bowlName: "Bowl 1",
-      invitedEmail: "newfriend@example.com",
-      invitedByEmail: "owner@example.com",
-      token: "rpc-token-1",
-    }]);
-  });
-
-  it("reuses an already-pending invite without sending another email", async () => {
-    render(<BowlSettings />);
-
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText("friend@example.com")).toBeInTheDocument();
-    });
-
-    fireEvent.change(screen.getByPlaceholderText("friend@example.com"), {
-      target: { value: "friend@example.com" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /^invite$/i }));
-
-    await waitFor(() => {
-      expect(screen.getByText(/an invite is already pending for friend@example\.com\./i)).toBeInTheDocument();
-    });
-    expect(screen.getByDisplayValue(/accept-invite\/token-1/i)).toBeInTheDocument();
-    expect(mocks.state.invites).toHaveLength(1);
-    expect(mocks.sendInviteEmails).not.toHaveBeenCalled();
-  });
-
-  it("reports when an invite was accepted before revoke", async () => {
-    mocks.state.revokeInviteOutcome = "already_accepted";
-
-    render(<BowlSettings />);
-
-    await waitFor(() => {
-      expect(screen.getByText("friend@example.com")).toBeInTheDocument();
-    });
-    fireEvent.click(screen.getByRole("button", { name: /revoke/i }));
-
-    await waitFor(() => {
-      expect(
-        screen.getByText(/was accepted before it could be revoked\./i)
-      ).toBeInTheDocument();
-    });
-    expect(mocks.state.invites).toHaveLength(1);
-    expect(screen.queryByText("friend@example.com")).not.toBeInTheDocument();
-  });
 
   it("allows a member to create and delete their own add link", async () => {
     mocks.state.authUser = { id: "member-1", email: "member@example.com" };
 
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/allowed adds/i)).toBeInTheDocument();
@@ -836,7 +749,7 @@ describe("BowlSettings integration", () => {
       },
     ];
 
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /^delete$/i })).toBeInTheDocument();
@@ -866,7 +779,7 @@ describe("BowlSettings integration", () => {
       },
     ];
 
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByText(/exhausted/i)).toBeInTheDocument();
@@ -894,7 +807,7 @@ describe("BowlSettings integration", () => {
       },
     ];
 
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByDisplayValue("Dad")).toBeInTheDocument();
@@ -916,33 +829,6 @@ describe("BowlSettings integration", () => {
     expect(screen.getByLabelText(/^contributor label$/i)).toHaveValue("Grandpa");
   });
 
-  it("keeps the invite link available when invite email sending fails", async () => {
-    mocks.state.sendInviteEmailsResult = {
-      sent: 0,
-      failed: 1,
-      results: [{ email: "newfriend@example.com", ok: false, error: "smtp down" }],
-      error: "smtp down",
-    };
-
-    render(<BowlSettings />);
-
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText("friend@example.com")).toBeInTheDocument();
-    });
-
-    fireEvent.change(screen.getByPlaceholderText("friend@example.com"), {
-      target: { value: "newfriend@example.com" },
-    });
-    fireEvent.click(screen.getByRole("button", { name: /^invite$/i }));
-
-    await waitFor(() => {
-      expect(screen.getByDisplayValue(/accept-invite\//i)).toBeInTheDocument();
-    });
-
-    expect(
-      screen.getByText(/invite created, but email could not be sent\. you can still copy the link\./i)
-    ).toBeInTheDocument();
-  });
 
   it("autosaves an updated bowl name without a save button", async () => {
     mocks.state.bowl = {
@@ -952,7 +838,7 @@ describe("BowlSettings integration", () => {
       draw_access_mode: "all_members",
     };
 
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByDisplayValue("Bowl 1")).toBeInTheDocument();
@@ -988,7 +874,7 @@ describe("BowlSettings integration", () => {
       draw_access_mode: "all_members",
     };
 
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: /draw access/i })).toBeInTheDocument();
@@ -1009,7 +895,7 @@ describe("BowlSettings integration", () => {
       { bowl_id: "bowl-1", user_id: "member-2", role: "Member", email: "member2@example.com" },
     ];
 
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/only selected members/i)).toBeInTheDocument();
@@ -1041,7 +927,7 @@ describe("BowlSettings integration", () => {
     };
     mocks.state.drawPermissions = [{ bowl_id: "bowl-1", user_id: "member-1" }];
 
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/everyone in bowl/i)).toBeInTheDocument();
@@ -1069,7 +955,7 @@ describe("BowlSettings integration", () => {
       draw_access_mode: "selected_members",
     };
 
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByText("Bowl 1")).toBeInTheDocument();
@@ -1088,7 +974,7 @@ describe("BowlSettings integration", () => {
     mocks.state.drawPermissions = [{ bowl_id: "bowl-1", user_id: "member-1" }];
     mocks.state.errors.saveDrawAccess = { message: "database unavailable" };
 
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/everyone in bowl/i)).toBeInTheDocument();
@@ -1106,7 +992,7 @@ describe("BowlSettings integration", () => {
   });
 
   it("shows the draw method control for owner and defaults to person-first", async () => {
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/person-first/i)).toBeInTheDocument();
@@ -1118,7 +1004,7 @@ describe("BowlSettings integration", () => {
   });
 
   it("owner can switch the bowl to title-first with autosave", async () => {
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/title-first/i)).toBeInTheDocument();
@@ -1137,7 +1023,7 @@ describe("BowlSettings integration", () => {
   });
 
   it("owner can switch the bowl to rotation with autosave", async () => {
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/^rotation/i)).toBeInTheDocument();
@@ -1158,7 +1044,7 @@ describe("BowlSettings integration", () => {
   it("keeps the draw method unchanged when saving fails", async () => {
     mocks.state.errors.saveDrawMethod = { message: "database unavailable" };
 
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByLabelText(/title-first/i)).toBeInTheDocument();
@@ -1182,7 +1068,7 @@ describe("BowlSettings integration", () => {
       draw_method: "rotation",
     };
 
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: /draw method/i })).toBeInTheDocument();
@@ -1196,33 +1082,9 @@ describe("BowlSettings integration", () => {
     expect(screen.queryByRole("button", { name: /save draw method/i })).not.toBeInTheDocument();
   });
 
-  it("validates invite input errors before creating an invite", async () => {
-    render(<BowlSettings />);
-
-    await waitFor(() => {
-      expect(screen.getByPlaceholderText("friend@example.com")).toBeInTheDocument();
-    });
-
-    const inviteInput = screen.getByPlaceholderText("friend@example.com");
-    const inviteForm = inviteInput.closest("form");
-
-    fireEvent.change(inviteInput, {
-      target: { value: "bad-email" },
-    });
-    fireEvent.submit(inviteForm);
-    expect(screen.getByText(/invalid email:/i)).toBeInTheDocument();
-
-    fireEvent.change(inviteInput, {
-      target: { value: "a@example.com, b@example.com" },
-    });
-    fireEvent.submit(inviteForm);
-    expect(screen.getByText(/please enter one email at a time\./i)).toBeInTheDocument();
-
-    expect(mocks.state.insertedInvites).toHaveLength(0);
-  });
 
   it("allows owner to remove a member", async () => {
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /remove/i })).toBeInTheDocument();
@@ -1236,7 +1098,7 @@ describe("BowlSettings integration", () => {
   });
 
   it("keeps Delete Bowl disabled until the confirmation text matches exactly", async () => {
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /^delete bowl$/i })).toBeInTheDocument();
@@ -1257,7 +1119,7 @@ describe("BowlSettings integration", () => {
   // The disabled button is the affordance; this is the guard behind it, so it
   // is exercised by submitting the form directly.
   it("prevents deleting a bowl without the DELETE confirmation text", async () => {
-    const { container } = render(<BowlSettings />);
+    const { container } = renderSettings();
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /^delete bowl$/i })).toBeInTheDocument();
@@ -1271,7 +1133,7 @@ describe("BowlSettings integration", () => {
   });
 
   it("deletes the bowl atomically when confirmed by the owner", async () => {
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /^delete bowl$/i })).toBeInTheDocument();
@@ -1302,7 +1164,7 @@ describe("BowlSettings integration", () => {
     const membersBefore = [...mocks.state.members];
     const invitesBefore = [...mocks.state.invites];
 
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /^delete bowl$/i })).toBeInTheDocument();
@@ -1358,7 +1220,7 @@ describe("BowlSettings integration", () => {
       },
     ];
 
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByRole("navigation", { name: /settings sections/i })).toBeInTheDocument();
@@ -1402,7 +1264,7 @@ describe("BowlSettings integration", () => {
       },
     ];
 
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByRole("navigation", { name: /settings sections/i })).toBeInTheDocument();
@@ -1437,7 +1299,7 @@ describe("BowlSettings integration", () => {
       },
     ];
 
-    render(<BowlSettings />);
+    renderSettings();
 
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /copy add link/i })).toBeInTheDocument();

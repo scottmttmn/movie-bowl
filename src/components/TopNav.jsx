@@ -139,21 +139,21 @@ export default function TopNav({
                   >
                     My Bowls
                   </Link>
-                  {hasPendingInvites && (
-                    <Link
-                      to="/invites"
-                      role="menuitem"
-                      onClick={() => setIsMenuOpen(false)}
-                      className={`flex min-h-10 w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white ${
-                        isInvitesRoute ? "pointer-events-none bg-slate-800 text-slate-400" : ""
-                      }`}
-                    >
-                      <span>Invites</span>
+                  <Link
+                    to="/invites"
+                    role="menuitem"
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`flex min-h-10 w-full items-center justify-between gap-2 rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white ${
+                      isInvitesRoute ? "pointer-events-none bg-slate-800 text-slate-400" : ""
+                    }`}
+                  >
+                    <span>Invitations</span>
+                    {hasPendingInvites && (
                       <span className="inline-flex h-5 min-w-5 items-center justify-center rounded-full bg-rose-500 px-1.5 text-[11px] font-bold leading-none text-white">
                         {badgeCount}
                       </span>
-                    </Link>
-                  )}
+                    )}
+                  </Link>
                   <Link
                     to="/watch-list"
                     role="menuitem"
