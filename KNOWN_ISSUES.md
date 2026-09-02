@@ -69,7 +69,7 @@ Last reviewed: 2026-09-01 at commit `bc6b7e3`.
 ### MB-003 — An unknown add outcome can lock the global Add flow indefinitely
 
 - **Severity:** P2
-- **Status:** Confirmed bug
+- **Status:** Fix ready; awaiting production deployment
 - **First observed:** `c00b8c0`
 - **Invariant:** An ambiguous network outcome must offer a safe path to confirm,
   retry, or abandon the submission without risking a duplicate movie.
@@ -81,24 +81,39 @@ Last reviewed: 2026-09-01 at commit `bc6b7e3`.
 - **Impact:** A request that never reached the server, or a definitively absent
   row, leaves Add unusable until the page or account state resets.
 
-**Implementation plan**
+- **Repair:** `checkStatus` now separates the two outcomes it used to merge. A
+  failed read stays `outcome_unknown`; a clean read of the submission's own
+  primary key returns `add_not_committed`, and a row held by something else
+  stays uncertain because retrying could only collide with it. An uncommitted
+  add offers **Try again**, which resends the captured operation under its
+  original `submissionId`, so a first write that arrives late loses the primary
+  key and reconciles instead of adding a second slip.
 
-1. Distinguish a failed status read from a successful read that returns no row.
-   A read error remains unknown; a clean no-row response enables an explicit
-   retry.
-2. Retry with the captured operation and the same `submissionId`. Never create
-   a new UUID for that logical submission. If the original write arrives late,
-   the primary key and active-title uniqueness constraint provide the final
-   duplicate guard.
-3. A clean no-row result should expose **Retry add** with the same ID. If the
-   status read itself remains ambiguous, keep **Check status** but allow the
-   person to work in another bowl or on another title; retain the uncertain
-   operation and block only a duplicate logical submission to the same bowl.
-4. Cover clean no-row, read error, late original success, duplicate conflict,
-   account change, access loss, work on a different destination, dialog
-   close/reopen, and retry success in the service, hook, and dialog tests.
-5. This is a client-only rollout. Rollback restores the current lock behavior;
-   no persisted data migration is required.
+  An unconfirmed add is no longer a lock. It moved out of the single result slot
+  into its own `unresolved` list on the provider, so it survives dismissal and
+  reopening while the rest of Add keeps working: the destination can change, a
+  different title can be submitted, and reopening starts a clean session. Only a
+  second attempt at the same title in the same bowl is refused, using the same
+  submission key that already guards in-flight duplicates.
+
+**Verification and rollout plan**
+
+1. Service tests cover the clean miss, a failing status read that stays
+   uncertain, another account's row, and a late original write colliding with a
+   same-id retry without producing a second slip.
+2. Provider tests cover feedback dismissal that leaves the unconfirmed add
+   standing, changing destination, submitting a different title, close/reopen,
+   refusing the same title in the same bowl, and resolution by status check.
+   Banner tests cover the retry control, the same-id resend, and the separate
+   unresolved row that carries no dismiss control.
+3. Deploy the client without a database migration, then confirm on a phone that
+   an interrupted add offers a working retry and that Add stays usable while one
+   submission is unresolved.
+4. Rollback is a client revert; there is no persisted-data repair.
+
+**Decision history:** 2026-09-01 — treated a clean read of the submission's own
+primary key as a definitive answer rather than an ambiguity, and made the
+genuinely ambiguous case a tracked item beside the flow instead of a lock on it.
 
 ### MB-004 — History screens and all-history export stop at the hosted row cap
 

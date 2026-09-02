@@ -4,7 +4,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({ refresh: vi.fn(), add: vi.fn(), checkStatus: vi.fn(), updateNote: vi.fn(), remove: vi.fn(), details: vi.fn(), providers: vi.fn() }));
 const bowls = [{ id: "a", name: "Friday Night" }, { id: "b", name: "Family Movies" }];
 vi.mock("../useUserBowls", () => ({ default: () => ({ userId: "u1", bowls, refresh: mocks.refresh, loading: false, error: null }) }));
-vi.mock("../../lib/addBowlMovie", () => ({ bowlMovieService: { add: mocks.add, checkStatus: mocks.checkStatus }, addResult: (ok, code, message) => ({ ok, code, message }) }));
+vi.mock("../../lib/addBowlMovie", () => ({ bowlMovieService: { add: mocks.add, checkStatus: mocks.checkStatus }, addResult: (ok, code, message) => ({ ok, code, message }), getSubmissionKey: ({ accountId, bowlId, movie }) => `${accountId}:${bowlId}:${Number(movie?.tmdb_id ?? movie?.id) > 0 ? Number(movie?.tmdb_id ?? movie?.id) : String(movie?.title || "").trim().toLowerCase()}` }));
 vi.mock("../../lib/bowlMovieActions", () => ({ bowlMovieActions: { updateNote: mocks.updateNote, remove: mocks.remove } }));
 vi.mock("../../lib/tmdbApi", () => ({ getTmdbMovieDetails: mocks.details }));
 vi.mock("../../lib/streamingProviders", () => ({ fetchStreamingProviders: mocks.providers }));
@@ -149,20 +149,44 @@ describe("shared add session", () => {
     expect(mocks.add).toHaveBeenCalledOnce();
   });
 
-  it("keeps an uncertain operation across dismissal and reopening without reinserting", async () => {
+  it("keeps an uncertain operation resolvable without blocking the rest of Add", async () => {
     mocks.add.mockResolvedValueOnce({ ok: false, code: "outcome_unknown", message: "Check status" });
     const { result } = await open(); const sessionId = result.current.id;
     await act(async () => { await result.current.submit(custom); });
-    act(() => { result.current.clearFeedback(); result.current.setDestination(bowls[1]); result.current.close(); });
-    await act(async () => { await result.current.openGlobalAdd(); await result.current.submit(custom); });
-    expect(result.current.id).toBe(sessionId);
-    expect(result.current.destination.id).toBe("a");
-    expect(result.current.result.code).toBe("outcome_unknown");
-    expect(mocks.add).toHaveBeenCalledOnce();
+    expect(result.current.unresolved).toHaveLength(1);
+    act(() => { result.current.clearFeedback(); });
+    expect(result.current.result).toBeNull();
+    expect(result.current.unresolved).toHaveLength(1);
+    act(() => { result.current.setDestination(bowls[1]); });
+    expect(result.current.destination.id).toBe("b");
+    await act(async () => { await result.current.submit({ ...custom, title: "Second" }); });
+    expect(mocks.add).toHaveBeenCalledTimes(2);
+    act(() => result.current.close());
+    await act(async () => { await result.current.openGlobalAdd(); });
+    expect(result.current.id).not.toBe(sessionId);
+    expect(result.current.unresolved).toHaveLength(1);
+    await act(async () => { await result.current.submit(custom); });
+    expect(result.current.result.code).toBe("awaiting_confirmation");
+    expect(mocks.add).toHaveBeenCalledTimes(2);
     mocks.checkStatus.mockResolvedValue({ ok: true, movie: { id: "saved" } });
     await act(async () => { await result.current.checkStatus(); });
     expect(result.current.result.ok).toBe(true);
-    expect(mocks.add).toHaveBeenCalledOnce();
+    expect(result.current.unresolved).toEqual([]);
+  });
+
+  it("retries an uncommitted add under its original submission id", async () => {
+    mocks.add.mockResolvedValueOnce({ ok: false, code: "add_not_committed", message: "Try again" });
+    const { result } = await open();
+    await act(async () => { await result.current.submit(custom); });
+    expect(result.current.unresolved).toEqual([]);
+    const submissionId = mocks.add.mock.calls[0][0].submissionId;
+    mocks.add.mockResolvedValueOnce({ ok: true, movie: { id: "saved" } });
+    await act(async () => { await result.current.retryAdd(); });
+    expect(mocks.add).toHaveBeenCalledTimes(2);
+    expect(mocks.add.mock.calls[1][0].submissionId).toBe(submissionId);
+    expect(result.current.result.ok).toBe(true);
+    await act(async () => { expect(await result.current.retryAdd()).toBeNull(); });
+    expect(mocks.add).toHaveBeenCalledTimes(2);
   });
 
   it("cannot dispatch under an account that unmounts while metadata loads", async () => {

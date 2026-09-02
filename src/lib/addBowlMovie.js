@@ -13,6 +13,12 @@ export function getPositiveTmdbId(movie) {
   const id = Number(movie?.tmdb_id ?? movie?.id);
   return Number.isInteger(id) && id > 0 ? id : null;
 }
+// Identifies the logical submission behind an operation: the same title going
+// to the same bowl for the same person, whatever id a given attempt carries.
+export function getSubmissionKey({ accountId, bowlId, movie }) {
+  const tmdbId = getPositiveTmdbId(movie);
+  return `${accountId}:${bowlId}:${tmdbId || String(movie?.title || "").trim().toLowerCase()}`;
+}
 export function isDuplicateMovieError(error) {
   return error?.code === "23505" && /already in the bowl|bowl_active_tmdb_movies/i.test(`${error.message} ${error.details}`);
 }
@@ -31,6 +37,15 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
   const unknown = (operation) => addResult(false, "outcome_unknown",
     `Could not confirm whether ${operation.movie.title} was added to ${operation.bowlName || "this bowl"}. Check its status before trying again.`);
 
+  const notCommitted = (operation) => addResult(false, "add_not_committed",
+    `${operation.movie.title} has not been added to ${operation.bowlName || "this bowl"}. Try again — the same submission cannot add it twice.`);
+
+  const matchesSubmission = (row, operation) => row.added_by === operation.accountId
+    && row.bowl_id === operation.bowlId
+    && row.title === String(operation.movie.title).trim()
+    && getPositiveTmdbId(row) === getPositiveTmdbId(operation.movie)
+    && normalizeMovieNote(row.note) === normalizeMovieNote(operation.movie.note);
+
   async function checkStatus(operation) {
     try {
       const { data: auth, error: authError } = await client.auth.getSession();
@@ -39,14 +54,18 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
       }
       const { data, error } = await client.from("bowl_movies").select(BOWL_MOVIE_FIELDS)
         .eq("id", operation.submissionId).maybeSingle();
-      if (!error && data && data.added_by === operation.accountId && data.bowl_id === operation.bowlId
-        && data.title === String(operation.movie.title).trim()
-        && getPositiveTmdbId(data) === getPositiveTmdbId(operation.movie)
-        && normalizeMovieNote(data.note) === normalizeMovieNote(operation.movie.note)) {
-        return { ...addResult(true), movie: data };
-      }
-    } catch { /* A failed read cannot establish whether the write committed. */ }
-    return unknown(operation);
+      if (error) return unknown(operation);
+      // The id read back is the submission's own primary key, so a row that is
+      // not ours means retrying could only collide with it. Stay uncertain.
+      if (data) return matchesSubmission(data, operation) ? { ...addResult(true), movie: data } : unknown(operation);
+      // Nothing holds the id. Resending the same submission is safe even if the
+      // first write is still in flight: whichever arrives second loses the
+      // primary key and reconciles here rather than adding a second slip.
+      return notCommitted(operation);
+    } catch {
+      // A failed read cannot establish whether the write committed.
+      return unknown(operation);
+    }
   }
 
   async function add(operation) {
@@ -57,7 +76,7 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
     if (noteError) return addResult(false, "comment_too_long", noteError);
     if (offline()) return addResult(false, "offline", OFFLINE_MESSAGE);
     const tmdbId = getPositiveTmdbId(movie);
-    const key = `${accountId}:${bowlId}:${tmdbId || movie.title.trim().toLowerCase()}`;
+    const key = getSubmissionKey({ accountId, bowlId, movie });
     if (inFlight.has(key)) return addResult(false, "duplicate_movie", getDuplicateMovieMessage(movie));
     inFlight.add(key);
     let optimistic = false;

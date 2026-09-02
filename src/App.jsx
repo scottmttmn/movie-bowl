@@ -4,6 +4,7 @@ import useAuth from "./hooks/useAuth";
 import useAppUpdate from "./hooks/useAppUpdate";
 import usePendingInvites, { PendingInvitesProvider } from "./hooks/usePendingInvites";
 import useBowlAdd, { BowlAddProvider } from "./hooks/useBowlAdd";
+import BowlAddStatusBanner from "./components/BowlAddStatusBanner";
 import BowlAddDialog from "./components/BowlAddDialog";
 import { acceptBowlInvite } from "./lib/bowlInvites";
 import { UserBowlsProvider } from "./hooks/useUserBowls";
@@ -90,16 +91,10 @@ function AppShell({ children }) {
 
       <div className={shouldShowTopNav ? "pt-16" : ""}>
         {updateReady && !isTvRoute && <UpdateBanner />}
-        {shouldShowTopNav && !bowlAdd.open && bowlAdd.result && <div className="page-container pt-3">
-          <div className={bowlAdd.result.ok ? "status-success" : "status-error"} role={bowlAdd.result.ok ? "status" : "alert"}>
-            {bowlAdd.result.ok ? `Added ${bowlAdd.operation.movie.title} to ${bowlAdd.operation.bowlName}` : `${bowlAdd.operation.movie.title} — ${bowlAdd.operation.bowlName}: ${bowlAdd.result.message}`}
-            {bowlAdd.result.code === "outcome_unknown" && <button className="btn btn-secondary ml-2" onClick={bowlAdd.checkStatus} disabled={bowlAdd.pending}>Check add status</button>}
-            {bowlAdd.result.code !== "outcome_unknown" && <button className="icon-btn ml-2" aria-label="Dismiss add result" onClick={bowlAdd.clearFeedback}>✕</button>}
-          </div>
-        </div>}
+        {shouldShowTopNav && !bowlAdd.open && <BowlAddStatusBanner />}
         {children}
       </div>
-      {shouldShowTopNav && (bowlAdd.open || bowlAdd.pending || bowlAdd.actionsPending || bowlAdd.result?.code === "outcome_unknown") && <BowlAddDialog key={bowlAdd.id} />}
+      {shouldShowTopNav && (bowlAdd.open || bowlAdd.pending || bowlAdd.actionsPending) && <BowlAddDialog key={bowlAdd.id} />}
 
       {/* Global, so no screen has to explain a dropped connection on its own */}
       <OfflineBanner />

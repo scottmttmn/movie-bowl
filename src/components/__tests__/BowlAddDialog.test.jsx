@@ -6,7 +6,7 @@ const mocks = vi.hoisted(() => ({ add: vi.fn(), updateNote: vi.fn(), remove: vi.
 const bowls = [{ id: "a", name: "Friday Night" }, { id: "b", name: "Family Movies" }];
 vi.mock("../../hooks/useUserBowls", () => ({ default: () => ({ userId: "user", bowls, defaultBowlId: "a", refresh: mocks.refresh }) }));
 vi.mock("../../hooks/useUserStreamingServices", () => ({ default: () => ({ streamingServices: [] }) }));
-vi.mock("../../lib/addBowlMovie", () => ({ bowlMovieService: { add: mocks.add }, addResult: (ok, code, message) => ({ ok, code, message }) }));
+vi.mock("../../lib/addBowlMovie", () => ({ bowlMovieService: { add: mocks.add }, addResult: (ok, code, message) => ({ ok, code, message }), getSubmissionKey: ({ accountId, bowlId, movie }) => `${accountId}:${bowlId}:${Number(movie?.tmdb_id ?? movie?.id) > 0 ? Number(movie?.tmdb_id ?? movie?.id) : String(movie?.title || "").trim().toLowerCase()}` }));
 vi.mock("../../lib/bowlMovieActions", () => ({ bowlMovieActions: { updateNote: mocks.updateNote, remove: mocks.remove } }));
 vi.mock("../../lib/tmdbApi", () => ({ searchTmdbMovies: vi.fn(async () => ({ results: [] })), getTmdbMovieDetails: vi.fn() }));
 vi.mock("../../lib/streamingProviders", () => ({ fetchStreamingProviders: vi.fn() }));

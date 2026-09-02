@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import useUserBowls from "../hooks/useUserBowls";
-import { bowlMovieService, addResult } from "../lib/addBowlMovie";
+import { bowlMovieService, addResult, getSubmissionKey } from "../lib/addBowlMovie";
 import { bowlMovieActions } from "../lib/bowlMovieActions";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
@@ -8,7 +8,7 @@ import { notifyBowlChange } from "../lib/bowlChanges";
 import { describeNetworkError } from "../utils/networkErrors";
 
 const BowlAddContext = createContext(null);
-const initial = { open: false, id: 0, initializing: false, initializationError: null, destination: null, pending: false, result: null, operation: null, additions: [], actionAnnouncement: "" };
+const initial = { open: false, id: 0, initializing: false, initializationError: null, destination: null, pending: false, result: null, operation: null, unresolved: [], additions: [], actionAnnouncement: "" };
 
 export function BowlAddProvider({ children }) {
   const { userId, refresh, bowls, loading, error } = useUserBowls();
@@ -31,12 +31,14 @@ export function BowlAddProvider({ children }) {
     // The fixed header must not open a competing dialog during a draw/reveal.
     if (!latest.current.open && document.querySelector('[aria-modal="true"], [data-blocks-global-add]')) return;
     setInvoker(document.activeElement);
-    if (latest.current.pending || latest.current.result?.code === "outcome_unknown" || latest.current.additions.some((entry) => entry.pending)) {
+    if (latest.current.pending || latest.current.additions.some((entry) => entry.pending)) {
       update({ open: true });
       return;
     }
     const request = ++opening.current;
-    update({ ...initial, open: true, id: latest.current.id + 1, initializing: true });
+    // An unconfirmed add outlives the session that made it: it is the only
+    // thing that can still turn into a real movie, or prove it never did.
+    update({ ...initial, unresolved: latest.current.unresolved, open: true, id: latest.current.id + 1, initializing: true });
     const context = await refresh();
     if (!mounted.current || opening.current !== request || !latest.current.open) return;
     if (!context) {
@@ -55,7 +57,7 @@ export function BowlAddProvider({ children }) {
   }, [update]);
 
   const setDestination = useCallback((bowl) => {
-    if (latest.current.pending || latest.current.result?.code === "outcome_unknown") return;
+    if (latest.current.pending) return;
     update({ destination: bowl, result: null, operation: null });
   }, [update]);
 
@@ -65,14 +67,15 @@ export function BowlAddProvider({ children }) {
       ? [{ movie: { ...operation.movie, ...result.movie }, bowlId: operation.bowlId, bowlName: operation.bowlName,
         pending: null, error: null }, ...latest.current.additions.filter((entry) => entry.movie.id !== result.movie.id)]
       : latest.current.additions;
-    update({ pending: false, operation, result, additions });
+    const others = latest.current.unresolved.filter((entry) => entry.operation.submissionId !== operation.submissionId);
+    const unresolved = result.code === "outcome_unknown" ? [...others, { operation, result }] : others;
+    update({ pending: false, operation, result, unresolved, additions });
     if (result.ok || result.code === "access_lost") void refresh({ force: true });
   }, [refresh, update]);
 
   const submit = useCallback(async (draft) => {
     const currentSession = latest.current;
     if (currentSession.pending) return addResult(false, "pending", "This movie is still being added.");
-    if (currentSession.result?.code === "outcome_unknown") return currentSession.result;
     if (!currentSession.destination || !bowls.some((bowl) => bowl.id === currentSession.destination.id)) {
       return addResult(false, "access_lost", "You no longer have access to this bowl. Choose another bowl.");
     }
@@ -83,6 +86,16 @@ export function BowlAddProvider({ children }) {
       bowlName: currentSession.destination.name, movie: { ...draft },
       submissionId: crypto.randomUUID(), isCurrent: () => mounted.current,
     };
+    // Only a second attempt at the same title in the same bowl could double it.
+    // Everything else stays available while that one submission is unresolved.
+    const key = getSubmissionKey(operation);
+    const blocking = currentSession.unresolved.find((entry) => getSubmissionKey(entry.operation) === key);
+    if (blocking) {
+      const result = addResult(false, "awaiting_confirmation",
+        `${operation.movie.title} is already waiting on an unconfirmed add to ${operation.bowlName}. Check that first.`);
+      update({ result, operation });
+      return result;
+    }
     update({ pending: true, result: null, operation });
     let result;
     try {
@@ -101,8 +114,23 @@ export function BowlAddProvider({ children }) {
     return result;
   }, [bowls, userId, update, finish]);
 
-  const checkStatus = useCallback(async () => {
+  // Resends the captured operation under its original id, so a first write that
+  // arrives late loses the primary key instead of adding a second slip.
+  const retryAdd = useCallback(async () => {
     const operation = latest.current.operation;
+    if (!operation || latest.current.pending || latest.current.result?.code !== "add_not_committed") return null;
+    update({ pending: true, result: null });
+    const result = mounted.current ? await bowlMovieService.add(operation)
+      : addResult(false, "not_authenticated", "You must be signed in to add a movie.");
+    finish(operation, result);
+    return result;
+  }, [update, finish]);
+
+  const checkStatus = useCallback(async (submissionId = null) => {
+    const entry = submissionId
+      ? latest.current.unresolved.find((item) => item.operation.submissionId === submissionId)
+      : latest.current.unresolved[0];
+    const operation = entry?.operation;
     if (!operation || latest.current.pending) return null;
     update({ pending: true });
     const result = await bowlMovieService.checkStatus(operation);
@@ -143,11 +171,9 @@ export function BowlAddProvider({ children }) {
     actionsPending: session.additions.some((entry) => entry.pending),
     updateAddedMovieNote: (id, note) => changeAddedMovie(id, "comment", note),
     removeAddedMovie: (id) => changeAddedMovie(id, "remove"),
-    openGlobalAdd: () => open(), openBowlAdd: open, close, setDestination, submit, checkStatus,
-    getInvoker, clearFeedback: () => {
-      if (latest.current.result?.code !== "outcome_unknown") update({ result: null });
-    },
-  }), [session, loading, error, open, close, setDestination, submit, checkStatus, update, getInvoker, changeAddedMovie]);
+    openGlobalAdd: () => open(), openBowlAdd: open, close, setDestination, submit, checkStatus, retryAdd,
+    getInvoker, clearFeedback: () => update({ result: null }),
+  }), [session, loading, error, open, close, setDestination, submit, checkStatus, retryAdd, update, getInvoker, changeAddedMovie]);
   return <BowlAddContext.Provider value={value}>{children}</BowlAddContext.Provider>;
 }
 

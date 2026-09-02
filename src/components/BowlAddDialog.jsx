@@ -35,8 +35,10 @@ export default function BowlAddDialog() {
   const destination = add.destination;
   const closeAddDialog = add.close;
   const lost = destination && !bowls.some((bowl) => bowl.id === destination.id);
-  const uncertain = add.result?.code === "outcome_unknown";
-  const disabled = add.pending || Boolean(lost) || Boolean(uncertain) || add.initializing;
+  // An unconfirmed add no longer blocks the dialog; it keeps its own notice and
+  // only refuses a second attempt at the same title in the same bowl.
+  const result = add.result?.code === "outcome_unknown" ? null : add.result;
+  const disabled = add.pending || Boolean(lost) || add.initializing;
   useEffect(() => {
     if (!add.open) {
       openLocation.current = location.key;
@@ -98,7 +100,7 @@ export default function BowlAddDialog() {
             {bowls.length > 1 && !details ? <button ref={selectorButton} type="button"
               className="btn btn-secondary min-h-11 max-w-full whitespace-normal break-words text-left"
               aria-label={`Choose bowl. Current bowl: ${destination.name}`}
-              aria-expanded={expanded} aria-controls="add-bowl-choices" disabled={add.pending || uncertain}
+              aria-expanded={expanded} aria-controls="add-bowl-choices" disabled={add.pending}
               onClick={() => {
                 if (!expanded) search.current?.blurSearch();
                 setExpanded(!expanded);
@@ -130,7 +132,7 @@ export default function BowlAddDialog() {
     </div>
     {lost && <div className="status-error mt-2" role="alert">
       You no longer have access to this bowl. Choose another bowl.
-      {bowls.length === 1 && <button className="btn btn-secondary mt-2" disabled={add.pending || uncertain} onClick={() => choose(bowls[0])}>Use {bowls[0].name}</button>}
+      {bowls.length === 1 && <button className="btn btn-secondary mt-2" disabled={add.pending} onClick={() => choose(bowls[0])}>Use {bowls[0].name}</button>}
     </div>}
     {bowls.length === 0 && !add.initializing && !add.bowlsError && <div className="panel-muted">
       <p>Create or join a bowl to add movies.</p>
@@ -139,13 +141,20 @@ export default function BowlAddDialog() {
     <span className="sr-only" role="status">{announcement}</span>
   </div>;
   const feedback = <>
-    {add.result?.ok && <p className="mt-2 text-sm text-emerald-300" role="status">Added {add.operation.movie.title} to {add.operation.bowlName}</p>}
-    {add.result?.ok === false && <div className="status-error mt-2" role="alert">{add.result.message}
-      {uncertain && <button className="btn btn-secondary mt-2" disabled={add.pending} onClick={async () => {
-        const result = await add.checkStatus();
-        if (result?.ok) search.current?.reset();
-      }}>Check add status</button>}
+    {result?.ok && <p className="mt-2 text-sm text-emerald-300" role="status">Added {add.operation.movie.title} to {add.operation.bowlName}</p>}
+    {result?.ok === false && <div className="status-error mt-2" role="alert">{result.message}
+      {result.code === "add_not_committed" && <button className="btn btn-secondary mt-2" disabled={add.pending} onClick={async () => {
+        const retried = await add.retryAdd();
+        if (retried?.ok) search.current?.reset();
+      }}>Try again</button>}
     </div>}
+    {add.unresolved.map((entry) => <div key={entry.operation.submissionId} className="status-warning mt-2" role="alert">
+      {entry.result.message}
+      <button className="btn btn-secondary mt-2" disabled={add.pending} onClick={async () => {
+        const checked = await add.checkStatus(entry.operation.submissionId);
+        if (checked?.ok) search.current?.reset();
+      }}>Check add status</button>
+    </div>)}
     {!details && add.additions.length > 0 && <button type="button" className="btn btn-ghost mt-2 w-full justify-between text-sm"
       aria-pressed={sessionView} onClick={() => {
         if (sessionView) {
@@ -175,7 +184,7 @@ export default function BowlAddDialog() {
           hideResults={expanded || bowls.length === 0} feedback={feedback}
           userStreamingServices={streamingServices} onDetailChange={setDetails}
           onSearchFocus={() => setSessionView(false)}
-          onDraftChange={() => { setSessionView(false); if (!uncertain) add.clearFeedback(); }}
+          onDraftChange={() => { setSessionView(false); add.clearFeedback(); }}
           detailActionLabel={`Add to ${destination.name}`} onSubmitMovie={add.submit} /> : null}
         {details && feedback}
       </>}
