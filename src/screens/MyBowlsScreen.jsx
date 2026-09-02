@@ -4,28 +4,18 @@ import BowlCard from "../components/BowlCard";
 import NewBowlButton from "../components/NewBowlButton";
 import CreateBowlModal from "../components/CreateBowlModal";
 import PendingInviteList from "../components/PendingInviteList";
+import useCreateBowl from "../hooks/useCreateBowl";
 import useUserBowls from "../hooks/useUserBowls";
-import { notifyBowlChange } from "../lib/bowlChanges";
 import { sortBowlsByRecentActivity } from "../utils/bowlOrdering";
 import usePendingInvites from "../hooks/usePendingInvites";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
-import { sendInviteEmails } from "../lib/inviteEmails";
-import { supabase } from "../lib/supabase";
 import { MAX_BOWLS_PER_USER } from "../utils/appLimits";
-import { parseInviteEmails } from "../utils/parseInviteEmails";
-
-// Supabase client is centralized in src/lib/supabase.js
 
 export default function MyBowlsScreen() {
   const { bowls, defaultBowlId, loading: isLoading, error: loadError, refresh,
     setDefaultBowl, savingDefault } = useUserBowls();
   const [defaultMessage, setDefaultMessage] = useState(null);
   const [defaultError, setDefaultError] = useState(null);
-  const [isModalOpen, setIsModalOpen] = useState(false);
-  const [newBowlName, setNewBowlName] = useState("");
-  const [inviteEmails, setInviteEmails] = useState("");
-  const [createErrorMessage, setCreateErrorMessage] = useState(null);
-  const [createActionMessage, setCreateActionMessage] = useState(null);
   const [inviteActionMessage, setInviteActionMessage] = useState(null);
   const [inviteErrorMessage, setInviteErrorMessage] = useState(null);
   const navigate = useNavigate();
@@ -40,7 +30,19 @@ export default function MyBowlsScreen() {
     declineInvite,
   } = usePendingInvites();
   const ownedBowlCount = bowls.filter((b) => b.role === "Owner").length;
-  const isCreateBowlLimitReached = ownedBowlCount >= MAX_BOWLS_PER_USER;
+  const {
+    actionMessage: createActionMessage,
+    bowlName: newBowlName,
+    close: handleCloseModal,
+    create: handleCreateBowl,
+    errorMessage: createErrorMessage,
+    inviteEmails,
+    isLimitReached: isCreateBowlLimitReached,
+    isOpen: isModalOpen,
+    open: handleNewBowl,
+    setBowlName: setNewBowlName,
+    setInviteEmails,
+  } = useCreateBowl({ ownedBowlCount, refresh });
   const ownedBowls = sortBowlsByRecentActivity(bowls.filter((b) => b.role === "Owner"));
   const sharedBowls = sortBowlsByRecentActivity(bowls.filter((b) => b.role !== "Owner"));
   const hasStreamingServices = streamingServices.length > 0;
@@ -92,147 +94,8 @@ export default function MyBowlsScreen() {
     navigate(`/bowl/${bowlId}`);
   };
 
-  const handleNewBowl = () => {
-    if (isCreateBowlLimitReached) {
-      setCreateErrorMessage(`You can create up to ${MAX_BOWLS_PER_USER} bowls.`);
-      setCreateActionMessage(null);
-      return;
-    }
-    setCreateErrorMessage(null);
-    setCreateActionMessage(null);
-    setIsModalOpen(true);
-  };
-
   const handleGoToStreamingServices = () => {
     navigate("/settings#streaming-services");
-  };
-
-  const handleCreateBowl = async () => {
-    setCreateErrorMessage(null);
-    setCreateActionMessage(null);
-
-    if (isCreateBowlLimitReached) {
-      setCreateErrorMessage(`You can create up to ${MAX_BOWLS_PER_USER} bowls.`);
-      return;
-    }
-
-    const bowlName = newBowlName.trim();
-    if (!bowlName) {
-      setCreateErrorMessage("Bowl name is required.");
-      return;
-    }
-
-    const { validEmails, invalidEmails } = parseInviteEmails(inviteEmails);
-    if (invalidEmails.length > 0) {
-      setCreateErrorMessage(`Invalid email(s): ${invalidEmails.join(", ")}`);
-      return;
-    }
-
-    const { data: authData, error: userError } = await supabase.auth.getSession();
-    const user = authData?.session?.user;
-    if (userError || !user) {
-      console.error("Not authenticated", userError);
-      setCreateErrorMessage("You must be signed in to create a bowl.");
-      return;
-    }
-
-    // Insert new bowl into Supabase
-    let { data: newBowl, error: bowlError } = await supabase
-      .from("bowls")
-      .insert([{
-        owner_id: user.id,
-        name: bowlName,
-        draw_access_mode: "all_members",
-      }])
-      .select()
-      .single();
-
-    if (bowlError && String(bowlError?.message || "").toLowerCase().includes("draw_access_mode")) {
-      const fallback = await supabase
-        .from("bowls")
-        .insert([{
-          owner_id: user.id,
-          name: bowlName,
-        }])
-        .select()
-        .single();
-      newBowl = fallback.data;
-      bowlError = fallback.error;
-    }
-
-    if (bowlError || !newBowl) {
-      console.error("Failed to create bowl", bowlError);
-      setCreateErrorMessage("Failed to create bowl.");
-      return;
-    }
-
-    notifyBowlChange({ userId: user.id, bowlId: newBowl.id });
-
-    // Insert bowl member as owner
-    const { error: memberError } = await supabase
-      .from("bowl_members")
-      .insert([{ bowl_id: newBowl.id, user_id: user.id, role: "Owner" }]);
-
-    if (memberError) {
-      console.error("Failed to add owner membership", memberError);
-      setCreateErrorMessage("Failed to add owner membership.");
-      return;
-    }
-
-    if (validEmails.length > 0) {
-      const inviteRows = validEmails.map((email) => ({
-        bowl_id: newBowl.id,
-        invited_email: email,
-        invited_by: user.id,
-        token: crypto.randomUUID(),
-      }));
-
-      const { error: inviteError } = await supabase
-        .from("bowl_invites")
-        .insert(inviteRows);
-
-      if (inviteError) {
-        console.error("Failed to create invites", inviteError);
-        setCreateErrorMessage("Bowl created, but invites could not be created.");
-      } else {
-        const emailResult = await sendInviteEmails(
-          validEmails.map((email, index) => ({
-            bowlId: newBowl.id,
-            bowlName: newBowl.name,
-            invitedEmail: email,
-            invitedByEmail: user.email || null,
-            token: inviteRows[index].token,
-          }))
-        );
-
-        if (!emailResult.error && emailResult.failed === 0) {
-          setCreateActionMessage(
-            `Bowl created and ${emailResult.sent} invite email${emailResult.sent === 1 ? "" : "s"} sent.`
-          );
-        } else if (emailResult.sent > 0) {
-          setCreateActionMessage(
-            `Bowl created, but only ${emailResult.sent} of ${validEmails.length} invite email${validEmails.length === 1 ? "" : "s"} sent.`
-          );
-        } else {
-          setCreateActionMessage(
-            "Bowl created, but invite emails could not be sent. You can still share the invite links from Bowl Settings."
-          );
-        }
-      }
-    }
-
-    await refresh({ force: true });
-    setNewBowlName("");
-    setInviteEmails("");
-    setIsModalOpen(false);
-  };
-
-  const handleCloseModal = () => {
-    setNewBowlName("");
-    setInviteEmails("");
-    setCreateErrorMessage(null);
-    setCreateActionMessage(null);
-    setIsModalOpen(false);
   };
 
   return (
