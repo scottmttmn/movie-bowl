@@ -9,6 +9,10 @@ const mocks = vi.hoisted(() => ({
     bowls: [],
     received: [],
     isReceivedLoading: false,
+    receivedLoadError: null,
+    reloadInvites: vi.fn(async () => null),
+    bowlsLoading: false,
+    bowlsError: null,
     acceptInvite: vi.fn(async () => ({ error: null })),
     declineInvite: vi.fn(async () => ({ error: null })),
     sentInvitations: [],
@@ -24,12 +28,19 @@ vi.mock("../../hooks/useAuth", () => ({
   default: () => ({ session: { user: { email: mocks.state.accountEmail } } }),
 }));
 vi.mock("../../hooks/useUserBowls", () => ({
-  default: () => ({ bowls: mocks.state.bowls, refresh: vi.fn(async () => null) }),
+  default: () => ({
+    bowls: mocks.state.bowls,
+    loading: mocks.state.bowlsLoading,
+    error: mocks.state.bowlsError,
+    refresh: vi.fn(async () => null),
+  }),
 }));
 vi.mock("../../hooks/usePendingInvites", () => ({
   default: () => ({
     invites: mocks.state.received,
     isLoading: mocks.state.isReceivedLoading,
+    error: mocks.state.receivedLoadError,
+    reloadInvites: mocks.state.reloadInvites,
     acceptInvite: mocks.state.acceptInvite,
     declineInvite: mocks.state.declineInvite,
   }),
@@ -76,7 +87,11 @@ describe("InvitesPage", () => {
       sentInvitations: [],
       sentLoadError: null,
       isSending: false,
+      receivedLoadError: null,
+      bowlsLoading: false,
+      bowlsError: null,
     });
+    mocks.state.reloadInvites.mockReset().mockResolvedValue(null);
     mocks.state.navigate.mockReset();
     mocks.state.acceptInvite.mockReset().mockResolvedValue({ error: null });
     mocks.state.declineInvite.mockReset().mockResolvedValue({ error: null });
@@ -168,6 +183,37 @@ describe("InvitesPage", () => {
     expect(screen.getByLabelText("Bowl")).toHaveValue("");
   });
 
+  it("sends the pending-count shortcut to sent, not to the form", () => {
+    mocks.state.bowls = [OWNED, OWNED_2];
+    mocks.state.search = "bowl=bowl-2";
+    mocks.state.sentInvitations = [
+      { id: "s1", bowl_id: "bowl-2", invited_email: "friend@example.com", token: "t", created_at: null },
+    ];
+
+    render(
+      <MemoryRouter initialEntries={["/invites?bowl=bowl-2#sent"]}>
+        <InvitesPage />
+      </MemoryRouter>
+    );
+
+    expect(document.activeElement).toBe(
+      screen.getByRole("heading", { level: 2, name: "Pending invitations sent" })
+    );
+  });
+
+  it("sends the invite shortcut to the form", () => {
+    mocks.state.bowls = [OWNED, OWNED_2];
+    mocks.state.search = "bowl=bowl-2";
+
+    render(
+      <MemoryRouter initialEntries={["/invites?bowl=bowl-2#invite-people"]}>
+        <InvitesPage />
+      </MemoryRouter>
+    );
+
+    expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2, name: "Invite people" }));
+  });
+
   it("sends parsed addresses and reports the outcome", async () => {
     mocks.state.send.mockResolvedValue({ ok: true, message: "Sent 2 invitations to Friday Night." });
 
@@ -223,6 +269,74 @@ describe("InvitesPage", () => {
       invitationId: "s1",
     })));
     await waitFor(() => expect(screen.getByText("Invitation revoked for friend@example.com.")).toBeInTheDocument());
+  });
+
+  it("does not turn a failed inbox read into an empty inbox", async () => {
+    mocks.state.received = [{ id: "inv-1", bowl_id: "bowl-7", bowl_name: "Film Club" }];
+    mocks.state.receivedLoadError = "Could not check for invitations. Try again.";
+
+    renderHub();
+
+    expect(screen.getByText("Film Club")).toBeInTheDocument();
+    expect(screen.queryByText("No pending invitations")).not.toBeInTheDocument();
+    const retry = within(screen.getByRole("heading", { level: 2, name: "Received invitations" }).closest("section"))
+      .getByRole("button", { name: /try again/i });
+    mocks.state.reloadInvites.mockClear();
+    fireEvent.click(retry);
+    expect(mocks.state.reloadInvites).toHaveBeenCalled();
+  });
+
+  it("re-reads the inbox on entry so a later visit sees new invitations", async () => {
+    renderHub();
+    await waitFor(() => expect(mocks.state.reloadInvites).toHaveBeenCalled());
+  });
+
+  it("announces a completed decline", async () => {
+    mocks.state.received = [{ id: "inv-1", bowl_id: "bowl-7", bowl_name: "Film Club" }];
+
+    renderHub();
+    fireEvent.click(screen.getByRole("button", { name: /decline invitation to Film Club/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^decline invitation$/i }));
+
+    await waitFor(() => expect(screen.getByText("Invitation to Film Club declined.")).toBeInTheDocument());
+  });
+
+  it("reports a failed revoke as an error and keeps the row revocable", async () => {
+    mocks.state.sentInvitations = [
+      { id: "s1", bowl_id: "bowl-1", invited_email: "friend@example.com", token: "tok-1", created_at: null },
+    ];
+    mocks.state.revoke.mockResolvedValue({ ok: false, message: "Could not revoke that invitation. Try again." });
+
+    renderHub();
+    fireEvent.click(screen.getByRole("button", { name: /revoke invitation for friend@example.com/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^revoke invitation$/i }));
+
+    await waitFor(() => expect(
+      screen.getAllByRole("alert").some((node) => node.textContent.includes("Could not revoke that invitation."))
+    ).toBe(true));
+    expect(screen.queryByText(/invitation revoked for/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: /revoke friend@example.com/i })).toBeInTheDocument();
+  });
+
+  it("waits for bowl ownership before offering to create or send", () => {
+    mocks.state.bowls = [];
+    mocks.state.bowlsLoading = true;
+
+    renderHub();
+
+    expect(screen.getByText("Loading your bowls…")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /create a bowl/i })).not.toBeInTheDocument();
+    expect(screen.queryByLabelText("Bowl")).not.toBeInTheDocument();
+  });
+
+  it("treats a bowl-context failure as unknown ownership, not as owning nothing", () => {
+    mocks.state.bowls = [];
+    mocks.state.bowlsError = "Could not load your bowls. Please try again.";
+
+    renderHub();
+
+    expect(screen.getByText("Could not load your bowls.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /create a bowl/i })).not.toBeInTheDocument();
   });
 
   it("offers a retry when sent invitations could not load", () => {

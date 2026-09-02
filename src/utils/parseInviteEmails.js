@@ -3,7 +3,9 @@ const EMAIL_PATTERN = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
 export function parseInviteEmails(input) {
   const raw = String(input || "");
   const pieces = raw
-    .split(/[\n,]+/)
+    // Commas, new lines, or plain spaces -- an address cannot contain one, and
+    // the invite form tells people all three work.
+    .split(/[\s,]+/)
     .map((value) => value.trim().toLowerCase())
     .filter(Boolean);
 

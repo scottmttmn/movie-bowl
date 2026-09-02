@@ -51,6 +51,7 @@ async function loadInviteDetails(invites) {
 export function PendingInvitesProvider({ children }) {
   const [invites, setInvites] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [error, setError] = useState(null);
 
   const load = useCallback(async () => {
     setIsLoading(true);
@@ -60,7 +61,9 @@ export function PendingInvitesProvider({ children }) {
       const userEmail = String(authData?.session?.user?.email || "").trim().toLowerCase();
 
       if (authError || !userEmail) {
+        // Signed out is a real empty inbox; a failed read is not.
         setInvites([]);
+        setError(null);
         return;
       }
 
@@ -73,12 +76,16 @@ export function PendingInvitesProvider({ children }) {
 
       if (inviteError) {
         console.error("[usePendingInvites] Failed to load pending invites", inviteError);
-        setInvites([]);
+        // Keep the last good rows and the badge that goes with them. Reporting
+        // zero here would tell someone an invitation had vanished, and the
+        // navigation badge would quietly drop to nothing.
+        setError("Could not check for invitations. Try again.");
         return;
       }
 
       const rows = inviteRows || [];
       setInvites(rows.length === 0 ? [] : await loadInviteDetails(rows));
+      setError(null);
     } finally {
       setIsLoading(false);
     }
@@ -128,11 +135,12 @@ export function PendingInvitesProvider({ children }) {
       invites,
       pendingInviteCount: invites.length,
       isLoading,
+      error,
       reloadInvites: load,
       acceptInvite,
       declineInvite,
     }),
-    [invites, isLoading, load, acceptInvite, declineInvite]
+    [invites, isLoading, error, load, acceptInvite, declineInvite]
   );
 
   return createElement(PendingInvitesContext.Provider, { value }, children);

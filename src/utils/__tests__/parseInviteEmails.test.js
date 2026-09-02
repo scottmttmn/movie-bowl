@@ -8,6 +8,17 @@ describe("parseInviteEmails", () => {
     expect(result.invalidEmails).toEqual([]);
   });
 
+  it("splits on spaces as well as commas and new lines", () => {
+    const result = parseInviteEmails("a@example.com b@example.com,c@example.com\nd@example.com");
+    expect(result.validEmails).toEqual([
+      "a@example.com",
+      "b@example.com",
+      "c@example.com",
+      "d@example.com",
+    ]);
+    expect(result.invalidEmails).toEqual([]);
+  });
+
   it("normalizes case and removes duplicates", () => {
     const result = parseInviteEmails("A@Example.com, a@example.com");
     expect(result.validEmails).toEqual(["a@example.com"]);

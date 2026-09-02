@@ -15,6 +15,19 @@ export default function ConfirmDialog({
   onConfirm,
 }) {
   const dialogRef = useRef(null);
+  // The effect below must not re-run when these change: its cleanup restores
+  // focus behind the modal, and callers pass a fresh inline onKeep every render.
+  const onKeepRef = useRef(onKeep);
+  const isBusyRef = useRef(isBusy);
+  useEffect(() => { onKeepRef.current = onKeep; }, [onKeep]);
+  useEffect(() => { isBusyRef.current = isBusy; }, [isBusy]);
+
+  // While the action is pending both buttons are disabled, so focus would land
+  // on a disabled control and Tab could walk out of the dialog. Park it on the
+  // container instead.
+  useEffect(() => {
+    if (isOpen && isBusy) dialogRef.current?.focus();
+  }, [isOpen, isBusy]);
 
   useEffect(() => {
     if (!isOpen) return undefined;
@@ -26,7 +39,7 @@ export default function ConfirmDialog({
     const handleKeyDown = (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        if (!isBusy) onKeep();
+        if (!isBusyRef.current) onKeepRef.current();
         return;
       }
       if (event.key !== "Tab") return;
@@ -47,7 +60,7 @@ export default function ConfirmDialog({
       document.removeEventListener("keydown", handleKeyDown);
       if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
     };
-  }, [isOpen, isBusy, onKeep]);
+  }, [isOpen]);
 
   if (!isOpen) return null;
 
