@@ -126,6 +126,17 @@ export function PendingInvitesProvider({ children }) {
     };
   }, [load]);
 
+  // Acting on an invitation has to invalidate reads that started before it.
+  // Those reads carry a list that still contains this row, and without the bump
+  // they are still the newest request and would write it straight back. The
+  // loading flag is cleared here because the read we just discarded is the one
+  // that would otherwise have cleared it.
+  const dropInvite = useCallback((inviteId) => {
+    generation.current += 1;
+    setInvites((previous) => previous.filter((row) => row.id !== inviteId));
+    setIsLoading(false);
+  }, []);
+
   const acceptInvite = useCallback(async (invite) => {
     const result = await acceptBowlInvite(invite?.token);
 
@@ -133,9 +144,9 @@ export function PendingInvitesProvider({ children }) {
       return { error: result.message };
     }
 
-    setInvites((prev) => prev.filter((row) => row.id !== invite.id));
+    dropInvite(invite.id);
     return { error: null };
-  }, []);
+  }, [dropInvite]);
 
   const declineInvite = useCallback(async (invite) => {
     const { data: authData, error: authError } = await supabase.auth.getSession();
@@ -157,9 +168,9 @@ export function PendingInvitesProvider({ children }) {
       return { error: "Failed to decline invite." };
     }
 
-    setInvites((prev) => prev.filter((row) => row.id !== invite.id));
+    dropInvite(invite.id);
     return { error: null };
-  }, []);
+  }, [dropInvite]);
 
   const value = useMemo(
     () => ({
