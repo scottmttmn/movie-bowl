@@ -68,7 +68,13 @@ export function BowlAddProvider({ children }) {
         pending: null, error: null }, ...latest.current.additions.filter((entry) => entry.movie.id !== result.movie.id)]
       : latest.current.additions;
     const others = latest.current.unresolved.filter((entry) => entry.operation.submissionId !== operation.submissionId);
-    const unresolved = isUnsettledAddCode(result.code) ? [...others, { operation, result }] : others;
+    const claim = latest.current.unresolved.find((entry) => entry.operation.submissionId === operation.submissionId);
+    // Only a landed row releases a claim. A retry that fails before dispatch —
+    // offline, a dropped request — says nothing about whether the first write
+    // is still on its way, so the claim stands and keeps its own message. A new
+    // submission has a fresh id and no claim, so this cannot hold it back.
+    const unresolved = isUnsettledAddCode(result.code) ? [...others, { operation, result }]
+      : result.ok || !claim ? others : [...others, claim];
     update({ pending: false, operation, result, unresolved, additions });
     if (result.ok || result.code === "access_lost") void refresh({ force: true });
   }, [refresh, update]);
