@@ -179,7 +179,10 @@ describe("useCreateBowl", () => {
     expect(refresh).toHaveBeenCalledTimes(1);
   });
 
-  it("ignores dismissal while creation is in flight", async () => {
+  it.each([
+    ["creation", true],
+    ["refresh", false],
+  ])("abandons local state safely when dismissed during %s", async (_stage, dismissDuringCreate) => {
     const success = {
       ok: true,
       code: null,
@@ -188,10 +191,15 @@ describe("useCreateBowl", () => {
       bowl: { id: "bowl-10", name: "Bowl A" },
     };
     let finishCreate;
+    let finishRefresh;
     const service = {
-      create: vi.fn(() => new Promise((resolve) => { finishCreate = resolve; })),
+      create: vi.fn(() => dismissDuringCreate
+        ? new Promise((resolve) => { finishCreate = resolve; })
+        : Promise.resolve(success)),
     };
-    const refresh = vi.fn(async () => {});
+    const refresh = vi.fn(() => dismissDuringCreate
+      ? Promise.resolve()
+      : new Promise((resolve) => { finishRefresh = resolve; }));
     const { result } = renderHook(() => useCreateBowl({
       ownedBowlCount: 0,
       refresh,
@@ -207,24 +215,37 @@ describe("useCreateBowl", () => {
     act(() => {
       operation = result.current.create();
     });
-    await waitFor(() => expect(service.create).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(
+      dismissDuringCreate ? service.create : refresh
+    ).toHaveBeenCalledTimes(1));
 
     let closed;
     act(() => {
       closed = result.current.close();
     });
-    expect(closed).toBe(false);
-    expect(result.current.isOpen).toBe(true);
-    expect(result.current.bowlName).toBe("Bowl A");
-    expect(result.current.inviteEmails).toBe("friend@example.com");
+    expect(closed).toBe(true);
+    expect(result.current.isOpen).toBe(false);
+    expect(result.current.bowlName).toBe("");
+    expect(result.current.inviteEmails).toBe("");
+    expect(result.current.actionMessage).toBeNull();
+
+    let reopened;
+    act(() => {
+      reopened = result.current.open();
+    });
+    expect(reopened).toBe(false);
+    expect(result.current.isOpen).toBe(false);
 
     await act(async () => {
-      finishCreate(success);
+      if (dismissDuringCreate) finishCreate(success);
+      else finishRefresh();
       await operation;
     });
     expect(result.current.isOpen).toBe(false);
     expect(result.current.bowlName).toBe("");
     expect(result.current.inviteEmails).toBe("");
+    expect(result.current.actionMessage).toBeNull();
+    expect(result.current.isCreating).toBe(false);
   });
 
   it.each([

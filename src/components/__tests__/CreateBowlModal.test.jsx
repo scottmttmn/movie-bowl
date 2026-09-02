@@ -46,6 +46,23 @@ describe("CreateBowlModal", () => {
     expect(onChangeInviteEmails).toHaveBeenCalledWith("a@example.com");
   });
 
+  it("renders creation errors inside the dialog", () => {
+    render(
+      <CreateBowlModal
+        isOpen
+        bowlName="Friday Bowl"
+        inviteEmails="friend@"
+        errorMessage="Invalid email(s): friend@"
+        onChangeBowlName={vi.fn()}
+        onChangeInviteEmails={vi.fn()}
+        onCreate={vi.fn()}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Invalid email(s): friend@");
+  });
+
   it("calls create on button click and enter key, and cancel on close", () => {
     const onCreate = vi.fn();
     const onClose = vi.fn();
@@ -95,9 +112,9 @@ describe("CreateBowlModal", () => {
 
     expect(nameInput).toBeDisabled();
     expect(inviteInput).toBeDisabled();
-    expect(screen.getByRole("button", { name: /cancel/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /cancel/i })).toBeEnabled();
     expect(screen.getByRole("button", { name: /creating/i })).toBeDisabled();
     expect(onCreate).not.toHaveBeenCalled();
-    expect(onClose).not.toHaveBeenCalled();
+    expect(onClose).toHaveBeenCalledTimes(1);
   });
 });
