@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
@@ -515,6 +515,24 @@ describe("MyBowlsScreen", () => {
       invited_email: "friend@example.com",
       invited_by: "u1",
     });
+  });
+
+  it("shows creation errors inside the open dialog", async () => {
+    mocks.state.initialAuthenticated = true;
+
+    renderMyBowls();
+
+    await waitFor(() => expect(screen.getByText(/start your first movie bowl/i)).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: /\+ new bowl/i }));
+    fireEvent.change(screen.getByPlaceholderText("Bowl Name"), { target: { value: "Weekend Bowl" } });
+    fireEvent.change(screen.getByLabelText(/invite emails \(optional\)/i), {
+      target: { value: "friend@" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /^create$/i }));
+
+    const dialog = screen.getByRole("dialog", { name: /create new bowl/i });
+    await waitFor(() => expect(within(dialog).getByRole("alert")).toHaveTextContent("Invalid email(s): friend@"));
+    expect(screen.getAllByText("Invalid email(s): friend@")).toHaveLength(1);
   });
 
   it("shows a partial failure message when invite emails cannot be sent", async () => {

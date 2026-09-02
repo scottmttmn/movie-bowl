@@ -105,7 +105,7 @@ export default function MyBowlsScreen() {
         <div className="mb-4 space-y-2" aria-live="polite">
           {defaultMessage && <div className="status-success" role="status">{defaultMessage}</div>}
           {defaultError && <div className="status-error" role="alert">{defaultError}</div>}
-          {createErrorMessage && <div className="status-error">{createErrorMessage}</div>}
+          {createErrorMessage && !isModalOpen && <div className="status-error" role="alert">{createErrorMessage}</div>}
           {createActionMessage && <div className="status-success">{createActionMessage}</div>}
           {inviteErrorMessage && <div className="status-error">{inviteErrorMessage}</div>}
           {inviteActionMessage && <div className="status-success">{inviteActionMessage}</div>}
@@ -119,7 +119,7 @@ export default function MyBowlsScreen() {
             </p>
           </div>
           <div className="flex justify-start md:justify-end">
-            <NewBowlButton onClick={handleNewBowl} disabled={isCreateBowlLimitReached} />
+            <NewBowlButton onClick={handleNewBowl} disabled={isCreateBowlLimitReached || isCreating} />
           </div>
         </div>
         {isCreateBowlLimitReached && (
@@ -152,7 +152,7 @@ export default function MyBowlsScreen() {
                 </p>
               </div>
               <div className="mt-5 flex flex-col gap-2.5 sm:flex-row sm:items-center">
-                <button className="btn btn-primary" onClick={handleNewBowl}>
+                <button className="btn btn-primary" onClick={handleNewBowl} disabled={isCreating}>
                   Create your first bowl
                 </button>
                 <button className="btn btn-ghost px-3 py-2 text-sm" onClick={handleGoToStreamingServices}>
@@ -219,7 +219,7 @@ export default function MyBowlsScreen() {
                     </span>
                   </div>
                   <div className="mt-4">
-                    <button type="button" onClick={handleNewBowl} className="btn btn-secondary">
+                    <button type="button" onClick={handleNewBowl} className="btn btn-secondary" disabled={isCreating}>
                       Create bowl
                     </button>
                   </div>
@@ -286,6 +286,7 @@ export default function MyBowlsScreen() {
         onCreate={handleCreateBowl}
         onClose={handleCloseModal}
         isCreating={isCreating}
+        errorMessage={createErrorMessage}
       />
     </div>
   );

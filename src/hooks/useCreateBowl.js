@@ -16,21 +16,24 @@ export default function useCreateBowl({
   const [actionMessage, setActionMessage] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
   const createInFlight = useRef(null);
+  const abandonedOperation = useRef(null);
   const isLimitReached = ownedBowlCount >= MAX_BOWLS_PER_USER;
 
   const open = () => {
+    if (createInFlight.current) return false;
     if (isLimitReached) {
       setErrorMessage(`You can create up to ${MAX_BOWLS_PER_USER} bowls.`);
       setActionMessage(null);
-      return;
+      return false;
     }
     setErrorMessage(null);
     setActionMessage(null);
     setIsOpen(true);
+    return true;
   };
 
   const close = () => {
-    if (createInFlight.current) return false;
+    if (createInFlight.current) abandonedOperation.current = createInFlight.current;
     setBowlName("");
     setInviteEmails("");
     setErrorMessage(null);
@@ -52,15 +55,19 @@ export default function useCreateBowl({
     const operation = Promise.resolve()
       .then(() => service.create(input))
       .then(async (result) => {
-        setErrorMessage(result.errorMessage);
-        setActionMessage(result.actionMessage);
+        if (abandonedOperation.current !== operation) {
+          setErrorMessage(result.errorMessage);
+          setActionMessage(result.actionMessage);
+        }
 
         if (!result.ok) return result;
 
         await refresh({ force: true });
-        setBowlName("");
-        setInviteEmails("");
-        setIsOpen(false);
+        if (abandonedOperation.current !== operation) {
+          setBowlName("");
+          setInviteEmails("");
+          setIsOpen(false);
+        }
         return result;
       })
       .catch((error) => {
@@ -70,12 +77,15 @@ export default function useCreateBowl({
           code: "outcome_unknown",
           errorMessage: UNKNOWN_CREATE_MESSAGE,
         });
-        setErrorMessage(result.errorMessage);
-        setActionMessage(null);
+        if (abandonedOperation.current !== operation) {
+          setErrorMessage(result.errorMessage);
+          setActionMessage(null);
+        }
         return result;
       })
       .finally(() => {
-        createInFlight.current = null;
+        if (createInFlight.current === operation) createInFlight.current = null;
+        if (abandonedOperation.current === operation) abandonedOperation.current = null;
         setIsCreating(false);
       });
 
