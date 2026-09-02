@@ -21,6 +21,7 @@ export default function CreateBowlModal({
           className="input-field mb-4"
           placeholder="Bowl Name"
           value={bowlName}
+          disabled={isCreating}
           onChange={(e) => onChangeBowlName(e.target.value)}
           onKeyDown={(e) => {
             if (e.key === "Enter" && !isCreating) onCreate();
@@ -36,10 +37,11 @@ export default function CreateBowlModal({
           className="input-field mb-4 min-h-20"
           placeholder="friend1@example.com, friend2@example.com"
           value={inviteEmails}
+          disabled={isCreating}
           onChange={(e) => onChangeInviteEmails(e.target.value)}
         />
         <div className="flex flex-col-reverse gap-3 sm:flex-row sm:justify-end">
-          <button className="btn btn-secondary" onClick={onClose}>
+          <button className="btn btn-secondary" onClick={onClose} disabled={isCreating}>
             Cancel
           </button>
           <button className="btn btn-primary" onClick={onCreate} disabled={isCreating}>
