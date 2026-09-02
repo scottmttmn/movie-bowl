@@ -1,6 +1,6 @@
 import { createContext, useCallback, useContext, useEffect, useMemo, useRef, useState } from "react";
 import useUserBowls from "../hooks/useUserBowls";
-import { bowlMovieService, addResult, getSubmissionKey } from "../lib/addBowlMovie";
+import { bowlMovieService, addResult, getSubmissionKey, isUnsettledAddCode } from "../lib/addBowlMovie";
 import { bowlMovieActions } from "../lib/bowlMovieActions";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
@@ -68,7 +68,7 @@ export function BowlAddProvider({ children }) {
         pending: null, error: null }, ...latest.current.additions.filter((entry) => entry.movie.id !== result.movie.id)]
       : latest.current.additions;
     const others = latest.current.unresolved.filter((entry) => entry.operation.submissionId !== operation.submissionId);
-    const unresolved = result.code === "outcome_unknown" ? [...others, { operation, result }] : others;
+    const unresolved = isUnsettledAddCode(result.code) ? [...others, { operation, result }] : others;
     update({ pending: false, operation, result, unresolved, additions });
     if (result.ok || result.code === "access_lost") void refresh({ force: true });
   }, [refresh, update]);
@@ -92,7 +92,7 @@ export function BowlAddProvider({ children }) {
     const blocking = currentSession.unresolved.find((entry) => getSubmissionKey(entry.operation) === key);
     if (blocking) {
       const result = addResult(false, "awaiting_confirmation",
-        `${operation.movie.title} is already waiting on an unconfirmed add to ${operation.bowlName}. Check that first.`);
+        `${operation.movie.title} already has an unfinished add to ${operation.bowlName}. Finish that one before adding it again.`);
       update({ result, operation });
       return result;
     }
@@ -114,23 +114,24 @@ export function BowlAddProvider({ children }) {
     return result;
   }, [bowls, userId, update, finish]);
 
-  // Resends the captured operation under its original id, so a first write that
+  const claimed = useCallback((submissionId) => (submissionId
+    ? latest.current.unresolved.find((item) => item.operation.submissionId === submissionId)
+    : latest.current.unresolved[0])?.operation || null, []);
+
+  // Resends the claimed operation under its original id, so a first write that
   // arrives late loses the primary key instead of adding a second slip.
-  const retryAdd = useCallback(async () => {
-    const operation = latest.current.operation;
-    if (!operation || latest.current.pending || latest.current.result?.code !== "add_not_committed") return null;
+  const retryAdd = useCallback(async (submissionId = null) => {
+    const operation = claimed(submissionId);
+    if (!operation || latest.current.pending) return null;
     update({ pending: true, result: null });
     const result = mounted.current ? await bowlMovieService.add(operation)
       : addResult(false, "not_authenticated", "You must be signed in to add a movie.");
     finish(operation, result);
     return result;
-  }, [update, finish]);
+  }, [claimed, update, finish]);
 
   const checkStatus = useCallback(async (submissionId = null) => {
-    const entry = submissionId
-      ? latest.current.unresolved.find((item) => item.operation.submissionId === submissionId)
-      : latest.current.unresolved[0];
-    const operation = entry?.operation;
+    const operation = claimed(submissionId);
     if (!operation || latest.current.pending) return null;
     update({ pending: true });
     const result = await bowlMovieService.checkStatus(operation);
@@ -138,7 +139,7 @@ export function BowlAddProvider({ children }) {
       bowlId: operation.bowlId, submissionId: operation.submissionId, movie: result.movie });
     finish(operation, result);
     return result;
-  }, [update, finish, userId]);
+  }, [claimed, update, finish, userId]);
 
   const changeAddedMovie = useCallback(async (movieId, action, note) => {
     const entry = latest.current.additions.find((item) => item.movie.id === movieId);

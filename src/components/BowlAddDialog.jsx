@@ -2,6 +2,7 @@ import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation } from "react-router-dom";
 import useBowlAdd from "../hooks/useBowlAdd";
+import { isUnsettledAddCode } from "../lib/addBowlMovie";
 import useUserBowls from "../hooks/useUserBowls";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import useModalFocus from "../hooks/useModalFocus";
@@ -35,9 +36,9 @@ export default function BowlAddDialog() {
   const destination = add.destination;
   const closeAddDialog = add.close;
   const lost = destination && !bowls.some((bowl) => bowl.id === destination.id);
-  // An unconfirmed add no longer blocks the dialog; it keeps its own notice and
+  // An unfinished add no longer blocks the dialog; it keeps its own notice and
   // only refuses a second attempt at the same title in the same bowl.
-  const result = add.result?.code === "outcome_unknown" ? null : add.result;
+  const result = isUnsettledAddCode(add.result?.code) ? null : add.result;
   const disabled = add.pending || Boolean(lost) || add.initializing;
   useEffect(() => {
     if (!add.open) {
@@ -142,19 +143,17 @@ export default function BowlAddDialog() {
   </div>;
   const feedback = <>
     {result?.ok && <p className="mt-2 text-sm text-emerald-300" role="status">Added {add.operation.movie.title} to {add.operation.bowlName}</p>}
-    {result?.ok === false && <div className="status-error mt-2" role="alert">{result.message}
-      {result.code === "add_not_committed" && <button className="btn btn-secondary mt-2" disabled={add.pending} onClick={async () => {
-        const retried = await add.retryAdd();
-        if (retried?.ok) search.current?.reset();
-      }}>Try again</button>}
-    </div>}
-    {add.unresolved.map((entry) => <div key={entry.operation.submissionId} className="status-warning mt-2" role="alert">
-      {entry.result.message}
-      <button className="btn btn-secondary mt-2" disabled={add.pending} onClick={async () => {
-        const checked = await add.checkStatus(entry.operation.submissionId);
-        if (checked?.ok) search.current?.reset();
-      }}>Check add status</button>
-    </div>)}
+    {result?.ok === false && <div className="status-error mt-2" role="alert">{result.message}</div>}
+    {add.unresolved.map((entry) => {
+      const retryable = entry.result.code === "add_not_committed";
+      return <div key={entry.operation.submissionId} className="status-warning mt-2" role="alert">
+        {entry.result.message}
+        <button className="btn btn-secondary mt-2" disabled={add.pending} onClick={async () => {
+          const settled = await (retryable ? add.retryAdd : add.checkStatus)(entry.operation.submissionId);
+          if (settled?.ok) search.current?.reset();
+        }}>{retryable ? "Try again" : "Check add status"}</button>
+      </div>;
+    })}
     {!details && add.additions.length > 0 && <button type="button" className="btn btn-ghost mt-2 w-full justify-between text-sm"
       aria-pressed={sessionView} onClick={() => {
         if (sessionView) {

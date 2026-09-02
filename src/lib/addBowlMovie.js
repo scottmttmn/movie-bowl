@@ -19,6 +19,13 @@ export function getSubmissionKey({ accountId, bowlId, movie }) {
   const tmdbId = getPositiveTmdbId(movie);
   return `${accountId}:${bowlId}:${tmdbId || String(movie?.title || "").trim().toLowerCase()}`;
 }
+// Codes whose write may still be in flight. Neither is a settled answer, so the
+// operation stays claimed until it resolves and the same title cannot be sent
+// again under a fresh id in the meantime.
+export const UNSETTLED_ADD_CODES = ["outcome_unknown", "add_not_committed"];
+export function isUnsettledAddCode(code) {
+  return UNSETTLED_ADD_CODES.includes(code);
+}
 export function isDuplicateMovieError(error) {
   return error?.code === "23505" && /already in the bowl|bowl_active_tmdb_movies/i.test(`${error.message} ${error.details}`);
 }
@@ -86,6 +93,13 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
     let user;
     let accessToken;
     const current = () => operation.isCurrent?.() !== false;
+    const warm = (settled) => {
+      if (settled?.ok && tmdbId && accessToken && current()) {
+        Promise.resolve().then(() => warmProviders(tmdbId, bowlId)).catch(() => {});
+        Promise.resolve().then(() => warmMetadata(tmdbId, bowlId, accessToken)).catch(() => {});
+      }
+      return settled;
+    };
     try {
       const { data: auth, error: authError } = await client.auth.getSession();
       user = auth?.session?.user;
@@ -103,6 +117,12 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
       if (readError) throw readError;
       if ((remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
         return addResult(false, "limit_reached", `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`);
+      }
+      const landed = (remaining || []).find((row) => row.id === submissionId);
+      if (landed && matchesSubmission(landed, operation)) {
+        result = { ...addResult(true), movie: { ...landed, local_status: null, local_temp_id: null } };
+        publish({ type: "add", phase: "success", userId: accountId, bowlId, submissionId, movie: result.movie });
+        return warm(result);
       }
       existingMovie = tmdbId && (remaining || []).find((row) => getPositiveTmdbId(row) === tmdbId);
       if (existingMovie) {
@@ -152,11 +172,7 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
       if (optimistic && current()) publish({ type: "add", phase: result?.ok ? "success" : "error",
         userId: accountId, bowlId, submissionId, movie: result?.movie });
     }
-    if (result?.ok && tmdbId && accessToken && current()) {
-      Promise.resolve().then(() => warmProviders(tmdbId, bowlId)).catch(() => {});
-      Promise.resolve().then(() => warmMetadata(tmdbId, bowlId, accessToken)).catch(() => {});
-    }
-    return result;
+    return warm(result);
   }
   return { add, checkStatus };
 }

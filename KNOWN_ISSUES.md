@@ -89,31 +89,54 @@ Last reviewed: 2026-09-01 at commit `bc6b7e3`.
   original `submissionId`, so a first write that arrives late loses the primary
   key and reconciles instead of adding a second slip.
 
-  An unconfirmed add is no longer a lock. It moved out of the single result slot
+  An unfinished add is no longer a lock. It moved out of the single result slot
   into its own `unresolved` list on the provider, so it survives dismissal and
   reopening while the rest of Add keeps working: the destination can change, a
   different title can be submitted, and reopening starts a clean session. Only a
   second attempt at the same title in the same bowl is refused, using the same
   submission key that already guards in-flight duplicates.
 
+  Both `outcome_unknown` and `add_not_committed` count as unfinished
+  (`isUnsettledAddCode`), because in either case the first write may still land.
+  Neither can be dismissed, and neither releases the title until it resolves —
+  otherwise the same custom title could be resent under a fresh id and both rows
+  would persist, since a custom entry carries a random negative `tmdb_id` and so
+  is not covered by the active-title uniqueness constraint. The two differ only
+  in the control offered: Try again for one, Check add status for the other.
+
+  A retry also has to recognize its own late-landed row. `add` now looks for a
+  row carrying its `submissionId` in the undrawn read and claims it as success
+  before the generic duplicate preflight, which would otherwise tell the person
+  their own title was already added by them.
+
 **Verification and rollout plan**
 
 1. Service tests cover the clean miss, a failing status read that stays
-   uncertain, another account's row, and a late original write colliding with a
-   same-id retry without producing a second slip.
-2. Provider tests cover feedback dismissal that leaves the unconfirmed add
+   uncertain, another account's row, a late original write colliding with a
+   same-id retry without producing a second slip, and a late-landed row with a
+   positive TMDB id being claimed rather than reported as a duplicate.
+2. Provider tests cover feedback dismissal that leaves the unfinished add
    standing, changing destination, submitting a different title, close/reopen,
-   refusing the same title in the same bowl, and resolution by status check.
-   Banner tests cover the retry control, the same-id resend, and the separate
-   unresolved row that carries no dismiss control.
+   refusing the same title in the same bowl, and resolution by both status check
+   and same-id retry — including that neither dismissal, a destination change,
+   nor reopening releases the title, and that it is free again once settled.
+   Banner tests cover both controls and that an unfinished add carries no
+   dismiss control.
 3. Deploy the client without a database migration, then confirm on a phone that
    an interrupted add offers a working retry and that Add stays usable while one
    submission is unresolved.
 4. Rollback is a client revert; there is no persisted-data repair.
 
-**Decision history:** 2026-09-01 — treated a clean read of the submission's own
-primary key as a definitive answer rather than an ambiguity, and made the
-genuinely ambiguous case a tracked item beside the flow instead of a lock on it.
+**Decision history:**
+
+- 2026-09-01 — treated a clean read of the submission's own primary key as a
+  definitive answer rather than an ambiguity, and made the genuinely ambiguous
+  case a tracked item beside the flow instead of a lock on it.
+- 2026-09-01 — review found that "not committed" had been treated as settled.
+  Dismissing it, changing destination, or reopening released the title, so the
+  same custom entry could go out under a fresh id and duplicate if the first
+  write landed late. Both unfinished codes are now claimed until resolved, and a
+  retry claims its own late-landed row ahead of duplicate handling.
 
 ### MB-004 — History screens and all-history export stop at the hosted row cap
 
