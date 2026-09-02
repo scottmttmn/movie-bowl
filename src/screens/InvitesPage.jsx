@@ -77,8 +77,6 @@ export default function InvitesPage() {
     return ownedBowls.length === 1 ? ownedBowls[0].id : "";
   }, [bowlChoice, isRequestedBowlOwned, requestedBowlId, ownedBowls]);
 
-  // Bowl Settings links to #invite-people to send and #sent to manage what it
-  // already sent. Landing both on the form sends half of them to the wrong job.
   const groupedSent = useMemo(() => {
     const byBowl = new Map();
     sent.invitations.forEach((invitation) => {
@@ -90,6 +88,8 @@ export default function InvitesPage() {
       .map((bowl) => ({ bowl, rows: byBowl.get(bowl.id) }));
   }, [sent.invitations, ownedBowls]);
 
+  // Bowl Settings links to #invite-people to send and #sent to manage what it
+  // already sent. Landing both on the form sends half of them to the wrong job.
   useEffect(() => {
     if (!isRequestedBowlOwned) return;
     const target = `${hash}:${requestedBowlId}`;
@@ -120,6 +120,7 @@ export default function InvitesPage() {
 
   const handleAccept = async (invite) => {
     setReceivedError(null);
+    setReceivedMessage(null);
     setPendingAccept(invite.id);
     const { error } = await acceptInvite(invite);
     setPendingAccept(null);
@@ -292,7 +293,16 @@ export default function InvitesPage() {
                 </button>
               </div>
             )}
-            {ownedBowlCount === 0 ? null : sent.isLoading && sent.invitations.length === 0 ? (
+            {!isOwnershipKnown ? (
+              // Unknown ownership is not "you have sent nothing". The send panel
+              // owns the alert and the retry for this same failure, so this is a
+              // plain line rather than a second alert for one problem.
+              <p className="panel mt-3 text-sm text-slate-400" role="status">
+                {bowlsError
+                  ? "Your bowls could not be loaded, so this list is unavailable."
+                  : "Loading sent invitations…"}
+              </p>
+            ) : ownedBowlCount === 0 ? null : sent.isLoading && sent.invitations.length === 0 ? (
               <p className="panel mt-3 text-sm text-slate-400" role="status">Loading sent invitations…</p>
             ) : sent.invitations.length === 0 ? (
               <div className="mt-3 rounded-2xl border border-dashed border-slate-700 bg-slate-950/35 p-5">
@@ -372,9 +382,11 @@ export default function InvitesPage() {
           </h2>
           {!isOwnershipKnown ? (
             <>
-              <p className="mt-1 text-sm text-slate-400" role="status">
-                {bowlsError ? "Could not load your bowls." : "Loading your bowls…"}
-              </p>
+              {bowlsError ? (
+                <p className="status-error mt-1" role="alert">Could not load your bowls.</p>
+              ) : (
+                <p className="mt-1 text-sm text-slate-400" role="status">Loading your bowls…</p>
+              )}
               {bowlsError && (
                 <button type="button" className="btn btn-secondary mt-3" onClick={() => { void refreshBowls({ force: true }); }}>
                   Try again

@@ -19,9 +19,12 @@ vi.mock("../../lib/supabase", () => ({
         select: () => query,
         is: () => query,
         in: () => query,
-        order: async () => (mocks.state.loadError
-          ? { data: null, error: mocks.state.loadError }
-          : { data: mocks.state.rows, error: null }),
+        order: async () => {
+          if (mocks.state.throwOnLoad) throw new Error("refresh exploded");
+          return mocks.state.loadError
+            ? { data: null, error: mocks.state.loadError }
+            : { data: mocks.state.rows, error: null };
+        },
       };
       return query;
     },
@@ -59,6 +62,7 @@ describe("useSentInvitations", () => {
       rows: [{ id: "s1", bowl_id: "bowl-1", invited_email: "friend@example.com", token: "tok", created_at: null }],
       loadError: null,
       createResult: { data: { invitations: [] }, error: null },
+      throwOnLoad: false,
       revokeResult: { data: "revoked", error: null },
       emailResult: { sent: 1, failed: 0, results: [], error: null },
       createCalls: [],
@@ -116,6 +120,32 @@ describe("useSentInvitations", () => {
     expect(sendInviteEmails).toHaveBeenCalledWith([
       expect.objectContaining({ invitedEmail: "new@example.com", token: "tok-new" }),
     ]);
+  });
+
+  it("still emails when refreshing the list blows up", async () => {
+    mocks.state.createResult = {
+      data: { invitations: [{ invited_email: "new@example.com", status: "created", token: "tok-new" }] },
+      error: null,
+    };
+    const { sendInviteEmails } = await import("../../lib/inviteEmails");
+    const { result } = await renderSent();
+    // The batch has committed and its replay key is spent. A refresh that throws
+    // must not be able to cost these recipients their invitation email.
+    mocks.state.throwOnLoad = true;
+
+    let outcome;
+    await act(async () => {
+      outcome = await result.current.send({
+        bowlId: "bowl-1",
+        bowlName: "Friday Night",
+        emails: ["new@example.com"],
+      });
+    });
+
+    expect(sendInviteEmails).toHaveBeenCalledWith([
+      expect.objectContaining({ invitedEmail: "new@example.com", token: "tok-new" }),
+    ]);
+    expect(outcome).toEqual({ ok: true, message: "Sent 1 invitation to Friday Night." });
   });
 
   it("reports created rows even when their emails fail", async () => {

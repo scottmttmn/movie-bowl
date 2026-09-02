@@ -68,6 +68,14 @@ export default function useSentInvitations(ownedBowls) {
     return () => { cancelled = true; };
   }, [load]);
 
+  // Refreshing the list is bookkeeping. It reports its own failures through
+  // loadError and must never be able to take down the caller that asked for it.
+  const refreshQuietly = useCallback(() => {
+    void load().catch((error) => {
+      console.error("[useSentInvitations] Failed to refresh sent invitations", error);
+    });
+  }, [load]);
+
   const send = useCallback((input) => {
     if (sendInFlight.current) return sendInFlight.current;
     const { bowlId, bowlName, emails, senderEmail } = input;
@@ -95,7 +103,11 @@ export default function useSentInvitations(ownedBowls) {
       const created = outcomes.filter((row) => row.status === "created" && row.token);
       const alreadyMember = outcomes.filter((row) => row.status === "already_member");
       const alreadyPending = outcomes.filter((row) => row.status === "already_pending");
-      await load();
+      // Email from the outcome, not from a re-read. The RPC is the authoritative
+      // record of what was created, and the batch's replay key is already spent,
+      // so letting a refresh failure skip this step would strand invitations
+      // that exist but that nobody was ever told about.
+      refreshQuietly();
 
       if (created.length === 0) {
         const parts = [];
@@ -136,7 +148,7 @@ export default function useSentInvitations(ownedBowls) {
 
     sendInFlight.current = operation;
     return operation;
-  }, [load]);
+  }, [refreshQuietly]);
 
   const revoke = useCallback(async ({ bowlId, invitationId, invitedEmail }) => {
     const { data: outcome, error } = await revokeBowlInvitation({ bowlId, invitationId });
@@ -160,9 +172,9 @@ export default function useSentInvitations(ownedBowls) {
     // on a re-read: load() preserves last-good rows when it fails, which would
     // otherwise leave a dead row on screen with live-looking Copy and Revoke.
     setInvitations((previous) => previous.filter((row) => row.id !== invitationId));
-    void load();
+    refreshQuietly();
     return { ok: true, message: messages[outcome] };
-  }, [load]);
+  }, [refreshQuietly]);
 
   return { invitations, isLoading, loadError, isSending, refresh: load, send, revoke };
 }

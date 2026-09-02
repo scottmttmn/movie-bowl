@@ -365,6 +365,13 @@ describe("InvitesPage", () => {
 
     expect(screen.getByText("Could not load your bowls.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /create a bowl/i })).not.toBeInTheDocument();
+    // The sent list is gated on the same context, and blank space there reads as
+    // "you have sent nothing" rather than "this could not be loaded".
+    expect(screen.getByText(/this list is unavailable/i)).toBeInTheDocument();
+    expect(screen.queryByText("No pending invitations sent")).not.toBeInTheDocument();
+    // One failure, one alert: the send panel owns it, and the sent section
+    // states its own consequence without announcing the same problem twice.
+    expect(screen.getAllByRole("alert")).toHaveLength(1);
   });
 
   it("offers a retry when sent invitations could not load", () => {
