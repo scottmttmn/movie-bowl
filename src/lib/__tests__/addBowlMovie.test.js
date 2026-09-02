@@ -83,14 +83,33 @@ describe("shared bowl add service", () => {
     expect(h.insert).toHaveBeenCalledTimes(1);
     expect(h.publish).toHaveBeenLastCalledWith(expect.objectContaining({ phase: "success" }));
   });
-  it("keeps an unknown outcome uncertain until a later read confirms the exact submission", async () => {
+  it("reads a clean miss on its own id as proof the insert never committed", async () => {
     const h = harness(); const op = h.operation();
     h.insert.mockRejectedValue(new TypeError("Failed to fetch"));
-    expect(await h.service.add(op)).toMatchObject({ ok: false, code: "outcome_unknown" });
-    expect(await h.service.checkStatus(op)).toMatchObject({ code: "outcome_unknown" });
+    expect(await h.service.add(op)).toMatchObject({ ok: false, code: "add_not_committed" });
+    expect(await h.service.checkStatus(op)).toMatchObject({ code: "add_not_committed" });
     h.state.rows.push({ id: op.submissionId, bowl_id: "a", added_by: "u1", tmdb_id: 101, title: "Movie", note: null });
     expect(await h.service.checkStatus(op)).toMatchObject({ ok: true });
     expect(h.insert).toHaveBeenCalledTimes(1);
+  });
+  it("stays uncertain when the status read itself cannot answer", async () => {
+    const h = harness(); const op = h.operation();
+    h.insert.mockRejectedValue(new TypeError("Failed to fetch"));
+    expect(await h.service.add(op)).toMatchObject({ ok: false, code: "add_not_committed" });
+    h.state.readError = { message: "network" };
+    expect(await h.service.checkStatus(op)).toMatchObject({ code: "outcome_unknown" });
+    h.state.readError = null;
+    expect(await h.service.checkStatus(op)).toMatchObject({ code: "add_not_committed" });
+  });
+  it("reconciles a late original write instead of adding a second slip on retry", async () => {
+    const h = harness(); const op = h.operation({ title: "Custom" });
+    h.insert.mockRejectedValueOnce(new TypeError("Failed to fetch"));
+    expect(await h.service.add(op)).toMatchObject({ ok: false, code: "add_not_committed" });
+    // The first write lands after the miss; the retry reuses its id and loses.
+    h.state.rows.push({ id: op.submissionId, bowl_id: "a", added_by: "u1", tmdb_id: null, title: "Custom", note: null });
+    h.insert.mockRejectedValueOnce({ code: "23505", message: "duplicate key value violates unique constraint \"bowl_movies_pkey\"" });
+    expect(await h.service.add(op)).toMatchObject({ ok: true, movie: { id: op.submissionId } });
+    expect(h.state.rows.filter((row) => row.title === "Custom")).toHaveLength(1);
   });
   it("does not interpret another user's row as confirmation", async () => {
     const h = harness(); const op = h.operation();
