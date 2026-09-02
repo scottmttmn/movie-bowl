@@ -124,7 +124,22 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   double-counting and making sibling retirement visible. Analysed under
   "Edge Case: Somebody Else Already Added It" in
   `output/designs/pinned-movie.md`; needs its own design before any code.
-- Solo draw: draw privately from only your own titles, in one bowl or pooled across all of them. See `output/designs/solo-draw.md`.
+- Solo draw: draw privately from only your own titles, in one bowl or pooled
+  across all of them. The cheap version is "solo pick" — choose from your own
+  titles and write nothing to the bowl — because the shipped Watch List removal
+  offer already covers the aftermath of watching alone, leaving only the picking
+  as new. That version needs no migration, no RPC, and no decision about what
+  other members see. See `output/designs/solo-draw.md`.
+- Guest night: make sharing episodic instead of persistent. A visiting friend's
+  titles join one evening's draw, the movie lands in both watch histories but
+  only the host bowl's strip, and nothing permanent is created. Three separable
+  features, increasing sharply in cost: an optional recently-watched draw filter
+  (standalone, no guest infrastructure, no migration), a guest tossing a few
+  titles in through the existing anonymous add link, and the full signed-in
+  bowl merge. The history split and per-user filters already give most of the
+  described behavior for free; the real open question is what
+  `bowl_draw_events.source_bowl_movie_id` points at when a guest's title wins.
+  Plan, not implementation: `output/designs/guest-night.md`.
 
 ## Technical Debt / Maintenance
 

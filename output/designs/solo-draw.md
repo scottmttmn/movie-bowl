@@ -58,6 +58,36 @@ Options, roughly in order of how much they respect the group:
 Worth noting that (4) is the only option where nothing is taken from the group,
 and the fact that it removes the tension is an argument for it.
 
+### Why (4) may be most of the feature
+
+The aftermath of watching alone already shipped. Logging a manual watch on the
+Watch List finds your own undrawn slips of that title and offers to pull them
+out of whichever bowls hold them (`handleRemoveFromBowls`, scoped to
+`added_by = auth.uid()` and `drawn_at is null` — the comment above it explains
+that RLS would let a bowl owner delete other people's slips, so the client
+deliberately does not offer that). It is an offer, not automatic.
+
+So the existing path already covers recording the watch, and removing the title
+when you want it removed. Everything solo draw adds on top of that is the
+*picking* — the part where you hand the choice to the bowl instead of choosing.
+
+That reframes the cost. Under option (4), solo pick writes nothing to any bowl:
+it selects from your own undrawn titles, shows you one, and stops. No
+`draw_solo_movie` RPC, no new `source_kind`, no reversibility path, no draw
+permission question, and no visibility decision — because nothing left the pool
+and no other member's view changed. If you then watch it, you log it the normal
+way, and the shipped removal offer handles the slip.
+`create_manual_watch_event` already accepts the whole snapshot
+(`p_tmdb_id`, `p_poster_path`, `p_release_date`, `p_runtime`, `p_genres`,
+`p_overview`, `p_note`), so a solo pick screen can hand its chosen title
+straight to that call with the fields prefilled.
+
+Nearly every open question below exists only because options (1) through (3)
+take a title away from the group. Option (4) does not, and most of them stop
+applying. The remaining question is the honest one: on a night alone, is "the
+bowl chose it" actually what you want, or would you just pick something? That
+is worth answering before building even the cheap version.
+
 ## Open Questions
 
 - **Is it reversible?** The existing "return to bowl" flow works off
@@ -91,3 +121,9 @@ filter on `added_by = auth.uid()` before the existing selection pipeline, an
 entry point on the bowl dashboard, and whichever visibility option above gets
 chosen. Cross-bowl pooling is a second, larger phase and should not gate the
 first.
+
+The solo-pick version of the same idea is a fraction of that: the candidate
+filter, a selection call over the resolved pool, and a screen. It touches no
+migration and no RPC, and it hands off to `create_manual_watch_event` if the
+night goes ahead. If solo draw is ever built, this is the version to try first —
+not as a compromise, but because it is small enough to learn from.
