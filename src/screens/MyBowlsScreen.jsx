@@ -1,9 +1,8 @@
 import { useEffect, useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import BowlCard from "../components/BowlCard";
 import NewBowlButton from "../components/NewBowlButton";
 import CreateBowlModal from "../components/CreateBowlModal";
-import PendingInviteList from "../components/PendingInviteList";
 import useCreateBowl from "../hooks/useCreateBowl";
 import useUserBowls from "../hooks/useUserBowls";
 import { sortBowlsByRecentActivity } from "../utils/bowlOrdering";
@@ -16,8 +15,6 @@ export default function MyBowlsScreen() {
     setDefaultBowl, savingDefault } = useUserBowls();
   const [defaultMessage, setDefaultMessage] = useState(null);
   const [defaultError, setDefaultError] = useState(null);
-  const [inviteActionMessage, setInviteActionMessage] = useState(null);
-  const [inviteErrorMessage, setInviteErrorMessage] = useState(null);
   const navigate = useNavigate();
   const {
     streamingServices,
@@ -26,8 +23,6 @@ export default function MyBowlsScreen() {
   const {
     invites: pendingInvites,
     isLoading: isInvitesLoading,
-    acceptInvite,
-    declineInvite,
   } = usePendingInvites();
   const ownedBowlCount = bowls.filter((b) => b.role === "Owner").length;
   const {
@@ -64,33 +59,6 @@ export default function MyBowlsScreen() {
     else setDefaultError("Could not change your home bowl. Please try again.");
   };
 
-  const handleAcceptInvite = async (invite) => {
-    setInviteActionMessage(null);
-    setInviteErrorMessage(null);
-
-    const { error } = await acceptInvite(invite);
-    if (error) {
-      setInviteErrorMessage(error);
-      return;
-    }
-
-    setInviteActionMessage("Invite accepted.");
-    navigate(`/bowl/${invite.bowl_id}`);
-  };
-
-  const handleDeclineInvite = async (invite) => {
-    setInviteActionMessage(null);
-    setInviteErrorMessage(null);
-
-    const { error } = await declineInvite(invite);
-    if (error) {
-      setInviteErrorMessage(error);
-      return;
-    }
-
-    setInviteActionMessage("Invite declined.");
-  };
-
   const handleSelectBowl = (bowlId) => {
     navigate(`/bowl/${bowlId}`);
   };
@@ -107,8 +75,6 @@ export default function MyBowlsScreen() {
           {defaultError && <div className="status-error" role="alert">{defaultError}</div>}
           {createErrorMessage && !isModalOpen && <div className="status-error" role="alert">{createErrorMessage}</div>}
           {createActionMessage && <div className="status-success">{createActionMessage}</div>}
-          {inviteErrorMessage && <div className="status-error">{inviteErrorMessage}</div>}
-          {inviteActionMessage && <div className="status-success">{inviteActionMessage}</div>}
         </div>
         <div className="page-hero flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
           <div>
@@ -229,11 +195,15 @@ export default function MyBowlsScreen() {
           </div>
         ) : (
           <>
-            <PendingInviteList
-              invites={pendingInvites}
-              onAccept={handleAcceptInvite}
-              onDecline={handleDeclineInvite}
-            />
+            {pendingInvites.length > 0 && (
+              <div className="surface-card flex flex-wrap items-center justify-between gap-3 p-4">
+                <p className="text-sm text-slate-300">
+                  You have {pendingInvites.length} pending invitation
+                  {pendingInvites.length === 1 ? "" : "s"}.
+                </p>
+                <Link to="/invites" className="btn btn-secondary">Review invitations</Link>
+              </div>
+            )}
               <section className="space-y-3">
               <div className="mb-3">
                 <div>

@@ -1,12 +1,10 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { Link, useNavigate, useParams } from "react-router-dom";
 import AutosaveStatus from "../components/AutosaveStatus";
+import CopyButton from "../components/CopyButton";
 import SettingsSectionNav from "../components/SettingsSectionNav";
 import useAutosave, { valuesAreEqual } from "../hooks/useAutosave";
-import { createBowlInvitations, revokeBowlInvitation } from "../lib/bowlInvites";
-import { sendInviteEmails } from "../lib/inviteEmails";
 import { supabase } from "../lib/supabase";
-import { parseInviteEmails } from "../utils/parseInviteEmails";
 import { notifyBowlChange } from "../lib/bowlChanges";
 import {
   DEFAULT_DRAW_METHOD,
@@ -21,35 +19,6 @@ const DRAW_ACCESS_MODE_SELECTED = "selected_members";
 // Copying a link is the whole point of this screen's sharing sections, and the
 // page-level banner confirming it is often scrolled out of view — so the button
 // says so itself.
-function CopyButton({ value, label = "Copy", ariaLabel, onCopied }) {
-  const [copied, setCopied] = useState(false);
-
-  useEffect(() => {
-    if (!copied) return undefined;
-    const timer = setTimeout(() => setCopied(false), 2000);
-    return () => clearTimeout(timer);
-  }, [copied]);
-
-  return (
-    <button
-      type="button"
-      aria-label={ariaLabel}
-      className="btn btn-secondary px-3 py-1.5 text-sm"
-      onClick={async () => {
-        try {
-          await navigator.clipboard.writeText(value);
-          setCopied(true);
-          onCopied?.();
-        } catch (err) {
-          console.error("[BowlSettings] Failed to copy link", err);
-        }
-      }}
-    >
-      {copied ? "Copied" : label}
-    </button>
-  );
-}
-
 // Bowl-level settings screen.
 // MVP scope: manage members + invites for a bowl.
 // - Owner can create invite links by email.
@@ -72,11 +41,9 @@ export default function BowlSettings() {
   const [ownerId, setOwnerId] = useState(null);
 
   const [members, setMembers] = useState([]);
-  const [pendingInvites, setPendingInvites] = useState([]);
+  const [pendingInviteCount, setPendingInviteCount] = useState(0);
   const [addLinks, setAddLinks] = useState([]);
 
-  const [emailToInvite, setEmailToInvite] = useState("");
-  const [inviteLink, setInviteLink] = useState(null);
   const [newAddLinkMaxAdds, setNewAddLinkMaxAdds] = useState("3");
   const [newAddLinkDefaultContributorName, setNewAddLinkDefaultContributorName] = useState("");
   const [generatedAddLink, setGeneratedAddLink] = useState(null);
@@ -378,19 +345,20 @@ export default function BowlSettings() {
         setDrawAllowedUserIds((permissionRows || []).map((row) => row.user_id).filter(Boolean));
       }
 
-      // Load pending invites (unaccepted) so the owner can copy/share links.
+      // Only the count, and only to label the link into the Invitations hub.
+      // Sending and revoking live there; this screen keeps the roster.
       const { data: invites, error: invitesError } = await supabase
         .from("bowl_invites")
-        .select("id, invited_email, token, accepted_at, created_at")
+        .select("id")
         .eq("bowl_id", bowlId)
         .is("accepted_at", null)
         .order("created_at", { ascending: false });
 
       if (invitesError) {
-        console.error("[BowlSettings] Failed to load pending invites", invitesError);
-        setPendingInvites([]);
+        console.error("[BowlSettings] Failed to count pending invites", invitesError);
+        setPendingInviteCount(0);
       } else {
-        setPendingInvites(invites || []);
+        setPendingInviteCount((invites || []).length);
       }
 
       const { data: addLinkRows, error: addLinksError } = await supabase
@@ -426,105 +394,11 @@ export default function BowlSettings() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [bowlId]);
 
-  const handleCreateInvite = async (e) => {
-    e.preventDefault();
-
-    setActionMessage(null);
-    setErrorMessage(null);
-    setInviteLink(null);
-    setGeneratedAddLink(null);
-
-    const { validEmails, invalidEmails } = parseInviteEmails(emailToInvite);
-    if (invalidEmails.length > 0) {
-      setErrorMessage(`Invalid email: ${invalidEmails[0]}`);
-      return;
-    }
-
-    if (validEmails.length === 0) return;
-    if (validEmails.length > 1) {
-      setErrorMessage("Please enter one email at a time.");
-      return;
-    }
-
-    const email = validEmails[0];
-
-    try {
-      const { data, error: createError } = await createBowlInvitations({
-        bowlId,
-        emails: [email],
-        requestId: crypto.randomUUID(),
-      });
-
-      if (createError) {
-        console.error("[BowlSettings] Failed to create invite", createError);
-        setErrorMessage("Failed to create invite.");
-        return;
-      }
-
-      const invitation = data?.invitations?.[0];
-      if (!invitation) {
-        console.error("[BowlSettings] Invitation RPC returned no outcome", data);
-        setErrorMessage("Failed to create invite.");
-        return;
-      }
-
-      if (invitation.status === "already_member") {
-        setEmailToInvite("");
-        setActionMessage(`${email} is already a member of this bowl.`);
-        return;
-      }
-
-      const token = invitation.token;
-      if (!token) {
-        console.error("[BowlSettings] Live invitation outcome returned no token", invitation);
-        setErrorMessage("Failed to create invite.");
-        return;
-      }
-
-      const link = `${window.location.origin}/accept-invite/${token}`;
-      setInviteLink(link);
-      setEmailToInvite("");
-
-      await loadBowlAndMembers();
-
-      if (invitation.status === "already_pending") {
-        setActionMessage(`An invite is already pending for ${email}.`);
-        return;
-      }
-
-      if (invitation.status !== "created") {
-        console.error("[BowlSettings] Unexpected invitation outcome", invitation);
-        setErrorMessage("Failed to create invite.");
-        return;
-      }
-
-      const emailResult = await sendInviteEmails([
-        {
-          bowlId,
-          bowlName,
-          invitedEmail: email,
-          invitedByEmail: currentUserEmail || null,
-          token,
-        },
-      ]);
-
-      if (!emailResult.error && emailResult.failed === 0) {
-        setActionMessage("Invite created and email sent.");
-      } else {
-        setActionMessage("Invite created, but email could not be sent. You can still copy the link.");
-      }
-    } catch (err) {
-      console.error("[BowlSettings] Unexpected error creating invite", err);
-      setErrorMessage("Unexpected error creating invite.");
-    }
-  };
-
   const handleCreateAddLink = async (event) => {
     event.preventDefault();
 
     setActionMessage(null);
     setErrorMessage(null);
-    setInviteLink(null);
     setGeneratedAddLink(null);
 
     const parsedMaxAdds = Number.parseInt(newAddLinkMaxAdds, 10);
@@ -611,45 +485,6 @@ export default function BowlSettings() {
     } catch (err) {
       console.error("[BowlSettings] Unexpected error removing member", err);
       setErrorMessage("Unexpected error removing member.");
-    }
-  };
-
-  const handleRevokeInvite = async (inviteId, invitedEmail) => {
-    setActionMessage(null);
-    setErrorMessage(null);
-
-    if (!isOwner) {
-      setErrorMessage("Only the bowl owner can revoke invites.");
-      return;
-    }
-
-    try {
-      const { data: outcome, error } = await revokeBowlInvitation({
-        bowlId,
-        invitationId: inviteId,
-      });
-
-      if (error) {
-        console.error("[BowlSettings] Failed to revoke invite", error);
-        setErrorMessage("Failed to revoke invite.");
-        return;
-      }
-
-      await loadBowlAndMembers();
-
-      if (outcome === "revoked") {
-        setActionMessage(`Invite revoked for ${invitedEmail}.`);
-      } else if (outcome === "already_accepted") {
-        setActionMessage(`The invite for ${invitedEmail} was accepted before it could be revoked.`);
-      } else if (outcome === "not_pending") {
-        setActionMessage(`The invite for ${invitedEmail} is no longer pending.`);
-      } else {
-        console.error("[BowlSettings] Unexpected revoke outcome", outcome);
-        setErrorMessage("Failed to revoke invite.");
-      }
-    } catch (err) {
-      console.error("[BowlSettings] Unexpected error revoking invite", err);
-      setErrorMessage("Unexpected error revoking invite.");
     }
   };
 
@@ -768,8 +603,8 @@ export default function BowlSettings() {
   // Pending invites and the draw allow-list are only rendered for the owner, so
   // the tiles do not leak them either.
   const peopleSummary =
-    isOwner && pendingInvites.length > 0
-      ? `${memberSummary} • ${pendingInvites.length} pending`
+    isOwner && pendingInviteCount > 0
+      ? `${memberSummary} • ${pendingInviteCount} pending`
       : memberSummary;
   const drawingSummary = isOwner
     ? `${drawMethodDetail.label} • ${drawAccessSummary}`
@@ -1061,82 +896,23 @@ export default function BowlSettings() {
 
               {isOwner && (
                 <div className="mt-6 border-t border-slate-800 pt-5">
-                  <h3 className="eyebrow">Invite someone</h3>
+                  <h3 className="eyebrow">Invite people</h3>
                   <p className="mt-1 text-sm text-slate-400">
-                    They get an email with a link, and join the bowl once they accept.
+                    Send or manage invitations for this bowl.
                   </p>
-                  <form onSubmit={handleCreateInvite} className="mt-3 flex flex-col gap-2 sm:flex-row">
-                    <input
-                      id="invite-email-input"
-                      name="invite_email"
-                      type="email"
-                      value={emailToInvite}
-                      onChange={(e) => setEmailToInvite(e.target.value)}
-                      placeholder="friend@example.com"
-                      className="input-field flex-1"
-                    />
-                    <button type="submit" className="btn btn-secondary">
-                      Invite
-                    </button>
-                  </form>
-
-                  {inviteLink && (
-                    <div className="surface-card mt-3 p-3">
-                      <p className="mb-1.5 text-xs text-slate-400">Invite link</p>
-                      <div className="flex items-center gap-2">
-                        <input
-                          id="invite-link-input"
-                          name="invite_link"
-                          readOnly
-                          value={inviteLink}
-                          className="input-field flex-1 text-xs"
-                        />
-                        <CopyButton
-                          value={inviteLink}
-                          ariaLabel="Copy invite link"
-                          onCopied={() => setActionMessage("Invite link copied.")}
-                        />
-                      </div>
-                    </div>
-                  )}
-
-                  {pendingInvites.length > 0 && (
-                    <div className="mt-4">
-                      <h4 className="text-sm font-semibold text-slate-200">Pending invites</h4>
-                      <div className="mt-2 space-y-2">
-                        {pendingInvites.map((inv) => {
-                          const link = `${window.location.origin}/accept-invite/${inv.token}`;
-                          return (
-                            <div
-                              key={inv.id}
-                              className="surface-card flex flex-wrap items-center justify-between gap-2 px-3.5 py-3"
-                            >
-                              <div className="min-w-0">
-                                <p className="truncate text-sm font-medium text-slate-100">{inv.invited_email}</p>
-                                <p className="text-xs text-slate-400">Not accepted yet</p>
-                              </div>
-                              <div className="flex shrink-0 gap-2">
-                                <CopyButton
-                                  value={link}
-                                  ariaLabel={`Copy invite link for ${inv.invited_email}`}
-                                  onCopied={() => setActionMessage("Invite link copied.")}
-                                />
-                                <button
-                                  type="button"
-                                  onClick={() => {
-                                    void handleRevokeInvite(inv.id, inv.invited_email);
-                                  }}
-                                  className="btn btn-danger px-3 py-1.5 text-sm"
-                                >
-                                  Revoke
-                                </button>
-                              </div>
-                            </div>
-                          );
-                        })}
-                      </div>
-                    </div>
-                  )}
+                  <div className="mt-3 flex flex-wrap items-center gap-3">
+                    <Link className="btn btn-secondary" to={`/invites?bowl=${bowlId}#invite-people`}>
+                      Invite people
+                    </Link>
+                    {pendingInviteCount > 0 && (
+                      <Link
+                        className="text-sm font-medium text-rose-300 hover:text-rose-200"
+                        to={`/invites?bowl=${bowlId}#sent`}
+                      >
+                        {pendingInviteCount} pending
+                      </Link>
+                    )}
+                  </div>
                 </div>
               )}
             </section>

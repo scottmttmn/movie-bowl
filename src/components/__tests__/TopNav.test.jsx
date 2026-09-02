@@ -81,6 +81,19 @@ describe("TopNav", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
+  it("keeps Invitations in the menu with no pending invitations and no badge", () => {
+    render(
+      <MemoryRouter>
+        <TopNav isSettingsRoute={false} onSignOut={vi.fn()} userEmail="user@example.com" pendingInviteCount={0} />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /navigation menu/i }));
+    const item = screen.getByRole("menuitem", { name: /invitations/i });
+    expect(item).toHaveAttribute("href", "/invites");
+    expect(item).not.toHaveTextContent(/\d/);
+  });
+
   it("shows an invite badge and menu entry when invites are pending", () => {
     render(
       <MemoryRouter>
@@ -97,7 +110,7 @@ describe("TopNav", () => {
     expect(menuButton).toHaveTextContent("2");
 
     fireEvent.click(menuButton);
-    const inviteItem = screen.getByRole("menuitem", { name: /invites/i });
+    const inviteItem = screen.getByRole("menuitem", { name: /invitations/i });
     expect(inviteItem).toHaveAttribute("href", "/invites");
     expect(inviteItem).toHaveTextContent("2");
   });

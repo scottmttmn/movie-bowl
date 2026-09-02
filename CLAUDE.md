@@ -22,7 +22,7 @@ npm run build        # production build — run this for any UI/app change
 ```
 
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
-A clean checkout is expected to be fully green (108 test files / 832 tests, lint
+A clean checkout is expected to be fully green (109 test files / 838 tests, lint
 with zero warnings); if something fails, it is your change. Those counts are a
 tripwire, not trivia — refresh them in the same commit that adds or removes
 tests, or the next person cannot tell a stale number from a lost test.
@@ -159,11 +159,23 @@ because they are the atomic/permission-checked path:
 `get_my_bowls_with_counts` (legacy/TV), `get_my_bowl_context`,
 `set_my_default_bowl`, `get_bowl_profile_directory`,
 `get_bowl_filter_metadata`,
-`get_my_invite_sender_directory`, `draw_bowl_movie`,
+`get_my_invite_sender_directory`, `accept_bowl_invite`,
+`create_bowl_invites`, `revoke_bowl_invite`, `draw_bowl_movie`,
 `draw_bowl_movie_by_rotation`, `return_bowl_draw_to_bowl`,
 `save_bowl_draw_access`, `save_bowl_draw_method`, `delete_owned_bowl`,
 `set_own_bowl_movie_pin`, `consume_bowl_add_link`, `create_manual_watch_event`,
 `update_user_watch_event`, `delete_user_watch_event`.
+
+Invitations live at `/invites`, the one surface that sends, accepts, declines,
+and revokes them. Bowl Settings keeps the member roster and links into the hub
+with `?bowl=<id>`, which is a hint the hub honours only while the caller still
+owns that bowl; My Bowls links to it rather than acting on invitations itself.
+Owner-side writes go through `create_bowl_invites` and `revoke_bowl_invite`,
+which own normalization, uniqueness, server-generated tokens, idempotent replay
+of a batch, and the accept-versus-revoke race. The client never inserts a
+`bowl_invites` row or deletes another person's; invitees still delete their own
+to decline. `useSentInvitations` holds one request id across retries so a resend
+after a timeout replays the batch instead of creating a second live invitation.
 
 Custom (non-TMDB) movies carry a **negative synthetic `tmdb_id`** so that
 NOT NULL deployments still accept them. Any code that hits TMDB must filter for

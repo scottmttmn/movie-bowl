@@ -248,15 +248,18 @@ vi.mock("react-router-dom", async () => {
 });
 
 import { UserBowlsProvider } from "../../hooks/useUserBowls";
+import { MemoryRouter } from "react-router-dom";
 import MyBowlsScreen from "../MyBowlsScreen";
 import { PendingInvitesProvider } from "../../hooks/usePendingInvites";
 
 // Invites live in a shared provider so the top nav and this screen agree.
 function renderMyBowls() {
   return render(
-    <PendingInvitesProvider>
-      <UserBowlsProvider userId="u1"><MyBowlsScreen /></UserBowlsProvider>
-    </PendingInvitesProvider>
+    <MemoryRouter>
+      <PendingInvitesProvider>
+        <UserBowlsProvider userId="u1"><MyBowlsScreen /></UserBowlsProvider>
+      </PendingInvitesProvider>
+    </MemoryRouter>
   );
 }
 
@@ -597,7 +600,7 @@ describe("MyBowlsScreen", () => {
     expect(screen.getByText(/bowl limit reached \(10\)/i)).toBeInTheDocument();
   });
 
-  it("renders invite panel when pending invites exist for signed-in user", async () => {
+  it("hands pending invitations to the hub instead of acting on them", async () => {
     mocks.state.initialAuthenticated = true;
     mocks.state.pendingInvites = [
       {
@@ -614,47 +617,13 @@ describe("MyBowlsScreen", () => {
 
     renderMyBowls();
 
-    await waitFor(() => expect(screen.getByRole("heading", { name: /^invites$/i })).toBeInTheDocument());
-    expect(screen.getByText("Friday Bowl")).toBeInTheDocument();
-    expect(screen.getByText(/invited by owner@example.com/i)).toBeInTheDocument();
-    expect(screen.getByText(/1 pending invite waiting for your response/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/yesterday/i)).toHaveLength(2);
-    expect(screen.getByRole("button", { name: /accept/i })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /decline/i })).toBeInTheDocument();
+    const review = await screen.findByRole("link", { name: /review invitations/i });
+    expect(review).toHaveAttribute("href", "/invites");
+    expect(screen.getByText(/1 pending invitation\./i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^accept$/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^decline$/i })).not.toBeInTheDocument();
   });
 
-  it("shows a plural invite summary and absolute date badge for older invites", async () => {
-    mocks.state.initialAuthenticated = true;
-    mocks.state.pendingInvites = [
-      {
-        id: "inv-1",
-        bowl_id: "bowl-2",
-        invited_email: "user@example.com",
-        invited_by: "owner-1",
-        accepted_at: null,
-        created_at: "2026-04-20T00:00:00.000Z",
-      },
-      {
-        id: "inv-2",
-        bowl_id: "bowl-3",
-        invited_email: "user@example.com",
-        invited_by: "owner-1",
-        accepted_at: null,
-        created_at: "2026-04-25T12:00:00.000Z",
-      },
-    ];
-    mocks.state.profileRows = [{ id: "owner-1", email: "owner@example.com" }];
-    mocks.state.rpcRows = [
-      { id: "bowl-2", name: "Friday Bowl", remaining_count: 0, member_count: 1, owner_id: "owner-1" },
-      { id: "bowl-3", name: "Saturday Bowl", remaining_count: 0, member_count: 1, owner_id: "owner-1" },
-    ];
-
-    renderMyBowls();
-
-    await waitFor(() => expect(screen.getByText(/2 pending invites waiting for your response/i)).toBeInTheDocument());
-    expect(screen.getByText(/^today$/i)).toBeInTheDocument();
-    expect(screen.getAllByText(/2026/).length).toBeGreaterThan(0);
-  });
 
   it("does not render invite panel when there are no pending invites", async () => {
     mocks.state.initialAuthenticated = true;
@@ -666,85 +635,8 @@ describe("MyBowlsScreen", () => {
     expect(screen.queryByText(/^invites$/i)).not.toBeInTheDocument();
   });
 
-  it("accepts an invite through one atomic call and navigates to bowl", async () => {
-    mocks.state.initialAuthenticated = true;
-    mocks.state.pendingInvites = [
-      {
-        id: "inv-1",
-        bowl_id: "bowl-2",
-        invited_email: "user@example.com",
-        invited_by: "owner-1",
-        token: "invite-token-1",
-        accepted_at: null,
-        created_at: "2026-03-01T00:00:00.000Z",
-      },
-    ];
-    mocks.state.profileRows = [{ id: "owner-1", email: "owner@example.com" }];
-    mocks.state.rpcRows = [{ id: "bowl-2", name: "Friday Bowl", remaining_count: 0, member_count: 1, owner_id: "owner-1" }];
 
-    renderMyBowls();
 
-    await waitFor(() => expect(screen.getByRole("button", { name: /accept/i })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: /accept/i }));
-
-    await waitFor(() => expect(mocks.state.navigate).toHaveBeenCalledWith("/bowl/bowl-2"));
-    // Membership and finalization belong to the RPC now, not to two client writes.
-    expect(mocks.state.acceptedTokens).toEqual(["invite-token-1"]);
-    expect(mocks.state.insertedMembers).toEqual([]);
-    expect(mocks.state.updatedInvites).toEqual([]);
-    expect(screen.queryByRole("button", { name: /accept/i })).not.toBeInTheDocument();
-  });
-
-  it("keeps a refused invite listed and explains why", async () => {
-    mocks.state.initialAuthenticated = true;
-    mocks.state.acceptInviteError = { code: "P0001", message: "This invite is no longer available." };
-    mocks.state.pendingInvites = [
-      {
-        id: "inv-1",
-        bowl_id: "bowl-2",
-        invited_email: "user@example.com",
-        invited_by: "owner-1",
-        token: "invite-token-1",
-        accepted_at: null,
-        created_at: "2026-03-01T00:00:00.000Z",
-      },
-    ];
-    mocks.state.profileRows = [{ id: "owner-1", email: "owner@example.com" }];
-    mocks.state.rpcRows = [{ id: "bowl-2", name: "Friday Bowl", remaining_count: 0, member_count: 1, owner_id: "owner-1" }];
-
-    renderMyBowls();
-
-    await waitFor(() => expect(screen.getByRole("button", { name: /accept/i })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: /accept/i }));
-
-    await screen.findByText("This invite is no longer available.");
-    expect(mocks.state.navigate).not.toHaveBeenCalledWith("/bowl/bowl-2");
-    expect(screen.getByRole("button", { name: /accept/i })).toBeInTheDocument();
-  });
-
-  it("declines invite by deleting row and removes it from UI", async () => {
-    mocks.state.initialAuthenticated = true;
-    mocks.state.pendingInvites = [
-      {
-        id: "inv-1",
-        bowl_id: "bowl-2",
-        invited_email: "user@example.com",
-        invited_by: "owner-1",
-        accepted_at: null,
-        created_at: "2026-03-01T00:00:00.000Z",
-      },
-    ];
-    mocks.state.profileRows = [{ id: "owner-1", email: "owner@example.com" }];
-    mocks.state.rpcRows = [{ id: "bowl-2", name: "Friday Bowl", remaining_count: 0, member_count: 1, owner_id: "owner-1" }];
-
-    renderMyBowls();
-
-    await waitFor(() => expect(screen.getByRole("button", { name: /decline/i })).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: /decline/i }));
-
-    await waitFor(() => expect(mocks.state.deletedInvites).toHaveLength(1));
-    expect(screen.queryByText("Friday Bowl")).not.toBeInTheDocument();
-  });
 
   it("scopes invite inbox to current signed-in email", async () => {
     mocks.state.initialAuthenticated = true;
