@@ -144,16 +144,24 @@ export default function useSentInvitations(ownedBowls) {
       console.error("[useSentInvitations] Failed to revoke invitation", error);
       return { ok: false, message: "Could not revoke that invitation. Try again." };
     }
-    await load();
-    if (outcome === "revoked") return { ok: true, message: `Invitation revoked for ${invitedEmail}.` };
-    if (outcome === "already_accepted") {
-      return { ok: true, message: `${invitedEmail} accepted before the invitation could be revoked.` };
+
+    const messages = {
+      revoked: `Invitation revoked for ${invitedEmail}.`,
+      already_accepted: `${invitedEmail} accepted before the invitation could be revoked.`,
+      not_pending: `The invitation for ${invitedEmail} is no longer pending.`,
+    };
+    if (!messages[outcome]) {
+      console.error("[useSentInvitations] Unexpected revoke outcome", outcome);
+      return { ok: false, message: "Could not revoke that invitation. Try again." };
     }
-    if (outcome === "not_pending") {
-      return { ok: true, message: `The invitation for ${invitedEmail} is no longer pending.` };
-    }
-    console.error("[useSentInvitations] Unexpected revoke outcome", outcome);
-    return { ok: false, message: "Could not revoke that invitation. Try again." };
+
+    // Every one of those outcomes means this invitation is no longer pending,
+    // and the RPC is the authority on that. Drop the row on its word rather than
+    // on a re-read: load() preserves last-good rows when it fails, which would
+    // otherwise leave a dead row on screen with live-looking Copy and Revoke.
+    setInvitations((previous) => previous.filter((row) => row.id !== invitationId));
+    void load();
+    return { ok: true, message: messages[outcome] };
   }, [load]);
 
   return { invitations, isLoading, loadError, isSending, refresh: load, send, revoke };

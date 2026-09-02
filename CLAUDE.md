@@ -22,7 +22,7 @@ npm run build        # production build — run this for any UI/app change
 ```
 
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
-A clean checkout is expected to be fully green (109 test files / 850 tests, lint
+A clean checkout is expected to be fully green (110 test files / 860 tests, lint
 with zero warnings); if something fails, it is your change. Those counts are a
 tripwire, not trivia — refresh them in the same commit that adds or removes
 tests, or the next person cannot tell a stale number from a lost test.

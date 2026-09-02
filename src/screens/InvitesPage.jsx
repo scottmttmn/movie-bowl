@@ -54,7 +54,8 @@ export default function InvitesPage() {
   const [revokeTarget, setRevokeTarget] = useState(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const inviteHeadingRef = useRef(null);
-  const sentHeadingRef = useRef(null);
+  const sentGroupRefs = useRef(new Map());
+  const handledShortcut = useRef(null);
   const resultRef = useRef(null);
 
   const ownedBowlCount = ownedBowls.length;
@@ -78,21 +79,38 @@ export default function InvitesPage() {
 
   // Bowl Settings links to #invite-people to send and #sent to manage what it
   // already sent. Landing both on the form sends half of them to the wrong job.
+  const groupedSent = useMemo(() => {
+    const byBowl = new Map();
+    sent.invitations.forEach((invitation) => {
+      if (!byBowl.has(invitation.bowl_id)) byBowl.set(invitation.bowl_id, []);
+      byBowl.get(invitation.bowl_id).push(invitation);
+    });
+    return ownedBowls
+      .filter((bowl) => byBowl.has(bowl.id))
+      .map((bowl) => ({ bowl, rows: byBowl.get(bowl.id) }));
+  }, [sent.invitations, ownedBowls]);
+
   useEffect(() => {
     if (!isRequestedBowlOwned) return;
-    if (hash === "#sent") sentHeadingRef.current?.focus();
-    else inviteHeadingRef.current?.focus();
-  }, [isRequestedBowlOwned, hash]);
+    const target = `${hash}:${requestedBowlId}`;
+    if (handledShortcut.current === target) return;
+    if (hash !== "#sent") {
+      handledShortcut.current = target;
+      inviteHeadingRef.current?.focus();
+      return;
+    }
+    // Wait for the group to exist: the shortcut points at one bowl's records,
+    // and the section heading is not where those records are.
+    const group = sentGroupRefs.current.get(requestedBowlId);
+    if (!group) return;
+    handledShortcut.current = target;
+    group.focus();
+  }, [isRequestedBowlOwned, hash, requestedBowlId, groupedSent]);
 
-  // The provider loads once on mount, so an inbox opened later in the session
-  // would otherwise never discover an invitation that arrived in between.
+  // Foreground refresh lives in the provider, because the badge is app-wide.
+  // This is the entry read: routing here does not raise a focus event.
   useEffect(() => {
-    const refreshOnForeground = () => {
-      if (document.visibilityState !== "hidden") void reloadInvites();
-    };
     void Promise.resolve().then(() => reloadInvites());
-    document.addEventListener("visibilitychange", refreshOnForeground);
-    return () => document.removeEventListener("visibilitychange", refreshOnForeground);
   }, [reloadInvites]);
 
   const parsed = parseInviteEmails(emailDraft);
@@ -171,17 +189,6 @@ export default function InvitesPage() {
     setRevokeTarget(null);
     setSentMessage(result.message);
   };
-
-  const groupedSent = useMemo(() => {
-    const byBowl = new Map();
-    sent.invitations.forEach((invitation) => {
-      if (!byBowl.has(invitation.bowl_id)) byBowl.set(invitation.bowl_id, []);
-      byBowl.get(invitation.bowl_id).push(invitation);
-    });
-    return ownedBowls
-      .filter((bowl) => byBowl.has(bowl.id))
-      .map((bowl) => ({ bowl, rows: byBowl.get(bowl.id) }));
-  }, [sent.invitations, ownedBowls]);
 
   return (
     <div className="invites-screen page-container py-6 sm:py-8">
@@ -271,15 +278,12 @@ export default function InvitesPage() {
 
           <section aria-labelledby="sent-heading" id="sent">
             <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 id="sent-heading" ref={sentHeadingRef} tabIndex={-1} className="section-title">
-                Pending invitations sent
-              </h2>
+              <h2 id="sent-heading" className="section-title">Pending invitations sent</h2>
               {sent.invitations.length > 0 && (
                 <span className="text-sm text-slate-400">{sent.invitations.length} pending</span>
               )}
             </div>
             {sentMessage && <p className="status-success mt-3" role="status">{sentMessage}</p>}
-            {sentError && <p className="status-error mt-3" role="alert">{sentError}</p>}
             {sent.loadError && (
               <div className="mt-3">
                 <p className="status-error" role="alert">{sent.loadError}</p>
@@ -300,8 +304,22 @@ export default function InvitesPage() {
             ) : (
               <div className="mt-3 space-y-5">
                 {groupedSent.map(({ bowl, rows }) => (
-                  <div key={bowl.id}>
-                    <h3 className="text-sm font-semibold text-slate-200">{bowl.name}</h3>
+                  <div
+                    key={bowl.id}
+                    className={hash === "#sent" && bowl.id === requestedBowlId
+                      ? "rounded-2xl ring-1 ring-rose-800/70"
+                      : undefined}
+                  >
+                    <h3
+                      tabIndex={-1}
+                      ref={(node) => {
+                        if (node) sentGroupRefs.current.set(bowl.id, node);
+                        else sentGroupRefs.current.delete(bowl.id);
+                      }}
+                      className="text-sm font-semibold text-slate-200"
+                    >
+                      {bowl.name}
+                    </h3>
                     <div className="mt-2 space-y-2">
                       {rows.map((row) => (
                         <div key={row.id} className="surface-card flex flex-wrap items-center justify-between gap-2 px-3.5 py-3">

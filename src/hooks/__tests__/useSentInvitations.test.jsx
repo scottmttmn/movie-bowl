@@ -240,6 +240,49 @@ describe("useSentInvitations", () => {
     expect(sendInviteEmails).toHaveBeenCalledTimes(1);
   });
 
+  it("drops a revoked row even when the follow-up read fails", async () => {
+    const { result } = await renderSent();
+    expect(result.current.invitations).toHaveLength(1);
+    // The RPC is authoritative about the outcome; the re-read is a courtesy that
+    // is allowed to fail without leaving a dead row holding live-looking actions.
+    mocks.state.loadError = { message: "network" };
+
+    await act(async () => {
+      await result.current.revoke({ bowlId: "bowl-1", invitationId: "s1", invitedEmail: "friend@example.com" });
+    });
+
+    expect(result.current.invitations).toHaveLength(0);
+    expect(result.current.loadError).toBe("Could not load the invitations you sent. Try again.");
+  });
+
+  it("drops a row for any terminal outcome, not just a revoke", async () => {
+    for (const outcome of ["already_accepted", "not_pending"]) {
+      mocks.state.rows = [{ id: "s1", bowl_id: "bowl-1", invited_email: "friend@example.com", token: "tok", created_at: null }];
+      mocks.state.loadError = null;
+      mocks.state.revokeResult = { data: outcome, error: null };
+      const { result, unmount } = await renderSent();
+      mocks.state.loadError = { message: "network" };
+
+      await act(async () => {
+        await result.current.revoke({ bowlId: "bowl-1", invitationId: "s1", invitedEmail: "friend@example.com" });
+      });
+
+      expect(result.current.invitations, outcome).toHaveLength(0);
+      unmount();
+    }
+  });
+
+  it("keeps the row when the revoke itself failed", async () => {
+    mocks.state.revokeResult = { data: null, error: { message: "nope" } };
+    const { result } = await renderSent();
+
+    await act(async () => {
+      await result.current.revoke({ bowlId: "bowl-1", invitationId: "s1", invitedEmail: "friend@example.com" });
+    });
+
+    expect(result.current.invitations).toHaveLength(1);
+  });
+
   it("distinguishes revoked, already accepted, and no longer pending", async () => {
     const { result } = await renderSent();
     const revoke = () => result.current.revoke({ bowlId: "bowl-1", invitationId: "s1", invitedEmail: "friend@example.com" });

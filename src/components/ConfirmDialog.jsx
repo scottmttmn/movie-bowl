@@ -44,6 +44,13 @@ export default function ConfirmDialog({
       }
       if (event.key !== "Tab") return;
       const controls = [...dialog.querySelectorAll("button:not(:disabled)")];
+      if (controls.length === 0) {
+        // Everything is disabled while the action runs. Without this, forward
+        // Tab finds no `last` to match against and walks into the page behind.
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
       const first = controls[0];
       const last = controls.at(-1);
       if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
