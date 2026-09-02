@@ -196,9 +196,37 @@ describe("InvitesPage", () => {
       </MemoryRouter>
     );
 
-    expect(document.activeElement).toBe(
-      screen.getByRole("heading", { level: 2, name: "Pending invitations sent" })
+    // The shortcut is bowl-specific, so it has to land on that bowl's records,
+    // not merely on the section that contains every bowl's.
+    const group = screen.getByRole("heading", { level: 3, name: "Family Movies" });
+    expect(document.activeElement).toBe(group);
+    expect(group.closest("div").className).toMatch(/ring-rose/);
+  });
+
+  it("waits for the requested group before moving focus to it", async () => {
+    mocks.state.bowls = [OWNED, OWNED_2];
+    mocks.state.search = "bowl=bowl-2";
+    mocks.state.sentInvitations = [];
+
+    const { rerender } = render(
+      <MemoryRouter initialEntries={["/invites?bowl=bowl-2#sent"]}>
+        <InvitesPage />
+      </MemoryRouter>
     );
+    expect(screen.queryByRole("heading", { level: 3, name: "Family Movies" })).not.toBeInTheDocument();
+
+    mocks.state.sentInvitations = [
+      { id: "s1", bowl_id: "bowl-2", invited_email: "friend@example.com", token: "t", created_at: null },
+    ];
+    rerender(
+      <MemoryRouter initialEntries={["/invites?bowl=bowl-2#sent"]}>
+        <InvitesPage />
+      </MemoryRouter>
+    );
+
+    await waitFor(() => expect(document.activeElement).toBe(
+      screen.getByRole("heading", { level: 3, name: "Family Movies" })
+    ));
   });
 
   it("sends the invite shortcut to the form", () => {

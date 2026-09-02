@@ -5,6 +5,7 @@ import {
   useContext,
   useEffect,
   useMemo,
+  useRef,
   useState,
 } from "react";
 import { acceptBowlInvite } from "../lib/bowlInvites";
@@ -52,16 +53,29 @@ export function PendingInvitesProvider({ children }) {
   const [invites, setInvites] = useState([]);
   const [isLoading, setIsLoading] = useState(true);
   const [error, setError] = useState(null);
+  // Loads overlap -- a mount load, a page entry, a foreground -- and the slowest
+  // must not be the one that wins. Only the newest request may write.
+  const generation = useRef(0);
 
   const load = useCallback(async () => {
+    const request = ++generation.current;
+    const isCurrent = () => request === generation.current;
     setIsLoading(true);
 
     try {
       const { data: authData, error: authError } = await supabase.auth.getSession();
       const userEmail = String(authData?.session?.user?.email || "").trim().toLowerCase();
 
-      if (authError || !userEmail) {
-        // Signed out is a real empty inbox; a failed read is not.
+      if (authError) {
+        console.error("[usePendingInvites] Failed to read the session", authError);
+        // A session read that failed says nothing about the inbox. Only a
+        // successful read showing no user means there is nothing to show.
+        if (isCurrent()) setError("Could not check for invitations. Try again.");
+        return;
+      }
+
+      if (!userEmail) {
+        if (!isCurrent()) return;
         setInvites([]);
         setError(null);
         return;
@@ -79,20 +93,37 @@ export function PendingInvitesProvider({ children }) {
         // Keep the last good rows and the badge that goes with them. Reporting
         // zero here would tell someone an invitation had vanished, and the
         // navigation badge would quietly drop to nothing.
-        setError("Could not check for invitations. Try again.");
+        if (isCurrent()) setError("Could not check for invitations. Try again.");
         return;
       }
 
       const rows = inviteRows || [];
-      setInvites(rows.length === 0 ? [] : await loadInviteDetails(rows));
+      const detailed = rows.length === 0 ? [] : await loadInviteDetails(rows);
+      if (!isCurrent()) return;
+      setInvites(detailed);
       setError(null);
     } finally {
-      setIsLoading(false);
+      if (isCurrent()) setIsLoading(false);
     }
   }, []);
 
+  // The badge is app-wide, so the refresh that keeps it honest belongs here
+  // rather than on the Invitations page: coming back to any screen should not
+  // leave a stale count behind.
   useEffect(() => {
-    load();
+    let cancelled = false;
+    const refresh = () => { if (!cancelled) void load(); };
+    const onForeground = () => {
+      if (document.visibilityState !== "hidden") refresh();
+    };
+    void Promise.resolve().then(refresh);
+    window.addEventListener("focus", onForeground);
+    document.addEventListener("visibilitychange", onForeground);
+    return () => {
+      cancelled = true;
+      window.removeEventListener("focus", onForeground);
+      document.removeEventListener("visibilitychange", onForeground);
+    };
   }, [load]);
 
   const acceptInvite = useCallback(async (invite) => {
