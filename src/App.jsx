@@ -39,6 +39,7 @@ const LoginPage = lazyScreen(() => import("./screens/LoginPage"));
 const UserSettings = lazyScreen(() => import("./screens/UserSettings"));
 const BowlSettings = lazyScreen(() => import("./screens/BowlSettings"));
 const AboutPage = lazyScreen(() => import("./screens/AboutPage"));
+const VoiceProbePrivacyPage = lazyScreen(() => import("./screens/VoiceProbePrivacyPage"));
 const PublicAddLinkPage = lazyScreen(() => import("./screens/PublicAddLinkPage"));
 const WatchListPage = lazyScreen(() => import("./screens/WatchListPage"));
 const InvitesPage = lazyScreen(() => import("./screens/InvitesPage"));
@@ -60,6 +61,7 @@ function AppShell({ children }) {
   const isLoginRoute = location.pathname === "/login";
   const isSettingsRoute = location.pathname === "/settings";
   const isAboutRoute = location.pathname === "/about";
+  const isVoiceProbePrivacyRoute = location.pathname === "/voice-probe/privacy";
   const isWatchListRoute = location.pathname === "/watch-list";
   const isInvitesRoute = location.pathname === "/invites";
   const isBowlsRoute = location.pathname === "/bowls";
@@ -69,6 +71,7 @@ function AppShell({ children }) {
     !isLoginRoute &&
     !isPublicAddRoute &&
     !isTvRoute &&
+    !isVoiceProbePrivacyRoute &&
     (Boolean(session) || isAboutRoute);
   const userEmail = session?.user?.email ?? "";
 
@@ -108,7 +111,8 @@ function Layout({ children }) {
   const { pathname } = useLocation();
   const bowlContextEnabled = Boolean(session) && pathname !== "/login"
     && pathname !== "/tv" && !pathname.startsWith("/tv/")
-    && !pathname.startsWith("/add-to-bowl/");
+    && !pathname.startsWith("/add-to-bowl/")
+    && pathname !== "/voice-probe/privacy";
 
   // Re-key on the signed-in user so invites reload on login, logout, and
   // account switches without the provider needing its own auth subscription.
@@ -220,6 +224,7 @@ function App() {
               } />
               <Route path="/login" element={<LoginPage />} />
               <Route path="/about" element={<AboutPage />} />
+              <Route path="/voice-probe/privacy" element={<VoiceProbePrivacyPage />} />
               <Route path="/activate-tv" element={<TvActivationPage />} />
               <Route path="/accept-invite/:token" element={<AcceptInvite />} />
               <Route path="/add-to-bowl/:token" element={<PublicAddLinkPage />} />

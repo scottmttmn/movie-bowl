@@ -100,6 +100,13 @@ signed release bundle in Android Studio, upload it, and install that exact build
 through the internal-testing link. The Play listing name controls the deployed
 invocation name, so use the intended `Movie Bowl` name for the test.
 
+Before Play accepts a bundle containing App Actions:
+
+- opt in under **Setup > Advanced settings > App Actions** in Play Console; and
+- provide `https://moviebowl.app/voice-probe/privacy` as the app's privacy-policy
+  URL. The page documents the probe's no-collection behavior and is public
+  without sign-in.
+
 On a physical phone with Gemini selected as the default assistant, test the
 matrix in `TEST_RESULTS.md`. Record the wording exactly; do not summarize a
 failure as “voice did not work.” Invocation matching and parameter extraction

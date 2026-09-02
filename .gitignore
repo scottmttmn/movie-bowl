@@ -41,5 +41,8 @@ tv-android/*.iml
 android-mobile/.gradle/
 android-mobile/local.properties
 android-mobile/**/build/
+android-mobile/**/release/
 android-mobile/captures/
 android-mobile/*.iml
+android-mobile/**/*.jks
+android-mobile/**/*.keystore
