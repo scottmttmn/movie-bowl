@@ -1,6 +1,7 @@
 # Invitations Hub
 
-Status: proposed on September 2, 2026; not implemented.
+Status: proposed on September 2, 2026; revised the same day after design
+review; not implemented.
 
 This specification expands the existing `/invites` inbox into a stable,
 global Invitations hub. It complements
@@ -31,8 +32,45 @@ general notifications.
 | Where are invitations sent? | From the global Invitations hub, with an explicit bowl destination. |
 | What remains in Bowl Settings? | The member roster and member removal. Its invitation area becomes a contextual link into the hub with that bowl preselected. |
 | Where are sent invitations managed? | In the hub's `Pending invitations sent` section, where the owner can copy a link or revoke. |
+| How are invitations created and revoked? | Through narrow, owner-authorized RPCs. Owner-side client row creation and deletion are retired, not wrapped. Invitee acceptance keeps its existing atomic RPC; the separately scoped decline path remains protected for the invitee. See [Required database work](#required-database-work). |
 | Does the first version show invitation history? | No. It shows actionable received invitations and unaccepted sent invitations, not a permanent accepted/declined audit log. |
 | Are public Add links included? | No. They allow movie submissions rather than bowl membership and remain in Bowl Settings → Add links. |
+
+## Prerequisites and delivery sequence
+
+This hub rests on two pieces of groundwork.
+
+**Required database work.** The current write path cannot support what this
+specification promises. The details and the required migrations are in
+[Required database work](#required-database-work); treat that section as a
+prerequisite rather than a contingency.
+
+**The shared create-bowl controller.** The hub's `Create a bowl` action needs
+the creation flow, which is not a reusable unit today:
+`src/components/CreateBowlModal.jsx` is presentational, and the mutation lives
+inside `src/screens/MyBowlsScreen.jsx`, which remains as a recovery directory
+but must stop owning this mutation. Extract and test that controller before
+building the hub.
+
+Shipping order across both specifications:
+
+1. Extract and test the shared create-bowl controller.
+2. Audit the live schema; add invitation uniqueness, batch creation, and guarded
+   revoke, with pgTAP tests and a staged rollback.
+3. Ship the dashboard picker and shared grouped-list component, retaining My
+   Bowls in navigation but removing its default stars.
+4. Ship this hub, route outgoing invitations through the authoritative RPC, and
+   remove duplicate invitation UI/mutations from Bowl Settings and My Bowls.
+5. Remove My Bowls from routine navigation and reduce `/bowls` to the manual
+   bowl directory, onboarding, and recovery surface. Per the companion
+   specification, that route always renders and never automatically redirects;
+   it is the app's one terminal destination when Home resolution is wrong.
+
+Step 4 moves roughly three hundred lines out of `src/screens/BowlSettings.jsx`,
+which `STABILITY.md` lists among the highest-risk files. Move its invitation
+tests along with the code rather than rewriting them, and refresh the test-count
+tripwire in `CLAUDE.md` in the same commit whenever those numbers actually
+change.
 
 ## Information architecture
 
@@ -128,8 +166,8 @@ when needed: `Accept invitation to Friday Night` and
 ### Accept behavior
 
 1. Disable both actions on that card and label the primary action `Joining…`.
-2. Use the existing atomic acceptance operation. Do not add membership and
-   update the invitation in separate client writes.
+2. Use the existing atomic acceptance operation, `accept_bowl_invite`. Do not
+   add membership and update the invitation in separate client writes.
 3. On success, remove the card, refresh the shared bowl context and badge, and
    navigate to the joined bowl.
 4. Acquiring a first bowl may initialize it as Home under the existing default
@@ -186,9 +224,9 @@ You can join shared bowls, but only an owner can invite new members.
 [ Create a bowl ]
 ```
 
-`Create a bowl` opens the shared create-bowl flow. It must work for someone who
-belongs only to shared bowls; do not route them through `/bowls`, which may
-redirect to Home.
+`Create a bowl` opens the shared create-bowl flow in place. It must work for
+someone who belongs only to shared bowls, and it must not send them to another
+screen to do it — leaving the hub loses the invitation context they came for.
 
 ### Form
 
@@ -209,8 +247,12 @@ Separate multiple addresses with commas, spaces, or new lines.
 - Use the existing compact bowl-choice ordering for owned bowls, with names
   wrapping as needed. Show the selected bowl in full before submission.
 - Use a multiline email field so the existing multi-address parsing is useful.
-- Normalize and de-duplicate addresses within the submitted batch.
-- Show invalid addresses inline before creating any invitation rows.
+  Multi-address sending is new capability, not a relocation: the current Bowl
+  Settings form deliberately refuses it with `Please enter one email at a time.`
+- Show invalid addresses inline before submitting, but treat client-side
+  normalization and de-duplication as convenience only. The batch RPC normalizes
+  and de-duplicates authoritatively. The two must agree, and the server's answer
+  wins.
 - Button label is `Send invitation` for one valid address and
   `Send [count] invitations` for several.
 - Disable the bowl selector, address field, and submit button while the batch
@@ -227,7 +269,7 @@ can partially fail.
 | All invitation rows and emails succeed | `Sent [count] invitation(s) to [bowl name].` |
 | Rows succeed and some emails fail | `[count] invitation(s) created, but [failed] email(s) could not be sent. Copy and share their invitation links below.` |
 | No invitation row succeeds | Preserve the form and show `Invitations could not be created. Try again.` |
-| A response is ambiguous | Preserve entered addresses and check authoritative sent rows before offering Retry. Never create duplicates merely because the email request timed out. |
+| A response is ambiguous | Preserve entered addresses and retry with the same idempotency key. The batch RPC returns already-existing invitations rather than creating second ones, so a retry after a timeout yields no duplicate row and no second live token. |
 
 On confirmed success, clear the submitted addresses, retain the bowl selection,
 refresh `Pending invitations sent`, and move keyboard focus to the result
@@ -273,10 +315,16 @@ to assistive technology and standard pointer disclosure.
   `Revoke [email]'s invitation to [bowl name]? Their existing link will stop
   working.`
 - Actions are `Keep invitation` and `Revoke invitation`.
+- Revoke goes through the guarded operation in
+  [Required database work](#required-database-work). It is scoped to unaccepted
+  invitations and reports whether a row was actually removed.
 - On success, remove the row and announce `Invitation revoked for [email].`
 - On failure, retain the row and show its error.
-- A stale row that has just been accepted should refresh into the member roster
-  rather than reporting a successful revoke.
+- When the invitation was accepted before the revoke landed, the operation
+  removes nothing and must say so; refresh the row into the member roster
+  instead of reporting a successful revoke. The current client delete cannot do
+  this. It matches on invitation id and bowl alone, so it deletes the accepted
+  row and reports success.
 
 ### Empty state
 
@@ -317,7 +365,9 @@ global entry points use the hub's single data/controller layer.
 - Render it for every authenticated phone/web user, even with zero invitations.
 - The received-pending badge updates after accept, decline, account switch, app
   foreground, and authoritative reload.
-- Remove the received-invitation list from My Bowls as that screen retires.
+- Remove the received-invitation list from My Bowls. That screen is not
+  retiring — it becomes the manual bowl directory and recovery surface — but
+  invitations stop being duplicated on it.
 - Create-bowl invitation fields may remain: inviting initial members is part of
   bowl creation. Successful creation refreshes sent-pending data in the hub.
 - Direct email acceptance links remain valid and continue to work without
@@ -372,15 +422,73 @@ from overwriting current state.
 | New sent-invitations data/controller hook | Load owned bowls' unaccepted invites; own create, email-delivery reconciliation, copy metadata, and revoke. |
 | Shared invitation form/components | Reuse the email parser, bowl ordering, status patterns, and confirmation dialog behavior without copying mutations across screens. |
 | `src/screens/BowlSettings.jsx` | Retain the roster; replace outgoing invitation form/list with contextual hub links. |
-| `src/components/TopNav.jsx` | Always render Invitations and show the badge only for received pending invitations. |
-| `src/screens/MyBowlsScreen.jsx` | Remove its duplicate received-invitation rendering as the route becomes onboarding/recovery. |
-| `src/components/CreateBowlModal.jsx` | Retain optional initial invitations and invalidate sent-invitation data after creation. |
+| `src/components/TopNav.jsx` | Always render Invitations and show the badge only for received pending invitations. This is a behavior change, not a rename: the item currently renders only while a pending invitation exists. Test the always-present item and the conditional badge separately. |
+| `src/screens/MyBowlsScreen.jsx` | Remove its duplicate received-invitation rendering while it becomes the manual directory, onboarding, and recovery surface. |
+| `src/components/CreateBowlModal.jsx` | Stays presentational. Retain optional initial invitations in the shared create-bowl controller extracted from `MyBowlsScreen.jsx`, route them through the batch RPC, and invalidate sent-invitation data after creation. |
 
-The existing `bowl_invites` table and owner/invitee RLS policies can support the
-first version. Before implementation, verify that one authoritative operation
-can safely create a multi-address batch and return the resulting IDs/tokens for
-email reconciliation. If current client-side row creation cannot distinguish a
-partial or ambiguous batch outcome, add a narrow RPC rather than retrying blind.
+### Required database work
+
+This is a prerequisite, not a contingency. The behavior promised above cannot be
+built on the current write path.
+
+Today both invitation surfaces insert into `bowl_invites` directly from the
+browser with a client-generated `crypto.randomUUID()` token, and revoke is a
+bare client delete matched on invitation id and bowl. No uniqueness guarantee on
+`bowl_invites` appears in `supabase/migrations/`, so a retried send inserts a
+second row carrying a second live token. Under those conditions the rule "never
+create duplicates merely because the email request timed out" is unenforceable,
+and a revoke racing an acceptance reports success while deleting the accepted
+row.
+
+Land all five before building the hub:
+
+1. **Audit the live schema.** The repository migrations are not proof of what is
+   deployed; confirm the actual constraints and indexes on `bowl_invites` first.
+   Audit and resolve existing duplicate rows before adding any uniqueness rule,
+   or the migration fails on production data.
+2. **Add a partial uniqueness rule** on normalized email plus bowl, restricted to
+   `accepted_at is null`. Accepted history must still be able to coexist with a
+   later re-invitation to the same bowl.
+3. **Add a persisted idempotent batch-creation RPC.** The owner-authorized RPC
+   normalizes and de-duplicates the address list, generates tokens server-side,
+   and accepts a client-generated request UUID. Persist that request identity in
+   a request record or equivalent constrained schema keyed to the caller; merely
+   accepting a parameter is not idempotency. Bind the key to the bowl and a
+   fingerprint of the normalized address set. Reusing a key with a different
+   payload is an error. Retrying the same key returns the recorded per-address
+   outcomes without creating another row or token, including when an invitation
+   from the first result has since been accepted or revoked.
+
+   Database writes for a batch are atomic. A syntactically invalid address or
+   inaccessible bowl rejects the batch without inserts. Duplicate input
+   addresses collapse to one result. For each valid address, return a status
+   such as `created`, `already_pending`, or `already_member`, plus the invitation
+   id and token only when a live invitation exists, so email delivery can be
+   reconciled. Retire client-side row creation rather than wrapping it.
+4. **Add one guarded owner revoke RPC.** It verifies current ownership, acts only
+   on an invitation whose `accepted_at is null`, and returns an explicit outcome:
+   `revoked`, `already_accepted`, or `not_pending`. An inaccessible or unrelated
+   invitation returns a generic authorization/not-found failure without leaking
+   its state. Do not retain a client-delete fallback; that would preserve the
+   race this change exists to remove.
+5. **Retire owner-side direct writes.** Drop the owner INSERT and DELETE policies
+   once every caller uses the RPCs, and revoke any direct table privileges that
+   are no longer needed. Keep owner SELECT for the sent-pending list. Preserve
+   only the narrowly scoped invitee operations still needed by the received
+   inbox — including decline unless it is moved to its own guarded RPC in the
+   same migration — and remove the obsolete invitee UPDATE policy now that
+   acceptance uses `accept_bowl_invite`. Account for the current leave cleanup,
+   which deletes the leaving user's invite rows by email, before tightening
+   DELETE privileges; do not silently break that path.
+
+Cover all of it with pgTAP in `supabase/tests/`: owner versus member versus
+non-member; a batch containing duplicate input and a duplicate of a live
+invitation; an invalid batch leaving no partial rows; an address that is already
+a member; the same key/same payload retry; same key/different payload rejection;
+a retry after acceptance or revoke; revoke of an unaccepted invitation; revoke
+of an invitation accepted in between; owner direct INSERT/DELETE denied after
+cutover; and the preserved invitee decline/leave-cleanup behavior. Stage the
+reverts in `supabase/rollback/`.
 
 Do not broaden table grants, let recipients enumerate other invitations, or
 let a bowl member send/revoke invitations through the global surface.
@@ -397,10 +505,19 @@ Cover at minimum:
 - global sending with zero, one, and several owned bowls;
 - Bowl Settings preselection and rejection of stale/foreign/member-only IDs;
 - one and several email addresses, duplicates within a batch, invalid input,
-  partial email delivery, ambiguous response, and retry behavior;
+  partial email delivery, an ambiguous response, and an idempotent retry that
+  creates no second row and no second live token;
+- reuse of an idempotency key with a different bowl or address set being
+  rejected without writes;
+- retry after an invitation from the original result was accepted or revoked,
+  without recreating it;
+- a revoke that races an acceptance, reporting the acceptance rather than a
+  false success;
 - sent invitations grouped by bowl with copy and revoke actions;
 - an invitation accepted on another device while its owner views Pending sent;
 - member versus owner permissions;
+- owner-side direct invitation INSERT/DELETE denied after the RPC cutover while
+  received-invitation decline and leave cleanup still work;
 - a user with shared bowls but no owned bowls creating a bowl from the hub;
 - removal of duplicate invite UI from My Bowls and Bowl Settings;
 - independent loading/error states, foreground refresh, offline behavior, and
