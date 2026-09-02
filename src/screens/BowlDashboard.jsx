@@ -7,6 +7,10 @@ import AddMovieButton from "../components/AddMovieButton";
 import FilterChipSelect from "../components/FilterChipSelect";
 import BowlIllustration from "../components/BowlIllustration";
 import DrawMethodInfoModal from "../components/DrawMethodInfoModal";
+import BowlPicker from "../components/BowlPicker";
+import CreateBowlModal from "../components/CreateBowlModal";
+import useCreateBowl from "../hooks/useCreateBowl";
+import useUserBowls from "../hooks/useUserBowls";
 import useBowl from "../hooks/useBowl";
 import useDrawProviderLinks from "../hooks/useDrawProviderLinks";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
@@ -23,7 +27,7 @@ import { useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
-import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
+import { MAX_BOWLS_PER_USER, MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 import { matchUserServices } from "../utils/streamingServices";
 import { resolvePreferredLaunchTarget } from "../utils/webLaunch";
@@ -166,6 +170,67 @@ export default function BowlDashboard() {
     });
 
     const navigate = useNavigate();
+
+    // The account-wide bowl context already loads app-wide for the nav and
+    // global Add; the picker is another reader of it, never a second query.
+    const {
+      bowls: accountBowls,
+      defaultBowlId,
+      loading: isBowlContextLoading,
+      error: bowlContextError,
+      refresh: refreshBowlContext,
+      setDefaultBowl,
+      savingDefault,
+    } = useUserBowls();
+    const [isPickerOpen, setIsPickerOpen] = useState(false);
+    const pickerTriggerRef = useRef(null);
+    const [homeMessage, setHomeMessage] = useState(null);
+    const [homeError, setHomeError] = useState(null);
+    const ownedBowlCount = accountBowls.filter((entry) => entry.role === "Owner").length;
+    const {
+      actionMessage: createActionMessage,
+      bowlName: newBowlName,
+      close: closeCreateBowl,
+      create: submitCreateBowl,
+      errorMessage: createErrorMessage,
+      inviteEmails: createInviteEmails,
+      isCreating: isCreatingBowl,
+      isLimitReached: isCreateBowlLimitReached,
+      isOpen: isCreateBowlOpen,
+      open: openCreateBowl,
+      setBowlName: setNewBowlName,
+      setInviteEmails: setCreateInviteEmails,
+    } = useCreateBowl({ ownedBowlCount, refresh: refreshBowlContext });
+    const isCurrentBowlHome = Boolean(defaultBowlId) && defaultBowlId === bowlId;
+
+    // Opening a bowl is a visit; it never moves the home designation. Push so
+    // browser Back returns to the bowl the person came from -- the header no
+    // longer has a Back button, so history is the only way back.
+    const handleSelectBowl = (nextBowlId) => {
+      setIsPickerOpen(false);
+      if (nextBowlId !== bowlId) navigate(`/bowl/${nextBowlId}`);
+    };
+
+    const handleMakeHome = async () => {
+      setHomeMessage(null);
+      setHomeError(null);
+      const context = await setDefaultBowl(bowlId);
+      if (context?.defaultBowlId === bowlId) {
+        setHomeMessage(`${bowlName} is now your home bowl.`);
+      } else {
+        setHomeError("Could not change your home bowl. Please try again.");
+      }
+    };
+
+    const handleCreateFromPicker = () => {
+      setIsPickerOpen(false);
+      openCreateBowl();
+    };
+
+    const handleCreateBowl = async () => {
+      const result = await submitCreateBowl();
+      if (result?.ok && result.bowl?.id) navigate(`/bowl/${result.bowl.id}`);
+    };
 
     const isAddBlockedByUndrawnLimit = (bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL;
     const isAddBlocked = isAddBlockedByUndrawnLimit;
@@ -642,10 +707,33 @@ export default function BowlDashboard() {
 return (
     <div className="bowl-dashboard page-container overflow-hidden pb-12 pt-5 sm:pt-7">
         <header className="mb-5 flex min-w-0 items-center justify-between gap-3">
-                <button onClick={() => navigate("/bowls")} className="btn btn-ghost px-3 py-2">
-                  <span aria-hidden="true">←</span> Back
-                </button>
-                <h1 className="min-w-0 flex-1 truncate text-center text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">{bowlName}</h1>
+                <div className="min-w-0 flex-1">
+                  <h1 className="min-w-0">
+                    <button
+                      type="button"
+                      ref={pickerTriggerRef}
+                      onClick={() => setIsPickerOpen((prev) => !prev)}
+                      aria-haspopup="dialog"
+                      aria-expanded={isPickerOpen}
+                      aria-label={`Switch bowl. Current bowl: ${bowlName}`}
+                      className="mx-auto flex min-h-11 max-w-full items-center gap-2 rounded-xl px-2 text-2xl font-semibold tracking-tight text-slate-50 hover:bg-slate-800/60 sm:text-3xl"
+                    >
+                      <span className="min-w-0 truncate">{bowlName}</span>
+                      <svg
+                        aria-hidden="true"
+                        viewBox="0 0 24 24"
+                        className={`h-4 w-4 shrink-0 motion-safe:transition-transform ${isPickerOpen ? "rotate-180" : ""}`}
+                        fill="none"
+                        stroke="currentColor"
+                        strokeWidth="2"
+                        strokeLinecap="round"
+                        strokeLinejoin="round"
+                      >
+                        <path d="M6 9l6 6 6-6" />
+                      </svg>
+                    </button>
+                  </h1>
+                </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <button
                     type="button"
@@ -690,7 +778,18 @@ return (
               </div>
             )}
 
-            <section className="page-hero my-3">
+            <section className="page-hero relative my-3">
+              {isCurrentBowlHome && (
+                <span
+                  className="absolute right-4 top-4 inline-flex text-rose-300"
+                  title="Home bowl"
+                >
+                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor">
+                    <path d="M12 3.2 2.8 11.1a1 1 0 0 0 .66 1.75H5v7.3a.9.9 0 0 0 .9.9h4.05v-5.2h4.1v5.2h4.05a.9.9 0 0 0 .9-.9v-7.3h1.54a1 1 0 0 0 .66-1.75Z" />
+                  </svg>
+                  <span className="sr-only">Home bowl</span>
+                </span>
+              )}
               <div className="mx-auto max-w-5xl">
                 <div>
                   <BowlIllustration
@@ -1366,6 +1465,40 @@ return (
               </div>
             )}
             {isDrawing && <DrawAnimationModal />}
+            <BowlPicker
+              isOpen={isPickerOpen}
+              bowls={accountBowls}
+              currentBowlId={bowlId}
+              homeBowlId={defaultBowlId}
+              currentBowlName={bowlName}
+              isLoading={isBowlContextLoading}
+              loadError={bowlContextError}
+              onRetry={() => refreshBowlContext({ force: true })}
+              onSelectBowl={handleSelectBowl}
+              onMakeHome={handleMakeHome}
+              isSavingHome={savingDefault}
+              homeError={homeError}
+              homeMessage={homeMessage}
+              onCreateBowl={handleCreateFromPicker}
+              isCreateLimitReached={isCreateBowlLimitReached}
+              createLimitMessage={`You can create up to ${MAX_BOWLS_PER_USER} bowls.`}
+              triggerRef={pickerTriggerRef}
+              onClose={() => setIsPickerOpen(false)}
+            />
+            <CreateBowlModal
+              isOpen={isCreateBowlOpen}
+              bowlName={newBowlName}
+              inviteEmails={createInviteEmails}
+              onChangeBowlName={setNewBowlName}
+              onChangeInviteEmails={setCreateInviteEmails}
+              onCreate={handleCreateBowl}
+              onClose={closeCreateBowl}
+              isCreating={isCreatingBowl}
+              errorMessage={createErrorMessage}
+            />
+            {createActionMessage && !isCreateBowlOpen && (
+              <div className="status-success mt-3" role="status">{createActionMessage}</div>
+            )}
         </div>
     );
 }

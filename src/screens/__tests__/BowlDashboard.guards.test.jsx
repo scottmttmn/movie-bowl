@@ -88,6 +88,17 @@ const mocks = vi.hoisted(() => {
   };
 });
 
+const userBowlsMock = vi.hoisted(() => ({
+  bowls: [],
+  defaultBowlId: null,
+  loading: false,
+  error: null,
+  refresh: vi.fn(async () => null),
+  setDefaultBowl: vi.fn(async () => null),
+  savingDefault: false,
+}));
+vi.mock("../../hooks/useUserBowls", () => ({ default: () => userBowlsMock }));
+
 vi.mock("../../hooks/useBowlAdd", () => ({ default: () => ({ openBowlAdd: mocks.state.openBowlAdd }) }));
 vi.mock("../../hooks/useBowl", () => ({
   default: (_bowlId, options) => {

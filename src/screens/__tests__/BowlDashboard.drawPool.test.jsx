@@ -44,6 +44,17 @@ const mocks = vi.hoisted(() => {
   return { state, supabase };
 });
 
+const userBowlsMock = vi.hoisted(() => ({
+  bowls: [],
+  defaultBowlId: null,
+  loading: false,
+  error: null,
+  refresh: vi.fn(async () => null),
+  setDefaultBowl: vi.fn(async () => null),
+  savingDefault: false,
+}));
+vi.mock("../../hooks/useUserBowls", () => ({ default: () => userBowlsMock }));
+
 vi.mock("../../hooks/useBowlAdd", () => ({ default: () => ({ openBowlAdd: vi.fn() }) }));
 vi.mock("../../hooks/useBowl", () => ({
   default: () => ({

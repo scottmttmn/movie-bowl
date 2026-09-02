@@ -31,7 +31,7 @@ design does not use a favorite-style star or `aria-pressed` toggle.
 | Question | Decision |
 | --- | --- |
 | Where can a person switch bowls? | From the bowl-name picker in every phone/web bowl dashboard header. |
-| How is the saved default represented? | As a home designation: a non-interactive `Home bowl` badge on the home bowl's dashboard header, picker row, and directory row. |
+| How is the saved default represented? | A house marker on the home bowl's dashboard hero card, and a non-interactive `Home` badge on its picker and directory rows. |
 | Where is the home bowl changed? | From a single `Make [bowl name] home` command inside the bowl picker, acting on the bowl currently being viewed. The dashboard header carries no home command. |
 | Does selecting a picker row change Home? | No. It only navigates to that bowl. |
 | Can the current home bowl be unassigned? | No. Making another bowl home transfers the single designation. |
@@ -85,21 +85,16 @@ in `CLAUDE.md` in the same commit whenever those numbers actually change.
 
 ### Information hierarchy
 
-The bowl name becomes the primary navigation control. The home designation is
-secondary status that appears immediately below it, and only on the home bowl.
+The bowl name becomes the primary navigation control. The header carries the
+name and nothing else; the home designation lives on the hero card below it.
 Filters and Bowl Settings remain utilities on the right.
-
-Home bowl:
 
 ```text
                          [ Kathryn and Scott's bowl  v ]       [filter] [settings]
-                                  [house] Home bowl
-```
 
-Another bowl:
-
-```text
-                              [ Friday Night  v ]              [filter] [settings]
+                         ┌──────────────────────────── [house] ┐
+                         │              (bowl)                 │
+                         └─────────────────────────────────────┘
 ```
 
 The header never carries a home command. Changing the home bowl is a rare,
@@ -108,8 +103,8 @@ title would occupy prime space on most bowls for most visits. The command lives
 in the picker instead, where a person is already thinking about which bowl is
 which.
 
-The sketches show hierarchy, not literal spacing. Center the name and home
-line within the content area on wide screens. On narrow screens, let the title
+The sketch shows hierarchy, not literal spacing. Center the name within the
+content area on wide screens. On narrow screens, let the title
 region take the available width to the left of the two utility buttons and
 truncate only after giving the title at least half of the row. The complete
 name remains available in the picker.
@@ -135,24 +130,28 @@ name remains available in the picker.
 
 Do not show a star in any state.
 
-When the viewed bowl is home:
+When the viewed bowl is home, mark it with a filled house in the top-right
+corner of the hero card that holds the bowl illustration:
 
-- Show a compact, non-interactive badge with a small filled house icon and the
-  text `Home bowl`.
-- The badge is status, not a button. It has no hover treatment, focus target,
-  `aria-pressed`, or click handler.
-- Use a quiet rose-on-dark treatment so it is recognizable without competing
-  with Draw.
+- Icon only. No visible label. This is passive status a person reads once and
+  then stops noticing, so it does not earn a line of copy under the title,
+  where it crowded the name and still rendered the house too small to read.
+- Roughly 24px, quiet rose on the card's dark ground, anchored to the card
+  corner rather than to the illustration -- the image is narrower than the card
+  on wide screens, and anchoring to it leaves the marker adrift mid-card.
+- Status, not a button: no hover treatment, focus target, `aria-pressed`, or
+  click handler.
+- Carry the name for assistive technology anyway, through visually hidden text
+  and a `title`, so the meaning survives without spending visible space.
 
-When the viewed bowl is not home, the header shows nothing in that slot and the
-title region sits on its own. Do not reserve empty vertical space for an absent
-badge, and do not substitute a placeholder, a muted `Not your home bowl`, or a
-command. The command for changing Home lives in the picker; see
+When the viewed bowl is not home, nothing renders in that corner. Do not
+substitute a placeholder, a muted `Not your home bowl`, or a command. The
+command for changing Home lives in the picker; see
 [Home command](#home-command).
 
-The house and wording communicate a single destination rather than an
-independent favorite. The interface never offers `Remove home`, and tapping
-the `Home bowl` status does nothing because it is not interactive.
+The house communicates a single destination rather than an independent
+favorite. The interface never offers `Remove home`, and tapping the marker does
+nothing because it is not interactive.
 
 ### Other header actions
 
@@ -430,8 +429,10 @@ The existing global Add behavior remains unchanged except for language:
   page overlay according to the existing overlay stack.
 - Announce completed navigation through the new page heading. Announce Home
   changes and errors through the existing status regions.
-- Communicate current and Home states in text as well as with a check, house,
-  or color. The `Home bowl` badge is readable at 200% zoom.
+- In the picker, communicate current and Home states in text as well as with a
+  check, house, or color; those rows are how a person compares bowls. The
+  dashboard marker is deliberately icon-only, and carries its name through
+  visually hidden text instead.
 - Respect reduced motion. Limit the chevron rotation and sheet movement to the
   app's existing reduced-motion behavior.
 
@@ -505,7 +506,7 @@ Cover at minimum:
   previously viewed bowl;
 - making a non-home bowl home from inside the picker, with every marker
   updating while the rows neither reorder nor close;
-- a non-home bowl's header showing no home control at all;
+- a non-home bowl showing no home marker and no home control at all;
 - My Bowls retaining no default-star control once the picker ships;
 - picker loading showing neutral `Checking home bowl…` status rather than a
   false disabled command;

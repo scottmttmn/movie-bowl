@@ -122,7 +122,7 @@ export default function BowlAddDialog() {
                 className={`flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border p-3 text-left ${bowl.id === destination?.id ? "border-rose-600" : "border-slate-700"}`}>
                 <span className="min-w-0 break-words"><span className="block">{bowl.name}</span>
                   {choiceDescription(bowl, bowls) && <span className="block text-xs text-slate-400">{choiceDescription(bowl, bowls)}</span>}
-                  {bowl.id === defaultBowlId && <span className="block text-xs text-slate-400">Default</span>}
+                  {bowl.id === defaultBowlId && <span className="block text-xs text-slate-400">Home</span>}
                 </span>{bowl.id === destination?.id && <span aria-hidden="true">✓</span>}
               </button>)}
             </div>}

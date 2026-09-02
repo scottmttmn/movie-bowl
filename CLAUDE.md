@@ -22,7 +22,7 @@ npm run build        # production build — run this for any UI/app change
 ```
 
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
-A clean checkout is expected to be fully green (107 test files / 822 tests, lint
+A clean checkout is expected to be fully green (108 test files / 832 tests, lint
 with zero warnings); if something fails, it is your change. Those counts are a
 tripwire, not trivia — refresh them in the same commit that adds or removes
 tests, or the next person cannot tell a stale number from a lost test.
@@ -115,19 +115,38 @@ Everything except `/login`, `/about`, `/accept-invite/:token`, and
 `/add-to-bowl/*` deliberately render without the top nav. Screens are
 `React.lazy` imports — add new ones the same way.
 
-`/` resolves the account's saved default through `get_my_bowl_context`, or
+`/` resolves the account's saved home bowl through `get_my_bowl_context`, or
 opens `/bowls` when there are no accessible bowls. A failed read shows Retry.
-Explicit `/bowl/:bowlId` links never change the default. `useUserBowls` shares
-the account context; My Bowls stars use `set_my_default_bowl`. Global Add uses
-the default, while “Add to this bowl” captures the viewed bowl. Both use the
-same `BowlAddProvider` and `bowlMovieService`; keep pending operations above
-routes and retain uncertain outcomes for status checks without reinserting.
+Explicit `/bowl/:bowlId` links never change it. `useUserBowls` shares the
+account context and is the only writer, through `set_my_default_bowl`. Global
+Add uses the home bowl, while “Add to this bowl” captures the viewed bowl. Both
+use the same `BowlAddProvider` and `bowlMovieService`; keep pending operations
+above routes and retain uncertain outcomes for status checks without
+reinserting.
+
+The dashboard header names the bowl and opens `BowlPicker`, which is the one
+place the home bowl moves. Opening a bowl and making it home are deliberately
+separate actions: rows navigate and push, so browser Back returns to the
+previous bowl, and a single `Make [bowl] home` command below them writes the
+account default. The home bowl carries a non-interactive badge — never a star or
+an `aria-pressed` toggle, because a home bowl cannot be unset, only moved. My
+Bowls still carries the older star affordance until it becomes the directory
+surface; see `output/designs/dashboard-bowl-picker-and-home-bowl.md`.
 
 ## Data model
 
 Tables the app touches: `profiles`, `bowls`, `bowl_members`, `bowl_movies`,
 `bowl_invites`, `bowl_draw_permissions`, `bowl_add_links`, `bowl_draw_events`,
 `user_watch_events`, `user_bowl_defaults`. `bowl_movie_queue` is legacy and is not written to.
+
+The interface says **home bowl**; the database says **default**. That drift is
+deliberate — do not rename deployed database objects to match the UI term:
+
+| User-facing term | Database object |
+| --- | --- |
+| Home bowl | the account's `user_bowl_defaults` row |
+| Resolving Home | `get_my_bowl_context` → `default_bowl_id` |
+| `Make [bowl] home` | `set_my_default_bowl` |
 
 The bowl-history split matters: a draw writes one immutable `bowl_draw_events`
 row (bowl activity) plus one `user_watch_events` row per participant (personal

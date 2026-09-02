@@ -40,12 +40,12 @@ describe("button and card components", () => {
   it("keeps the default star separate from opening the bowl", () => {
     const onSelect = vi.fn(); const onMakeDefault = vi.fn();
     const { container, rerender } = render(<BowlCard bowl={{ id: "b1", name: "Friday Night" }} onSelect={onSelect} onMakeDefault={onMakeDefault} />);
-    fireEvent.click(screen.getByRole("button", { name: "Make Friday Night my default bowl" }));
+    fireEvent.click(screen.getByRole("button", { name: "Make Friday Night my home bowl" }));
     expect(onMakeDefault).toHaveBeenCalledOnce();
     expect(onSelect).not.toHaveBeenCalled();
     expect(container.querySelector("button button")).toBeNull();
     rerender(<BowlCard bowl={{ id: "b1", name: "Friday Night" }} onSelect={onSelect} onMakeDefault={onMakeDefault} isDefault />);
-    expect(screen.getByRole("button", { name: "Default bowl: Friday Night" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Home bowl: Friday Night" })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("renders BowlIllustration with the draw animation layer", () => {
