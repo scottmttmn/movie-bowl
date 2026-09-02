@@ -60,8 +60,8 @@ export default function MyBowlsScreen() {
     if (savingDefault || bowl.id === defaultBowlId) return;
     setDefaultMessage(null);
     setDefaultError(null);
-    if (await setDefaultBowl(bowl.id)) setDefaultMessage(`${bowl.name} is now your default bowl`);
-    else setDefaultError("Could not change your default bowl. Please try again.");
+    if (await setDefaultBowl(bowl.id)) setDefaultMessage(`${bowl.name} is now your home bowl`);
+    else setDefaultError("Could not change your home bowl. Please try again.");
   };
 
   const handleAcceptInvite = async (invite) => {

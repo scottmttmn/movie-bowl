@@ -15,7 +15,7 @@ describe("TopNav", () => {
     fireEvent.click(screen.getByRole("button", { name: "Add a movie" }));
     expect(onAddMovie).toHaveBeenCalledOnce();
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
-    expect(screen.getByRole("link", { name: "Go to your default bowl" })).toHaveAttribute("href", "/");
+    expect(screen.getByRole("link", { name: "Go to your home bowl" })).toHaveAttribute("href", "/");
   });
 
   it("disables global Add while a modal or draw animation owns the screen", async () => {

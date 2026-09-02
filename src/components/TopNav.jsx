@@ -57,7 +57,7 @@ export default function TopNav({
       <div className="page-container flex h-16 items-center justify-between">
         <Link
           to="/"
-          aria-label="Go to your default bowl"
+          aria-label="Go to your home bowl"
           className="inline-flex items-center gap-2.5 rounded-xl text-lg min-[360px]:text-xl font-semibold tracking-tight text-slate-100 transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60 sm:text-2xl"
         >
           <span className="flex h-9 w-9 items-center justify-center">

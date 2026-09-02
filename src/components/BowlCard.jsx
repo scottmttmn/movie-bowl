@@ -33,7 +33,7 @@ export default function BowlCard({ bowl, onSelect, isDefault = false, onMakeDefa
     {onMakeDefault && <button
       type="button"
       className={`icon-btn absolute right-3 top-3 h-11 w-11 ${isDefault ? "text-rose-400" : "text-slate-400"}`}
-      aria-label={isDefault ? `Default bowl: ${bowl.name}` : `Make ${bowl.name} my default bowl`}
+      aria-label={isDefault ? `Home bowl: ${bowl.name}` : `Make ${bowl.name} my home bowl`}
       aria-pressed={isDefault}
       disabled={defaultDisabled}
       onClick={onMakeDefault}
