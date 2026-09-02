@@ -2,7 +2,10 @@ import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import useCreateBowl from "../useCreateBowl";
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  vi.restoreAllMocks();
+});
 
 function renderCreateBowl({ ownedBowlCount = 0, result } = {}) {
   const refresh = vi.fn(async () => {});
@@ -174,5 +177,105 @@ describe("useCreateBowl", () => {
     expect(result.current.isOpen).toBe(false);
     expect(service.create).toHaveBeenCalledTimes(1);
     expect(refresh).toHaveBeenCalledTimes(1);
+  });
+
+  it("ignores dismissal while creation is in flight", async () => {
+    const success = {
+      ok: true,
+      code: null,
+      errorMessage: null,
+      actionMessage: "Bowl created.",
+      bowl: { id: "bowl-10", name: "Bowl A" },
+    };
+    let finishCreate;
+    const service = {
+      create: vi.fn(() => new Promise((resolve) => { finishCreate = resolve; })),
+    };
+    const refresh = vi.fn(async () => {});
+    const { result } = renderHook(() => useCreateBowl({
+      ownedBowlCount: 0,
+      refresh,
+      service,
+    }));
+    act(() => {
+      result.current.open();
+      result.current.setBowlName("Bowl A");
+      result.current.setInviteEmails("friend@example.com");
+    });
+
+    let operation;
+    act(() => {
+      operation = result.current.create();
+    });
+    await waitFor(() => expect(service.create).toHaveBeenCalledTimes(1));
+
+    let closed;
+    act(() => {
+      closed = result.current.close();
+    });
+    expect(closed).toBe(false);
+    expect(result.current.isOpen).toBe(true);
+    expect(result.current.bowlName).toBe("Bowl A");
+    expect(result.current.inviteEmails).toBe("friend@example.com");
+
+    await act(async () => {
+      finishCreate(success);
+      await operation;
+    });
+    expect(result.current.isOpen).toBe(false);
+    expect(result.current.bowlName).toBe("");
+    expect(result.current.inviteEmails).toBe("");
+  });
+
+  it.each([
+    ["service", true],
+    ["refresh", false],
+  ])("turns an unexpected %s rejection into an outcome-safe result", async (_stage, serviceRejects) => {
+    const failure = new Error("dependency failed");
+    const success = {
+      ok: true,
+      code: null,
+      errorMessage: null,
+      actionMessage: "Bowl created.",
+      bowl: { id: "bowl-11", name: "Weekend Bowl" },
+    };
+    const service = {
+      create: vi.fn(async () => {
+        if (serviceRejects) throw failure;
+        return success;
+      }),
+    };
+    const refresh = vi.fn(async () => {
+      if (!serviceRejects) throw failure;
+    });
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    const { result } = renderHook(() => useCreateBowl({
+      ownedBowlCount: 0,
+      refresh,
+      service,
+    }));
+    act(() => {
+      result.current.open();
+      result.current.setBowlName("Weekend Bowl");
+    });
+
+    let createResult;
+    await act(async () => {
+      createResult = await result.current.create();
+    });
+
+    expect(createResult).toMatchObject({
+      ok: false,
+      code: "outcome_unknown",
+      errorMessage: "Could not finish creating the bowl. Check your bowls before trying again.",
+    });
+    expect(result.current.errorMessage).toBe(
+      "Could not finish creating the bowl. Check your bowls before trying again."
+    );
+    expect(result.current.actionMessage).toBeNull();
+    expect(result.current.isCreating).toBe(false);
+    expect(result.current.isOpen).toBe(true);
+    expect(result.current.bowlName).toBe("Weekend Bowl");
+    expect(console.error).toHaveBeenCalledWith("[useCreateBowl] Unexpected creation failure", failure);
   });
 });

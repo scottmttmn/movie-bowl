@@ -70,8 +70,9 @@ describe("CreateBowlModal", () => {
     expect(onClose).toHaveBeenCalledTimes(1);
   });
 
-  it("disables click and enter submission while creation is pending", () => {
+  it("locks the form while creation is pending", () => {
     const onCreate = vi.fn();
+    const onClose = vi.fn();
 
     render(
       <CreateBowlModal
@@ -82,14 +83,21 @@ describe("CreateBowlModal", () => {
         onChangeBowlName={vi.fn()}
         onChangeInviteEmails={vi.fn()}
         onCreate={onCreate}
-        onClose={vi.fn()}
+        onClose={onClose}
       />
     );
 
-    fireEvent.keyDown(screen.getByPlaceholderText("Bowl Name"), { key: "Enter" });
+    const nameInput = screen.getByPlaceholderText("Bowl Name");
+    const inviteInput = screen.getByLabelText(/invite emails \(optional\)/i);
+    fireEvent.keyDown(nameInput, { key: "Enter" });
     fireEvent.click(screen.getByRole("button", { name: /creating/i }));
+    fireEvent.click(screen.getByRole("button", { name: /cancel/i }));
 
+    expect(nameInput).toBeDisabled();
+    expect(inviteInput).toBeDisabled();
+    expect(screen.getByRole("button", { name: /cancel/i })).toBeDisabled();
     expect(screen.getByRole("button", { name: /creating/i })).toBeDisabled();
     expect(onCreate).not.toHaveBeenCalled();
+    expect(onClose).not.toHaveBeenCalled();
   });
 });

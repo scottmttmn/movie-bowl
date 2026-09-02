@@ -1,6 +1,8 @@
 import { useRef, useState } from "react";
-import { bowlCreationService } from "../lib/createBowl";
+import { bowlCreationService, createBowlResult } from "../lib/createBowl";
 import { MAX_BOWLS_PER_USER } from "../utils/appLimits";
+
+const UNKNOWN_CREATE_MESSAGE = "Could not finish creating the bowl. Check your bowls before trying again.";
 
 export default function useCreateBowl({
   ownedBowlCount,
@@ -28,11 +30,13 @@ export default function useCreateBowl({
   };
 
   const close = () => {
+    if (createInFlight.current) return false;
     setBowlName("");
     setInviteEmails("");
     setErrorMessage(null);
     setActionMessage(null);
     setIsOpen(false);
+    return true;
   };
 
   const create = () => {
@@ -57,6 +61,17 @@ export default function useCreateBowl({
         setBowlName("");
         setInviteEmails("");
         setIsOpen(false);
+        return result;
+      })
+      .catch((error) => {
+        console.error("[useCreateBowl] Unexpected creation failure", error);
+        const result = createBowlResult({
+          ok: false,
+          code: "outcome_unknown",
+          errorMessage: UNKNOWN_CREATE_MESSAGE,
+        });
+        setErrorMessage(result.errorMessage);
+        setActionMessage(null);
         return result;
       })
       .finally(() => {
