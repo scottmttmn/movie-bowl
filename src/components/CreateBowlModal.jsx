@@ -6,6 +6,7 @@ export default function CreateBowlModal({
   onChangeInviteEmails,
   onCreate,
   onClose,
+  isCreating = false,
 }) {
   if (!isOpen) return null;
 
@@ -22,7 +23,7 @@ export default function CreateBowlModal({
           value={bowlName}
           onChange={(e) => onChangeBowlName(e.target.value)}
           onKeyDown={(e) => {
-            if (e.key === "Enter") onCreate();
+            if (e.key === "Enter" && !isCreating) onCreate();
           }}
           autoFocus
         />
@@ -41,8 +42,8 @@ export default function CreateBowlModal({
           <button className="btn btn-secondary" onClick={onClose}>
             Cancel
           </button>
-          <button className="btn btn-primary" onClick={onCreate}>
-            Create
+          <button className="btn btn-primary" onClick={onCreate} disabled={isCreating}>
+            {isCreating ? "Creating…" : "Create"}
           </button>
         </div>
       </div>

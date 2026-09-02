@@ -1,4 +1,4 @@
-import { act, cleanup, renderHook } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import useCreateBowl from "../useCreateBowl";
 
@@ -61,6 +61,7 @@ describe("useCreateBowl", () => {
     expect(result.current.bowlName).toBe("Weekend Bowl");
     expect(result.current.inviteEmails).toBe("friend@example.com");
     expect(result.current.errorMessage).toBe("Bowl name is required.");
+    expect(result.current.isCreating).toBe(false);
     expect(refresh).not.toHaveBeenCalled();
   });
 
@@ -113,5 +114,65 @@ describe("useCreateBowl", () => {
 
     act(() => result.current.close());
     expect(result.current.errorMessage).toBeNull();
+  });
+
+  it("shares one operation across repeated submits until refresh settles", async () => {
+    const success = {
+      ok: true,
+      code: null,
+      errorMessage: null,
+      actionMessage: null,
+      bowl: { id: "bowl-9", name: "Weekend Bowl" },
+    };
+    let finishCreate;
+    let finishRefresh;
+    const service = {
+      create: vi.fn(() => new Promise((resolve) => { finishCreate = resolve; })),
+    };
+    const refresh = vi.fn(() => new Promise((resolve) => { finishRefresh = resolve; }));
+    const { result } = renderHook(() => useCreateBowl({
+      ownedBowlCount: 9,
+      refresh,
+      service,
+    }));
+    act(() => {
+      result.current.open();
+      result.current.setBowlName("Weekend Bowl");
+      result.current.setInviteEmails("friend@example.com");
+    });
+
+    let first;
+    let repeatedDuringCreate;
+    act(() => {
+      first = result.current.create();
+      repeatedDuringCreate = result.current.create();
+    });
+
+    expect(repeatedDuringCreate).toBe(first);
+    expect(result.current.isCreating).toBe(true);
+    await waitFor(() => expect(service.create).toHaveBeenCalledTimes(1));
+
+    await act(async () => {
+      finishCreate(success);
+      await Promise.resolve();
+    });
+    await waitFor(() => expect(refresh).toHaveBeenCalledWith({ force: true }));
+
+    let repeatedDuringRefresh;
+    act(() => {
+      repeatedDuringRefresh = result.current.create();
+    });
+    expect(repeatedDuringRefresh).toBe(first);
+    expect(service.create).toHaveBeenCalledTimes(1);
+
+    await act(async () => {
+      finishRefresh();
+      await first;
+    });
+
+    expect(result.current.isCreating).toBe(false);
+    expect(result.current.isOpen).toBe(false);
+    expect(service.create).toHaveBeenCalledTimes(1);
+    expect(refresh).toHaveBeenCalledTimes(1);
   });
 });

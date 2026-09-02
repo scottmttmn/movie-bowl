@@ -37,6 +37,7 @@ export default function MyBowlsScreen() {
     create: handleCreateBowl,
     errorMessage: createErrorMessage,
     inviteEmails,
+    isCreating,
     isLimitReached: isCreateBowlLimitReached,
     isOpen: isModalOpen,
     open: handleNewBowl,
@@ -284,6 +285,7 @@ export default function MyBowlsScreen() {
         onChangeInviteEmails={setInviteEmails}
         onCreate={handleCreateBowl}
         onClose={handleCloseModal}
+        isCreating={isCreating}
       />
     </div>
   );
