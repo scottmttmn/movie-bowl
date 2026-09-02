@@ -157,7 +157,7 @@ export default function BowlAddDialog() {
         }
       }}>
       <span>{sessionView ? "Back to search" : "Added this session"}</span>
-      <span className="text-xs text-slate-400">{add.additions.length}</span>
+      {!sessionView && <span className="text-xs text-slate-400">{add.additions.length}</span>}
     </button>}
   </>;
   return createPortal(<div className="bowl-add-overlay" hidden={!add.open} style={{ height: viewport.height, top: viewport.top }}>

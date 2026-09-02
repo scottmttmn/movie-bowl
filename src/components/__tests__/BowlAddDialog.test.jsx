@@ -81,7 +81,9 @@ describe("add dialog session list", () => {
     const sessionButton = screen.getByRole("button", { name: /Added this session/ });
     expect(sessionButton).toHaveTextContent("1");
     await openSession();
-    expect(screen.getByRole("button", { name: /Back to search/ })).toHaveAttribute("aria-pressed", "true");
+    const backButton = screen.getByRole("button", { name: "Back to search", exact: true });
+    expect(backButton).toHaveAttribute("aria-pressed", "true");
+    expect(backButton).toHaveTextContent(/^Back to search$/);
     expect(screen.getByRole("button", { name: "Add comment for First movie" })).toBeVisible();
     fireEvent.focus(screen.getByPlaceholderText("Search movies..."));
     expect(screen.queryByRole("list", { name: "Movies added this session" })).not.toBeInTheDocument();
