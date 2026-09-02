@@ -30,6 +30,10 @@
       "destination": "/api/movie-cache?action=warm-filter-metadata"
     },
     {
+      "source": "/voice-probe/privacy",
+      "destination": "/index.html"
+    },
+    {
       "source": "/((?!api/|@vite/).*)",
       "has": [
         { "type": "header", "key": "accept", "value": ".*text/html.*" }
