@@ -74,7 +74,7 @@ describe("MovieSearch detail flow", () => {
     expect(screen.queryByTitle("Movie A trailer")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /watch trailer/i }));
-    expect(screen.getByTitle("Movie A trailer")).toBeInTheDocument();
+    expect(await screen.findByTitle("Movie A trailer")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /add movie/i }));
 

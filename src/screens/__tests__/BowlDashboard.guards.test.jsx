@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
@@ -617,12 +617,14 @@ describe("BowlDashboard guards", () => {
     expect(screen.queryByRole("link", { name: /open on web in/i })).not.toBeInTheDocument();
     expect(screen.queryByTitle("Movie A trailer")).not.toBeInTheDocument();
 
-    const trailerButton = screen.getByRole("button", { name: /watch trailer/i });
-    act(() => {
-      fireEvent.click(trailerButton);
-    });
-    await waitFor(() => expect(trailerButton).toHaveAttribute("aria-expanded", "true"));
-    expect(screen.getByTitle("Movie A trailer")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /watch trailer/i }));
+    // Re-query rather than asserting on a node captured before the click: the
+    // label flips to "Hide trailer", so holding the old reference asserts on
+    // whatever that element became rather than on the control itself.
+    await waitFor(() => expect(
+      screen.getByRole("button", { name: /hide trailer/i })
+    ).toHaveAttribute("aria-expanded", "true"));
+    expect(await screen.findByTitle("Movie A trailer")).toBeInTheDocument();
   });
 
   it("preserves the draw event id when moving an enriched watched movie to the bowl", async () => {
