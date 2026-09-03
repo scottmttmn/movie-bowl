@@ -10,27 +10,9 @@ describe("DrawMethodInfoModal", () => {
     cleanup();
   });
 
-  it("renders the method as ordered steps rather than a paragraph", () => {
+  it("renders the method's own disclosure copy", () => {
     render(<DrawMethodInfoModal drawMethod="person_first" onClose={() => {}} />);
-
-    const steps = screen.getAllByRole("listitem");
-    expect(steps).toHaveLength(2);
-    expect(steps[0]).toHaveTextContent("A person, at random");
-    expect(steps[1]).toHaveTextContent("One of their movies");
-    // Pins live under step two, which is what makes "pinning never changes who
-    // is selected" visible without a sentence saying so.
-    expect(steps[0]).not.toHaveTextContent(/pinned/i);
-    expect(steps[1]).toHaveTextContent(/pinned/i);
-  });
-
-  it("carries a footnote only where the method needs one", () => {
-    const { unmount } = render(<DrawMethodInfoModal drawMethod="person_first" onClose={() => {}} />);
-    expect(screen.queryByText(getDrawMethod("title_first").footnote)).not.toBeInTheDocument();
-    unmount();
-
-    render(<DrawMethodInfoModal drawMethod="title_first" onClose={() => {}} />);
-    expect(screen.getAllByRole("listitem")).toHaveLength(1);
-    expect(screen.getByText(getDrawMethod("title_first").footnote)).toBeInTheDocument();
+    expect(screen.getByText(getDrawMethod("person_first").disclosure)).toBeInTheDocument();
   });
 
   it("stays quiet when every contributor is still reachable", () => {
@@ -39,7 +21,7 @@ describe("DrawMethodInfoModal", () => {
     );
 
     expect(screen.getByText("How this bowl picks")).toBeInTheDocument();
-    expect(screen.queryByText(/left out/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no movies from/i)).not.toBeInTheDocument();
   });
 
   it("names who the filters shut out and qualifies the equal-odds promise", () => {
@@ -51,7 +33,8 @@ describe("DrawMethodInfoModal", () => {
       />
     );
 
-    expect(screen.getByText(/alex and sam are left out — your filters removed every movie they added\./)).toBeInTheDocument();
+    expect(screen.getByText(/No movies from alex or sam are in the pool\./)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(getDrawMethod("person_first").reachCaveat))).toBeInTheDocument();
   });
 
   it("falls back to a count when the excluded contributors have no display name", () => {
@@ -63,7 +46,7 @@ describe("DrawMethodInfoModal", () => {
       />
     );
 
-    expect(screen.getByText(/2 people are left out — your filters removed every movie they added\./)).toBeInTheDocument();
+    expect(screen.getByText(/2 people have no movies left in the pool\./)).toBeInTheDocument();
   });
 
   it("reports the extra contributors it could not name", () => {
@@ -75,12 +58,12 @@ describe("DrawMethodInfoModal", () => {
       />
     );
 
-    expect(screen.getByText(/alex and 2 more are left out — your filters removed every movie they added\./)).toBeInTheDocument();
+    expect(screen.getByText(/No movies from alex \(and 2 more\) are in the pool\./)).toBeInTheDocument();
   });
 
-  // The shared sentence already says why someone is out. Only rotation needs to
-  // add anything, because for it the exclusion is temporary.
-  it("adds nothing beyond the shared sentence for title-first", () => {
+  // Title-first makes no equality promise, but "cannot be drawn at all" is
+  // still worth saying, so it carries its own caveat rather than borrowing one.
+  it("uses the title-first caveat for a title-first bowl", () => {
     render(
       <DrawMethodInfoModal
         drawMethod="title_first"
@@ -89,10 +72,10 @@ describe("DrawMethodInfoModal", () => {
       />
     );
 
-    expect(screen.getByText(/sam is left out — your filters removed every movie they added\./)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(getDrawMethod("title_first").reachCaveat))).toBeInTheDocument();
   });
 
-  it("says the exclusion is temporary in a rotation bowl", () => {
+  it("explains rotation and uses its eligible-contributor caveat", () => {
     render(
       <DrawMethodInfoModal
         drawMethod="rotation"
@@ -101,8 +84,8 @@ describe("DrawMethodInfoModal", () => {
       />
     );
 
-    expect(screen.getAllByRole("listitem")[0]).toHaveTextContent("Whoever has waited longest");
-    expect(screen.getByText(/They rejoin when one of their movies is eligible again\./)).toBeInTheDocument();
+    expect(screen.getByText(getDrawMethod("rotation").disclosure)).toBeInTheDocument();
+    expect(screen.getByText(new RegExp(getDrawMethod("rotation").reachCaveat))).toBeInTheDocument();
   });
 
   it("closes from the button and the backdrop, but not the surface", () => {

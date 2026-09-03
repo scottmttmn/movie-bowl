@@ -1,6 +1,7 @@
 import { Fragment } from "react";
 import { DRAW_POOL_STATUS } from "../hooks/useDrawPoolCount";
 import { STREAMING_MATCH_STATUS } from "../hooks/useBowlStreamingMatches";
+import { describeStreamingMatch } from "../utils/streamingMatchSummary";
 
 // One quiet sentence under the bowl instead of a row of chips. Each segment is
 // still a readout of what the draw is about to do, so the chip tone vocabulary
@@ -51,80 +52,113 @@ function Segment({ as = "span", tone = "idle", onClick, ariaLabel, children }) {
   );
 }
 
-// One number answers the question this line exists for: what is the draw about
-// to choose among, and where will I watch it. The denominator, the service
-// breakdown and the reason a filter is biting all live behind the panels these
-// segments open -- printing them here made the reader do arithmetic that
-// changes no decision.
-function resolveDrawPool({
-  poolStatus,
+function PoolSegment({
+  status,
   poolCount,
-  poolTotalCount,
-  streamingStatus,
-  streamingMatchCount,
-  streamingTopService,
-  streamingTopServiceCount,
-  isPrioritized,
-  useServiceRank,
+  totalCount,
+  contributorReach,
+  showContributorReach,
+  hasExcludedContributors,
+  onRunLookups,
+  onOpenFilters,
 }) {
-  const isFiltered = poolStatus === DRAW_POOL_STATUS.ready;
-  const eligible = isFiltered ? poolCount : poolTotalCount;
-  const streamingResolved =
-    streamingStatus !== STREAMING_MATCH_STATUS.unavailable
-    && streamingStatus !== STREAMING_MATCH_STATUS.manual
-    && streamingStatus !== STREAMING_MATCH_STATUS.scanning;
-
-  // Streaming priority narrows the pool further, so when it is on and matching
-  // it owns the count. Its own tally and the eligible count were the same
-  // number printed twice.
-  if (isPrioritized && streamingResolved && streamingMatchCount > 0) {
-    if (useServiceRank && streamingTopService) {
-      return { count: streamingTopServiceCount, service: streamingTopService, fellBack: false };
-    }
-    return { count: streamingMatchCount, service: null, fellBack: false };
-  }
-  // Priority is on and matched nothing, so the draw quietly falls back to the
-  // eligible pool. The old line said so in words; the tone says it now, because
-  // a preference that is engaged and changing nothing should not look settled.
-  const fellBack = isPrioritized && streamingResolved && streamingMatchCount === 0;
-  return { count: eligible, service: null, fellBack };
-}
-
-function PoolSegment({ count, service, tone, onOpenFilters }) {
-  if (count === 0) {
+  if (status === DRAW_POOL_STATUS.manual) {
     return (
-      <Segment as="button" tone="warning" onClick={onOpenFilters} ariaLabel="Nothing is eligible to draw. Open draw filters.">
-        Nothing to draw
+      <Segment as="button" tone="active" onClick={onRunLookups}>
+        Preview filter matches
       </Segment>
     );
   }
-  const label = service
-    ? `Drawing from ${count} titles on ${service}. Open draw filters.`
-    : `Drawing from ${count} titles. Open draw filters.`;
+
+  if (status === DRAW_POOL_STATUS.counting) {
+    return (
+      <Segment
+        as="button"
+        tone="idle"
+        onClick={onOpenFilters}
+        ariaLabel={`${totalCount} movies in the bowl. Filter preview is running in the background.`}
+      >
+        <Count>{totalCount}</Count> in the bowl
+      </Segment>
+    );
+  }
+
+  if (status === DRAW_POOL_STATUS.unfiltered) {
+    return (
+      <Segment
+        as="button"
+        tone="idle"
+        onClick={onOpenFilters}
+        ariaLabel={`${totalCount} movies in the bowl. Open draw filters.`}
+      >
+        <Count>{totalCount}</Count> in the bowl
+      </Segment>
+    );
+  }
+
+  const { totalCount: contributorTotal = 0, reachedCount = 0 } = contributorReach || {};
+  // An empty pool means the draw cannot produce anything, and a filter that
+  // has shut someone out is the other thing worth stopping to read.
+  const tone = poolCount === 0 || hasExcludedContributors ? "warning" : "active";
+  const label =
+    showContributorReach && hasExcludedContributors
+      ? `Drawing from ${poolCount} of ${totalCount} titles, reaching ${reachedCount} of ${contributorTotal} people. Open draw filters.`
+      : `Drawing from ${poolCount} of ${totalCount} titles. Open draw filters.`;
+
   return (
     <Segment as="button" tone={tone} onClick={onOpenFilters} ariaLabel={label}>
-      Drawing from <Count tone={tone}>{count}</Count>{service ? ` on ${service}` : ""}
+      <Count tone={tone}>{poolCount}</Count> of {totalCount} eligible
+      {showContributorReach && hasExcludedContributors
+        ? ` · ${reachedCount} of ${contributorTotal} people represented`
+        : null}
     </Segment>
   );
 }
 
-// The people readout is the one fact here that should stop someone, so it keeps
-// its own segment -- but as a ratio behind a glyph rather than a clause.
-function ReachSegment({ reachedCount, totalCount, onOpenMethodInfo }) {
+function StreamingSegment({
+  status,
+  matchCount,
+  topService,
+  topServiceCount,
+  isPrioritized,
+  useServiceRank,
+  onScan,
+  onOpenPreferences,
+}) {
+  // "warning" is its own tone on purpose: streaming priority engaged but
+  // changing nothing should not look like a filter that is working.
+  const pendingTone = isPrioritized ? "active" : "idle";
+
+  if (status === STREAMING_MATCH_STATUS.manual) {
+    return (
+      <Segment as="button" tone={pendingTone} onClick={onScan}>
+        Check your services
+      </Segment>
+    );
+  }
+
+  if (status === STREAMING_MATCH_STATUS.scanning) {
+    return <Segment tone={pendingTone}>Checking your services…</Segment>;
+  }
+
+  const { tone, lead, count, trail, label } = describeStreamingMatch({
+    matchCount,
+    topService,
+    topServiceCount,
+    isPrioritized,
+    useServiceRank,
+  });
+
   return (
     <Segment
       as="button"
-      tone="warning"
-      onClick={onOpenMethodInfo}
-      ariaLabel={`Only ${reachedCount} of ${totalCount} people have a movie in the draw. How this bowl picks.`}
+      tone={tone}
+      onClick={onOpenPreferences}
+      ariaLabel={`${label} Open streaming match preferences.`}
     >
-      <svg aria-hidden="true" viewBox="0 0 24 24" className="mr-1 inline h-3.5 w-3.5 -translate-y-px" fill="currentColor">
-        <circle cx="9" cy="8" r="3.2" />
-        <path d="M3 20c0-3.3 2.7-5.4 6-5.4s6 2.1 6 5.4Z" />
-        <circle cx="17.5" cy="9" r="2.6" />
-        <path d="M15.4 14.9c2.9-.5 5.6 1.2 5.6 4.1v1h-4.6c0-1.9-.4-3.6-1-5.1Z" />
-      </svg>
-      <Count tone="warning">{reachedCount}</Count>/{totalCount}
+      {lead ? `${lead} ` : null}
+      {count === null ? null : <Count tone={tone}>{count}</Count>}
+      {trail ? ` ${trail}` : null}
     </Segment>
   );
 }
@@ -151,55 +185,47 @@ export default function BowlStatLine({
     : 0;
   const hasExcludedContributors = showContributorReach && excludedCount > 0;
 
-  const segments = [];
+  const segments = [
+    <PoolSegment
+      key="pool"
+      status={poolStatus}
+      poolCount={poolCount}
+      totalCount={poolTotalCount}
+      contributorReach={contributorReach}
+      showContributorReach={showContributorReach}
+      hasExcludedContributors={hasExcludedContributors}
+      onRunLookups={onRunPoolLookups}
+      onOpenFilters={onOpenFilters}
+    />,
+  ];
 
-  if (poolStatus === DRAW_POOL_STATUS.manual) {
+  if (poolStatus === DRAW_POOL_STATUS.counting) {
     segments.push(
-      <Segment key="pool" as="button" tone="active" onClick={onRunPoolLookups}>
-        Preview filter matches
+      <Segment
+        key="filter-details"
+        as="button"
+        tone="idle"
+        onClick={onOpenFilters}
+        ariaLabel="View filter lookup progress"
+      >
+        Filter details
       </Segment>
-    );
-  } else {
-    const { count, service, fellBack } = resolveDrawPool({
-      poolStatus,
-      poolCount,
-      poolTotalCount,
-      streamingStatus,
-      streamingMatchCount,
-      streamingTopService,
-      streamingTopServiceCount,
-      isPrioritized,
-      useServiceRank,
-    });
-    const tone = hasExcludedContributors || fellBack
-      ? "warning"
-      : service || poolStatus === DRAW_POOL_STATUS.ready
-        ? "active"
-        : "idle";
-    segments.push(
-      <PoolSegment key="pool" count={count} service={service} tone={tone} onOpenFilters={onOpenFilters} />
     );
   }
 
-  if (hasExcludedContributors) {
+  if (streamingStatus !== STREAMING_MATCH_STATUS.unavailable) {
     segments.push(
-      <ReachSegment
-        key="reach"
-        reachedCount={contributorReach.reachedCount}
-        totalCount={contributorReach.totalCount}
-        onOpenMethodInfo={onOpenMethodInfo}
+      <StreamingSegment
+        key="streaming"
+        status={streamingStatus}
+        matchCount={streamingMatchCount}
+        topService={streamingTopService}
+        topServiceCount={streamingTopServiceCount}
+        isPrioritized={isPrioritized}
+        useServiceRank={useServiceRank}
+        onScan={onScanStreaming}
+        onOpenPreferences={onOpenFilters}
       />
-    );
-  }
-
-  // Scanning is transient and counting resolves on its own, so neither earns a
-  // readout. An unscanned service list is the exception: that one is an action
-  // nobody can reach from anywhere else on this screen.
-  if (streamingStatus === STREAMING_MATCH_STATUS.manual) {
-    segments.push(
-      <Segment key="streaming" as="button" tone={isPrioritized ? "active" : "idle"} onClick={onScanStreaming}>
-        Check your services
-      </Segment>
     );
   }
 

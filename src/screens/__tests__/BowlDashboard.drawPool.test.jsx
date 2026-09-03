@@ -174,7 +174,7 @@ describe("BowlDashboard draw pool count", () => {
   it("shows only the bowl count while the filters take nothing out", async () => {
     await renderDashboard();
 
-    expect(screen.getByRole("button", { name: /drawing from 3 titles/i })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /3 movies in the bowl/i })).toBeInTheDocument();
     expect(screen.queryByText(/eligible/i)).not.toBeInTheDocument();
     // The default rating filter allows everything, so it must cost no lookups.
     expect(getTmdbMovieDetails).not.toHaveBeenCalled();
@@ -190,14 +190,12 @@ describe("BowlDashboard draw pool count", () => {
     await renderDashboard();
     await waitFor(() => expect(getTmdbMovieDetails).toHaveBeenCalledTimes(3));
 
-    expect(screen.getByRole("button", { name: /drawing from 3 titles/i })).toHaveTextContent(
-      "Drawing from 3"
+    expect(screen.getByRole("button", { name: /3 movies in the bowl/i })).toHaveTextContent(
+      "3 in the bowl"
     );
     expect(screen.queryByRole("progressbar", { name: /filter lookup progress/i })).not.toBeInTheDocument();
 
-    // "Filter details" was a second button to the panel the pool segment already
-    // opens, so the progress bar is reached through that one now.
-    fireEvent.click(screen.getByRole("button", { name: /drawing from 3 titles/i }));
+    fireEvent.click(screen.getByRole("button", { name: /view filter lookup progress/i }));
 
     const progress = screen.getByRole("progressbar", { name: /filter lookup progress/i });
     expect(progress).toHaveAttribute("aria-valuenow", "0");
@@ -245,10 +243,8 @@ describe("BowlDashboard draw pool count", () => {
     await renderDashboard();
     selectOnlyGenre("Action");
 
-    const segment = await screen.findByRole("button", { name: /drawing from 3 titles/i });
-    expect(segment).toHaveTextContent("Drawing from 3");
-    // The denominator moved behind the filters panel this segment opens.
-    expect(segment).not.toHaveTextContent("of 4");
+    const segment = await screen.findByRole("button", { name: /drawing from 3 of 4 titles/i });
+    expect(segment).toHaveTextContent("3 of 4 eligible");
     expect(segment).toHaveAttribute("data-tone", "active");
   });
 
@@ -256,16 +252,15 @@ describe("BowlDashboard draw pool count", () => {
     await renderDashboard();
     selectOnlyGenre("Comedy");
 
-    const reach = await screen.findByRole("button", { name: /1 of 2 people have a movie in the draw/i });
-    expect(reach).toHaveTextContent("1/2");
-    expect(reach).toHaveAttribute("data-tone", "warning");
+    const segment = await screen.findByRole("button", { name: /reaching 1 of 2 people/i });
+    expect(segment).toHaveAttribute("data-tone", "warning");
 
     // The named exclusion lives in the method info dialog, whose trigger
     // carries the warning so it is findable before opening.
     fireEvent.click(
       screen.getByRole("button", { name: /how this bowl picks — some people are filtered out/i })
     );
-    expect(screen.getByText(/alex is left out — your filters removed every movie they added\./)).toBeInTheDocument();
+    expect(screen.getByText(/No movies from alex are in the pool\./)).toBeInTheDocument();
   });
 
   it("shows the live eligible count in the filters overlay with reset and done", async () => {
@@ -307,11 +302,11 @@ describe("BowlDashboard draw pool count", () => {
     await renderDashboard();
     selectOnlyGenre("Comedy");
 
-    const segment = await screen.findByRole("button", { name: /drawing from 1 titles\./i });
+    const segment = await screen.findByRole("button", { name: /drawing from 1 of 3 titles\./i });
     expect(segment).toHaveAttribute("data-tone", "active");
-    expect(screen.queryByRole("button", { name: /people have a movie in the draw/i })).not.toBeInTheDocument();
+    expect(segment).not.toHaveTextContent("people");
 
     fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks$/i }));
-    expect(screen.getByText(/alex is left out — your filters removed every movie they added\./)).toBeInTheDocument();
+    expect(screen.getByText(/No movies from alex are in the pool\./)).toBeInTheDocument();
   });
 });

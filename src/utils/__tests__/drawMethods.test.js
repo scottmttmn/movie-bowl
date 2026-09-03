@@ -41,14 +41,7 @@ describe("normalizeDrawMethod", () => {
       expect(getDrawMethod(method.id)).toBe(method);
       expect(method.label).toBeTruthy();
       expect(method.description).toBeTruthy();
-      // The modal renders ordered steps rather than a paragraph, so every
-      // method has to supply at least one.
-      expect(Array.isArray(method.steps)).toBe(true);
-      expect(method.steps.length).toBeGreaterThan(0);
-      method.steps.forEach((step) => {
-        expect(step.title).toBeTruthy();
-        expect(step.note).toBeTruthy();
-      });
+      expect(method.disclosure).toBeTruthy();
       expect(method.tvLabel).toBeTruthy();
       expect(method.selectionMode).toBeTruthy();
       expect(typeof method.honorsPin).toBe("boolean");
