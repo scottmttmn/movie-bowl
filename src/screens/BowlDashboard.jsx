@@ -16,9 +16,7 @@ import useDrawProviderLinks from "../hooks/useDrawProviderLinks";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import useAutosave from "../hooks/useAutosave";
 import AutosaveStatus from "../components/AutosaveStatus";
-import useBowlStreamingMatches, {
-  STREAMING_MATCH_STATUS,
-} from "../hooks/useBowlStreamingMatches";
+import { STREAMING_MATCH_STATUS } from "../utils/streamingMatchSummary";
 import useDrawPoolCount, { DRAW_POOL_STATUS } from "../hooks/useDrawPoolCount";
 import useMyMovieEligibility, { MY_MOVIE_ELIGIBILITY_STATUS } from "../hooks/useMyMovieEligibility";
 import AddMovieModal from "../components/AddMovieModal";
@@ -157,17 +155,6 @@ export default function BowlDashboard() {
     }, [showDrawFilters]);
 
     const isDrawFilteredByServices = prioritizeStreaming && userStreamingServices.length > 0;
-    const {
-      status: streamingMatchStatus,
-      matchCount: streamingMatchCount,
-      topService: streamingMatchTopService,
-      topServiceCount: streamingMatchTopServiceCount,
-      scan: scanStreamingMatches,
-    } = useBowlStreamingMatches(bowl.remaining, userStreamingServices, {
-      autoScan: false,
-      enabled: !isDrawFilteredByServices,
-      fetchProviders: filterMetadataFetchers?.fetchProviders,
-    });
 
     const navigate = useNavigate();
 
@@ -407,18 +394,14 @@ export default function BowlDashboard() {
       drawPoolTotalCount > 0 &&
       (drawPoolStatus === DRAW_POOL_STATUS.ready ||
         drawPoolStatus === DRAW_POOL_STATUS.unfiltered);
-    const displayedStreamingStatus = isDrawFilteredByServices
-      ? hasResolvedPrioritizedPool
-        ? STREAMING_MATCH_STATUS.ready
-        : STREAMING_MATCH_STATUS.unavailable
-      : streamingMatchStatus;
+    // Streaming only says anything when it is narrowing the draw. With priority
+    // off it changes nothing, so there is no readout and nothing to scan for.
+    const displayedStreamingStatus = hasResolvedPrioritizedPool
+      ? STREAMING_MATCH_STATUS.ready
+      : STREAMING_MATCH_STATUS.unavailable;
     const displayedStreamingMatch = hasResolvedPrioritizedPool
       ? drawPoolStreamingMatch
-      : {
-          matchCount: streamingMatchCount,
-          topService: streamingMatchTopService,
-          topServiceCount: streamingMatchTopServiceCount,
-        };
+      : { matchCount: 0, topService: null, topServiceCount: 0 };
     // "Engaged" means a selection that could narrow the draw exists, whether
     // or not it currently removes anything — the dot marks set state, not
     // effect, so it cannot flicker as the bowl's contents change.
@@ -816,7 +799,6 @@ return (
                   streamingTopServiceCount={displayedStreamingMatch.topServiceCount}
                   isPrioritized={isDrawFilteredByServices}
                   useServiceRank={useStreamingRank}
-                  onScanStreaming={scanStreamingMatches}
                   onOpenFilters={() => setShowDrawFilters(true)}
                   onOpenMethodInfo={() => setShowMethodInfo(true)}
                 />
