@@ -207,11 +207,11 @@ describe("BowlDashboard guards", () => {
     expect(screen.queryByText(/lowest active member/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/draw odds/i)).not.toBeInTheDocument();
 
-    expect(screen.queryByText(/each person is equally likely to be selected/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/everyone equally likely/i)).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks$/i }));
 
-    expect(screen.getByText(/each person is equally likely to be selected/i)).toBeInTheDocument();
+    expect(screen.getByText(/everyone equally likely/i)).toBeInTheDocument();
     expect(mocks.state.useBowlOptions).toEqual({ drawMethod: "person_first" });
   });
 
@@ -232,8 +232,8 @@ describe("BowlDashboard guards", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks$/i }));
 
-    expect(screen.getByText(/every movie is equally likely/i)).toBeInTheDocument();
-    expect(screen.queryByText(/each person is equally likely to be selected/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/one title, at random/i)).toBeInTheDocument();
+    expect(screen.queryByText(/everyone equally likely/i)).not.toBeInTheDocument();
   });
 
   it("passes rotation into the shared draw hook and explains the turn history", async () => {
@@ -253,7 +253,7 @@ describe("BowlDashboard guards", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks$/i }));
 
-    expect(screen.getByText(/starting with anyone who has never had a movie drawn/i)).toBeInTheDocument();
+    expect(screen.getByText(/whoever has waited longest/i)).toBeInTheDocument();
     expect(screen.getByText(/returning a movie does not reset the turn/i)).toBeInTheDocument();
   });
 
@@ -271,7 +271,7 @@ describe("BowlDashboard guards", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks$/i }));
 
-    expect(screen.getByText(/each person is equally likely to be selected/i)).toBeInTheDocument();
+    expect(screen.getByText(/everyone equally likely/i)).toBeInTheDocument();
   });
 
   it("opens the shared add session for the viewed bowl", async () => {

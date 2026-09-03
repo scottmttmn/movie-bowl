@@ -147,8 +147,8 @@ describe("BowlDashboard streaming match count", () => {
     render(<BowlDashboard />);
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    expect(screen.getByText(/in the bowl/i)).toBeInTheDocument();
-    expect(screen.queryByText(/on your services/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /drawing from 3 titles/i })).toBeInTheDocument();
+    expect(screen.queryByText(/service/i)).not.toBeInTheDocument();
     expect(fetchStreamingProviders).not.toHaveBeenCalled();
   });
 
@@ -163,9 +163,10 @@ describe("BowlDashboard streaming match count", () => {
     expect(fetchStreamingProviders).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: /check your services/i }));
-    await waitFor(() => expect(screen.getByText(/on your services/i)).toBeInTheDocument());
-    expect(screen.getByText("1")).toBeInTheDocument();
-    expect(fetchStreamingProviders).toHaveBeenCalledTimes(2);
+    await waitFor(() => expect(fetchStreamingProviders).toHaveBeenCalledTimes(2));
+    // Matching without prioritizing narrows nothing, so the pool is unchanged
+    // and there is no second number to print.
+    expect(screen.getByRole("button", { name: /drawing from 3 titles/i })).toBeInTheDocument();
   });
 
   it("says the draw is favoring the top-ranked service once prioritizing is on", async () => {
@@ -179,14 +180,12 @@ describe("BowlDashboard streaming match count", () => {
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
     fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
 
-    await waitFor(() => expect(screen.getByText(/favoring/i)).toBeInTheDocument());
+    await waitFor(() => expect(screen.getByText(/on Netflix/i)).toBeInTheDocument());
     expect(fetchStreamingProviders).toHaveBeenCalledTimes(2);
-    expect(screen.getByText("Netflix", { exact: false })).toBeInTheDocument();
-    expect(screen.queryByText(/^on your services$/i)).not.toBeInTheDocument();
-    expect(screen.getByText(/favoring/i).closest("[data-tone]")).toHaveAttribute(
-      "data-tone",
-      "active"
-    );
+    const line = screen.getByRole("button", { name: /drawing from 1 titles on Netflix/i });
+    expect(line).toHaveAttribute("data-tone", "active");
+    // The eligible count and the service tally were the same number twice.
+    expect(screen.queryByText(/favoring/i)).not.toBeInTheDocument();
   });
 
   it("shows the ranked post-filter pool and warns about unreachable manual contributors", async () => {
@@ -226,18 +225,17 @@ describe("BowlDashboard streaming match count", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
 
     const poolSegment = await screen.findByRole("button", {
-      name: /drawing from 1 of 3 titles, reaching 1 of 3 people/i,
+      name: /drawing from 1 titles on Netflix/i,
     });
-    expect(poolSegment).toHaveTextContent("1 of 3 people represented");
     expect(poolSegment).toHaveAttribute("data-tone", "warning");
-    expect(
-      screen.getByRole("button", { name: /favoring the 1 eligible title on netflix/i })
-    ).toBeInTheDocument();
+    // The people readout is now its own segment, as a ratio behind a glyph.
+    const reach = screen.getByRole("button", { name: /1 of 3 people have a movie in the draw/i });
+    expect(reach).toHaveTextContent("1/3");
 
     fireEvent.click(
       screen.getByRole("button", { name: /how this bowl picks — some people are filtered out/i })
     );
-    expect(screen.getByText(/No movies from Jo or sam are in the pool\./)).toBeInTheDocument();
+    expect(screen.getByText(/Jo and sam are left out — your filters removed every movie they added\./)).toBeInTheDocument();
     expect(fetchStreamingProviders).not.toHaveBeenCalledWith(-900);
   });
 
@@ -253,9 +251,7 @@ describe("BowlDashboard streaming match count", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /use streaming service ranking/i }));
 
     await waitFor(() =>
-      expect(
-        screen.getByRole("button", { name: /draw is favoring the 2 eligible titles/i })
-      ).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /drawing from 2 titles\./i })).toBeInTheDocument()
     );
   });
 
@@ -269,13 +265,14 @@ describe("BowlDashboard streaming match count", () => {
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
     fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
 
+    // A preference that is on but changing nothing should not look like one
+    // that works. The sentence is gone; the tone still says it.
     await waitFor(() =>
-      expect(screen.getByText(/no service matches — using eligible pool/i)).toBeInTheDocument()
+      expect(screen.getByRole("button", { name: /drawing from/i })).toHaveAttribute(
+        "data-tone",
+        "warning"
+      )
     );
-    // A filter that is on but changing nothing should not look like one that works.
-    expect(
-      screen.getByText(/no service matches — using eligible pool/i).closest("[data-tone]")
-    ).toHaveAttribute("data-tone", "warning");
   });
 
   it("opens the filter panel so the count leads to the control that changes it", async () => {
@@ -287,13 +284,15 @@ describe("BowlDashboard streaming match count", () => {
     expect(fetchStreamingProviders).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: /check your services/i }));
-    await waitFor(() => expect(screen.getByText(/on your services/i)).toBeInTheDocument());
+    await waitFor(() => expect(fetchStreamingProviders).toHaveBeenCalled());
 
     expect(
       screen.queryByRole("checkbox", { name: /prioritize streaming services/i })
     ).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /is not filtered by them/i }));
+    // The count still leads to the control that changes it -- through the pool
+    // segment now that the streaming readout is folded into it.
+    fireEvent.click(screen.getByRole("button", { name: /drawing from/i }));
 
     expect(
       screen.getByRole("checkbox", { name: /prioritize streaming services/i })
@@ -316,7 +315,7 @@ describe("BowlDashboard streaming match count", () => {
 
     fireEvent.click(scanButton);
 
-    await waitFor(() => expect(screen.getByText(/on your services/i)).toBeInTheDocument());
-    expect(screen.getByText("2")).toBeInTheDocument();
+    await waitFor(() => expect(fetchStreamingProviders).toHaveBeenCalled());
+    expect(screen.queryByRole("button", { name: /check your services/i })).not.toBeInTheDocument();
   });
 });
