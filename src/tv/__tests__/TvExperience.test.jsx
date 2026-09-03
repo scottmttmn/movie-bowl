@@ -520,7 +520,7 @@ describe("Movie Bowl TV experience", () => {
     expect(screen.getByText(/added by alex/i)).toBeInTheDocument();
     expect(screen.getByText("Didn't watch it?")).toBeInTheDocument();
     expect(
-      screen.getByText(/remove this pick from everyone's watch history/i)
+      screen.getByText(/removes this pick from everyone.s watch history/i)
     ).toBeInTheDocument();
     expect(
       document.querySelector(".tv-history-detail-page .tv-kept-badge")
@@ -538,7 +538,9 @@ describe("Movie Bowl TV experience", () => {
     expect(
       screen.getByRole("dialog", { name: /put “arrival” back in the bowl/i })
     ).toBeInTheDocument();
-    expect(screen.getByText(/still within the two-hour undo window/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/removes the watch history entries this pick created/i)
+    ).toBeInTheDocument();
     await waitFor(() => {
       expect(screen.getByRole("button", { name: /^close$/i })).toHaveFocus();
     });
@@ -554,7 +556,9 @@ describe("Movie Bowl TV experience", () => {
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
-  it("uses neutral return copy after the two-hour cleanup window", async () => {
+
+
+  it("withholds the return once the undo window has closed", async () => {
     mocks.bowlData.watched[0].drawn_at = new Date(
       Date.now() - 3 * 60 * 60 * 1000
     ).toISOString();
@@ -566,48 +570,11 @@ describe("Movie Bowl TV experience", () => {
       })
     );
 
-    expect(screen.getByText("Want it back in the bowl?")).toBeInTheDocument();
+    // The database refuses a late return, so the screen explains rather than
+    // offering an action that would fail.
     expect(
-      screen.getByText(/putting it back will leave watch history unchanged/i)
+      screen.getByText(/available for two hours after the draw/i)
     ).toBeInTheDocument();
-    expect(screen.queryByText("Didn't watch it?")).not.toBeInTheDocument();
-    expect(
-      document.querySelector(".tv-history-detail-page .tv-kept-badge")
-    ).toBeNull();
-
-    fireEvent.click(
-      screen.getByRole("button", { name: /^put movie back in bowl$/i })
-    );
-
-    expect(
-      screen.getByText(/outside the two-hour undo window/i)
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/everyone's watch history unchanged/i)
-    ).toBeInTheDocument();
-  });
-
-  it("keeps an older returned pick in TV Watch History without another return action", async () => {
-    const returnedMovie = {
-      ...mocks.bowlData.watched[0],
-      drawn_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-      returned_at: new Date().toISOString(),
-    };
-    mocks.bowlData = {
-      ...mocks.bowlData,
-      watched: [],
-      watchHistory: [returnedMovie],
-    };
-
-    renderTonight();
-
-    const returnedHistoryButton = screen.getByRole("button", {
-      name: /view details for arrival in watch history, back in bowl/i,
-    });
-    expect(returnedHistoryButton).toHaveTextContent(/back in bowl/i);
-    fireEvent.click(returnedHistoryButton);
-
-    expect(screen.getByText(/picked .* • added by alex • back in bowl/i)).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /^put movie back in bowl$/i })
     ).not.toBeInTheDocument();

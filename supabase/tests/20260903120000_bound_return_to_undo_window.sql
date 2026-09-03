@@ -331,7 +331,9 @@ select is(
   'the exact two-hour boundary removes generated history'
 );
 
--- Older returns restore the bowl without rewriting personal history.
+-- A draw past the undo window can no longer be returned at all. Correcting the
+-- record after that point is a separate job; putting the title back for another
+-- viewing is Add Movie.
 set local role authenticated;
 select set_config(
   'request.jwt.claims',
@@ -344,6 +346,8 @@ select set_config(
   true
 );
 
+-- Permission is still judged before the window, so an outsider is refused for
+-- being an outsider rather than being told the draw is old.
 select throws_ok(
   $$
     select public.return_bowl_draw_to_bowl(
@@ -352,7 +356,7 @@ select throws_ok(
   $$,
   '42501',
   'You do not have permission to move this movie to the bowl.',
-  'an outsider cannot return an older draw'
+  'an outsider is refused before the window is considered'
 );
 
 select set_config(
@@ -366,13 +370,15 @@ select set_config(
   true
 );
 
-select lives_ok(
+select throws_ok(
   $$
     select public.return_bowl_draw_to_bowl(
       current_setting('test.return_older_draw_event_id')::uuid
     )
   $$,
-  'an owner can return a draw after the undo window'
+  'P0001',
+  'This draw is too old to move back to the bowl. Add the movie again instead.',
+  'even an owner cannot return a draw after the undo window'
 );
 
 reset role;
@@ -386,7 +392,7 @@ select is(
     where event.source_bowl_movie_id = '20000000-0000-0000-0000-000000000103'
   ),
   2,
-  'an older return preserves every participant history row'
+  'a refused return leaves every participant history row untouched'
 );
 
 select is(
@@ -397,41 +403,18 @@ select is(
       and tmdb_id = 10103
       and drawn_at is null
   ),
-  1,
-  'an older return still restores exactly one active bowl slip'
+  0,
+  'a refused return restores no bowl slip'
 );
 
-select is(
+select ok(
   (
-    select note
-    from public.bowl_movies
-    where bowl_id = '10000000-0000-0000-0000-000000000101'
-      and tmdb_id = 10103
-      and drawn_at is null
+    select returned_at is null
+    from public.bowl_draw_events
+    where source_bowl_movie_id = '20000000-0000-0000-0000-000000000103'
   ),
-  'Older bowl note',
-  'an older return restores the snapshotted bowl note'
+  'a refused return leaves the draw event unreturned'
 );
-
-set local role authenticated;
-select set_config(
-  'request.jwt.claim.sub',
-  '00000000-0000-0000-0000-000000000101',
-  true
-);
-
-select throws_ok(
-  $$
-    select public.return_bowl_draw_to_bowl(
-      current_setting('test.return_older_draw_event_id')::uuid
-    )
-  $$,
-  'P0001',
-  'This draw is no longer available to move to the bowl.',
-  'a returned draw cannot be returned twice'
-);
-
-reset role;
 
 select is(
   (

@@ -1142,6 +1142,17 @@ html.tv-root {
   flex: 0 0 auto;
 }
 
+/* Shown in place of the return action once the undo window has closed. Quiet on
+   purpose: it explains why an action is absent, it is not an action itself. */
+.tv-history-return-closed {
+  max-width: 52rem;
+  margin-top: 1.5rem;
+  padding-top: 1.35rem;
+  border-top: 1px solid rgba(148, 163, 184, 0.18);
+  color: #64748b;
+  font-size: 0.68rem;
+}
+
 .tv-trailer-overlay {
   position: fixed;
   z-index: 180;

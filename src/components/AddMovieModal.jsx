@@ -26,6 +26,7 @@ export default function AddMovieModal({
   onAddMovie,
   userStreamingServices = [],
   detailPrimaryActionLabel = null,
+  detailPrimaryActionNote = null,
   onDetailPrimaryAction = null,
   detailPrimaryActionError = "",
   isDetailPrimaryActionLoading = false,
@@ -368,9 +369,10 @@ export default function AddMovieModal({
           ) : null}
         </div>
 
-        {(detailPrimaryActionError || (onDetailPrimaryAction && detailPrimaryActionLabel)) && (
+        {(detailPrimaryActionError || detailPrimaryActionNote || (onDetailPrimaryAction && detailPrimaryActionLabel)) && (
           <div className={`shrink-0 space-y-3 border-t border-slate-700/60 pt-4 ${inline ? "" : "px-5 pb-4 sm:px-7"}`}>
             {detailPrimaryActionError && <div className="status-error text-sm" role="alert">{detailPrimaryActionError}</div>}
+            {detailPrimaryActionNote && <p className="text-sm text-slate-400">{detailPrimaryActionNote}</p>}
             {onDetailPrimaryAction && detailPrimaryActionLabel && (
               <div className="flex justify-end">
                 <button type="button" onClick={async () => { await onDetailPrimaryAction(movie); }} className="btn btn-secondary w-full sm:w-auto" disabled={isDetailPrimaryActionLoading || isDetailPrimaryActionDisabled}>

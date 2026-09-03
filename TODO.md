@@ -27,6 +27,16 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## UX / UI Polish
 
+- Let a bowl owner delete entries from the bowl's watched history. Returning a
+  movie is a two-hour undo, so a draw nobody watched but nobody caught in time
+  now stays in the bowl's list with no way to correct it. That correction is a
+  different job from putting a title back in the bowl -- it should not require
+  the movie to return, since by then it may have been drawn again or removed.
+  Personal entries already have this through `delete_user_watch_event`; the
+  bowl-side equivalent is owner-scoped and wants a pgTAP permission test.
+  Reintroducing late returns is not the answer here -- see
+  `output/designs/tv-watch-history-details-and-safe-return.md`.
+
 - TV pairing typography from physical onn. Full HD hardware: the instructional
   copy is difficult to read at viewing distance and the fallback pairing code
   is too small. Increase both, with the code getting the stronger size bump;

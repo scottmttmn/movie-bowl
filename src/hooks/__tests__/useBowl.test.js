@@ -54,10 +54,10 @@ const mocks = vi.hoisted(() => ({
         throw new Error(`Unexpected table: ${table}`);
       }
 
-      const state = { mode: "select", kind: null, table };
+      const state = { mode: "select", kind: null, table, isFilters: [] };
       const query = {
         select: vi.fn((columns) => {
-          mocks.selectCalls.push({ table, columns });
+          mocks.selectCalls.push({ table, columns, isFilters: state.isFilters });
           return query;
         }),
         eq: vi.fn((key, value) => {
@@ -70,6 +70,7 @@ const mocks = vi.hoisted(() => ({
           return query;
         }),
         is: vi.fn((column, value) => {
+          if (state.mode === "select") state.isFilters.push([column, value]);
           if (table === "bowl_movies" && column === "drawn_at" && value === null) {
             state.kind = "remaining";
           }
@@ -321,44 +322,31 @@ describe("useBowl handleDraw integration", () => {
     );
   });
 
-  it("keeps older returns in bowl Watch History while hiding bounded undos", async () => {
+  it("asks the database for active draws only, so no surface can differ", async () => {
     const activeDraw = {
       id: "draw-active",
       title: "Active draw",
       drawn_at: "2026-09-01T12:00:00.000Z",
       returned_at: null,
     };
-    const boundedUndo = {
-      id: "draw-undone",
-      title: "Accidental draw",
-      drawn_at: "2026-09-01T12:00:00.000Z",
-      returned_at: "2026-09-01T14:00:00.000Z",
-    };
-    const olderReturn = {
-      id: "draw-returned",
-      title: "Returned later",
-      drawn_at: "2026-09-01T12:00:00.000Z",
-      returned_at: "2026-09-01T14:00:00.001Z",
-    };
 
     mocks.remainingQueue.push([]);
-    mocks.watchedQueue.push([activeDraw, boundedUndo, olderReturn]);
+    mocks.watchedQueue.push([activeDraw]);
 
-    const { result } = renderHook(() =>
-      useBowl("bowl-1", { includeReturnedHistory: true })
-    );
+    const { result } = renderHook(() => useBowl("bowl-1"));
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.bowl.watched.map((movie) => movie.id)).toEqual([
       "draw-active",
     ]);
-    expect(result.current.bowl.watchHistory.map((movie) => movie.id)).toEqual([
-      "draw-active",
-      "draw-returned",
-    ]);
-    expect(
-      mocks.selectCalls.find(({ table }) => table === "bowl_draw_events")?.columns
-    ).toContain("returned_at");
+    // Returned draws are excluded by the query rather than filtered afterwards,
+    // so there is no second collection for a caller to reach for.
+    expect(result.current.bowl.watchHistory).toBeUndefined();
+    const drawEventsCall = mocks.selectCalls.find(
+      ({ table }) => table === "bowl_draw_events"
+    );
+    expect(drawEventsCall?.columns).toContain("returned_at");
+    expect(drawEventsCall?.isFilters).toContainEqual(["returned_at", null]);
   });
 
   it("prioritizes titles matching user streaming services", async () => {
