@@ -164,15 +164,3 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   tracked in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md). Keep product ideas here and
   use that register for audit evidence, remediation plans, and decision history.
 - Supabase schema/process hygiene: keep migrations and policy snapshots current so dashboard-only DB changes do not drift from the repo.
-- Let the TV resolve its own eligible count instead of labelling it `up to N`.
-  A bowl over `AUTO_LOOKUP_TITLE_LIMIT` whose metadata the daily cron has not
-  fully cached waits for an opt-in scan, and only the phone offers one
-  (`Preview filter matches`), so the TV shows an approximate number instead.
-  Splitting this phone-versus-TV was never right: the gate protects our TMDB
-  proxy budget, not the device, and `handleDraw` re-resolves the pool with the
-  same fetchers a moment later regardless — so the TV pays the cost after the
-  decision rather than before it, which is the worse half of both options.
-  Expected answer is that the TV simply counts, with no opt-in. Revisit
-  alongside `output/designs/tv-draw-filters-and-per-tv-preferences.md`: once the
-  TV can change filters, the count becomes something a person can act on there,
-  which is the one argument for the split that holds today.
