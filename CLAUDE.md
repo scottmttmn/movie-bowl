@@ -29,7 +29,7 @@ to HTML documents, so it cannot simply be removed. A current CLI warns that it
 ignores `has` in development and serves normally.
 
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
-A clean checkout is expected to be fully green (111 test files / 873 tests, lint
+A clean checkout is expected to be fully green (111 test files / 872 tests, lint
 with zero warnings); if something fails, it is your change. Those counts are a
 tripwire, not trivia — refresh them in the same commit that adds or removes
 tests, or the next person cannot tell a stale number from a lost test.
@@ -252,11 +252,9 @@ those stages. The shared resolver can return raw movie rows or
 `{ movie, providers }` wrappers; client methods must handle both, while a server
 method accepts their ids and maps its returned id back to the same candidate.
 
-Method copy has one source of truth. The TV preference list and Bowl Settings
-read `label`/`description` off the registry, and `DrawMethodInfoModal` renders
-`steps` — the method as ordered choices rather than a paragraph, which is what
-lets the pinning promise show rather than be asserted. Do not hardcode a
-sentence about odds anywhere else.
+Method copy has one source of truth. `DrawMethodDisclosure`, the TV preference
+list, and Bowl Settings all read `label`/`description`/`disclosure` off the
+registry — do not hardcode a sentence about odds anywhere else.
 
 Streaming prioritization narrows the pool *before* the contributor bucketing:
 with `prioritizeByServiceRank` it keeps only the top-ranked matching service,

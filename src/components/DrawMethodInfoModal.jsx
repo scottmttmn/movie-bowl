@@ -4,14 +4,18 @@ import { getDrawMethod } from "../utils/drawMethods";
 // add link may have no display name at all, so the count is what always holds.
 function describeExcludedContributors(excludedNames, excludedCount) {
   if (excludedNames.length === 0) {
-    return excludedCount === 1 ? "One person is left out" : `${excludedCount} people are left out`;
+    return excludedCount === 1
+      ? "One person has no movies left in the pool."
+      : `${excludedCount} people have no movies left in the pool.`;
   }
   if (excludedNames.length < excludedCount) {
-    return `${excludedNames.join(", ")} and ${excludedCount - excludedNames.length} more are left out`;
+    return `No movies from ${excludedNames.join(", ")} (and ${excludedCount - excludedNames.length} more) are in the pool.`;
   }
-  if (excludedNames.length === 1) return `${excludedNames[0]} is left out`;
+  if (excludedNames.length === 1) {
+    return `No movies from ${excludedNames[0]} are in the pool.`;
+  }
   const leading = excludedNames.slice(0, -1).join(", ");
-  return `${leading} and ${excludedNames[excludedNames.length - 1]} are left out`;
+  return `No movies from ${leading} or ${excludedNames[excludedNames.length - 1]} are in the pool.`;
 }
 
 export default function DrawMethodInfoModal({ drawMethod, contributorReach = null, onClose }) {
@@ -33,27 +37,11 @@ export default function DrawMethodInfoModal({ drawMethod, contributorReach = nul
         <h3 id="draw-method-info-title" className="text-lg font-semibold text-slate-100">
           How this bowl picks
         </h3>
-        <ol className="mt-3 space-y-3">
-          {method.steps.map((step, index) => (
-            <li key={step.title} className="flex gap-3">
-              <span
-                aria-hidden="true"
-                className="mt-0.5 inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-950/60 text-xs font-semibold text-slate-300"
-              >
-                {index + 1}
-              </span>
-              <span className="min-w-0">
-                <span className="block text-sm font-semibold text-slate-100">{step.title}</span>
-                <span className="mt-0.5 block text-sm text-slate-400">{step.note}</span>
-              </span>
-            </li>
-          ))}
-        </ol>
-        {method.footnote && <p className="mt-3 text-sm text-slate-400">{method.footnote}</p>}
+        <p className="mt-2 text-sm leading-6 text-slate-300">{method.disclosure}</p>
         {showReach && (
-          <p className="mt-4 rounded-xl border border-amber-800/70 bg-amber-950/25 px-3.5 py-3 text-sm leading-6 text-amber-200">
-            {describeExcludedContributors(contributorReach.excludedNames, excludedCount)} — your filters
-            removed every movie they added.{method.reachCaveat ? ` ${method.reachCaveat}` : ""}
+          <p className="mt-3 rounded-xl border border-amber-800/70 bg-amber-950/25 px-3.5 py-3 text-sm leading-6 text-amber-200">
+            {describeExcludedContributors(contributorReach.excludedNames, excludedCount)}{" "}
+            {method.reachCaveat}
           </p>
         )}
         <div className="mt-4 flex justify-end">
