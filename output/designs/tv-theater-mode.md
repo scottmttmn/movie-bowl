@@ -356,8 +356,10 @@ drive a TV assistant programmatically — no third-party API exists for the last
 
 ## Open Product Questions
 
-- Should Theater mode be a user preference, a per-TV preference, or chosen each
-  movie night?
+- ~~Should Theater mode be a user preference, a per-TV preference, or chosen
+  each movie night?~~ Per-TV, under the split proposed in
+  `tv-draw-filters-and-per-tv-preferences.md`: it describes the room and the
+  screen rather than the person.
 - ~~Should the group be able to skip trailers, or should only pause and exit be
   available?~~ Answered by living with it: pause and exit only, with exit
   unlabelled on the Back button. See the phase 1 revision above.
