@@ -14,6 +14,7 @@ npm install          # Node >=20.19 <21 or >=22.12 (see package.json engines)
 npm run dev          # Vite dev server, frontend only — /api/* routes will 404
 npm run dev:api      # full local behavior including /api/* serverless routes
 npm run test:run     # run the whole Vitest suite once (the pre-merge gate)
+npm run test:failures # name the tests that failed in the last test:run
 npm run test         # Vitest watch mode
 npm run test:coverage
 npm run test:e2e     # Playwright release smoke suite; no production credentials
@@ -33,6 +34,19 @@ A clean checkout is expected to be fully green (111 test files / 873 tests, lint
 with zero warnings); if something fails, it is your change. Those counts are a
 tripwire, not trivia — refresh them in the same commit that adds or removes
 tests, or the next person cannot tell a stale number from a lost test.
+
+`test:run` writes the run to `.vitest/last-run.json` (gitignored, overwritten
+each time) and `npm run test:failures` names what failed in it. Reach for that
+rather than grepping the console: the suite prints a lot of expected
+`console.error` from tests that deliberately exercise failure paths, so a real
+failure does not stand out, and a filtered or scrolled-away run loses the one
+line that names it. It also answers after the fact, which matters for a flake
+that will not reproduce on the next run.
+
+Run the suite as its own command and read the result before committing. Chaining
+it into the same command as `git commit` or `git push` means the result prints
+after the push has already gone out, which makes it a log line rather than a
+gate.
 
 Single test file: `npx vitest run src/utils/__tests__/drawSelection.test.js`.
 
