@@ -164,3 +164,14 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   tracked in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md). Keep product ideas here and
   use that register for audit evidence, remediation plans, and decision history.
 - Supabase schema/process hygiene: keep migrations and policy snapshots current so dashboard-only DB changes do not drift from the repo.
+- Repair four Playwright specs left behind by shipped UI, and decide whether
+  `npm run test:e2e` joins the pre-merge gate. `defaultBowl.e2e.js` still looks
+  for the pre-picker add-destination chooser and the word `Default` where the
+  interface now says home; `memberJourney.e2e.js` waits for `1 movies in the
+  bowl`, the stat-line copy replaced in `04c45c8`; `settingsNavigation.e2e.js`
+  expects the bowl name as a dashboard heading, which the picker replaced. Each
+  fails in both viewports, so the suite reports eight failures on a green
+  checkout. They are stale selectors rather than product defects, but a suite
+  that is red by default cannot report a real regression, and only
+  `CLAUDE.md`'s `test:run` and `build` are named as the gate today, which is how
+  three separate changes landed without anyone noticing.
