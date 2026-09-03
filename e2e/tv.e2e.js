@@ -187,7 +187,7 @@ test("TV Watch History opens details and applies the bounded return cleanup", as
   await expect(page.getByText("The recent bowl note.")).toBeVisible();
   await expect(page.getByText("Didn't watch it?")).toBeVisible();
   await expect(
-    page.getByText(/remove this pick from everyone's Watch History/i)
+    page.getByText(/removes this pick from everyone's Watch History/i)
   ).toBeVisible();
   await expect(page.locator(".tv-history-detail-page .tv-kept-badge")).toHaveCount(0);
   const detailClose = page.getByRole("button", { name: "Close", exact: true });
@@ -212,37 +212,25 @@ test("TV Watch History opens details and applies the bounded return cleanup", as
     )
   ).toBe(false);
 
+  await expect(recentCard).toHaveCount(0);
+
+  // Past the undo window the return is refused rather than offered, and the
+  // pick stays in Watch History because the group did watch it.
   const olderCard = page.getByRole("button", {
     name: "View details for Older History Feature in Watch History",
   });
   await olderCard.press("Enter");
-  await expect(page.getByText("Want it back in the bowl?")).toBeVisible();
-  await expect(page.getByText(/Watch History unchanged/i)).toBeVisible();
-  await expect(page.getByText("Didn't watch it?")).toHaveCount(0);
-  await page.getByRole("button", { name: "Put movie back in bowl" }).press("Enter");
-  await expect(page.getByText(/outside the two-hour undo window/i)).toBeVisible();
-  await expect(page.getByText(/everyone's Watch History unchanged/i)).toBeVisible();
-  await page.getByRole("button", { name: "Put movie back in bowl" }).press("Enter");
-
   await expect(
-    page.getByText(
-      "Older History Feature is back in the bowl and remains in Watch History."
-    )
+    page.getByText(/available for two hours after the draw/i)
   ).toBeVisible();
+  await expect(page.getByText("Didn't watch it?")).toHaveCount(0);
+  await expect(
+    page.getByRole("button", { name: "Put movie back in bowl" })
+  ).toHaveCount(0);
+  await expect(page.getByText(/back in bowl/i)).toHaveCount(0);
   expect(
     backend.state.user_watch_events.some(
       (event) => event.source_draw_event_id === "draw-tv-older"
     )
   ).toBe(true);
-
-  const returnedOlderCard = page.getByRole("button", {
-    name: "View details for Older History Feature in Watch History, back in bowl",
-  });
-  await expect(returnedOlderCard).toBeVisible();
-  await expect(returnedOlderCard).toContainText("Back in bowl");
-  await returnedOlderCard.press("Enter");
-  await expect(page.getByText(/Picked .* • Added by Jo • Back in bowl/i)).toBeVisible();
-  await expect(
-    page.getByRole("button", { name: "Put movie back in bowl" })
-  ).toHaveCount(0);
 });
