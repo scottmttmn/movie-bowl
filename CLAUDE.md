@@ -30,7 +30,7 @@ to HTML documents, so it cannot simply be removed. A current CLI warns that it
 ignores `has` in development and serves normally.
 
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
-A clean checkout is expected to be fully green (110 test files / 858 tests, lint
+A clean checkout is expected to be fully green (110 test files / 861 tests, lint
 with zero warnings); if something fails, it is your change. Those counts are a
 tripwire, not trivia — refresh them in the same commit that adds or removes
 tests, or the next person cannot tell a stale number from a lost test.
@@ -180,6 +180,14 @@ The bowl-history split matters: a draw writes one immutable `bowl_draw_events`
 row (bowl activity) plus one `user_watch_events` row per participant (personal
 history that survives leaving or deleting the bowl). Returning a movie to the
 bowl sets `returned_at` on the draw event; it never deletes the fact of the draw.
+
+Returning is a two-hour undo, refused by `return_bowl_draw_to_bowl` after that,
+and it means the group did not watch the pick — so every permitted return also
+deletes the personal history rows the draw generated. Every surface reads active
+draws only; a returned draw leaves the bowl's watched list everywhere. Do not
+reintroduce a returned-inclusive collection: a returned draw inserts a fresh
+`bowl_movies` row with no link back to the event, so nothing can tell whether
+that copy is still in the bowl, and a surface that tries ends up asserting it is.
 
 RPCs used by the client — prefer these over multi-statement client writes,
 because they are the atomic/permission-checked path:

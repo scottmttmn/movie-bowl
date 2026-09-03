@@ -17,7 +17,6 @@ import {
   isOfflineError,
 } from "../utils/networkErrors";
 import { getBrowserTimeZone } from "../utils/getBrowserTimeZone";
-import { belongsInBowlWatchHistory } from "../utils/watchHistory";
 import useBowlFilterMetadata from "./useBowlFilterMetadata";
 
 function sortByAddedAtAscending(movies = []) {
@@ -101,19 +100,11 @@ function attachContributorProfile(row, profileEmailByUserId) {
 // useBowl is the core state engine for a bowl.
 // It manages bowl state and defines how that state transitions (add + draw).
 
-export default function useBowl(
-  bowlId,
-  { drawMethod = DEFAULT_DRAW_METHOD, includeReturnedHistory = false } = {}
-) {
+export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {}) {
   // Primary bowl state:
   // - remaining: movies not yet drawn (drawn_at is null)
   // - watched: bowl draw events that have not been returned to the bowl
-  // - watchHistory: active draws plus older returns that preserved personal history
-  const [bowl, setBowl] = useState({
-    remaining: [],
-    watched: [],
-    watchHistory: [],
-  });
+  const [bowl, setBowl] = useState({ remaining: [], watched: [] });
   const filterMetadataFetchers = useBowlFilterMetadata(bowlId, bowl.remaining);
 
   // Simple loading/error flags for DB-backed state.
@@ -130,7 +121,7 @@ export default function useBowl(
     const sequence = ++loadSequence.current;
     const revisionAtStart = movieRevision.current;
     if (!bowlId) {
-      setBowl({ remaining: [], watched: [], watchHistory: [] });
+      setBowl({ remaining: [], watched: [] });
       setIsLoading(false);
       return;
     }
@@ -145,7 +136,7 @@ export default function useBowl(
       if (sequence !== loadSequence.current) return;
 
       if (authError || !user) {
-        setBowl({ remaining: [], watched: [], watchHistory: [] });
+        setBowl({ remaining: [], watched: [] });
         return;
       }
 
@@ -176,11 +167,8 @@ export default function useBowl(
         .select(
           "id, bowl_id, source_bowl_movie_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, added_by, added_by_name, drawn_at, drawn_by, snapshot_at, returned_at, returned_by"
         )
-        .eq("bowl_id", bowlId);
-
-      if (!includeReturnedHistory) {
-        drawEventsQuery = drawEventsQuery.is("returned_at", null);
-      }
+        .eq("bowl_id", bowlId)
+        .is("returned_at", null);
 
       const { data: drawEvents, error: watchedError } = await drawEventsQuery.order(
         "drawn_at",
@@ -252,14 +240,9 @@ export default function useBowl(
             bowlMovieId: event.source_bowl_movie_id,
           };
         });
-        const activeDrawEvents = mappedDrawEvents.filter(
-          (event) => !event.returned_at
-        );
-
         return {
           remaining: sortByAddedAtAscending([...nextRemaining, ...mergedPending]),
-          watched: activeDrawEvents,
-          watchHistory: mappedDrawEvents.filter(belongsInBowlWatchHistory),
+          watched: mappedDrawEvents,
         };
       });
     } catch (err) {
@@ -269,11 +252,11 @@ export default function useBowl(
       setErrorMessage(
         describeNetworkError(err, "Unexpected error loading bowl movies.")
       );
-      setBowl({ remaining: [], watched: [], watchHistory: [] });
+      setBowl({ remaining: [], watched: [] });
     } finally {
       if (sequence === loadSequence.current) setIsLoading(false);
     }
-  }, [bowlId, includeReturnedHistory]);
+  }, [bowlId]);
 
   useEffect(() => {
     // Load DB-backed bowl movies whenever the bowl changes.

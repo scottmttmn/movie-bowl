@@ -29,7 +29,7 @@ import {
   STREAMING_MATCH_TONE,
 } from "../../utils/streamingMatchSummary";
 import { resolvePreferredLaunchTarget } from "../../utils/webLaunch";
-import { isWithinReturnHistoryCleanupWindow } from "../../utils/watchHistory";
+import { canReturnDrawToBowl } from "../../utils/watchHistory";
 import useDrawProviderLinks from "../../hooks/useDrawProviderLinks";
 import TvVoiceHandoffCard from "../components/TvVoiceHandoffCard";
 import ProviderLinksAttribution from "../../components/ProviderLinksAttribution";
@@ -428,7 +428,6 @@ function TvRecentDraws({ movies, restoreFocusId, onFocusRestored, onSelect }) {
         {recentMovies.map((movie) => {
           const focusId = movie.drawEventId || movie.id;
           const shouldRestoreFocus = String(focusId) === String(restoreFocusId);
-          const isBackInBowl = Boolean(movie.returned_at || movie.returnedAt);
 
           return (
             <button
@@ -438,9 +437,7 @@ function TvRecentDraws({ movies, restoreFocusId, onFocusRestored, onSelect }) {
               data-tv-focusable
               data-tv-nav-group="watch-history"
               data-tv-autofocus={shouldRestoreFocus ? "true" : undefined}
-              aria-label={`View details for ${movie.title} in Watch History${
-                isBackInBowl ? ", back in bowl" : ""
-              }`}
+              aria-label={`View details for ${movie.title} in Watch History`}
               onFocus={() => {
                 if (shouldRestoreFocus) onFocusRestored?.();
               }}
@@ -449,7 +446,6 @@ function TvRecentDraws({ movies, restoreFocusId, onFocusRestored, onSelect }) {
               <img src={getPosterUrl(movie, "w185")} alt="" />
               <span>
                 <strong>{movie.title}</strong>
-                {isBackInBowl && <small>Back in bowl</small>}
               </span>
             </button>
           );
@@ -755,6 +751,7 @@ function TvHistoryDetailScreen({
   movie,
   streamingServices,
   canReturn,
+  returnWindowClosed,
   isEnriching,
   showTrailer,
   isDialogOpen,
@@ -769,13 +766,10 @@ function TvHistoryDetailScreen({
   const trailer = movie.trailer;
   const pickedDate = formatPickedDate(movie.drawn_at || movie.drawnAt);
   const addedBy = getMovieAttributionLabel(movie);
-  const isBackInBowl = Boolean(movie.returned_at || movie.returnedAt);
   const historyMetadata = [
     pickedDate ? `Picked ${pickedDate}` : null,
     addedBy ? `Added by ${addedBy}` : null,
-    isBackInBowl ? "Back in bowl" : null,
-  ];
-  const willRemoveGeneratedHistory = isWithinReturnHistoryCleanupWindow(movie);
+  ].filter(Boolean);
   const isCoveredByOverlay = isDialogOpen || showTrailer;
 
   return (
@@ -818,18 +812,18 @@ function TvHistoryDetailScreen({
               Loading trailer and availability…
             </p>
           )}
+          {!canReturn && returnWindowClosed && (
+            <p className="tv-history-return-closed">
+              Putting a pick back is available for two hours after the draw. Add the
+              movie again from your phone to watch it another night.
+            </p>
+          )}
           {canReturn && (
             <div className="tv-history-return-action">
               <div>
-                <strong>
-                  {willRemoveGeneratedHistory
-                    ? "Didn't watch it?"
-                    : "Want it back in the bowl?"}
-                </strong>
+                <strong>Didn&apos;t watch it?</strong>
                 <span>
-                  {willRemoveGeneratedHistory
-                    ? "Putting it back now will remove this pick from everyone's Watch History."
-                    : "Putting it back will leave Watch History unchanged."}
+                  Putting it back removes this pick from everyone&apos;s Watch History.
                 </span>
               </div>
               <button
@@ -868,7 +862,6 @@ function TvReturnDialog({
   if (!request) return null;
 
   const title = request.movie?.title || "this movie";
-  const willRemoveGeneratedHistory = isWithinReturnHistoryCleanupWindow(request.movie);
 
   return (
     <div className="tv-dialog-backdrop" role="presentation">
@@ -880,17 +873,10 @@ function TvReturnDialog({
       >
         <p className="tv-kicker">Watch History</p>
         <h2 id="tv-return-title">Put “{title}” back in the bowl?</h2>
-        {willRemoveGeneratedHistory ? (
-          <p>
-            This pick is still within the two-hour undo window. Putting it back will
-            remove the Watch History entries created by this pick.
-          </p>
-        ) : (
-          <p>
-            This pick is outside the two-hour undo window. Putting it back will leave
-            everyone&apos;s Watch History unchanged.
-          </p>
-        )}
+        <p>
+          Putting it back removes the Watch History entries this pick created, for
+          everyone.
+        </p>
         {errorMessage && (
           <p className="tv-dialog-error" role="alert">
             {errorMessage}
@@ -935,10 +921,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
     handleDraw,
     handleReaddMovie,
     filterMetadataFetchers,
-  } = useBowl(bowlId, {
-    drawMethod: bowlMeta.drawMethod,
-    includeReturnedHistory: true,
-  });
+  } = useBowl(bowlId, { drawMethod: bowlMeta.drawMethod });
   const {
     streamingServices,
     defaultDrawSettings,
@@ -961,10 +944,7 @@ export default function TvTonightScreen({ userId, userEmail }) {
   const [pendingReturn, setPendingReturn] = useState(null);
   const [isReturningMovie, setIsReturningMovie] = useState(false);
   const [returnErrorMessage, setReturnErrorMessage] = useState(null);
-  const watchHistoryMovies = useMemo(
-    () => bowl.watchHistory ?? bowl.watched ?? [],
-    [bowl.watchHistory, bowl.watched]
-  );
+  const watchHistoryMovies = useMemo(() => bowl.watched ?? [], [bowl.watched]);
   const [tonightMessage, setTonightMessage] = useState(null);
   const [trailerQueue, setTrailerQueue] = useState([]);
   const [trailerQueueStatus, setTrailerQueueStatus] = useState("idle");
@@ -1315,9 +1295,6 @@ export default function TvTonightScreen({ userId, userEmail }) {
   const confirmReturnToBowl = async () => {
     if (!pendingReturn || isReturningMovie) return;
 
-    const staysInWatchHistory = !isWithinReturnHistoryCleanupWindow(
-      pendingReturn.movie
-    );
     setIsReturningMovie(true);
     setReturnErrorMessage(null);
 
@@ -1335,18 +1312,14 @@ export default function TvTonightScreen({ userId, userEmail }) {
       historyLoadSequenceRef.current += 1;
       setPendingReturn(null);
       setSelectedHistoryMovie(null);
-      setHistoryFocusId(staysInWatchHistory ? pendingReturn.drawEventId : null);
+      setHistoryFocusId(null);
       setIsHistoryEnriching(false);
       setDrawnMovie(null);
       setIsTheaterPending(false);
       setIsTheaterPlaying(false);
       setShowTrailer(false);
       setShowDrawConfirm(false);
-      setTonightMessage(
-        staysInWatchHistory
-          ? `${returnedTitle} is back in the bowl and remains in Watch History.`
-          : `${returnedTitle} is back in the bowl.`
-      );
+      setTonightMessage(`${returnedTitle} is back in the bowl.`);
     } finally {
       setIsReturningMovie(false);
     }
@@ -1414,9 +1387,9 @@ export default function TvTonightScreen({ userId, userEmail }) {
           bowlName={bowlMeta.name}
           movie={selectedHistoryMovie}
           streamingServices={streamingServices}
-          canReturn={
-            bowlMeta.canDraw &&
-            !(selectedHistoryMovie.returned_at || selectedHistoryMovie.returnedAt)
+          canReturn={bowlMeta.canDraw && canReturnDrawToBowl(selectedHistoryMovie)}
+          returnWindowClosed={
+            bowlMeta.canDraw && !canReturnDrawToBowl(selectedHistoryMovie)
           }
           isEnriching={isHistoryEnriching}
           showTrailer={showTrailer}

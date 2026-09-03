@@ -26,6 +26,7 @@ import { supabase } from "../lib/supabase";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { MAX_BOWLS_PER_USER, MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
+import { canReturnDrawToBowl } from "../utils/watchHistory";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 import { matchUserServices } from "../utils/streamingServices";
 import { resolvePreferredLaunchTarget } from "../utils/webLaunch";
@@ -1360,9 +1361,18 @@ return (
                       return result;
                     }
                   : null}
-                detailPrimaryActionLabel={selectedDetailContext === "watched" ? "Move to Bowl" : null}
+                detailPrimaryActionLabel={
+                  selectedDetailContext === "watched" && canReturnDrawToBowl(selectedDetailMovie)
+                    ? "Move to Bowl"
+                    : null
+                }
+                detailPrimaryActionNote={
+                  selectedDetailContext === "watched" && !canReturnDrawToBowl(selectedDetailMovie)
+                    ? "Moving a pick back is available for two hours after the draw. Add the movie again to watch it another night."
+                    : null
+                }
                 onDetailPrimaryAction={
-                  selectedDetailContext === "watched"
+                  selectedDetailContext === "watched" && canReturnDrawToBowl(selectedDetailMovie)
                     ? async (movie) => {
                         setReaddErrorMessage(null);
                         setSelectedDetailMovie(null);
@@ -1405,8 +1415,8 @@ return (
                       This puts "{pendingReaddMovie.title}" back into the bowl for everyone.
                     </p>
                     <p>
-                      If it was picked within the last two hours, the Watch History entries
-                      created by that pick will also be removed. Older Watch History stays intact.
+                      The Watch History entries created by that pick are removed for
+                      everyone.
                     </p>
                   </div>
                   <div className="mt-4 flex items-center justify-end gap-2">

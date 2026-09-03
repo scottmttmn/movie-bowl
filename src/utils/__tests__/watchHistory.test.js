@@ -1,40 +1,46 @@
 import { describe, expect, it } from "vitest";
-import {
-  belongsInBowlWatchHistory,
-  isWithinReturnHistoryCleanupWindow,
-} from "../watchHistory";
+import { canReturnDrawToBowl, RETURN_UNDO_WINDOW_MS } from "../watchHistory";
 
-const DRAWN_AT = "2026-09-01T12:00:00.000Z";
+const drawnAt = new Date("2026-02-23T18:00:00.000Z");
+const at = (offsetMs) => drawnAt.getTime() + offsetMs;
 
-describe("watch history return timing", () => {
-  it("treats the exact two-hour boundary as an undo", () => {
-    const returnedAt = "2026-09-01T14:00:00.000Z";
+describe("return undo window", () => {
+  it("allows a return inside the window", () => {
+    expect(canReturnDrawToBowl({ drawn_at: drawnAt.toISOString() }, at(60_000))).toBe(true);
+  });
 
-    expect(isWithinReturnHistoryCleanupWindow({ drawn_at: DRAWN_AT }, returnedAt)).toBe(
-      true
-    );
+  it("treats the exact boundary as still inside the window", () => {
     expect(
-      belongsInBowlWatchHistory({ drawn_at: DRAWN_AT, returned_at: returnedAt })
+      canReturnDrawToBowl({ drawn_at: drawnAt.toISOString() }, at(RETURN_UNDO_WINDOW_MS))
+    ).toBe(true);
+  });
+
+  it("refuses a return once the window has passed", () => {
+    expect(
+      canReturnDrawToBowl({ drawn_at: drawnAt.toISOString() }, at(RETURN_UNDO_WINDOW_MS + 1))
     ).toBe(false);
   });
 
-  it("keeps an older returned draw in bowl Watch History", () => {
-    const returnedAt = "2026-09-01T14:00:00.001Z";
-
-    expect(isWithinReturnHistoryCleanupWindow({ drawn_at: DRAWN_AT }, returnedAt)).toBe(
-      false
-    );
+  it("refuses a draw that was already returned", () => {
     expect(
-      belongsInBowlWatchHistory({ drawn_at: DRAWN_AT, returned_at: returnedAt })
-    ).toBe(true);
+      canReturnDrawToBowl(
+        { drawn_at: drawnAt.toISOString(), returned_at: drawnAt.toISOString() },
+        at(60_000)
+      )
+    ).toBe(false);
   });
 
-  it("keeps active draws and malformed returned records visible", () => {
-    expect(belongsInBowlWatchHistory({ drawn_at: DRAWN_AT, returned_at: null })).toBe(
-      true
-    );
+  it("accepts either casing the surfaces use", () => {
+    expect(canReturnDrawToBowl({ drawnAt: drawnAt.toISOString() }, at(60_000))).toBe(true);
     expect(
-      belongsInBowlWatchHistory({ drawn_at: null, returned_at: "2026-09-01T15:00:00Z" })
-    ).toBe(true);
+      canReturnDrawToBowl({ drawnAt: drawnAt.toISOString(), returnedAt: "x" }, at(60_000))
+    ).toBe(false);
+  });
+
+  it("refuses rather than guesses when the draw time is unreadable", () => {
+    // Offering an action the database will reject is worse than withholding it.
+    expect(canReturnDrawToBowl({ drawn_at: "not a date" }, at(60_000))).toBe(false);
+    expect(canReturnDrawToBowl({}, at(60_000))).toBe(false);
+    expect(canReturnDrawToBowl(null, at(60_000))).toBe(false);
   });
 });

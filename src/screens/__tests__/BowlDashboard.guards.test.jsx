@@ -538,7 +538,46 @@ describe("BowlDashboard guards", () => {
     ).toBeInTheDocument();
   });
 
-  it("explains bounded history cleanup before putting a watched item back in the bowl", async () => {
+  it("explains what putting a watched item back removes", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = {
+      remaining: [],
+      watched: [
+        {
+          id: "w1",
+          drawEventId: "draw-1",
+          bowlMovieId: "w1",
+          tmdb_id: 101,
+          title: "Movie A",
+          drawn_at: new Date(Date.now() - 60_000).toISOString(),
+          added_by: "u1",
+        },
+      ],
+    };
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    const watchedSection = screen.getByRole("heading", { name: /^watched$/i }).closest("section");
+    fireEvent.click(within(watchedSection).getByRole("button", { name: /^show$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /movie a/i }));
+    await waitFor(() => expect(screen.getByRole("button", { name: /move to bowl/i })).toBeInTheDocument());
+    expect(screen.queryByRole("group", { name: "Movie pin" })).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /move to bowl/i }));
+
+    expect(screen.getByText(/put movie back in bowl\?/i)).toBeInTheDocument();
+    expect(
+      screen.getByText(/puts "movie a" back into the bowl for everyone/i)
+    ).toBeInTheDocument();
+    expect(
+      screen.getByText(/watch history entries created by that pick are removed/i)
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /put movie back in bowl/i }));
+
+    await waitFor(() => expect(mocks.state.handleReaddMovie).toHaveBeenCalledWith("draw-1"));
+  });
+
+  it("withholds the move once the undo window has closed", async () => {
     mocks.state.memberRows = [{ user_id: "u1" }];
     mocks.state.bowlData = {
       remaining: [],
@@ -560,21 +599,12 @@ describe("BowlDashboard guards", () => {
     const watchedSection = screen.getByRole("heading", { name: /^watched$/i }).closest("section");
     fireEvent.click(within(watchedSection).getByRole("button", { name: /^show$/i }));
     fireEvent.click(screen.getByRole("button", { name: /movie a/i }));
-    await waitFor(() => expect(screen.getByRole("button", { name: /move to bowl/i })).toBeInTheDocument());
-    expect(screen.queryByRole("group", { name: "Movie pin" })).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /move to bowl/i }));
 
-    expect(screen.getByText(/put movie back in bowl\?/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/puts "movie a" back into the bowl for everyone/i)
-    ).toBeInTheDocument();
-    expect(
-      screen.getByText(/within the last two hours.*watch history entries/i)
-    ).toBeInTheDocument();
-
-    fireEvent.click(screen.getByRole("button", { name: /put movie back in bowl/i }));
-
-    await waitFor(() => expect(mocks.state.handleReaddMovie).toHaveBeenCalledWith("draw-1"));
+    // The database refuses a late return, so the button must not promise one.
+    await waitFor(() => expect(
+      screen.getByText(/available for two hours after the draw/i)
+    ).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /move to bowl/i })).not.toBeInTheDocument();
   });
 
   it("enriches watched TMDB details with trailer data before opening the modal", async () => {
@@ -639,7 +669,7 @@ describe("BowlDashboard guards", () => {
           tmdb_id: 238,
           title: "Movie A",
           release_date: "2020-01-01",
-          drawn_at: "2026-02-23T00:00:00.000Z",
+          drawn_at: new Date(Date.now() - 60_000).toISOString(),
           added_by: "u1",
         },
       ],
