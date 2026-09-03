@@ -1,6 +1,6 @@
 import { Fragment } from "react";
 import { DRAW_POOL_STATUS } from "../hooks/useDrawPoolCount";
-import { STREAMING_MATCH_STATUS } from "../utils/streamingMatchSummary";
+import { getDrawReadout } from "../utils/drawReadout";
 
 // One quiet sentence under the bowl instead of a row of chips. Each segment is
 // still a readout of what the draw is about to do, so the chip tone vocabulary
@@ -49,42 +49,6 @@ function Segment({ as = "span", tone = "idle", onClick, ariaLabel, children }) {
       {children}
     </span>
   );
-}
-
-// One number answers the question this line exists for: what is the draw about
-// to choose among, and where will I watch it. The denominator, the service
-// breakdown and the reason a filter is biting all live behind the panels these
-// segments open -- printing them here made the reader do arithmetic that
-// changes no decision.
-function resolveDrawPool({
-  poolStatus,
-  poolCount,
-  poolTotalCount,
-  streamingStatus,
-  streamingMatchCount,
-  streamingTopService,
-  streamingTopServiceCount,
-  isPrioritized,
-  useServiceRank,
-}) {
-  const isFiltered = poolStatus === DRAW_POOL_STATUS.ready;
-  const eligible = isFiltered ? poolCount : poolTotalCount;
-  const streamingResolved = streamingStatus !== STREAMING_MATCH_STATUS.unavailable;
-
-  // Streaming priority narrows the pool further, so when it is on and matching
-  // it owns the count. Its own tally and the eligible count were the same
-  // number printed twice.
-  if (isPrioritized && streamingResolved && streamingMatchCount > 0) {
-    if (useServiceRank && streamingTopService) {
-      return { count: streamingTopServiceCount, service: streamingTopService, fellBack: false };
-    }
-    return { count: streamingMatchCount, service: null, fellBack: false };
-  }
-  // Priority is on and matched nothing, so the draw quietly falls back to the
-  // eligible pool. The old line said so in words; the tone says it now, because
-  // a preference that is engaged and changing nothing should not look settled.
-  const fellBack = isPrioritized && streamingResolved && streamingMatchCount === 0;
-  return { count: eligible, service: null, fellBack };
 }
 
 function PoolSegment({ count, service, tone, onOpenFilters }) {
@@ -156,8 +120,8 @@ export default function BowlStatLine({
       </Segment>
     );
   } else {
-    const { count, service, fellBack } = resolveDrawPool({
-      poolStatus,
+    const { count, service, tone } = getDrawReadout({
+      isFiltered: poolStatus === DRAW_POOL_STATUS.ready,
       poolCount,
       poolTotalCount,
       streamingStatus,
@@ -166,12 +130,8 @@ export default function BowlStatLine({
       streamingTopServiceCount,
       isPrioritized,
       useServiceRank,
+      hasExcludedContributors,
     });
-    const tone = hasExcludedContributors || fellBack
-      ? "warning"
-      : service || poolStatus === DRAW_POOL_STATUS.ready
-        ? "active"
-        : "idle";
     segments.push(
       <PoolSegment key="pool" count={count} service={service} tone={tone} onOpenFilters={onOpenFilters} />
     );
