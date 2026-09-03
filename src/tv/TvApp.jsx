@@ -63,10 +63,7 @@ export default function TvApp() {
         <Route
           path="bowl/:bowlId"
           element={
-            <TvTonightScreen
-              userId={session?.user?.id || ""}
-              userEmail={session?.user?.email || ""}
-            />
+            <TvTonightScreen userId={session?.user?.id || ""} />
           }
         />
         <Route path="*" element={<TvNotFound />} />

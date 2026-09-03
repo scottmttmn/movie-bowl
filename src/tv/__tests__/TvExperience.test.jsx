@@ -364,7 +364,9 @@ describe("Movie Bowl TV experience", () => {
     });
     const view = renderTonight();
 
-    expect(screen.getByRole("heading", { name: /let the bowl decide/i })).toBeInTheDocument();
+    expect(
+      screen.getByRole("heading", { level: 1, name: "Family Night" })
+    ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
 
     expect(screen.getByRole("dialog", { name: /reveal one movie/i })).toBeInTheDocument();
@@ -471,7 +473,7 @@ describe("Movie Bowl TV experience", () => {
     fireEvent.keyDown(window, { key: "Escape" });
 
     expect(
-      screen.getByRole("heading", { name: /let the bowl decide/i })
+      screen.getByRole("heading", { level: 1, name: "Family Night" })
     ).toBeInTheDocument();
     expect(screen.queryByText("Bowl picker route")).not.toBeInTheDocument();
     expect(mocks.handleReaddMovie).not.toHaveBeenCalled();
@@ -497,7 +499,7 @@ describe("Movie Bowl TV experience", () => {
     renderTonight();
 
     expect(
-      screen.getByText(/select a title to see its details, note, and where to watch/i)
+      screen.getByRole("heading", { name: "Watch History" })
     ).toBeInTheDocument();
     const drawButton = screen.getByRole("button", { name: /draw a movie/i });
     const historyButton = screen.getByRole("button", {

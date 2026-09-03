@@ -57,7 +57,7 @@ test("a paired TV can use remote selection to open a bowl", async ({ page, backe
   await bowlButton.press("Enter");
 
   await expect(page).toHaveURL(/\/tv\/bowl\/bowl-tv$/);
-  await expect(page.getByRole("heading", { name: /Let the bowl decide/i })).toBeVisible();
+  await expect(page.getByRole("heading", { level: 1, name: "Smoke TV" })).toBeVisible();
   await expect(page.getByText("OK to select", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: /Draw a movie/ }).press("Enter");
   await expect(page.getByRole("dialog", { name: "Reveal one movie?" })).toBeVisible();

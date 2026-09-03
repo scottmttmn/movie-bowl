@@ -335,26 +335,19 @@ async function enrichDrawnMovie(movie) {
   }
 }
 
-function TvTonightHeader({ bowlName, userEmail, onBack }) {
+function TvTonightHeader({ onBack }) {
   return (
-    <header className="tv-topbar tv-tonight-topbar">
-      <TvBrand context="Tonight" />
-      <div className="tv-tonight-heading">
-        <span className="tv-tonight-heading-label">Current bowl</span>
-        <strong>{bowlName}</strong>
-      </div>
-      <div className="tv-tonight-actions">
-        <span className="tv-viewer-email">{userEmail}</span>
-        <button
-          type="button"
+    <header className="tv-topbar">
+      <TvBrand />
+      <button
+        type="button"
         className="tv-text-button"
         data-tv-focusable
         data-tv-nav-group="tonight-header"
         onClick={onBack}
-        >
-          ← Change bowl
-        </button>
-      </div>
+      >
+        ← Change bowl
+      </button>
     </header>
   );
 }
@@ -420,9 +413,6 @@ function TvRecentDraws({ movies, restoreFocusId, onFocusRestored, onSelect }) {
       <div>
         <p className="tv-kicker">From this bowl</p>
         <h2 id="tv-recent-title">Watch History</h2>
-        <p className="tv-recent-help">
-          Select a title to see its details, note, and where to watch.
-        </p>
       </div>
       <div className="tv-recent-list">
         {recentMovies.map((movie) => {
@@ -711,7 +701,7 @@ function TvRevealScreen({
         inert={isCoveredByOverlay}
       >
         <header className="tv-topbar">
-          <TvBrand context="Tonight’s movie" />
+          <TvBrand />
           <div className="tv-reveal-bowl-name">{bowlName}</div>
         </header>
 
@@ -909,7 +899,7 @@ function TvReturnDialog({
   );
 }
 
-export default function TvTonightScreen({ userId, userEmail }) {
+export default function TvTonightScreen({ userId }) {
   const { bowlId } = useParams();
   const navigate = useNavigate();
   const { bowlMeta, isLoading: isAccessLoading, errorMessage: accessError } =
@@ -1429,20 +1419,12 @@ export default function TvTonightScreen({ userId, userEmail }) {
         aria-hidden={isBehindDialog ? "true" : undefined}
         inert={isBehindDialog}
       >
-        <TvTonightHeader
-          bowlName={bowlMeta.name}
-          userEmail={userEmail}
-          onBack={chooseAnotherBowl}
-        />
+        <TvTonightHeader onBack={chooseAnotherBowl} />
 
         <section className="tv-tonight-grid">
           <div className="tv-tonight-stage">
             <div className="tv-tonight-stage-copy">
-              <p className="tv-kicker">Ready for movie night?</p>
-              <h1>Let the bowl decide.</h1>
-              <p>
-                One press starts the draw using this user&apos;s saved preferences.
-              </p>
+              <h1>{bowlMeta.name}</h1>
             </div>
 
             <BowlIllustration className="tv-tonight-bowl" />

@@ -59,7 +59,7 @@ export default function TvBowlPicker({
   return (
     <main className="tv-page tv-picker-page">
       <header className="tv-topbar">
-        <TvBrand />
+        <TvBrand context="TV" />
         <div className="tv-account">
           <span className="tv-account-label">Watching as</span>
           <span className="tv-account-value">{userEmail || "Movie Bowl member"}</span>
