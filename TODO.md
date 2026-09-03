@@ -27,6 +27,13 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## UX / UI Polish
 
+- Let the TV change draw filters, with what it changes belonging to that
+  television rather than the account. Anyone in the room can pick up the remote,
+  so relaxing a filter for tonight should not rewrite the account owner's
+  preferences everywhere. Plan, including why device storage is the right home
+  and which controls suit a D-pad, in
+  `output/designs/tv-draw-filters-and-per-tv-preferences.md`.
+
 - Let a bowl owner delete entries from the bowl's watched history. Returning a
   movie is a two-hour undo, so a draw nobody watched but nobody caught in time
   now stays in the bowl's list with no way to correct it. That correction is a
