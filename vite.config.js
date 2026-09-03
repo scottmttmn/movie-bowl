@@ -68,6 +68,11 @@ export default defineConfig(({ command }) => {
     test: {
       environment: "jsdom",
       maxWorkers: 2,
+      // Must stay comfortably above the setup file's asyncUtilTimeout. If a
+      // waitFor can consume the whole per-test budget, a wait that is merely
+      // slow reports as an opaque test timeout instead of naming the assertion
+      // that did not hold.
+      testTimeout: 20000,
       setupFiles: "./src/test/setup.js",
       coverage: {
         provider: "v8",
