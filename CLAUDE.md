@@ -12,7 +12,7 @@ the code is put together and what to do when changing it.
 ```bash
 npm install          # Node >=20.19 <21 or >=22.12 (see package.json engines)
 npm run dev          # Vite dev server, frontend only — /api/* routes will 404
-vercel dev           # full local behavior including /api/* serverless routes
+npm run dev:api      # full local behavior including /api/* serverless routes
 npm run test:run     # run the whole Vitest suite once (the pre-merge gate)
 npm run test         # Vitest watch mode
 npm run test:coverage
@@ -20,6 +20,13 @@ npm run test:e2e     # Playwright release smoke suite; no production credentials
 npm run lint         # ESLint, flat config
 npm run build        # production build — run this for any UI/app change
 ```
+
+The Vercel CLI is pinned as a devDependency, so run the serverless dev server
+through `npm run dev:api` rather than a bare `vercel dev`. A globally installed
+CLI can be old enough to reject this repo's `vercel.json` outright — `has` on a
+headers rule postdates CLI 21 — and that rule is what scopes the no-cache header
+to HTML documents, so it cannot simply be removed. A current CLI warns that it
+ignores `has` in development and serves normally.
 
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 A clean checkout is expected to be fully green (111 test files / 869 tests, lint
