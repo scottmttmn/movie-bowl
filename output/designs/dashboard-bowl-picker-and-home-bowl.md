@@ -315,8 +315,12 @@ Pin a footer below the scrollable bowl rows:
   failure and confirmed access-loss state links to it as `Browse bowls`, so the
   user always has an action besides Retry.
 - Keep `Invitations`, including its pending-count badge.
-- Keep the Movie Bowl logo pointed at `/`, with accessible label
-  `Go to your home bowl`.
+- Point the Movie Bowl logo at the home bowl once the account context knows
+  which bowl that is, falling back to `/` until it does. Accessible label stays
+  `Go to your home bowl`. Always routing through `/` meant tapping the logo on
+  the home bowl left the dashboard and came back, remounting it -- a visible
+  flicker for what should be a no-op. `/` remains the resolver for direct
+  visits, bookmarks and the logo's fallback.
 - Rename user-facing references from `default bowl` to `home bowl` where they
   describe the feature. Database objects, function names, and internal code may
   retain `default`.

@@ -7,7 +7,7 @@ import useBowlAdd, { BowlAddProvider } from "./hooks/useBowlAdd";
 import BowlAddStatusBanner from "./components/BowlAddStatusBanner";
 import BowlAddDialog from "./components/BowlAddDialog";
 import { acceptBowlInvite } from "./lib/bowlInvites";
-import { UserBowlsProvider } from "./hooks/useUserBowls";
+import useUserBowls, { UserBowlsProvider } from "./hooks/useUserBowls";
 import TopNav from "./components/TopNav";
 import OfflineBanner from "./components/OfflineBanner";
 import UpdateBanner from "./components/UpdateBanner";
@@ -73,6 +73,7 @@ function AppShell({ children }) {
     !isVoiceProbePrivacyRoute &&
     (Boolean(session) || isAboutRoute);
   const userEmail = session?.user?.email ?? "";
+  const { defaultBowlId } = useUserBowls();
 
   return (
     <div className={`app-shell ${isTvRoute ? "app-shell-tv" : ""}`}>
@@ -86,6 +87,7 @@ function AppShell({ children }) {
           userEmail={userEmail}
           isAuthenticated={Boolean(session)}
           pendingInviteCount={pendingInviteCount}
+          homeBowlId={defaultBowlId}
           onAddMovie={bowlAdd.openGlobalAdd}
         />
       )}
