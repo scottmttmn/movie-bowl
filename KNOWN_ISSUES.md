@@ -550,6 +550,44 @@ meaning of the Save action is confirmed.
 - **Decision history:** 2026-08-31 — recorded as an explicit scope tradeoff, not
   an implementation regression.
 
+### MB-T03 — Only the phone can resolve an uncached bowl's eligible count
+
+- **Severity:** Accepted P3 risk
+- **Status:** Accepted tradeoff
+- **Introduced:** `2608fdc`
+- **Behavior:** A bowl needing metadata lookups, whose cached snapshot is
+  incomplete and whose lookup-eligible titles exceed `AUTO_LOOKUP_TITLE_LIMIT`,
+  waits for an explicit opt-in before its eligible pool is counted
+  (`src/hooks/useDrawPoolCount.js`, lines 18 and 118–124, reported as
+  `DRAW_POOL_STATUS.manual` at line 257). Only the phone offers that opt-in, as
+  `Preview filter matches` (`src/components/BowlStatLine.jsx`, lines 116–121).
+  The television has no equivalent control, so its readout says `Drawing from up
+  to N` (`src/tv/screens/TvTonightScreen.jsx`, lines 992–997). Both surfaces do
+  share the cron-backed bypass, so this state is the exception rather than the
+  norm (`src/hooks/useBowlFilterMetadata.js`, line 174).
+- **Rationale:** An exact count is worth resolving where a person can act on it.
+  The phone can open the filter panel and loosen a filter; the television cannot
+  change filters at all today, so the number would inform no available decision.
+  `up to N` is an honest label rather than a total the filters have not touched.
+- **Known weakness in that rationale:** The gate protects our TMDB proxy budget,
+  not anything about the device, so phone-versus-television was never the axis it
+  should have split on. `handleDraw` re-resolves the pool with the same fetchers
+  moments later regardless (`src/hooks/useBowl.js`, lines 302–313), so the
+  television does not avoid the cost — it pays it after the decision instead of
+  before it. This entry records an accepted gap, not a defended design.
+- **Revisit when:** `output/designs/tv-draw-filters-and-per-tv-preferences.md` is
+  implemented. Once the television can change filters, the count becomes
+  actionable there and the only argument for the split expires. Also revisit if
+  the daily cron's 300-title ceiling starts leaving ordinary bowls uncached.
+- **If revisited:** The expected answer is that the television simply counts,
+  with no opt-in — it is on mains power and wifi, has one viewer, and spends a
+  budget the draw spends moments later anyway. Compare that against extending
+  the cron's coverage so the state stops arising, and against giving the
+  television the phone's opt-in control. Keep both surfaces reading one readout
+  resolver so the displayed number cannot drift between them.
+- **Decision history:** 2026-09-03 — recorded when the shared draw readout
+  reached the television and made the divergence visible.
+
 ## Lower-priority watch items
 
 ### MB-W01 — Anonymous endpoints have uneven abuse controls
