@@ -520,7 +520,7 @@ describe("Movie Bowl TV experience", () => {
     expect(screen.getByText(/added by alex/i)).toBeInTheDocument();
     expect(screen.getByText("Didn't watch it?")).toBeInTheDocument();
     expect(
-      screen.getByText(/remove this pick from everyone's watch history/i)
+      screen.getByText(/leaves this list and is removed from everyone's watch history/i)
     ).toBeInTheDocument();
     expect(
       document.querySelector(".tv-history-detail-page .tv-kept-badge")
@@ -568,7 +568,7 @@ describe("Movie Bowl TV experience", () => {
 
     expect(screen.getByText("Want it back in the bowl?")).toBeInTheDocument();
     expect(
-      screen.getByText(/putting it back will leave watch history unchanged/i)
+      screen.getByText(/leaves this list but stays in everyone's watch history/i)
     ).toBeInTheDocument();
     expect(screen.queryByText("Didn't watch it?")).not.toBeInTheDocument();
     expect(
@@ -583,35 +583,27 @@ describe("Movie Bowl TV experience", () => {
       screen.getByText(/outside the two-hour undo window/i)
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/everyone's watch history unchanged/i)
+      screen.getByText(/leaves this bowl's list but stays in everyone's watch history/i)
     ).toBeInTheDocument();
   });
 
-  it("keeps an older returned pick in TV Watch History without another return action", async () => {
-    const returnedMovie = {
-      ...mocks.bowlData.watched[0],
-      drawn_at: new Date(Date.now() - 3 * 60 * 60 * 1000).toISOString(),
-      returned_at: new Date().toISOString(),
-    };
-    mocks.bowlData = {
-      ...mocks.bowlData,
-      watched: [],
-      watchHistory: [returnedMovie],
-    };
-
+  it("renders the watched collection without a back-in-bowl badge", async () => {
     renderTonight();
 
-    const returnedHistoryButton = screen.getByRole("button", {
-      name: /view details for arrival in watch history, back in bowl/i,
+    // The strip reads bowl.watched, the same collection the phone renders, so a
+    // draw that was put back is already gone rather than lingering with a badge
+    // that outlives the return.
+    const historyButton = screen.getByRole("button", {
+      name: /^view details for arrival in watch history$/i,
     });
-    expect(returnedHistoryButton).toHaveTextContent(/back in bowl/i);
-    fireEvent.click(returnedHistoryButton);
+    expect(document.querySelector(".tv-recent-movie small")).toBeNull();
 
-    expect(screen.getByText(/picked .* • added by alex • back in bowl/i)).toBeInTheDocument();
+    fireEvent.click(historyButton);
+
+    expect(screen.getByText(/^picked .* • added by alex$/i)).toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /^put movie back in bowl$/i })
-    ).not.toBeInTheDocument();
-    expect(mocks.handleReaddMovie).not.toHaveBeenCalled();
+      screen.getByRole("button", { name: /^put movie back in bowl$/i })
+    ).toBeInTheDocument();
   });
 
   it("uses remote Back to close Watch History details and restore strip focus", async () => {

@@ -567,6 +567,35 @@ meaning of the Save action is confirmed.
 
 ## Resolved
 
+### MB-013 — A returned draw kept claiming it was back in the bowl on TV
+
+- **Severity:** P2
+- **Status:** Fixed
+- **First observed:** user report, September 3, 2026, against `420b418`
+- **Invariant:** A Watch History card must not assert current bowl membership
+  that the bowl no longer has, and the same bowl must not present two different
+  histories on phone and TV.
+- **Original evidence:** the TV card rendered a `Back in bowl` badge straight
+  from `bowl_draw_events.returned_at`, which records that a draw *was* returned
+  and is never cleared. `return_bowl_draw_to_bowl` inserts a fresh `bowl_movies`
+  row rather than restoring the drawn one, and records no link back to the
+  event, so a title that was returned and then drawn again left the original
+  event badged while the title sat drawn — two cards for one title, the older
+  one advertising a membership that had moved on. The surfaces also disagreed by
+  construction: `BowlDashboard` left `includeReturnedHistory` at its default and
+  never loaded returned draws, while TV passed `true`.
+- **Resolution:** `useBowl` filters `returned_at is null` for every caller and
+  exposes one `watched` collection; TV renders it, so a returned draw leaves
+  Watch History on both surfaces. The badge, the separate `watchHistory`
+  collection, `includeReturnedHistory`, and `belongsInBowlWatchHistory` were
+  removed rather than reworded. The two-hour window still governs only whether
+  generated `user_watch_events` rows survive, so MB-001's invariant is untouched.
+  TV return copy now distinguishes leaving this bowl's list from personal Watch
+  History. Covered by `useBowl.test.js`, `TvExperience.test.jsx`,
+  `watchHistory.test.js`, and `e2e/tv.e2e.js`.
+- **Historical data:** no data repair applies; the badge was a read-side claim
+  and no rows were wrong.
+
 ### MB-001 — Returning an old draw erased every participant's personal history
 
 - **Severity:** P1

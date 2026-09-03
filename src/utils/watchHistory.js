@@ -15,12 +15,3 @@ export function isWithinReturnHistoryCleanupWindow(movie, returnedAt = Date.now(
     returnedAtTimestamp <= drawnAt + RETURN_HISTORY_CLEANUP_WINDOW_MS
   );
 }
-
-export function belongsInBowlWatchHistory(drawEvent) {
-  const returnedAt = drawEvent?.returned_at || drawEvent?.returnedAt;
-  if (!returnedAt) return true;
-
-  // A bounded return is an undo, so it should disappear from history. An older
-  // return is part of the bowl's durable history and remains visible.
-  return !isWithinReturnHistoryCleanupWindow(drawEvent, returnedAt);
-}
