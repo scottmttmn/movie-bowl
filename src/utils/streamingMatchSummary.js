@@ -1,3 +1,11 @@
+// Whether a streaming readout has anything to say yet. TV derives this itself
+// and the phone stat line reads it, so it lives with the shared copy rather
+// than inside any one caller.
+export const STREAMING_MATCH_STATUS = {
+  unavailable: "unavailable",
+  ready: "ready",
+};
+
 export const STREAMING_MATCH_TONE = {
   idle: "idle",
   active: "active",

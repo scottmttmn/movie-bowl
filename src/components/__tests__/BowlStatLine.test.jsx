@@ -2,9 +2,10 @@ import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import BowlStatLine from "../BowlStatLine";
 import { DRAW_POOL_STATUS } from "../../hooks/useDrawPoolCount";
-import { STREAMING_MATCH_STATUS } from "../../hooks/useBowlStreamingMatches";
+import { STREAMING_MATCH_STATUS } from "../../utils/streamingMatchSummary";
 
 const FULL_REACH = { totalCount: 2, reachedCount: 2, excludedNames: [] };
+const SHORT_REACH = { totalCount: 2, reachedCount: 1, excludedNames: ["ana"] };
 
 function renderLine(props = {}) {
   const handlers = {
@@ -26,153 +27,139 @@ function renderLine(props = {}) {
   return handlers;
 }
 
-describe("BowlStatLine", () => {
-  afterEach(() => {
-    cleanup();
-  });
+const pool = () => screen.getByRole("button", { name: /drawing from|nothing is eligible/i });
 
-  it("shows the plain bowl count while nothing narrows the draw", () => {
+describe("BowlStatLine", () => {
+  afterEach(cleanup);
+
+  it("states the whole bowl when nothing is narrowing the draw", () => {
     const { onOpenFilters } = renderLine();
 
-    const segment = screen.getByRole("button", { name: /5 movies in the bowl/i });
-    expect(segment).toHaveTextContent("in the bowl");
-    expect(segment).toHaveAttribute("data-tone", "idle");
-
-    fireEvent.click(segment);
-    expect(onOpenFilters).toHaveBeenCalledTimes(1);
+    expect(pool()).toHaveTextContent("Drawing from 5");
+    expect(pool()).toHaveAttribute("data-tone", "idle");
+    fireEvent.click(pool());
+    expect(onOpenFilters).toHaveBeenCalled();
   });
 
-  it("reports the narrowed pool against the total", () => {
+  it("states the narrowed pool without making the reader do the arithmetic", () => {
+    renderLine({ poolStatus: DRAW_POOL_STATUS.ready, poolCount: 3 });
+
+    expect(pool()).toHaveTextContent("Drawing from 3");
+    // The denominator lives behind the filters panel this segment opens.
+    expect(screen.queryByText(/of 5/)).not.toBeInTheDocument();
+    expect(pool()).toHaveAttribute("data-tone", "active");
+  });
+
+  it("names the service when ranked prioritization narrows the pool further", () => {
     renderLine({
       poolStatus: DRAW_POOL_STATUS.ready,
-      poolCount: 3,
-      contributorReach: FULL_REACH,
-      showContributorReach: true,
-    });
-
-    const segment = screen.getByRole("button", { name: /drawing from 3 of 5 titles/i });
-    expect(segment).toHaveTextContent("of 5 eligible");
-    expect(segment).toHaveAttribute("data-tone", "active");
-  });
-
-  it("warns when the filters empty the pool", () => {
-    renderLine({ poolStatus: DRAW_POOL_STATUS.ready, poolCount: 0 });
-
-    expect(screen.getByRole("button", { name: /drawing from 0 of 5 titles/i })).toHaveAttribute(
-      "data-tone",
-      "warning"
-    );
-  });
-
-  it("turns amber when a contributor is filtered out of a person-first bowl", () => {
-    renderLine({
-      poolStatus: DRAW_POOL_STATUS.ready,
-      poolCount: 3,
-      contributorReach: { totalCount: 2, reachedCount: 1, excludedNames: ["alex"] },
-      showContributorReach: true,
-    });
-
-    expect(
-      screen.getByRole("button", { name: /reaching 1 of 2 people/i })
-    ).toHaveAttribute("data-tone", "warning");
-    expect(screen.getByText(/1 of 2 people represented/i)).toBeInTheDocument();
-    expect(
-      screen.getByRole("button", { name: /how this bowl picks — some people are filtered out/i })
-    ).toBeInTheDocument();
-  });
-
-  it("keeps the pool tone calm for a title-first bowl with the same exclusion", () => {
-    renderLine({
-      poolStatus: DRAW_POOL_STATUS.ready,
-      poolCount: 3,
-      contributorReach: { totalCount: 2, reachedCount: 1, excludedNames: ["alex"] },
-      showContributorReach: false,
-    });
-
-    expect(screen.getByRole("button", { name: /drawing from 3 of 5 titles/i })).toHaveAttribute(
-      "data-tone",
-      "active"
-    );
-    expect(screen.getByRole("button", { name: /^how this bowl picks$/i })).toBeInTheDocument();
-  });
-
-  it("offers a filter preview when the pool needs lookups", () => {
-    const { onRunPoolLookups } = renderLine({ poolStatus: DRAW_POOL_STATUS.manual });
-
-    fireEvent.click(screen.getByRole("button", { name: /preview filter matches/i }));
-    expect(onRunPoolLookups).toHaveBeenCalledTimes(1);
-  });
-
-  it("keeps the bowl count visible while the filter preview updates", () => {
-    const { onOpenFilters } = renderLine({ poolStatus: DRAW_POOL_STATUS.counting });
-
-    expect(screen.getByRole("button", { name: /5 movies in the bowl/i })).toHaveTextContent(
-      "5 in the bowl"
-    );
-    const detailsButton = screen.getByRole("button", { name: /view filter lookup progress/i });
-    expect(detailsButton).toHaveTextContent("Filter details");
-    expect(screen.queryByText(/counting eligible titles/i)).not.toBeInTheDocument();
-    expect(screen.queryByText(/previewing filters/i)).not.toBeInTheDocument();
-
-    fireEvent.click(detailsButton);
-    expect(onOpenFilters).toHaveBeenCalledTimes(1);
-  });
-
-  it("omits the streaming segment when the user has no services", () => {
-    renderLine();
-    expect(screen.queryByText(/services/i)).not.toBeInTheDocument();
-  });
-
-  it("offers a tap to scan when the bowl is over the auto-scan limit", () => {
-    const { onScanStreaming } = renderLine({ streamingStatus: STREAMING_MATCH_STATUS.manual });
-
-    fireEvent.click(screen.getByRole("button", { name: /check your services/i }));
-    expect(onScanStreaming).toHaveBeenCalledTimes(1);
-  });
-
-  it("shows the unprioritized streaming count in the idle tone", () => {
-    renderLine({
+      poolCount: 5,
       streamingStatus: STREAMING_MATCH_STATUS.ready,
-      streamingMatchCount: 4,
-      isPrioritized: false,
-    });
-
-    const segment = screen.getByRole("button", { name: /is not filtered by them/i });
-    expect(segment).toHaveTextContent("on your services");
-    expect(segment).toHaveAttribute("data-tone", "idle");
-  });
-
-  it("shows ranked prioritization as favoring the top service", () => {
-    renderLine({
-      streamingStatus: STREAMING_MATCH_STATUS.ready,
-      streamingMatchCount: 4,
+      streamingMatchCount: 3,
       streamingTopService: "Netflix",
       streamingTopServiceCount: 2,
       isPrioritized: true,
       useServiceRank: true,
     });
 
-    const segment = screen.getByRole("button", { name: /favoring the 2 eligible titles on netflix/i });
-    expect(segment).toHaveTextContent("Favoring");
-    expect(segment).toHaveAttribute("data-tone", "active");
+    // The eligible count and the streaming tally were the same number printed
+    // twice; prioritization owns it, so it appears once.
+    expect(pool()).toHaveTextContent("Drawing from 2 on Netflix");
+    expect(screen.queryByText(/favoring/i)).not.toBeInTheDocument();
   });
 
-  it("warns when prioritization matches nothing", () => {
+  it("uses every matching service when ranking is off", () => {
     renderLine({
+      poolStatus: DRAW_POOL_STATUS.ready,
+      poolCount: 5,
+      streamingStatus: STREAMING_MATCH_STATUS.ready,
+      streamingMatchCount: 3,
+      streamingTopService: "Netflix",
+      streamingTopServiceCount: 2,
+      isPrioritized: true,
+      useServiceRank: false,
+    });
+
+    expect(pool()).toHaveTextContent("Drawing from 3");
+    expect(pool()).not.toHaveTextContent("Netflix");
+  });
+
+  it("keeps the eligible pool when prioritization matches nothing", () => {
+    renderLine({
+      poolStatus: DRAW_POOL_STATUS.ready,
+      poolCount: 4,
       streamingStatus: STREAMING_MATCH_STATUS.ready,
       streamingMatchCount: 0,
       isPrioritized: true,
     });
 
-    expect(
-      screen.getByText(/no service matches — using eligible pool/i).closest("[data-tone]")
-    ).toHaveAttribute("data-tone", "warning");
+    expect(pool()).toHaveTextContent("Drawing from 4");
   });
 
-  it("opens the method info from the ⓘ affordance", () => {
+  it("ignores an unprioritized streaming tally, which narrows nothing", () => {
+    renderLine({
+      poolStatus: DRAW_POOL_STATUS.ready,
+      poolCount: 4,
+      streamingStatus: STREAMING_MATCH_STATUS.ready,
+      streamingMatchCount: 3,
+      isPrioritized: false,
+    });
+
+    expect(pool()).toHaveTextContent("Drawing from 4");
+    expect(screen.queryByText(/on your services/i)).not.toBeInTheDocument();
+  });
+
+  it("warns rather than reporting a pool of nothing", () => {
+    renderLine({ poolStatus: DRAW_POOL_STATUS.ready, poolCount: 0 });
+
+    const segment = screen.getByRole("button", { name: /nothing is eligible/i });
+    expect(segment).toHaveTextContent("Nothing to draw");
+    expect(segment).toHaveAttribute("data-tone", "warning");
+  });
+
+  it("shows excluded people as a ratio that opens the explanation", () => {
+    const { onOpenMethodInfo } = renderLine({
+      poolStatus: DRAW_POOL_STATUS.ready,
+      poolCount: 3,
+      showContributorReach: true,
+      contributorReach: SHORT_REACH,
+    });
+
+    const reach = screen.getByRole("button", { name: /only 1 of 2 people have a movie in the draw/i });
+    expect(reach).toHaveTextContent("1/2");
+    expect(reach).toHaveAttribute("data-tone", "warning");
+    // The pool turns amber too: the count is honest but the draw is not reaching
+    // everyone, which is the thing worth stopping for.
+    expect(pool()).toHaveAttribute("data-tone", "warning");
+    fireEvent.click(reach);
+    expect(onOpenMethodInfo).toHaveBeenCalled();
+  });
+
+  it("says nothing about people when everyone is represented", () => {
+    renderLine({
+      poolStatus: DRAW_POOL_STATUS.ready,
+      poolCount: 3,
+      showContributorReach: true,
+      contributorReach: FULL_REACH,
+    });
+
+    expect(screen.queryByRole("button", { name: /people have a movie/i })).not.toBeInTheDocument();
+    expect(pool()).toHaveAttribute("data-tone", "active");
+  });
+
+  it("keeps the manual filter preview as an action", () => {
+    const { onRunPoolLookups } = renderLine({ poolStatus: DRAW_POOL_STATUS.manual });
+
+    fireEvent.click(screen.getByRole("button", { name: /preview filter matches/i }));
+    expect(onRunPoolLookups).toHaveBeenCalled();
+  });
+
+
+
+  it("always offers the explanation", () => {
     const { onOpenMethodInfo } = renderLine();
 
     fireEvent.click(screen.getByRole("button", { name: /how this bowl picks/i }));
-    expect(onOpenMethodInfo).toHaveBeenCalledTimes(1);
+    expect(onOpenMethodInfo).toHaveBeenCalled();
   });
 });

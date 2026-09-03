@@ -21,10 +21,11 @@ import { clampTheaterTrailerCount } from "../../utils/drawSettings";
 import { getPosterUrl } from "../../utils/getPosterUrl";
 import { getMovieFromDrawCandidate } from "../../utils/selectDrawCandidate";
 import { matchUserServices } from "../../utils/streamingServices";
-import { STREAMING_MATCH_STATUS } from "../../hooks/useBowlStreamingMatches";
+
 import useDrawPoolCount, { DRAW_POOL_STATUS } from "../../hooks/useDrawPoolCount";
 import {
   describeStreamingMatch,
+  STREAMING_MATCH_STATUS,
   STREAMING_MATCH_TONE,
 } from "../../utils/streamingMatchSummary";
 import { resolvePreferredLaunchTarget } from "../../utils/webLaunch";

@@ -1,60 +1,52 @@
-# Draw readout copy reduction — rolled back
+# Draw readout copy reduction — rolled back, then reinstated
 
-Status: reverted on September 3, 2026. The intent still stands; this records what
-was undone, why, and what was learned so it does not have to be rediscovered.
+Status: reverted September 3, 2026, then reinstated the same day with the defect
+that prompted the rollback fixed. Kept as the record of the round trip.
 
-## What was reverted
+## What the change does
 
-PR #57, "Say the draw readout in one clause" (`420b418`), the only commit on
-`main` after PR #56. The revert restores the tree byte-for-byte to `18c968c`.
+- **`BowlStatLine`** says the draw in one clause — `Drawing from 4 on Max`
+  rather than `4 of 88 eligible · 1 of 2 people represented · Favoring 4 on Max`.
+- **`DrawMethodInfoModal`** renders ordered steps instead of a paragraph, so
+  `drawMethods` carries a `steps` array rather than `disclosure` prose.
 
-It changed two surfaces:
+## Why it was rolled back, and what changed on the way back
 
-- **`BowlStatLine`** collapsed to a single clause — `Drawing from 4 on Max`
-  instead of `4 of 88 eligible · 1 of 2 people represented · Favoring 4 on Max`.
-- **`DrawMethodInfoModal`** became ordered steps instead of a paragraph, which
-  meant `drawMethods` traded `disclosure` prose for a `steps` array.
+The first attempt (#57) left `Check your services` stranded. That action can only
+appear when streaming prioritization is **off**, because the hook behind it is
+disabled when it is on — and off is precisely the state whose streaming readout
+the change removed. Tapping it scanned, resolved, and then had nothing to show.
 
-## Why
+Reinstating it therefore also removes that action, and with it the lazy-scan
+path: `useBowlStreamingMatches` had no other caller. `STREAMING_MATCH_STATUS`
+moved to `streamingMatchSummary`, beside the copy it pairs with, because TV
+derives that status itself and still needs the vocabulary.
 
-Not because the direction was wrong. The goal — as little visible copy as the
-interface can carry — still holds. It was rolled back to get to a clean base:
-the change rewrote roughly 33 test assertions across six files, and two
-follow-on branches exist only to repair things it disturbed. Starting again from
-a settled `main` is cheaper than continuing to patch forward.
+Prioritization off means streaming narrows nothing, so there is nothing to check
+for. Turning it on is reached through the filters panel, which is where the
+decision belongs.
 
-## Worth keeping from it
+## What the readout must keep saying
 
-- **The stat line printed the same number twice.** With streaming priority on,
-  the eligible count and the service tally are the same figure: the pool *is*
-  the titles on the top-ranked service. Any future attempt should collapse that
-  duplication rather than shorten both halves.
-- **Two segments carried signal that copy alone did not.** An empty pool and
-  "priority is on but matching nothing" both need to remain distinguishable;
-  the reverted version carried the second as tone rather than a sentence.
-- **`Check your services` can only appear when prioritization is off**, because
-  the hook behind it is disabled when it is on. Off is also the state whose
-  streaming readout the change removed, so the action became unreachable in
-  effect — it scanned and then had nothing to show. Any redesign has to decide
-  what that button is for.
-- **The method dialog reads better as steps than prose.** Putting pins under
-  step two shows that pinning cannot change who is selected, instead of
-  asserting it in a fourth sentence.
+Compressing this line twice has shown which parts are load-bearing:
 
-## Where the work still lives
-
-- `codex/less-copy-draw-readouts` — the reverted change itself.
-- `codex/drop-dead-service-scan` — removes the orphaned `Check your services`
-  action. Only meaningful on top of the reverted change; moot against this base.
-- `codex/deflake-async-assertions` — unrelated to the copy work. It raises
-  Testing Library's 1000ms `asyncUtilTimeout` and fixes two racy assertions.
-  Worth revisiting on its own terms, but note it accidentally tracks
-  `.vitest/last-run.json`, which should be gitignored rather than committed.
+- **The eligible count and the streaming tally are one number.** With priority
+  on, the pool *is* the titles on the top-ranked service. Printing both was the
+  same figure twice.
+- **An empty pool and a fallback are different states.** `Nothing to draw` for
+  the first; for the second — priority engaged, nothing matching — the count is
+  honest but the tone warns, so a preference that is on and changing nothing
+  does not look settled.
+- **Excluded contributors keep their own segment**, as a ratio behind a glyph.
+  It is the one fact here that should make someone stop.
+- **The method dialog reads better as steps than prose.** Pins under step two
+  show that pinning cannot change who is selected, rather than asserting it in
+  a fourth sentence.
 
 ## Unfinished business it surfaced
 
-The suite flakes intermittently under its two-worker parallelism — five
-different files observed failing across many runs, never reproducible in
-isolation. The cause is a class rather than a bug: assertions on state derived
-from chained async work, with waits that are too short or absent. That predates
-this change and outlived the revert.
+The suite flakes under its two-worker parallelism — several files, never
+reproducible in isolation, caused by assertions on state derived from chained
+async work. Partly mitigated by raising `asyncUtilTimeout` and `testTimeout`
+together; roughly one run in ten still fails. That predates this work and
+outlived both the rollback and the reinstatement.
