@@ -30,7 +30,7 @@ to HTML documents, so it cannot simply be removed. A current CLI warns that it
 ignores `has` in development and serves normally.
 
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
-A clean checkout is expected to be fully green (110 test files / 861 tests, lint
+A clean checkout is expected to be fully green (111 test files / 868 tests, lint
 with zero warnings); if something fails, it is your change. Those counts are a
 tripwire, not trivia — refresh them in the same commit that adds or removes
 tests, or the next person cannot tell a stale number from a lost test.

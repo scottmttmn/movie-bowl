@@ -573,10 +573,49 @@ html.tv-root {
   letter-spacing: -0.02em;
 }
 
-.tv-draw-button small {
-  color: #fecdd3;
-  font-size: 0.68rem;
-  font-weight: 650;
+.tv-draw-readout {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  align-items: center;
+  gap: 0.15rem 0.55rem;
+  margin: 0.9rem 0 0;
+  color: #94a3b8;
+  font-size: 0.95rem;
+  font-weight: 620;
+}
+
+.tv-draw-readout[data-tone="active"] {
+  color: #fda4af;
+}
+
+.tv-draw-readout[data-tone="warning"] {
+  color: #fcd34d;
+}
+
+.tv-draw-readout strong {
+  color: #f1f5f9;
+  font-weight: 820;
+}
+
+.tv-draw-readout[data-tone="active"] strong {
+  color: #ffe4e6;
+}
+
+.tv-draw-readout[data-tone="warning"] strong {
+  color: #fef3c7;
+}
+
+.tv-draw-readout-reach {
+  display: inline-flex;
+  align-items: center;
+  white-space: nowrap;
+}
+
+.tv-draw-readout svg {
+  width: 1.05em;
+  height: 1.05em;
+  margin-right: 0.3rem;
 }
 
 .tv-draw-guard {
@@ -642,18 +681,6 @@ html.tv-root {
   background: rgba(136, 19, 55, 0.23);
   color: #fda4af;
   font-size: 0.72rem;
-}
-
-/* Streaming priority that matches nothing is on but changing nothing, so it
-   reads as a caution rather than a satisfied preference. */
-.tv-preference-panel li.tv-preference-warning {
-  color: #fcd34d;
-}
-
-.tv-preference-panel li.tv-preference-warning span {
-  border-color: rgba(251, 191, 36, 0.38);
-  background: rgba(120, 53, 15, 0.3);
-  color: #fcd34d;
 }
 
 .tv-preference-note {

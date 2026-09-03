@@ -143,15 +143,21 @@ function renderTonight() {
         <Route
           path="/tv/bowl/:bowlId"
           element={
-            <TvTonightScreen
-              userId="user-1"
-              userEmail="viewer@example.com"
-            />
+            <TvTonightScreen userId="user-1" />
           }
         />
         <Route path="/tv/bowls" element={<div>Bowl picker route</div>} />
       </Routes>
     </MemoryRouter>
+  );
+}
+
+// The readout is one element holding several spans, so it is addressed as a
+// whole rather than by any one clause inside it. Its counts settle a tick after
+// it first renders, which is why callers wait on the content and not the node.
+function getDrawReadout() {
+  return screen.getByText((_content, element) =>
+    Boolean(element?.classList?.contains("tv-draw-readout"))
   );
 }
 
@@ -263,7 +269,9 @@ describe("Movie Bowl TV experience", () => {
   it("states how much of the bowl the draw is favoring", async () => {
     renderTonight();
 
-    expect(await screen.findByText(/favoring 1 on netflix/i)).toBeInTheDocument();
+    await waitFor(() =>
+      expect(getDrawReadout()).toHaveTextContent(/^Drawing from 1 on Netflix$/)
+    );
   });
 
   it("describes rotation without calling it a plain random draw", async () => {
@@ -312,12 +320,15 @@ describe("Movie Bowl TV experience", () => {
 
     renderTonight();
 
-    const poolLine = await screen.findByText(
-      /1 of 3 titles eligible; 1 of 3 contributors represented/i
+    await waitFor(() =>
+      expect(getDrawReadout()).toHaveTextContent(/Drawing from 1 on Netflix/)
     );
-    expect(poolLine).toHaveAttribute("data-tone", "warning");
-    expect(screen.getByText(/1 of 3 movies eligible/i)).toBeInTheDocument();
-    expect(screen.getByText(/favoring 1 on netflix/i)).toBeInTheDocument();
+    const readout = getDrawReadout();
+    expect(readout).toHaveAttribute("data-tone", "warning");
+    expect(readout).toHaveTextContent("1/3");
+    expect(readout).toHaveTextContent(
+      /only 1 of 3 people have a movie in the draw/i
+    );
   });
 
   it("does not calculate unused service matches when prioritizing is off", async () => {
@@ -325,8 +336,7 @@ describe("Movie Bowl TV experience", () => {
 
     renderTonight();
 
-    expect(await screen.findByText(/drawing from every eligible movie/i)).toBeInTheDocument();
-    expect(screen.queryByText(/on your services/i)).not.toBeInTheDocument();
+    await waitFor(() => expect(getDrawReadout()).toHaveTextContent(/^Drawing from 1$/));
     expect(screen.queryByText(/favoring/i)).not.toBeInTheDocument();
     expect(mocks.fetchStreamingProviders).not.toHaveBeenCalled();
   });
@@ -336,8 +346,12 @@ describe("Movie Bowl TV experience", () => {
 
     renderTonight();
 
-    const line = await screen.findByText(/no service matches — using eligible pool/i);
-    expect(line).toHaveAttribute("data-tone", "warning");
+    // Priority is on and matched nothing, so the draw quietly falls back to the
+    // eligible pool. The tone is the only thing that says so.
+    await waitFor(() =>
+      expect(getDrawReadout()).toHaveAttribute("data-tone", "warning")
+    );
+    expect(getDrawReadout()).toHaveTextContent(/^Drawing from 1$/);
   });
 
   it("draws once with saved preferences and offers no immediate return path", async () => {
