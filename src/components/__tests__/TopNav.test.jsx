@@ -81,6 +81,18 @@ describe("TopNav", () => {
     expect(screen.queryByRole("menu")).not.toBeInTheDocument();
   });
 
+  it("sends the logo straight to the home bowl once it is known", () => {
+    render(
+      <MemoryRouter>
+        <TopNav isSettingsRoute={false} onSignOut={vi.fn()} userEmail="user@example.com" homeBowlId="bowl-7" />
+      </MemoryRouter>
+    );
+
+    // Going through / would unmount and remount the dashboard, so tapping the
+    // logo while already on the home bowl has to resolve to the same route.
+    expect(screen.getByRole("link", { name: "Go to your home bowl" })).toHaveAttribute("href", "/bowl/bowl-7");
+  });
+
   it("keeps Invitations in the menu with no pending invitations and no badge", () => {
     render(
       <MemoryRouter>

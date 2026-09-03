@@ -157,6 +157,31 @@ describe("BowlDashboard bowl picker", () => {
     expect(screen.queryByRole("button", { name: /back/i })).not.toBeInTheDocument();
   });
 
+  it("never shows an invented bowl name while the real one loads", async () => {
+    render(<BowlDashboard />);
+
+    // Synchronously, before the bowl row resolves: the account context already
+    // knows this bowl, so there is nothing to invent.
+    const trigger = screen.getByRole("button", { name: /switch bowl/i });
+    expect(trigger).toHaveTextContent("Friday Night");
+    expect(screen.queryByText("My Bowl")).not.toBeInTheDocument();
+
+    await waitFor(() => expect(
+      screen.getByRole("button", { name: "Switch bowl. Current bowl: Friday Night" })
+    ).toBeInTheDocument());
+  });
+
+  it("falls back to no name rather than a fake one for an unknown bowl", async () => {
+    mocks.state.bowlId = "bowl-unknown";
+    mocks.state.bowlRow = { name: "", owner_id: "u1", draw_access_mode: "all_members" };
+
+    render(<BowlDashboard />);
+
+    expect(screen.queryByText("My Bowl")).not.toBeInTheDocument();
+    await waitFor(() => expect(screen.getByRole("button", { name: /switch bowl/i })).toBeInTheDocument());
+    expect(screen.queryByText("My Bowl")).not.toBeInTheDocument();
+  });
+
   it("marks the header with a non-interactive badge on the home bowl", async () => {
     mocks.state.defaultBowlId = "bowl-1";
 

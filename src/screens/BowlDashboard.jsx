@@ -85,7 +85,7 @@ export default function BowlDashboard() {
     const [drawAnimationTitle, setDrawAnimationTitle] = useState("");
     const [showDrawConfirm, setShowDrawConfirm] = useState(false);
     const [showMethodInfo, setShowMethodInfo] = useState(false);
-    const [bowlName, setBowlName] = useState("My Bowl");
+    const [bowlName, setBowlName] = useState("");
     const [bowlOwnerId, setBowlOwnerId] = useState(null);
     const [drawAccessMode, setDrawAccessMode] = useState(DRAW_ACCESS_MODE_ALL);
     const [drawAllowedUserIds, setDrawAllowedUserIds] = useState([]);
@@ -202,6 +202,8 @@ export default function BowlDashboard() {
       setInviteEmails: setCreateInviteEmails,
     } = useCreateBowl({ ownedBowlCount, refresh: refreshBowlContext });
     const isCurrentBowlHome = Boolean(defaultBowlId) && defaultBowlId === bowlId;
+    const knownBowlName = accountBowls.find((entry) => entry.id === bowlId)?.name || "";
+    const displayBowlName = bowlName || knownBowlName;
 
     // Opening a bowl is a visit; it never moves the home designation. Push so
     // browser Back returns to the bowl the person came from -- the header no
@@ -216,7 +218,7 @@ export default function BowlDashboard() {
       setHomeError(null);
       const context = await setDefaultBowl(bowlId);
       if (context?.defaultBowlId === bowlId) {
-        setHomeMessage(`${bowlName} is now your home bowl.`);
+        setHomeMessage(`${displayBowlName} is now your home bowl.`);
       } else {
         setHomeError("Could not change your home bowl. Please try again.");
       }
@@ -605,7 +607,7 @@ export default function BowlDashboard() {
           setDrawAllowedUserIds((drawPermissionRows || []).map((row) => row.user_id).filter(Boolean));
         }
 
-        setBowlName(data?.name || "My Bowl");
+        setBowlName(data?.name || "");
         setBowlOwnerId(data?.owner_id || null);
         setDrawAccessMode(
           data?.draw_access_mode === DRAW_ACCESS_MODE_SELECTED
@@ -717,10 +719,10 @@ return (
                       onClick={() => setIsPickerOpen((prev) => !prev)}
                       aria-haspopup="dialog"
                       aria-expanded={isPickerOpen}
-                      aria-label={`Switch bowl. Current bowl: ${bowlName}`}
+                      aria-label={`Switch bowl. Current bowl: ${displayBowlName}`}
                       className="mx-auto flex min-h-11 max-w-full items-center gap-2 rounded-xl px-2 text-2xl font-semibold tracking-tight text-slate-50 hover:bg-slate-800/60 sm:text-3xl"
                     >
-                      <span className="min-w-0 truncate">{bowlName}</span>
+                      <span className="min-w-0 truncate">{displayBowlName}</span>
                       <svg
                         aria-hidden="true"
                         viewBox="0 0 24 24"
@@ -1472,7 +1474,7 @@ return (
               bowls={accountBowls}
               currentBowlId={bowlId}
               homeBowlId={defaultBowlId}
-              currentBowlName={bowlName}
+              currentBowlName={displayBowlName}
               isLoading={isBowlContextLoading}
               loadError={bowlContextError}
               onRetry={() => refreshBowlContext({ force: true })}

@@ -8,6 +8,7 @@ export default function TopNav({
   isInvitesRoute = false,
   onSignOut,
   onAddMovie,
+  homeBowlId = null,
   userEmail = "",
   isAuthenticated = true,
   pendingInviteCount = 0,
@@ -55,7 +56,7 @@ export default function TopNav({
     <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-800/80 bg-slate-950/88 shadow-lg shadow-black/10 backdrop-blur-xl">
       <div className="page-container flex h-16 items-center justify-between">
         <Link
-          to="/"
+          to={homeBowlId ? `/bowl/${homeBowlId}` : "/"}
           aria-label="Go to your home bowl"
           className="inline-flex items-center gap-2.5 rounded-xl text-lg min-[360px]:text-xl font-semibold tracking-tight text-slate-100 transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60 sm:text-2xl"
         >
