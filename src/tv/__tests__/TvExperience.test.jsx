@@ -55,6 +55,7 @@ const mocks = vi.hoisted(() => ({
   prioritizeStreaming: true,
   theaterModeEnabled: false,
   providersByTmdbId: { 101: ["Netflix"] },
+  providerLogosByTmdbId: {},
   drawMethod: "person_first",
 }));
 
@@ -194,9 +195,11 @@ describe("Movie Bowl TV experience", () => {
     mocks.fetchStreamingProviders.mockReset();
     mocks.fetchStreamingProviders.mockImplementation(async (tmdbId) => ({
       providers: mocks.providersByTmdbId[tmdbId] || [],
+      providerLogos: mocks.providerLogosByTmdbId[tmdbId] || {},
       region: "US",
       fetchedAt: null,
     }));
+    mocks.providerLogosByTmdbId = {};
     mocks.prioritizeStreaming = true;
     mocks.theaterModeEnabled = false;
     mocks.streamingServices = ["Netflix", "Max"];
@@ -521,6 +524,29 @@ describe("Movie Bowl TV experience", () => {
       expect(getDrawReadout()).toHaveAttribute("data-tone", "warning")
     );
     expect(getDrawReadout()).toHaveTextContent(/^Drawing from 1$/);
+  });
+
+  // A logo is the service name drawn, so the name stays as the alt text: a
+  // television on a poor connection ends up back at the row it had before.
+  it("shows a provider's logo where TMDB has one and its name where it does not", async () => {
+    mocks.streamingServices = [];
+    mocks.handleDraw.mockResolvedValue({
+      id: "movie-1",
+      tmdb_id: 101,
+      title: "Arrival",
+      streamingProviders: ["Netflix", "Tubi"],
+      streamingProviderLogos: { Netflix: "/netflix.jpg" },
+    });
+    mocks.getTmdbMovieDetails.mockResolvedValue({ title: "Arrival" });
+
+    renderTonight();
+    fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+    fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+
+    const logo = await screen.findByAltText("Netflix");
+    expect(logo).toHaveAttribute("src", "https://image.tmdb.org/t/p/w92/netflix.jpg");
+    expect(screen.getByText("Tubi")).toBeInTheDocument();
+    expect(screen.queryByAltText("Tubi")).not.toBeInTheDocument();
   });
 
   it("draws once with saved preferences and offers no immediate return path", async () => {

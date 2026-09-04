@@ -160,6 +160,7 @@ export default function MovieSearch({
             ...movie,
             ...details,
             streamingProviders: providerData.providers || [],
+            streamingProviderLogos: providerData.providerLogos || {},
             streamingRegion: providerData.region || "US",
             streamingFetchedAt: providerData.fetchedAt || null,
         };

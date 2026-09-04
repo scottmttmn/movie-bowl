@@ -36,7 +36,7 @@ export async function fetchStreamingProviders(tmdbId, options = {}) {
   const bypassCache = Boolean(options.bypassCache);
 
   if (!tmdbId) {
-    return { region, providers: [], fetchedAt: null };
+    return { region, providers: [], providerLogos: {}, fetchedAt: null };
   }
 
   const cacheKey = getCacheKey(tmdbId, region);
@@ -59,16 +59,26 @@ export async function fetchStreamingProviders(tmdbId, options = {}) {
       const data = await getTmdbMovieProviders(tmdbId);
       const regionData = data?.results?.[region] || {};
 
-      const providerNames = [
+      const regionProviders = [
         ...(regionData.flatrate || []),
         ...(regionData.ads || []),
-      ]
-        .map((provider) => provider?.provider_name)
-        .filter(Boolean);
+      ].filter((provider) => provider?.provider_name);
+
+      const providers = normalizeStreamingServices(
+        regionProviders.map((provider) => provider.provider_name)
+      );
+      const logosByService = {};
+      regionProviders.forEach((provider) => {
+        const [name] = normalizeStreamingServices([provider.provider_name]);
+        if (name && provider.logo_path && !logosByService[name]) {
+          logosByService[name] = provider.logo_path;
+        }
+      });
 
       const result = {
         region,
-        providers: normalizeStreamingServices(providerNames),
+        providers,
+        providerLogos: logosByService,
         fetchedAt: new Date().toISOString(),
       };
 
@@ -82,7 +92,7 @@ export async function fetchStreamingProviders(tmdbId, options = {}) {
       return result;
     } catch (error) {
       console.error("[streamingProviders] Failed to fetch providers", error);
-      return { region, providers: [], fetchedAt: null };
+      return { region, providers: [], providerLogos: {}, fetchedAt: null };
     } finally {
       inflightRequests.delete(cacheKey);
     }

@@ -109,7 +109,8 @@ export function BowlAddProvider({ children }) {
         const details = await getTmdbMovieDetails(draft.tmdb_id || draft.id);
         const providers = await fetchStreamingProviders(draft.tmdb_id || draft.id, { region: "US" });
         operation.movie = { ...draft, ...details, note: draft.note,
-          streamingProviders: providers.providers || [] };
+          streamingProviders: providers.providers || [],
+          streamingProviderLogos: providers.providerLogos || {} };
       }
       result = mounted.current ? await bowlMovieService.add(operation)
         : addResult(false, "not_authenticated", "You must be signed in to add a movie.");

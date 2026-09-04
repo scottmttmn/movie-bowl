@@ -19,6 +19,7 @@ import { getDrawReadout } from "../../utils/drawReadout";
 import { getResolvedDrawPool } from "../../utils/drawSelection";
 import { clampTheaterTrailerCount } from "../../utils/drawSettings";
 import { getPosterUrl } from "../../utils/getPosterUrl";
+import { getProviderLogoUrl } from "../../utils/getProviderLogoUrl";
 import { getMovieFromDrawCandidate } from "../../utils/selectDrawCandidate";
 import { matchUserServices } from "../../utils/streamingServices";
 
@@ -103,6 +104,8 @@ function mergeHistoryMovieDetails(movie, details, providerData) {
       providerData?.providers?.length > 0
         ? providerData.providers
         : movie.streamingProviders || [],
+    streamingProviderLogos:
+      providerData?.providerLogos || movie.streamingProviderLogos || {},
     streamingRegion:
       providerData?.region || movie.streamingRegion || "US",
   };
@@ -220,6 +223,7 @@ async function enrichDrawnMovie(movie) {
       id: movie.id,
       tmdb_id: movie.tmdb_id,
       streamingProviders: movie.streamingProviders || [],
+      streamingProviderLogos: movie.streamingProviderLogos || {},
       streamingRegion: movie.streamingRegion || "US",
     };
   } catch (error) {
@@ -508,6 +512,7 @@ function TvMovieDetailStage({
   );
   const providerNames =
     matchingServices.length > 0 ? matchingServices : movie.streamingProviders || [];
+  const providerLogos = movie.streamingProviderLogos || {};
   const runtimeLabel = movie.runtime ? `${movie.runtime} min` : null;
   const trailer = movie.trailer;
 
@@ -553,9 +558,21 @@ function TvMovieDetailStage({
         {providerNames.length > 0 && (
           <div className="tv-provider-row">
             <span>Available on</span>
-            {providerNames.slice(0, 4).map((provider) => (
-              <strong key={provider}>{provider}</strong>
-            ))}
+            {providerNames.slice(0, 4).map((provider) => {
+              const logoUrl = getProviderLogoUrl(providerLogos[provider], "w92");
+              return logoUrl ? (
+                // The name stays as the alt text, so a logo that fails to load
+                // on a television's connection leaves the row as it was.
+                <img
+                  key={provider}
+                  className="tv-provider-logo"
+                  src={logoUrl}
+                  alt={provider}
+                />
+              ) : (
+                <strong key={provider}>{provider}</strong>
+              );
+            })}
           </div>
         )}
 

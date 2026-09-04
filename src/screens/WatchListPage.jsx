@@ -132,6 +132,7 @@ export default function WatchListPage() {
       ...movie,
       bowlMovieId: movie?.id ?? null,
       streamingProviders: providerData.providers || [],
+      streamingProviderLogos: providerData.providerLogos || {},
       streamingRegion: providerData.region || "US",
       streamingFetchedAt: providerData.fetchedAt || null,
     };
