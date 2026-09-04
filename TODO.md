@@ -161,8 +161,13 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 ## Technical Debt / Maintenance
 
 - Evidence-backed bugs, integrity risks, and accepted engineering tradeoffs are
-  tracked in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md). Keep product ideas here and
-  use that register for audit evidence, remediation plans, and decision history.
+  tracked in the private `scottmttmn/movie-bowl-issues` register, not here. Keep
+  product ideas in this file and use that register for audit evidence,
+  remediation plans, and decision history. It is private because this repository
+  is public: the schema and the policies belong in the open, since the security
+  is meant to hold with them known and there are pgTAP tests asserting it, but a
+  severity-rated list of unfixed defects in a deployed app is a different thing
+  to publish.
 - Supabase schema/process hygiene: keep migrations and policy snapshots current so dashboard-only DB changes do not drift from the repo.
 - Refresh `src/utils/providerLogos.js` before **March 2026** — it was generated
   2026-09-04, and TMDB's API terms cap caching their content at six months. Run

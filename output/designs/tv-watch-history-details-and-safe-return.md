@@ -40,7 +40,7 @@ draw. That gives accidental and abandoned draws a useful all-participant undo,
 but it has no time boundary: a draw-capable member can erase the group's
 personal history days or months later. The intended ownership boundary is a
 short, predictable group undo period followed by preservation. This is tracked
-as MB-001 in `KNOWN_ISSUES.md`.
+as MB-001 in the private issue register.
 
 The schema already provides most of the required information:
 
@@ -471,7 +471,7 @@ close to these boundaries:
 - a matching `supabase/tests/` pgTAP test
 - `e2e/support/fakeBackend.js`
 - `e2e/tv.e2e.js` or a focused TV history journey
-- `KNOWN_ISSUES.md`, `TODO.md`, and any return-semantics README copy
+- the private issue register, `TODO.md`, and any return-semantics README copy
 
 ## Implementation Record — August 31, 2026
 
