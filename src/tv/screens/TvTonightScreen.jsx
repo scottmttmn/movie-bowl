@@ -33,6 +33,7 @@ import { canReturnDrawToBowl } from "../../utils/watchHistory";
 import useDrawProviderLinks from "../../hooks/useDrawProviderLinks";
 import TvVoiceHandoffCard from "../components/TvVoiceHandoffCard";
 import ProviderLinksAttribution from "../../components/ProviderLinksAttribution";
+import ServiceLogo from "../../components/ServiceLogo";
 import TvBrand from "../components/TvBrand";
 import TvDrawPreferences from "../components/TvDrawPreferences";
 import TvTheaterPreroll from "../components/TvTheaterPreroll";
@@ -588,6 +589,10 @@ function TvMovieDetailStage({
               rel="noopener noreferrer"
               onClick={onProviderLaunch}
             >
+              <ServiceLogo
+                service={webLaunchCandidate.serviceName}
+                className="tv-launch-logo"
+              />
               Open {webLaunchCandidate.serviceName}
             </a>
           )}

@@ -471,7 +471,7 @@ export default function UserSettings() {
                         <span aria-hidden="true" className={isSelected ? "text-rose-300" : "text-slate-500"}>
                           {isSelected ? "✓" : "+"}
                         </span>
-                        <ServiceLogo service={service} size="h-6 w-6" />
+                        <ServiceLogo service={service} className="h-6 w-6" />
                         {service}
                       </label>
                     );
