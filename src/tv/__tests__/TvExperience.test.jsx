@@ -199,6 +199,7 @@ describe("Movie Bowl TV experience", () => {
     }));
     mocks.prioritizeStreaming = true;
     mocks.theaterModeEnabled = false;
+    mocks.streamingServices = ["Netflix", "Max"];
     mocks.bowlError = null;
     mocks.bowlLoading = false;
     mocks.bowlData = {
@@ -290,7 +291,7 @@ describe("Movie Bowl TV experience", () => {
   it("keeps a change made with the remote on this television", async () => {
     renderTonight();
 
-    const favor = await screen.findByRole("switch", { name: /favor netflix, max/i });
+    const favor = await screen.findByRole("switch", { name: /favor netflix, then max/i });
     expect(favor).toHaveAttribute("aria-checked", "true");
 
     fireEvent.click(favor);
@@ -303,10 +304,36 @@ describe("Movie Bowl TV experience", () => {
     expect(mocks.prioritizeStreaming).toBe(true);
   });
 
+  // Ranking keeps only the highest-ranked service that matched, so the draw
+  // never spans both at once and the label must not imply it does.
+  it("says favoring is an order while ranking is on, and a set once it is off", async () => {
+    renderTonight();
+
+    expect(
+      await screen.findByRole("switch", { name: /^favor netflix, then max$/i })
+    ).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("switch", { name: /only my top matching service/i }));
+
+    expect(
+      await screen.findByRole("switch", { name: /^favor netflix, max$/i })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: /favor netflix, then max/i })).toBeNull();
+  });
+
+  it("offers no ranking toggle when there is only one service to rank", async () => {
+    mocks.streamingServices = ["Netflix"];
+
+    renderTonight();
+
+    expect(await screen.findByRole("switch", { name: /^favor netflix$/i })).toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: /only my top matching service/i })).toBeNull();
+  });
+
   it("marks the lines this television has an opinion about, and only those", async () => {
     renderTonight();
 
-    const favor = await screen.findByRole("switch", { name: /favor netflix, max/i });
+    const favor = await screen.findByRole("switch", { name: /favor netflix, then max/i });
     fireEvent.click(favor);
 
     await waitFor(() =>
@@ -322,7 +349,7 @@ describe("Movie Bowl TV experience", () => {
     await waitFor(() => expect(mocks.fetchStreamingProviders).toHaveBeenCalled());
     mocks.fetchStreamingProviders.mockClear();
 
-    fireEvent.click(await screen.findByRole("switch", { name: /favor netflix, max/i }));
+    fireEvent.click(await screen.findByRole("switch", { name: /favor netflix, then max/i }));
 
     // Priority off means no service lookups, which is the pool changing shape
     // rather than a label changing.
@@ -334,9 +361,9 @@ describe("Movie Bowl TV experience", () => {
 
   it("lets a phone change through for anything this television has not touched", async () => {
     const view = renderTonight();
-    fireEvent.click(await screen.findByRole("switch", { name: /favor netflix, max/i }));
+    fireEvent.click(await screen.findByRole("switch", { name: /favor netflix, then max/i }));
     await waitFor(() =>
-      expect(screen.getByRole("switch", { name: /favor netflix, max/i })).toHaveAttribute(
+      expect(screen.getByRole("switch", { name: /favor netflix, then max/i })).toHaveAttribute(
         "aria-checked",
         "false"
       )
@@ -353,7 +380,7 @@ describe("Movie Bowl TV experience", () => {
         "true"
       )
     );
-    expect(screen.getByRole("switch", { name: /favor netflix, max/i })).toHaveAttribute(
+    expect(screen.getByRole("switch", { name: /favor netflix, then max/i })).toHaveAttribute(
       "aria-checked",
       "false"
     );
@@ -361,13 +388,13 @@ describe("Movie Bowl TV experience", () => {
 
   it("hands the television back to the phone in one action", async () => {
     renderTonight();
-    fireEvent.click(await screen.findByRole("switch", { name: /favor netflix, max/i }));
+    fireEvent.click(await screen.findByRole("switch", { name: /favor netflix, then max/i }));
     fireEvent.click(await screen.findByRole("switch", { name: /^theater mode$/i }));
 
     fireEvent.click(await screen.findByRole("button", { name: /use my phone's settings/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole("switch", { name: /favor netflix, max/i })).toHaveAttribute(
+      expect(screen.getByRole("switch", { name: /favor netflix, then max/i })).toHaveAttribute(
         "aria-checked",
         "true"
       )
@@ -402,10 +429,10 @@ describe("Movie Bowl TV experience", () => {
       });
 
     renderTonight();
-    fireEvent.click(await screen.findByRole("switch", { name: /favor netflix, max/i }));
+    fireEvent.click(await screen.findByRole("switch", { name: /favor netflix, then max/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole("switch", { name: /favor netflix, max/i })).toHaveAttribute(
+      expect(screen.getByRole("switch", { name: /favor netflix, then max/i })).toHaveAttribute(
         "aria-checked",
         "false"
       )
