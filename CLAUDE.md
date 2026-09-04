@@ -17,7 +17,7 @@ npm run test:run     # run the whole Vitest suite once (the pre-merge gate)
 npm run test:failures # name the tests that failed in the last test:run
 npm run test         # Vitest watch mode
 npm run test:coverage
-npm run test:e2e     # Playwright release smoke suite; no production credentials
+npm run test:e2e     # Playwright smoke suite, part of the gate; no production credentials
 npm run lint         # ESLint, flat config
 npm run build        # production build — run this for any UI/app change
 ```
@@ -30,10 +30,19 @@ to HTML documents, so it cannot simply be removed. A current CLI warns that it
 ignores `has` in development and serves normally.
 
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
-A clean checkout is expected to be fully green (111 test files / 868 tests, lint
-with zero warnings); if something fails, it is your change. Those counts are a
-tripwire, not trivia — refresh them in the same commit that adds or removes
-tests, or the next person cannot tell a stale number from a lost test.
+Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
+navigation, or copy a test might assert on. A clean checkout is expected to be
+fully green (111 test files / 868 tests, 41 Playwright tests with 3 skipped,
+lint with zero warnings); if something fails, it is your change. Those counts
+are a tripwire, not trivia — refresh them in the same commit that adds or
+removes tests, or the next person cannot tell a stale number from a lost test.
+
+The Playwright suite is in the gate because leaving it out did not hold. It was
+red on a clean checkout for three separate pieces of shipped work — none of them
+a defect, every one of them a selector still describing an interface that had
+been deliberately replaced — and a suite that is red by default cannot report a
+regression. It takes about two minutes and needs `npx playwright install
+chromium` once.
 
 `test:run` writes the run to `.vitest/last-run.json` (gitignored, overwritten
 each time) and `npm run test:failures` names what failed in it. Reach for that

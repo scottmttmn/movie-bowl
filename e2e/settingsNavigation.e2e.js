@@ -53,6 +53,8 @@ test("bowl settings section jumps preserve both page and browser Back navigation
     if (useBrowserBack) await page.goBack();
     else await page.getByRole("button", { name: "Back", exact: true }).click();
     await expect(page).toHaveURL(/\/bowl\/bowl-settings$/);
-    await expect(page.getByRole("heading", { name: "Settings Night", exact: true })).toBeVisible();
+    await expect(
+      page.getByRole("heading", { name: "Switch bowl. Current bowl: Settings Night" })
+    ).toBeVisible();
   }
 });

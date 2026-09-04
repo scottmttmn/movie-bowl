@@ -26,7 +26,9 @@ test("a member can create a bowl, add and draw a title, see history, and return 
   await expect(page.getByRole("status").filter({ hasText: "Added Smoke Feature to Smoke Night" })).toBeVisible();
   await page.getByRole("button", { name: "Close add movie" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
-  await expect(page.getByRole("button", { name: /1 movies? in the bowl/i })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Drawing from 1 titles/i })
+  ).toBeVisible();
 
   const drawButton = page.getByRole("button", {
     name: /Draw movie from bowl\. Press and hold to draw\./i,
@@ -53,7 +55,9 @@ test("a member can create a bowl, add and draw a title, see history, and return 
   await page.getByRole("button", { name: "Put movie back in bowl" }).click();
 
   await expect(page.getByText("0 watched", { exact: true })).toBeVisible();
-  await expect(page.getByRole("button", { name: /1 movies? in the bowl/i })).toBeVisible();
+  await expect(
+    page.getByRole("button", { name: /Drawing from 1 titles/i })
+  ).toBeVisible();
 
   expect(backend.state.bowls).toHaveLength(1);
   expect(backend.state.bowl_movies).toHaveLength(1);
