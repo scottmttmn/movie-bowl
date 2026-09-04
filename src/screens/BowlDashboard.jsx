@@ -630,6 +630,7 @@ export default function BowlDashboard() {
         return {
           ...movie,
           streamingProviders: movie.streamingProviders || [],
+          streamingProviderLogos: movie.streamingProviderLogos || {},
           streamingRegion: movie.streamingRegion || "US",
           streamingFetchedAt: movie.streamingFetchedAt || null,
         };
@@ -661,6 +662,7 @@ export default function BowlDashboard() {
         drawEventId: movie?.drawEventId ?? movie?.id ?? null,
         bowlMovieId: movie?.bowlMovieId ?? null,
         streamingProviders: providerData.providers || [],
+        streamingProviderLogos: providerData.providerLogos || {},
         streamingRegion: providerData.region || "US",
         streamingFetchedAt: providerData.fetchedAt || null,
       };

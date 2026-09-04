@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from "react";
 import MovieSearch from "./MovieSearch";
 import { getPosterUrl } from "../utils/getPosterUrl";
+import { getProviderLogoUrl } from "../utils/getProviderLogoUrl";
 import { matchUserServices, normalizeStreamingServices } from "../utils/streamingServices";
 import ProviderLinksAttribution from "./ProviderLinksAttribution";
 import MoviePosterPin from "./MoviePosterPin";
@@ -132,6 +133,7 @@ export default function AddMovieModal({
   const addedByLabel = getMovieAttributionLabel(movie);
   const availableProviders = normalizeStreamingServices(movie.streamingProviders || []);
   const matchingProviders = matchUserServices(availableProviders, userStreamingServices);
+  const providerLogos = movie.streamingProviderLogos || {};
   const hasTrailer = movie?.trailer?.site === "YouTube" && Boolean(movie?.trailer?.key);
   const trailerRegionId = resolvedMovieId != null
     ? `movie-trailer-${String(resolvedMovieId).replace(/[^a-zA-Z0-9_-]+/g, "-")}`
@@ -291,10 +293,18 @@ export default function AddMovieModal({
               <ul className="flex flex-wrap gap-2" aria-label="Streaming services">
                 {availableProviders.map((provider) => {
                   const isMatch = matchingProviders.includes(provider);
+                  const logoUrl = getProviderLogoUrl(providerLogos[provider]);
                   return (
-                    <li key={provider} className={`rounded-lg border px-3 py-1.5 text-sm ${isMatch ? "border-emerald-800/60 bg-emerald-950/30 text-emerald-300" : "border-slate-700/70 text-slate-300"}`}>
-                      {isMatch && <span aria-hidden="true" className="mr-1.5">✓</span>}
-                      {provider}
+                    <li key={provider} className={`flex items-center gap-2 rounded-lg border py-1.5 text-sm ${logoUrl ? "pl-1.5 pr-3" : "px-3"} ${isMatch ? "border-emerald-800/60 bg-emerald-950/30 text-emerald-300" : "border-slate-700/70 text-slate-300"}`}>
+                      {isMatch && <span aria-hidden="true" className="ml-1">✓</span>}
+                      {logoUrl ? (
+                        <>
+                          <img src={logoUrl} alt="" className="h-7 w-7 rounded-md" loading="lazy" />
+                          <span>{provider}</span>
+                        </>
+                      ) : (
+                        provider
+                      )}
                       {isMatch && <span className="sr-only"> (in your services)</span>}
                     </li>
                   );

@@ -29,6 +29,7 @@ describe("streamingProviders", () => {
     await expect(fetchStreamingProviders(null)).resolves.toEqual({
       region: "US",
       providers: [],
+      providerLogos: {},
       fetchedAt: null,
     });
     expect(mocks.getTmdbMovieProviders).not.toHaveBeenCalled();
@@ -39,11 +40,11 @@ describe("streamingProviders", () => {
       results: {
         US: {
           flatrate: [
-            { provider_name: "netflix" },
-            { provider_name: "HBO Max" },
+            { provider_name: "netflix", logo_path: "/netflix.jpg" },
+            { provider_name: "HBO Max", logo_path: "/max.jpg" },
           ],
           ads: [
-            { provider_name: "hbo max" },
+            { provider_name: "hbo max", logo_path: "/max-duplicate.jpg" },
             { provider_name: "Tubi" },
           ],
         },
@@ -55,6 +56,13 @@ describe("streamingProviders", () => {
 
     expect(first.region).toBe("US");
     expect(first.providers).toEqual(["Netflix", "Max", "Tubi"]);
+    // Keyed by the normalized name so a caller holding the existing string
+    // list can look one up, and the first spelling of a service wins the way
+    // the name list already dedupes. A provider without art simply has none.
+    expect(first.providerLogos).toEqual({
+      Netflix: "/netflix.jpg",
+      Max: "/max.jpg",
+    });
     expect(typeof first.fetchedAt).toBe("string");
     expect(second).toEqual(first);
     expect(mocks.getTmdbMovieProviders).toHaveBeenCalledTimes(1);
@@ -145,6 +153,7 @@ describe("streamingProviders", () => {
     await expect(fetchStreamingProviders(101, { region: "CA" })).resolves.toEqual({
       region: "CA",
       providers: [],
+      providerLogos: {},
       fetchedAt: null,
     });
 

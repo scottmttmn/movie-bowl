@@ -398,6 +398,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
     return {
       ...drawn,
       streamingProviders: selected.providers || [],
+      streamingProviderLogos: selected.providerLogos || {},
       streamingRegion: selected.region || "US",
       streamingFetchedAt: selected.fetchedAt || null,
     };

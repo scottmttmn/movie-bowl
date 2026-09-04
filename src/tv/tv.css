@@ -1152,6 +1152,13 @@ html.tv-root {
   text-transform: uppercase;
 }
 
+.tv-provider-logo {
+  width: 2.6rem;
+  height: 2.6rem;
+  border-radius: 10px;
+  object-fit: cover;
+}
+
 .tv-provider-row strong {
   padding: 0.5rem 0.75rem;
   border: 1px solid rgba(148, 163, 184, 0.2);
