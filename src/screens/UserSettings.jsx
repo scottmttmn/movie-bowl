@@ -4,6 +4,7 @@ import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import useAutosave, { valuesAreEqual } from "../hooks/useAutosave";
 import AutosaveStatus from "../components/AutosaveStatus";
 import SettingsSectionNav from "../components/SettingsSectionNav";
+import ServiceLogo from "../components/ServiceLogo";
 import { AVAILABLE_STREAMING_SERVICES } from "../utils/streamingServices";
 import {
   DEFAULT_DRAW_SETTINGS,
@@ -345,6 +346,7 @@ export default function UserSettings() {
                             <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-950/70 text-xs font-semibold text-slate-300">
                               {index + 1}
                             </span>
+                            <ServiceLogo service={service} />
                             <span className="truncate text-slate-100">{service}</span>
                           </div>
                           <div className="flex shrink-0 items-center gap-1">
@@ -469,6 +471,7 @@ export default function UserSettings() {
                         <span aria-hidden="true" className={isSelected ? "text-rose-300" : "text-slate-500"}>
                           {isSelected ? "✓" : "+"}
                         </span>
+                        <ServiceLogo service={service} size="h-6 w-6" />
                         {service}
                       </label>
                     );

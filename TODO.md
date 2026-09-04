@@ -27,6 +27,14 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## UX / UI Polish
 
+- Retire the TV voice-handoff card. It prints a spoken command
+  (`Play <title> on <service>`) for the viewer to say to their remote, and the
+  provider launch it works around now hands off to installed apps directly.
+  Removing it also removes the one surface where a service name has to stay
+  text because it is meant to be read aloud. Agreed 2026-09-04 as "soon, not
+  now": `src/tv/components/TvVoiceHandoffCard.jsx` and the label built in
+  `src/utils/webLaunch.js`.
+
 - Let the TV change draw filters, with what it changes belonging to that
   television rather than the account. Anyone in the room can pick up the remote,
   so relaxing a filter for tonight should not rewrite the account owner's
