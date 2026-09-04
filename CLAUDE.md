@@ -264,7 +264,9 @@ older client.
 
 The default is and stays **person-first**: bucket the candidates by contributor
 (`getContributorBucketKey`), pick a bucket uniformly at random, then pick a
-movie within it. Someone who added 25 titles does not get 25× the odds. That is
+movie within it. Adding more titles gives someone more ways to be chosen, not a
+better chance of being the one chosen -- under a flat raffle the odds follow the
+count instead, which is what this exists to avoid. That is
 a stated product promise for person-first bowls. `title_first` is a flat raffle
 and exists only because an owner explicitly chose it — never make it the
 default, and never turn person-first into it as an optimization or a side
