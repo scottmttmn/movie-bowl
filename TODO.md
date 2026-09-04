@@ -105,13 +105,14 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Future Product Concepts
 
-- Gemini-first voice capture: use an Android App Action to carry a spoken movie
-  title into one confirmation screen against the authoritative default bowl.
-  The disposable Gate 0 App Actions probe now lives in `android-mobile/`; its
-  preview, Google Play internal build, and physical-phone invocation matrix
-  still need to run with Gemini as the default assistant. Proposed product,
-  architecture, safety rules, phases, and verification:
-  `output/designs/gemini-voice-capture.md`.
+- Assistant voice capture: **failed feasibility gate, closed September 4,
+  2026.** The Play-distributed App Actions probe could not be invoked by Gemini
+  or Google Assistant, and App Actions Support confirmed that new integrations
+  cannot be approved or pushed to production because the pipelines are broken.
+  Do not pursue the TWA/web seam or an in-app microphone. Revisit only when
+  Android AppFunctions is generally available to third-party apps with a
+  supported voice invocation path. Decision record and evidence:
+  `output/designs/gemini-voice-capture.md` and `android-mobile/TEST_RESULTS.md`.
 - Bigger swings, unscheduled: attendance-aware movie nights, a live draw every
   client sees at once, shareable ticket stubs and bowl recaps, a composable
   house-rules layer over the draw method registry, and curation for bowls that

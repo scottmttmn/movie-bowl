@@ -1,12 +1,31 @@
-# Gemini-first voice capture
+# Assistant voice capture feasibility
 
-Status: proposed product and implementation roadmap, recorded August 31, 2026.
-The disposable Gate 0 App Actions probe was scaffolded in `android-mobile/` on
-September 1, 2026; preview, Play internal testing, and physical Gemini testing
-have not run. The saved default bowl and shared global Add flow are implemented;
-their remaining deployed-app checks stay independent of this work.
+Status: **closed — Gate 0 failed**, September 4, 2026.
 
-## Decision
+The disposable Android probe in `android-mobile/` was signed, uploaded to a
+Google Play internal-testing track, installed from Play, and tested on physical
+hardware with both Gemini and Google Assistant. Neither assistant invoked the
+probe. On September 4, 2026, App Actions Support confirmed that new and
+in-development App Actions can no longer be approved or pushed to production
+because the relevant pipelines are broken. Google no longer recommends App
+Actions as the integration path.
+
+Movie Bowl will not implement the phone shell, web capture seam, or an in-app
+microphone as follow-up work. The shipped home screen and global Add flow make
+manual capture quick, while an in-app microphone would add permissions,
+transcription errors, confirmation UI, and maintenance without providing the
+outside-the-app convenience this exploration was meant to deliver.
+
+Revisit assistant-driven capture only when Android AppFunctions is generally
+available to third-party apps and documents a supported end-to-end voice
+invocation path. As of September 4, 2026, its Early Access Program is full and
+Google has provided no general-availability date. Google Home cloud-to-cloud is
+not relevant because Movie Bowl is not an IoT device service.
+
+The remainder of this document preserves the original proposal and constraints
+as historical context. It is not an active roadmap.
+
+## Original decision (superseded)
 
 Build the first assistant-driven add for Gemini on Android. Keep the capture
 contract assistant-neutral so Siri or another adapter can use it later, but do
@@ -174,7 +193,7 @@ preserves account checks, authoritative bowl access, default repair, undrawn
 capacity, duplicate attribution, submission UUIDs, metadata hydration, and
 unknown-outcome reconciliation.
 
-## Delivery sequence
+## Original delivery sequence (stopped at Gate 0)
 
 ### Gate 0 — Gemini invocation spike
 
@@ -283,19 +302,24 @@ After the confirmed flow has real use:
 | Add | Reuses duplicate/capacity/access/offline/pending/unknown-outcome behavior |
 | Regression | Global Add, contextual Add, browser mic, manual history, public add links, and TV are unchanged |
 
-## Release blockers and open facts
+## Gate closure
 
-- The Gate 0 probe is scaffolded, but its App Actions preview and physical
-  Gemini invocation matrix have not run.
-- The probe package ID is intentionally disposable. No production Android phone
-  package ID, Play listing, signing setup, or internal-testing application
-  exists.
-- The web app does not yet expose the manifest and Digital Asset Links needed by
-  the recommended TWA path.
-- TWA authentication and Supabase magic-link return need a physical-phone proof.
-- The documented `UPDATE_ITEM_LIST` invocation locale is currently `en-US`.
-- One-tap confirmation is the version-one product decision. A later no-touch
-  add is not implied or committed.
+- The disposable probe package is `app.moviebowl.voicecaptureprobe`.
+- Google Play accepted version code 1 (`0.1.0`) and made it available to the
+  internal tester through the Play Store.
+- The tester account was enrolled in both the Play internal test and the App
+  Actions Development Program.
+- Gemini routed list wording to supported notes apps or answered that it could
+  not interact with the external app. Direct requests to open Movie Bowl
+  produced search/results-style responses instead of launching the installed
+  probe.
+- Switching the device to Google Assistant did not change the result. A control
+  request successfully opened Calculator, showing that ordinary app launching
+  worked on the device.
+- App Actions Support subsequently confirmed the broken production pipeline and
+  recommended AppFunctions as the future Android direction.
+- No production Android package, TWA, capture route, or assistant-specific write
+  path will be built from this proposal.
 
 ## Explicitly separate work
 

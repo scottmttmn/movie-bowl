@@ -122,16 +122,16 @@ Commit to one bowl as the default shape of the product:
 - **Home and the logo open the default bowl.** `/bowls` becomes the My Bowls
   management screen in the menu, where users can open another bowl or change
   their default.
-- **Then voice capture is possible at all.** Prioritize Gemini on Android:
-  “Hey Google, add Sinners to my Movie Bowl list” through an App Action works
-  only when there is exactly one default destination and nothing to
-  disambiguate at the bowl layer. Keep the capture contract assistant-neutral
-  so Siri can become a later adapter. This is the piece an earlier draft of
-  this document got wrong: it proposed sharing from other apps, which needs a
-  link in your hand. The moments where you actually hear about a movie — a
-  conversation, a podcast — have no link in them. They have a spoken title and
-  a risk of forgetting it. A single unambiguous destination is what makes
-  capturing that possible; the share sheet never was.
+- **Voice capture became a failed feasibility gate.** The default-bowl model
+  removed product ambiguity, but the Play-distributed Android App Actions probe
+  could not be invoked by Gemini or Google Assistant. On September 4, 2026,
+  App Actions Support confirmed that new integrations cannot be approved or
+  pushed to production because the pipelines are broken. Do not replace it with
+  an in-app microphone: the global Add flow is already quick and the microphone
+  would not solve outside-the-app capture. Revisit when Android AppFunctions is
+  generally available to third-party apps with a supported voice invocation
+  path. Evidence and the preserved original proposal are in
+  `output/designs/gemini-voice-capture.md`.
 
 **Default selection and replacement — decided August 30, 2026.**
 

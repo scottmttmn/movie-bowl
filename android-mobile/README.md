@@ -1,7 +1,10 @@
 # Movie Bowl voice-capture probe
 
-This is the Gate 0 Android App Actions spike for assistant-driven movie capture.
-It answers one question before Movie Bowl builds a phone shell or web handoff:
+Status: **archived after a failed feasibility gate (September 4, 2026).**
+
+This was the Gate 0 Android App Actions spike for assistant-driven movie
+capture. It asked one question before Movie Bowl built a phone shell or web
+handoff:
 
 > Can a normal “Hey Google” request reliably open Movie Bowl and preserve the
 > complete spoken movie title?
@@ -12,6 +15,18 @@ movie-title, and Android action delivered to `MainActivity`.
 
 `app.moviebowl.voicecaptureprobe` is a disposable probe application ID. Do not
 publish it as the production Movie Bowl Android package.
+
+The signed probe was successfully distributed through Google Play internal
+testing, but neither Gemini nor Google Assistant invoked it on the physical test
+device. App Actions Support then confirmed that new and in-development App
+Actions can no longer be approved or pushed to production because the pipelines
+are broken, and that Google no longer recommends this integration. The code is
+retained only as feasibility evidence; do not extend it into a product app.
+
+Revisit the product idea only if Android AppFunctions becomes generally
+available to third-party apps with a supported voice invocation path. The team
+explicitly chose not to substitute an in-app microphone because global Add and
+the home screen already make manual capture fast.
 
 ## Project shape
 
@@ -58,7 +73,7 @@ or with a connected device:
 ./gradlew connectedDebugAndroidTest
 ```
 
-## Create an App Actions preview
+## Historical App Actions preview instructions
 
 Prerequisites:
 
@@ -92,7 +107,7 @@ Then:
 The preview proves the declaration and parameter mapping. It does not prove that
 a natural Gemini utterance will choose the capability.
 
-## Physical Gemini / Play gate
+## Historical physical Gemini / Play gate
 
 App Actions capabilities are registered for deployed apps through Google Play.
 Use a Play internal-testing application for this disposable package, generate a
@@ -112,7 +127,6 @@ matrix in `TEST_RESULTS.md`. Record the wording exactly; do not summarize a
 failure as “voice did not work.” Invocation matching and parameter extraction
 are separate outcomes.
 
-Gate 0 passes only if an ordinary phrase opens the installed build and preserves
-the complete movie title often enough to justify the product. If it passes, the
-next implementation is the authenticated web capture seam described in
-`output/designs/gemini-voice-capture.md`.
+Gate 0 did not pass. Results and the final decision are recorded in
+`TEST_RESULTS.md` and `output/designs/gemini-voice-capture.md`. There is no next
+implementation phase for this probe.
