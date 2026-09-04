@@ -221,25 +221,19 @@
     @apply -translate-y-px border-rose-600 bg-rose-900/55 text-white;
   }
 
-  /* A control that sits on a poster rather than under it. Where there is no
-     hover to reveal it -- a phone, a television -- it is simply present, because
-     a hidden control on a touch screen is no control at all. Where there is, the
-     card reveals it, and focus counts as reveal so the keyboard is not left out.
-     Gated on the capability rather than a screen width: a small window on a
-     laptop still has a pointer. */
+  /* A shortcut that sits on a poster rather than under it: the card reveals it,
+     and focus counts as revealing so the keyboard is not left out. It can hide
+     unconditionally because the action it duplicates is also in the movie's
+     details, which a tap on the poster opens. pointer-events matter as much as
+     opacity here -- an invisible control that still answers a tap is worse than
+     a visible one, and this one deletes. */
   .poster-action {
-    @apply opacity-100;
+    @apply pointer-events-none opacity-0 transition-opacity duration-150;
   }
 
-  @media (hover: hover) {
-    .poster-action {
-      @apply opacity-0 transition-opacity duration-150;
-    }
-
-    .poster-card:hover .poster-action,
-    .poster-card:focus-within .poster-action {
-      @apply opacity-100;
-    }
+  .poster-card:hover .poster-action,
+  .poster-card:focus-within .poster-action {
+    @apply pointer-events-auto opacity-100;
   }
 
   .btn:focus-visible,

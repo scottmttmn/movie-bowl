@@ -608,6 +608,21 @@ export default function BowlDashboard() {
       };
     }, [bowlId, navigate, accessAttempt]);
 
+    // Reached from the card's shortcut and from the details modal. Both delete
+    // the same row, so the question they ask first is written once; the modal
+    // closes on success because the thing it is describing is gone.
+    const confirmAndDeleteMovie = async (movie) => {
+      setMyMoviesErrorMessage(null);
+      const shouldDelete = window.confirm(`Delete "${movie.title}" from this bowl?`);
+      if (!shouldDelete) return;
+      const deleted = await handleDeleteMovie(movie.id);
+      if (deleted) {
+        setSelectedDetailMovie((current) => (current?.id === movie.id ? null : current));
+        return;
+      }
+      setMyMoviesErrorMessage("Could not delete this movie. Please try again.");
+    };
+
     const buildDetailMovie = async (movie) => {
       const tmdbId = Number(movie?.tmdb_id ?? movie?.id);
       const shouldFetchTmdbDetails = Number.isInteger(tmdbId) && tmdbId > 0;
@@ -1266,15 +1281,7 @@ return (
                       setSelectedDetailContext("myAdds");
                       setSelectedDetailMovie(await buildDetailMovie(movie));
                     }}
-                    onDeleteMovie={async (movie) => {
-                      setMyMoviesErrorMessage(null);
-                      const shouldDelete = window.confirm(`Delete "${movie.title}" from this bowl?`);
-                      if (!shouldDelete) return;
-                      const deleted = await handleDeleteMovie(movie.id);
-                      if (!deleted) {
-                        setMyMoviesErrorMessage("Could not delete this movie. Please try again.");
-                      }
-                    }}
+                    onDeleteMovie={confirmAndDeleteMovie}
                   />
                 )}
               </div>
@@ -1348,6 +1355,9 @@ return (
               <AddMovieModal
                 movie={selectedDetailMovie}
                 userStreamingServices={userStreamingServices}
+                onDeleteMovie={
+                  selectedDetailContext === "myAdds" ? confirmAndDeleteMovie : null
+                }
                 pinDisabledReason={detailPinDisabledReason}
                 onTogglePin={canManageDetailPin
                   ? async (pinned) => {
