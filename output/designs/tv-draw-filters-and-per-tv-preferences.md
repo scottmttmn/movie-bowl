@@ -1,7 +1,10 @@
 # TV Draw Filters and Per-TV Preferences
 
-Status: proposed September 3, 2026. Not implemented. This is a plan, not a
-description of code that exists.
+Status: partly implemented September 4, 2026. The settings layer and every
+boolean toggle are built (`src/tv/utils/tvDrawSettings.js`,
+`src/tv/hooks/useTvDrawSettings.js`, `src/tv/components/TvDrawPreferences.jsx`).
+Ratings are still to come. Genres and runtime stay phone-only by design — see
+[What is editable on TV](#what-is-editable-on-tv).
 
 ## Decision Summary
 
@@ -72,6 +75,13 @@ marks which lines are set on this television. Otherwise someone changes a filter
 on their phone, sees no effect in the living room, and reasonably concludes the
 app is broken.
 
+As built, the sidebar *is* the control: a row that reports a setting is the row
+that changes it, because on a D-pad a separate settings screen means navigating
+away from the thing being described and back again. A circled mark is what says
+a row can be changed; the phone-only facts keep their place in the list without
+one. Divergence is a dot plus visually hidden text rather than a label, which
+would otherwise repeat itself down the whole column.
+
 ## What is editable on TV
 
 The remote is a D-pad, so the controls have to suit it.
@@ -106,16 +116,17 @@ should be a user preference, a per-TV preference, or chosen each movie night.
 Under this model it is plainly per-TV: it describes the room and the screen, not
 the person.
 
-## Open question
+## Settled: persistence
 
-Should a television's settings persist until someone changes them back, or reset
-when the app restarts?
+A television's settings persist until someone changes them back, rather than
+resetting when the app restarts. Persisting matches *this television runs a bit
+differently*; resetting would match *tonight only*, and would make the group
+relax the same filter every movie night.
 
-Persisting matches *this television runs a bit differently*. Resetting matches
-*tonight only*. The recommendation is persistent, because the reset action makes
-it easy to undo deliberately — but a per-TV setting that quietly survives six
-months is exactly the kind of thing people forget they set, and the divergence
-marking in the sidebar is what keeps that honest.
+The risk of a persistent setting is that people forget they made it, so the two
+things that answer it are part of the feature rather than polish: the reset
+action, and the divergence marking that shows which lines this television is
+deciding for itself.
 
 ## Verification
 
@@ -132,3 +143,12 @@ Cover at minimum:
 - overrides survive a reload and an app restart;
 - the draw uses the television's settings for draws made there; and
 - remote-only operation of every control added, including the reset.
+
+## Still to do
+
+- **Ratings on TV.** Five toggles, which suit a D-pad; the row is currently a
+  phone-only fact.
+- **Revisit `MB-T03`.** The television shows `Drawing from up to N` for a bowl
+  whose metadata the daily cron has not fully cached, on the grounds that an
+  exact count is only worth resolving where a person can act on it. That
+  argument was always scoped to a television that could not change filters.

@@ -1,4 +1,4 @@
-import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
@@ -53,6 +53,7 @@ const mocks = vi.hoisted(() => ({
   fetchProviderLinks: vi.fn(),
   streamingServices: ["Netflix", "Max"],
   prioritizeStreaming: true,
+  theaterModeEnabled: false,
   providersByTmdbId: { 101: ["Netflix"] },
   drawMethod: "person_first",
 }));
@@ -96,6 +97,7 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
     streamingServices: mocks.streamingServices,
     defaultDrawSettings: {
       prioritizeStreaming: mocks.prioritizeStreaming,
+      theaterModeEnabled: mocks.theaterModeEnabled,
       useStreamingRank: true,
       selectedRatings: ["PG", "PG-13", "R"],
       includeUnknownRatings: true,
@@ -136,8 +138,10 @@ function renderPicker({ autoOpenLastBowl = false, path = "/tv/bowls" } = {}) {
   );
 }
 
-function renderTonight() {
-  return render(
+// Split out so a test can re-render the same tree after the account's settings
+// change on the phone, which is how a TV learns about one.
+function renderTonightTree() {
+  return (
     <MemoryRouter initialEntries={["/tv/bowl/family"]}>
       <Routes>
         <Route
@@ -150,6 +154,10 @@ function renderTonight() {
       </Routes>
     </MemoryRouter>
   );
+}
+
+function renderTonight() {
+  return render(renderTonightTree());
 }
 
 // The readout is one element holding several spans, so it is addressed as a
@@ -189,6 +197,8 @@ describe("Movie Bowl TV experience", () => {
       region: "US",
       fetchedAt: null,
     }));
+    mocks.prioritizeStreaming = true;
+    mocks.theaterModeEnabled = false;
     mocks.bowlError = null;
     mocks.bowlLoading = false;
     mocks.bowlData = {
@@ -272,6 +282,138 @@ describe("Movie Bowl TV experience", () => {
     await waitFor(() =>
       expect(getDrawReadout()).toHaveTextContent(/^Drawing from 1 on Netflix$/)
     );
+  });
+
+  // What the remote changes here belongs to this television. Anyone in the room
+  // can pick it up, so relaxing a filter tonight must not rewrite what the
+  // account owner browses with tomorrow.
+  it("keeps a change made with the remote on this television", async () => {
+    renderTonight();
+
+    const favor = await screen.findByRole("switch", { name: /favor netflix, max/i });
+    expect(favor).toHaveAttribute("aria-checked", "true");
+
+    fireEvent.click(favor);
+
+    await waitFor(() => expect(favor).toHaveAttribute("aria-checked", "false"));
+    expect(
+      JSON.parse(window.localStorage.getItem("movie-bowl:tv:draw-settings:user-1"))
+    ).toEqual({ prioritizeStreaming: false });
+    // The account is untouched: the phone still holds what it held.
+    expect(mocks.prioritizeStreaming).toBe(true);
+  });
+
+  it("marks the lines this television has an opinion about, and only those", async () => {
+    renderTonight();
+
+    const favor = await screen.findByRole("switch", { name: /favor netflix, max/i });
+    fireEvent.click(favor);
+
+    await waitFor(() =>
+      expect(within(favor).getByText("set on this TV")).toBeInTheDocument()
+    );
+    const theater = screen.getByRole("switch", { name: /^theater mode$/i });
+    expect(within(theater).queryByText("set on this TV")).not.toBeInTheDocument();
+  });
+
+  it("puts the television's settings into the draw it runs", async () => {
+    renderTonight();
+
+    await waitFor(() => expect(mocks.fetchStreamingProviders).toHaveBeenCalled());
+    mocks.fetchStreamingProviders.mockClear();
+
+    fireEvent.click(await screen.findByRole("switch", { name: /favor netflix, max/i }));
+
+    // Priority off means no service lookups, which is the pool changing shape
+    // rather than a label changing.
+    await waitFor(() =>
+      expect(screen.queryByRole("switch", { name: /only my top matching service/i })).toBeNull()
+    );
+    expect(mocks.fetchStreamingProviders).not.toHaveBeenCalled();
+  });
+
+  it("lets a phone change through for anything this television has not touched", async () => {
+    const view = renderTonight();
+    fireEvent.click(await screen.findByRole("switch", { name: /favor netflix, max/i }));
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: /favor netflix, max/i })).toHaveAttribute(
+        "aria-checked",
+        "false"
+      )
+    );
+
+    // The phone turns both on. Only the untouched one should move.
+    mocks.prioritizeStreaming = true;
+    mocks.theaterModeEnabled = true;
+    view.rerender(renderTonightTree());
+
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: /theater mode/i })).toHaveAttribute(
+        "aria-checked",
+        "true"
+      )
+    );
+    expect(screen.getByRole("switch", { name: /favor netflix, max/i })).toHaveAttribute(
+      "aria-checked",
+      "false"
+    );
+  });
+
+  it("hands the television back to the phone in one action", async () => {
+    renderTonight();
+    fireEvent.click(await screen.findByRole("switch", { name: /favor netflix, max/i }));
+    fireEvent.click(await screen.findByRole("switch", { name: /^theater mode$/i }));
+
+    fireEvent.click(await screen.findByRole("button", { name: /use my phone's settings/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: /favor netflix, max/i })).toHaveAttribute(
+        "aria-checked",
+        "true"
+      )
+    );
+    expect(screen.getByRole("switch", { name: /^theater mode$/i })).toHaveAttribute(
+      "aria-checked",
+      "false"
+    );
+    expect(window.localStorage.getItem("movie-bowl:tv:draw-settings:user-1")).toBeNull();
+    expect(screen.queryByRole("button", { name: /use my phone's settings/i })).toBeNull();
+  });
+
+  it("reads back what a previous night left on this television", async () => {
+    window.localStorage.setItem(
+      "movie-bowl:tv:draw-settings:user-1",
+      JSON.stringify({ theaterModeEnabled: true })
+    );
+
+    renderTonight();
+
+    expect(
+      await screen.findByRole("switch", { name: /theater mode: 3 previews/i })
+    ).toHaveAttribute("aria-checked", "true");
+  });
+
+  // The worst a refused write may cost is the setting, never the screen.
+  it("still runs, and says so, when this television cannot remember settings", async () => {
+    const setItem = vi
+      .spyOn(Storage.prototype, "setItem")
+      .mockImplementation(() => {
+        throw new Error("QuotaExceededError");
+      });
+
+    renderTonight();
+    fireEvent.click(await screen.findByRole("switch", { name: /favor netflix, max/i }));
+
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: /favor netflix, max/i })).toHaveAttribute(
+        "aria-checked",
+        "false"
+      )
+    );
+    expect(await screen.findByText(/can.t remember settings/i)).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /draw a movie/i })).toBeInTheDocument();
+
+    setItem.mockRestore();
   });
 
   it("describes rotation without calling it a plain random draw", async () => {

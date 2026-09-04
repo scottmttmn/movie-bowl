@@ -14,7 +14,6 @@ import useUserStreamingServices from "../../hooks/useUserStreamingServices";
 import { getTmdbMovieDetails } from "../../lib/tmdbApi";
 import { fetchStreamingProviders } from "../../lib/streamingProviders";
 import { getMovieAttributionLabel } from "../../utils/drawBuckets";
-import { getDrawMethod } from "../../utils/drawMethods";
 import { getDrawablePoolMovies } from "../../utils/drawPool";
 import { getDrawReadout } from "../../utils/drawReadout";
 import { getResolvedDrawPool } from "../../utils/drawSelection";
@@ -34,8 +33,10 @@ import useDrawProviderLinks from "../../hooks/useDrawProviderLinks";
 import TvVoiceHandoffCard from "../components/TvVoiceHandoffCard";
 import ProviderLinksAttribution from "../../components/ProviderLinksAttribution";
 import TvBrand from "../components/TvBrand";
+import TvDrawPreferences from "../components/TvDrawPreferences";
 import TvTheaterPreroll from "../components/TvTheaterPreroll";
 import { useTvBowlAccess } from "../hooks/useTvBowls";
+import useTvDrawSettings from "../hooks/useTvDrawSettings";
 import useTvSpatialNavigation from "../hooks/useTvSpatialNavigation";
 import {
   buildTrailerQueue,
@@ -205,43 +206,6 @@ function buildDrawOptions(defaultDrawSettings, streamingServices, availableGenre
       includeUnknown: Boolean(settings.includeUnknownRuntime),
     },
   };
-}
-
-function getPreferenceLines(defaultDrawSettings, streamingServices) {
-  const settings = defaultDrawSettings || {};
-  const lines = [];
-
-  if (settings.prioritizeStreaming && streamingServices.length > 0) {
-    lines.push(`Favoring ${streamingServices.join(", ")}`);
-  }
-
-  const ratings = settings.selectedRatings || [];
-  if (ratings.length > 0 && ratings.length < 5) {
-    lines.push(`Ratings: ${ratings.join(", ")}`);
-  }
-
-  if (Array.isArray(settings.selectedGenres) && settings.selectedGenres.length > 0) {
-    lines.push(
-      settings.selectedGenres.length <= 3
-        ? `Genres: ${settings.selectedGenres.join(", ")}`
-        : `${settings.selectedGenres.length} selected genres`
-    );
-  }
-
-  const minRuntime = Number(settings.runtimeMinMinutes || 0);
-  const maxRuntime = Number(settings.runtimeMaxMinutes || 500);
-  if (minRuntime > 0 || maxRuntime < 500) {
-    lines.push(`${minRuntime}–${maxRuntime} minutes`);
-  }
-
-  if (settings.theaterModeEnabled) {
-    const previewCount = clampTheaterTrailerCount(settings.theaterTrailerCount);
-    lines.push(
-      `Theater mode: ${previewCount} ${previewCount === 1 ? "preview" : "previews"}`
-    );
-  }
-
-  return lines;
 }
 
 async function enrichDrawnMovie(movie) {
@@ -885,9 +849,20 @@ export default function TvTonightScreen({ userId }) {
   } = useBowl(bowlId, { drawMethod: bowlMeta.drawMethod });
   const {
     streamingServices,
-    defaultDrawSettings,
+    defaultDrawSettings: accountDrawSettings,
     loading: isPreferencesLoading,
   } = useUserStreamingServices();
+  // Everything below reads the merged view, so a television's overrides reach
+  // the draw, the readout, and the pre-roll without any of them knowing that
+  // some of it came from this room rather than from the account.
+  const {
+    settings: defaultDrawSettings,
+    overriddenSettings,
+    hasOverrides,
+    isPersisted: areTvSettingsPersisted,
+    setOverride: setTvSetting,
+    clearOverrides: clearTvSettings,
+  } = useTvDrawSettings(userId, accountDrawSettings);
 
   const [showDrawConfirm, setShowDrawConfirm] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -927,10 +902,6 @@ export default function TvTonightScreen({ userId }) {
   const drawOptions = useMemo(
     () => buildDrawOptions(defaultDrawSettings, streamingServices, availableGenres),
     [defaultDrawSettings, streamingServices, availableGenres]
-  );
-  const preferenceLines = useMemo(
-    () => getPreferenceLines(defaultDrawSettings, streamingServices),
-    [defaultDrawSettings, streamingServices]
   );
   // Held in refs rather than the preview effect's deps, the same trade-off
   // useDrawPoolCount makes: the pre-roll describes the draw that just ran, so a
@@ -1448,29 +1419,17 @@ export default function TvTonightScreen({ userId }) {
             </div>
           </div>
 
-          <aside className="tv-preference-panel">
-            <p className="tv-kicker">Tonight&apos;s setup</p>
-            <h2>Your saved draw preferences</h2>
-            {isPreferencesLoading ? (
-              <p>Loading preferences…</p>
-            ) : (
-              <ul>
-                {preferenceLines.map((line) => (
-                  <li key={line}>
-                    <span aria-hidden="true">✓</span>
-                    {line}
-                  </li>
-                ))}
-                <li>
-                  <span aria-hidden="true">✓</span>
-                  {getDrawMethod(bowlMeta.drawMethod).tvLabel}
-                </li>
-              </ul>
-            )}
-            <p className="tv-preference-note">
-              Change services and filters from Movie Bowl on your phone.
-            </p>
-          </aside>
+          <TvDrawPreferences
+            settings={defaultDrawSettings}
+            streamingServices={streamingServices}
+            drawMethod={bowlMeta.drawMethod}
+            overriddenSettings={overriddenSettings}
+            hasOverrides={hasOverrides}
+            isPersisted={areTvSettingsPersisted}
+            isLoading={isPreferencesLoading}
+            onToggle={setTvSetting}
+            onReset={clearTvSettings}
+          />
         </section>
 
         <TvRecentDraws
