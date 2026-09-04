@@ -398,6 +398,14 @@ Vitest + Testing Library, jsdom, setup in `src/test/setup.js`. Tests live in
   **plans, not implementations** (`bowl-draw-methods.md`, `solo-draw.md`, later
   phases of `tv-theater-mode.md`) — check the status line before assuming code
   exists. `TODO.md` is the live backlog; update it when you land or add an item.
+- Evidence-backed defects, integrity risks, and accepted tradeoffs go in the
+  private `scottmttmn/movie-bowl-issues` register — never in a file here. This
+  repository is public, and the schema and policies are meant to be: the
+  security holds with them known, and `supabase/tests/` asserts it. A
+  severity-rated list of unfixed defects in a deployed app, citing the lines
+  where a check is missing, is not the same thing. If you find something that
+  belongs in the register and cannot reach it, say so rather than writing it
+  down here.
 - Commit subjects are imperative and sentence-case, no prefixes or emoji
   ("Land returning users in their last opened bowl"). Bodies explain the
   reasoning when the change is not obvious.
