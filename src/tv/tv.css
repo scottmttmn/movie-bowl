@@ -697,6 +697,32 @@ html.tv-root {
   outline: none;
 }
 
+/* The favored services are an ordered fallback, and prose made that a wall:
+   five services became five lines of "then". The chevrons carry the order, and
+   the row collapses back to one. */
+.tv-preference-services {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.3rem;
+  align-items: center;
+}
+
+.tv-preference-service-logo {
+  width: 1.7rem;
+  height: 1.7rem;
+  border-radius: 6px;
+  object-fit: contain;
+}
+
+.tv-preference-service-name {
+  font-size: 0.82rem;
+}
+
+.tv-preference-service-sep {
+  color: #64748b;
+  font-size: 0.7rem;
+}
+
 .tv-preference-mark {
   display: inline-flex;
   width: 1.35rem;
@@ -1156,7 +1182,7 @@ html.tv-root {
   width: 2.6rem;
   height: 2.6rem;
   border-radius: 10px;
-  object-fit: cover;
+  object-fit: contain;
 }
 
 .tv-provider-row strong {
