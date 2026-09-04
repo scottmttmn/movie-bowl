@@ -7,7 +7,7 @@ import { getServiceLogoPath } from "../utils/providerLogos";
 // and border behind every tile is the version of consistency that is available:
 // it keeps the dark ones legible against a dark page and stops the white ones
 // flashing, without touching the artwork.
-export default function ServiceLogo({ service, size = "h-7 w-7" }) {
+export default function ServiceLogo({ service, className = "h-7 w-7" }) {
   const logoUrl = getProviderLogoUrl(getServiceLogoPath(service), "w92");
   if (!logoUrl) return null;
 
@@ -16,7 +16,7 @@ export default function ServiceLogo({ service, size = "h-7 w-7" }) {
       src={logoUrl}
       alt=""
       loading="lazy"
-      className={`${size} shrink-0 rounded-md border border-slate-700/70 bg-slate-800/60 object-contain`}
+      className={`${className} shrink-0 rounded-md border border-slate-700/70 bg-slate-800/60 object-contain`}
     />
   );
 }

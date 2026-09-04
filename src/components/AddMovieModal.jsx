@@ -5,6 +5,7 @@ import { getProviderLogoUrl } from "../utils/getProviderLogoUrl";
 import { matchUserServices, normalizeStreamingServices } from "../utils/streamingServices";
 import ProviderLinksAttribution from "./ProviderLinksAttribution";
 import MoviePosterPin from "./MoviePosterPin";
+import ServiceLogo from "./ServiceLogo";
 import { getMovieAttributionLabel } from "../utils/drawBuckets";
 import {
   MAX_MOVIE_NOTE_LENGTH,
@@ -320,6 +321,7 @@ export default function AddMovieModal({
               <div className="mt-4">
                 {/* Native links avoid mistaking a secure window.open result for a blocked popup. */}
                 <a href={webLaunchCandidate.url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary w-full text-sm sm:w-auto">
+                  <ServiceLogo service={webLaunchCandidate.serviceName} className="h-5 w-5" />
                   {`Open on Web in ${webLaunchCandidate.serviceName}`}
                   <span className="sr-only"> (opens in a new tab)</span>
                 </a>

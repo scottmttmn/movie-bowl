@@ -403,6 +403,10 @@ html.tv-root {
 }
 
 .tv-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.55rem;
   min-height: 58px;
   padding: 0.8rem 1.4rem;
   border: 1px solid transparent;
@@ -1176,6 +1180,12 @@ html.tv-root {
   font-weight: 750;
   letter-spacing: 0.1em;
   text-transform: uppercase;
+}
+
+.tv-launch-logo {
+  width: 1.9rem;
+  height: 1.9rem;
+  margin-right: 0.15rem;
 }
 
 .tv-provider-logo {

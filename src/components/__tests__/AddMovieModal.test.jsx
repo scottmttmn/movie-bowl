@@ -447,5 +447,9 @@ describe("AddMovieModal", () => {
     expect(link).toHaveAttribute("href", "https://www.netflix.com/search?q=Dune%202021");
     expect(link).toHaveAttribute("target", "_blank");
     expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(link.querySelector("img")).toHaveAttribute(
+      "src",
+      "https://image.tmdb.org/t/p/w92/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg"
+    );
   });
 });

@@ -903,6 +903,31 @@ describe("Movie Bowl TV experience", () => {
     expect(screen.getByRole("link", { name: "Watchmode" })).toBeInTheDocument();
   });
 
+  // The logo goes where a button's icon goes, so the label -- and the name the
+  // remote's screen reader announces -- is the same as before.
+  it("marks the launch control with its service without renaming it", async () => {
+    mocks.streamingServices = ["Netflix"];
+    mocks.providersByTmdbId = { 101: ["Netflix"] };
+    mocks.providerLogosByTmdbId = { 101: { Netflix: "/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg" } };
+    mocks.handleDraw.mockResolvedValue({
+      id: "movie-1",
+      tmdb_id: 101,
+      title: "Arrival",
+      streamingProviders: ["Netflix"],
+    });
+    mocks.getTmdbMovieDetails.mockResolvedValue({ title: "Arrival" });
+
+    renderTonight();
+    fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+    fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+
+    const launch = await screen.findByRole("link", { name: /^open netflix$/i });
+    expect(launch.querySelector("img")).toHaveAttribute(
+      "src",
+      "https://image.tmdb.org/t/p/w92/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg"
+    );
+  });
+
   it("hides the voice card when no preferred service matches", async () => {
     mocks.streamingServices = [];
     window.sessionStorage.setItem("movie-bowl:tv:external-return", JSON.stringify({ bowlId: "family", movie: { id: "movie-1", title: "Arrival", streamingProviders: ["Netflix"] }, savedAt: Date.now() }));
