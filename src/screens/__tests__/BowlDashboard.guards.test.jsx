@@ -382,39 +382,11 @@ describe("BowlDashboard guards", () => {
       expect(cards[1]).toHaveAttribute("data-filter-excluded", "true");
     });
 
-    expect(within(myMoviesSection).getAllByRole("button", { name: /details/i })[1]).toBeEnabled();
-    expect(within(myMoviesSection).getAllByRole("button", { name: /delete/i })[1]).toBeEnabled();
-    fireEvent.click(within(myMoviesSection).getAllByRole("button", { name: /details/i })[1]);
+    expect(within(myMoviesSection).getAllByRole("button", { name: /^details for/i })[1]).toBeEnabled();
+    fireEvent.click(within(myMoviesSection).getAllByRole("button", { name: /^details for/i })[1]);
     const pinGroup = await screen.findByRole("group", { name: "Movie pin" });
     expect(within(pinGroup).getByRole("button", { name: "Pin movie" })).toBeDisabled();
     expect(within(pinGroup).getByRole("button", { name: "Pin movie" })).toHaveAccessibleDescription(/This movie is outside tonight's filters/);
-  });
-
-  it("routes My Movies delete to bowl delete for added items", async () => {
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
-    mocks.state.memberRows = [{ user_id: "u1" }];
-    mocks.state.bowlData = {
-      remaining: [
-        { id: "m-added-1", title: "Added Movie", added_by: "u1", added_at: "2026-03-06T12:30:00.000Z" },
-      ],
-      watched: [],
-    };
-
-    renderDashboard();
-    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
-
-    const myMoviesSection = screen.getByRole("heading", { name: /my movies/i }).closest("section");
-    expect(myMoviesSection).toBeTruthy();
-
-    const cards = myMoviesSection.querySelectorAll("article");
-    expect(cards.length).toBe(1);
-
-    const deleteButtons = within(myMoviesSection).getAllByRole("button", { name: /delete/i });
-    fireEvent.click(deleteButtons[0]);
-
-    await waitFor(() => expect(mocks.state.handleDeleteMovie).toHaveBeenCalledWith("m-added-1"));
-    expect(confirmSpy).toHaveBeenCalledWith('Delete "Added Movie" from this bowl?');
-    confirmSpy.mockRestore();
   });
 
   it("routes a My Movies pin through the bowl mutation handler", async () => {

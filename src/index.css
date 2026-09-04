@@ -238,28 +238,6 @@
       0 10px 22px -18px rgba(0, 0, 0, 0.95);
   }
 
-  /* A shortcut that sits on a poster rather than under it, and only where there
-     is a pointer to reveal it with. A tap momentarily focuses the card on its
-     way to opening the movie, which flashed this on and off again -- and there
-     is nothing to lose by its absence, because the details that tap opens carry
-     the same action. Not rendered at all rather than merely transparent: a
-     control that cannot be seen should not be in the tab order or under a
-     thumb, and this one deletes. */
-  .poster-action {
-    @apply hidden;
-  }
-
-  @media (hover: hover) {
-    .poster-action {
-      @apply pointer-events-none inline-flex opacity-0 transition-opacity duration-150;
-    }
-
-    .poster-card:hover .poster-action,
-    .poster-card:focus-within .poster-action {
-      @apply pointer-events-auto opacity-100;
-    }
-  }
-
   .icon-btn:hover:not(:disabled) {
     @apply -translate-y-px border-slate-600 bg-slate-800 text-white;
   }

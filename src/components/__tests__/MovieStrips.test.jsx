@@ -10,51 +10,28 @@ describe("movie strip components", () => {
     cleanup();
   });
 
-  it("renders MyMoviesStrip and forwards detail/delete actions for added items", () => {
+  // The card carries no delete of its own now. The poster is the whole of it:
+  // it opens the details, and the details are where deleting happens.
+  it("makes the poster the way into a movie's details", () => {
     const onViewMovie = vi.fn();
-    const onDeleteMovie = vi.fn();
     const movies = [
       { id: "1", source: "added", title: "Movie One", poster_path: "/one.jpg", added_at: "2026-02-23T00:00:00.000Z" },
       { id: "2", source: "added", title: "Wildcard", tmdb_id: null, poster_path: null },
     ];
 
-    render(<MyMoviesStrip movies={movies} onViewMovie={onViewMovie} onDeleteMovie={onDeleteMovie} />);
-
-    fireEvent.click(screen.getAllByRole("button", { name: /details/i })[0]);
-    fireEvent.click(screen.getAllByRole("button", { name: /delete/i })[0]);
-
-    expect(screen.getAllByText("Custom").length).toBeGreaterThan(0);
-    expect(onViewMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "1" }));
-    expect(onDeleteMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "1" }));
-  });
-
-  // The actions moved onto the poster, so the contract is that the poster is
-  // the way into details and that delete stays reachable and named. Whether the
-  // reveal itself fires is a media-query question no test environment here can
-  // ask -- Playwright's mobile project still reports (hover: hover).
-  it("makes the poster the way into details and keeps delete named and revealable", () => {
-    const onViewMovie = vi.fn();
-    const onDeleteMovie = vi.fn();
-    const movies = [
-      { id: "1", source: "added", title: "Movie One", poster_path: "/one.jpg" },
-    ];
-
-    render(<MyMoviesStrip movies={movies} onViewMovie={onViewMovie} onDeleteMovie={onDeleteMovie} />);
+    render(<MyMoviesStrip movies={movies} onViewMovie={onViewMovie} />);
 
     const poster = screen.getByRole("button", { name: "Details for Movie One" });
     expect(poster).toContainElement(screen.getByAltText("Movie One"));
     fireEvent.click(poster);
-    expect(onViewMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "1" }));
 
-    const remove = screen.getByRole("button", { name: 'Delete "Movie One" from this bowl' });
-    expect(remove).toHaveClass("poster-action");
-    expect(remove.closest(".poster-card")).toBe(poster.closest(".poster-card"));
-    expect(remove).toHaveAttribute("title", 'Delete "Movie One" from this bowl');
+    expect(screen.getAllByText("Custom").length).toBeGreaterThan(0);
+    expect(onViewMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "1" }));
+    expect(screen.queryByRole("button", { name: /^Delete/ })).not.toBeInTheDocument();
   });
 
-  it("shows syncing state and disables actions for optimistic rows", () => {
+  it("shows syncing state and holds the poster shut until the row persists", () => {
     const onViewMovie = vi.fn();
-    const onDeleteMovie = vi.fn();
     const movies = [
       {
         id: "temp:1",
@@ -66,27 +43,25 @@ describe("movie strip components", () => {
       },
     ];
 
-    render(<MyMoviesStrip movies={movies} onViewMovie={onViewMovie} onDeleteMovie={onDeleteMovie} />);
+    render(<MyMoviesStrip movies={movies} onViewMovie={onViewMovie} />);
 
     expect(screen.getByText(/syncing\.\.\./i)).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /details/i })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /delete/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Details for Movie Pending" })).toBeDisabled();
   });
 
   it("does not render pending badge for added items", () => {
     const movies = [
       { id: "a1", source: "added", title: "Added Title", added_at: "2026-03-06T00:00:00.000Z" },
     ];
-    render(<MyMoviesStrip movies={movies} onViewMovie={vi.fn()} onDeleteMovie={vi.fn()} />);
+    render(<MyMoviesStrip movies={movies} onViewMovie={vi.fn()} />);
     const addedCard = screen.getAllByText(/Added Title/i)[0].closest("article");
     expect(addedCard).not.toHaveAttribute("data-filter-excluded");
     expect(screen.queryByText(/pending/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/syncing/i)).not.toBeInTheDocument();
   });
 
-  it("stably orders eligible movies first, greys exclusions, and leaves actions enabled", () => {
+  it("stably orders eligible movies first, greys exclusions, and leaves them openable", () => {
     const onViewMovie = vi.fn();
-    const onDeleteMovie = vi.fn();
     const movies = [
       { id: "a1", source: "added", title: "Excluded First" },
       { id: "a2", source: "added", title: "Eligible First" },
@@ -98,7 +73,6 @@ describe("movie strip components", () => {
       <MyMoviesStrip
         movies={movies}
         onViewMovie={onViewMovie}
-        onDeleteMovie={onDeleteMovie}
         eligibilityStatus={MY_MOVIE_ELIGIBILITY_STATUS.ready}
         eligibleMovieIds={["a2", "a4"]}
       />
@@ -115,14 +89,10 @@ describe("movie strip components", () => {
     expect(cards[2]).toHaveAttribute("data-filter-excluded", "true");
     expect(cards[2]).toHaveTextContent("Outside current filters");
 
-    const detailButtons = screen.getAllByRole("button", { name: /details/i });
-    const deleteButtons = screen.getAllByRole("button", { name: /delete/i });
-    expect(detailButtons[2]).toBeEnabled();
-    expect(deleteButtons[2]).toBeEnabled();
-    fireEvent.click(detailButtons[2]);
-    fireEvent.click(deleteButtons[2]);
+    const excludedPoster = screen.getByRole("button", { name: "Details for Excluded First" });
+    expect(excludedPoster).toBeEnabled();
+    fireEvent.click(excludedPoster);
     expect(onViewMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "a1" }));
-    expect(onDeleteMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "a1" }));
   });
 
   it("puts syncing movies last while preserving persisted order before resolution", () => {
@@ -135,7 +105,6 @@ describe("movie strip components", () => {
       <MyMoviesStrip
         movies={movies}
         onViewMovie={vi.fn()}
-        onDeleteMovie={vi.fn()}
         eligibilityStatus={MY_MOVIE_ELIGIBILITY_STATUS.checking}
       />
     );
@@ -150,7 +119,6 @@ describe("movie strip components", () => {
       <MyMoviesStrip
         movies={movies}
         onViewMovie={vi.fn()}
-        onDeleteMovie={vi.fn()}
         eligibilityStatus={MY_MOVIE_ELIGIBILITY_STATUS.ready}
         eligibleMovieIds={["eligible"]}
       />
@@ -170,7 +138,6 @@ describe("movie strip components", () => {
     const props = {
       movies: [{ id: "a1", source: "added", title: "Movie One" }],
       onViewMovie: vi.fn(),
-      onDeleteMovie: vi.fn(),
       onRunEligibilityLookups,
     };
     const { rerender } = render(
@@ -206,7 +173,6 @@ describe("movie strip components", () => {
       <MyMoviesStrip
         movies={movies}
         onViewMovie={vi.fn()}
-        onDeleteMovie={vi.fn()}
         onTogglePin={onTogglePin}
         eligibilityStatus={MY_MOVIE_ELIGIBILITY_STATUS.ready}
         eligibleMovieIds={["eligible", "eligible-pinned"]}
@@ -253,7 +219,6 @@ describe("movie strip components", () => {
       <MyMoviesStrip
         movies={[{ id: "pinned", source: "added", title: "Pinned Movie", is_pinned: true }]}
         onViewMovie={vi.fn()}
-        onDeleteMovie={vi.fn()}
         onTogglePin={vi.fn()}
         drawMethod="title_first"
       />
@@ -270,7 +235,6 @@ describe("movie strip components", () => {
       <MyMoviesStrip
         movies={[{ id: "movie", source: "added", title: "Movie" }]}
         onViewMovie={vi.fn()}
-        onDeleteMovie={vi.fn()}
       />
     );
 
