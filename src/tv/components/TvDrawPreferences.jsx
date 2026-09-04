@@ -43,6 +43,17 @@ function StaticRow({ label }) {
   );
 }
 
+// Ranking keeps only the highest-ranked service that actually matched, so an
+// unmatched service falls through to the next one. That is a fallback order
+// rather than a set, and the comma was claiming otherwise: with ranking on the
+// draw never spans both services at once.
+function describeFavoredServices(streamingServices, useServiceRank) {
+  if (streamingServices.length > 1 && useServiceRank) {
+    return `Favor ${streamingServices.join(", then ")}`;
+  }
+  return `Favor ${streamingServices.join(", ")}`;
+}
+
 function describeGenres(selectedGenres) {
   if (!Array.isArray(selectedGenres) || selectedGenres.length === 0) return null;
   return selectedGenres.length <= 3
@@ -81,13 +92,16 @@ export default function TvDrawPreferences({
           {hasServices && (
             <ToggleRow
               name="prioritizeStreaming"
-              label={`Favor ${streamingServices.join(", ")}`}
+              label={describeFavoredServices(
+                streamingServices,
+                Boolean(settings.useStreamingRank)
+              )}
               checked={Boolean(settings.prioritizeStreaming)}
               isOverridden={isOverridden("prioritizeStreaming")}
               onToggle={onToggle}
             />
           )}
-          {hasServices && settings.prioritizeStreaming && (
+          {streamingServices.length > 1 && settings.prioritizeStreaming && (
             <ToggleRow
               name="useStreamingRank"
               label="Only my top matching service"
