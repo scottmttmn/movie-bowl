@@ -3,14 +3,14 @@ import MoviePosterPin from "./MoviePosterPin";
 // Sized and shaped to match WatchedMovieCard on purpose. The two strips sit on
 // the same screen, and a card that is 40% taller than its neighbour reads as a
 // different kind of thing rather than the same movie in a different state. The
-// height went into a row of labelled buttons, so the actions moved onto the
-// poster instead -- where the pin control already lived.
+// height went into a row of labelled buttons; what those buttons did lives on
+// the poster now -- the pin as a control, details as the poster itself, and
+// delete in the details that opens.
 export default function MovieActionCard({
   movie,
   dateLabelPrefix,
   dateValue,
   onViewDetails,
-  onDelete,
   disableWhileSyncing = true,
   isFilterExcluded = false,
   isPinned = false,
@@ -35,7 +35,7 @@ export default function MovieActionCard({
 
   return (
     <article
-      className="poster-card relative inline-flex w-28 flex-shrink-0 flex-col text-center"
+      className="relative inline-flex w-28 flex-shrink-0 flex-col text-center"
       data-filter-excluded={isFilterExcluded ? "true" : undefined}
     >
       {/* The poster is the way in, exactly as it is in the watched strip, so the
@@ -64,7 +64,7 @@ export default function MovieActionCard({
         </div>
       </button>
 
-      {/* Siblings of the poster button rather than children of it: an
+      {/* A sibling of the poster button rather than a child of it: an
           interactive element inside another one is neither valid nor reachable. */}
       <MoviePosterPin
         isPinned={isPinned}
@@ -72,32 +72,6 @@ export default function MovieActionCard({
         disabled={pinControlDisabled}
         onClick={showPinControl ? () => onTogglePin(movie, !isPinned) : undefined}
       />
-      {typeof onDelete === "function" && (
-        <button
-          type="button"
-          onClick={() => onDelete(movie)}
-          disabled={disableActions}
-          aria-label={`Delete "${movie.title}" from this bowl`}
-          title={`Delete "${movie.title}" from this bowl`}
-          className="poster-action icon-btn absolute left-2 top-2 h-8 w-8 items-center justify-center rounded-xl border border-rose-800/80 bg-slate-950/90 text-rose-300 shadow-lg shadow-black/40 hover:border-rose-600 hover:text-rose-200"
-        >
-          <svg
-            aria-hidden="true"
-            viewBox="0 0 24 24"
-            className="h-4 w-4"
-            fill="none"
-            stroke="currentColor"
-            strokeWidth="2"
-            strokeLinecap="round"
-            strokeLinejoin="round"
-          >
-            <path d="M4 7h16" />
-            <path d="M10 11v6M14 11v6" />
-            <path d="M6 7l1 12a2 2 0 0 0 2 2h6a2 2 0 0 0 2-2l1-12" />
-            <path d="M9 7V5a1 1 0 0 1 1-1h4a1 1 0 0 1 1 1v2" />
-          </svg>
-        </button>
-      )}
 
       <div className={dimmed}>
         <p className="mt-1 line-clamp-2 min-h-[2rem] text-xs font-medium leading-tight text-slate-200">

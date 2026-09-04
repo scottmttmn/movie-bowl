@@ -608,9 +608,8 @@ export default function BowlDashboard() {
       };
     }, [bowlId, navigate, accessAttempt]);
 
-    // Reached from the card's shortcut and from the details modal. Both delete
-    // the same row, so the question they ask first is written once; the modal
-    // closes on success because the thing it is describing is gone.
+    // The details modal is the only way in now, and it closes on success because
+    // the thing it was describing is gone.
     const confirmAndDeleteMovie = async (movie) => {
       setMyMoviesErrorMessage(null);
       const shouldDelete = window.confirm(`Delete "${movie.title}" from this bowl?`);
@@ -1281,7 +1280,6 @@ return (
                       setSelectedDetailContext("myAdds");
                       setSelectedDetailMovie(await buildDetailMovie(movie));
                     }}
-                    onDeleteMovie={confirmAndDeleteMovie}
                   />
                 )}
               </div>

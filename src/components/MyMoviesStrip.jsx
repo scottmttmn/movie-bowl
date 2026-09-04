@@ -5,7 +5,6 @@ import { DEFAULT_DRAW_METHOD, getDrawMethod } from "../utils/drawMethods";
 export default function MyMoviesStrip({
   movies,
   onViewMovie,
-  onDeleteMovie,
   eligibilityStatus = MY_MOVIE_ELIGIBILITY_STATUS.idle,
   eligibleMovieIds = [],
   onRunEligibilityLookups,
@@ -69,7 +68,6 @@ export default function MyMoviesStrip({
               dateLabelPrefix="Added"
               dateValue={movie.added_at}
               onViewDetails={onViewMovie}
-              onDelete={onDeleteMovie}
               disableWhileSyncing
               isFilterExcluded={isFilterExcluded}
               isPinned={Boolean(movie.is_pinned)}
