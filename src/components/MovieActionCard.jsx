@@ -79,7 +79,7 @@ export default function MovieActionCard({
           disabled={disableActions}
           aria-label={`Delete "${movie.title}" from this bowl`}
           title={`Delete "${movie.title}" from this bowl`}
-          className="poster-action icon-btn absolute left-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-xl border border-rose-800/80 bg-slate-950/90 text-rose-300 shadow-lg shadow-black/40 hover:border-rose-600 hover:text-rose-200"
+          className="poster-action icon-btn absolute left-2 top-2 h-8 w-8 items-center justify-center rounded-xl border border-rose-800/80 bg-slate-950/90 text-rose-300 shadow-lg shadow-black/40 hover:border-rose-600 hover:text-rose-200"
         >
           <svg
             aria-hidden="true"
