@@ -221,6 +221,27 @@
     @apply -translate-y-px border-rose-600 bg-rose-900/55 text-white;
   }
 
+  /* A control that sits on a poster rather than under it. Where there is no
+     hover to reveal it -- a phone, a television -- it is simply present, because
+     a hidden control on a touch screen is no control at all. Where there is, the
+     card reveals it, and focus counts as reveal so the keyboard is not left out.
+     Gated on the capability rather than a screen width: a small window on a
+     laptop still has a pointer. */
+  .poster-action {
+    @apply opacity-100;
+  }
+
+  @media (hover: hover) {
+    .poster-action {
+      @apply opacity-0 transition-opacity duration-150;
+    }
+
+    .poster-card:hover .poster-action,
+    .poster-card:focus-within .poster-action {
+      @apply opacity-100;
+    }
+  }
+
   .btn:focus-visible,
   .icon-btn:focus-visible,
   .input-field:focus-visible {

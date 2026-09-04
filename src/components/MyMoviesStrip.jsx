@@ -68,10 +68,8 @@ export default function MyMoviesStrip({
               movie={movie}
               dateLabelPrefix="Added"
               dateValue={movie.added_at}
-              primaryActionLabel="Details"
-              secondaryActionLabel="Delete"
-              onPrimaryAction={onViewMovie}
-              onSecondaryAction={onDeleteMovie}
+              onViewDetails={onViewMovie}
+              onDelete={onDeleteMovie}
               disableWhileSyncing
               isFilterExcluded={isFilterExcluded}
               isPinned={Boolean(movie.is_pinned)}

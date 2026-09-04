@@ -28,6 +28,30 @@ describe("movie strip components", () => {
     expect(onDeleteMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "1" }));
   });
 
+  // The actions moved onto the poster, so the contract is that the poster is
+  // the way into details and that delete stays reachable and named. Whether the
+  // reveal itself fires is a media-query question no test environment here can
+  // ask -- Playwright's mobile project still reports (hover: hover).
+  it("makes the poster the way into details and keeps delete named and revealable", () => {
+    const onViewMovie = vi.fn();
+    const onDeleteMovie = vi.fn();
+    const movies = [
+      { id: "1", source: "added", title: "Movie One", poster_path: "/one.jpg" },
+    ];
+
+    render(<MyMoviesStrip movies={movies} onViewMovie={onViewMovie} onDeleteMovie={onDeleteMovie} />);
+
+    const poster = screen.getByRole("button", { name: "Details for Movie One" });
+    expect(poster).toContainElement(screen.getByAltText("Movie One"));
+    fireEvent.click(poster);
+    expect(onViewMovie).toHaveBeenCalledWith(expect.objectContaining({ id: "1" }));
+
+    const remove = screen.getByRole("button", { name: 'Delete "Movie One" from this bowl' });
+    expect(remove).toHaveClass("poster-action");
+    expect(remove.closest(".poster-card")).toBe(poster.closest(".poster-card"));
+    expect(remove).toHaveAttribute("title", 'Delete "Movie One" from this bowl');
+  });
+
   it("shows syncing state and disables actions for optimistic rows", () => {
     const onViewMovie = vi.fn();
     const onDeleteMovie = vi.fn();
@@ -55,9 +79,9 @@ describe("movie strip components", () => {
     ];
     render(<MyMoviesStrip movies={movies} onViewMovie={vi.fn()} onDeleteMovie={vi.fn()} />);
     const addedCard = screen.getAllByText(/Added Title/i)[0].closest("article");
-    expect(addedCard).toHaveClass("border-slate-700");
-    expect(addedCard).toHaveClass("bg-slate-950/50");
+    expect(addedCard).not.toHaveAttribute("data-filter-excluded");
     expect(screen.queryByText(/pending/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/syncing/i)).not.toBeInTheDocument();
   });
 
   it("stably orders eligible movies first, greys exclusions, and leaves actions enabled", () => {
