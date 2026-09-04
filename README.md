@@ -2,18 +2,33 @@
 
 **Live app: [moviebowl.app](https://moviebowl.app)**
 
-Movie Bowl is a collaborative app for keeping a shared movie list and drawing
-what to watch next. Everyone in a bowl adds titles. By default, the draw picks a
-contributor first — so the person who added 25 movies does not get 25× the odds.
+Movie night decided the way a lot of households already do it: everyone writes a
+title on a slip of paper, the slips go in a bowl, and somebody pulls one out.
+
+Movie Bowl is that bowl, shared and online. Everyone adds the titles they want to
+watch, and when it is time to pick, the app draws one.
+
+A real bowl of slips gives the odds to the paper: someone who wrote twenty-five
+slips is twenty-five times likelier to win than someone who wrote one. The
+default draw here deliberately does not work that way. It picks a **person**
+first, evenly, from everyone who still has a title in the running — then a title
+from that person. Adding more movies gives you more ways to be chosen, not a
+better chance of being the one chosen.
+
+A bowl's owner can switch it to the flat version, where the odds do follow the
+count, or to a rotation that gives the next turn to whoever has waited longest.
 
 ## What It Does
 
 **Bowls**
 
 - Create bowls, invite people by email, and manage members.
-- Return straight to your saved default bowl; change it with a star on My Bowls.
+- Land in your **home bowl** on arrival. Move it with `Make [bowl] home` in the
+  bowl picker on the dashboard header — a home bowl can be moved but never
+  unset, so nothing toggles it off. The bowl directory marks which one is home
+  and offers no control to change it.
 - Add movies from the navigation with the plus/filmstrip button. The dialog
-  starts at your default bowl; “Add to this bowl” uses the bowl you're viewing.
+  starts at your home bowl; “Add to this bowl” uses the bowl you're viewing.
 - Manage who is allowed to draw, per bowl (everyone, or a selected allow-list).
 - Create public add links so people without accounts can add a fixed number of
   titles.
@@ -39,12 +54,18 @@ contributor first — so the person who added 25 movies does not get 25× the od
   first, then the least recently selected eligible contributor gets the next
   turn. Ties and the title within that person's pool are random.
 - Narrow the pool in the bowl’s Filters overlay with rating, genre, runtime,
-  and streaming priority. Changes save automatically across your bowls and are
-  used by the TV when it loads your preferences. Reset clears filters without
-  changing playback settings.
-- Optionally prioritize titles available on your streaming services.
+  and streaming priority. Changes save automatically across your bowls, and a
+  television follows them except where that television has been told otherwise.
+  Reset clears filters without changing playback settings.
+- Optionally prioritize titles on your streaming services. With service ranking
+  on, the draw keeps only the highest-ranked service that actually matched, so
+  an unmatched service falls through to the next one.
 - See the bowl's active draw method explained without surfacing competitive odds.
-- Return a drawn movie to the bowl without erasing the fact that it was drawn.
+- Put a drawn movie back for two hours after the draw, for when the group did
+  not end up watching it. That window bounds the action, not just the cleanup:
+  a return is refused afterwards, and a permitted one also removes the personal
+  history the draw created, because the group did not watch it. Add the movie
+  again to watch it another night.
 
 **History**
 
@@ -61,6 +82,11 @@ contributor first — so the person who added 25 movies does not get 25× the od
   acceptance step, and configured theater-mode previews begin automatically.
 - Provider actions hand off to installed television apps when possible and keep
   the drawn result available when the viewer returns to Movie Bowl.
+- Change the draw settings from the couch. What the remote changes belongs to
+  that television and not to the account: anyone in the room can pick it up, so
+  relaxing a filter tonight must not rewrite what the account owner browses with
+  tomorrow. The panel marks which lines this television is deciding for itself,
+  and `Use my phone's settings` hands them all back at once.
 
 ## Tech Stack
 
@@ -69,7 +95,8 @@ contributor first — so the person who added 25 movies does not get 25× the od
 - Supabase (auth, Postgres, RLS)
 - Vercel serverless functions for anything needing a secret
 - Tailwind CSS
-- Vitest + Testing Library
+- Vitest + Testing Library for unit and component tests
+- Playwright for the end-to-end smoke suite
 
 ## Local Setup
 
@@ -103,7 +130,7 @@ INVITE_EMAIL_FROM="Movie Bowl <invites@mail.moviebowl.app>"
 For full local behavior, including `/api/*` routes:
 
 ```bash
-vercel dev
+npm run dev:api
 ```
 
 If you only need frontend-only iteration, you can still use:
@@ -112,24 +139,34 @@ If you only need frontend-only iteration, you can still use:
 npm run dev
 ```
 
-Note that `npm run dev` does not serve the serverless functions, so `/api/*`
-requests 404 — TMDB search, invite email, and public add links need `vercel dev`.
+`npm run dev` does not serve the serverless functions, so `/api/*` requests 404
+— TMDB search, invite email, and public add links need `npm run dev:api`.
+
+Run it through the script rather than a bare `vercel dev`. The CLI is pinned as
+a devDependency here, and a globally installed one can be old enough to reject
+this repo's `vercel.json` outright: `has` on a headers rule postdates CLI 21,
+and that rule is what scopes the no-cache header to HTML documents, so it cannot
+simply be removed.
 
 ## Scripts
 
-- `npm run dev` - start dev server
+- `npm run dev` - start dev server (frontend only)
+- `npm run dev:api` - dev server including the `/api/*` serverless routes
 - `npm run build` - production build
 - `npm run preview` - preview production build
 - `npm run lint` - run ESLint
 - `npm run test` - start Vitest in watch mode
 - `npm run test:run` - run tests once
+- `npm run test:failures` - name what failed in the last `test:run`
 - `npm run test:coverage` - run tests with coverage
-- `npm run test:e2e` - run the local Playwright release smoke suite
+- `npm run test:e2e` - run the local Playwright smoke suite
+- `node scripts/refresh-provider-logos.mjs` - regenerate `src/utils/providerLogos.js`
 
 ## Project Layout
 
 ```
 src/
+  main.jsx           AuthProvider -> App
   App.jsx            router, route guards, invite acceptance
   screens/           one screen per route, lazily imported
   components/        shared UI
@@ -144,17 +181,27 @@ supabase/
   migrations/        source of truth for schema, RLS, functions
   tests/             pgTAP tests for security-sensitive migrations
   rollback/          staged reverts, kept out of migrations/ on purpose
+tv-android/          Google TV WebView shell around /tv; a validation harness,
+                     not a store build. Has its own README
+android-mobile/      disposable Android App Actions probe. It does not contain
+                     the product app
 output/designs/      design specs and roadmaps for shipped + planned features
 ```
 
 ### Routes
 
-`/` (resolves your saved default bowl, or `/bowls` when you have none), `/bowls`, `/bowl/:bowlId`,
-`/bowl/:bowlId/settings`, `/settings`, `/watch-list`, `/invites`, `/about`,
-`/login`, `/accept-invite/:token`, `/add-to-bowl/:token`, `/tv/*`.
+`/` (resolves your home bowl, or `/bowls` when you have none), `/bowls`,
+`/bowl/:bowlId`, `/bowl/:bowlId/settings`, `/settings`, `/watch-list`,
+`/invites`, `/about`, `/login`, `/accept-invite/:token`, `/add-to-bowl/:token`,
+`/activate-tv`, `/voice-probe/privacy`, `/tv/*`.
 
-Everything except `/login`, `/about`, `/accept-invite/:token`, and
-`/add-to-bowl/:token` requires a signed-in user.
+Everything except `/login`, `/about`, `/accept-invite/:token`,
+`/add-to-bowl/:token`, `/activate-tv`, and `/voice-probe/privacy` requires a
+signed-in user.
+
+`/bowls` never redirects. `/` computes a destination; `/bowls` computes nothing
+and always renders, which is what makes it the recovery surface every failed
+resolution links back to.
 
 ### Key Files
 
@@ -184,8 +231,12 @@ see `CLAUDE.md`. For reliability guardrails and the release smoke checklist, see
   - `src/lib/streamingProviders.js`
   - proxied through server routes in `api/tmdb/*` so the TMDB key stays server-side
   - includes in-memory caching + in-flight request deduping
+  - the same response carries each provider's logo, which is why showing one
+    costs no extra request
 - Draw behavior:
   - if the prioritize toggle is on and matches exist, draw from matches
+  - with service ranking on, keep only the highest-ranked service that actually
+    matched, so an unmatched service falls through to the next one
   - if no matches, fall back to all titles that survived the other draw filters
 - This narrowing happens *before* the draw method, so it changes which titles
   and contributors are eligible. Person-first still gives each represented
@@ -210,6 +261,8 @@ These are visible in the browser bundle by design.
 - `APP_BASE_URL`
 - `RESEND_API_KEY`
 - `INVITE_EMAIL_FROM`
+- `WATCHMODE_API_KEY`, `PROVIDER_LINKS_ENABLED`, `PROVIDER_LINKS_MONTHLY_BUDGET`
+  — optional, and off unless set. See [Provider title links](#provider-title-links).
 
 Do not prefix server-only values with `VITE_`. `SUPABASE_SERVICE_ROLE_KEY`
 bypasses RLS, so every route that uses it must do its own authorization.
@@ -285,6 +338,28 @@ sends it as a bearer token when invoking the configured cron route.
 - Adding a signed-in user's TMDB movie also starts a non-blocking single-title
   warmup through `POST /api/tmdb/movie/warm-filter-metadata`.
 
+## TMDB Attribution
+
+Movie data, provider availability, and provider logos come from TMDB, and using
+them carries conditions the About page already satisfies:
+
+- "This product uses the TMDB API but is not endorsed or certified by TMDB."
+- Watch-provider data must credit **JustWatch** as its source. TMDB is explicit
+  that access is revoked for usage that does not.
+
+Two consequences worth knowing before changing anything here:
+
+- **Logos are shown as TMDB supplies them** — not recoloured, cropped, or used
+  as this app's own iconography. Displaying a provider's mark beside its own
+  availability is the nominative case; restyling it is not, and every brand
+  guideline forbids it anyway.
+- **TMDB content may not be cached beyond six months.** `src/lib/streamingProviders.js`
+  caches for minutes, so it is unaffected. `src/utils/providerLogos.js` is the
+  exception: it is generated, stamped with the day it was made, and has to be
+  regenerated with `node scripts/refresh-provider-logos.mjs` before that date
+  ages out. A lapse degrades to service names rather than breaking, which is
+  exactly why the deadline is written down in `TODO.md`.
+
 ## Data Model
 
 Tables the app touches:
@@ -299,6 +374,7 @@ Tables the app touches:
 - `tmdb_filter_metadata` (server-maintained; read through a membership RPC)
 - `tmdb_filter_metadata_refresh_runs` (private 90-day cron run history)
 - `bowl_add_links`
+- `user_bowl_defaults` — the account's home bowl
 - `bowl_draw_events` — immutable bowl-side record of each draw
 - `user_watch_events` — per-participant personal history
 - `bowl_movie_queue` — legacy compatibility table; not written to
@@ -306,7 +382,10 @@ Tables the app touches:
 A draw writes one `bowl_draw_events` row plus one `user_watch_events` row per
 participant, which is why personal history survives leaving or deleting a bowl.
 Returning a movie to the bowl sets `returned_at` on the draw event rather than
-deleting it.
+deleting it, and `return_bowl_draw_to_bowl` refuses more than two hours after
+the draw. Inside that window the return also deletes the personal history rows
+the draw created, because a return means the group did not watch it. Every
+surface reads active draws only.
 
 Custom (non-TMDB) movies carry a negative synthetic `tmdb_id`, so anything that
 calls TMDB must filter for `Number(tmdb_id) > 0` first.
@@ -314,11 +393,19 @@ calls TMDB must filter for `Number(tmdb_id) > 0` first.
 RPCs the client calls (preferred over multi-statement client writes, because
 they are the atomic and permission-checked path):
 
-`get_my_bowls_with_counts`, `get_bowl_profile_directory`,
-`get_bowl_filter_metadata`,
-`get_my_invite_sender_directory`, `draw_bowl_movie`, `return_bowl_draw_to_bowl`,
-`save_bowl_draw_access`, `delete_owned_bowl`, `consume_bowl_add_link`,
-`create_manual_watch_event`, `update_user_watch_event`, `delete_user_watch_event`.
+`get_my_bowls_with_counts`, `get_my_bowl_context`, `set_my_default_bowl`,
+`get_bowl_profile_directory`, `get_bowl_filter_metadata`,
+`get_my_invite_sender_directory`, `accept_bowl_invite`, `create_bowl_invites`,
+`revoke_bowl_invite`, `draw_bowl_movie`, `draw_bowl_movie_by_rotation`,
+`return_bowl_draw_to_bowl`, `save_bowl_draw_access`, `save_bowl_draw_method`,
+`delete_owned_bowl`, `set_own_bowl_movie_pin`, `update_own_bowl_movie_note`,
+`consume_bowl_add_link`, `create_manual_watch_event`, `update_user_watch_event`,
+`delete_user_watch_event`.
+
+The interface says **home bowl** where the database says **default**. That drift
+is deliberate — `user_bowl_defaults`, `get_my_bowl_context` and
+`set_my_default_bowl` are deployed objects and are not renamed to match the
+word on screen.
 
 ## Supabase Schema & Policies (Git-tracked)
 
@@ -367,7 +454,7 @@ includes:
 - Public add-link API and page tests
 - Draw selection unit tests (`src/utils/__tests__/selectDrawCandidate.test.js`)
 - Hook-level bowl integration tests (`src/hooks/__tests__/useBowl.test.js`)
-- TV navigation and theater-mode tests (`src/tv/__tests__/`)
+- TV navigation, theater-mode, and per-TV draw settings tests (`src/tv/__tests__/`)
 - pgTAP tests for security-sensitive migrations (`supabase/tests/`)
 
 Run all tests:
@@ -379,7 +466,8 @@ npm run test:run
 The Playwright smoke suite exercises the release-critical flows in a real,
 headless Chromium browser at desktop and mobile sizes. It supplies an isolated
 in-memory Supabase/API boundary, so it never needs production credentials or
-data and does not require `vercel dev`. Install Chromium once, then run it with:
+data and does not require the serverless routes. Install Chromium once, then
+run it with:
 
 ```bash
 npx playwright install chromium
@@ -392,7 +480,14 @@ screenshot, and video in `test-results/`; the HTML report is written to
 
 A clean checkout is expected to be fully green, with lint reporting zero
 warnings. Run `npm run test:run`, `npm run test:e2e`, and `npm run build` before
-committing anything non-trivial.
+committing anything non-trivial. `CLAUDE.md` carries the expected test counts as
+a tripwire, so a lost test is visible rather than silent.
+
+The end-to-end suite is in that list rather than in a release checklist because
+leaving it out did not hold: it was red on a clean checkout through three
+separate merges, every failure a selector still describing an interface that had
+been deliberately replaced. A suite that is red by default cannot report a
+regression.
 
 ## Provider title links
 
@@ -419,8 +514,8 @@ To activate:
    ```
 
 3. Verify the existing daily `/api/cron/refresh-filter-metadata` job is running,
-   then set `PROVIDER_LINKS_ENABLED=true` and restart/redeploy. Use `vercel dev`
-   locally because Vite alone does not serve the lookup API.
+   then set `PROVIDER_LINKS_ENABLED=true` and restart/redeploy. Use
+   `npm run dev:api` locally because Vite alone does not serve the lookup API.
 
 Lookups happen after a signed-in member adds a TMDB movie and during a draw's
 animation. Public add links, custom titles, and detail/browse screens do not
