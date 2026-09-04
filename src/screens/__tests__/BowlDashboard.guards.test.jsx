@@ -488,7 +488,7 @@ describe("BowlDashboard guards", () => {
       watched: [],
     };
     renderDashboard();
-    fireEvent.click(await screen.findByRole("button", { name: "Details", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Details for Pin Me" }));
     fireEvent.click(await screen.findByRole("button", { name: "Pin movie" }));
     await waitFor(() => expect(mocks.state.handleSetMoviePin).toHaveBeenCalledWith("detail-pin", true));
     expect(await screen.findByRole("button", { name: "Unpin movie" })).toHaveAttribute("aria-pressed", "true");
@@ -504,7 +504,7 @@ describe("BowlDashboard guards", () => {
       watched: [],
     };
     renderDashboard();
-    fireEvent.click(await screen.findByRole("button", { name: "Details", exact: true }));
+    fireEvent.click(await screen.findByRole("button", { name: "Details for Pin Me" }));
     const pinGroup = await screen.findByRole("group", { name: "Movie pin" });
     expect(within(pinGroup).getByRole("button", { name: "Unpin movie" })).toBeDisabled();
     expect(within(pinGroup).getByRole("button", { name: "Unpin movie" })).toHaveAccessibleDescription("This bowl draws title-first, so pins don't change anything here.");

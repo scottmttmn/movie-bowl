@@ -56,7 +56,7 @@ export default function WatchedMovieCard({ movie, onClick }) {
           )}
         </div>
       </button>
-      <p className="mt-1 min-h-[2rem] overflow-hidden text-xs font-medium leading-tight text-slate-200">
+      <p className="mt-1 line-clamp-2 min-h-[2rem] text-xs font-medium leading-tight text-slate-200">
         {movie.title}
       </p>
       {isCustomEntry && (
