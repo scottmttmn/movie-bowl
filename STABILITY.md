@@ -62,7 +62,14 @@ Run:
 ```bash
 npm run test:run
 npm run build
+npm run test:e2e   # for any change a browser can see
 ```
+
+The end-to-end suite earns its place in this list rather than a release
+checklist: it went red on a clean checkout and stayed there through three
+separate merges, because nothing ran it. Its failures were stale selectors
+rather than defects, which is exactly why it has to run continuously — nobody
+can tell those apart from a real regression once they have accumulated.
 
 ### 2. Keep Supabase changes in git
 

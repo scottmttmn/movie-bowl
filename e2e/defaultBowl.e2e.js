@@ -17,13 +17,18 @@ async function addCustom(page, title) {
 }
 
 test("stars persist while global and contextual adds use their intended destinations", async ({ page, backend }) => {
-  seed(backend); await backend.authenticate(page); await page.goto("/bowls");
-  await page.getByRole("button", { name: "Make Family Movies my default bowl" }).click();
-  await expect(page).toHaveURL(/\/bowls$/);
-  await expect(page.getByRole("button", { name: "Default bowl: Family Movies" })).toHaveAttribute("aria-pressed", "true");
+  seed(backend); await backend.authenticate(page); await page.goto("/bowl/default-bowl-1");
+  const switchBowl = page.getByRole("button", { name: "Switch bowl. Current bowl: Family Movies" });
+  const homeRow = page.getByRole("button", { name: /^Family Movies, current bowl, home bowl/ });
+  await switchBowl.click();
+  await page.getByRole("button", { name: "Make Family Movies my home bowl" }).click();
+  await expect(homeRow).toBeVisible();
+  await page.keyboard.press("Escape");
   await page.reload();
-  await expect(page.getByRole("button", { name: "Default bowl: Family Movies" })).toBeVisible();
-  await page.getByRole("link", { name: "Go to your default bowl" }).click();
+  await switchBowl.click();
+  await expect(homeRow).toBeVisible();
+  await page.keyboard.press("Escape");
+  await page.getByRole("link", { name: "Go to your home bowl" }).click();
   await expect(page).toHaveURL(/\/bowl\/default-bowl-1$/);
   await page.goto("/bowl/default-bowl-0");
   await page.getByRole("button", { name: "Add a movie", exact: true }).click();
@@ -35,7 +40,7 @@ test("stars persist while global and contextual adds use their intended destinat
   await expect(chooseButton(page)).toHaveText(/Friday Night/);
   await addCustom(page, "Context Feature");
   await chooseButton(page).click();
-  await page.getByRole("button", { name: "Family Movies Default" }).click();
+  await page.getByRole("button", { name: "Family Movies Home" }).click();
   await addCustom(page, "Temporary Feature");
   await addCustom(page, "Another Feature");
   await page.getByRole("button", { name: "Close add movie" }).click();
@@ -161,8 +166,8 @@ test("long duplicate bowl names stay distinguishable without clipping search", a
   await page.getByRole("button", { name: "Add a movie", exact: true }).click();
   await chooseButton(page).click();
   const options = page.locator("#add-bowl-choices");
-  await expect(options.getByRole("button", { name: /Family movie nights.*Owner · bowl-0 Default/ })).toBeVisible();
-  await expect(options.getByRole("button", { name: /Family movie nights.*Owner · bowl-0 Default/ })).toBeInViewport({ ratio: 1 });
+  await expect(options.getByRole("button", { name: /Family movie nights.*Owner · bowl-0 Home/ })).toBeVisible();
+  await expect(options.getByRole("button", { name: /Family movie nights.*Owner · bowl-0 Home/ })).toBeInViewport({ ratio: 1 });
   await expect(options.getByRole("button", { name: /Family movie nights.*Owner · bowl-1/ })).toBeVisible();
   await expect(page.getByPlaceholder("Search movies...")).toBeInViewport({ ratio: 1 });
   await expect(page.getByRole("button", { name: "Close add movie" })).toBeInViewport({ ratio: 1 });
