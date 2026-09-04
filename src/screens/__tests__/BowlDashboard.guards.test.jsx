@@ -186,6 +186,7 @@ describe("BowlDashboard guards", () => {
     };
     mocks.state.drawOdds = [{ bucketKey: "user:u1", member: "owner@example.com", movieCount: 4, drawOdds: 1 }];
     mocks.state.handleReaddMovie.mockClear();
+    mocks.state.handleDeleteMovie.mockClear();
     mocks.state.handleAddMovie.mockClear();
     mocks.state.handleUpdateMovieNote.mockClear();
     mocks.state.handleSetMoviePin.mockClear();
@@ -495,6 +496,87 @@ describe("BowlDashboard guards", () => {
     fireEvent.click(screen.getByRole("button", { name: "Unpin movie" }));
     await waitFor(() => expect(mocks.state.handleSetMoviePin).toHaveBeenLastCalledWith("detail-pin", false));
     expect(await screen.findByRole("button", { name: "Pin movie" })).toHaveAttribute("aria-pressed", "false");
+  });
+
+  // The card shortcut can hide because this exists. If it stops existing, a
+  // touch device loses the only way to remove a movie it can see.
+  it("deletes an owned movie from its details and closes what it described", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    mocks.state.bowlData = {
+      remaining: [{ id: "detail-delete", title: "Delete Me", added_by: "u1" }],
+      watched: [],
+    };
+    renderDashboard();
+    fireEvent.click(await screen.findByRole("button", { name: "Details for Delete Me" }));
+
+    const remove = await screen.findByRole("button", {
+      name: 'Delete "Delete Me" from this bowl',
+    });
+    fireEvent.click(remove);
+
+    expect(confirmSpy).toHaveBeenCalledWith('Delete "Delete Me" from this bowl?');
+    await waitFor(() =>
+      expect(mocks.state.handleDeleteMovie).toHaveBeenCalledWith("detail-delete")
+    );
+    await waitFor(() =>
+      expect(screen.queryByRole("heading", { name: "Delete Me" })).not.toBeInTheDocument()
+    );
+    confirmSpy.mockRestore();
+  });
+
+  it("leaves the details open and says so when the delete does not land", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    mocks.state.handleDeleteMovie.mockResolvedValueOnce(false);
+    mocks.state.bowlData = {
+      remaining: [{ id: "detail-delete", title: "Delete Me", added_by: "u1" }],
+      watched: [],
+    };
+    renderDashboard();
+    fireEvent.click(await screen.findByRole("button", { name: "Details for Delete Me" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: 'Delete "Delete Me" from this bowl' })
+    );
+
+    expect(await screen.findByText(/could not delete this movie/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Delete Me" })).toBeInTheDocument();
+    confirmSpy.mockRestore();
+  });
+
+  it("declining the confirmation deletes nothing", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    mocks.state.bowlData = {
+      remaining: [{ id: "detail-delete", title: "Delete Me", added_by: "u1" }],
+      watched: [],
+    };
+    renderDashboard();
+    fireEvent.click(await screen.findByRole("button", { name: "Details for Delete Me" }));
+    fireEvent.click(
+      await screen.findByRole("button", { name: 'Delete "Delete Me" from this bowl' })
+    );
+
+    expect(mocks.state.handleDeleteMovie).not.toHaveBeenCalled();
+    expect(screen.getByRole("heading", { name: "Delete Me" })).toBeInTheDocument();
+    confirmSpy.mockRestore();
+  });
+
+  // A watched entry describes a draw that happened. Deleting the bowl row it
+  // came from would not undo that, so the action is not offered there.
+  it("does not offer delete from a watched movie's details", async () => {
+    mocks.state.bowlData = {
+      remaining: [],
+      watched: [{ id: "w1", title: "Watched Movie", drawn_at: "2026-03-05T12:00:00.000Z" }],
+    };
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    const watchedSection = screen.getByRole("heading", { name: /^watched$/i }).closest("section");
+    fireEvent.click(within(watchedSection).getByRole("button", { name: "Show" }));
+    fireEvent.click(within(watchedSection).getAllByRole("button")[1]);
+
+    await waitFor(() =>
+      expect(screen.getByRole("heading", { name: "Watched Movie" })).toBeInTheDocument()
+    );
+    expect(screen.queryByRole("button", { name: /^Delete "/ })).not.toBeInTheDocument();
   });
 
   it("keeps saved pins inactive in title-first movie details", async () => {

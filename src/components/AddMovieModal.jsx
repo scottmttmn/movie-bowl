@@ -33,6 +33,7 @@ export default function AddMovieModal({
   isDetailPrimaryActionDisabled = false,
   webLaunchCandidate = null,
   onEditNote = null,
+  onDeleteMovie = null,
   noteHeading = null,
   onTogglePin = null,
   pinDisabledReason = "",
@@ -369,15 +370,27 @@ export default function AddMovieModal({
           ) : null}
         </div>
 
-        {(detailPrimaryActionError || detailPrimaryActionNote || (onDetailPrimaryAction && detailPrimaryActionLabel)) && (
+        {(detailPrimaryActionError || detailPrimaryActionNote || onDeleteMovie || (onDetailPrimaryAction && detailPrimaryActionLabel)) && (
           <div className={`shrink-0 space-y-3 border-t border-slate-700/60 pt-4 ${inline ? "" : "px-5 pb-4 sm:px-7"}`}>
             {detailPrimaryActionError && <div className="status-error text-sm" role="alert">{detailPrimaryActionError}</div>}
             {detailPrimaryActionNote && <p className="text-sm text-slate-400">{detailPrimaryActionNote}</p>}
-            {onDetailPrimaryAction && detailPrimaryActionLabel && (
-              <div className="flex justify-end">
-                <button type="button" onClick={async () => { await onDetailPrimaryAction(movie); }} className="btn btn-secondary w-full sm:w-auto" disabled={isDetailPrimaryActionLoading || isDetailPrimaryActionDisabled}>
-                  {isDetailPrimaryActionLoading ? "Adding..." : detailPrimaryActionLabel}
-                </button>
+            {(onDeleteMovie || (onDetailPrimaryAction && detailPrimaryActionLabel)) && (
+              <div className="flex flex-col-reverse gap-2 sm:flex-row sm:items-center sm:justify-end">
+                {onDeleteMovie && (
+                  <button
+                    type="button"
+                    onClick={() => onDeleteMovie(movie)}
+                    aria-label={`Delete "${movie.title}" from this bowl`}
+                    className="btn btn-danger w-full sm:mr-auto sm:w-auto"
+                  >
+                    Delete
+                  </button>
+                )}
+                {onDetailPrimaryAction && detailPrimaryActionLabel && (
+                  <button type="button" onClick={async () => { await onDetailPrimaryAction(movie); }} className="btn btn-secondary w-full sm:w-auto" disabled={isDetailPrimaryActionLoading || isDetailPrimaryActionDisabled}>
+                    {isDetailPrimaryActionLoading ? "Adding..." : detailPrimaryActionLabel}
+                  </button>
+                )}
               </div>
             )}
           </div>
