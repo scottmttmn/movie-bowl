@@ -642,7 +642,7 @@ html.tv-root {
 }
 
 .tv-preference-panel h2 {
-  margin: 0.5rem 0 0;
+  margin: 0;
   font-size: clamp(1.45rem, 1.75vw, 2rem);
   letter-spacing: -0.04em;
   line-height: 1.1;
@@ -655,38 +655,121 @@ html.tv-root {
 
 .tv-preference-panel ul {
   display: grid;
-  gap: 1rem;
-  margin: 1.7rem 0 0;
+  gap: 0.15rem;
+  margin: 1.4rem 0 0;
   padding: 0;
   list-style: none;
 }
 
 .tv-preference-panel li {
-  display: grid;
-  grid-template-columns: 1.45rem 1fr;
-  gap: 0.75rem;
-  align-items: start;
   color: #dbe4ef;
   font-size: 0.88rem;
 }
 
-.tv-preference-panel li span {
+.tv-preference-toggle,
+.tv-preference-static {
+  display: grid;
+  width: 100%;
+  grid-template-columns: 1.45rem 1fr auto;
+  gap: 0.75rem;
+  align-items: center;
+  padding: 0.45rem 0.5rem;
+  border: 1px solid transparent;
+  border-radius: 12px;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+}
+
+.tv-preference-toggle {
+  min-height: 48px;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.tv-preference-toggle:hover,
+.tv-preference-toggle:focus {
+  border-color: rgba(251, 113, 133, 0.55);
+  background: rgba(136, 19, 55, 0.22);
+  outline: none;
+}
+
+.tv-preference-mark {
   display: inline-flex;
   width: 1.35rem;
   height: 1.35rem;
   align-items: center;
   justify-content: center;
-  border: 1px solid rgba(251, 113, 133, 0.32);
+  border: 1px solid rgba(148, 163, 184, 0.3);
   border-radius: 50%;
-  background: rgba(136, 19, 55, 0.23);
+  background: rgba(15, 23, 42, 0.6);
   color: #fda4af;
   font-size: 0.72rem;
 }
 
+.tv-preference-toggle[data-checked] .tv-preference-mark {
+  border-color: rgba(251, 113, 133, 0.32);
+  background: rgba(136, 19, 55, 0.23);
+}
+
+.tv-preference-static .tv-preference-mark {
+  border-color: transparent;
+  background: transparent;
+}
+
+.tv-preference-static .tv-preference-label {
+  color: #94a3b8;
+}
+
+.tv-preference-toggle:not([data-checked]) .tv-preference-label {
+  color: #94a3b8;
+}
+
+/* Passive status: which lines this television has an opinion about. A label
+   would repeat itself down the whole column, so the meaning lives in visually
+   hidden text beside the dot. */
+.tv-preference-diverged {
+  width: 0.45rem;
+  height: 0.45rem;
+  border-radius: 50%;
+  background: #fda4af;
+}
+
+.tv-preference-reset {
+  min-height: 48px;
+  width: 100%;
+  margin-top: 1rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid rgba(148, 163, 184, 0.24);
+  border-radius: 12px;
+  background: transparent;
+  color: #cbd5e1;
+  font-size: 0.85rem;
+  font-weight: 680;
+  cursor: pointer;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease;
+}
+
+.tv-preference-reset:hover,
+.tv-preference-reset:focus {
+  border-color: rgba(251, 113, 133, 0.55);
+  background: rgba(136, 19, 55, 0.22);
+  outline: none;
+}
+
 .tv-preference-note {
-  margin-top: 1.6rem;
-  padding-top: 1.2rem;
+  margin-top: 1.2rem;
+  padding-top: 1.1rem;
   border-top: 1px solid rgba(148, 163, 184, 0.14);
+}
+
+.tv-preference-panel .tv-preference-warning {
+  color: #fcd34d;
 }
 
 .tv-recent-section {
