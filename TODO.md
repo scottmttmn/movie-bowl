@@ -164,3 +164,8 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   tracked in [`KNOWN_ISSUES.md`](KNOWN_ISSUES.md). Keep product ideas here and
   use that register for audit evidence, remediation plans, and decision history.
 - Supabase schema/process hygiene: keep migrations and policy snapshots current so dashboard-only DB changes do not drift from the repo.
+- Refresh `src/utils/providerLogos.js` before **March 2026** — it was generated
+  2026-09-04, and TMDB's API terms cap caching their content at six months. Run
+  `node scripts/refresh-provider-logos.mjs`, which needs `TMDB_READ_ACCESS_TOKEN`.
+  A service the refresh cannot match renders as its name, so a lapse degrades
+  quietly rather than breaking, which is exactly why it needs a date here.

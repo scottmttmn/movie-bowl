@@ -324,6 +324,30 @@ describe("Movie Bowl TV experience", () => {
     expect(screen.queryByRole("switch", { name: /favor netflix, then max/i })).toBeNull();
   });
 
+  // Five services became five lines of "then". The logos say the same thing on
+  // one line, and the accessible name still says it in words.
+  it("draws the favored services as logos while keeping the name accessible", async () => {
+    renderTonight();
+
+    const favor = await screen.findByRole("switch", { name: /^favor netflix, then max$/i });
+    const logos = within(favor).getAllByRole("presentation", { hidden: true });
+    expect(logos.map((logo) => logo.getAttribute("src"))).toEqual([
+      "https://image.tmdb.org/t/p/w92/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg",
+      "https://image.tmdb.org/t/p/w92/jbe4gVSfRlbPTdESXhEKpornsfu.jpg",
+    ]);
+    expect(within(favor).getByText("›")).toBeInTheDocument();
+  });
+
+  it("falls back to a service's name when TMDB has no logo for it", async () => {
+    mocks.streamingServices = ["Netflix", "Showtime"];
+
+    renderTonight();
+
+    const favor = await screen.findByRole("switch", { name: /^favor netflix, then showtime$/i });
+    expect(within(favor).getByText("Showtime")).toBeInTheDocument();
+    expect(within(favor).getAllByRole("presentation", { hidden: true })).toHaveLength(1);
+  });
+
   it("offers no ranking toggle when there is only one service to rank", async () => {
     mocks.streamingServices = ["Netflix"];
 

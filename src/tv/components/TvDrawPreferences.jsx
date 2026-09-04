@@ -1,16 +1,20 @@
+import { Fragment } from "react";
 import { getDrawMethod } from "../../utils/drawMethods";
 import { clampTheaterTrailerCount } from "../../utils/drawSettings";
+import { getProviderLogoUrl } from "../../utils/getProviderLogoUrl";
+import { getServiceLogoPath } from "../../utils/providerLogos";
 
 // A row that reports a setting and changes it are the same row. On a D-pad,
 // focus is already travelling down this column, so a separate settings screen
 // would mean navigating away from the thing being described and back again.
-function ToggleRow({ name, label, checked, isOverridden, onToggle }) {
+function ToggleRow({ name, label, children, checked, isOverridden, onToggle }) {
   return (
     <li>
       <button
         type="button"
         role="switch"
         aria-checked={checked}
+        aria-label={label}
         className="tv-preference-toggle"
         data-tv-focusable
         data-tv-nav-group="tv-preferences"
@@ -20,7 +24,7 @@ function ToggleRow({ name, label, checked, isOverridden, onToggle }) {
         <span aria-hidden="true" className="tv-preference-mark">
           {checked ? "✓" : ""}
         </span>
-        <span className="tv-preference-label">{label}</span>
+        <span className="tv-preference-label">{children || label}</span>
         {isOverridden && (
           <>
             <span aria-hidden="true" className="tv-preference-diverged" />
@@ -52,6 +56,32 @@ function describeFavoredServices(streamingServices, useServiceRank) {
     return `Favor ${streamingServices.join(", then ")}`;
   }
   return `Favor ${streamingServices.join(", ")}`;
+}
+
+function FavoredServices({ streamingServices, useServiceRank }) {
+  const isOrdered = streamingServices.length > 1 && useServiceRank;
+
+  return (
+    <span className="tv-preference-services">
+      {streamingServices.map((service, index) => {
+        const logoUrl = getProviderLogoUrl(getServiceLogoPath(service), "w92");
+        return (
+          <Fragment key={service}>
+            {index > 0 && (
+              <span aria-hidden="true" className="tv-preference-service-sep">
+                {isOrdered ? "›" : "·"}
+              </span>
+            )}
+            {logoUrl ? (
+              <img className="tv-preference-service-logo" src={logoUrl} alt="" />
+            ) : (
+              <span className="tv-preference-service-name">{service}</span>
+            )}
+          </Fragment>
+        );
+      })}
+    </span>
+  );
 }
 
 function describeGenres(selectedGenres) {
@@ -99,7 +129,12 @@ export default function TvDrawPreferences({
               checked={Boolean(settings.prioritizeStreaming)}
               isOverridden={isOverridden("prioritizeStreaming")}
               onToggle={onToggle}
-            />
+            >
+              <FavoredServices
+                streamingServices={streamingServices}
+                useServiceRank={Boolean(settings.useStreamingRank)}
+              />
+            </ToggleRow>
           )}
           {streamingServices.length > 1 && settings.prioritizeStreaming && (
             <ToggleRow
