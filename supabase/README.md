@@ -113,7 +113,7 @@ data. Prefer reverting the client while keeping this additive schema.
 
 The August 31 follow-up corrected four older suites' stale expectations about
 guest attribution, private helper access, and personal-history visibility.
-The current regression baseline is 16 SQL suites / 452 assertions against a
+The current regression baseline is 17 SQL suites / 467 assertions against a
 disposable copy of the current schema. See the
 [implementation record](../output/designs/default-bowl-and-global-add-implementation.md#implementation-record--august-31-2026)
 for the original failures and follow-up coverage. Do not run these fixture
@@ -141,11 +141,26 @@ decline and the cleanup after leaving a bowl. Deploy the migration immediately
 before the matching web client: the new client requires the RPCs, while older
 clients can no longer create or revoke invitations after the policy cutover.
 
-The matching pgTAP file has 63 assertions; the full database regression is 16
-suites / 452 assertions. Rollback is
+The matching pgTAP file has 63 assertions; the full database regression is 17
+suites / 467 assertions. Rollback is
 `rollback/20260902120000_restore_direct_bowl_invitation_writes.sql`; revert the
 client first. Rollback drops persisted request history, so retrying an old
 request UUID afterward no longer has an idempotency record.
+
+## TV pairing rate limits
+
+`20260905120000_rate_limit_tv_pairing.sql` adds a server-only fixed-window
+counter and a narrow service-role RPC. Pairing starts consume a client-address
+bucket; approvals consume both a client-address bucket and an authenticated-user
+bucket. The server stores only HMAC-SHA256 pseudonyms derived with
+`TV_PAIRING_RATE_LIMIT_SECRET`, never raw addresses or user IDs. Old counters are
+removed opportunistically.
+
+Apply the migration and add the server-only secret before deploying the matching
+API code; the endpoints deliberately fail closed if either dependency is absent.
+The matching pgTAP file has 15 assertions. Rollback is
+`rollback/20260905120000_remove_tv_pairing_rate_limits.sql`; revert the API code
+before dropping its RPC.
 
 ## Active movie uniqueness note
 

@@ -1,6 +1,19 @@
 # Private Google TV distribution roadmap
 
-Status: planned on September 4, 2026
+Status: in progress as of September 5, 2026
+
+Implementation progress:
+
+- The durable pairing rate-limit migration, service-role RPC, server HMAC
+  pseudonymization, endpoint limits, non-enumerating approval failures, tests,
+  and rollback are implemented and pass the isolated database/API regressions.
+  The migration and
+  `TV_PAIRING_RATE_LIMIT_SECRET` must be deployed before the API changes.
+- The existing Android `lintRelease` baseline completes with zero errors and
+  five warnings. One is the known vector TV banner; explicit no-backup rules are
+  the other actionable release-hardening item. The target-SDK, landscape, and
+  pinned-toolchain warnings reflect deliberate TV compatibility choices and
+  need a documented disposition before the store bundle.
 
 ## Decision
 
@@ -56,8 +69,8 @@ The repo is past the prototype-only stage but is not yet store-ready:
 - The current banner is a vector declared as 320 by 180 dp. Store readiness
   requires a deliberate 320 by 180 pixel TV banner, plus Play listing artwork
   and at least one unaltered high-resolution TV screenshot.
-- Pairing abuse-rate limiting, full provider testing, privacy review, and the
-  final physical-TV QA pass remain open.
+- Pairing rate limiting is implemented but not yet deployed. Full provider
+  testing, privacy review, and the final physical-TV QA pass remain open.
 
 ## One-way decisions before the first upload
 
@@ -104,6 +117,9 @@ do not add purchases, subscriptions, or advertising to this release path.
 ## Milestone 1: production-service preflight
 
 Owner: repo work, deployment, and Supabase configuration
+
+Current status: item 3 is implemented and tested in the repo; its migration and
+server secret remain a deployment gate.
 
 1. Deploy the changes currently marked "implemented, pending release" and run
    the phone and TV smoke checks against production.

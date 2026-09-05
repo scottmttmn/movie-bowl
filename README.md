@@ -117,6 +117,7 @@ VITE_SUPABASE_ANON_KEY=...
 TMDB_READ_ACCESS_TOKEN=...
 SUPABASE_URL=...
 SUPABASE_SERVICE_ROLE_KEY=...
+TV_PAIRING_RATE_LIMIT_SECRET=...
 CRON_SECRET=...
 APP_BASE_URL=https://moviebowl.app
 RESEND_API_KEY=...
@@ -256,6 +257,7 @@ These are visible in the browser bundle by design.
 - `TMDB_READ_ACCESS_TOKEN`
 - `SUPABASE_URL`
 - `SUPABASE_SERVICE_ROLE_KEY`
+- `TV_PAIRING_RATE_LIMIT_SECRET`
 - `CRON_SECRET`
 - `FILTER_METADATA_DAILY_MAX_TITLES` (optional emergency override; defaults to 300)
 - `APP_BASE_URL`
@@ -266,6 +268,11 @@ These are visible in the browser bundle by design.
 
 Do not prefix server-only values with `VITE_`. `SUPABASE_SERVICE_ROLE_KEY`
 bypasses RLS, so every route that uses it must do its own authorization.
+
+`TV_PAIRING_RATE_LIMIT_SECRET` is a random server-only value of at least 32
+characters. It HMAC-pseudonymizes client addresses and user IDs before the
+pairing rate limiter writes its short-lived counters; raw identifiers are never
+stored in the counter table.
 
 `CRON_SECRET` protects the once-daily Vercel filter-metadata refresh. Vercel
 sends it as a bearer token when invoking the configured cron route.
@@ -301,6 +308,10 @@ sends it as a bearer token when invoking the configured cron route.
   `POST /api/tv-pairing/approve`, and `POST /api/tv-pairing/poll`
 - Pairing requests expire after ten minutes; only a device-secret hash is stored,
   and the approved TV receives a single-use Supabase token hash
+- Pairing starts are limited per client address, and approvals are limited per
+  client address and authenticated user. Apply
+  `20260905120000_rate_limit_tv_pairing.sql` and set
+  `TV_PAIRING_RATE_LIMIT_SECRET` before deploying the matching server routes.
 - To avoid the default Supabase email rate limits, configure custom SMTP in Supabase Auth
 - Recommended branded sender:
   - `Movie Bowl <auth@mail.moviebowl.app>`
@@ -371,6 +382,7 @@ Tables the app touches:
 - `bowl_invites`
 - `bowl_draw_permissions`
 - `tv_pairing_requests` (server-only; no direct client access)
+- `tv_pairing_rate_limits` (server-only pseudonymous fixed-window counters)
 - `tmdb_filter_metadata` (server-maintained; read through a membership RPC)
 - `tmdb_filter_metadata_refresh_runs` (private 90-day cron run history)
 - `bowl_add_links`
