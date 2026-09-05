@@ -122,8 +122,10 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   migration and Watchmode configuration are deployed; activation instructions
   are in `README.md`. A Google TV validation harness lives in `tv-android/`;
   its provider handoff is confirmed on physical hardware for Max. Remaining
-  roadmap work is LAN auto-start (no code) and making the shell store-ready. See `output/designs/tv-theater-mode.md` and
-  `output/designs/provider-deep-links.md`.
+  roadmap work is LAN auto-start (no code) and making the shell store-ready. The
+  friends-and-family Play Console path is specified in
+  `output/designs/google-play-tv-private-distribution-roadmap.md`. See
+  `output/designs/tv-theater-mode.md` and `output/designs/provider-deep-links.md`.
 - Web auto-start handoff: end the pre-roll by navigating the television to the
   feature instead of parking on the "Open [service]" button. Pure client change
   on top of phase 2's links, no bridge and no native shell, but it only reaches
