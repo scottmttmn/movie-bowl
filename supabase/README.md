@@ -39,18 +39,43 @@ supabase db push
 
 ## Local pgTAP verification and cleanup
 
-Run database tests against a disposable local Supabase project, never against
-the hosted database. This repository's checked-in migration history does not
-currently include the original schema baseline. If a clean `supabase start`
-fails because an early migration expects an existing table, export only the
-linked project's `public` schema (no rows) to a temporary file and use that as
-the disposable project's baseline. Do not commit that export.
-
-Run the checked-in suites against that local project:
-
 ```bash
-supabase test db /path/to/movie-bowl/supabase/tests --local --workdir /path/to/disposable-project
+./scripts/pgtap.sh                            # every suite
+./scripts/pgtap.sh supabase/tests/20260904120000_*.sql   # one suite
 ```
+
+The script builds a disposable local Supabase project seeded from the linked
+project's schema, applies any migration not yet deployed, runs the suites, and
+removes the project on exit including on failure. It never touches the hosted
+database: pgTAP writes rows.
+
+A clean run is **17 suites / 472 assertions, all passing**. If yours is not
+green, that is your change.
+
+### Why the baseline needs a privilege reset
+
+This is worth understanding before changing the script, because the failure it
+prevents looks exactly like a product defect.
+
+The repository's migration history does not include the original schema
+baseline, so a local run has to start from a schema-only dump of the linked
+project. But `pg_dump` renders the ACL it wants each object to **end up** with,
+assuming the target starts from Postgres defaults — and a Supabase database does
+not. Supabase grants `anon`, `authenticated` and `service_role` by *default
+privilege*, so every object the restore creates is born with explicit grants,
+and the dump's `REVOKE ALL ... FROM PUBLIC` does not remove them: `PUBLIC` and
+`anon` are different grantees.
+
+The real migrations revoke `from public, anon, authenticated` by name. That is
+why production is correct and a naive reconstruction is not.
+
+So the script clears those default privileges before restoring, which makes the
+dump's own grants authoritative; the dump restores the same defaults at its end,
+so objects created afterwards match production again. Without it the suite
+reports about **70 phantom privilege failures** across 16 files and can never go
+green — which is how it sat, unexamined, until September 2026.
+
+### Writing suites
 
 Test client operations under `authenticated` or `anon` through public RPCs;
 private helpers such as `can_draw_from_bowl` must remain inaccessible. Personal
@@ -58,22 +83,14 @@ watch history is readable only by its user. Verify each user's visibility
 under their role, then `reset role` for assertions auditing persisted rows
 across participants. Restore the client role and JWT before further RPC calls.
 
-After every disposable pgTAP run:
+### Docker images
 
-1. Stop the exact test project and delete its test-only Docker volume:
-
-   ```bash
-   supabase stop --workdir /path/to/disposable-project --no-backup
-   ```
-
-2. Delete the disposable project directory and temporary schema-only export.
-   These must always be explicit paths under a temporary directory.
-3. Run `docker system df -v` and remove only the unused image IDs that were
-   newly pulled for the test with `docker image rm IMAGE_ID...`. Supabase can
-   download them again on the next database test.
-
-Do not use a broad `docker system prune`; other local projects may depend on
-unrelated Docker images or volumes.
+The script removes its own project and volume. It does **not** remove images,
+deliberately: a fresh disposable project pins its own Postgres image, so
+deleting that image only guarantees a multi-gigabyte re-download on the next
+run. If you are reclaiming space, inspect with `docker system df -v` and remove
+specific superseded image IDs by hand. Never a broad `docker system prune`;
+other local projects may depend on unrelated images or volumes.
 
 ## Drift rule
 
@@ -113,8 +130,9 @@ data. Prefer reverting the client while keeping this additive schema.
 
 The August 31 follow-up corrected four older suites' stale expectations about
 guest attribution, private helper access, and personal-history visibility.
-The current regression baseline is 16 SQL suites / 452 assertions against a
-disposable copy of the current schema. See the
+The current regression baseline is 17 SQL suites / 472 assertions against a
+disposable copy of the current schema, and it passes clean — see
+[Local pgTAP verification and cleanup](#local-pgtap-verification-and-cleanup). See the
 [implementation record](../output/designs/default-bowl-and-global-add-implementation.md#implementation-record--august-31-2026)
 for the original failures and follow-up coverage. Do not run these fixture
 scripts against the hosted database.
