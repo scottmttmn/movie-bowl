@@ -7,6 +7,11 @@ import {
   sendJson,
   TV_PAIRING_LIFETIME_MS,
 } from "../_lib/tvPairing.js";
+import {
+  consumeTvPairingRateLimit,
+  getClientAddress,
+  TV_PAIRING_RATE_LIMITS,
+} from "../_lib/tvPairingRateLimit.js";
 
 const MAX_INSERT_ATTEMPTS = 5;
 
@@ -25,6 +30,25 @@ export default async function handler(req, res) {
   } catch (error) {
     console.error("[api/tv-pairing/start] Missing configuration", error);
     sendJson(res, 500, { error: "TV pairing is not configured." });
+    return;
+  }
+
+  let rateLimit;
+  try {
+    rateLimit = await consumeTvPairingRateLimit(
+      supabaseAdmin,
+      TV_PAIRING_RATE_LIMITS.startIp,
+      getClientAddress(req)
+    );
+  } catch (error) {
+    console.error("[api/tv-pairing/start] Rate limit unavailable", error);
+    sendJson(res, 503, { error: "TV pairing is temporarily unavailable." });
+    return;
+  }
+
+  if (!rateLimit.allowed) {
+    res.setHeader?.("Retry-After", String(rateLimit.retryAfterSeconds));
+    sendJson(res, 429, { error: "Too many TV pairing requests. Try again shortly." });
     return;
   }
 

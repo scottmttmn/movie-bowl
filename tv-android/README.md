@@ -170,7 +170,8 @@ accessible to server code using the service role.
 ## Scope boundary
 
 This is a validation harness, not yet a store-ready Google TV application. Before
-publishing, it will need abuse-rate limiting for pairing creation, TV-quality
-review, provider-link capability testing, release signing, artwork, privacy
-review, and a physical-device test pass. The `sideload` variant makes that last
-one possible; it is not release signing, and it is not a substitute for it.
+publishing, it needs the pairing rate-limit migration and server secret deployed,
+TV-quality review, provider-link capability testing, release signing, artwork,
+privacy review, and a physical-device test pass. The `sideload` variant makes
+that last one possible; it is not release signing, and it is not a substitute
+for it.

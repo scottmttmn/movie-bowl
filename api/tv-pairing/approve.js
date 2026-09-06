@@ -6,10 +6,45 @@ import {
   sendJson,
   TV_PAIRING_CODE_PATTERN,
 } from "../_lib/tvPairing.js";
+import {
+  consumeTvPairingRateLimit,
+  getClientAddress,
+  TV_PAIRING_RATE_LIMITS,
+} from "../_lib/tvPairingRateLimit.js";
+
+const UNAVAILABLE_CODE_ERROR = "That TV code is unavailable. Request a new code on the TV.";
 
 export default async function handler(req, res) {
   if (req.method !== "POST") {
     sendJson(res, 405, { error: "Method not allowed" });
+    return;
+  }
+
+  let supabaseAdmin;
+  try {
+    supabaseAdmin = getSupabaseAdmin();
+  } catch (error) {
+    console.error("[api/tv-pairing/approve] Missing configuration", error);
+    sendJson(res, 500, { error: "TV pairing is not configured." });
+    return;
+  }
+
+  let ipRateLimit;
+  try {
+    ipRateLimit = await consumeTvPairingRateLimit(
+      supabaseAdmin,
+      TV_PAIRING_RATE_LIMITS.approveIp,
+      getClientAddress(req)
+    );
+  } catch (error) {
+    console.error("[api/tv-pairing/approve] Rate limit unavailable", error);
+    sendJson(res, 503, { error: "TV pairing is temporarily unavailable." });
+    return;
+  }
+
+  if (!ipRateLimit.allowed) {
+    res.setHeader?.("Retry-After", String(ipRateLimit.retryAfterSeconds));
+    sendJson(res, 429, { error: "Too many TV pairing attempts. Try again shortly." });
     return;
   }
 
@@ -25,20 +60,30 @@ export default async function handler(req, res) {
     return;
   }
 
-  let supabaseAdmin;
-  try {
-    supabaseAdmin = getSupabaseAdmin();
-  } catch (error) {
-    console.error("[api/tv-pairing/approve] Missing configuration", error);
-    sendJson(res, 500, { error: "TV pairing is not configured." });
-    return;
-  }
-
   const { data: authData, error: authError } = await supabaseAdmin.auth.getUser(accessToken);
   const user = authData?.user;
 
   if (authError || !user) {
     sendJson(res, 401, { error: "Authentication required." });
+    return;
+  }
+
+  let userRateLimit;
+  try {
+    userRateLimit = await consumeTvPairingRateLimit(
+      supabaseAdmin,
+      TV_PAIRING_RATE_LIMITS.approveUser,
+      user.id
+    );
+  } catch (error) {
+    console.error("[api/tv-pairing/approve] User rate limit unavailable", error);
+    sendJson(res, 503, { error: "TV pairing is temporarily unavailable." });
+    return;
+  }
+
+  if (!userRateLimit.allowed) {
+    res.setHeader?.("Retry-After", String(userRateLimit.retryAfterSeconds));
+    sendJson(res, 429, { error: "Too many TV pairing attempts. Try again shortly." });
     return;
   }
 
@@ -81,12 +126,12 @@ export default async function handler(req, res) {
   }
 
   if (!existing) {
-    sendJson(res, 404, { error: "That TV code was not found." });
+    sendJson(res, 400, { error: UNAVAILABLE_CODE_ERROR });
     return;
   }
 
   if (new Date(existing.expires_at).getTime() <= Date.now()) {
-    sendJson(res, 410, { error: "That TV code has expired. Request a new one on the TV." });
+    sendJson(res, 400, { error: UNAVAILABLE_CODE_ERROR });
     return;
   }
 
@@ -95,5 +140,5 @@ export default async function handler(req, res) {
     return;
   }
 
-  sendJson(res, 409, { error: "That TV code has already been used." });
+  sendJson(res, 400, { error: UNAVAILABLE_CODE_ERROR });
 }
