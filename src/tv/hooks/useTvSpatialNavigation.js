@@ -31,6 +31,27 @@ function rangesOverlap(startA, endA, startB, endB) {
   return Math.min(endA, endB) - Math.max(startA, startB) > 1;
 }
 
+function getClippingScroller(element) {
+  const rect = element.getBoundingClientRect();
+  let parent = element.parentElement;
+
+  while (parent && parent !== document.body) {
+    const style = window.getComputedStyle(parent);
+    if (/(auto|scroll)/.test(`${style.overflowX} ${style.overflowY}`)) {
+      const bounds = parent.getBoundingClientRect();
+      const clipped =
+        rect.right <= bounds.left + 1 ||
+        rect.left >= bounds.right - 1 ||
+        rect.bottom <= bounds.top + 1 ||
+        rect.top >= bounds.bottom - 1;
+      if (clipped) return parent;
+    }
+    parent = parent.parentElement;
+  }
+
+  return null;
+}
+
 function hasMeasurableLayout(current, candidates) {
   const currentRect = current.getBoundingClientRect();
   if (currentRect.width <= 0 && currentRect.height <= 0) return false;
@@ -48,7 +69,11 @@ function findDirectionalCandidate(current, candidates, direction) {
   const currentGroup = current.dataset.tvNavGroup || "";
 
   const directionalCandidates = candidates
-    .filter((candidate) => candidate !== current)
+    .filter((candidate) => {
+      if (candidate === current) return false;
+      const scroller = getClippingScroller(candidate);
+      return !scroller || scroller.contains(current);
+    })
     .map((candidate) => {
       const candidateRect = candidate.getBoundingClientRect();
       const center = getCenter(candidateRect);
@@ -134,8 +159,16 @@ function findDirectionalCandidate(current, candidates, direction) {
   if (sameGroupCone.length > 0) {
     return rank(sameGroupCone, 2.5)[0].candidate;
   }
+  if (inCone.length > 0) {
+    return rank(inCone, 2.5)[0].candidate;
+  }
 
-  return rank(inCone, 2.5)[0]?.candidate || null;
+  const byAlignment = [...directionalCandidates].sort(
+    (a, b) =>
+      a.crossDistance / Math.max(a.primaryDistance, 1) -
+      b.crossDistance / Math.max(b.primaryDistance, 1)
+  );
+  return byAlignment[0]?.candidate || null;
 }
 
 function findFallbackCandidate(current, candidates, direction) {

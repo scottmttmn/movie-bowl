@@ -537,6 +537,33 @@ describe("Movie Bowl TV experience", () => {
     expect(secondCard).toHaveFocus();
   });
 
+  it("will not pull a card out of the scrolled strip from outside it", async () => {
+    mocks.bowlData.watched = [
+      { id: "draw-1", drawEventId: "draw-1", bowlMovieId: "movie-1", tmdb_id: 101,
+        title: "Arrival", drawn_at: "2026-08-31T19:00:00.000Z", added_by_name: "Alex" },
+    ];
+    renderTonight();
+
+    const settings = await screen.findByRole("switch", { name: /favor netflix, then max/i });
+    const card = await screen.findByRole("button", {
+      name: /view details for arrival in watch history/i,
+    });
+    const strip = card.closest(".tv-recent-list");
+    strip.style.overflowX = "auto";
+
+    // The card sits scrolled off the right of its own strip. It is to the right
+    // of the panel, but reaching it from there would yank a hidden card into
+    // view and drop focus into a row nobody was travelling along.
+    setElementRect(settings, { left: 1368, top: 780, width: 430, height: 80 });
+    setElementRect(strip, { left: 130, top: 1000, width: 1670, height: 300 });
+    setElementRect(card, { left: 1900, top: 1000, width: 210, height: 300 });
+
+    settings.focus();
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+
+    expect(settings).toHaveFocus();
+  });
+
   it("describes rotation without calling it a plain random draw", async () => {
     mocks.drawMethod = "rotation";
 
