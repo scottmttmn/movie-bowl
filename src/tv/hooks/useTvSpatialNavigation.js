@@ -55,10 +55,10 @@ function findDirectionalCandidate(current, candidates, direction) {
       const dx = center.x - currentCenter.x;
       const dy = center.y - currentCenter.y;
       const isDirectional =
-        (direction === "left" && dx < -1) ||
-        (direction === "right" && dx > 1) ||
-        (direction === "up" && dy < -1) ||
-        (direction === "down" && dy > 1);
+        (direction === "left" && candidateRect.right <= currentRect.left + 1) ||
+        (direction === "right" && candidateRect.left >= currentRect.right - 1) ||
+        (direction === "up" && candidateRect.bottom <= currentRect.top + 1) ||
+        (direction === "down" && candidateRect.top >= currentRect.bottom - 1);
 
       if (!isDirectional) return null;
 
@@ -109,16 +109,21 @@ function findDirectionalCandidate(current, candidates, direction) {
     return rank(lane, 0.35)[0].candidate;
   }
 
-  const hasGroupPeers =
+  const groupSpansTravelAxis =
     Boolean(currentGroup) &&
-    candidates.some(
-      (candidate) =>
-        candidate !== current && candidate.dataset.tvNavGroup === currentGroup
-    );
+    candidates.some((candidate) => {
+      if (candidate === current || candidate.dataset.tvNavGroup !== currentGroup) {
+        return false;
+      }
+      const peerCenter = getCenter(candidate.getBoundingClientRect());
+      return isHorizontal
+        ? Math.abs(peerCenter.x - currentCenter.x) > 1
+        : Math.abs(peerCenter.y - currentCenter.y) > 1;
+    });
 
   // Horizontal movement inside a row or action cluster should stop at its
   // visual edge instead of escaping diagonally to unrelated page controls.
-  if (isHorizontal && hasGroupPeers) return null;
+  if (isHorizontal && groupSpansTravelAxis) return null;
 
   // A narrow cone allows movement between staggered sections while preventing
   // a right-arrow press at the end of a row from jumping to unrelated chrome.
