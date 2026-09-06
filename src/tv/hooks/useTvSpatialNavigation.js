@@ -31,6 +31,38 @@ function rangesOverlap(startA, endA, startB, endB) {
   return Math.min(endA, endB) - Math.max(startA, startB) > 1;
 }
 
+// A screen is laid out as regions -- a header band, the stage, the settings
+// column beside it, the watched strip below -- and which region something is in
+// answers a question its own rectangle cannot. The draw button spans the whole
+// stage, so by its own geometry a card below it looks about as "right" as the
+// panel beside it. By region the question is easy: the settings column is beside
+// the stage, the strip is under it. Elements outside any region keep the plain
+// geometric behaviour.
+function getRegion(element) {
+  return element.closest("[data-tv-nav-region]");
+}
+
+// Regions are neighbours in a direction when one genuinely sits that way from
+// the other and they still share the perpendicular axis: the settings column is
+// to the right of the stage and level with it; the strip is below and spans it.
+function regionsAreNeighbours(fromRect, toRect, direction, isHorizontal) {
+  const unmeasured =
+    (fromRect.width <= 0 && fromRect.height <= 0) ||
+    (toRect.width <= 0 && toRect.height <= 0);
+  if (unmeasured) return true;
+
+  const beyond =
+    (direction === "left" && toRect.right <= fromRect.left + 1) ||
+    (direction === "right" && toRect.left >= fromRect.right - 1) ||
+    (direction === "up" && toRect.bottom <= fromRect.top + 1) ||
+    (direction === "down" && toRect.top >= fromRect.bottom - 1);
+  if (!beyond) return false;
+
+  return isHorizontal
+    ? rangesOverlap(fromRect.top, fromRect.bottom, toRect.top, toRect.bottom)
+    : rangesOverlap(fromRect.left, fromRect.right, toRect.left, toRect.right);
+}
+
 function getClippingScroller(element) {
   const rect = element.getBoundingClientRect();
   let parent = element.parentElement;
@@ -68,11 +100,26 @@ function findDirectionalCandidate(current, candidates, direction) {
   const isHorizontal = direction === "left" || direction === "right";
   const currentGroup = current.dataset.tvNavGroup || "";
 
+  const currentRegion = getRegion(current);
+  const currentRegionRect = currentRegion?.getBoundingClientRect();
+
   const directionalCandidates = candidates
     .filter((candidate) => {
       if (candidate === current) return false;
+
       const scroller = getClippingScroller(candidate);
-      return !scroller || scroller.contains(current);
+      if (scroller && !scroller.contains(current)) return false;
+
+      const candidateRegion = getRegion(candidate);
+      if (!currentRegion || !candidateRegion || candidateRegion === currentRegion) {
+        return true;
+      }
+      return regionsAreNeighbours(
+        currentRegionRect,
+        candidateRegion.getBoundingClientRect(),
+        direction,
+        isHorizontal
+      );
     })
     .map((candidate) => {
       const candidateRect = candidate.getBoundingClientRect();

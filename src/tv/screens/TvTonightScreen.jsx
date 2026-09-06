@@ -235,7 +235,7 @@ async function enrichDrawnMovie(movie) {
 
 function TvTonightHeader({ onBack }) {
   return (
-    <header className="tv-topbar">
+    <header className="tv-topbar" data-tv-nav-region="header">
       <TvBrand />
       <button
         type="button"
@@ -349,7 +349,11 @@ function TvRecentDraws({ movies, restoreFocusId, onFocusRestored, onSelect }) {
   if (recentMovies.length === 0) return null;
 
   return (
-    <section className="tv-recent-section" aria-labelledby="tv-recent-title">
+    <section
+      className="tv-recent-section"
+      aria-labelledby="tv-recent-title"
+      data-tv-nav-region="history"
+    >
       <div>
         <p className="tv-kicker">From this bowl</p>
         <h2 id="tv-recent-title">Watch History</h2>
@@ -1388,7 +1392,7 @@ export default function TvTonightScreen({ userId }) {
         <TvTonightHeader onBack={chooseAnotherBowl} />
 
         <section className="tv-tonight-grid">
-          <div className="tv-tonight-stage">
+          <div className="tv-tonight-stage" data-tv-nav-region="stage">
             <div className="tv-tonight-stage-copy">
               <h1>{bowlMeta.name}</h1>
             </div>

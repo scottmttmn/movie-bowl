@@ -564,6 +564,40 @@ describe("Movie Bowl TV experience", () => {
     expect(settings).toHaveFocus();
   });
 
+  // Regions answer what an element's own rectangle cannot: the settings column
+  // is beside the stage, the watched strip is under it. Without that, a card
+  // below a stage-wide button looks as "right" as the panel beside it.
+  it("moves between regions by where the regions are, not where the control is", async () => {
+    mocks.bowlData.watched = [
+      { id: "draw-1", drawEventId: "draw-1", bowlMovieId: "movie-1", tmdb_id: 101,
+        title: "Arrival", drawn_at: "2026-08-31T19:00:00.000Z", added_by_name: "Alex" },
+    ];
+    renderTonight();
+
+    const draw = await screen.findByRole("button", { name: /draw a movie/i });
+    const settings = await screen.findByRole("switch", { name: /favor netflix, then max/i });
+    const card = await screen.findByRole("button", {
+      name: /view details for arrival in watch history/i,
+    });
+
+    setElementRect(draw, { left: 130, top: 700, width: 1108, height: 100 });
+    setElementRect(draw.closest("[data-tv-nav-region]"), { left: 85, top: 160, width: 1205, height: 700 });
+    // The panel's only row sits high, so by its own geometry the card below is
+    // the nearer rightward candidate. By region it is not to the right at all.
+    setElementRect(settings, { left: 1368, top: 200, width: 430, height: 80 });
+    setElementRect(settings.closest("[data-tv-nav-region]"), { left: 1330, top: 160, width: 510, height: 700 });
+    setElementRect(card, { left: 986, top: 900, width: 210, height: 300 });
+    setElementRect(card.closest("[data-tv-nav-region]"), { left: 85, top: 880, width: 1755, height: 340 });
+
+    draw.focus();
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(settings).toHaveFocus();
+
+    draw.focus();
+    fireEvent.keyDown(window, { key: "ArrowDown" });
+    expect(card).toHaveFocus();
+  });
+
   it("describes rotation without calling it a plain random draw", async () => {
     mocks.drawMethod = "rotation";
 
