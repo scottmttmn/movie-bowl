@@ -20,6 +20,7 @@ npm run test:coverage
 npm run test:e2e     # Playwright smoke suite, part of the gate; no production credentials
 npm run lint         # ESLint, flat config
 node scripts/refresh-provider-logos.mjs  # regenerate src/utils/providerLogos.js
+./scripts/pgtap.sh   # database tests on a disposable local Supabase, then clean up
 npm run build        # production build — run this for any UI/app change
 ```
 
@@ -236,11 +237,19 @@ changes, add a pgTAP test in `supabase/tests/` and a revert in
 `supabase/rollback/` (rollbacks live outside `migrations/` and must be moved
 back with a fresh timestamp to run). See `supabase/README.md`.
 
-When pgTAP needs a schema-only hosted baseline, use a disposable local
-Supabase project and never export hosted rows. After the run, stop that exact
-project with `--no-backup`, delete its temporary directory and schema export,
-and remove only Docker images newly pulled for the test. Never use a broad
-Docker prune. The cleanup checklist is in `supabase/README.md`.
+Run database tests with `./scripts/pgtap.sh`, which builds a disposable local
+Supabase project from a schema-only dump of the linked project, applies whatever
+is not yet deployed, runs the suites and removes the project on exit. Never
+against the hosted database: pgTAP writes rows. A clean run is 17 suites / 472
+assertions, all passing.
+
+The script clears Supabase's default privileges before restoring the dump, and
+that step is load-bearing rather than incidental. `pg_dump` writes the ACL it
+wants each object to end up with, assuming Postgres defaults; Supabase grants
+`anon` and `authenticated` by default privilege, so restored objects keep grants
+the dump never asked for and `REVOKE ... FROM PUBLIC` cannot remove. Without the
+reset the suite reports about 70 phantom privilege failures and can never go
+green. `supabase/README.md` has the full explanation.
 
 ## The draw
 
