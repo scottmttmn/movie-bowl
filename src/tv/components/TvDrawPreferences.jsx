@@ -113,7 +113,7 @@ export default function TvDrawPreferences({
     Number(settings.runtimeMinMinutes || 0) > 0 || Number(settings.runtimeMaxMinutes || 500) < 500;
 
   return (
-    <aside className="tv-preference-panel">
+    <aside className="tv-preference-panel" data-tv-nav-region="settings">
       <h2>Draw settings</h2>
       {isLoading ? (
         <p>Loading preferences…</p>

@@ -34,7 +34,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (115 test files / 911 tests, 48 Playwright tests with 3 skipped,
+fully green (115 test files / 912 tests, 48 Playwright tests with 3 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -365,6 +365,13 @@ then a generic 500. They run in Node and are excluded from coverage; they are
   swallow the press. `data-tv-nav-group` holds a *row* together at its ends; it
   does not confine a vertical stack horizontally, or the panel becomes somewhere
   you can arrow into and never back out of.
+- `data-tv-nav-region` marks the bands a screen is built from — header, stage,
+  the settings column beside it, the watched strip below. Moving between regions
+  asks where the *regions* are, not where the control is, which is the only way
+  a stage-wide button can tell the panel beside it from a card under it. Within
+  a region, plain element geometry still decides. Put a region on any new
+  layout band; a screen without them keeps the old behaviour, and a region that
+  has not laid out yet is ignored rather than filtering everything away.
 - Comments explain *why*, and are used sparingly at decision points. Follow the
   density of the file you are editing; `useAutosave.js` and `lastOpenedBowl.js`
   are good examples of the house voice.
