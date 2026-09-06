@@ -34,7 +34,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (115 test files / 908 tests, 48 Playwright tests with 3 skipped,
+fully green (115 test files / 910 tests, 48 Playwright tests with 3 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -359,7 +359,12 @@ then a generic 500. They run in Node and are excluded from coverage; they are
 - TV screens are a separate visual system in `src/tv/tv.css` with its own
   `tv-*` classes. Focusable TV elements need `data-tv-focusable` (and
   `data-tv-autofocus` for the initial target) so `useTvSpatialNavigation` can
-  find them — remote D-pad navigation is geometric, not DOM order.
+  find them — remote D-pad navigation is geometric, not DOM order. Direction is
+  decided by edges, never centres: a wide control like the draw button would
+  otherwise count anything under its right half as being to its right, and
+  swallow the press. `data-tv-nav-group` holds a *row* together at its ends; it
+  does not confine a vertical stack horizontally, or the panel becomes somewhere
+  you can arrow into and never back out of.
 - Comments explain *why*, and are used sparingly at decision points. Follow the
   density of the file you are editing; `useAutosave.js` and `lastOpenedBowl.js`
   are good examples of the house voice.

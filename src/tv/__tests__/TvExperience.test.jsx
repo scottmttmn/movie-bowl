@@ -470,6 +470,73 @@ describe("Movie Bowl TV experience", () => {
     setItem.mockRestore();
   });
 
+  // Both of these were invisible without geometry, which is why they are
+  // asserted with real rectangles rather than through the rendered layout.
+  it("does not let a wide control swallow what sits beneath it", async () => {
+    mocks.bowlData.watched = [
+      { id: "draw-1", drawEventId: "draw-1", bowlMovieId: "movie-1", tmdb_id: 101,
+        title: "Arrival", drawn_at: "2026-08-31T19:00:00.000Z", added_by_name: "Alex" },
+    ];
+    renderTonight();
+
+    const draw = await screen.findByRole("button", { name: /draw a movie/i });
+    const settings = await screen.findByRole("switch", { name: /favor netflix, then max/i });
+    const card = await screen.findByRole("button", {
+      name: /view details for arrival in watch history/i,
+    });
+
+    // The draw button spans the stage. The card sits under its right half, so
+    // its centre is right of the button's centre while the card itself is not
+    // beside the button at all. The panel is the only thing genuinely to the
+    // right, and pressing right must reach it.
+    setElementRect(draw, { left: 130, top: 820, width: 1108, height: 100 });
+    setElementRect(card, { left: 986, top: 1000, width: 210, height: 300 });
+    setElementRect(settings, { left: 1368, top: 90, width: 430, height: 80 });
+
+    draw.focus();
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+
+    expect(settings).toHaveFocus();
+  });
+
+  it("lets a stacked group be left horizontally, while a row still stops at its end", async () => {
+    // Two cards, because a lone card is not a row and has no traversal to
+    // interrupt -- escaping from it sideways is correct.
+    mocks.bowlData.watched = [
+      { id: "draw-1", drawEventId: "draw-1", bowlMovieId: "movie-1", tmdb_id: 101,
+        title: "Arrival", drawn_at: "2026-08-31T19:00:00.000Z", added_by_name: "Alex" },
+      { id: "draw-2", drawEventId: "draw-2", bowlMovieId: "movie-2", tmdb_id: 102,
+        title: "Heat", drawn_at: "2026-08-30T19:00:00.000Z", added_by_name: "Alex" },
+    ];
+    renderTonight();
+
+    const draw = await screen.findByRole("button", { name: /draw a movie/i });
+    const settings = await screen.findByRole("switch", { name: /favor netflix, then max/i });
+    const card = await screen.findByRole("button", {
+      name: /view details for arrival in watch history/i,
+    });
+
+    const secondCard = await screen.findByRole("button", {
+      name: /view details for heat in watch history/i,
+    });
+    setElementRect(draw, { left: 130, top: 820, width: 1108, height: 100 });
+    setElementRect(settings, { left: 1368, top: 780, width: 430, height: 80 });
+    setElementRect(card, { left: 130, top: 1000, width: 210, height: 300 });
+    setElementRect(secondCard, { left: 350, top: 1000, width: 210, height: 300 });
+
+    // The preferences panel is a stack, so it has no horizontal traversal to
+    // interrupt and left must return to the control it was entered from.
+    settings.focus();
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(draw).toHaveFocus();
+
+    // The watched strip is a row, so its last card keeps holding the edge
+    // rather than escaping sideways to the panel.
+    secondCard.focus();
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(secondCard).toHaveFocus();
+  });
+
   it("describes rotation without calling it a plain random draw", async () => {
     mocks.drawMethod = "rotation";
 
