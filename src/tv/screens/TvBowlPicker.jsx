@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useNavigate } from "react-router-dom";
 import { formatRelativeDateLabel } from "../../utils/formatRelativeDate";
 import TvBrand from "../components/TvBrand";
@@ -53,6 +53,13 @@ export default function TvBowlPicker({
     scopeKey: showSignOut ? "picker-sign-out" : `picker:${isLoading}:${bowls.length}:${Boolean(errorMessage)}`,
     onBack: () => showSignOut ? closeSignOut() : navigate("/"),
   });
+
+  useEffect(() => {
+    if (!focusSignOut) return undefined;
+
+    const consumeRestore = window.setTimeout(() => setFocusSignOut(false), 0);
+    return () => window.clearTimeout(consumeRestore);
+  }, [focusSignOut]);
 
   const confirmSignOut = async () => {
     if (signOutPending.current) return;

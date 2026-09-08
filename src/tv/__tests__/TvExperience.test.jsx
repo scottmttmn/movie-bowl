@@ -22,6 +22,7 @@ const mocks = vi.hoisted(() => ({
     },
   ],
   reloadBowls: vi.fn(),
+  signOutThisDevice: vi.fn(async () => ({ error: null })),
   bowlData: {
     remaining: [
       {
@@ -129,6 +130,7 @@ function renderPicker({ autoOpenLastBowl = false, path = "/tv/bowls" } = {}) {
             <TvBowlPicker
               userId="user-1"
               userEmail="viewer@example.com"
+              onSignOut={mocks.signOutThisDevice}
               autoOpenLastBowl={autoOpenLastBowl}
             />
           }
@@ -247,6 +249,22 @@ describe("Movie Bowl TV experience", () => {
     renderPicker({ autoOpenLastBowl: true, path: "/tv" });
 
     expect(await screen.findByText("Tonight route")).toBeInTheDocument();
+  });
+
+  // Cancelling must hand focus back to the control that opened the dialog, but
+  // only that once. Left standing, the marker would make the most destructive
+  // control on the screen the default target every time the picker re-scoped.
+  it("returns focus to sign-out after cancelling, and only that once", async () => {
+    renderPicker();
+
+    const openSignOut = await screen.findByRole("button", { name: /sign out of this tv/i });
+    fireEvent.click(openSignOut);
+
+    fireEvent.click(await screen.findByRole("button", { name: /^cancel$/i }));
+
+    await waitFor(() => expect(openSignOut).toHaveFocus());
+    await waitFor(() => expect(openSignOut).not.toHaveAttribute("data-tv-autofocus"));
+    expect(mocks.signOutThisDevice).not.toHaveBeenCalled();
   });
 
   it("remembers the last bowl as a focus preference on the bowl picker", async () => {
