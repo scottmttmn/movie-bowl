@@ -4,6 +4,13 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Implemented, pending release
 
+- The TV bowl picker now stacks `Exit TV mode` and `Sign out of this TV`
+  beneath the account. Sign-out requires confirmation with Cancel focused first;
+  Cancel and Back restore focus to the originating action. It ends only the
+  current device session, preserves TV preferences, and returns to pairing.
+  Browser coverage checks D-pad navigation, failure/retry, and session scope.
+  Repeat the sign-out and re-pair flow on physical TV hardware after deployment.
+
 - Successful TV pairing approvals now replace the code-bearing browser history
   entry and remember the approved code locally. Revisiting the original QR URL
   shows a non-actionable completed/expired state without exposing a code-status
@@ -26,27 +33,6 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   See the [implementation record](output/designs/default-bowl-and-global-add-implementation.md#implementation-record--august-31-2026).
 
 ## UX / UI Polish
-
-- Give the TV a way to sign itself out. There is none today: `Exit TV mode` in
-  the bowl picker only navigates to `/`, and `TvAuthGate` shows the pairing
-  screen whenever there is no session — so unpairing means clearing the
-  device's browser storage by hand. That is a gap on a shared living-room
-  device reached through one person's account, and it is the only way to hand
-  the television to someone else or take it out of service.
-
-  Two things make it more than tidiness. Clearing storage is currently the only
-  route, and it also wipes the TV's last-opened bowl, its recent-trailer list,
-  and its per-TV draw settings, so the coarse fix costs everything the
-  television knows. And whoever is holding the remote can already change that
-  account's draw settings for the room; not being able to sign the account out
-  from the same surface is the asymmetry.
-
-  Wants deciding before building: whether signing out is remote-reachable at
-  all (a stray press should not strand a paired TV), or whether it belongs
-  behind a confirmation, or on the phone as a "sign out my televisions"
-  action — which would need the durable device identity the per-TV settings
-  design deliberately avoided. See
-  `output/designs/tv-draw-filters-and-per-tv-preferences.md`.
 
 - Retire the TV voice-handoff card. It prints a spoken command
   (`Play <title> on <service>`) for the viewer to say to their remote, and the
