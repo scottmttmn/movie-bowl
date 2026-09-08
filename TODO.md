@@ -42,13 +42,6 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   now": `src/tv/components/TvVoiceHandoffCard.jsx` and the label built in
   `src/utils/webLaunch.js`.
 
-- Let the TV change draw filters, with what it changes belonging to that
-  television rather than the account. Anyone in the room can pick up the remote,
-  so relaxing a filter for tonight should not rewrite the account owner's
-  preferences everywhere. Plan, including why device storage is the right home
-  and which controls suit a D-pad, in
-  `output/designs/tv-draw-filters-and-per-tv-preferences.md`.
-
 - Let a bowl owner delete entries from the bowl's watched history. Returning a
   movie is a two-hour undo, so a draw nobody watched but nobody caught in time
   now stays in the bowl's list with no way to correct it. That correction is a
@@ -105,7 +98,13 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 - Streaming rank on touch: the reordering rows in User Settings still use HTML5 drag events, which do not fire on touch, so phones fall back to the ↑/↓ buttons. The redesign (`output/designs/user-settings-redesign.md`) kept that as-is; a pointer-event drag or an explicit "move to position" affordance would close it.
 - Add-link delete for non-owners: Bowl Settings shows every member the Delete button on add links they did not create, and the click is refused by RLS with an error banner. Hiding or disabling it for links whose `created_by` is someone else would turn a dead-end into a readable rule — the existing test pins the current behavior, so decide the rule before changing it.
 - Visual consistency sweep: audit remaining non-core pages and components for raw styling that bypasses shared tokens.
-- Large-bowl draw count UX: bowls over 100 lookup-eligible titles still need an explicit tap on the phone, and TV reports that the exact eligible pool needs a phone check while falling back to listing the prioritized services.
+- Large-bowl draw count UX: bowls over 100 lookup-eligible titles whose metadata
+  the daily cron has not fully cached still need an explicit tap on the phone to
+  resolve an exact eligible count. The television has no such control and says
+  `Drawing from up to N` instead. Whether it should simply count is recorded as
+  an accepted tradeoff in the private register rather than here, and the trigger
+  for revisiting it — a television that can change its own filters — has since
+  fired.
 - Once-per-day draw lockout: the mobile design exploration floated "can't draw again until tomorrow" after putting a movie back, to discourage re-rolling. New product behavior with open questions (locked per user or per bowl, timezone, who can override) — needs its own design doc before any code.
 - Watched-outside-the-bowl removals leave no trace: logging a manual watch can now pull your own undrawn slips out of the bowls holding them, but that is a hard delete, so the other members just see the bowl shrink. Everything else in the history model keeps the fact (draw events are immutable, returns set `returned_at`). Worth deciding whether this should be an event the bowl can show instead.
 - Future odds-panel accuracy: before rendering `buildDrawOddsStats`, feed it the resolved eligible pool rather than `bowl.remaining`; otherwise it would show a flat 1/N for contributors the filters or streaming priority cannot reach. Separately decide whether unreachable contributors deserve a fallback that keeps them in play rather than only honest copy.
@@ -187,7 +186,7 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   severity-rated list of unfixed defects in a deployed app is a different thing
   to publish.
 - Supabase schema/process hygiene: keep migrations and policy snapshots current so dashboard-only DB changes do not drift from the repo.
-- Refresh `src/utils/providerLogos.js` before **March 2026** — it was generated
+- Refresh `src/utils/providerLogos.js` before **March 2027** — it was generated
   2026-09-04, and TMDB's API terms cap caching their content at six months. Run
   `node scripts/refresh-provider-logos.mjs`, which needs `TMDB_READ_ACCESS_TOKEN`.
   A service the refresh cannot match renders as its name, so a lapse degrades
