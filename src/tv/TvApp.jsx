@@ -26,7 +26,7 @@ function TvNotFound() {
 }
 
 export default function TvApp() {
-  const { session } = useAuth();
+  const { session, signOutThisDevice } = useAuth();
   const location = useLocation();
 
   // The TV type ramp is sized from the document root, which no descendant can
@@ -47,6 +47,7 @@ export default function TvApp() {
             <TvBowlPicker
               userId={session?.user?.id || ""}
               userEmail={session?.user?.email || ""}
+              onSignOut={signOutThisDevice}
               autoOpenLastBowl
             />
           }
@@ -57,6 +58,7 @@ export default function TvApp() {
             <TvBowlPicker
               userId={session?.user?.id || ""}
               userEmail={session?.user?.email || ""}
+              onSignOut={signOutThisDevice}
             />
           }
         />

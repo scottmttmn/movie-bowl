@@ -139,6 +139,41 @@ describe("useAuth", () => {
     expect(mocks.state.unsubscribed).toBe(true);
   });
 
+  it("signs out only this device and preserves its saved TV preferences", async () => {
+    mocks.state.session = { user: { id: "user-1" } };
+    window.localStorage.setItem("movie-bowl:tv:draw-settings:user-1", "saved preferences");
+    const wrapper = ({ children }) => createElement(AuthProvider, null, children);
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.session).toEqual(mocks.state.session));
+
+    await act(async () => {
+      expect(await result.current.signOutThisDevice()).toEqual({ error: null });
+    });
+    expect(mocks.supabase.auth.signOut).toHaveBeenCalledWith({ scope: "local" });
+    expect(result.current.session).toBeNull();
+    expect(window.localStorage.getItem("movie-bowl:tv:draw-settings:user-1")).toBe("saved preferences");
+    window.localStorage.removeItem("movie-bowl:tv:draw-settings:user-1");
+  });
+
+  it("keeps the current session when device sign-out fails", async () => {
+    mocks.state.session = { user: { id: "user-1" } };
+    mocks.state.signOutResponse = { error: { message: "Network error" } };
+    const wrapper = ({ children }) => createElement(AuthProvider, null, children);
+    const { result } = renderHook(() => useAuth(), { wrapper });
+    await waitFor(() => expect(result.current.session).toEqual(mocks.state.session));
+
+    await act(async () => {
+      expect(await result.current.signOutThisDevice()).toEqual(mocks.state.signOutResponse);
+    });
+    expect(result.current.session).toEqual(mocks.state.session);
+
+    mocks.supabase.auth.signOut.mockRejectedValueOnce(new Error("Connection lost"));
+    await act(async () => {
+      await expect(result.current.signOutThisDevice()).rejects.toThrow("Connection lost");
+    });
+    expect(result.current.session).toEqual(mocks.state.session);
+  });
+
   it("handles getSession errors and still clears loading", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.state.getSessionError = { message: "bad session" };

@@ -53,6 +53,36 @@ test("a paired TV can use remote selection to open a bowl", async ({ page, backe
 
   await expect(page.getByRole("heading", { name: "Choose a bowl" })).toBeVisible();
   const bowlButton = page.getByRole("button", { name: /Smoke TV/ });
+  const exit = page.getByRole("button", { name: "Exit TV mode", exact: true });
+  const signOut = page.getByRole("button", { name: "Sign out of this TV", exact: true });
+  await expect(bowlButton).toBeFocused();
+  await bowlButton.press("ArrowUp");
+  await expect(exit).toBeFocused();
+  await exit.press("ArrowDown");
+  await expect(signOut).toBeFocused();
+  await signOut.press("ArrowUp");
+  await expect(exit).toBeFocused();
+  await exit.press("ArrowDown");
+  await expect(signOut).toBeFocused();
+  await signOut.press("Enter");
+  const dialog = page.getByRole("dialog", { name: "Sign out of this TV?" });
+  const cancel = dialog.getByRole("button", { name: "Cancel" });
+  const confirm = dialog.getByRole("button", { name: "Sign out", exact: true });
+  await expect(cancel).toBeFocused();
+  await cancel.press("ArrowRight");
+  await expect(confirm).toBeFocused();
+  await confirm.press("ArrowDown");
+  await expect(confirm).toBeFocused();
+  await confirm.press("ArrowLeft");
+  await expect(cancel).toBeFocused();
+  await cancel.press("Enter");
+  await expect(signOut).toBeFocused();
+  await signOut.press("Enter");
+  await expect(cancel).toBeFocused();
+  await cancel.press("Escape");
+  await expect(signOut).toBeFocused();
+  expect(backend.requests.filter((request) => request.pathname === "/auth/v1/logout")).toHaveLength(0);
+  await signOut.press("ArrowDown");
   await expect(bowlButton).toBeFocused();
   await bowlButton.press("Enter");
 
@@ -65,6 +95,76 @@ test("a paired TV can use remote selection to open a bowl", async ({ page, backe
   await expect(page.getByRole("heading", { name: "TV Smoke Feature" })).toBeVisible({
     timeout: 15_000,
   });
+});
+
+test("TV sign-out can retry a failure, revokes only this session, and returns to pairing", async ({ page, backend }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile-chromium", "TV smoke coverage uses the desktop viewport.");
+  await page.setViewportSize({ width: 1280, height: 720 });
+  await backend.authenticate(page);
+  await page.goto("/tv/bowls");
+  await expect(page.getByRole("heading", { name: "No bowls found" })).toBeVisible();
+  await page.evaluate(() => {
+    localStorage.setItem("movie-bowl:tv:last-bowl:user-smoke", "remembered-bowl");
+    localStorage.setItem("movie-bowl:tv:draw-settings:user-smoke", JSON.stringify({ theaterModeEnabled: true }));
+    localStorage.setItem("movie-bowl:tv:recent-trailers", "[101]");
+  });
+
+  // Exit keeps the account signed in and still reaches the ordinary app.
+  await page.getByRole("button", { name: "Exit TV mode", exact: true }).press("Enter");
+  await expect(page).toHaveURL(/\/bowls$/);
+  expect(backend.requests.filter((request) => request.pathname === "/auth/v1/logout")).toHaveLength(0);
+  await page.goto("/tv/bowls");
+  await expect(page.getByRole("heading", { name: "No bowls found" })).toBeVisible();
+  await page.getByRole("button", { name: "Open the full app" }).press("ArrowUp");
+  await expect(page.getByRole("button", { name: "Exit TV mode", exact: true })).toBeFocused();
+  await page.getByRole("button", { name: "Exit TV mode", exact: true }).press("ArrowDown");
+  await expect(page.getByRole("button", { name: "Sign out of this TV", exact: true })).toBeFocused();
+  await page.evaluate(() => window.scrollTo(0, 0));
+  await page.screenshot({ path: testInfo.outputPath("tv-account-actions.png") });
+  await page.getByRole("button", { name: "Sign out of this TV", exact: true }).press("Enter");
+  const dialog = page.getByRole("dialog", { name: "Sign out of this TV?" });
+  const cancel = dialog.getByRole("button", { name: "Cancel" });
+  const confirm = dialog.getByRole("button", { name: "Sign out", exact: true });
+  await expect(cancel).toBeFocused();
+  await cancel.press("Shift+Tab");
+  await expect(confirm).toBeFocused();
+  await confirm.press("Tab");
+  await expect(cancel).toBeFocused();
+  await page.screenshot({ path: testInfo.outputPath("tv-sign-out-confirmation.png") });
+
+  let attempts = 0;
+  let finishSignOut;
+  const pendingResponse = new Promise((resolve) => { finishSignOut = resolve; });
+  await page.route("**/auth/v1/logout?*", async (route) => {
+    expect(new URL(route.request().url()).searchParams.get("scope")).toBe("local");
+    attempts += 1;
+    if (attempts === 1) {
+      await route.fulfill({ status: 400, json: { message: "Sign-out unavailable" } });
+      return;
+    }
+    await pendingResponse;
+    await route.fulfill({ status: 200, json: {} });
+  });
+  await confirm.press("Enter");
+  await expect(dialog.getByRole("alert")).toContainText("Couldn’t sign out");
+  expect(backend.consoleErrors).toEqual(["Failed to load resource: the server responded with a status of 400 (Bad Request)"]);
+  backend.consoleErrors.length = 0;
+  expect(await page.evaluate(() => Boolean(localStorage.getItem("sb-127-auth-token")))).toBe(true);
+  await confirm.press("Enter");
+  const pending = dialog.getByRole("button", { name: "Signing out…" });
+  await expect(pending).toBeVisible();
+  await pending.press("Enter");
+  await pending.press("Escape");
+  await expect(dialog).toBeVisible();
+  expect(attempts).toBe(2);
+  finishSignOut();
+  await expect(page.getByRole("heading", { name: "Connect Movie Bowl" })).toBeVisible();
+  await expect(page.getByText("smoke@example.com")).toHaveCount(0);
+  expect(await page.evaluate(() => localStorage.getItem("sb-127-auth-token"))).toBeNull();
+  expect(await page.evaluate(() => localStorage.getItem("movie-bowl:tv:last-bowl:user-smoke"))).toBe("remembered-bowl");
+  expect(await page.evaluate(() => localStorage.getItem("movie-bowl:tv:recent-trailers"))).toBe("[101]");
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("movie-bowl:tv:draw-settings:user-smoke"))))
+    .toEqual({ theaterModeEnabled: true });
 });
 
 test("TV Watch History opens details and applies the bounded return cleanup", async ({

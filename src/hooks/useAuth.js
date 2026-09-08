@@ -126,8 +126,15 @@ export function AuthProvider({ children }) {
     return res;
   };
 
+  // A shared television must not revoke the phone's or other TVs' sessions.
+  const signOutThisDevice = async () => {
+    const res = await supabase.auth.signOut({ scope: "local" });
+    if (!res.error) setSession(null);
+    return res;
+  };
+
   const value = useMemo(
-    () => ({ session, loading, signIn, completeTvPairing, signOut }),
+    () => ({ session, loading, signIn, completeTvPairing, signOut, signOutThisDevice }),
     [session, loading]
   );
 
