@@ -16,7 +16,7 @@ import {
  * tomorrow.
  */
 export default function useTvDrawSettings(userId, accountSettings) {
-  const [overrides, setOverrides] = useState(() => readTvSettingsOverrides(userId));
+  const [overrides, setOverrides_] = useState(() => readTvSettingsOverrides(userId));
   // A write that storage refuses still applies for this session; saying so is
   // the difference between a setting that did not stick and one that looks
   // broken.
@@ -29,8 +29,21 @@ export default function useTvDrawSettings(userId, accountSettings) {
 
   const setOverride = useCallback(
     (name, value) => {
-      setOverrides((current) => {
+      setOverrides_((current) => {
         const next = { ...current, [name]: value };
+        setIsPersisted(writeTvSettingsOverrides(userId, next));
+        return next;
+      });
+    },
+    [userId]
+  );
+
+  // Streaming priority is two booleans behind one control, so both move
+  // together or the television briefly holds a state the control cannot show.
+  const setOverrides = useCallback(
+    (patch) => {
+      setOverrides_((current) => {
+        const next = { ...current, ...patch };
         setIsPersisted(writeTvSettingsOverrides(userId, next));
         return next;
       });
@@ -40,7 +53,7 @@ export default function useTvDrawSettings(userId, accountSettings) {
 
   const clearOverrides = useCallback(() => {
     setIsPersisted(clearTvSettingsOverrides(userId));
-    setOverrides({});
+    setOverrides_({});
   }, [userId]);
 
   return {
@@ -49,6 +62,7 @@ export default function useTvDrawSettings(userId, accountSettings) {
     hasOverrides: Object.keys(overrides).length > 0,
     isPersisted,
     setOverride,
+    setOverrides,
     clearOverrides,
   };
 }
