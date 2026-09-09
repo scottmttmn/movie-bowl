@@ -1,19 +1,29 @@
 # Private Google TV distribution roadmap
 
-Status: in progress as of September 5, 2026
+Status: owner-only Play pilot in progress as of September 9, 2026. The
+production-service preflight is complete, and version `0.1.0` (`versionCode 1`)
+is available through Google Play's internal-testing track. The first clean Play
+installation passed; the in-place update test remains open.
 
 Implementation progress:
 
-- The durable pairing rate-limit migration, service-role RPC, server HMAC
-  pseudonymization, endpoint limits, non-enumerating approval failures, tests,
-  and rollback are implemented and pass the isolated database/API regressions.
-  The migration and
-  `TV_PAIRING_RATE_LIMIT_SECRET` must be deployed before the API changes.
-- The existing Android `lintRelease` baseline completes with zero errors and
-  five warnings. One is the known vector TV banner; explicit no-backup rules are
-  the other actionable release-hardening item. The target-SDK, landscape, and
-  pinned-toolchain warnings reflect deliberate TV compatibility choices and
-  need a documented disposition before the store bundle.
+- The production pairing migration, rate-limit secret, abuse controls, Node 24
+  runtime, and session-coordination repair are deployed. The production phone
+  and television smoke pass completed September 9. That web release currently
+  lives on `test-cleanup-between-renders`; reconcile its deployed runtime,
+  session, cron, and documentation commits with the newer `main` before the next
+  production deployment.
+- A dedicated upload key was created and backed up outside the repository. The
+  signed `0.1.0` bundle was verified for signature, package, version, production
+  URL, cleartext policy, and absence of native libraries before upload.
+- The first internal release is limited to an owner-only tester list. It
+  installed from Google Play on the physical onn. Google TV without ADB. Fresh
+  QR pairing, automatic continuation, bowl entry, force-stop/resume to the same
+  screen, TV-only sign-out, and re-pairing all passed.
+- Remaining release-hardening work includes repeatable environment-backed
+  signing configuration, explicit backup rules, final artwork and listing
+  material, the complete TV Ready disposition, low-memory recovery, and the
+  `versionCode 2` Play-update test.
 
 ## Decision
 
@@ -64,13 +74,17 @@ The repo is past the prototype-only stage but is not yet store-ready:
   `targetSdk 35`. Those SDK values meet the current TV baseline.
 - The physical-device sideload flow has been exercised on an onn. Google TV
   device, including a confirmed Max title handoff.
-- `release` is deliberately unsigned. The existing `sideload` build is
-  debug-signed and must never be uploaded as the store release.
+- `release` remains unsigned by default in Gradle. The first Play bundle was
+  signed through Android Studio with the dedicated upload key; repeatable
+  environment-backed signing configuration remains open. The existing
+  `sideload` build is debug-signed and must never be uploaded as a store release.
 - The current banner is a vector declared as 320 by 180 dp. Store readiness
   requires a deliberate 320 by 180 pixel TV banner, plus Play listing artwork
   and at least one unaltered high-resolution TV screenshot.
-- Pairing rate limiting is implemented but not yet deployed. Full provider
-  testing, privacy review, and the final physical-TV QA pass remain open.
+- Pairing rate limiting is deployed, and the first clean Play installation has
+  passed its authentication and restart checks. Full provider testing, privacy
+  review, the rest of the physical-TV QA pass, and an in-place Play update remain
+  open.
 
 ## One-way decisions before the first upload
 
@@ -96,7 +110,7 @@ evidence only; it is not the release key.
 All new Play apps use Play App Signing, and the uploaded AAB must be signed with
 an upload key.
 
-There are two reasonable choices:
+There were two reasonable choices:
 
 - **Google-only simplicity:** let Google generate and retain the app-signing
   key; keep a separate local upload key.
@@ -105,21 +119,26 @@ There are two reasonable choices:
   key for routine uploads. This is the better choice if publishing the Android
   shell in the Amazon Appstore later is plausible.
 
-Make this choice in Play Console before the first release. No keystore,
-password, or credential belongs in Git. Store two encrypted backups in
-different places and record a recovery owner.
+Chosen September 9: **Google-only simplicity.** Google Play manages the
+app-signing key, while Movie Bowl uses a separate upload key for submitted
+bundles. The upload keystore is backed up outside the repository, its passwords
+are stored separately in the owner's password manager, and no signing secret
+belongs in Git. Preserve the original debug key and sideload APK as ownership
+evidence until package registration is unquestionably settled.
 
 ### 3. Keep the app free
 
 The internal cohort does not need billing. Create Movie Bowl as a free app and
 do not add purchases, subscriptions, or advertising to this release path.
 
-## Milestone 1: production-service preflight
+## Milestone 1: production-service preflight — COMPLETE
 
 Owner: repo work, deployment, and Supabase configuration
 
-Current status: item 3 is implemented and tested in the repo; its migration and
-server secret remain a deployment gate.
+Completed September 9, 2026. The migration, server secret, rate limits, runtime
+and session updates are deployed; the production phone and TV smoke checks pass.
+A fresh production pairing completes without local services or dashboard work,
+and a paired session resumes after the app is force-stopped.
 
 1. Deploy the changes currently marked "implemented, pending release" and run
    the phone and TV smoke checks against production.
@@ -139,6 +158,12 @@ flow without local services, dashboard intervention, or exposed credentials.
 ## Milestone 2: store-harden the Android shell
 
 Owner: repo work
+
+Current status: partly complete. The first signed bundle proved the package,
+version, production URL, cleartext policy, signature, and no-native-library
+assumption. The one-off Android Studio signing flow is not yet the repeatable
+Gradle configuration required here. Artwork, explicit backup rules, remaining
+TV Ready dispositions, and low-memory recovery are also open.
 
 1. Add release signing configuration that reads paths and passwords from the
    developer environment, with no secret defaults and no checked-in values.
@@ -167,9 +192,15 @@ Exit gate: release lint/build checks pass, the signed release bundle contains
 the expected package/version/production URL, and every mandatory TV Ready item
 has a recorded pass or an explicit fix.
 
-## Milestone 3: create the Play Console app
+## Milestone 3: create the Play Console app — PARTLY COMPLETE
 
 Owner: account owner, with the repo artifacts prepared in advance
+
+Current status: Movie Bowl exists as a free app under `app.moviebowl.tv`, Play
+App Signing is active, and the app remains exclusively on Internal testing. The
+owner tester list and opt-in link work. Final listing assets, Android TV form
+factor review, App Access instructions, and the general privacy policy remain
+open before a broader cohort.
 
 1. Finish the account's identity and physical-Android-device verification tasks
    shown on the Play Console home page.
@@ -192,9 +223,15 @@ Owner: account owner, with the repo artifacts prepared in advance
 Exit gate: Play Console recognizes the bundle as TV-compatible and exposes an
 internal-test opt-in URL without activating Open testing or Production.
 
-## Milestone 4: owner-only Play pilot
+## Milestone 4: owner-only Play pilot — IN PROGRESS
 
 Owner: account owner
+
+Current status: items 1-3 passed on September 9 on the physical onn. Google TV.
+The Play-installed app also passed fresh pairing, automatic continuation, bowl
+entry, force-stop/resume, TV-only sign-out, and re-pairing. Complete the remaining
+QA cases, then prove an ordinary Play update with `versionCode 2` while retaining
+the paired session. Play's generated-device artifact check also remains open.
 
 1. Add only the owner's Google account to the internal tester list.
 2. Open the opt-in link using the same Google account used on the physical TV.

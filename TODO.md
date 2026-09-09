@@ -2,46 +2,14 @@
 
 Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
-## Implemented, pending release
+## Release housekeeping
 
-- The TV draw screen is rebuilt around the bowl as the draw control, with
-  streaming priority as an Off / All / Top rail that highlights the service the
-  draw actually landed on, theater mode as a ticket that takes the stage lights
-  down, and the draw method shown as a mark beside the bowl name rather than
-  named. The filter escapes left with their rows and are set on the phone.
-  Verified on physical TV hardware: the dim reads as armed rather than
-  disabled, and the focus ring reads on the enlarged draw control -- the two
-  risks a screenshot could not settle. Design record and the directions not
-  taken are on the shared canvas.
-
-- The TV bowl picker now stacks `Exit TV mode` and `Sign out of this TV`
-  beneath the account. Sign-out requires confirmation with Cancel focused first;
-  Cancel and Back restore focus to the originating action. It ends only the
-  current device session, preserves TV preferences, and returns to pairing.
-  Browser coverage checks D-pad navigation, failure/retry, and session scope.
-  Still to repeat on physical TV hardware after deployment: the sign-out and
-  re-pair flow itself.
-
-- Successful TV pairing approvals now replace the code-bearing browser history
-  entry and remember the approved code locally. Revisiting the original QR URL
-  shows a non-actionable completed/expired state without exposing a code-status
-  probing endpoint.
-- The signed-in add dialog has a mobile repair ready after testing the installed
-  Chrome app on a Samsung phone. Destination and close controls now share one
-  compact header, session additions live behind a count that opens their own
-  management view, and document-level locking prevents scrolling the app behind
-  the dialog. Route changes close the dialog instead of carrying it onto an
-  unrelated screen. Redeploy, then repeat the installed-app keyboard and
-  background-scroll checks. Public-link and manual-history forms are unchanged.
-  See the follow-up in
-  `output/designs/default-bowl-and-global-add-implementation.md`.
-- Default bowls and global Add are committed and pushed. Migration
-  `20260831120000_add_user_bowl_defaults.sql` was applied on August 31, 2026.
-  Stars, stable Home routing, the shared plus/filmstrip add dialog, explicit
-  destinations, and pending/uncertain write handling are covered by tests.
-  Finish the post-redeploy physical-phone and separate-device release smoke
-  checks.
-  See the [implementation record](output/designs/default-bowl-and-global-add-implementation.md#implementation-record--august-31-2026).
+- Reconcile the deployed `test-cleanup-between-renders` branch with the newer
+  `main` before the next production deployment. The release branch carries the
+  Node 24 pin, Supabase session coordination, daily metadata-refresh fix,
+  environment-file ignore, and public-comment follow-up; `main` has since moved
+  through the TV title-width and theater-ticket copy fixes. Do not redeploy
+  either branch alone and accidentally drop the other side.
 
 ## UX / UI Polish
 
@@ -67,6 +35,11 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   copy is difficult to read at viewing distance and the fallback pairing code
   is too small. Increase both, with the code getting the stronger size bump;
   keep the QR code at its current size, which tested well on the same screen.
+  Reconfirmed September 9 on the clean Google Play installation; fix before the
+  friends-and-family cohort.
+- Public add-link comment ordering: move the comment field below movie search
+  so the flow matches the signed-in Add dialog and manual-history form. Agreed
+  as a small near-term follow-up, not part of the Play owner pilot.
 - Theater mode controls break the cinema spell: drop "Next preview" and "Skip to
   movie" from the pre-roll overlay, keeping Pause. Neither is possible at a
   cinema, and neither is needed — Back already calls `endTheater`, so the escape
@@ -138,10 +111,11 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 - TV Theater mode: trailer pre-roll (phase 1) and provider title links with the
   voice card (phase 2) are implemented. Provider lookups default off until the
   migration and Watchmode configuration are deployed; activation instructions
-  are in `README.md`. A Google TV validation harness lives in `tv-android/`;
-  its provider handoff is confirmed on physical hardware for Max. Remaining
-  roadmap work is LAN auto-start (no code) and making the shell store-ready. The
-  friends-and-family Play Console path is specified in
+  are in `README.md`. The Google TV shell in `tv-android/` has reached an
+  owner-only Google Play internal test, and its provider handoff is confirmed
+  on physical hardware for Max. Remaining roadmap work is LAN auto-start (no
+  code), the Play update-retention test, and store hardening before the
+  friends-and-family cohort. That path is specified in
   `output/designs/google-play-tv-private-distribution-roadmap.md`. See
   `output/designs/tv-theater-mode.md` and `output/designs/provider-deep-links.md`.
 - Web auto-start handoff: end the pre-roll by navigating the television to the

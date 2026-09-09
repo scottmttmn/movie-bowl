@@ -108,8 +108,10 @@ vercel dev --listen 0.0.0.0:3000
   Override the host with `-PtvDebugHost=<lan-ip>` for a physical device.
 - Sideload: `https://moviebowl.app/tv`, debug-signed and debuggable, for
   physical-device testing.
-- Release: `https://moviebowl.app/tv`, cleartext disabled, unsigned. Store
-  signing is deliberately left undone; do not let `sideload` stand in for it.
+- Release: `https://moviebowl.app/tv`, cleartext disabled, and unsigned by
+  default in Gradle. The first Play bundle was signed through Android Studio
+  with the dedicated upload key; repeatable environment-backed signing remains
+  open. Never let the debug-signed `sideload` variant stand in for a store build.
 
 The URL values live in `app/build.gradle.kts`.
 
@@ -133,6 +135,24 @@ Verify these behaviors with only the virtual remote:
    app is absent, confirm Movie Bowl stays on the result and explains the issue.
 10. Background and resume the app; confirm focus and session state recover.
 11. Disconnect the emulator network and inspect the failure/recovery experience.
+
+## Google Play owner-pilot record
+
+Internal release `0.1.0` (`versionCode 1`) was published to an owner-only tester
+list and installed from Google Play on an onn. Full HD Streaming Device on
+September 9, 2026. The previous debug-signed sideload was uninstalled first
+because the Play build has a different signing identity.
+
+The Play-installed build passed fresh QR pairing, automatic continuation without
+a TV refresh, bowl entry, force-stop/resume to the same screen, cancellation of
+the sign-out confirmation, TV-only sign-out, and re-pairing. The phone session
+remained independent of the TV session. The pairing screen's instructional text
+and fallback code were again judged too small at viewing distance; that remains
+a polish item rather than a failure of the pairing flow.
+
+The next store-specific gate is an internal `versionCode 2` update that preserves
+the paired session. The rest of this QA list, Play's generated-device artifact
+inspection, listing assets, and the formal TV Ready review remain open.
 
 ## Provider handoff behavior
 
@@ -169,9 +189,10 @@ accessible to server code using the service role.
 
 ## Scope boundary
 
-This is a validation harness, not yet a store-ready Google TV application. Before
-publishing, it needs the pairing rate-limit migration and server secret deployed,
-TV-quality review, provider-link capability testing, release signing, artwork,
-privacy review, and a physical-device test pass. The `sideload` variant makes
-that last one possible; it is not release signing, and it is not a substitute
-for it.
+This shell is now in an owner-only Google Play internal test, but it is not ready
+for the friends-and-family cohort. Pairing rate limiting is deployed and the
+first clean Play install passes. Before widening the test, it still needs a
+repeatable release-signing configuration, an in-place Play update, TV-quality
+review, provider-link capability testing, final artwork, privacy review, and the
+remaining physical-device QA. The `sideload` variant remains a diagnostic tool;
+it is not release signing and is not a substitute for the Play track.

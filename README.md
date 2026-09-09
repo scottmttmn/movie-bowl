@@ -182,8 +182,8 @@ supabase/
   migrations/        source of truth for schema, RLS, functions
   tests/             pgTAP tests for security-sensitive migrations
   rollback/          staged reverts, kept out of migrations/ on purpose
-tv-android/          Google TV WebView shell around /tv; a validation harness,
-                     not a store build. Has its own README
+tv-android/          Google TV WebView shell around /tv; now in an owner-only
+                     Google Play internal test. Has its own README
 android-mobile/      disposable Android App Actions probe. It does not contain
                      the product app
 output/designs/      design specs and roadmaps for shipped + planned features

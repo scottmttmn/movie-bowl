@@ -331,13 +331,14 @@ Gate: if this does not feel like magic in the room, do not build phase 4.
 
 ### Phase 4 — Android TV shell
 
-**A validation harness for this already exists in `tv-android/`** — a Java
-(not Kotlin) WebView shell with D-pad translation, QR pairing, fullscreen
-trailer hosting, and provider handoff, built against the Google TV emulator.
-Its own README lists what store-readiness would still need: pairing rate
-limits, release signing, artwork, privacy review, and a physical-device pass.
-Sideload for personal use first; a store listing is a separate decision
-carrying its own review and maintenance burden.
+**The shell has reached an owner-only Google Play internal test.** `tv-android/`
+contains the Java (not Kotlin) WebView shell with D-pad translation, QR pairing,
+fullscreen trailer hosting, and provider handoff. Version `0.1.0`
+(`versionCode 1`) installed from Play and passed clean pairing, force-stop/resume,
+TV-only sign-out, and re-pairing on physical hardware September 9, 2026. Its own
+README lists what remains before friends-and-family testing: repeatable release
+signing, the Play update-retention test, artwork, privacy review, and the rest of
+the physical-device quality pass.
 
 ### Not on this roadmap
 
