@@ -103,10 +103,12 @@ count, or to a rotation that gives the next turn to whoever has waited longest.
 Provider title links are optional and disabled by default. See
 [Provider title links](#provider-title-links) for activation and cache maintenance.
 
-1. Install dependencies (Node `>=20.19 <21` or `>=22.12`):
+1. Use Node 24 LTS and install dependencies (with nvm):
 
 ```bash
-npm install
+nvm install
+nvm use
+npm ci
 ```
 
 2. Create `.env` with:
