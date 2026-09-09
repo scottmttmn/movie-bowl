@@ -49,3 +49,4 @@ android-mobile/**/*.keystore
 
 # Vitest writes the latest run here so failures can be named after the fact.
 .vitest/
+.env*
