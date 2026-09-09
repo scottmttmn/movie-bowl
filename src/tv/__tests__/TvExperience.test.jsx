@@ -558,6 +558,33 @@ describe("Movie Bowl TV experience", () => {
     expect(secondCard).toHaveFocus();
   });
 
+  // Regions are compared as rectangles, so a region nested inside another one
+  // overlaps it on both axes and is a neighbour in no direction. Making the
+  // rail its own region did exactly that: the stage's rectangle contained it,
+  // and every horizontal move between the draw control and the rail was
+  // filtered out, leaving the rail reachable only from above or below.
+  it("keeps the streaming rail in the stage's band so it can be reached sideways", async () => {
+    renderTonight();
+
+    const draw = await screen.findByRole("button", { name: /draw a movie/i });
+    const off = await screen.findByRole("radio", { name: /ignore streaming services/i });
+
+    expect(off.closest("[data-tv-nav-region]")).toBe(draw.closest("[data-tv-nav-region]"));
+
+    setElementRect(draw, { left: 300, top: 320, width: 780, height: 290 });
+    setElementRect(off, { left: 1500, top: 350, width: 80, height: 56 });
+    setElementRect(draw.closest("[data-tv-nav-region]"), {
+      left: 80, top: 160, width: 1760, height: 700,
+    });
+
+    draw.focus();
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(off).toHaveFocus();
+
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(draw).toHaveFocus();
+  });
+
   // Grouping the rail's modes as a row is the obvious thing to do and it walls
   // off the only exit: a group holds a row at its ends, and this row's left end
   // is the way back to the draw button.

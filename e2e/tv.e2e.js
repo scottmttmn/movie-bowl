@@ -167,6 +167,46 @@ test("TV sign-out can retry a failure, revokes only this session, and returns to
     .toEqual({ theaterModeEnabled: true });
 });
 
+// A mask clips everything the element paints, and this app's focus ring is an
+// outer box-shadow -- so masking the ticket itself made it the one control on
+// the screen with no visible focus at all. The mask belongs on a face inside
+// the button, and only a real browser can tell you it moved.
+test("the theater ticket can show a focus ring", async ({ page, backend }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile-chromium", "TV smoke coverage uses the desktop viewport.");
+
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await backend.authenticate(page);
+  backend.state.bowls.push({
+    id: "bowl-tv-focus", name: "Focus TV", owner_id: "user-smoke",
+    draw_access_mode: "all_members", draw_method: "person_first",
+    created_at: "2026-08-21T12:00:00.000Z",
+  });
+  backend.state.bowl_members.push({
+    id: "member-tv-focus", bowl_id: "bowl-tv-focus", user_id: "user-smoke", role: "Owner",
+  });
+  backend.state.bowl_movies.push({
+    id: "movie-focus", bowl_id: "bowl-tv-focus", tmdb_id: -400, title: "Focus Feature",
+    added_by: "user-smoke", added_by_name: null, added_at: "2026-08-21T12:00:00.000Z",
+    drawn_at: null, genres: ["Drama"], runtime: 100,
+  });
+
+  await page.goto("/tv/bowl/bowl-tv-focus");
+
+  const ticket = page.getByRole("switch", { name: /theater mode/i });
+  await ticket.focus();
+
+  const painted = await ticket.evaluate((el) => {
+    const cs = getComputedStyle(el);
+    return {
+      masked: (cs.maskImage || cs.webkitMaskImage || "none") !== "none",
+      ring: cs.boxShadow,
+    };
+  });
+
+  expect(painted.masked).toBe(false);
+  expect(painted.ring).not.toBe("none");
+});
+
 test("TV Watch History opens details and applies the bounded return cleanup", async ({
   page,
   backend,
