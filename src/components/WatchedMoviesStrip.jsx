@@ -1,10 +1,12 @@
 import { useId } from "react";
 import WatchedMovieCard from "./WatchedMovieCard";
+import MovieStripSkeleton from "./MovieStripSkeleton";
 
 export default function WatchedMoviesStrip({
   movies = [],
   onSelectMovie,
   isExpanded = true,
+  isLoading = false,
   onToggleExpanded,
 }) {
   const watchedCount = movies.length;
@@ -33,7 +35,15 @@ export default function WatchedMoviesStrip({
           <p className="text-xs text-slate-400">Tap a poster for details</p>
         )}
       </div>
-      {isExpanded && (
+      {/* An empty list while the bowl is still loading is indistinguishable
+          from a bowl nobody has watched from, and it collapses to nothing --
+          so the cards arriving push everything below them down. */}
+      {isExpanded && isLoading && (
+        <div className="pb-3 pt-1">
+          <MovieStripSkeleton count={3} label="Loading watched movies…" />
+        </div>
+      )}
+      {isExpanded && !isLoading && (
         <div id={listId} className="flex flex-nowrap gap-3 overflow-x-auto pb-3 pt-1">
           {movies.map((movie) => (
             <WatchedMovieCard
