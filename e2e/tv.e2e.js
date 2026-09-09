@@ -156,7 +156,12 @@ test("TV sign-out can retry a failure, revokes only this session, and returns to
   await pending.press("Enter");
   await pending.press("Escape");
   await expect(dialog).toBeVisible();
-  expect(attempts).toBe(2);
+  // Polled, not read once: `attempts` is incremented inside the route handler,
+  // so it counts requests that have reached the network. The button flips to
+  // "Signing out…" the moment the click handler runs, which is earlier -- and
+  // nothing between that and here waits for the fetch to be issued. Reading it
+  // once raced the request and failed about a third of the time.
+  await expect.poll(() => attempts).toBe(2);
   finishSignOut();
   await expect(page.getByRole("heading", { name: "Connect Movie Bowl" })).toBeVisible();
   await expect(page.getByText("smoke@example.com")).toHaveCount(0);
