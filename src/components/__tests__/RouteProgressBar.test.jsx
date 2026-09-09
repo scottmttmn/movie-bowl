@@ -1,17 +1,11 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { render, screen } from "@testing-library/react";
 import { act } from "react";
 import { afterEach, describe, expect, it } from "vitest";
 import RouteProgressBar from "../RouteProgressBar";
 import { resetRouteLoading, trackRouteLoad } from "../../utils/routeLoading";
 
 describe("RouteProgressBar", () => {
-  // vite.config.js does not set `globals`, so @testing-library/react registers
-  // no automatic cleanup and a render survives into the next test. Both of
-  // these render the same component, so without this the second one finds two.
-  afterEach(() => {
-    cleanup();
-    act(() => resetRouteLoading());
-  });
+  afterEach(() => act(() => resetRouteLoading()));
 
   it("shows nothing while no screen is loading", () => {
     render(<RouteProgressBar />);
