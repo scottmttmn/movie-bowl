@@ -82,22 +82,11 @@ html.tv-root {
 }
 
 .tv-brand-mark {
-  display: inline-flex;
+  display: block;
   width: 2.8rem;
   height: 2.8rem;
   flex: 0 0 auto;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(251, 113, 133, 0.5);
-  border-radius: 50%;
-  background:
-    radial-gradient(circle at 35% 30%, rgba(255, 255, 255, 0.2), transparent 26%),
-    linear-gradient(145deg, #e11d48, #881337);
-  color: white;
-  font-size: 0.72rem;
-  font-weight: 900;
-  letter-spacing: 0.08em;
-  box-shadow: 0 12px 30px -16px rgba(244, 63, 94, 0.85);
+  object-fit: contain;
 }
 
 .tv-brand-name {
@@ -495,6 +484,21 @@ html.tv-root {
     0 30px 70px -48px rgba(0, 0, 0, 0.95);
 }
 
+.tv-tonight-heading {
+  display: flex;
+  align-items: center;
+  gap: 0.9rem;
+}
+
+/* Quieter than the name beside it: context about the bowl, not a second
+   title. */
+.tv-method-mark {
+  width: 2rem;
+  height: 2rem;
+  flex: 0 0 auto;
+  color: #94a3b8;
+}
+
 .tv-tonight-title {
   max-width: 14ch;
   margin: 0;
@@ -857,7 +861,7 @@ html.tv-root {
     linear-gradient(145deg, rgba(8, 11, 19, 0.99), rgba(2, 4, 8, 0.99));
 }
 
-.tv-tonight-stage[data-theater] .tv-tonight-title {
+.tv-tonight-stage[data-theater] .tv-tonight-heading {
   opacity: 0.55;
 }
 
@@ -1664,7 +1668,6 @@ html.tv-root {
   .tv-account-label,
   .tv-account-value,
   .tv-viewer-email,
-  .tv-tonight-heading,
   .tv-reveal-bowl-name {
     display: none;
   }

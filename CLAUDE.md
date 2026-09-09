@@ -34,7 +34,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (115 test files / 916 tests, 52 Playwright tests with 5 skipped,
+fully green (115 test files / 918 tests, 52 Playwright tests with 5 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -299,10 +299,11 @@ Method copy has one source of truth. Bowl Settings reads `label`/`description`
 off the registry, and `DrawMethodInfoModal` renders `steps` — the method as
 ordered choices rather than a paragraph, which is what lets the pinning promise
 show rather than be asserted. Do not hardcode a sentence about odds anywhere
-else. The television no longer names the method: it shows what the room can
-decide, and the method is the bowl owner's. `tvLabel` is therefore unread for
-now, kept against that decision being revisited once the screen has been seen
-on real hardware.
+else. The television indicates the method rather than naming it —
+`TvDrawMethodMark` draws one slip with one mark on it, beside the bowl name,
+because the method belongs to the bowl and not to tonight. `tvLabel` is that
+mark's accessible name, so a method added to the registry needs a mark here
+too or it renders nothing at all.
 
 Streaming prioritization narrows the pool *before* the contributor bucketing:
 with `prioritizeByServiceRank` it keeps only the top-ranked matching service,
