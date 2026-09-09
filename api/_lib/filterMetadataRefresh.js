@@ -2,6 +2,9 @@ import { fetchTmdbFilterMetadata } from "./tmdbFilterMetadata.js";
 
 export const FILTER_METADATA_REGION = "US";
 export const FILTER_METADATA_STALE_MS = 24 * 60 * 60 * 1000;
+// Refresh before expiry so yesterday's fetch completion time and daily cron
+// scheduling variation don't defer a title until the following day.
+export const FILTER_METADATA_DAILY_REFRESH_AGE_MS = 22 * 60 * 60 * 1000;
 export const FILTER_METADATA_REFRESH_CONCURRENCY = 6;
 export const FILTER_METADATA_REFRESH_BATCH_SIZE = 12;
 export const FILTER_METADATA_DAILY_MAX_TITLES = 300;
@@ -157,7 +160,7 @@ export async function runDailyFilterMetadataRefresh(
 ) {
   const startedAt = nowFn();
   const deadline = startedAt + budgetMs;
-  const staleBefore = new Date(startedAt - FILTER_METADATA_STALE_MS).toISOString();
+  const staleBefore = new Date(startedAt - FILTER_METADATA_DAILY_REFRESH_AGE_MS).toISOString();
   const stats = { claimed: 0, succeeded: 0, failed: 0, exhausted: false };
 
   while (stats.claimed < maxTitles && deadline - nowFn() > 2_000) {
