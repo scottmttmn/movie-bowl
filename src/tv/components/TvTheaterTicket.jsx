@@ -1,5 +1,3 @@
-import { clampTheaterTrailerCount } from "../../utils/drawSettings";
-
 /**
  * Theater mode, as a ticket.
  *
@@ -9,15 +7,17 @@ import { clampTheaterTrailerCount } from "../../utils/drawSettings";
  * this is the same paper, torn -- so it reads as not-like-the-other-controls
  * from across a room without needing a label to say so.
  *
- * The count is what the phone set. `theaterTrailerCount` is deliberately not
- * in TV_OVERRIDABLE_SETTINGS: choosing between one and four previews is a
- * preference, not a decision the room makes on the night.
+ * The stub says on or off and not how many previews. The count is the phone's
+ * to set -- `theaterTrailerCount` is deliberately not in
+ * TV_OVERRIDABLE_SETTINGS -- so printing it here offered a number nobody in
+ * the room could act on. Worse, it was a number this control cannot know:
+ * buildTrailerQueue resolves *up to* that many, and a bowl short on trailers
+ * yields fewer, so a ticket promising three could be followed by a pre-roll
+ * announcing one. The pre-roll counts the queue it actually built, which is
+ * where the number belongs.
  */
-export default function TvTheaterTicket({ enabled, trailerCount, isOverridden = false, onToggle }) {
-  const previews = clampTheaterTrailerCount(trailerCount);
-  const label = enabled
-    ? `Theater mode on: ${previews} previews before the reveal`
-    : "Theater mode";
+export default function TvTheaterTicket({ enabled, isOverridden = false, onToggle }) {
+  const label = enabled ? "Theater mode on" : "Theater mode";
 
   return (
     <button
@@ -36,7 +36,7 @@ export default function TvTheaterTicket({ enabled, trailerCount, isOverridden = 
           button itself free to wear the same ring as every other control. */}
       <span className="tv-ticket-face">
         <span aria-hidden="true" className="tv-ticket-stub">
-          {enabled ? `${previews} previews` : "Off"}
+          {enabled ? "On" : "Off"}
         </span>
         <span aria-hidden="true" className="tv-ticket-name">
           Theater mode

@@ -465,7 +465,7 @@ describe("Movie Bowl TV experience", () => {
     renderTonight();
 
     expect(
-      await screen.findByRole("switch", { name: /theater mode on: 3 previews/i })
+      await screen.findByRole("switch", { name: /^theater mode on$/i })
     ).toHaveAttribute("aria-checked", "true");
   });
 

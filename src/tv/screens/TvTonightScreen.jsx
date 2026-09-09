@@ -1485,7 +1485,6 @@ export default function TvTonightScreen({ userId }) {
                 {!isPreferencesLoading && (
                   <TvTheaterTicket
                     enabled={Boolean(defaultDrawSettings.theaterModeEnabled)}
-                    trailerCount={defaultDrawSettings.theaterTrailerCount}
                     isOverridden={isTvOverridden("theaterModeEnabled")}
                     onToggle={setTvSetting}
                   />
