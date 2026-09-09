@@ -2,7 +2,7 @@ import { useMemo, useState } from "react";
 import { useLocation, useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import { approveTvPairing } from "../lib/tvPairing";
-import bowlImage from "../assets/bowl-illustration-v3.webp";
+import bowlImage from "../assets/movie-bowl.png";
 
 const APPROVED_TV_PAIRING_CODES_KEY = "movie-bowl:approved-tv-pairing-codes";
 

@@ -1,4 +1,4 @@
-import bowlImage from "../assets/bowl-illustration-v3.webp";
+import bowlImage from "../assets/movie-bowl.png";
 
 export default function BowlIllustration({ className = "", drawTitle = "", isDrawing = false }) {
   return (
