@@ -36,8 +36,15 @@ export default function TvStreamingRail({
   const modes = getStreamingModes(services);
   const labels = services.length > 1 ? MODE_LABELS : SOLO_MODE_LABELS;
 
+  // Deliberately not its own nav region. Regions are the bands a screen is
+  // built from, compared as rectangles -- and this rail sits inside the stage,
+  // so the stage's rectangle contains it. Two regions that overlap on both
+  // axes are neighbours in no direction, which filtered out every horizontal
+  // move between the draw control and this rail and left the rail reachable
+  // only from above or below. Inside one band plain geometry decides, which is
+  // all this needs.
   return (
-    <div className="tv-rail" data-mode={mode} data-tv-nav-region="streaming">
+    <div className="tv-rail" data-mode={mode}>
       {isOverridden && (
         <>
           <span aria-hidden="true" className="tv-rail-diverged" />

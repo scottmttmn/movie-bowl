@@ -30,18 +30,24 @@ export default function TvTheaterTicket({ enabled, trailerCount, isOverridden = 
       data-tv-focusable
       onClick={() => onToggle("theaterModeEnabled", !enabled)}
     >
-      <span aria-hidden="true" className="tv-ticket-stub">
-        {enabled ? `${previews} previews` : "Off"}
+      {/* The perforations are a mask, and a mask clips everything the element
+          paints -- including an outer box-shadow, which is where this app's
+          focus ring lives. Masking a face inside the button instead leaves the
+          button itself free to wear the same ring as every other control. */}
+      <span className="tv-ticket-face">
+        <span aria-hidden="true" className="tv-ticket-stub">
+          {enabled ? `${previews} previews` : "Off"}
+        </span>
+        <span aria-hidden="true" className="tv-ticket-name">
+          Theater mode
+        </span>
+        {isOverridden && (
+          <>
+            <span aria-hidden="true" className="tv-rail-diverged" />
+            <span className="sr-only">set on this TV</span>
+          </>
+        )}
       </span>
-      <span aria-hidden="true" className="tv-ticket-name">
-        Theater mode
-      </span>
-      {isOverridden && (
-        <>
-          <span aria-hidden="true" className="tv-rail-diverged" />
-          <span className="sr-only">set on this TV</span>
-        </>
-      )}
     </button>
   );
 }
