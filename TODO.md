@@ -34,6 +34,11 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## UX / UI Polish
 
+- Align the public add-link form with the other add flows: its optional comment
+  field still appears above movie search. Move the comment below search so the
+  interaction order is consistent. Small follow-up to do soon, not part of the
+  current release verification.
+
 - Retire the TV voice-handoff card. It prints a spoken command
   (`Play <title> on <service>`) for the viewer to say to their remote, and the
   provider launch it works around now hands off to installed apps directly.
