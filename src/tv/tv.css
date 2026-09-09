@@ -474,26 +474,17 @@ html.tv-root {
 }
 
 .tv-tonight-grid {
-  display: grid;
-  grid-template-columns: minmax(0, 1.65fr) minmax(290px, 0.7fr);
-  gap: clamp(22px, 2.2vw, 40px);
   margin-top: clamp(24px, 3.4vh, 42px);
-}
-
-.tv-tonight-stage,
-.tv-preference-panel {
-  border: 1px solid var(--tv-border);
-  border-radius: clamp(22px, 1.8vw, 34px);
 }
 
 .tv-tonight-stage {
   position: relative;
-  display: grid;
+  display: flex;
+  flex-direction: column;
   min-height: clamp(430px, 51vh, 590px);
-  grid-template-columns: minmax(220px, 0.8fr) minmax(360px, 1.2fr);
-  grid-template-rows: 1fr auto;
-  align-items: center;
   padding: clamp(28px, 3vw, 52px);
+  border: 1px solid var(--tv-border);
+  border-radius: clamp(22px, 1.8vw, 34px);
   overflow: hidden;
   overflow: clip;
   background:
@@ -504,29 +495,7 @@ html.tv-root {
     0 30px 70px -48px rgba(0, 0, 0, 0.95);
 }
 
-.tv-tonight-stage::after {
-  content: "";
-  position: absolute;
-  right: -12%;
-  bottom: -45%;
-  width: 50%;
-  aspect-ratio: 1;
-  border: 1px solid rgba(251, 113, 133, 0.08);
-  border-radius: 50%;
-  box-shadow:
-    0 0 0 3rem rgba(225, 29, 72, 0.025),
-    0 0 0 6rem rgba(225, 29, 72, 0.015);
-  pointer-events: none;
-}
-
-.tv-tonight-stage-copy {
-  position: relative;
-  z-index: 2;
-  align-self: start;
-  padding-top: 0.6rem;
-}
-
-.tv-tonight-stage-copy h1 {
+.tv-tonight-title {
   max-width: 14ch;
   margin: 0;
   overflow-wrap: anywhere;
@@ -536,32 +505,47 @@ html.tv-root {
   line-height: 0.99;
 }
 
-.tv-tonight-bowl {
-  position: relative;
-  z-index: 1;
-  width: 100%;
-  height: clamp(260px, 34vh, 410px);
-  align-self: center;
+/* The row cannot buy the title breathing room with a margin above it: it grows
+   to fill the stage, so a margin shrinks it by exactly what it offsets it by.
+   The air comes out of the bowl and the gaps below instead. */
+.tv-tonight-mid {
+  display: flex;
+  flex: 1 1 auto;
+  align-items: center;
+  gap: clamp(28px, 3vw, 60px);
+  min-height: 0;
+  margin-top: 1.55rem;
+}
+
+.tv-tonight-left {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
 }
 
 .tv-draw-cta {
-  position: relative;
-  z-index: 3;
-  grid-column: 1 / -1;
-  width: min(100%, 43rem);
-  margin: -0.6rem auto 0;
-  text-align: center;
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 0.65rem;
+  min-width: 0;
 }
 
+/* The bowl is inside the button rather than beside it. Two objects competing
+   for the middle of the screen is what left the dead space this replaces. */
 .tv-draw-button {
-  display: grid;
-  width: 100%;
+  display: flex;
+  align-items: center;
+  gap: clamp(24px, 2vw, 60px);
+  max-width: 100%;
   min-height: 86px;
-  place-items: center;
-  padding: 0.85rem 2rem;
+  padding: 0.72rem 2.54rem;
   border: 1px solid rgba(251, 113, 133, 0.78);
-  border-radius: 20px;
-  background: linear-gradient(180deg, #e11d48, #be123c);
+  border-radius: 28px;
+  background: linear-gradient(180deg, rgba(225, 29, 72, 0.18), rgba(190, 18, 60, 0.46));
   color: white;
   cursor: pointer;
   box-shadow:
@@ -577,10 +561,24 @@ html.tv-root {
   transform: translateY(-3px) scale(1.006);
 }
 
+.tv-draw-bowl {
+  width: auto;
+  height: 7.9rem;
+  flex: 0 0 auto;
+}
+
 .tv-draw-button span {
-  font-size: clamp(1.05rem, 1.25vw, 1.4rem);
+  font-size: clamp(1.05rem, 1.5vw, 1.5rem);
   font-weight: 820;
-  letter-spacing: -0.02em;
+  letter-spacing: -0.03em;
+}
+
+.tv-stage-warning {
+  margin: 0.4rem 0 0;
+  color: #fcd34d;
+  font-size: 0.78rem;
+  font-weight: 680;
+  text-align: center;
 }
 
 .tv-draw-readout {
@@ -644,168 +642,234 @@ html.tv-root {
   font-size: 0.85rem;
 }
 
-.tv-preference-panel {
-  padding: clamp(26px, 2.2vw, 40px);
-  background:
-    radial-gradient(circle at 100% 0%, rgba(51, 65, 85, 0.24), transparent 16rem),
-    rgba(10, 15, 27, 0.88);
+/* Streaming priority, as a rail. Rank is the only thing this control encodes
+   and a vertical list already says rank, so the chevrons that carried the
+   order across a row are gone and the ordinals say it outright -- legible at a
+   distance a chevron is not. */
+.tv-rail {
+  position: relative;
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 0.6rem;
+  padding: 0.65rem;
+  border: 1px solid var(--tv-border);
+  border-radius: 26px;
+  background: rgba(10, 15, 27, 0.72);
 }
 
-.tv-preference-panel h2 {
-  margin: 0;
-  font-size: clamp(1.45rem, 1.75vw, 2rem);
-  letter-spacing: -0.04em;
-  line-height: 1.1;
+.tv-rail[data-mode="all"],
+.tv-rail[data-mode="top"] {
+  border-color: rgba(251, 113, 133, 0.4);
+  background: rgba(136, 19, 55, 0.2);
 }
 
-.tv-preference-panel > p:not(.tv-kicker) {
-  color: var(--tv-muted);
-  font-size: 0.86rem;
-}
-
-.tv-preference-panel ul {
+.tv-rail-modes {
   display: grid;
-  gap: 0.15rem;
-  margin: 1.4rem 0 0;
+  grid-auto-flow: column;
+  grid-auto-columns: minmax(0, 1fr);
+  gap: 6px;
+  padding: 6px;
+  border: 1px solid var(--tv-border);
+  border-radius: 999px;
+  background: rgba(2, 4, 10, 0.5);
+}
+
+.tv-rail-mode {
+  display: grid;
+  min-height: 56px;
+  place-items: center;
+  padding: 0 0.4rem;
+  border: 1px solid transparent;
+  border-radius: 999px;
+  background: transparent;
+  color: var(--tv-muted);
+  cursor: pointer;
+  font-size: 0.81rem;
+  font-weight: 720;
+  transition:
+    border-color 160ms ease,
+    background 160ms ease,
+    color 160ms ease;
+}
+
+.tv-rail-mode[data-active] {
+  border-color: rgba(251, 113, 133, 0.6);
+  background: linear-gradient(180deg, rgba(225, 29, 72, 0.55), rgba(190, 18, 60, 0.72));
+  color: #fff5f6;
+}
+
+.tv-rail-stack {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  align-self: center;
+  margin: 0;
   padding: 0;
   list-style: none;
 }
 
-.tv-preference-panel li {
-  color: #dbe4ef;
-  font-size: 0.88rem;
-}
-
-.tv-preference-toggle,
-.tv-preference-static {
-  display: grid;
-  width: 100%;
-  grid-template-columns: 1.45rem 1fr auto;
-  gap: 0.75rem;
-  align-items: center;
-  padding: 0.45rem 0.5rem;
-  border: 1px solid transparent;
-  border-radius: 12px;
-  background: transparent;
-  color: inherit;
-  font: inherit;
-  text-align: left;
-}
-
-.tv-preference-toggle {
-  min-height: 48px;
-  cursor: pointer;
-  transition:
-    border-color 160ms ease,
-    background 160ms ease;
-}
-
-.tv-preference-toggle:hover,
-.tv-preference-toggle:focus {
-  border-color: rgba(251, 113, 133, 0.55);
-  background: rgba(136, 19, 55, 0.22);
-  outline: none;
-}
-
-/* The favored services are an ordered fallback, and prose made that a wall:
-   five services became five lines of "then". The chevrons carry the order, and
-   the row collapses back to one. */
-.tv-preference-services {
+.tv-rail-item {
   display: flex;
-  flex-wrap: wrap;
-  gap: 0.3rem;
   align-items: center;
+  gap: 0.45rem;
 }
 
-.tv-preference-service-logo {
-  width: 1.7rem;
-  height: 1.7rem;
-  border-radius: 6px;
+.tv-rail-rank {
+  width: 0.85rem;
+  flex: 0 0 auto;
+  color: var(--tv-muted);
+  font-size: 0.85rem;
+  font-weight: 800;
+  text-align: right;
+}
+
+.tv-rail-logo {
+  width: 2.6rem;
+  height: 2.6rem;
+  flex: 0 0 auto;
+  border-radius: 18px;
   object-fit: contain;
 }
 
-.tv-preference-service-name {
-  font-size: 0.82rem;
+.tv-rail-logo-text {
+  display: grid;
+  place-items: center;
+  background: rgba(15, 23, 42, 0.7);
+  font-size: 0.6rem;
+  font-weight: 800;
 }
 
-.tv-preference-service-sep {
-  color: #64748b;
-  font-size: 0.7rem;
-}
-
-.tv-preference-mark {
-  display: inline-flex;
-  width: 1.35rem;
-  height: 1.35rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(148, 163, 184, 0.3);
-  border-radius: 50%;
-  background: rgba(15, 23, 42, 0.6);
+/* The service the draw actually landed on, which is not always the first one
+   listed: when nothing on the top-ranked service survives the filters the draw
+   falls through to the next, and a rank-1 highlight would be pointing at a
+   service the draw is not using. */
+.tv-rail-item[data-top] .tv-rail-rank {
   color: #fda4af;
-  font-size: 0.72rem;
 }
 
-.tv-preference-toggle[data-checked] .tv-preference-mark {
-  border-color: rgba(251, 113, 133, 0.32);
-  background: rgba(136, 19, 55, 0.23);
+.tv-rail-item[data-top] .tv-rail-logo {
+  box-shadow:
+    0 0 0 4px rgba(251, 113, 133, 0.95),
+    0 0 30px -6px rgba(244, 63, 94, 0.9);
 }
 
-.tv-preference-static .tv-preference-mark {
-  border-color: transparent;
-  background: transparent;
+/* Ordinals are only true while ranking is on. With every service weighted the
+   same they would claim an order the draw is not using. */
+.tv-rail:not([data-mode="top"]) .tv-rail-rank {
+  visibility: hidden;
 }
 
-.tv-preference-static .tv-preference-label {
-  color: #94a3b8;
+.tv-rail[data-mode="top"] .tv-rail-item:not([data-top]) {
+  opacity: 0.5;
 }
 
-.tv-preference-toggle:not([data-checked]) .tv-preference-label {
-  color: #94a3b8;
+.tv-rail[data-mode="off"] .tv-rail-item {
+  opacity: 0.32;
 }
 
-/* Passive status: which lines this television has an opinion about. A label
-   would repeat itself down the whole column, so the meaning lives in visually
-   hidden text beside the dot. */
-.tv-preference-diverged {
+.tv-rail-diverged {
+  position: absolute;
+  top: 16px;
+  right: 16px;
   width: 0.45rem;
   height: 0.45rem;
   border-radius: 50%;
   background: #fda4af;
 }
 
-.tv-preference-reset {
-  min-height: 48px;
-  width: 100%;
-  margin-top: 1rem;
-  padding: 0.6rem 0.75rem;
-  border: 1px solid rgba(148, 163, 184, 0.24);
+/* Theater mode is the one setting here about the occasion rather than about
+   filtering. A ticket is the bowl's own material -- the bowl is full of paper
+   slips and this is the same paper, torn -- so it reads as unlike the controls
+   around it without a label saying so. */
+.tv-ticket {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: 0.72rem;
+  min-height: 78px;
+  padding: 0 1.1rem;
+  border: 0;
   border-radius: 12px;
-  background: transparent;
-  color: #cbd5e1;
-  font-size: 0.85rem;
-  font-weight: 680;
+  background: rgba(148, 163, 184, 0.16);
+  color: var(--tv-muted);
   cursor: pointer;
-  transition:
-    border-color 160ms ease,
-    background 160ms ease;
+  font-size: 0.75rem;
+  font-weight: 760;
+  letter-spacing: 0.06em;
+  text-transform: uppercase;
+  -webkit-mask:
+    radial-gradient(circle 11px at 0 50%, transparent 99%, #000 100%),
+    radial-gradient(circle 11px at 100% 50%, transparent 99%, #000 100%);
+  -webkit-mask-composite: source-in;
+  mask:
+    radial-gradient(circle 11px at 0 50%, transparent 99%, #000 100%),
+    radial-gradient(circle 11px at 100% 50%, transparent 99%, #000 100%);
+  mask-composite: intersect;
+  transition: background 160ms ease;
 }
 
-.tv-preference-reset:hover,
-.tv-preference-reset:focus {
-  border-color: rgba(251, 113, 133, 0.55);
-  background: rgba(136, 19, 55, 0.22);
-  outline: none;
+.tv-ticket-stub {
+  padding-right: 0.72rem;
+  border-right: 2px dashed rgba(148, 163, 184, 0.45);
+  color: #cbd5e1;
+  font-size: 0.81rem;
+  font-weight: 850;
+  letter-spacing: 0;
 }
 
-.tv-preference-note {
-  margin-top: 1.2rem;
-  padding-top: 1.1rem;
-  border-top: 1px solid rgba(148, 163, 184, 0.14);
+.tv-ticket[data-on] {
+  background: linear-gradient(100deg, rgba(190, 18, 60, 0.85), rgba(225, 29, 72, 0.7));
+  color: #ffe4e6;
 }
 
-.tv-preference-panel .tv-preference-warning {
-  color: #fcd34d;
+/* The rail can corner the dot because it is a tall panel. The ticket is a
+   single row, so cornering it drops it on the label; it sits after the name
+   instead, where the row already has somewhere to put it. */
+.tv-ticket .tv-rail-diverged {
+  position: static;
+  flex: 0 0 auto;
+}
+
+.tv-ticket[data-on] .tv-ticket-stub {
+  border-right-color: rgba(255, 228, 230, 0.55);
+  color: #fff;
+}
+
+/* House lights. Arming the ticket drops the stage a notch, so the screen
+   answers as well as the control. Dimming alone would read as disabled on a
+   screen where things do get disabled -- the lit ticket in the middle of it
+   and the card keeping its full brightness are what say otherwise. */
+.tv-tonight-stage[data-theater] {
+  background:
+    radial-gradient(circle at 50% 44%, rgba(225, 29, 72, 0.13), transparent 22rem),
+    linear-gradient(145deg, rgba(8, 11, 19, 0.99), rgba(2, 4, 8, 0.99));
+}
+
+.tv-tonight-stage[data-theater] .tv-tonight-title {
+  opacity: 0.55;
+}
+
+/* Not lower: at 0.5 an interactive control starts reading as "this setting is
+   off" rather than "the lights are down". And a dimmed control has to come
+   back when focus reaches it, or the focus ring sits on something faded. */
+.tv-tonight-stage[data-theater] .tv-rail {
+  opacity: 0.62;
+}
+
+.tv-tonight-stage[data-theater] .tv-rail:focus-within {
+  opacity: 1;
+}
+
+.tv-tonight-stage[data-theater] .tv-draw-readout {
+  opacity: 0.75;
+}
+
+.tv-tonight-stage[data-theater] .tv-draw-button {
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.25),
+    0 26px 60px -20px rgba(244, 63, 94, 0.95),
+    0 0 90px -20px rgba(244, 63, 94, 0.5);
 }
 
 .tv-recent-section {
@@ -1556,25 +1620,17 @@ html.tv-root {
     grid-template-columns: repeat(2, minmax(0, 1fr));
   }
 
-  .tv-tonight-grid {
-    grid-template-columns: 1fr;
+  /* Below this the stage is too narrow to hold the rail beside the control,
+     so the rail lays its services out across instead of down. The ordinals
+     keep the order legible now that position no longer carries it. */
+  .tv-tonight-mid {
+    flex-direction: column;
+    align-items: stretch;
   }
 
-  .tv-preference-panel {
-    display: grid;
-    grid-template-columns: 1fr 1.5fr;
-    gap: 0 2rem;
-  }
-
-  .tv-preference-panel ul {
-    grid-column: 2;
-    grid-row: 1 / span 3;
-    margin: 0;
-  }
-
-  .tv-preference-note {
-    padding-top: 0;
-    border-top: 0;
+  .tv-rail-stack {
+    flex-direction: row;
+    justify-content: center;
   }
 
   .tv-pairing-layout {
@@ -1607,28 +1663,22 @@ html.tv-root {
   }
 
   .tv-tonight-stage {
-    grid-template-columns: 1fr;
     text-align: center;
   }
 
-  .tv-tonight-stage-copy {
-    justify-self: center;
-  }
-
-  .tv-tonight-stage-copy h1 {
+  .tv-tonight-title {
     max-width: 100%;
   }
 
-  .tv-tonight-bowl {
-    height: 280px;
+  /* The label stacks under the bowl rather than beside it: side by side there
+     is no longer room for either to be legible. */
+  .tv-draw-button {
+    flex-direction: column;
+    gap: 0.5rem;
   }
 
-  .tv-preference-panel {
-    display: block;
-  }
-
-  .tv-preference-panel ul {
-    margin-top: 1.4rem;
+  .tv-draw-bowl {
+    height: 7rem;
   }
 
   .tv-recent-section {

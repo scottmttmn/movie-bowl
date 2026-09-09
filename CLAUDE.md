@@ -295,11 +295,14 @@ those stages. The shared resolver can return raw movie rows or
 `{ movie, providers }` wrappers; client methods must handle both, while a server
 method accepts their ids and maps its returned id back to the same candidate.
 
-Method copy has one source of truth. The TV preference list and Bowl Settings
-read `label`/`description` off the registry, and `DrawMethodInfoModal` renders
-`steps` — the method as ordered choices rather than a paragraph, which is what
-lets the pinning promise show rather than be asserted. Do not hardcode a
-sentence about odds anywhere else.
+Method copy has one source of truth. Bowl Settings reads `label`/`description`
+off the registry, and `DrawMethodInfoModal` renders `steps` — the method as
+ordered choices rather than a paragraph, which is what lets the pinning promise
+show rather than be asserted. Do not hardcode a sentence about odds anywhere
+else. The television no longer names the method: it shows what the room can
+decide, and the method is the bowl owner's. `tvLabel` is therefore unread for
+now, kept against that decision being revisited once the screen has been seen
+on real hardware.
 
 Streaming prioritization narrows the pool *before* the contributor bucketing:
 with `prioritizeByServiceRank` it keeps only the top-ranked matching service,
@@ -364,9 +367,11 @@ then a generic 500. They run in Node and are excluded from coverage; they are
   otherwise count anything under its right half as being to its right, and
   swallow the press. `data-tv-nav-group` holds a *row* together at its ends; it
   does not confine a vertical stack horizontally, or the panel becomes somewhere
-  you can arrow into and never back out of.
+  you can arrow into and never back out of. That trap is easiest to walk into
+  on a row whose end is the only way back: the TV streaming rail's modes are
+  deliberately ungrouped for exactly that reason, and a test holds it.
 - `data-tv-nav-region` marks the bands a screen is built from — header, stage,
-  the settings column beside it, the watched strip below. Moving between regions
+  the streaming rail beside it, the watched strip below. Moving between regions
   asks where the *regions* are, not where the control is, which is the only way
   a stage-wide button can tell the panel beside it from a card under it. Within
   a region, plain element geometry still decides. Put a region on any new

@@ -298,6 +298,12 @@ describe("Movie Bowl TV experience", () => {
     expect(screen.getByText("Tonight route")).toBeInTheDocument();
   });
 
+  const getStreamingMode = () =>
+    screen.getAllByRole("radio").find((mode) => mode.getAttribute("aria-checked") === "true");
+
+  const clickStreamingMode = (name) =>
+    fireEvent.click(screen.getByRole("radio", { name }));
+
   it("states how much of the bowl the draw is favoring", async () => {
     renderTonight();
 
@@ -312,12 +318,14 @@ describe("Movie Bowl TV experience", () => {
   it("keeps a change made with the remote on this television", async () => {
     renderTonight();
 
-    const favor = await screen.findByRole("switch", { name: /favor netflix, then max/i });
-    expect(favor).toHaveAttribute("aria-checked", "true");
+    await screen.findByRole("radio", { name: /^favor netflix, then max$/i });
+    expect(getStreamingMode()).toHaveAccessibleName(/^favor netflix, then max$/i);
 
-    fireEvent.click(favor);
+    clickStreamingMode(/ignore streaming services/i);
 
-    await waitFor(() => expect(favor).toHaveAttribute("aria-checked", "false"));
+    await waitFor(() =>
+      expect(getStreamingMode()).toHaveAccessibleName(/ignore streaming services/i)
+    );
     expect(
       JSON.parse(window.localStorage.getItem("movie-bowl:tv:draw-settings:user-1"))
     ).toEqual({ prioritizeStreaming: false });
@@ -330,30 +338,29 @@ describe("Movie Bowl TV experience", () => {
   it("says favoring is an order while ranking is on, and a set once it is off", async () => {
     renderTonight();
 
-    expect(
-      await screen.findByRole("switch", { name: /^favor netflix, then max$/i })
-    ).toBeInTheDocument();
+    await screen.findByRole("radio", { name: /^favor netflix, then max$/i });
+    expect(getStreamingMode()).toHaveAccessibleName(/^favor netflix, then max$/i);
 
-    fireEvent.click(screen.getByRole("switch", { name: /only my top matching service/i }));
+    clickStreamingMode(/^favor netflix, max$/i);
 
-    expect(
-      await screen.findByRole("switch", { name: /^favor netflix, max$/i })
-    ).toBeInTheDocument();
-    expect(screen.queryByRole("switch", { name: /favor netflix, then max/i })).toBeNull();
+    await waitFor(() =>
+      expect(getStreamingMode()).toHaveAccessibleName(/^favor netflix, max$/i)
+    );
   });
 
-  // Five services became five lines of "then". The logos say the same thing on
-  // one line, and the accessible name still says it in words.
-  it("draws the favored services as logos while keeping the name accessible", async () => {
+  // The rail is a list of services rather than a label about them, so each one
+  // has to be nameable: "drawing from this service" is meaningless attached to
+  // an unnamed logo.
+  it("draws the favored services as named logos in priority order", async () => {
     renderTonight();
 
-    const favor = await screen.findByRole("switch", { name: /^favor netflix, then max$/i });
-    const logos = within(favor).getAllByRole("presentation", { hidden: true });
+    const rail = await screen.findByRole("list");
+    const logos = within(rail).getAllByRole("img");
+    expect(logos.map((logo) => logo.getAttribute("alt"))).toEqual(["Netflix", "Max"]);
     expect(logos.map((logo) => logo.getAttribute("src"))).toEqual([
       "https://image.tmdb.org/t/p/w92/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg",
       "https://image.tmdb.org/t/p/w92/jbe4gVSfRlbPTdESXhEKpornsfu.jpg",
     ]);
-    expect(within(favor).getByText("›")).toBeInTheDocument();
   });
 
   it("falls back to a service's name when TMDB has no logo for it", async () => {
@@ -361,28 +368,31 @@ describe("Movie Bowl TV experience", () => {
 
     renderTonight();
 
-    const favor = await screen.findByRole("switch", { name: /^favor netflix, then showtime$/i });
-    expect(within(favor).getByText("Showtime")).toBeInTheDocument();
-    expect(within(favor).getAllByRole("presentation", { hidden: true })).toHaveLength(1);
+    const rail = await screen.findByRole("list");
+    expect(within(rail).getByText("Showtime")).toBeInTheDocument();
+    expect(within(rail).getAllByRole("img")).toHaveLength(1);
   });
 
-  it("offers no ranking toggle when there is only one service to rank", async () => {
+  // Ranking one service against itself is not a choice, so the mode that would
+  // offer it is not there to pick.
+  it("offers no ranking mode when there is only one service to rank", async () => {
     mocks.streamingServices = ["Netflix"];
 
     renderTonight();
 
-    expect(await screen.findByRole("switch", { name: /^favor netflix$/i })).toBeInTheDocument();
-    expect(screen.queryByRole("switch", { name: /only my top matching service/i })).toBeNull();
+    expect(await screen.findByRole("radio", { name: /^favor netflix$/i })).toBeInTheDocument();
+    expect(screen.getAllByRole("radio")).toHaveLength(2);
+    expect(screen.queryByRole("radio", { name: /then/i })).toBeNull();
   });
 
-  it("marks the lines this television has an opinion about, and only those", async () => {
+  it("marks the controls this television has an opinion about, and only those", async () => {
     renderTonight();
 
-    const favor = await screen.findByRole("switch", { name: /favor netflix, then max/i });
-    fireEvent.click(favor);
+    clickStreamingMode(/ignore streaming services/i);
 
+    const rail = await screen.findByRole("radiogroup");
     await waitFor(() =>
-      expect(within(favor).getByText("set on this TV")).toBeInTheDocument()
+      expect(within(rail.parentElement).getByText("set on this TV")).toBeInTheDocument()
     );
     const theater = screen.getByRole("switch", { name: /^theater mode$/i });
     expect(within(theater).queryByText("set on this TV")).not.toBeInTheDocument();
@@ -394,24 +404,23 @@ describe("Movie Bowl TV experience", () => {
     await waitFor(() => expect(mocks.fetchStreamingProviders).toHaveBeenCalled());
     mocks.fetchStreamingProviders.mockClear();
 
-    fireEvent.click(await screen.findByRole("switch", { name: /favor netflix, then max/i }));
+    await screen.findByRole("radio", { name: /^favor netflix, then max$/i });
+    clickStreamingMode(/ignore streaming services/i);
 
     // Priority off means no service lookups, which is the pool changing shape
     // rather than a label changing.
     await waitFor(() =>
-      expect(screen.queryByRole("switch", { name: /only my top matching service/i })).toBeNull()
+      expect(getStreamingMode()).toHaveAccessibleName(/ignore streaming services/i)
     );
     expect(mocks.fetchStreamingProviders).not.toHaveBeenCalled();
   });
 
   it("lets a phone change through for anything this television has not touched", async () => {
     const view = renderTonight();
-    fireEvent.click(await screen.findByRole("switch", { name: /favor netflix, then max/i }));
+    await screen.findByRole("radio", { name: /^favor netflix, then max$/i });
+    clickStreamingMode(/ignore streaming services/i);
     await waitFor(() =>
-      expect(screen.getByRole("switch", { name: /favor netflix, then max/i })).toHaveAttribute(
-        "aria-checked",
-        "false"
-      )
+      expect(getStreamingMode()).toHaveAccessibleName(/ignore streaming services/i)
     );
 
     // The phone turns both on. Only the untouched one should move.
@@ -425,24 +434,19 @@ describe("Movie Bowl TV experience", () => {
         "true"
       )
     );
-    expect(screen.getByRole("switch", { name: /favor netflix, then max/i })).toHaveAttribute(
-      "aria-checked",
-      "false"
-    );
+    expect(getStreamingMode()).toHaveAccessibleName(/ignore streaming services/i);
   });
 
   it("hands the television back to the phone in one action", async () => {
     renderTonight();
-    fireEvent.click(await screen.findByRole("switch", { name: /favor netflix, then max/i }));
+    await screen.findByRole("radio", { name: /^favor netflix, then max$/i });
+    clickStreamingMode(/ignore streaming services/i);
     fireEvent.click(await screen.findByRole("switch", { name: /^theater mode$/i }));
 
     fireEvent.click(await screen.findByRole("button", { name: /use my phone's settings/i }));
 
     await waitFor(() =>
-      expect(screen.getByRole("switch", { name: /favor netflix, then max/i })).toHaveAttribute(
-        "aria-checked",
-        "true"
-      )
+      expect(getStreamingMode()).toHaveAccessibleName(/^favor netflix, then max$/i)
     );
     expect(screen.getByRole("switch", { name: /^theater mode$/i })).toHaveAttribute(
       "aria-checked",
@@ -461,7 +465,7 @@ describe("Movie Bowl TV experience", () => {
     renderTonight();
 
     expect(
-      await screen.findByRole("switch", { name: /theater mode: 3 previews/i })
+      await screen.findByRole("switch", { name: /theater mode on: 3 previews/i })
     ).toHaveAttribute("aria-checked", "true");
   });
 
@@ -474,13 +478,11 @@ describe("Movie Bowl TV experience", () => {
       });
 
     renderTonight();
-    fireEvent.click(await screen.findByRole("switch", { name: /favor netflix, then max/i }));
+    await screen.findByRole("radio", { name: /^favor netflix, then max$/i });
+    clickStreamingMode(/ignore streaming services/i);
 
     await waitFor(() =>
-      expect(screen.getByRole("switch", { name: /favor netflix, then max/i })).toHaveAttribute(
-        "aria-checked",
-        "false"
-      )
+      expect(getStreamingMode()).toHaveAccessibleName(/ignore streaming services/i)
     );
     expect(await screen.findByText(/can.t remember settings/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /draw a movie/i })).toBeInTheDocument();
@@ -498,7 +500,7 @@ describe("Movie Bowl TV experience", () => {
     renderTonight();
 
     const draw = await screen.findByRole("button", { name: /draw a movie/i });
-    const settings = await screen.findByRole("switch", { name: /favor netflix, then max/i });
+    const settings = await screen.findByRole("radio", { name: /^favor netflix, then max$/i });
     const card = await screen.findByRole("button", {
       name: /view details for arrival in watch history/i,
     });
@@ -529,7 +531,7 @@ describe("Movie Bowl TV experience", () => {
     renderTonight();
 
     const draw = await screen.findByRole("button", { name: /draw a movie/i });
-    const settings = await screen.findByRole("switch", { name: /favor netflix, then max/i });
+    const settings = await screen.findByRole("radio", { name: /^favor netflix, then max$/i });
     const card = await screen.findByRole("button", {
       name: /view details for arrival in watch history/i,
     });
@@ -542,17 +544,44 @@ describe("Movie Bowl TV experience", () => {
     setElementRect(card, { left: 130, top: 1000, width: 210, height: 300 });
     setElementRect(secondCard, { left: 350, top: 1000, width: 210, height: 300 });
 
-    // The preferences panel is a stack, so it has no horizontal traversal to
-    // interrupt and left must return to the control it was entered from.
+    // The rail's modes are a row, but deliberately not a nav group: its left
+    // end is the only way back to the draw button, so left must return to the
+    // control it was entered from rather than being held at the row's edge.
     settings.focus();
     fireEvent.keyDown(window, { key: "ArrowLeft" });
     expect(draw).toHaveFocus();
 
-    // The watched strip is a row, so its last card keeps holding the edge
-    // rather than escaping sideways to the panel.
+    // The watched strip is a row that IS a group, so its last card keeps
+    // holding the edge rather than escaping sideways to the rail.
     secondCard.focus();
     fireEvent.keyDown(window, { key: "ArrowRight" });
     expect(secondCard).toHaveFocus();
+  });
+
+  // Grouping the rail's modes as a row is the obvious thing to do and it walls
+  // off the only exit: a group holds a row at its ends, and this row's left end
+  // is the way back to the draw button.
+  it("lets the remote back out of the streaming rail the way it came in", async () => {
+    renderTonight();
+
+    const draw = await screen.findByRole("button", { name: /draw a movie/i });
+    const off = await screen.findByRole("radio", { name: /ignore streaming services/i });
+    const top = await screen.findByRole("radio", { name: /^favor netflix, then max$/i });
+
+    setElementRect(draw, { left: 130, top: 700, width: 1108, height: 260 });
+    setElementRect(off, { left: 1380, top: 300, width: 120, height: 56 });
+    setElementRect(top, { left: 1640, top: 300, width: 120, height: 56 });
+
+    // Right walks the row.
+    off.focus();
+    fireEvent.keyDown(window, { key: "ArrowRight" });
+    expect(top).toHaveFocus();
+
+    // Left walks back along it, and keeps going out of it.
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(off).toHaveFocus();
+    fireEvent.keyDown(window, { key: "ArrowLeft" });
+    expect(draw).toHaveFocus();
   });
 
   it("will not pull a card out of the scrolled strip from outside it", async () => {
@@ -562,7 +591,7 @@ describe("Movie Bowl TV experience", () => {
     ];
     renderTonight();
 
-    const settings = await screen.findByRole("switch", { name: /favor netflix, then max/i });
+    const settings = await screen.findByRole("radio", { name: /^favor netflix, then max$/i });
     const card = await screen.findByRole("button", {
       name: /view details for arrival in watch history/i,
     });
@@ -593,15 +622,15 @@ describe("Movie Bowl TV experience", () => {
     renderTonight();
 
     const draw = await screen.findByRole("button", { name: /draw a movie/i });
-    const settings = await screen.findByRole("switch", { name: /favor netflix, then max/i });
+    const settings = await screen.findByRole("radio", { name: /^favor netflix, then max$/i });
     const card = await screen.findByRole("button", {
       name: /view details for arrival in watch history/i,
     });
 
     setElementRect(draw, { left: 130, top: 700, width: 1108, height: 100 });
     setElementRect(draw.closest("[data-tv-nav-region]"), { left: 85, top: 160, width: 1205, height: 700 });
-    // The panel's only row sits high, so by its own geometry the card below is
-    // the nearer rightward candidate. By region it is not to the right at all.
+    // The rail sits high, so by its own geometry the card below is the nearer
+    // rightward candidate. By region it is not to the right at all.
     setElementRect(settings, { left: 1368, top: 200, width: 430, height: 80 });
     setElementRect(settings.closest("[data-tv-nav-region]"), { left: 1330, top: 160, width: 510, height: 700 });
     setElementRect(card, { left: 986, top: 900, width: 210, height: 300 });
@@ -614,15 +643,6 @@ describe("Movie Bowl TV experience", () => {
     draw.focus();
     fireEvent.keyDown(window, { key: "ArrowDown" });
     expect(card).toHaveFocus();
-  });
-
-  it("describes rotation without calling it a plain random draw", async () => {
-    mocks.drawMethod = "rotation";
-
-    renderTonight();
-
-    expect(await screen.findByText("Contributor rotation")).toBeInTheDocument();
-    expect(screen.queryByText(/rotation random draw/i)).not.toBeInTheDocument();
   });
 
   it("shows the final ranked pool and contributors represented, including manual exclusions", async () => {

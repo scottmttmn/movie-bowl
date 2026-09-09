@@ -279,8 +279,18 @@ test("TV Watch History opens details and applies the bounded return cleanup", as
     name: "View details for Recent History Feature in Watch History",
   });
   await expect(drawButton).toBeFocused();
+
+  // Theater mode sits between the draw control and the strip, so down passes
+  // through it. Where it lands in the strip is geometry, not order: the ticket
+  // is centred under the stage, so the card beneath it is not the first one.
   await drawButton.press("ArrowDown");
-  await expect(recentCard).toBeFocused();
+  await expect(page.getByRole("switch", { name: /theater mode/i })).toBeFocused();
+  await page.keyboard.press("ArrowDown");
+  await expect(
+    page.locator(".tv-recent-movie:focus")
+  ).toHaveCount(1);
+
+  await recentCard.focus();
   await recentCard.press("Enter");
 
   await expect(page.getByRole("heading", { name: "Recent History Feature" })).toBeVisible();

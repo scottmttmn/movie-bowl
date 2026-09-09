@@ -50,6 +50,12 @@ describe("normalizeDrawMethod", () => {
         expect(step.note).toBeTruthy();
       });
       expect(method.tvLabel).toBeTruthy();
+      // Rotation is contributor-first and history-aware. Calling it a random
+      // draw in any surface's copy would describe a different method.
+      if (method.selectionMode === "server") {
+        expect(method.label).not.toMatch(/random/i);
+        expect(method.tvLabel).not.toMatch(/random/i);
+      }
       expect(method.selectionMode).toBeTruthy();
       expect(typeof method.honorsPin).toBe("boolean");
     });

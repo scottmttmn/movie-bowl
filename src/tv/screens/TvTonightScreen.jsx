@@ -35,7 +35,9 @@ import TvVoiceHandoffCard from "../components/TvVoiceHandoffCard";
 import ProviderLinksAttribution from "../../components/ProviderLinksAttribution";
 import ServiceLogo from "../../components/ServiceLogo";
 import TvBrand from "../components/TvBrand";
-import TvDrawPreferences from "../components/TvDrawPreferences";
+import TvStreamingRail from "../components/TvStreamingRail";
+import TvTheaterTicket from "../components/TvTheaterTicket";
+import { getStreamingMode, getStreamingModeSettings } from "../utils/streamingMode";
 import TvTheaterPreroll from "../components/TvTheaterPreroll";
 import { useTvBowlAccess } from "../hooks/useTvBowls";
 import useTvDrawSettings from "../hooks/useTvDrawSettings";
@@ -233,19 +235,35 @@ async function enrichDrawnMovie(movie) {
   }
 }
 
-function TvTonightHeader({ onBack }) {
+function TvTonightHeader({ onBack, onResetSettings }) {
   return (
     <header className="tv-topbar" data-tv-nav-region="header">
       <TvBrand />
-      <button
-        type="button"
-        className="tv-text-button"
-        data-tv-focusable
-        data-tv-nav-group="tonight-header"
-        onClick={onBack}
-      >
-        ← Change bowl
-      </button>
+      <div className="tv-topbar-actions">
+        {/* Only once this television has an opinion to drop. In the settings
+            row it out-shouted the toggle beside it; up here it sits with the
+            other thing you do to the whole screen rather than set on it. */}
+        {onResetSettings && (
+          <button
+            type="button"
+            className="tv-text-button tv-text-button-strong"
+            data-tv-focusable
+            data-tv-nav-group="tonight-header"
+            onClick={onResetSettings}
+          >
+            Use my phone&apos;s settings
+          </button>
+        )}
+        <button
+          type="button"
+          className="tv-text-button"
+          data-tv-focusable
+          data-tv-nav-group="tonight-header"
+          onClick={onBack}
+        >
+          ← Change bowl
+        </button>
+      </div>
     </header>
   );
 }
@@ -887,8 +905,13 @@ export default function TvTonightScreen({ userId }) {
     hasOverrides,
     isPersisted: areTvSettingsPersisted,
     setOverride: setTvSetting,
+    setOverrides: setTvSettings,
     clearOverrides: clearTvSettings,
   } = useTvDrawSettings(userId, accountDrawSettings);
+
+  const isTvOverridden = (name) =>
+    Object.prototype.hasOwnProperty.call(overriddenSettings, name);
+  const streamingMode = getStreamingMode(defaultDrawSettings);
 
   const [showDrawConfirm, setShowDrawConfirm] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
@@ -1389,17 +1412,26 @@ export default function TvTonightScreen({ userId }) {
         aria-hidden={isBehindDialog ? "true" : undefined}
         inert={isBehindDialog}
       >
-        <TvTonightHeader onBack={chooseAnotherBowl} />
+        <TvTonightHeader
+          onBack={chooseAnotherBowl}
+          onResetSettings={hasOverrides ? clearTvSettings : null}
+        />
 
         <section className="tv-tonight-grid">
-          <div className="tv-tonight-stage" data-tv-nav-region="stage">
-            <div className="tv-tonight-stage-copy">
-              <h1>{bowlMeta.name}</h1>
-            </div>
+          <div
+            className="tv-tonight-stage"
+            data-tv-nav-region="stage"
+            data-theater={defaultDrawSettings.theaterModeEnabled ? "true" : undefined}
+          >
+            <h1 className="tv-tonight-title">{bowlMeta.name}</h1>
 
-            <BowlIllustration className="tv-tonight-bowl" />
-
-            <div className="tv-draw-cta">
+            <div className="tv-tonight-mid">
+              <div className="tv-tonight-left">
+              <div className="tv-draw-cta">
+              {/* The bowl is the control. Left beside the button it was an
+                  ornament holding the best space on the screen and giving
+                  nothing back; inside it, the largest thing here and the only
+                  thing to do are the same object. */}
               <button
                 type="button"
                 className="tv-draw-button"
@@ -1412,6 +1444,7 @@ export default function TvTonightScreen({ userId }) {
                   setShowDrawConfirm(true);
                 }}
               >
+                <BowlIllustration className="tv-draw-bowl" />
                 <span>Draw a movie</span>
               </button>
               {remainingCount > 0 && (
@@ -1442,20 +1475,43 @@ export default function TvTonightScreen({ userId }) {
                   {tonightMessage}
                 </p>
               )}
+                {!isPreferencesLoading && (
+                  <TvTheaterTicket
+                    enabled={Boolean(defaultDrawSettings.theaterModeEnabled)}
+                    trailerCount={defaultDrawSettings.theaterTrailerCount}
+                    isOverridden={isTvOverridden("theaterModeEnabled")}
+                    onToggle={setTvSetting}
+                  />
+                )}
+              </div>
+
+              {/* A write this television refused. The settings still apply for
+                  tonight, so this warns rather than reverts -- and it sits in
+                  the column it describes, sharing a centre line with the
+                  controls stacked above it. Centred on the stage instead it
+                  reads as off-axis, because the rail makes the stage
+                  asymmetric. */}
+              {!areTvSettingsPersisted && (
+                <p className="tv-stage-warning" role="status">
+                  This TV can&apos;t remember settings, so these last until it restarts.
+                </p>
+              )}
+              </div>
+
+              {!isPreferencesLoading && (
+                <TvStreamingRail
+                  services={streamingServices}
+                  mode={streamingMode}
+                  topService={drawReadout.service}
+                  isOverridden={
+                    isTvOverridden("prioritizeStreaming") ||
+                    isTvOverridden("useStreamingRank")
+                  }
+                  onChange={(mode) => setTvSettings(getStreamingModeSettings(mode))}
+                />
+              )}
             </div>
           </div>
-
-          <TvDrawPreferences
-            settings={defaultDrawSettings}
-            streamingServices={streamingServices}
-            drawMethod={bowlMeta.drawMethod}
-            overriddenSettings={overriddenSettings}
-            hasOverrides={hasOverrides}
-            isPersisted={areTvSettingsPersisted}
-            isLoading={isPreferencesLoading}
-            onToggle={setTvSetting}
-            onReset={clearTvSettings}
-          />
         </section>
 
         <TvRecentDraws
