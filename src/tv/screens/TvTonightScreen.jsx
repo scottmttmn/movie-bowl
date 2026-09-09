@@ -36,6 +36,7 @@ import ProviderLinksAttribution from "../../components/ProviderLinksAttribution"
 import ServiceLogo from "../../components/ServiceLogo";
 import TvBrand from "../components/TvBrand";
 import TvStreamingRail from "../components/TvStreamingRail";
+import TvDrawMethodMark from "../components/TvDrawMethodMark";
 import TvTheaterTicket from "../components/TvTheaterTicket";
 import { getStreamingMode, getStreamingModeSettings } from "../utils/streamingMode";
 import TvTheaterPreroll from "../components/TvTheaterPreroll";
@@ -1423,7 +1424,13 @@ export default function TvTonightScreen({ userId }) {
             data-tv-nav-region="stage"
             data-theater={defaultDrawSettings.theaterModeEnabled ? "true" : undefined}
           >
-            <h1 className="tv-tonight-title">{bowlMeta.name}</h1>
+            {/* The method belongs to the bowl rather than to tonight, so it
+                sits with the bowl's name and not in the readout, which is
+                about this draw's pool. */}
+            <div className="tv-tonight-heading">
+              <h1 className="tv-tonight-title">{bowlMeta.name}</h1>
+              <TvDrawMethodMark drawMethod={bowlMeta.drawMethod} />
+            </div>
 
             <div className="tv-tonight-mid">
               <div className="tv-tonight-left">

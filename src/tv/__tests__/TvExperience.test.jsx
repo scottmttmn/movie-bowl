@@ -558,6 +558,33 @@ describe("Movie Bowl TV experience", () => {
     expect(secondCard).toHaveFocus();
   });
 
+  // The television indicates how the bowl picks without naming it, so the mark
+  // is the only thing carrying that meaning -- and it has to carry it for
+  // someone who cannot see it too.
+  it("marks how the bowl picks, and names the method only to assistive tech", async () => {
+    mocks.drawMethod = "rotation";
+
+    renderTonight();
+
+    expect(await screen.findByRole("img", { name: "Contributor rotation" })).toBeInTheDocument();
+    // Naming it on screen is what the mark replaces.
+    expect(screen.queryByText(/contributor rotation/i)).not.toBeInTheDocument();
+  });
+
+  it("marks a person-first bowl differently from a rotation one", async () => {
+    const view = renderTonight();
+    expect(
+      await screen.findByRole("img", { name: "Person-first random draw" })
+    ).toBeInTheDocument();
+
+    mocks.drawMethod = "title_first";
+    view.rerender(renderTonightTree());
+    expect(
+      await screen.findByRole("img", { name: "Title-first random draw" })
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("img", { name: /person-first/i })).toBeNull();
+  });
+
   // Regions are compared as rectangles, so a region nested inside another one
   // overlaps it on both axes and is a neighbour in no direction. Making the
   // rail its own region did exactly that: the stage's rectangle contained it,
