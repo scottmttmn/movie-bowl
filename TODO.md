@@ -4,12 +4,23 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Implemented, pending release
 
+- The TV draw screen is rebuilt around the bowl as the draw control, with
+  streaming priority as an Off / All / Top rail that highlights the service the
+  draw actually landed on, theater mode as a ticket that takes the stage lights
+  down, and the draw method shown as a mark beside the bowl name rather than
+  named. The filter escapes left with their rows and are set on the phone.
+  Verified on physical TV hardware: the dim reads as armed rather than
+  disabled, and the focus ring reads on the enlarged draw control -- the two
+  risks a screenshot could not settle. Design record and the directions not
+  taken are on the shared canvas.
+
 - The TV bowl picker now stacks `Exit TV mode` and `Sign out of this TV`
   beneath the account. Sign-out requires confirmation with Cancel focused first;
   Cancel and Back restore focus to the originating action. It ends only the
   current device session, preserves TV preferences, and returns to pairing.
   Browser coverage checks D-pad navigation, failure/retry, and session scope.
-  Repeat the sign-out and re-pair flow on physical TV hardware after deployment.
+  Still to repeat on physical TV hardware after deployment: the sign-out and
+  re-pair flow itself.
 
 - Successful TV pairing approvals now replace the code-bearing browser history
   entry and remember the approved code locally. Revisiting the original QR URL
