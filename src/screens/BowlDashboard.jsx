@@ -3,6 +3,7 @@ import HoldToDrawButton from "../components/HoldToDrawButton";
 import BowlStatLine from "../components/BowlStatLine";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
 import MyMoviesStrip from "../components/MyMoviesStrip";
+import MovieStripSkeleton from "../components/MovieStripSkeleton";
 import AddMovieButton from "../components/AddMovieButton";
 import FilterChipSelect from "../components/FilterChipSelect";
 import BowlIllustration from "../components/BowlIllustration";
@@ -766,7 +767,7 @@ return (
             </header>
 
             {isLoading && (
-              <div className="panel mb-3 text-sm text-slate-400" role="status">Loading bowl…</div>
+              <p className="sr-only" role="status">Loading bowl…</p>
             )}
             {!isLoading && errorMessage && (
               <div className="status-error mb-3">{errorMessage}</div>
@@ -1262,7 +1263,9 @@ return (
               </div>
 
               <div className="mt-3">
-                {myMovies.length === 0 ? (
+                {isLoading ? (
+                  <MovieStripSkeleton label="Loading your movies…" />
+                ) : myMovies.length === 0 ? (
                   <p className="text-sm text-slate-400">You have no movies in this section.</p>
                 ) : (
                   <MyMoviesStrip
@@ -1292,6 +1295,7 @@ return (
                 <WatchedMoviesStrip
                   movies={bowl.watched}
                   isExpanded={showWatched}
+                  isLoading={isLoading}
                   onToggleExpanded={() => setShowWatched((prev) => !prev)}
                   onSelectMovie={async (movie) => {
                     setSelectedDetailContext("watched");

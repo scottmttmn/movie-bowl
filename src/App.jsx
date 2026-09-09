@@ -1,4 +1,4 @@
-import React, { Suspense } from "react";
+import React, { Suspense, useEffect } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
 import useAuth from "./hooks/useAuth";
 import useAppUpdate from "./hooks/useAppUpdate";
@@ -13,6 +13,8 @@ import OfflineBanner from "./components/OfflineBanner";
 import UpdateBanner from "./components/UpdateBanner";
 import AppErrorBoundary from "./components/AppErrorBoundary";
 import { recoverFromStaleChunkError } from "./utils/appVersion";
+import { trackRouteLoad } from "./utils/routeLoading";
+import RouteProgressBar from "./components/RouteProgressBar";
 
 // Every screen is loaded on demand, which means every navigation can outlive
 // the build it was compiled into: a deploy replaces the hashed chunks, and an
@@ -20,17 +22,40 @@ import { recoverFromStaleChunkError } from "./utils/appVersion";
 // -- the fresh document points at chunks that do exist -- and leave anything
 // the reload cannot fix to the error boundary.
 function lazyScreen(importScreen) {
-  return React.lazy(() =>
-    importScreen().catch((error) => {
-      if (recoverFromStaleChunkError(error)) {
-        // The reload is already in flight. Never settling keeps the Suspense
-        // fallback up instead of flashing an error on the way out.
-        return new Promise(() => {});
-      }
+  let modulePromise = null;
+  let settled = false;
 
-      throw error;
-    })
+  // One download however many callers ask: a prefetch and the render that
+  // follows it share this promise.
+  const begin = () => {
+    if (!modulePromise) {
+      modulePromise = importScreen()
+        .catch((error) => {
+          if (recoverFromStaleChunkError(error)) {
+            // The reload is already in flight. Never settling keeps the
+            // Suspense fallback up instead of flashing an error on the way out.
+            return new Promise(() => {});
+          }
+
+          throw error;
+        })
+        .finally(() => {
+          settled = true;
+        });
+    }
+
+    return modulePromise;
+  };
+
+  const Screen = React.lazy(() =>
+    // Only counted when someone is actually kept waiting. An already-resolved
+    // chunk would otherwise flash the indicator for a frame on every visit,
+    // and a prefetch nobody is waiting on would show it for no reason at all.
+    settled ? begin() : trackRouteLoad(begin())
   );
+  // Warms the chunk without claiming anyone is waiting for it.
+  Screen.preload = begin;
+  return Screen;
 }
 
 const MyBowlsScreen = lazyScreen(() => import("./screens/MyBowlsScreen"));
@@ -74,9 +99,13 @@ function AppShell({ children }) {
     (Boolean(session) || isAboutRoute);
   const userEmail = session?.user?.email ?? "";
   const { defaultBowlId } = useUserBowls();
+  usePrefetchLikelyRoutes(session);
 
   return (
     <div className={`app-shell ${isTvRoute ? "app-shell-tv" : ""}`}>
+      {/* Not on the television: it is driven by a D-pad from across a room,
+          where a 3px line at the top of the screen says nothing. */}
+      {!isTvRoute && <RouteProgressBar />}
       {/* Global actions stay pinned to the top for quick access */}
       {shouldShowTopNav && (
         <TopNav
@@ -201,6 +230,25 @@ function AcceptInvite() {
       <div className={status === "error" ? "text-rose-300" : "text-slate-300"}>{message}</div>
     </div>
   );
+}
+
+// The bowl dashboard is where nearly every session goes next, so its chunk is
+// warmed once the app has settled rather than at the moment someone taps. This
+// is the difference between a navigation that waits for a download and one that
+// does not, and it costs an idle callback.
+function usePrefetchLikelyRoutes(session) {
+  useEffect(() => {
+    if (!session) return undefined;
+    const schedule = window.requestIdleCallback
+      ? window.requestIdleCallback
+      : (fn) => window.setTimeout(fn, 800);
+    const cancel = window.cancelIdleCallback || window.clearTimeout;
+    const handle = schedule(() => {
+      BowlDashboard.preload?.();
+      MyBowlsScreen.preload?.();
+    });
+    return () => cancel(handle);
+  }, [session]);
 }
 
 function App() {
