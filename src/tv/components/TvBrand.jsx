@@ -1,4 +1,4 @@
-import bowlImage from "../../assets/movie-bowl.png";
+import bowlImage from "../../assets/movie-bowl.webp";
 
 export default function TvBrand({ context }) {
   return (

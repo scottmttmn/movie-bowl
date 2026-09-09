@@ -1,6 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
-import bowlImage from "../assets/movie-bowl.png";
+import bowlImage from "../assets/movie-bowl.webp";
 
 export default function TopNav({
   isSettingsRoute,
