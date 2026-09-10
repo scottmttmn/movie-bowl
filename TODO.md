@@ -160,6 +160,19 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   `bowl_draw_events.source_bowl_movie_id` points at when a guest's title wins.
   Plan, not implementation: `output/designs/guest-night.md`.
 
+- Starter packs: let an owner pour a named curated list into a bowl so a new
+  bowl can reach its first draw without six people running six searches. The
+  pack enters as its own contributor -- `added_by_name` already makes a non-user
+  bucket a first-class contributor -- so it holds one share of the odds no
+  matter how many titles it carries; attributing it to the installing member
+  would drown `title_first` bowls and eat that member's rotation turn. Install a
+  sample of 8-10 rather than the whole list, and skip the provider/metadata warm
+  the way public add links already do: the Watchmode budget default sits exactly
+  at the free plan's ceiling, and the daily cron's 300-title allowance is spent
+  on distinct titles globally. Needs a `SECURITY DEFINER` install/remove pair
+  with pgTAP coverage, and an answer on whether a pack takes a turn in rotation.
+  Plan, not implementation: `output/designs/starter-packs.md`.
+
 ## Technical Debt / Maintenance
 
 - Evidence-backed bugs, integrity risks, and accepted engineering tradeoffs are
