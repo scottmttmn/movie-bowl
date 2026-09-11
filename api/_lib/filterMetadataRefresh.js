@@ -1,4 +1,5 @@
 import { fetchTmdbFilterMetadata } from "./tmdbFilterMetadata.js";
+import { recordServiceUsage } from "./usageCounters.js";
 
 export const FILTER_METADATA_REGION = "US";
 export const FILTER_METADATA_STALE_MS = 24 * 60 * 60 * 1000;
@@ -185,6 +186,15 @@ export async function runDailyFilterMetadataRefresh(
       else stats.failed += 1;
     });
   }
+
+  // One record for the whole run rather than one per title: the counter is a
+  // meter, and 300 extra round trips inside a 60-second budget would make it a
+  // cost of its own. Claims rather than successes, because a claim is the TMDB
+  // request whether or not it came back.
+  await recordServiceUsage("tmdb_request", stats.claimed, {
+    client: supabaseAdmin,
+    label: "cron/refresh-filter-metadata",
+  });
 
   return {
     ...stats,

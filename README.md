@@ -265,6 +265,8 @@ These are visible in the browser bundle by design.
 - `INVITE_EMAIL_FROM`
 - `WATCHMODE_API_KEY`, `PROVIDER_LINKS_ENABLED`, `PROVIDER_LINKS_MONTHLY_BUDGET`
   — optional, and off unless set. See [Provider title links](#provider-title-links).
+- `EMAIL_DAILY_WARN_THRESHOLD` (optional; defaults to 80). See
+  [Usage counters](#usage-counters).
 
 Do not prefix server-only values with `VITE_`. `SUPABASE_SERVICE_ROLE_KEY`
 bypasses RLS, so every route that uses it must do its own authorization.
@@ -276,6 +278,59 @@ stored in the counter table.
 
 `CRON_SECRET` protects the once-daily Vercel filter-metadata refresh. Vercel
 sends it as a bearer token when invoking the configured cron route.
+
+### Usage counters
+
+`public.service_usage_counters` records how much metered vendor quota the app
+spends, one row per day per metric, so a cost or capacity question can be
+answered with a number. Writes go through `record_service_usage`; no role
+reaches the table directly, the service role included. Read it as the project
+owner in the SQL editor:
+
+```sql
+-- The last fortnight, by metric.
+select usage_date, metric, event_count
+from public.service_usage_counters
+where usage_date >= current_date - 14
+order by usage_date desc, metric;
+
+-- This month's totals.
+select metric, sum(event_count) as events
+from public.service_usage_counters
+where usage_date >= date_trunc('month', current_date)::date
+group by metric;
+```
+
+Counters are daily rather than monthly on purpose. The mail cap that threatens
+this app is a daily one, and a monthly total cannot see a single day's burst
+inside it; a month is the sum of its days, so daily rows answer both questions.
+
+The meter never refuses the action it measures, and every failure to record is
+swallowed with a logged error. Budgets that must actually hold belong in a
+function like `begin_title_provider_link_fetch`, which reserves before HTTP.
+
+Two metrics are recorded today:
+
+- `invite_email` — one per invite the send route attempted, counted whether or
+  not the vendor accepted it, because a rejected send still spent the quota.
+  Crossing `EMAIL_DAILY_WARN_THRESHOLD` logs a warning rather than refusing;
+  the vendor enforces its own ceiling, and stopping early would turn "nearly
+  out" into "nobody can be invited."
+- `tmdb_request` — recorded once per daily refresh run with the number of
+  titles claimed, rather than once per title. The run works inside a
+  60-second budget, and 300 extra round trips would make the meter a cost of
+  its own.
+
+**Two things this cannot see.** Magic-link authentication mail is sent by
+Supabase's SMTP after a client call that never reaches these functions, so it is
+absent from `invite_email`; the mail vendor's own dashboard is authoritative for
+total mail. The user-facing `api/tmdb/*` proxies are also unmetered, which keeps
+the service-role client out of routes that do not otherwise need it — Vercel's
+function metrics cover their volume.
+
+Adding a metric means extending the check constraint on
+`service_usage_counters.metric`. The constraint is deliberate: a free text
+column turns one typo into a phantom metric that reads as zero usage forever.
 
 ## Production Setup
 

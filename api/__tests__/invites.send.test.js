@@ -4,6 +4,7 @@ const getUserMock = vi.fn();
 const inMock = vi.fn();
 const selectMock = vi.fn(() => ({ in: inMock }));
 const fromMock = vi.fn(() => ({ select: selectMock }));
+const rpcMock = vi.fn(async () => ({ data: 1, error: null }));
 
 vi.mock("../_lib/supabaseAdmin.js", () => ({
   getSupabaseAdmin: () => ({
@@ -11,6 +12,7 @@ vi.mock("../_lib/supabaseAdmin.js", () => ({
       getUser: getUserMock,
     },
     from: fromMock,
+    rpc: rpcMock,
   }),
 }));
 
@@ -64,6 +66,8 @@ describe("api/invites/send", () => {
     inMock.mockReset();
     selectMock.mockClear();
     fromMock.mockClear();
+    rpcMock.mockClear();
+    rpcMock.mockResolvedValue({ data: 1, error: null });
     getUserMock.mockResolvedValue({
       data: {
         user: {
@@ -228,6 +232,41 @@ describe("api/invites/send", () => {
       failed: 0,
       results: [{ email: "friend@example.com", ok: true }],
     });
+    expect(rpcMock).toHaveBeenCalledWith("record_service_usage", {
+      p_metric: "invite_email",
+      p_count: 1,
+    });
+  });
+
+  it("counts a rejected send, because it still spent the vendor's quota", async () => {
+    global.fetch.mockResolvedValue({
+      ok: false,
+      status: 500,
+      json: async () => ({ message: "smtp down" }),
+    });
+
+    const res = createRes();
+
+    await handler(createRequest({ invites: [{ token: "token-1" }] }), res);
+
+    expect(res.body).toMatchObject({ sent: 0, failed: 1 });
+    expect(rpcMock).toHaveBeenCalledWith("record_service_usage", {
+      p_metric: "invite_email",
+      p_count: 1,
+    });
+  });
+
+  it("still sends the invite when the counter cannot be recorded", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    global.fetch.mockResolvedValue({ ok: true, status: 200, json: async () => ({ id: "email-1" }) });
+    rpcMock.mockRejectedValue(new Error("counters unavailable"));
+
+    const res = createRes();
+
+    await handler(createRequest({ invites: [{ token: "token-1" }] }), res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({ sent: 1, failed: 0 });
   });
 
   it("returns failed results when Resend returns an error", async () => {
