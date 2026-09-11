@@ -384,7 +384,6 @@ describe("BowlDashboard draw flow", () => {
     const link = await screen.findByRole("link", { name: /open on web in netflix/i });
     expect(mocks.fetchProviderLinks).toHaveBeenCalledExactlyOnceWith(101, "bowl-1");
     expect(link).toHaveAttribute("href", "https://www.netflix.com/search?q=Arrival");
-    expect(screen.queryByText(/hold the mic button/i)).not.toBeInTheDocument();
     await act(async () => { finishLookup({ links: [{ service: "Netflix", type: "sub", webUrl: "https://www.netflix.com/title/123" }] }); });
     expect(screen.getByRole("link", { name: /open on web in netflix/i })).toBe(link);
     expect(link).toHaveAttribute("href", "https://www.netflix.com/title/123");

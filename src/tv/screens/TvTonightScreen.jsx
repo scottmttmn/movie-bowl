@@ -31,7 +31,6 @@ import {
 import { resolvePreferredLaunchTarget } from "../../utils/webLaunch";
 import { canReturnDrawToBowl } from "../../utils/watchHistory";
 import useDrawProviderLinks from "../../hooks/useDrawProviderLinks";
-import TvVoiceHandoffCard from "../components/TvVoiceHandoffCard";
 import ProviderLinksAttribution from "../../components/ProviderLinksAttribution";
 import ServiceLogo from "../../components/ServiceLogo";
 import TvBrand from "../components/TvBrand";
@@ -635,7 +634,6 @@ function TvMovieDetailStage({
           )}
         </div>
 
-        <TvVoiceHandoffCard title={movie.title} launchTarget={webLaunchCandidate} />
         {webLaunchCandidate?.linkType === "title" && <ProviderLinksAttribution tv />}
 
         {providerLaunchMessage && (
