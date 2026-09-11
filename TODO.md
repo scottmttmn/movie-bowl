@@ -225,3 +225,16 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   `node scripts/refresh-provider-logos.mjs`, which needs `TMDB_READ_ACCESS_TOKEN`.
   A service the refresh cannot match renders as its name, so a lapse degrades
   quietly rather than breaking, which is exactly why it needs a date here.
+- Consider letting the YouTube channel decide what counts as official.
+  `selectBestTrailer` ranks TMDB's `official` flag above cut length, so a
+  studio's forty-second teaser outranks a full theatrical trailer posted by
+  Movieclips whenever that upload was never flagged. The code cannot tell the
+  two apart: TMDB's video rows carry no channel or uploader field. Resolving it
+  costs one YouTube Data API unit per video through
+  `videos.list?part=snippet&id=<key>` — not the hundred `search.list` charges —
+  batched up to fifty ids, which would let an allowlist of studio and
+  Fandango-family channel ids promote an unflagged upload into the official
+  tier. It would have to run server-side behind `/api/tmdb/movie/details` to
+  keep a second key out of the browser. Deferred deliberately: the fallback
+  tiers already recover most of these titles, and nobody has counted how often
+  the teaser actually wins.
