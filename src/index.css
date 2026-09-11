@@ -317,13 +317,21 @@
     0 34px 80px -52px rgba(0, 0, 0, 0.98);
 }
 
+/* The rail needs three readable labels side by side, so it is a wide-viewport
+   device only; narrow layouts carry the same labels above each entry. */
 .about-spectrum-rail {
+  display: none;
   position: relative;
-  display: grid;
-  grid-template-columns: 0.92fr 1.16fr 0.92fr;
+  grid-template-columns: repeat(3, 1fr);
   align-items: end;
   gap: 1rem;
   padding-bottom: 18px;
+}
+
+@media (min-width: 640px) {
+  .about-spectrum-rail {
+    display: grid;
+  }
 }
 
 .about-spectrum-rail::after {
@@ -375,21 +383,6 @@
   box-shadow: 0 0 0 5px rgba(225, 29, 72, 0.12);
 }
 
-.about-browse-list {
-  position: relative;
-  max-height: 240px;
-  overflow: hidden;
-}
-
-.about-browse-list::after {
-  content: "";
-  position: absolute;
-  inset: auto 0 0;
-  height: 46px;
-  background: linear-gradient(180deg, transparent, rgba(15, 23, 42, 0.98));
-  pointer-events: none;
-}
-
 .about-paper-ticket {
   position: relative;
   padding: 1rem 1.2rem;
@@ -422,21 +415,6 @@
 
 .about-paper-ticket::after {
   right: -7px;
-}
-
-.about-principle-number {
-  display: inline-flex;
-  width: 2.4rem;
-  height: 2.4rem;
-  align-items: center;
-  justify-content: center;
-  border: 1px solid rgba(244, 63, 94, 0.35);
-  border-radius: 999px;
-  background: rgba(136, 19, 55, 0.24);
-  color: #fda4af;
-  font-size: 0.68rem;
-  font-weight: 800;
-  letter-spacing: 0.08em;
 }
 
 .about-tonight {

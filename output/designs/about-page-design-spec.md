@@ -4,6 +4,37 @@
 **Route:** `/about`
 **Purpose:** Explain why Movie Bowl exists, make its philosophy memorable, and let a visitor experience the core idea before creating or joining a bowl.
 
+## 0. Revision — the page was cut in half
+
+The first implementation of this spec shipped seven sections. It worked, and it
+was too long, for two reasons worth recording so the next revision does not
+rebuild them.
+
+**It said one thing six times.** The hero, the comparison, three principle
+cards, a use-case story, a three-step flow, and the closing call to action all
+delivered "you fill the bowl, a fair draw picks tonight's." The story timeline
+and the product flow were literally the same three beats — *over the month /
+tonight / one draw later* and *collect over time / filter for tonight / draw
+together* — set in different type one section apart. One list now carries both.
+
+**Nothing had a pecking order.** Four consecutive sections used the same
+template: rose eyebrow, centered heading, three-card grid, `mt-20`. When every
+section is weighted the same, none of them reads as the important one, and the
+page reads as filler even though each individual sentence is fine.
+
+The cuts, and what replaced them:
+
+| Removed | Why | Replacement |
+| --- | --- | --- |
+| Three interactive comparison demos | Two of the three animated a competitor's product in the page's best real estate | A static three-line comparison, demoted to the bottom third |
+| Philosophy principle grid | Restated the demo and the story | One sentence — the thesis — at display size, alone |
+| Three-step product flow | Duplicated the story timeline verbatim | Merged into that timeline, which now carries both the moment and the step |
+| "Try the demo ↓" hero scroll button | The demo moved into the hero; the button scrolled to something already on screen | The product action is the only hero button |
+
+The demo itself was promoted rather than trimmed: it is the only part of the
+page that lets someone feel the product, so it now sits in the hero beside the
+headline, visible without scrolling.
+
 ## 1. Product Story
 
 Movie Bowl sits between two common ways of choosing what to watch:
@@ -15,10 +46,6 @@ Movie Bowl sits between two common ways of choosing what to watch:
 The page should not argue that browsing or recommendation systems are bad. Both solve real problems. It should make Movie Bowl's particular tradeoff clear:
 
 > **Human curation without decision fatigue.**
-
-The more conversational version, used in the hero:
-
-> **You choose the possibilities. Movie Bowl ends the debate.**
 
 The key product distinction is not randomness by itself. It is that every title has an advocate: a significant other, family member, or other person who genuinely wants to watch it. The product does not imply that everyone agrees with every pick.
 
@@ -48,7 +75,9 @@ The page should leave a visitor with four ideas:
 3. **The selection method is understandable and fair.**
 4. **The result is watching sooner, not finding a mathematically perfect movie.**
 
-The visitor should be able to understand the page's premise from the hero and demo alone. The remaining sections add conviction; they should not be required to decode the product.
+A visitor should be able to understand the premise from the hero alone, because
+the hero now contains a working draw. Everything below it adds conviction; none
+of it is required to decode the product.
 
 ## 4. Voice and Tone
 
@@ -59,19 +88,21 @@ The visitor should be able to understand the page's premise from the hero and de
 - Focused on the familiar moment when a couple or family is ready to watch but nobody wants to choose.
 - Use "draw," "bowl," "your picks," "significant other," "family," and "the people you watch with."
 - Avoid "content," "optimization," "engagement," and claims about finding a "perfect" movie.
+- Say each thing once. A sentence that appears in two sections belongs in one.
 
 ## 5. Page Architecture
 
 1. Public top navigation
-2. Hero
-3. Interactive decision spectrum
-4. Philosophy principles
-5. Primary use-case story
-6. Three-step product flow
-7. Closing call to action and support
-8. TMDB attribution
+2. Hero — headline and the live sample draw, side by side
+3. The thesis, set alone
+4. Use-case story with the merged moment/step timeline
+5. Where this sits — static comparison
+6. Closing call to action and support
+7. TMDB attribution
 
-The page uses the existing dark, late-night visual system. The maximum content width remains `max-w-6xl`, with narrower text measures inside sections.
+Five content blocks, and the three-across grid appears exactly once, at the
+bottom, in the quietest type on the page. The maximum content width remains the
+page container, with narrower measures inside sections.
 
 ## 6. Desktop Wireframe
 
@@ -79,45 +110,38 @@ The page uses the existing dark, late-night visual system. The maximum content w
 ┌──────────────────────────────────────────────────────────────────────────────┐
 │ Movie Bowl                                                   [menu]          │
 ├──────────────────────────────────────────────────────────────────────────────┤
+│  A BETTER WAY TO CHOOSE MOVIE NIGHT      ┌──────────────────────────────────┐ │
+│                                          │ A SAMPLE BOWL   75 movies · 2 mem│ │
+│  Stop searching.                         │                                  │ │
+│  Start watching.                         │           [bowl image]           │ │
+│                                          │                                  │ │
+│  Movie Bowl is the space between         │    [You · 47] [Significant · 28] │ │
+│  endless scrolling and handing the       │                                  │ │
+│  choice to an algorithm. …               │  Every option has someone rooting│ │
+│                                          │  for it. …                       │ │
+│  Built for couples, families, …          │                                  │ │
+│                                          │  [ Draw tonight's movie ]        │ │
+│  [ Start a bowl ]                        └──────────────────────────────────┘ │
+├──────────────────────────────────────────────────────────────────────────────┤
 │                                                                              │
-│                 A BETTER WAY TO CHOOSE MOVIE NIGHT                           │
-│                 Stop searching. Start watching.                              │
-│                                                                              │
-│     Movie Bowl is the space between endless scrolling and handing the        │
-│     choice to an algorithm. You and the people you watch with fill the       │
-│     bowl with movies someone wants to see. A fair draw picks tonight's.      │
-│                                                                              │
-│                 [ Try the demo ↓ ]  [ Start a bowl ]                         │
-│                                                                              │
-├────────────────────── THREE WAYS TO CHOOSE ──────────────────────────────────┤
-│                                                                              │
-│   YOU CHOOSE EVERYTHING      YOU CHOOSE THE POOL       A SYSTEM CHOOSES      │
-│   ───────────●──────────────────────●────────────────────────●────────────    │
-│                                                                              │
-│  ┌────────────────────┐    ┌────────────────────────┐   ┌───────────────────┐ │
-│  │ BROWSE EVERYTHING  │    │ MOVIE BOWL             │   │ GET A RECOMMEND. │ │
-│  │                    │    │                        │   │                   │ │
-│  │  title after title │    │      [bowl image]      │   │  96% MATCH       │ │
-│  │  title after title │    │ 75 movies · 2 members │   │  Tonight's pick  │ │
-│  │  title after title │    │                        │   │                   │ │
-│  │                    │    │ [ Draw tonight's movie ]│   │ Based on signals│ │
-│  │ [ Keep browsing ]  │    │                        │   │ you don't manage │ │
-│  │ Still deciding…    │    │ Every option has      │   │ directly.        │ │
-│  └────────────────────┘    │ someone rooting for it.│   └───────────────────┘ │
-│                            └────────────────────────┘                         │
-│                                                                              │
-├──────────────────────────── WHAT WE BELIEVE ─────────────────────────────────┤
-│                                                                              │
-│  CURATE DELIBERATELY        DECIDE PLAYFULLY          SHARE THE CHOICE       │
-│  Save the good ideas        Once every option is      Each person's picks    │
-│  before movie night.        good, chance is useful.   get a fair shot.       │
-│                                                                              │
-├────────────────────────── TONIGHT, 8:13 P.M. ────────────────────────────────┤
-│                                                                              │
-│  "Everyone is ready to watch. Nobody wants to browse."       [mini timeline] │
+│        When every option in the bowl is one somebody wants to watch,         │
+│        chance is not a compromise. It is a clean way to commit.              │
 │                                                                              │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│        COLLECT OVER TIME  →  FILTER FOR TONIGHT  →  DRAW TOGETHER             │
+│ TONIGHT, 8:13 P.M.                        ○ OVER THE MONTH                   │
+│                                           │ Collect over time                │
+│ Everyone is ready to watch.               │                                  │
+│ Nobody wants to browse.                   ○ TONIGHT                          │
+│                                           │ Filter for tonight               │
+│ Movie Bowl does not need to guess …       │                                  │
+│                                           ● ONE DRAW LATER                   │
+│                                             Draw together                    │
+├──────────────────────────────────────────────────────────────────────────────┤
+│ WHERE THIS SITS                                                              │
+│   YOU CHOOSE EVERYTHING     YOU CHOOSE THE POOL      A SYSTEM CHOOSES        │
+│   ──────────○────────────────────●────────────────────────○─────────────      │
+│   Browse everything         Draw from the bowl       Take a recommendation    │
+│   Every movie is still …    You decide what is …     A confident answer …     │
 ├──────────────────────────────────────────────────────────────────────────────┤
 │         A little structure. One good surprise. No endless scroll.            │
 │                  [ Start a bowl ]  [ Contact support ]                       │
@@ -126,51 +150,42 @@ The page uses the existing dark, late-night visual system. The maximum content w
 
 ## 7. Mobile Wireframe
 
-The page remains linear. The spectrum comparison becomes a three-option selector so the central demo can remain legible without horizontal scrolling.
+The page is linear. The hero stacks headline above the demo card, so the draw is
+roughly one short scroll from the top rather than a section away.
 
 ```text
 ┌──────────────────────────┐
 │ Movie Bowl        [menu] │
 ├──────────────────────────┤
 │ A BETTER WAY TO CHOOSE   │
-│                          │
 │ Stop searching.          │
 │ Start watching.          │
-│                          │
 │ Short hero explanation.  │
-│                          │
-│ [ Try the demo ↓ ]       │
 │ [ Start a bowl ]         │
-├──────────────────────────┤
-│ THREE WAYS TO CHOOSE     │
-│                          │
-│ [Browse] [Bowl] [AI]     │
-│             ─────        │
-│                          │
 │ ┌──────────────────────┐ │
-│ │ MOVIE BOWL           │ │
-│ │                      │ │
+│ │ A SAMPLE BOWL        │ │
 │ │     [bowl image]     │ │
-│ │ 75 movies · 2 members│ │
-│ │                      │ │
-│ │ [ Draw a movie ]     │ │
+│ │ [You·47][Sig other·28]│ │
+│ │ [ Draw tonight's … ] │ │
 │ └──────────────────────┘ │
-│                          │
-│ You choose the pool.     │
-│ The bowl ends the debate.│
 ├──────────────────────────┤
-│ WHAT WE BELIEVE          │
-│ [three stacked items]    │
+│ When every option … is a │
+│ clean way to commit.     │
 ├──────────────────────────┤
 │ TONIGHT, 8:13 P.M.       │
 │ [story and timeline]     │
+├──────────────────────────┤
+│ WHERE THIS SITS          │
+│ [three stacked entries]  │
 ├──────────────────────────┤
 │ [ Start a bowl ]         │
 │ [ Contact support ]      │
 └──────────────────────────┘
 ```
 
-The **Bowl** tab is selected by default. All three tabs are visible and keyboard-operable. Swiping is not required.
+The comparison rail is a wide-viewport device — three labels cannot sit side by
+side legibly below 640 px — so each narrow-layout entry carries its own label
+above the title instead.
 
 ## 8. Section Specifications
 
@@ -188,89 +203,38 @@ The **Bowl** tab is selected by default. All three tabs are visible and keyboard
 
 > Movie Bowl is the space between endless scrolling and handing the choice to an algorithm. You and the people you watch with fill the bowl with movies someone wants to see. A fair draw picks tonight's.
 
-**Primary action**
+**Supporting line**
 
-> Try the demo
+> Built for couples, families, and anyone tired of asking, "What do you want to watch?"
 
-- Smooth-scroll to `#decision-demo`.
-- On reduced-motion systems, jump without animation.
-
-**Secondary action**
+**Action**
 
 - Signed out: **Start a bowl** → `/login`
 - Signed in: **Open my bowls** → `/`
 
-**Visual treatment**
+One button. The draw demo beside it is the second thing to do, and it is a
+control rather than a link to one.
 
-- Use the existing `page-hero` surface as a starting point, widened to the page grid.
-- Keep the hero primarily typographic. The interactive bowl belongs in the next section and should remain the visual payoff.
-- A faint trail of paper slips may bridge the hero and demo, but it must not look like a second illustration or compete with the heading.
+**Layout**
 
-### 8.2 Interactive Decision Spectrum
+- Two columns from `lg`: text left, demo right, vertically centered.
+- Below `lg`: text then demo, text centered.
+- The hero keeps the `.about-hero` gradient surface.
 
-**Section heading**
+### 8.2 Sample Draw (`AboutDrawDemo`)
 
-> Three ways to choose
+The demo is a component, not a section — it renders inside the hero grid.
 
-**Intro**
+**Header**
 
-> One approach can keep you browsing. Another can give you an answer immediately. Movie Bowl keeps you and the people you watch with in charge of the choices while making the final decision easy.
-
-#### Spectrum labels
-
-| Position | Short label | Decision model | Benefit | Tradeoff |
-| --- | --- | --- | --- | --- |
-| Left | Browse everything | You search and choose from the entire catalog | Maximum direct control | Highest decision effort |
-| Center | Movie Bowl | People curate; the bowl makes the final selection | Personal, shared, and decisive | Requires building a bowl first |
-| Right | Get a recommendation | A system builds and selects from the candidate pool | Fastest initial answer | Least direct control and transparency |
-
-The visual spectrum uses a thin horizontal rail with three stops. It is explanatory, not a range input. The cards themselves are the interactive controls on desktop; mobile uses an explicit tablist.
-
-#### Left card: Browse everything
-
-**Label**
-
-> You choose everything
-
-**Card title**
-
-> Browse everything
-
-**Body**
-
-> Every movie is still possible. Apparently, so is another half hour of browsing.
-
-**Interaction**
-
-- Show five compact, text-only title rows inside a vertically clipped list.
-- **Keep browsing** replaces the rows with the next sample set.
-- A small status changes across three clicks:
-  - Initial: `12 minutes browsing`
-  - First click: `24 minutes browsing`
-  - Second click: `37 minutes browsing`
-  - Third and later: `Still deciding…`
-- Do not auto-scroll. The visitor initiates the joke, which avoids distracting motion and keeps the humor from becoming heavy-handed.
-
-#### Center card: Movie Bowl
-
-**Label**
-
-> You choose the pool
-
-**Card title**
-
-> Draw from the bowl
-
-**Body**
-
-> 75 movies. Two people. Every option has someone rooting for it.
+> A SAMPLE BOWL · 75 movies · 2 members
 
 **Idle visual**
 
-- Reuse `bowl-illustration-v3.png`.
-- Add six small paper-slip shapes around or just inside the bowl.
-- Show two contributor chips beneath the count: `You · 47`, `Significant other · 28`.
-- Do not use posters or external images.
+- Reuse the shared `BowlIllustration`.
+- Two contributor chips: `You · 47`, `Significant other · 28`.
+- Idle line: *Every option has someone rooting for it. Press the button and one of them wins the night.*
+- No posters, no external images.
 
 **Primary interaction**
 
@@ -278,22 +242,10 @@ The visual spectrum uses a thin horizontal rail with three stops. It is explanat
 
 **Draw result**
 
-- Reuse the existing bowl shake and paper-slip reveal language.
-- Reveal one sample movie on an off-white paper ticket.
-- Display the title and contributor:
-
-  > **Arrival**
-  > From your significant other's picks
-
-- Follow with a one-sentence explanation:
-
-  > Your significant other was selected first, then one of their movies. Each member had an equal chance.
-
-**Result actions**
-
-- **Draw again** runs another draw.
-- A quiet **Reset demo** link restores the initial state.
-- Sample draws should avoid immediate repeats.
+- Reuse the existing bowl shake and paper-slip reveal.
+- Reveal one sample movie on an off-white paper ticket, with title and contributor.
+- Follow with one sentence: *Your significant other was selected first, then one of their movies. Each member had an equal chance — the method every bowl starts with.*
+- **Draw again** runs another draw. Sample draws avoid an immediate repeat.
 
 **Representative draw titles**
 
@@ -302,69 +254,20 @@ The visual spectrum uses a thin horizontal rail with three stops. It is explanat
 | You | *Moonlight*, *The Nice Guys*, *Knives Out* |
 | Your significant other | *Arrival*, *Spirited Away*, *The Thing* |
 
-The displayed bowl contains 75 movies, split 47/28 between its two members. The uneven split reinforces why the member-first draw matters: both members still have an equal chance to be selected. The smaller title set supplies recognizable reveal examples for the local demo. It does not add, draw, or modify real bowl data.
+The displayed bowl contains 75 movies, split 47/28 between its two members. The uneven split reinforces why the member-first draw matters: both members still have an equal chance to be selected. It does not add, draw, or modify real bowl data.
 
-#### Right card: Algorithmic recommendation
+### 8.3 The Thesis
 
-**Label**
+One sentence, centered, `text-2xl`/`text-3xl`, no eyebrow, no card, wide margins
+above and below:
 
-> A system chooses
+> When every option in the bowl is one somebody wants to watch, **chance is not a compromise.** It is a clean way to commit.
 
-**Card title**
+This is the page's only silent beat, and it is what the three philosophy cards
+were trying to say. Do not surround it with supporting copy; the emphasis comes
+from the space.
 
-> Get a recommendation
-
-**Body**
-
-> Get a quick, confident answer from signals and preferences interpreted for you.
-
-**Visual**
-
-- Show a compact result card:
-  - `96% match`
-  - `Tonight's recommendation`
-  - A sample title
-  - Three abstract signal bars labeled `Taste`, `Mood`, and `Popularity`
-- A small line reads:
-
-  > Fast and convenient—as long as you are comfortable letting the system define the shortlist.
-
-**Interaction**
-
-- **Recommend another** changes the title and match percentage.
-- Avoid fake "thinking" animation. The strength of this mode is immediacy.
-
-#### Center emphasis
-
-- The Movie Bowl card is 8–12% wider on large screens.
-- Use the existing rose accent and a brighter border glow.
-- Outer cards remain slate-neutral; do not color-code them as warnings or failures.
-- The spectrum may gently exaggerate the friction of browsing and the confidence of an algorithmic result, but it should still feel like a comparison rather than a morality chart.
-
-### 8.3 Philosophy
-
-**Section heading**
-
-> What Movie Bowl believes
-
-**Principle 1**
-
-> **Curate deliberately**
-> Add the movies that catch your attention when you find them. Movie night should not begin with a blank search box.
-
-**Principle 2**
-
-> **Decide playfully**
-> When every remaining option is worth watching, chance is not a compromise. It is a clean way to commit.
-
-**Principle 3**
-
-> **Share the choice**
-> The bowl selects a member first, then one of their movies. A long personal list does not drown out another bowl member's picks.
-
-Each principle receives a small, simple line icon or CSS shape. Avoid stock illustrations.
-
-### 8.4 Primary Use-Case Story
+### 8.4 Use-Case Story
 
 **Eyebrow**
 
@@ -376,36 +279,37 @@ Each principle receives a small, simple line icon or CSS shape. Avoid stock illu
 
 **Story**
 
-> During the week, bowl members added movies whenever someone said, "We should watch that." Tonight, you narrow the bowl to what fits: under two hours, available on your services, maybe something funny. One draw later, the search is over.
+> Movie Bowl does not need to guess what everyone might enjoy. Every title in the bowl was added by someone who wants to watch it, so the only question left is which one — and that is the question the bowl answers.
 
-**Supporting line**
+**Timeline** — each entry carries the moment *and* the product step, which is
+what lets this one list replace the former "How it works" section:
 
-> Movie Bowl does not need to guess what everyone might enjoy. Every title in the bowl was added by someone who wants to watch it.
+| Moment | Step | Body |
+| --- | --- | --- |
+| Over the month | Collect over time | Bowl members add movies whenever someone says, "We should watch that." |
+| Tonight | Filter for tonight | Narrow the bowl to what fits: under two hours, on your services, maybe something funny. |
+| One draw later | Draw together | The bowl selects a member first, then one of their movies. The search is over. |
 
-**Visual treatment**
+On mobile the moments stack under the story with their connecting line.
 
-- Present this as a wide, quiet scene-break card.
-- Use a three-moment time strip:
-  - `Over the week` — bowl members add promising movies as they find them.
-  - `Tonight` — bowl members pick practical constraints for the evening.
-  - `One draw later` — the movie starts.
-- On mobile, moments stack vertically with a connecting line.
+### 8.5 Where This Sits (`AboutComparison`)
 
-### 8.5 Product Flow
+Static. No buttons, no simulated results, no invented match percentages.
 
-**Step 1: Collect over time**
+**Section heading** — small, slate, uppercase, deliberately quieter than the
+headings above it:
 
-> Add movies as you think of them.
+> Where this sits
 
-**Step 2: Filter for tonight**
+| Position | Title | Body |
+| --- | --- | --- |
+| You choose everything | Browse everything | Every movie is still possible. Apparently, so is another half hour of browsing. |
+| You choose the pool | Draw from the bowl | You decide what is eligible. A draw you can explain decides the rest. |
+| A system chooses | Take a recommendation | A confident answer in a second, as long as you are comfortable letting a system set the shortlist. |
 
-> Narrow by streaming availability, rating, genre, or runtime when the night calls for it.
-
-**Step 3: Draw together**
-
-> Make one transparent draw from a pool built by bowl members.
-
-This section replaces the current generic "How it works" and "Collaboration basics" lists. Ownership, invites, and draw permissions are supporting capabilities, not the main About-page story.
+- The rail keeps its three stops with the center one accented; columns are even.
+- Only the center title takes the rose accent. The outer two are slate-neutral — a comparison, not a morality chart.
+- Resist making these interactive again. Animating the alternatives spends the page's attention on someone else's product.
 
 ### 8.6 Closing Call to Action
 
@@ -422,55 +326,50 @@ This section replaces the current generic "How it works" and "Collaboration basi
 
 > Contact support
 
-Retain the existing support mail link and TMDB attribution.
+Retain the existing support mail link and TMDB attribution. This section has no
+eyebrow — the closing heading is the last voice on the page and does not need
+one more label above it.
 
 ## 9. Interaction State Table
 
 | Component | State | Behavior |
 | --- | --- | --- |
-| Spectrum | Default | Movie Bowl is active/emphasized |
-| Spectrum | Mobile tab change | Selected panel replaces the prior panel without page movement |
-| Browse demo | Initial | First five sample titles and initial elapsed time |
-| Browse demo | Advanced | Next title set and increased elapsed time |
-| Bowl demo | Idle | Bowl, contributor counts, and draw button visible |
-| Bowl demo | Drawing | Button disabled; bowl animation and polite live status run |
-| Bowl demo | Revealed | Paper result, contributor explanation, draw-again action |
-| AI demo | Initial | First recommendation visible immediately |
-| AI demo | Advanced | Alternate title and score appear without simulated delay |
+| Draw demo | Idle | Bowl, contributor chips, idle line, and draw button visible |
+| Draw demo | Drawing | Button disabled; bowl animation and polite live status run |
+| Draw demo | Revealed | Paper ticket, contributor explanation, draw-again action |
+| Comparison | Any | Static; no state |
 
 ## 10. Motion
 
 - No section animates simply because it enters the viewport.
-- The hero-to-demo scroll is the only page-level motion.
 - The bowl draw is the only expressive animation:
   - Bowl shake: approximately 700 ms.
   - Slip lift and unfold: approximately 500 ms.
   - Total response: no more than 1.3 seconds.
-- Browse and recommendation results cross-fade in 120–180 ms.
-- `prefers-reduced-motion: reduce` removes shake, movement, and smooth scrolling. The result appears immediately with a subtle opacity change or no transition.
+- `prefers-reduced-motion: reduce` removes shake and movement. The result appears immediately with a subtle opacity change or no transition.
 
 ## 11. Visual System
 
 ### Color
 
 - Canvas and surfaces: existing slate/near-black tokens.
-- Primary emphasis: existing rose tokens.
+- Primary emphasis: existing rose tokens, and spend them sparingly — the hero eyebrow, the demo, the thesis clause, the story eyebrow, the center rail stop. A rose eyebrow over every section is what flattened the old page.
 - Demo paper: warm off-white used only inside the bowl result.
-- Outer comparison cards: slate-neutral with equal visual weight.
 - Do not introduce a separate "AI blue" or "scrolling warning amber."
 
 ### Type
 
 - Continue the current Avenir Next / Manrope / Inter stack.
 - Hero heading: `text-4xl` mobile, `text-6xl` desktop, tight tracking.
-- Section heading: `text-2xl` mobile, `text-3xl` desktop.
+- Section heading: `text-3xl` mobile, `text-4xl` desktop.
+- The thesis sits between them in weight: large, but `font-medium`, not `font-semibold`.
+- The comparison heading is deliberately the smallest heading on the page.
 - Body measure: 58–68 characters.
-- The paper result may use the existing handwritten fallback for the title, but all explanatory text remains in the product typeface.
 
 ### Shape and depth
 
 - Use existing `rounded-2xl` and `rounded-3xl` surfaces.
-- The center demo gets a restrained rose halo; no neon treatment.
+- The demo gets a restrained rose halo; no neon treatment.
 - Paper slips provide the physical contrast and reinforce the bowl metaphor.
 - Avoid movie posters in the About demo. They add visual noise, licensing/loading concerns, and shift attention from the decision model.
 
@@ -478,9 +377,9 @@ Retain the existing support mail link and TMDB attribution.
 
 | Viewport | Layout |
 | --- | --- |
-| 320–639 px | Single column; comparison is a tablist with one visible card |
-| 640–1023 px | Single-column hero; comparison may remain tabbed or use a center card with two compact summaries |
-| 1024 px and above | Three comparison cards on one row; center card larger |
+| 320–639 px | Single column; comparison entries stack, each with its own rail label |
+| 640–1023 px | Single-column hero; comparison is three columns under the rail |
+| 1024 px and above | Hero is text + demo side by side |
 
 - Primary buttons become full width below 480 px.
 - No horizontal scrolling is required.
@@ -489,15 +388,13 @@ Retain the existing support mail link and TMDB attribution.
 
 ## 13. Accessibility
 
-- Preserve a single page-level `h1` and sequential heading levels.
-- The mobile comparison uses `role="tablist"`, `role="tab"`, and `role="tabpanel"` with arrow-key navigation.
-- Desktop cards must not rely on hover to reveal explanatory content.
+- Preserve a single page-level `h1` and sequential heading levels. The demo's "A sample bowl" is an `h2` because it sits inside the hero.
 - Demo buttons use visible focus styles and a minimum 44 px target height.
 - The bowl illustration remains decorative; meaningful state is announced in text.
 - Drawing uses a polite live region:
   - `Drawing from the sample bowl.`
   - `Arrival was drawn from your significant other's picks.`
-- Elapsed browsing time is not a live timer. It only changes after a user action.
+- The comparison rail is decorative (`aria-hidden`); its labels are repeated in readable text for narrow layouts.
 - Rose/slate combinations must meet WCAG AA contrast for their text sizes.
 - Reduced-motion behavior is required, not optional polish.
 
@@ -511,39 +408,38 @@ Retain the existing support mail link and TMDB attribution.
 - The page should remain functional if CSS motion is unavailable.
 - The demo may use a small pure helper for contributor-first selection, but it should not call the production provider-enrichment flow.
 
-## 15. Suggested Component Structure
+## 15. Component Structure
 
 ```text
-src/screens/AboutPage.jsx
-src/components/about/AboutDecisionSpectrum.jsx
-src/components/about/BrowseDemo.jsx
-src/components/about/BowlDemo.jsx
-src/components/about/RecommendationDemo.jsx
-src/components/about/AboutPrinciples.jsx
-src/components/about/AboutUseCase.jsx
+src/screens/AboutPage.jsx              hero, thesis, story, closing, attribution
+src/components/about/AboutDrawDemo.jsx the stateful sample draw
+src/components/about/AboutComparison.jsx the static three-way comparison
 ```
 
-If these sections stay small, `AboutPrinciples` and `AboutUseCase` can remain in `AboutPage.jsx`. The three stateful demo modes should be separate components to keep their tests and accessibility behavior focused.
+The story timeline and the closing call to action are markup, not components;
+they hold no state and are used once.
 
 ## 16. Test Coverage
 
-### Page tests
+### Page tests (`src/screens/__tests__/AboutPage.test.jsx`)
 
-- Renders the revised hero and philosophy sections.
+- Renders the hero, the thesis, the story, and the comparison.
+- Puts a working draw in the hero.
+- Asserts the collect/filter/draw beats appear exactly once — this is the guard against the duplication the page was cut for.
 - Keeps the support mail link and TMDB attribution.
-- Uses the correct signed-in or signed-out closing action.
-- Retains unauthenticated access to `/about`.
+- Uses the correct signed-in or signed-out action.
 
-### Demo tests
+### Demo tests (`src/components/about/__tests__/AboutDrawDemo.test.jsx`)
 
-- Movie Bowl is the default mobile tab.
-- Tab selection is keyboard-operable.
-- Browse action advances its sample titles and status.
-- Draw action reveals a sample title and contributor explanation.
-- A repeated draw avoids an immediate repeat.
-- Recommendation action changes its sample result.
+- Presents the sample bowl before anything is drawn.
+- A draw selects a contributor first and then one of their titles.
+- A revealed result offers another draw and replaces the idle line.
 - Drawing status and result are exposed through a live region.
-- No demo action calls `fetch` or Supabase.
+
+### Comparison tests (`src/components/about/__tests__/AboutComparison.test.jsx`)
+
+- Places the bowl between the two alternatives without a straw man.
+- Asserts the section stays static — no buttons, no tabs.
 
 ### Visual QA
 
@@ -556,9 +452,9 @@ If these sections stay small, `AboutPrinciples` and `AboutUseCase` can remain in
 
 The concept is successful when:
 
-- A first-time visitor can explain Movie Bowl as "we choose the list; it chooses one" after seeing only the first two sections.
-- The interactive comparison feels useful rather than like a decorative gimmick.
-- The AI panel feels like a legitimate alternative, not a straw man.
+- A first-time visitor can explain Movie Bowl as "we choose the list; it chooses one" from the hero alone.
+- Every section earns its scroll — remove any one of them and something is lost.
+- The comparison feels honest rather than like a sales chart.
 - The contributor-first method reads as fairness, not probability homework.
 - The page creates a clear path into the product for both signed-in and signed-out visitors.
 
@@ -570,13 +466,4 @@ The concept is successful when:
 - A debate about whether human or algorithmic taste is objectively better.
 - Detailed owner, invite, permission, and account-management documentation.
 - Changes to the production draw algorithm.
-
-## 19. Approved Direction
-
-The following choices were approved for the next phase:
-
-1. **Hero:** Use **Stop searching. Start watching.**
-2. **Comparison tone:** Make the two extremes a little more comedic and pointed, while keeping their real strengths visible and avoiding caricature.
-3. **Sample movies:** Use recognizable real titles presented as text, without poster artwork.
-4. **Fairness:** Explain contributor-first selection directly in the demo result and reinforce it in the philosophy section.
-5. **Primary call to action:** Lead with **Try the demo**; make product entry the secondary action.
+- A section for every capability the product has. The About page is an argument, not an index.
