@@ -393,7 +393,9 @@ html.tv-root {
 }
 
 .tv-empty-state > p:not(.tv-kicker) {
-  margin: 0.75rem 0 1.8rem;
+  /* Bottom margin was the gap before a button that is gone: the panel ends on
+     this sentence now, so it keeps only the padding it was given. */
+  margin: 0.75rem 0 0;
   color: var(--tv-muted);
 }
 

@@ -10,6 +10,8 @@ The wrapper currently provides:
 - a fullscreen, persistent WebView
 - explicit D-pad and Select translation into the React TV navigation
 - Android Back translation into the TV experience's Escape behavior
+- closing the app when the web app leaves `/tv`, since no other route is
+  reachable with a remote
 - native fullscreen-video hosting for trailer playback
 - persistent cookies and DOM storage for the signed-in TV user
 - QR-code account pairing without typing credentials on the television
@@ -126,7 +128,8 @@ Verify these behaviors with only the virtual remote:
 4. Reach every visible control using only the D-pad.
 5. Draw once, confirm the animation is uninterrupted, and confirm the result is
    immediately labeled as tonight's pick without another acceptance button.
-6. Press Back from the result, current bowl, and picker in sequence.
+6. Press Back from the result, current bowl, and picker in sequence, and
+   confirm the last one closes the app rather than showing the phone interface.
 7. Move a Watch History title back into the bowl.
 8. Start a trailer, verify fullscreen playback, and verify return when it ends.
    With theater mode enabled, confirm the preview sequence starts automatically.
