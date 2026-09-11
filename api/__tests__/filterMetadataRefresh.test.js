@@ -175,4 +175,52 @@ describe("filter metadata refresh worker", () => {
     expect(maxActive).toBeLessThanOrEqual(2);
     expect(claimCallCount).toBe(2);
   });
+
+  it("meters the run once rather than once per title", async () => {
+    rpc.mockImplementation(async (name) => {
+      if (name === "claim_tmdb_filter_metadata_refreshes") {
+        return { data: [claim(10), claim(20)], error: null };
+      }
+      return { data: true, error: null };
+    });
+
+    await runDailyFilterMetadataRefresh(supabaseAdmin, {
+      fetchMetadata: vi.fn(async () => ({
+        certification: null,
+        providers: [],
+        fetchedAt: "2026-08-28T12:00:00.000Z",
+      })),
+      maxTitles: 2,
+      batchSize: 2,
+    });
+
+    const usageCalls = rpc.mock.calls.filter(([name]) => name === "record_service_usage");
+    expect(usageCalls).toHaveLength(1);
+    expect(usageCalls[0][1]).toEqual({ p_metric: "tmdb_request", p_count: 2 });
+  });
+
+  it("completes the run even when the meter is unavailable", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    rpc.mockImplementation(async (name) => {
+      if (name === "claim_tmdb_filter_metadata_refreshes") {
+        return { data: [claim(10)], error: null };
+      }
+      if (name === "record_service_usage") {
+        throw new Error("counters unavailable");
+      }
+      return { data: true, error: null };
+    });
+
+    const stats = await runDailyFilterMetadataRefresh(supabaseAdmin, {
+      fetchMetadata: vi.fn(async () => ({
+        certification: null,
+        providers: [],
+        fetchedAt: "2026-08-28T12:00:00.000Z",
+      })),
+      maxTitles: 1,
+      batchSize: 1,
+    });
+
+    expect(stats).toMatchObject({ claimed: 1, succeeded: 1, failed: 0 });
+  });
 });

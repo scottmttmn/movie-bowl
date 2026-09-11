@@ -200,23 +200,22 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Technical Debt / Maintenance
 
-- **Soon: meter the free tiers.** Nothing but `title_provider_link_usage` is
-  measured, so no cost or quota question can be answered with a number. Add a
-  monthly counters table in that same shape -- keyed by month, incremented
-  server-side, private to the service role -- covering mail sent, TMDB calls,
-  function invocations, and row growth. Give the mail path a budget and a
-  warning the way provider links already have one: two things send mail
-  (Supabase magic-link auth through the custom SMTP, and `api/invites/send.js`),
-  the daily cap does not bind in steady state because sessions persist, and it
-  binds precisely during a signup burst -- where the failure is that nobody new
-  can sign in, invisibly, on the day it matters most. Also audit which kill
-  switches exist (`PROVIDER_LINKS_ENABLED` does; TMDB search and signups do
-  not), and verify the vendor figures listed under "Numbers To Go Check."
-  Context, thresholds, and the decisions to make in advance are in
-  `output/designs/scaling-and-cost.md`. The governing fact recorded there: TMDB,
-  Watchmode, and Vercel Hobby all require non-commercial use, so there is a
-  scale at which the free tiers are exhausted and revenue is forbidden.
-
+- **Meter the free tiers — partly done.** `service_usage_counters` now records
+  daily per-metric spend through `record_service_usage`, wired at the two
+  chokepoints that already hold the service role: invite mail (with a warning
+  at `EMAIL_DAILY_WARN_THRESHOLD`) and the daily refresh cron's TMDB claims.
+  Still open: magic-link authentication mail cannot be counted from here at all,
+  because Supabase's SMTP sends it after a client call that never reaches these
+  functions — the vendor dashboard is authoritative for total mail, and a proxy
+  signal (new profiles per day) would at least make a signup burst visible. The
+  user-facing `api/tmdb/*` proxies are unmetered on purpose, to keep the
+  service-role client out of routes that do not otherwise need it; revisit if
+  TMDB volume ever matters. Also unstarted: auditing which kill switches exist
+  (`PROVIDER_LINKS_ENABLED` does; TMDB search and signups do not), and verifying
+  the vendor figures under "Numbers To Go Check" in
+  `output/designs/scaling-and-cost.md`. Counter rows accumulate unbounded —
+  trivial at two metrics a day, but the daily cron is the natural place to prune
+  if that changes.
 
 - Evidence-backed bugs, integrity risks, and accepted engineering tradeoffs are
   tracked in the private `scottmttmn/movie-bowl-issues` register, not here. Keep
