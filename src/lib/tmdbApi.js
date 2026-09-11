@@ -1,4 +1,4 @@
-import { selectOfficialTrailer } from "../utils/selectTrailer";
+import { selectBestTrailer } from "../utils/selectTrailer";
 import { OFFLINE_MESSAGE, isOfflineError } from "../utils/networkErrors";
 
 const MOVIE_DETAILS_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -86,7 +86,7 @@ export async function getTmdbMovieDetails(id) {
     .then((data) => {
       const value = {
         ...data,
-        trailer: selectOfficialTrailer(data?.videos?.results),
+        trailer: selectBestTrailer(data?.videos?.results),
       };
       if (requestGeneration === movieDetailsGeneration) {
         movieDetailsCache.set(tmdbId, {
