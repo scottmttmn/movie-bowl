@@ -173,6 +173,31 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   with pgTAP coverage, and an answer on whether a pack takes a turn in rotation.
   Plan, not implementation: `output/designs/starter-packs.md`.
 
+- Theater mode on the web draw: the trailer pre-roll runs only on `/tv`, but the
+  toggle for it lives in the web app's "TV & playback" settings section -- so a
+  laptop user can switch on a feature nothing they normally open will run. Bring
+  the pre-roll to the dashboard draw, but quieter than on the television: the
+  television starts previews automatically because the drawer is sitting at the
+  screen they will watch on, while someone drawing on a laptop usually is not,
+  so the web version should surface an affordance the viewer chooses to start
+  and show nothing at all when the setting is off. No previews button on the
+  bowl page for everyone; theater mode stays something you turn on in Settings.
+  Note that `theaterModeEnabled` currently means "on the television," and the
+  dashboard honouring it silently widens that meaning for existing accounts --
+  which the offer-don't-autoplay shape is enough to absorb without a new
+  preference. Specified in `output/designs/tv-web-seam.md`.
+
+- Web/television seam: the Google TV app is the only supported television, and
+  other televisions' browsers are out of scope -- in practice a path almost
+  nobody can take, since Roku ships no browser and Google TV and Android TV have
+  none preinstalled. The laptop is safe on `/tv` and tested there, but it is not
+  where a laptop user belongs: the dashboard already draws and opens the movie,
+  so the route offers them nothing except the pre-roll above. Once that lands,
+  remove `TopNav`'s "TV mode" item -- and keep the `/tv` route, which the Google
+  TV shell loads directly by URL. Copy about the app itself stays staged against
+  the Play roadmap, with the About page speaking last. Plan, not implementation:
+  `output/designs/tv-web-seam.md`.
+
 ## Technical Debt / Maintenance
 
 - Evidence-backed bugs, integrity risks, and accepted engineering tradeoffs are
