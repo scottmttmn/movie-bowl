@@ -42,7 +42,8 @@ count, or to a rotation that gives the next turn to whoever has waited longest.
   saves continue safely.
 - Open full movie details from a newly drawn movie, from search results, or from
   a watched movie card.
-- Watch official TMDB trailers inline from movie detail views.
+- Watch TMDB trailers inline from movie detail views, preferring an official
+  English trailer and falling back through teasers and unflagged studio uploads.
 
 **The draw**
 
