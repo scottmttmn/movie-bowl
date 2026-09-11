@@ -89,10 +89,13 @@ The case against dumping the full list:
   `tmdb_filter_metadata` through the trigger on `bowl_active_tmdb_movies`, it
   enters the daily refresh queue, and it counts toward the large-bowl
   eligible-count problem already recorded in `TODO.md`.
-- The daily cron budget is fixed: `FILTER_METADATA_DAILY_MAX_TITLES = 300`,
-  twelve per batch, inside Vercel Hobby's 60-second cap. That budget is spent on
-  **distinct titles globally**, so two hundred new ones lengthen the refresh
-  cycle for every bowl in the system, not just the one that installed the pack.
+- The daily cron's throughput is fixed: `FILTER_METADATA_DAILY_MAX_TITLES = 300`,
+  twelve per batch, inside Vercel Hobby's 60-second cap. It is a *time* budget
+  wearing a count's clothing, and it is spent on **distinct titles globally**,
+  so two hundred new ones lengthen the refresh cycle for every bowl in the
+  system, not just the one that installed the pack. The risk is staleness — a
+  title's certification and service list sitting unrefreshed for longer — not
+  running out of anything.
 
 Sampling also makes the pack repeatable rather than final. A bowl that finishes
 its ten pulls another ten, and a pack the group dislikes has cost them ten slips
@@ -104,6 +107,34 @@ Automatic refill is the better product — the pack behaves like a contributor w
 keeps showing up — but it needs a rule for what happens when the underlying list
 is exhausted, and it puts an insert on the draw path, which is the most
 sensitive code in the repo. Start manual.
+
+## Two Vendors, Two Quotas
+
+These are separate pools and neither draws on the other. Both are called
+"providers" in this codebase, which is the confusion worth heading off before
+anyone reads the cost sections below and adds the numbers together.
+
+| | Vendor | Answers | Feeds | Ceiling |
+| --- | --- | --- | --- | --- |
+| `tmdb_filter_metadata` | TMDB | *Which services carry this?* | Streaming filters, `prioritizeByServiceRank`, eligible counts | 300 titles/day, self-imposed to fit the cron's 60-second cap |
+| `title_provider_links` | Watchmode | *What is the URL to play it there?* | The "Open [service]" handoff on TV and phone | 500 requests/UTC month, self-imposed at the free plan's 1,000 credits |
+
+The cron touches TMDB only — `fetchTmdbFilterMetadata` makes one
+`/movie/{id}?append_to_response=release_dates,watch/providers` call per title
+(`api/_lib/tmdbFilterMetadata.js:27`) and never imports Watchmode. Watchmode is
+spent solely by `lookupProviderLinks` on an add or a draw.
+
+Two details shape what a pack title will look like to the filters. TMDB's
+`flatrate` and `ads` entries are kept and rent/buy are discarded
+(`tmdbFilterMetadata.js:10-12`), so a rental-only title reads as streaming
+nowhere. And service names are normalized against the fixed allowlist in
+`src/utils/streamingServices.js`; anything off that list is dropped entirely. A
+pack heavy on niche or rental-only titles will therefore look emptier to the
+streaming filters than its size suggests — worth weighing when choosing lists.
+
+Provider *logos* are a third source and cost nothing at runtime: TMDB again, but
+resolved offline into `src/utils/providerLogos.js` by
+`scripts/refresh-provider-logos.mjs`.
 
 ## Cost: The Warm Path Is the Landmine
 
