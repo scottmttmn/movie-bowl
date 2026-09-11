@@ -1098,7 +1098,7 @@ describe("Movie Bowl TV experience", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("upgrades a focused launch link without changing services and displays a non-focusable voice card", async () => {
+  it("upgrades a focused launch link without changing services", async () => {
     let finishLookup;
     mocks.fetchProviderLinks.mockReturnValue(new Promise((resolve) => { finishLookup = resolve; }));
     mocks.handleDraw.mockResolvedValue({ id: "movie-1", tmdb_id: 101, title: "Arrival", streamingProviders: ["Netflix"] });
@@ -1112,10 +1112,6 @@ describe("Movie Bowl TV experience", () => {
     const link = await screen.findByRole("link", { name: /^open netflix$/i });
     expect(link).toHaveAttribute("href", "https://www.netflix.com/search?q=Arrival");
     link.focus();
-    const voiceCard = screen.getByText(/hold the mic button/i).closest(".tv-voice-handoff");
-    expect(voiceCard).toHaveTextContent("Play Arrival on Netflix");
-    expect(voiceCard.querySelector("[data-tv-focusable], button, a, [tabindex]")).toBeNull();
-    expect(voiceCard).not.toHaveAttribute("data-tv-focusable");
     await act(async () => { finishLookup({ links: [{ service: "Netflix", type: "sub", webUrl: "https://www.netflix.com/title/123" }] }); });
     expect(screen.getByRole("link", { name: /^open netflix$/i })).toBe(link);
     expect(link).toHaveAttribute("href", "https://www.netflix.com/title/123");
@@ -1146,14 +1142,6 @@ describe("Movie Bowl TV experience", () => {
       "src",
       "https://image.tmdb.org/t/p/w92/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg"
     );
-  });
-
-  it("hides the voice card when no preferred service matches", async () => {
-    mocks.streamingServices = [];
-    window.sessionStorage.setItem("movie-bowl:tv:external-return", JSON.stringify({ bowlId: "family", movie: { id: "movie-1", title: "Arrival", streamingProviders: ["Netflix"] }, savedAt: Date.now() }));
-    renderTonight();
-    await screen.findByRole("heading", { name: /arrival/i });
-    expect(screen.queryByText(/hold the mic button/i)).not.toBeInTheDocument();
   });
 
   it("restores the drawn result after an external provider handoff reload", async () => {

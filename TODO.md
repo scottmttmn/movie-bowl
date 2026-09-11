@@ -13,14 +13,6 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## UX / UI Polish
 
-- Retire the TV voice-handoff card. It prints a spoken command
-  (`Play <title> on <service>`) for the viewer to say to their remote, and the
-  provider launch it works around now hands off to installed apps directly.
-  Removing it also removes the one surface where a service name has to stay
-  text because it is meant to be read aloud. Agreed 2026-09-04 as "soon, not
-  now": `src/tv/components/TvVoiceHandoffCard.jsx` and the label built in
-  `src/utils/webLaunch.js`.
-
 - Let a bowl owner delete entries from the bowl's watched history. Returning a
   movie is a two-hour undo, so a draw nobody watched but nobody caught in time
   now stays in the bowl's list with no way to correct it. That correction is a
@@ -108,8 +100,9 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   house-rules layer over the draw method registry, and curation for bowls that
   have outgrown their own memory. Brainstorm only — no specs, no commitments.
   See `output/designs/future-ideas.md`.
-- TV Theater mode: trailer pre-roll (phase 1) and provider title links with the
-  voice card (phase 2) are implemented. Provider lookups default off until the
+- TV Theater mode: trailer pre-roll (phase 1) and provider title links
+  (phase 2) are implemented; the voice card that shipped alongside them was
+  retired once the provider launch began handing off to installed apps. Provider lookups default off until the
   migration and Watchmode configuration are deployed; activation instructions
   are in `README.md`. The Google TV shell in `tv-android/` has reached an
   owner-only Google Play internal test, and its provider handoff is confirmed
