@@ -38,6 +38,27 @@ describe("AddMovieModal", () => {
     expect(screen.queryByRole("group", { name: "Movie pin" })).not.toBeInTheDocument();
   });
 
+  it("hides where to watch when the caller opts out", () => {
+    const movie = {
+      title: "Dune",
+      release_date: "2021-10-22",
+      streamingProviders: ["Netflix", "Prime Video"],
+    };
+
+    render(
+      <AddMovieModal
+        movie={movie}
+        onClose={vi.fn()}
+        userStreamingServices={["Netflix"]}
+        showWhereToWatch={false}
+      />
+    );
+    expect(screen.getByRole("heading", { name: "Dune", level: 2 })).toBeInTheDocument();
+    expect(screen.queryByRole("region", { name: "Where to watch" })).not.toBeInTheDocument();
+    expect(screen.queryByText("Netflix")).not.toBeInTheDocument();
+    expect(screen.queryByText("No US streaming providers found right now.")).not.toBeInTheDocument();
+  });
+
   it("saves a pin without allowing duplicate requests and reflects the updated movie", async () => {
     let resolvePin;
     const onTogglePin = vi.fn(() => new Promise((resolve) => { resolvePin = resolve; }));

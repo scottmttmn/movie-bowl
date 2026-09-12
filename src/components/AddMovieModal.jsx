@@ -27,6 +27,7 @@ export default function AddMovieModal({
   onClose,
   onAddMovie,
   userStreamingServices = [],
+  showWhereToWatch = true,
   detailPrimaryActionLabel = null,
   detailPrimaryActionNote = null,
   onDetailPrimaryAction = null,
@@ -285,50 +286,52 @@ export default function AddMovieModal({
             </div>
           )}
 
-          <section className="border-t border-slate-700/60 pt-5" aria-labelledby="movie-streaming-title">
-            <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
-              <h3 id="movie-streaming-title" className="text-sm font-semibold text-slate-200">Where to watch</h3>
-              {matchingProviders.length > 0 && <p className="text-xs text-emerald-300">✓ Your services</p>}
-            </div>
-            {availableProviders.length > 0 ? (
-              <ul className="flex flex-wrap gap-2" aria-label="Streaming services">
-                {availableProviders.map((provider) => {
-                  const isMatch = matchingProviders.includes(provider);
-                  const logoUrl = getProviderLogoUrl(providerLogos[provider]);
-                  return (
-                    <li key={provider} className={`flex items-center gap-2 rounded-lg border py-1.5 text-sm ${logoUrl ? "pl-1.5 pr-3" : "px-3"} ${isMatch ? "border-emerald-800/60 bg-emerald-950/30 text-emerald-300" : "border-slate-700/70 text-slate-300"}`}>
-                      {isMatch && <span aria-hidden="true" className="ml-1">✓</span>}
-                      {logoUrl ? (
-                        <>
-                          <img src={logoUrl} alt="" className="h-7 w-7 rounded-md" loading="lazy" />
-                          <span>{provider}</span>
-                        </>
-                      ) : (
-                        provider
-                      )}
-                      {isMatch && <span className="sr-only"> (in your services)</span>}
-                    </li>
-                  );
-                })}
-              </ul>
-            ) : (
-              <p className="text-sm text-slate-400">No US streaming providers found right now.</p>
-            )}
-            {availableProviders.length > 0 && matchingProviders.length === 0 && (
-              <p className="mt-2 text-xs text-slate-400">None of your saved services match this title.</p>
-            )}
-            {webLaunchCandidate && (
-              <div className="mt-4">
-                {/* Native links avoid mistaking a secure window.open result for a blocked popup. */}
-                <a href={webLaunchCandidate.url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary w-full text-sm sm:w-auto">
-                  <ServiceLogo service={webLaunchCandidate.serviceName} className="h-5 w-5" />
-                  {`Open on Web in ${webLaunchCandidate.serviceName}`}
-                  <span className="sr-only"> (opens in a new tab)</span>
-                </a>
-                {webLaunchCandidate.linkType === "title" && <div className="mt-2"><ProviderLinksAttribution /></div>}
+          {showWhereToWatch && (
+            <section className="border-t border-slate-700/60 pt-5" aria-labelledby="movie-streaming-title">
+              <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
+                <h3 id="movie-streaming-title" className="text-sm font-semibold text-slate-200">Where to watch</h3>
+                {matchingProviders.length > 0 && <p className="text-xs text-emerald-300">✓ Your services</p>}
               </div>
-            )}
-          </section>
+              {availableProviders.length > 0 ? (
+                <ul className="flex flex-wrap gap-2" aria-label="Streaming services">
+                  {availableProviders.map((provider) => {
+                    const isMatch = matchingProviders.includes(provider);
+                    const logoUrl = getProviderLogoUrl(providerLogos[provider]);
+                    return (
+                      <li key={provider} className={`flex items-center gap-2 rounded-lg border py-1.5 text-sm ${logoUrl ? "pl-1.5 pr-3" : "px-3"} ${isMatch ? "border-emerald-800/60 bg-emerald-950/30 text-emerald-300" : "border-slate-700/70 text-slate-300"}`}>
+                        {isMatch && <span aria-hidden="true" className="ml-1">✓</span>}
+                        {logoUrl ? (
+                          <>
+                            <img src={logoUrl} alt="" className="h-7 w-7 rounded-md" loading="lazy" />
+                            <span>{provider}</span>
+                          </>
+                        ) : (
+                          provider
+                        )}
+                        {isMatch && <span className="sr-only"> (in your services)</span>}
+                      </li>
+                    );
+                  })}
+                </ul>
+              ) : (
+                <p className="text-sm text-slate-400">No US streaming providers found right now.</p>
+              )}
+              {availableProviders.length > 0 && matchingProviders.length === 0 && (
+                <p className="mt-2 text-xs text-slate-400">None of your saved services match this title.</p>
+              )}
+              {webLaunchCandidate && (
+                <div className="mt-4">
+                  {/* Native links avoid mistaking a secure window.open result for a blocked popup. */}
+                  <a href={webLaunchCandidate.url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary w-full text-sm sm:w-auto">
+                    <ServiceLogo service={webLaunchCandidate.serviceName} className="h-5 w-5" />
+                    {`Open on Web in ${webLaunchCandidate.serviceName}`}
+                    <span className="sr-only"> (opens in a new tab)</span>
+                  </a>
+                  {webLaunchCandidate.linkType === "title" && <div className="mt-2"><ProviderLinksAttribution /></div>}
+                </div>
+              )}
+            </section>
+          )}
 
           {(displayedNote || isEditingNote) ? (
             <section className="surface-card p-4" aria-labelledby="movie-note-title">
