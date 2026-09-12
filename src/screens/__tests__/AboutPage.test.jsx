@@ -34,12 +34,28 @@ describe("AboutPage", () => {
     expect(
       screen.getByRole("heading", { name: /stop searching\. start watching\./i })
     ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /three ways to choose/i })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /what movie bowl believes/i })).toBeInTheDocument();
     expect(
       screen.getByRole("heading", { name: /everyone is ready to watch/i })
     ).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /where this sits/i })).toBeInTheDocument();
     expect(screen.getByText(/built for couples, families/i)).toBeInTheDocument();
+    expect(screen.getByText(/chance is not a compromise/i)).toBeInTheDocument();
+  });
+
+  it("puts a working draw in the hero rather than describing one", () => {
+    renderAboutPage();
+
+    expect(screen.getByRole("button", { name: /draw tonight's movie/i })).toBeInTheDocument();
+  });
+
+  it("says each thing once", () => {
+    renderAboutPage();
+
+    // The page carried the collect/filter/draw beats twice, as a timeline and
+    // again as numbered steps. One list now serves both.
+    expect(screen.getAllByText(/collect over time/i)).toHaveLength(1);
+    expect(screen.getAllByText(/filter for tonight/i)).toHaveLength(1);
+    expect(screen.getAllByText(/draw together/i)).toHaveLength(1);
   });
 
   it("renders support and signed-out product actions", () => {
