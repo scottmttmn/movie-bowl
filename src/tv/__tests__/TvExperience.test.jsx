@@ -995,6 +995,11 @@ describe("Movie Bowl TV experience", () => {
     fireEvent.keyDown(window, { key: "ArrowDown" });
     expect(historyButton).toHaveFocus();
 
+    // The draw pool warms its own provider cache, so only lookups from here on
+    // could belong to the detail page.
+    mocks.fetchStreamingProviders.mockClear();
+    mocks.fetchProviderLinks.mockClear();
+
     fireEvent.keyDown(window, { key: "Enter" });
     expect(screen.getByRole("heading", { name: /arrival/i })).toBeInTheDocument();
     expect(screen.getByText("Smart science fiction for movie night.")).toBeInTheDocument();
@@ -1010,7 +1015,12 @@ describe("Movie Bowl TV experience", () => {
       expect(screen.getByRole("button", { name: /^close$/i })).toHaveFocus();
     });
     expect(mocks.getTmdbMovieDetails).toHaveBeenCalledWith(101);
-    expect(mocks.fetchStreamingProviders).toHaveBeenCalledWith(101);
+    // A movie in Watch History has been watched, so the page neither shows nor
+    // looks up where to stream it.
+    expect(document.querySelector(".tv-history-detail-page .tv-provider-row")).toBeNull();
+    expect(screen.queryByRole("link", { name: /open netflix/i })).not.toBeInTheDocument();
+    expect(mocks.fetchStreamingProviders).not.toHaveBeenCalled();
+    expect(mocks.fetchProviderLinks).not.toHaveBeenCalled();
     expect(mocks.handleReaddMovie).not.toHaveBeenCalled();
 
     fireEvent.click(

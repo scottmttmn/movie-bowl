@@ -6,7 +6,6 @@ import { getPosterUrl } from "../utils/getPosterUrl";
 import { notifyBowlChange } from "../lib/bowlChanges";
 import { supabase } from "../lib/supabase";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
-import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { getMovieNoteValidationError, normalizeMovieNote } from "../utils/movieNote";
 import {
   buildLetterboxdWatchedCsv,
@@ -101,40 +100,20 @@ export default function WatchListPage() {
     const shouldFetchTmdbDetails = Number.isInteger(tmdbId) && tmdbId > 0;
 
     if (!shouldFetchTmdbDetails) {
-      return {
-        ...movie,
-        streamingProviders: movie.streamingProviders || [],
-        streamingRegion: movie.streamingRegion || "US",
-        streamingFetchedAt: movie.streamingFetchedAt || null,
-      };
+      return { ...movie };
     }
 
-    const [detailsResult, providersResult] = await Promise.allSettled([
-      getTmdbMovieDetails(tmdbId),
-      fetchStreamingProviders(tmdbId, { region: "US" }),
-    ]);
-
-    if (detailsResult.status === "rejected") {
-      console.error("[WatchListPage] Failed to load TMDB detail enrichment", detailsResult.reason);
+    let details = null;
+    try {
+      details = await getTmdbMovieDetails(tmdbId);
+    } catch (error) {
+      console.error("[WatchListPage] Failed to load TMDB detail enrichment", error);
     }
-    if (providersResult.status === "rejected") {
-      console.error("[WatchListPage] Failed to load streaming provider enrichment", providersResult.reason);
-    }
-
-    const details = detailsResult.status === "fulfilled" ? detailsResult.value : null;
-    const providerData =
-      providersResult.status === "fulfilled"
-        ? providersResult.value
-        : { providers: [], region: "US", fetchedAt: null };
 
     return {
       ...(details || {}),
       ...movie,
       bowlMovieId: movie?.id ?? null,
-      streamingProviders: providerData.providers || [],
-      streamingProviderLogos: providerData.providerLogos || {},
-      streamingRegion: providerData.region || "US",
-      streamingFetchedAt: providerData.fetchedAt || null,
     };
   };
 
@@ -656,7 +635,7 @@ export default function WatchListPage() {
       {selectedDetailMovie && (
         <AddMovieModal
           movie={selectedDetailMovie}
-          userStreamingServices={[]}
+          showWhereToWatch={false}
           detailPrimaryActionLabel="Edit history"
           onDetailPrimaryAction={async (movie) => {
             setEntryEditorError("");

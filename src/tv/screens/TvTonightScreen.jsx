@@ -12,7 +12,6 @@ import BowlIllustration from "../../components/BowlIllustration";
 import useBowl from "../../hooks/useBowl";
 import useUserStreamingServices from "../../hooks/useUserStreamingServices";
 import { getTmdbMovieDetails } from "../../lib/tmdbApi";
-import { fetchStreamingProviders } from "../../lib/streamingProviders";
 import { getMovieAttributionLabel } from "../../utils/drawBuckets";
 import { getDrawablePoolMovies } from "../../utils/drawPool";
 import { getDrawReadout } from "../../utils/drawReadout";
@@ -88,7 +87,7 @@ function formatPickedDate(value) {
   return TV_PICKED_DATE_FORMATTER.format(date);
 }
 
-function mergeHistoryMovieDetails(movie, details, providerData) {
+function mergeHistoryMovieDetails(movie, details) {
   return {
     ...(details || {}),
     ...movie,
@@ -103,44 +102,23 @@ function mergeHistoryMovieDetails(movie, details, providerData) {
         : details?.genres || [],
     overview: movie.overview || details?.overview || null,
     trailer: details?.trailer || movie.trailer || null,
-    streamingProviders:
-      providerData?.providers?.length > 0
-        ? providerData.providers
-        : movie.streamingProviders || [],
-    streamingProviderLogos:
-      providerData?.providerLogos || movie.streamingProviderLogos || {},
-    streamingRegion:
-      providerData?.region || movie.streamingRegion || "US",
   };
 }
 
-async function enrichHistoryMovie(movie, fetchProviders) {
+// Watch History details carry no availability, so this is the trailer and the
+// facts around it — never a provider lookup for a movie already watched.
+async function enrichHistoryMovie(movie) {
   const tmdbId = Number(movie?.tmdb_id);
   if (!Number.isInteger(tmdbId) || tmdbId <= 0) return movie;
 
-  const [detailsResult, providersResult] = await Promise.allSettled([
-    getTmdbMovieDetails(tmdbId),
-    fetchProviders(tmdbId),
-  ]);
-
-  if (detailsResult.status === "rejected") {
-    console.error(
-      "[TvTonightScreen] Failed to enrich Watch History details",
-      detailsResult.reason
-    );
-  }
-  if (providersResult.status === "rejected") {
-    console.error(
-      "[TvTonightScreen] Failed to enrich Watch History providers",
-      providersResult.reason
-    );
+  let details = null;
+  try {
+    details = await getTmdbMovieDetails(tmdbId);
+  } catch (error) {
+    console.error("[TvTonightScreen] Failed to enrich Watch History details", error);
   }
 
-  return mergeHistoryMovieDetails(
-    movie,
-    detailsResult.status === "fulfilled" ? detailsResult.value : null,
-    providersResult.status === "fulfilled" ? providersResult.value : null
-  );
+  return mergeHistoryMovieDetails(movie, details);
 }
 
 // Previews run through the same resolver the draw uses, so the pre-roll shows
@@ -516,6 +494,7 @@ function TvFullscreenTrailer({ movieTitle, trailer, onClose }) {
 function TvMovieDetailStage({
   movie,
   streamingServices,
+  showWhereToWatch = true,
   kicker,
   badgeLabel,
   noteLabel = "Bowl note",
@@ -578,7 +557,7 @@ function TvMovieDetailStage({
           </div>
         )}
 
-        {providerNames.length > 0 && (
+        {showWhereToWatch && providerNames.length > 0 && (
           <div className="tv-provider-row">
             <span>Available on</span>
             {providerNames.slice(0, 4).map((provider) => {
@@ -600,7 +579,7 @@ function TvMovieDetailStage({
         )}
 
         <div className="tv-reveal-actions">
-          {webLaunchCandidate?.url && (
+          {showWhereToWatch && webLaunchCandidate?.url && (
             <a
               className="tv-button tv-button-secondary"
               data-tv-focusable
@@ -625,7 +604,9 @@ function TvMovieDetailStage({
               data-tv-focusable
               data-tv-nav-group="reveal-actions"
               data-tv-autofocus={
-                playbackAutofocus && !webLaunchCandidate?.url ? "true" : undefined
+                playbackAutofocus && !(showWhereToWatch && webLaunchCandidate?.url)
+                  ? "true"
+                  : undefined
               }
               onClick={onToggleTrailer}
             >
@@ -634,9 +615,11 @@ function TvMovieDetailStage({
           )}
         </div>
 
-        {webLaunchCandidate?.linkType === "title" && <ProviderLinksAttribution tv />}
+        {showWhereToWatch && webLaunchCandidate?.linkType === "title" && (
+          <ProviderLinksAttribution tv />
+        )}
 
-        {providerLaunchMessage && (
+        {showWhereToWatch && providerLaunchMessage && (
           <p className="tv-provider-launch-message" role="status">
             {providerLaunchMessage}
           </p>
@@ -717,15 +700,11 @@ function TvRevealScreen({
 function TvHistoryDetailScreen({
   bowlName,
   movie,
-  streamingServices,
   canReturn,
   returnWindowClosed,
   isEnriching,
   showTrailer,
   isDialogOpen,
-  webLaunchCandidate,
-  providerLaunchMessage,
-  onProviderLaunch,
   onClose,
   onCloseTrailer,
   onToggleTrailer,
@@ -766,18 +745,15 @@ function TvHistoryDetailScreen({
 
         <TvMovieDetailStage
           movie={movie}
-          streamingServices={streamingServices}
+          showWhereToWatch={false}
           kicker="Previously picked"
           historyMetadata={historyMetadata}
-          webLaunchCandidate={webLaunchCandidate}
-          providerLaunchMessage={providerLaunchMessage}
-          onProviderLaunch={onProviderLaunch}
           onToggleTrailer={onToggleTrailer}
           playbackAutofocus={false}
         >
           {isEnriching && (
             <p className="tv-preview-status" role="status">
-              Loading trailer and availability…
+              Loading trailer…
             </p>
           )}
           {!canReturn && returnWindowClosed && (
@@ -919,10 +895,11 @@ export default function TvTonightScreen({ userId }) {
   const [selectedHistoryMovie, setSelectedHistoryMovie] = useState(null);
   const [historyFocusId, setHistoryFocusId] = useState(null);
   const [isHistoryEnriching, setIsHistoryEnriching] = useState(false);
-  const activeDetailMovie = drawnMovie || selectedHistoryMovie;
+  // Only the drawn movie asks where to watch, so only the drawn movie spends a
+  // provider-link lookup.
   const { providerLinks, startLookup: startProviderLookup } = useDrawProviderLinks(
     bowlId,
-    activeDetailMovie
+    drawnMovie
   );
   const [showTrailer, setShowTrailer] = useState(false);
   const [pendingReturn, setPendingReturn] = useState(null);
@@ -1015,15 +992,15 @@ export default function TvTonightScreen({ userId }) {
     drawPoolStatus !== DRAW_POOL_STATUS.ready &&
     drawPoolStatus !== DRAW_POOL_STATUS.unfiltered;
   const preferredWebLaunchCandidate = useMemo(() => {
-    if (!activeDetailMovie) return null;
+    if (!drawnMovie) return null;
 
     return resolvePreferredLaunchTarget({
       providerLinks,
       userServices: streamingServices,
-      movieProviders: activeDetailMovie.streamingProviders || [],
-      title: activeDetailMovie.title || "",
+      movieProviders: drawnMovie.streamingProviders || [],
+      title: drawnMovie.title || "",
     });
-  }, [activeDetailMovie, streamingServices, providerLinks]);
+  }, [drawnMovie, streamingServices, providerLinks]);
 
   const chooseAnotherBowl = () => {
     clearExternalReturn();
@@ -1052,10 +1029,7 @@ export default function TvTonightScreen({ userId }) {
       setProviderLaunchMessage(null);
       setIsHistoryEnriching(true);
 
-      const fetchProviders =
-        filterMetadataFetchers?.fetchProviders || fetchStreamingProviders;
-
-      enrichHistoryMovie(movie, fetchProviders)
+      enrichHistoryMovie(movie)
         .then((enrichedMovie) => {
           if (historyLoadSequenceRef.current === sequence) {
             setSelectedHistoryMovie(enrichedMovie);
@@ -1067,7 +1041,7 @@ export default function TvTonightScreen({ userId }) {
           }
         });
     },
-    [filterMetadataFetchers]
+    []
   );
 
   useEffect(() => {
@@ -1368,7 +1342,6 @@ export default function TvTonightScreen({ userId }) {
         <TvHistoryDetailScreen
           bowlName={bowlMeta.name}
           movie={selectedHistoryMovie}
-          streamingServices={streamingServices}
           canReturn={bowlMeta.canDraw && canReturnDrawToBowl(selectedHistoryMovie)}
           returnWindowClosed={
             bowlMeta.canDraw && !canReturnDrawToBowl(selectedHistoryMovie)
@@ -1376,9 +1349,6 @@ export default function TvTonightScreen({ userId }) {
           isEnriching={isHistoryEnriching}
           showTrailer={showTrailer}
           isDialogOpen={Boolean(pendingReturn)}
-          webLaunchCandidate={preferredWebLaunchCandidate}
-          providerLaunchMessage={providerLaunchMessage}
-          onProviderLaunch={() => setProviderLaunchMessage(null)}
           onClose={closeHistoryDetails}
           onCloseTrailer={() => setShowTrailer(false)}
           onToggleTrailer={() => setShowTrailer((current) => !current)}

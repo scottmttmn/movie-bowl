@@ -86,10 +86,10 @@ vi.mock("../../lib/streamingProviders", () => ({
 }));
 
 vi.mock("../../components/AddMovieModal", () => ({
-  default: ({ movie, detailPrimaryActionLabel, onDetailPrimaryAction }) => (
+  default: ({ movie, showWhereToWatch, detailPrimaryActionLabel, onDetailPrimaryAction }) => (
     <div data-testid="movie-detail-modal">
       <div>{movie.title}</div>
-      <div>{movie.streamingProviders?.length ? "providers loaded" : "no providers"}</div>
+      <div>{showWhereToWatch ? "where to watch shown" : "where to watch hidden"}</div>
       <div>{movie.note || "no comment"}</div>
       <div>{detailPrimaryActionLabel ? "actions enabled" : "read-only"}</div>
       {detailPrimaryActionLabel && (
@@ -404,8 +404,10 @@ describe("WatchListPage", () => {
     });
 
     expect(mocks.getTmdbMovieDetails).toHaveBeenCalledWith(101);
-    expect(mocks.fetchStreamingProviders).toHaveBeenCalledWith(101, { region: "US" });
-    expect(screen.getByText("providers loaded")).toBeInTheDocument();
+    // Watch history is a list of titles already seen, so it never looks up
+    // where to watch them.
+    expect(mocks.fetchStreamingProviders).not.toHaveBeenCalled();
+    expect(screen.getByText("where to watch hidden")).toBeInTheDocument();
     expect(screen.getByText("Save this for the holidays.")).toBeInTheDocument();
     expect(screen.getByText("actions enabled")).toBeInTheDocument();
 

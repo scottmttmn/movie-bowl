@@ -16,6 +16,10 @@ comments, returning watched movies, and provider-link permissions are unchanged.
   the movie changes.
 - List streaming providers once under **Where to watch**, marking the user's
   saved services. Keep native secure new-tab launch links and Watchmode credit.
+  A movie opened from the watched strip or from Watch History drops the section
+  and its provider lookup: the group has already seen it, so availability is no
+  longer the question the detail answers. The TV's Watch History detail drops
+  the same things — see `tv-watch-history-details-and-safe-return.md`.
 - Place comments below streaming information in a subdued note card, with a
   small Edit action. An empty editable comment has only **Add a comment**;
   opening the editor focuses it. Preserve plain text, line breaks, validation,
