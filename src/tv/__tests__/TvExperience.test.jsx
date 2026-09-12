@@ -267,6 +267,32 @@ describe("Movie Bowl TV experience", () => {
     expect(mocks.signOutThisDevice).not.toHaveBeenCalled();
   });
 
+  // Back is the whole exit, because the Google TV shell reads the web app
+  // leaving /tv as a request to close the app. A control that navigated there
+  // instead would drop a remote into the phone interface, which consumes every
+  // D-pad key and answers none of them. That includes the empty state, whose
+  // next step is genuinely on a phone and cannot be offered here.
+  it("offers no control that leaves TV mode", async () => {
+    renderPicker();
+
+    expect(await screen.findByRole("heading", { name: "Choose a bowl" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /exit tv mode/i })).not.toBeInTheDocument();
+
+    cleanup();
+    const populatedBowls = mocks.bowls;
+    mocks.bowls = [];
+    try {
+      renderPicker();
+
+      expect(await screen.findByRole("heading", { name: "No bowls found" })).toBeInTheDocument();
+      expect(screen.queryAllByRole("button").map((button) => button.textContent)).toEqual([
+        "Sign out of this TV",
+      ]);
+    } finally {
+      mocks.bowls = populatedBowls;
+    }
+  });
+
   it("remembers the last bowl as a focus preference on the bowl picker", async () => {
     window.localStorage.setItem("movie-bowl:tv:last-bowl:user-1", "friends");
 
@@ -277,11 +303,11 @@ describe("Movie Bowl TV experience", () => {
 
     const familyButton = screen.getByRole("button", { name: /family night/i });
     const friendsButton = screen.getByRole("button", { name: /friday friends/i });
-    const exitButton = screen.getByRole("button", { name: /exit tv mode/i });
+    const signOutButton = screen.getByRole("button", { name: /sign out of this tv/i });
 
     setElementRect(familyButton, { left: 40, top: 180, width: 360, height: 260 });
     setElementRect(friendsButton, { left: 430, top: 180, width: 360, height: 260 });
-    setElementRect(exitButton, { left: 900, top: 20, width: 160, height: 60 });
+    setElementRect(signOutButton, { left: 900, top: 20, width: 160, height: 60 });
 
     await waitFor(() => expect(friendsButton).toHaveFocus());
 
