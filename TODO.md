@@ -169,16 +169,21 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 - Theater mode on the web draw: the trailer pre-roll runs only on `/tv`, but the
   toggle for it lives in the web app's "TV & playback" settings section -- so a
   laptop user can switch on a feature nothing they normally open will run. Bring
-  the pre-roll to the dashboard draw, but quieter than on the television: the
-  television starts previews automatically because the drawer is sitting at the
-  screen they will watch on, while someone drawing on a laptop usually is not,
-  so the web version should surface an affordance the viewer chooses to start
-  and show nothing at all when the setting is off. No previews button on the
-  bowl page for everyone; theater mode stays something you turn on in Settings.
-  Note that `theaterModeEnabled` currently means "on the television," and the
-  dashboard honouring it silently widens that meaning for existing accounts --
-  which the offer-don't-autoplay shape is enough to absorb without a new
-  preference. Specified in `output/designs/tv-web-seam.md`.
+  the pre-roll to the dashboard draw behind the control the television already
+  has: a theater mode ticket beside the draw button, `role="switch"`, saying on
+  or off before the draw rather than offering previews after it. Armed, the web
+  behaves as the television does and previews start once the pick is revealed --
+  the switch is the consent that earns the autostart, which an affordance
+  appearing after the draw could never give. The ticket writes a per-device
+  override rather than the account setting, so disarming it on a laptop cannot
+  reach across and turn theater mode off on a television; a web device with
+  nothing stored starts off, which is what keeps `theaterModeEnabled` from
+  silently widening from "on the television" for existing accounts. Keep
+  `tvDrawSettings.js`'s storage prefix when generalising it, or every television
+  forgets its overrides. This does put a control on the bowl page for everyone,
+  reversing an earlier line in the design doc, and it is paid for deliberately:
+  it is also the only thing that makes the feature discoverable on the web.
+  Specified in `output/designs/tv-web-seam.md`.
 
 - Web/television seam: the Google TV app is the only supported television, and
   other televisions' browsers are out of scope -- in practice a path almost
