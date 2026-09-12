@@ -501,6 +501,22 @@ The repository implementation follows the closed decisions above:
 MB-001 was closed on September 1, 2026 after the production migration and
 deployed phone/TV behavior were verified.
 
+## Amendment — September 2026: no availability on a watched movie
+
+Watch History details no longer carry current streaming-provider matches or the
+provider handoff, on the TV or the phone. Nobody opens a movie the group has
+already watched in order to go watch it, so the row and the launch button were
+answering a question the screen is not asked. This supersedes the provider
+bullets in **History detail screen** and the provider clause in **Detail
+actions**; the reveal after a draw is unchanged and keeps both.
+
+The lookups go with the display. Opening a history detail now enriches from
+TMDB details alone — no provider read, and no `movie-cache` provider-link
+action — so the worst case on first open drops from three existing-endpoint
+invocations to one, and the Watchmode budget is spent only on a title the group
+is about to watch. The two-hour return, the snapshot-first render, focus, Back,
+and custom-entry behavior are all untouched.
+
 ## Decisions That Are Closed
 
 - History-card selection opens details, not return confirmation.
