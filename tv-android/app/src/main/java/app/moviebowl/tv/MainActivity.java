@@ -10,8 +10,6 @@ import android.graphics.Bitmap;
 import android.graphics.Color;
 import android.net.Uri;
 import android.os.Bundle;
-import android.os.Handler;
-import android.os.Looper;
 import android.os.Message;
 import android.view.KeyEvent;
 import android.view.View;
@@ -33,11 +31,8 @@ import java.util.Locale;
 import java.util.Objects;
 
 public final class MainActivity extends Activity {
-    private static final long ROUTE_SETTLE_DELAY_MS = 180L;
     private static final String TV_BROWSER_STUB_PACKAGE =
         "com.android.tv.frameworkpackagestubs";
-
-    private final Handler mainHandler = new Handler(Looper.getMainLooper());
 
     private FrameLayout rootView;
     private FrameLayout fullscreenContainer;
@@ -142,7 +137,6 @@ public final class MainActivity extends Activity {
 
     @Override
     protected void onDestroy() {
-        mainHandler.removeCallbacksAndMessages(null);
         hideCustomFullscreenView();
         if (webView != null) {
             webView.stopLoading();
@@ -205,8 +199,9 @@ public final class MainActivity extends Activity {
             return;
         }
 
+        // The web app decides what Back means. If it answers by leaving /tv,
+        // doUpdateVisitedHistory closes the activity.
         dispatchWebKey("Escape", KeyEvent.KEYCODE_ESCAPE);
-        mainHandler.postDelayed(this::finishIfWebAppExitedTvMode, ROUTE_SETTLE_DELAY_MS);
     }
 
     private void dispatchWebKey(String key, int keyCode) {
@@ -259,14 +254,23 @@ public final class MainActivity extends Activity {
         webView.evaluateJavascript(script, null);
     }
 
-    private void finishIfWebAppExitedTvMode() {
-        if (webView == null) return;
+    // Outside /tv the web app is the phone interface, which a remote cannot
+    // drive: dispatchKeyEvent consumes every D-pad key, so those routes would
+    // leave the television with nothing but the Home button. Reaching one means
+    // the viewer is done here, whichever control took them there.
+    //
+    // Only our own origin counts. An about:blank or an error page is not a
+    // route the viewer chose, and closing the app over one would be a mystery
+    // from the sofa.
+    private boolean hasLeftTvMode(String url) {
+        if (url == null) return false;
 
-        webView.evaluateJavascript("window.location.pathname", value -> {
-            if ("\"/\"".equals(value) || value.startsWith("\"/login")) {
-                finish();
-            }
-        });
+        Uri uri = Uri.parse(url);
+        if (!isMovieBowlOrigin(uri)) return false;
+
+        String path = uri.getPath();
+        if (path == null) return false;
+        return !path.equals("/tv") && !path.startsWith("/tv/");
     }
 
     private void enterImmersiveMode() {
@@ -457,6 +461,14 @@ public final class MainActivity extends Activity {
         @SuppressWarnings("deprecation")
         public boolean shouldOverrideUrlLoading(WebView view, String url) {
             return openExternal(Uri.parse(url));
+        }
+
+        // Fires for ordinary loads and for the pushState/replaceState the router
+        // navigates with, which is the only signal that catches both.
+        @Override
+        public void doUpdateVisitedHistory(WebView view, String url, boolean isReload) {
+            super.doUpdateVisitedHistory(view, url, isReload);
+            if (hasLeftTvMode(url)) finish();
         }
 
         @Override

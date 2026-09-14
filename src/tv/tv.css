@@ -393,7 +393,9 @@ html.tv-root {
 }
 
 .tv-empty-state > p:not(.tv-kicker) {
-  margin: 0.75rem 0 1.8rem;
+  /* Bottom margin was the gap before a button that is gone: the panel ends on
+     this sentence now, so it keeps only the padding it was given. */
+  margin: 0.75rem 0 0;
   color: var(--tv-muted);
 }
 
@@ -1401,25 +1403,6 @@ html.tv-root {
   margin: 1rem 0 0;
   color: #fcd34d;
   font-size: 0.78rem;
-  line-height: 1.4;
-}
-
-.tv-voice-handoff {
-  margin-top: 1.25rem;
-  padding: 1rem 1.25rem;
-  border-left: 3px solid var(--tv-accent);
-  background: rgba(255, 255, 255, 0.04);
-  border-radius: 0 0.65rem 0.65rem 0;
-}
-
-.tv-voice-handoff p {
-  margin: 0 0 0.4rem;
-  color: var(--tv-muted);
-  font-size: 0.95rem;
-}
-
-.tv-voice-handoff strong {
-  font-size: clamp(1.1rem, 1.8vw, 1.55rem);
   line-height: 1.4;
 }
 

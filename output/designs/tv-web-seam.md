@@ -37,9 +37,17 @@ nothing to build.
 **Television to web is in good shape.** The tonight screen tells an empty bowl
 to "Add some movies from a phone before starting the draw"
 (`TvTonightScreen.jsx:1472`), tells a returned movie's owner to add it again
-from their phone (`:788`), points at the phone for preferences (`:255`), and
-carries an explicit `Exit TV mode` control. The pairing screen shows a QR and a
-typed URL, which is itself a handoff to the web app.
+from their phone (`:788`), and points at the phone for preferences (`:255`). The
+pairing screen shows a QR and a typed URL, which is itself a handoff to the web
+app.
+
+The handoff is deliberately not a navigation. The picker once carried an
+`Exit TV mode` button and an `Open the full app` button, both of which routed to
+`/`; both are gone. On a television that destination is the phone interface,
+which `MainActivity.dispatchKeyEvent` leaves undrivable because it consumes
+every D-pad key, so the Google TV shell now closes itself whenever the web app
+leaves `/tv` (`MainActivity.doUpdateVisitedHistory`). Back is the only exit, and
+in a browser the back button says the same thing.
 
 **Web to television is one unlabelled link.** `TopNav.jsx:158` offers a menu
 item reading "TV mode" that navigates to `/tv`, with no explanation of what it

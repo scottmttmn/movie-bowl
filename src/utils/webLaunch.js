@@ -71,9 +71,3 @@ export function resolvePreferredLaunchTarget({ providerLinks = [], ...options })
     },
   };
 }
-
-export function buildVoiceHandoffCommand(title, launchTarget) {
-  const movieTitle = String(title || "").trim();
-  return movieTitle && launchTarget?.serviceName
-    ? `Play ${movieTitle} on ${launchTarget.serviceName}` : "";
-}

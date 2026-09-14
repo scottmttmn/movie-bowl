@@ -1,5 +1,5 @@
 import { describe, expect, it } from "vitest";
-import { buildVoiceHandoffCommand, resolvePreferredLaunchTarget, resolvePreferredWebLaunchCandidate } from "../webLaunch";
+import { resolvePreferredLaunchTarget, resolvePreferredWebLaunchCandidate } from "../webLaunch";
 
 describe("resolvePreferredWebLaunchCandidate", () => {
   it("picks the highest-ranked matching provider with a known web mapping", () => {
@@ -87,10 +87,8 @@ describe("resolvePreferredLaunchTarget", () => {
     expect(resolvePreferredLaunchTarget({ ...options, title: "" })).toBeNull();
     expect(resolvePreferredLaunchTarget({ ...options, movieProviders: ["Unknown"] })).toBeNull();
   });
-  it("rejects executable URLs and builds voice copy from the same chosen service", () => {
+  it("rejects executable URLs, falling back to the service's search", () => {
     const result = resolvePreferredLaunchTarget({ ...options, providerLinks: [{ ...netflix, webUrl: "javascript:alert(1)" }] });
     expect(result.linkType).toBe("search");
-    expect(buildVoiceHandoffCommand(" Arrival ", result)).toBe("Play Arrival on Netflix");
-    expect(buildVoiceHandoffCommand("Arrival", null)).toBe("");
   });
 });

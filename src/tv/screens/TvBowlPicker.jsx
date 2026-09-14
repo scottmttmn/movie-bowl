@@ -49,6 +49,12 @@ export default function TvBowlPicker({
     setShowSignOut(false);
   };
 
+  // Leaving /tv is what exiting TV mode means, and Back is deliberately the only
+  // way to ask for it. The Google TV shell reads the departure as "close the
+  // app" and finishes the activity, so there is nothing for a screen control to
+  // label: on a television the remote's Back key already says it, and in a
+  // browser so does the back button. A control that said "exit" and then landed
+  // on the phone UI would be lying on the one surface that cannot use it.
   useTvSpatialNavigation({
     scopeKey: showSignOut ? "picker-sign-out" : `picker:${isLoading}:${bowls.length}:${Boolean(errorMessage)}`,
     onBack: () => showSignOut ? closeSignOut() : navigate("/"),
@@ -102,18 +108,8 @@ export default function TvBowlPicker({
             <span className="tv-account-value">{userEmail || "Movie Bowl member"}</span>
             <button
               type="button"
-              className="tv-text-button"
-              data-tv-focusable
-              data-tv-nav-group="picker-header"
-              onClick={() => navigate("/")}
-            >
-              Exit TV mode
-            </button>
-            <button
-              type="button"
               className="tv-text-button tv-sign-out-button"
               data-tv-focusable
-              data-tv-nav-group="picker-header"
               data-tv-autofocus={focusSignOut ? "true" : undefined}
               onClick={() => {
                 setSignOutError("");
@@ -160,16 +156,9 @@ export default function TvBowlPicker({
           <section className="tv-empty-state">
             <p className="tv-kicker">Nothing to draw yet</p>
             <h2>No bowls found</h2>
+            {/* No button: the only next step is on a phone, and a television
+                that offered one could only open the phone app on itself. */}
             <p>Create or join a bowl on your phone, then come back to the TV.</p>
-            <button
-              type="button"
-              className="tv-button tv-button-primary"
-              data-tv-focusable
-              data-tv-autofocus="true"
-              onClick={() => navigate("/")}
-            >
-              Open the full app
-            </button>
           </section>
         )}
 

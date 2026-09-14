@@ -267,6 +267,32 @@ describe("Movie Bowl TV experience", () => {
     expect(mocks.signOutThisDevice).not.toHaveBeenCalled();
   });
 
+  // Back is the whole exit, because the Google TV shell reads the web app
+  // leaving /tv as a request to close the app. A control that navigated there
+  // instead would drop a remote into the phone interface, which consumes every
+  // D-pad key and answers none of them. That includes the empty state, whose
+  // next step is genuinely on a phone and cannot be offered here.
+  it("offers no control that leaves TV mode", async () => {
+    renderPicker();
+
+    expect(await screen.findByRole("heading", { name: "Choose a bowl" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /exit tv mode/i })).not.toBeInTheDocument();
+
+    cleanup();
+    const populatedBowls = mocks.bowls;
+    mocks.bowls = [];
+    try {
+      renderPicker();
+
+      expect(await screen.findByRole("heading", { name: "No bowls found" })).toBeInTheDocument();
+      expect(screen.queryAllByRole("button").map((button) => button.textContent)).toEqual([
+        "Sign out of this TV",
+      ]);
+    } finally {
+      mocks.bowls = populatedBowls;
+    }
+  });
+
   it("remembers the last bowl as a focus preference on the bowl picker", async () => {
     window.localStorage.setItem("movie-bowl:tv:last-bowl:user-1", "friends");
 
@@ -277,11 +303,11 @@ describe("Movie Bowl TV experience", () => {
 
     const familyButton = screen.getByRole("button", { name: /family night/i });
     const friendsButton = screen.getByRole("button", { name: /friday friends/i });
-    const exitButton = screen.getByRole("button", { name: /exit tv mode/i });
+    const signOutButton = screen.getByRole("button", { name: /sign out of this tv/i });
 
     setElementRect(familyButton, { left: 40, top: 180, width: 360, height: 260 });
     setElementRect(friendsButton, { left: 430, top: 180, width: 360, height: 260 });
-    setElementRect(exitButton, { left: 900, top: 20, width: 160, height: 60 });
+    setElementRect(signOutButton, { left: 900, top: 20, width: 160, height: 60 });
 
     await waitFor(() => expect(friendsButton).toHaveFocus());
 
@@ -969,6 +995,11 @@ describe("Movie Bowl TV experience", () => {
     fireEvent.keyDown(window, { key: "ArrowDown" });
     expect(historyButton).toHaveFocus();
 
+    // The draw pool warms its own provider cache, so only lookups from here on
+    // could belong to the detail page.
+    mocks.fetchStreamingProviders.mockClear();
+    mocks.fetchProviderLinks.mockClear();
+
     fireEvent.keyDown(window, { key: "Enter" });
     expect(screen.getByRole("heading", { name: /arrival/i })).toBeInTheDocument();
     expect(screen.getByText("Smart science fiction for movie night.")).toBeInTheDocument();
@@ -984,7 +1015,12 @@ describe("Movie Bowl TV experience", () => {
       expect(screen.getByRole("button", { name: /^close$/i })).toHaveFocus();
     });
     expect(mocks.getTmdbMovieDetails).toHaveBeenCalledWith(101);
-    expect(mocks.fetchStreamingProviders).toHaveBeenCalledWith(101);
+    // A movie in Watch History has been watched, so the page neither shows nor
+    // looks up where to stream it.
+    expect(document.querySelector(".tv-history-detail-page .tv-provider-row")).toBeNull();
+    expect(screen.queryByRole("link", { name: /open netflix/i })).not.toBeInTheDocument();
+    expect(mocks.fetchStreamingProviders).not.toHaveBeenCalled();
+    expect(mocks.fetchProviderLinks).not.toHaveBeenCalled();
     expect(mocks.handleReaddMovie).not.toHaveBeenCalled();
 
     fireEvent.click(
@@ -1098,7 +1134,7 @@ describe("Movie Bowl TV experience", () => {
     ).not.toBeInTheDocument();
   });
 
-  it("upgrades a focused launch link without changing services and displays a non-focusable voice card", async () => {
+  it("upgrades a focused launch link without changing services", async () => {
     let finishLookup;
     mocks.fetchProviderLinks.mockReturnValue(new Promise((resolve) => { finishLookup = resolve; }));
     mocks.handleDraw.mockResolvedValue({ id: "movie-1", tmdb_id: 101, title: "Arrival", streamingProviders: ["Netflix"] });
@@ -1112,10 +1148,6 @@ describe("Movie Bowl TV experience", () => {
     const link = await screen.findByRole("link", { name: /^open netflix$/i });
     expect(link).toHaveAttribute("href", "https://www.netflix.com/search?q=Arrival");
     link.focus();
-    const voiceCard = screen.getByText(/hold the mic button/i).closest(".tv-voice-handoff");
-    expect(voiceCard).toHaveTextContent("Play Arrival on Netflix");
-    expect(voiceCard.querySelector("[data-tv-focusable], button, a, [tabindex]")).toBeNull();
-    expect(voiceCard).not.toHaveAttribute("data-tv-focusable");
     await act(async () => { finishLookup({ links: [{ service: "Netflix", type: "sub", webUrl: "https://www.netflix.com/title/123" }] }); });
     expect(screen.getByRole("link", { name: /^open netflix$/i })).toBe(link);
     expect(link).toHaveAttribute("href", "https://www.netflix.com/title/123");
@@ -1146,14 +1178,6 @@ describe("Movie Bowl TV experience", () => {
       "src",
       "https://image.tmdb.org/t/p/w92/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg"
     );
-  });
-
-  it("hides the voice card when no preferred service matches", async () => {
-    mocks.streamingServices = [];
-    window.sessionStorage.setItem("movie-bowl:tv:external-return", JSON.stringify({ bowlId: "family", movie: { id: "movie-1", title: "Arrival", streamingProviders: ["Netflix"] }, savedAt: Date.now() }));
-    renderTonight();
-    await screen.findByRole("heading", { name: /arrival/i });
-    expect(screen.queryByText(/hold the mic button/i)).not.toBeInTheDocument();
   });
 
   it("restores the drawn result after an external provider handoff reload", async () => {

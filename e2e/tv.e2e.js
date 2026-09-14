@@ -53,16 +53,13 @@ test("a paired TV can use remote selection to open a bowl", async ({ page, backe
 
   await expect(page.getByRole("heading", { name: "Choose a bowl" })).toBeVisible();
   const bowlButton = page.getByRole("button", { name: /Smoke TV/ });
-  const exit = page.getByRole("button", { name: "Exit TV mode", exact: true });
   const signOut = page.getByRole("button", { name: "Sign out of this TV", exact: true });
   await expect(bowlButton).toBeFocused();
   await bowlButton.press("ArrowUp");
-  await expect(exit).toBeFocused();
-  await exit.press("ArrowDown");
   await expect(signOut).toBeFocused();
-  await signOut.press("ArrowUp");
-  await expect(exit).toBeFocused();
-  await exit.press("ArrowDown");
+  await signOut.press("ArrowDown");
+  await expect(bowlButton).toBeFocused();
+  await bowlButton.press("ArrowUp");
   await expect(signOut).toBeFocused();
   await signOut.press("Enter");
   const dialog = page.getByRole("dialog", { name: "Sign out of this TV?" });
@@ -109,15 +106,12 @@ test("TV sign-out can retry a failure, revokes only this session, and returns to
     localStorage.setItem("movie-bowl:tv:recent-trailers", "[101]");
   });
 
-  // Exit keeps the account signed in and still reaches the ordinary app.
-  await page.getByRole("button", { name: "Exit TV mode", exact: true }).press("Enter");
-  await expect(page).toHaveURL(/\/bowls$/);
-  expect(backend.requests.filter((request) => request.pathname === "/auth/v1/logout")).toHaveLength(0);
-  await page.goto("/tv/bowls");
-  await expect(page.getByRole("heading", { name: "No bowls found" })).toBeVisible();
-  await page.getByRole("button", { name: "Open the full app" }).press("ArrowUp");
-  await expect(page.getByRole("button", { name: "Exit TV mode", exact: true })).toBeFocused();
-  await page.getByRole("button", { name: "Exit TV mode", exact: true }).press("ArrowDown");
+  // Signing out is the only thing the picker offers an empty account. Nothing
+  // here navigates into the phone app: on a television that is a screen no
+  // remote can drive, and the Google TV shell closes itself rather than show it.
+  await expect(page.getByRole("button", { name: "Exit TV mode", exact: true })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Open the full app" })).toHaveCount(0);
+  await expect(page.getByRole("button")).toHaveCount(1);
   await expect(page.getByRole("button", { name: "Sign out of this TV", exact: true })).toBeFocused();
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: testInfo.outputPath("tv-account-actions.png") });

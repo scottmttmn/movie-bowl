@@ -414,7 +414,14 @@ ungated. This phase changes where the button points, and nothing else about it.
 
 ## The voice card
 
-Ladder step 4, TV only. `src/tv/components/TvVoiceHandoffCard.jsx` renders under
+**Retired.** Shipped as described below, then removed: the provider launch it
+worked around now hands off to installed apps directly, so the sentence was
+asking the room to say aloud what a button already did. Removing it also removed
+the one surface where a service name had to stay text rather than a logo,
+because it was meant to be read aloud. The reasoning is kept because it is the
+argument any future assistant handoff has to beat.
+
+Ladder step 4, TV only. `src/tv/components/TvVoiceHandoffCard.jsx` rendered under
 the launch button on the reveal, and again after the "Feature Presentation"
 transition when theater mode is on:
 

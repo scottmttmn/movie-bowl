@@ -623,7 +623,9 @@ export default function BowlDashboard() {
       setMyMoviesErrorMessage("Could not delete this movie. Please try again.");
     };
 
-    const buildDetailMovie = async (movie) => {
+    // `includeStreaming` is off for the watched detail, which no longer shows
+    // where to watch — a title already seen needs no availability lookup.
+    const buildDetailMovie = async (movie, { includeStreaming = true } = {}) => {
       const tmdbId = Number(movie?.tmdb_id ?? movie?.id);
       const shouldFetchTmdbDetails = Number.isInteger(tmdbId) && tmdbId > 0;
 
@@ -637,11 +639,15 @@ export default function BowlDashboard() {
         };
       }
 
-      const [detailsResult, providersResult] = await Promise.allSettled([
-        getTmdbMovieDetails(tmdbId),
+      const emptyProviderData = { providers: [], region: "US", fetchedAt: null };
+      const loadProviders = () =>
         filterMetadataFetchers?.fetchProviders
           ? filterMetadataFetchers.fetchProviders(tmdbId)
-          : fetchStreamingProviders(tmdbId, { region: "US" }),
+          : fetchStreamingProviders(tmdbId, { region: "US" });
+
+      const [detailsResult, providersResult] = await Promise.allSettled([
+        getTmdbMovieDetails(tmdbId),
+        includeStreaming ? loadProviders() : Promise.resolve(emptyProviderData),
       ]);
 
       if (detailsResult.status === "rejected") {
@@ -653,9 +659,7 @@ export default function BowlDashboard() {
 
       const details = detailsResult.status === "fulfilled" ? detailsResult.value : null;
       const providerData =
-        providersResult.status === "fulfilled"
-          ? providersResult.value
-          : { providers: [], region: "US", fetchedAt: null };
+        providersResult.status === "fulfilled" ? providersResult.value : emptyProviderData;
 
       return {
         ...(details || {}),
@@ -1299,7 +1303,9 @@ return (
                   onToggleExpanded={() => setShowWatched((prev) => !prev)}
                   onSelectMovie={async (movie) => {
                     setSelectedDetailContext("watched");
-                    setSelectedDetailMovie(await buildDetailMovie(movie));
+                    setSelectedDetailMovie(
+                      await buildDetailMovie(movie, { includeStreaming: false })
+                    );
                   }}
                 />
                 {readdErrorMessage && (
@@ -1359,6 +1365,7 @@ return (
               <AddMovieModal
                 movie={selectedDetailMovie}
                 userStreamingServices={userStreamingServices}
+                showWhereToWatch={selectedDetailContext !== "watched"}
                 onDeleteMovie={
                   selectedDetailContext === "myAdds" ? confirmAndDeleteMovie : null
                 }

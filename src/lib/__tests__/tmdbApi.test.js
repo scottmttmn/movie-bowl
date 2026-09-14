@@ -172,14 +172,17 @@ describe("tmdbApi", () => {
     );
   });
 
-  it("returns null trailer when no official YouTube trailer exists", async () => {
+  it("returns null trailer when no usable YouTube video exists", async () => {
     global.fetch.mockResolvedValue({
       ok: true,
       json: async () => ({
         id: 88,
         title: "No Trailer Movie",
         videos: {
-          results: [{ site: "YouTube", type: "Teaser", official: true, iso_639_1: "en", key: "teaser" }],
+          results: [
+            { site: "YouTube", type: "Clip", official: true, iso_639_1: "en", key: "clip" },
+            { site: "Vimeo", type: "Trailer", official: true, iso_639_1: "en", key: "vimeo" },
+          ],
         },
       }),
     });

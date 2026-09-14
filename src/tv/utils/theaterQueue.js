@@ -7,7 +7,7 @@ const RECENT_TRAILER_STORAGE_KEY = "movie-bowl:tv:recent-trailers";
 const RECENT_TRAILER_LIMIT = 40;
 
 // Detail lookups are sequential and stop as soon as the queue is full, so this
-// only bounds the worst case where most candidates have no official trailer.
+// only bounds the worst case where most candidates have no usable trailer.
 const LOOKUPS_PER_TRAILER = 3;
 
 export function readRecentTrailerKeys() {
