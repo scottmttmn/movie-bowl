@@ -162,6 +162,17 @@ absence rather than working around it. You armed it here, moments before you
 drew, and previews then starting is what you asked for. One model serves both
 surfaces instead of two, which is less to build and less to explain.
 
+**So there is no confirmation step, on either surface.** Draw, reveal, previews
+— the same sequence the television runs today, where `isTheaterPending` resolves
+the queue and hands straight to `isTheaterPlaying` with no prompt in between. A
+"start previews?" dialog would reintroduce the offer this section just removed,
+one step further along, and ask a question the switch has already answered. The
+pre-roll's own opening card is the heads-up: it announces the count and the
+feature, and then it plays. Note the television also gives up rather than
+stalling — `MAX_PREVIEW_WAIT_MS` abandons the pre-roll if the lookups are slow,
+landing on the reveal with the movie waiting. The web wants the same escape for
+the same reason.
+
 **Where it goes: the hero, beside `HoldToDrawButton`** (`BowlDashboard.jsx:829`)
 — not inside the "Narrow the draw" panel. `TvTheaterTicket`'s own comment makes
 this argument for the television: theater mode is the only setting on that
@@ -219,6 +230,17 @@ television-specific. Four things do not carry over:
 - **Pause needs a pointer gesture.** The television binds it to Select on
   `window`. The key handler already accepts Space, so the web wants
   click-to-pause on the overlay added beside it.
+- **The draw gesture may be stale by the time the first preview plays.** This is
+  the one risk that could overrule the no-confirmation decision above on
+  engineering grounds rather than product ones. The hold-to-draw press is a real
+  user gesture, but the queue resolves asynchronously through TMDB lookups before
+  any player exists, so the browser may no longer count playback as
+  gesture-initiated when it finally starts. Chrome is usually permissive here and
+  Safari is not, iOS least of all. If it does refuse, the fallback is a tap on the
+  pre-roll's opening announcement card rather than a dialog before it — one tap,
+  inside the ceremony instead of in front of it, and the card is already on screen
+  saying what is about to play. Establish which on hardware before writing the
+  copy either way.
 
 Two files move, which answers a question this document previously left open.
 `theaterQueue.js` belongs in `src/utils/` — it is pure and dependency-free,
@@ -389,11 +411,13 @@ one piece of work; they are the same screen and the same audience.
    account toggle survive the per-device switch?~~ Renaming yes, and the toggle
    stays. See "What Settings Keeps" above. The wording itself is still unwritten,
    which is drafting rather than a design question.
-4. **Is `theaterTrailerCount` right for both?** Three previews is a cinema on a
-   television; it may be long on a laptop where someone is about to walk away,
-   and it is three HD trailers of cellular data on a phone. Note that the count
-   is deliberately not overridable per device today, so an answer of "fewer on a
-   phone" means either a surface default or a widened override list.
+4. ~~Is `theaterTrailerCount` right for both?~~ Yes — the count stays as it is,
+   one account-level number for every surface. A phone-specific default would
+   mean either a second surface default or a widened override list, and neither
+   is worth carrying before anyone has complained that three is too many. The
+   setting already spans one to four, so someone who finds it long on a laptop
+   has the control. Revisit if cellular data on a phone turns out to be the
+   thing people actually notice.
 5. ~~Does anything else want per-device divergence?~~ Moot: the switch forces the
    per-device override regardless, because it cannot write the account setting
    without reaching across to the television. Whether any *other* setting wants
@@ -402,11 +426,20 @@ one piece of work; they are the same screen and the same audience.
 6. **What is the install route for a cohort member?** A Play link, an email
    invitation to the test track, or something the web app renders. A
    distribution question rather than a product one.
-7. **Does the ticket belong on the bowl page for a member who cannot draw?**
-   Draw access is per bowl, and a member outside the allow-list will never arm
-   anything. Showing them a switch for a ceremony they cannot start is the
-   clutter this document was trying to avoid; hiding it makes the control appear
-   and disappear between bowls.
+7. ~~Does the ticket belong on the bowl page for a member who cannot draw?~~ No
+   — hide it when `canCurrentUserDraw` is false (`BowlDashboard.jsx:230`).
+   Theater mode describes what happens *after* a draw, so to someone who cannot
+   draw in this bowl the switch is not merely disabled, it is about an event they
+   will never trigger. That it then appears and disappears between bowls is
+   correct rather than inconsistent: draw access is per bowl, so the control
+   follows the permission that gives it meaning.
+
+   Worth noting the deliberate difference from its neighbour. `HoldToDrawButton`
+   stays visible and `disabled` for the same member, because a greyed draw button
+   is what explains why they cannot draw — paired with `drawGuardMessage`, it
+   answers a question they are actually asking. A greyed ticket answers no
+   question; it advertises a feature and then refuses it. Disable the control
+   that carries an explanation, hide the one that does not.
 
 ## Sketch of the Work
 
@@ -415,7 +448,9 @@ one piece of work; they are the same screen and the same audience.
    device override (keeping its storage prefix) with an off-by-default surface
    default for the web; move `theaterQueue.js` and `youtubePlayer.js` out of
    `src/tv/`; then the ticket and the web pre-roll overlay, with a visible exit
-   and `playsinline=1`. This is the real feature and the rest depends on it.
+   and `playsinline=1`. The ticket renders only when `canCurrentUserDraw`, and
+   the pre-roll starts on the draw with no confirmation. This is the real feature
+   and the rest depends on it.
 2. Remove the `TopNav` item; update `TopNav.test.jsx`.
 3. Settings copy, once the section governs two surfaces.
 4. Pairing screen typography, together with the existing `TODO.md` item.
