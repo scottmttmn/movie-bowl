@@ -246,6 +246,32 @@ describe("filter metadata refresh worker", () => {
     expect(usageCalls[0][1]).toEqual({ p_metric: "tmdb_request", p_count: 2 });
   });
 
+  it("still meters the batches already fetched when a later claim fails", async () => {
+    let claimCalls = 0;
+    rpc.mockImplementation(async (name) => {
+      if (name === "claim_tmdb_filter_metadata_refreshes") {
+        claimCalls += 1;
+        if (claimCalls === 1) return { data: [claim(10), claim(20)], error: null };
+        return { data: null, error: { message: "claim failed" } };
+      }
+      return { data: true, error: null };
+    });
+
+    await expect(runDailyFilterMetadataRefresh(supabaseAdmin, {
+      fetchMetadata: vi.fn(async () => ({
+        certification: null,
+        providers: [],
+        fetchedAt: "2026-08-28T12:00:00.000Z",
+      })),
+      maxTitles: 4,
+      batchSize: 2,
+    })).rejects.toEqual({ message: "claim failed" });
+
+    const usageCalls = rpc.mock.calls.filter(([name]) => name === "record_service_usage");
+    expect(usageCalls).toHaveLength(1);
+    expect(usageCalls[0][1]).toEqual({ p_metric: "tmdb_request", p_count: 2 });
+  });
+
   it("completes the run even when the meter is unavailable", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
     rpc.mockImplementation(async (name) => {

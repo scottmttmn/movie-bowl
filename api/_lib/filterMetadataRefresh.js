@@ -164,40 +164,44 @@ export async function runDailyFilterMetadataRefresh(
   const staleBefore = new Date(startedAt - FILTER_METADATA_DAILY_REFRESH_AGE_MS).toISOString();
   const stats = { claimed: 0, succeeded: 0, failed: 0, exhausted: false };
 
-  while (stats.claimed < maxTitles && deadline - nowFn() > 2_000) {
-    const claims = await claimFilterMetadataRefreshes(supabaseAdmin, {
-      limit: Math.min(batchSize, maxTitles - stats.claimed),
-      staleBefore,
-    });
-    if (claims.length === 0) {
-      stats.exhausted = true;
-      break;
-    }
+  try {
+    while (stats.claimed < maxTitles && deadline - nowFn() > 2_000) {
+      const claims = await claimFilterMetadataRefreshes(supabaseAdmin, {
+        limit: Math.min(batchSize, maxTitles - stats.claimed),
+        staleBefore,
+      });
+      if (claims.length === 0) {
+        stats.exhausted = true;
+        break;
+      }
 
-    stats.claimed += claims.length;
-    const timeoutMs = Math.min(10_000, Math.max(1_000, deadline - nowFn()));
-    const results = await mapWithConcurrency(
-      claims,
-      (claim) => refreshFilterMetadataClaim(supabaseAdmin, claim, {
-        fetchMetadata,
-        signal: createRequestSignal(timeoutMs),
-      }),
-      concurrency
-    );
-    results.forEach((result) => {
-      if (result.ok) stats.succeeded += 1;
-      else stats.failed += 1;
+      stats.claimed += claims.length;
+      const timeoutMs = Math.min(10_000, Math.max(1_000, deadline - nowFn()));
+      const results = await mapWithConcurrency(
+        claims,
+        (claim) => refreshFilterMetadataClaim(supabaseAdmin, claim, {
+          fetchMetadata,
+          signal: createRequestSignal(timeoutMs),
+        }),
+        concurrency
+      );
+      results.forEach((result) => {
+        if (result.ok) stats.succeeded += 1;
+        else stats.failed += 1;
+      });
+    }
+  } finally {
+    // One record for the whole run rather than one per title: the counter is a
+    // meter, and 300 extra round trips inside a 60-second budget would make it a
+    // cost of its own. Claims rather than successes, because a claim is the TMDB
+    // request whether or not it came back. In a finally, because a batch that
+    // fails to claim ends the run after earlier batches already spent requests;
+    // recordServiceUsage never throws, so it cannot mask that failure.
+    await recordServiceUsage("tmdb_request", stats.claimed, {
+      client: supabaseAdmin,
+      label: "cron/refresh-filter-metadata",
     });
   }
-
-  // One record for the whole run rather than one per title: the counter is a
-  // meter, and 300 extra round trips inside a 60-second budget would make it a
-  // cost of its own. Claims rather than successes, because a claim is the TMDB
-  // request whether or not it came back.
-  await recordServiceUsage("tmdb_request", stats.claimed, {
-    client: supabaseAdmin,
-    label: "cron/refresh-filter-metadata",
-  });
 
   return {
     ...stats,
