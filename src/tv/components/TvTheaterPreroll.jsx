@@ -4,6 +4,12 @@ import { getAutoplayTrailerUrl, getTrailerSequence, loadYouTubeIframeApi } from 
 const ANNOUNCEMENT_MS = 4200;
 const FEATURE_CARD_MS = 3600;
 
+const PLAYING = 1;
+
+// If a preview is accepted but never starts, show the player rather than a
+// black screen.
+const MAX_COVER_MS = 4000;
+
 export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
   const playerId = `tv-preroll-${useId().replace(/:/g, "")}`;
   const overlayRef = useRef(null);
@@ -14,11 +20,17 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
   const attemptRef = useRef(0);
   const advanceRef = useRef(() => {});
   const refusedRef = useRef(() => {});
+  const revealRef = useRef(() => {});
   const finishRef = useRef(onFinish);
+  const coverTimerRef = useRef(null);
 
   const [isPaused, setIsPaused] = useState(false);
   const [phase, setPhase] = useState("trailers");
   const [showAnnouncement, setShowAnnouncement] = useState(true);
+  // The embed paints YouTube's "unavailable" screen before the player can report
+  // a refusal, and a refused fallback reports buffering before its error, so
+  // each preview stays covered until it is actually playing.
+  const [isCovered, setIsCovered] = useState(true);
 
   // The queue is fixed for the life of the overlay, so the iframe keeps one
   // src for the whole sequence and later previews arrive via loadVideoById.
@@ -30,6 +42,23 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
   useEffect(() => {
     finishRef.current = onFinish;
   }, [onFinish]);
+
+  const coverUntilPlaying = useCallback(() => {
+    setIsCovered(true);
+    window.clearTimeout(coverTimerRef.current);
+    coverTimerRef.current = window.setTimeout(() => setIsCovered(false), MAX_COVER_MS);
+  }, []);
+
+  const reveal = useCallback(() => {
+    window.clearTimeout(coverTimerRef.current);
+    setIsCovered(false);
+  }, []);
+
+  // The cover starts up, so the first preview only needs its safety timer.
+  useEffect(() => {
+    coverTimerRef.current = window.setTimeout(() => setIsCovered(false), MAX_COVER_MS);
+    return () => window.clearTimeout(coverTimerRef.current);
+  }, []);
 
   const advance = useCallback(() => {
     const next = indexRef.current + 1;
@@ -44,8 +73,11 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
     setShowAnnouncement(false);
 
     const nextKey = queue[next]?.trailer?.key;
-    if (nextKey) playerRef.current?.loadVideoById?.(String(nextKey));
-  }, [queue]);
+    if (nextKey) {
+      coverUntilPlaying();
+      playerRef.current?.loadVideoById?.(String(nextKey));
+    }
+  }, [queue, coverUntilPlaying]);
 
   // A refusal is about the video, not the title, so the same title's next-best
   // trailer gets a turn before the queue moves on without it.
@@ -58,13 +90,15 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
     }
 
     attemptRef.current = next;
+    coverUntilPlaying();
     playerRef.current?.loadVideoById?.(sequence[next]);
-  }, [queue, advance]);
+  }, [queue, advance, coverUntilPlaying]);
 
   useEffect(() => {
     advanceRef.current = advance;
     refusedRef.current = playFallback;
-  }, [advance, playFallback]);
+    revealRef.current = reveal;
+  }, [advance, playFallback, reveal]);
 
   useLayoutEffect(() => {
     const overlay = overlayRef.current;
@@ -102,6 +136,7 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
             },
             onStateChange: (event) => {
               reclaimFocusRef.current();
+              if (event.data === PLAYING) revealRef.current();
               if (event.data === 0 || event.data === youtube.PlayerState?.ENDED) {
                 advanceRef.current();
               }
@@ -214,6 +249,12 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
         allowFullScreen
       />
+
+      {/* Also drawn behind the feature card, where the stopped player would
+          otherwise leave its last frame. */}
+      {(isCovered || phase === "feature") && (
+        <div className="tv-theater-cover" aria-hidden="true" />
+      )}
 
       {phase === "feature" ? (
         <div className="tv-theater-feature" role="status">

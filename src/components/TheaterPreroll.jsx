@@ -46,6 +46,11 @@ export default function TheaterPreroll({ queue, featureTitle, onFinish }) {
   const [needsTap, setNeedsTap] = useState(false);
   const [phase, setPhase] = useState("trailers");
   const [showAnnouncement, setShowAnnouncement] = useState(true);
+  // The embed paints YouTube's "unavailable" screen before the player can report
+  // a refusal, and a refused fallback reports buffering before its error, so
+  // each preview stays covered until it is actually playing. If autoplay is
+  // what holds it back, the tap-to-start card is drawn over the cover.
+  const [isCovered, setIsCovered] = useState(true);
 
   // The queue is fixed for the life of the overlay, so the iframe keeps one src
   // for the whole sequence and later previews arrive via loadVideoById.
@@ -86,6 +91,7 @@ export default function TheaterPreroll({ queue, featureTitle, onFinish }) {
 
     const nextKey = queue[next]?.trailer?.key;
     if (nextKey) {
+      setIsCovered(true);
       playerRef.current?.loadVideoById?.(String(nextKey));
       armAutoplayCheck();
     }
@@ -102,6 +108,7 @@ export default function TheaterPreroll({ queue, featureTitle, onFinish }) {
     }
 
     attemptRef.current = next;
+    setIsCovered(true);
     playerRef.current?.loadVideoById?.(sequence[next]);
     armAutoplayCheck();
   }, [queue, advance, armAutoplayCheck]);
@@ -132,6 +139,7 @@ export default function TheaterPreroll({ queue, featureTitle, onFinish }) {
               if (event.data === PLAYING) {
                 clearGrace();
                 setNeedsTap(false);
+                setIsCovered(false);
                 return;
               }
               if (event.data === ENDED) advanceRef.current();
@@ -229,6 +237,12 @@ export default function TheaterPreroll({ queue, featureTitle, onFinish }) {
         title="Movie Bowl previews"
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
       />
+
+      {/* Also drawn behind the feature card, where the stopped player would
+          otherwise leave its last frame. */}
+      {(isCovered || phase === "feature") && (
+        <div className="theater-preroll-cover" data-testid="preroll-cover" aria-hidden="true" />
+      )}
 
       {/* Covers the player so a click lands here rather than inside the iframe,
           where our handlers can never see it. */}
