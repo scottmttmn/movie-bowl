@@ -288,6 +288,56 @@
       0 24px 60px -42px rgba(0, 0, 0, 0.95);
   }
 
+  /* Theater mode, as a ticket -- the same object the television wears, in this
+     surface's own vocabulary. It is the only control beside the draw button
+     about the occasion rather than about the pool, and a torn paper stub is how
+     it says so without a label explaining it. The bowl is full of paper slips;
+     this is the same paper. */
+  .theater-ticket {
+    @apply inline-flex rounded-xl border border-transparent bg-transparent p-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/70;
+  }
+
+  /* The perforations are a mask, and a mask clips everything the element paints
+     -- an outer focus ring included. Masking a face inside the button leaves
+     the button itself free to wear the ring every other control wears. */
+  .theater-ticket-face {
+    @apply flex min-h-11 items-center gap-2.5 rounded-lg px-3 text-[0.7rem] font-bold uppercase text-slate-400 transition;
+    background: rgba(148, 163, 184, 0.14);
+    letter-spacing: 0.06em;
+    -webkit-mask:
+      radial-gradient(circle 8px at 0 50%, transparent 99%, #000 100%),
+      radial-gradient(circle 8px at 100% 50%, transparent 99%, #000 100%);
+    -webkit-mask-composite: source-in;
+    mask:
+      radial-gradient(circle 8px at 0 50%, transparent 99%, #000 100%),
+      radial-gradient(circle 8px at 100% 50%, transparent 99%, #000 100%);
+    mask-composite: intersect;
+  }
+
+  .theater-ticket-stub {
+    @apply pr-2.5 text-slate-500;
+    border-right: 2px dashed rgba(148, 163, 184, 0.4);
+  }
+
+  .theater-ticket[data-on] .theater-ticket-face {
+    @apply text-rose-100;
+    background: rgba(225, 29, 72, 0.22);
+  }
+
+  .theater-ticket[data-on] .theater-ticket-stub {
+    @apply text-rose-300;
+    border-right-color: rgba(244, 63, 94, 0.5);
+  }
+
+  .theater-ticket:hover:not(:disabled) .theater-ticket-face {
+    @apply text-slate-200;
+    background: rgba(148, 163, 184, 0.22);
+  }
+
+  .theater-ticket[data-on]:hover:not(:disabled) .theater-ticket-face {
+    background: rgba(225, 29, 72, 0.3);
+  }
+
   .about-demo-card-featured {
     @apply border-rose-800/80;
     background:

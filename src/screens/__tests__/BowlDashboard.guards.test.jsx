@@ -800,4 +800,33 @@ describe("BowlDashboard guards", () => {
 
     expect(screen.getByRole("button", { name: /draw movie/i })).toBeEnabled();
   });
+
+  // The ticket is hidden where the draw button is merely disabled, and the
+  // difference is deliberate: a greyed draw button explains why this member
+  // cannot draw, while a greyed ticket would advertise a ceremony they can
+  // never start and explain nothing.
+  it("hides the theater ticket from a member who cannot draw, though the draw button stays", async () => {
+    mocks.state.authUserId = "u2";
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", draw_access_mode: "selected_members" };
+    mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
+    mocks.state.drawPermissionRows = [{ user_id: "u3" }];
+    mocks.state.bowlData = { remaining: [{ id: "m1", added_by: "u1" }], watched: [] };
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    expect(screen.queryByRole("switch", { name: /theater mode/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /draw movie/i })).toBeInTheDocument();
+  });
+
+  it("shows the theater ticket once the same member is allowed to draw", async () => {
+    mocks.state.authUserId = "u2";
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", draw_access_mode: "selected_members" };
+    mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
+    mocks.state.drawPermissionRows = [{ user_id: "u2" }];
+    mocks.state.bowlData = { remaining: [{ id: "m1", added_by: "u1" }], watched: [] };
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    expect(screen.getByRole("switch", { name: /theater mode/i })).toBeInTheDocument();
+  });
 });

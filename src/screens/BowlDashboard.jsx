@@ -15,6 +15,9 @@ import useUserBowls from "../hooks/useUserBowls";
 import useBowl from "../hooks/useBowl";
 import useDrawProviderLinks from "../hooks/useDrawProviderLinks";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
+import useDeviceDrawSettings from "../hooks/useDeviceDrawSettings";
+import TheaterTicket from "../components/TheaterTicket";
+import { WEB_SURFACE_DEFAULTS } from "../utils/deviceDrawSettings";
 import useAutosave from "../hooks/useAutosave";
 import AutosaveStatus from "../components/AutosaveStatus";
 import { STREAMING_MATCH_STATUS } from "../utils/streamingMatchSummary";
@@ -440,6 +443,19 @@ export default function BowlDashboard() {
       setUseStreamingRank(true);
     };
     const drawMethodBucketsByContributor = getDrawMethod(drawMethod).bucketsByContributor;
+    // Only theaterModeEnabled comes from the device layer. prioritizeStreaming
+    // and useStreamingRank are overridable too, but on this screen they are
+    // local state that the filter panel saves back to the account -- a device
+    // override sitting on top of a control that writes the account would make
+    // the panel look broken, and would leak a television's choice into the
+    // account the next time somebody saved filters here. A setting can have a
+    // device override or an account-writing control on a surface, not both.
+    const {
+      settings: deviceDrawSettings,
+      setOverride: setDeviceDrawSetting,
+    } = useDeviceDrawSettings(currentUserId, defaultDrawSettings, WEB_SURFACE_DEFAULTS);
+    const isTheaterModeEnabled = Boolean(deviceDrawSettings.theaterModeEnabled);
+
     const drawnMovieMatchingProviders = useMemo(
       () => (drawnMovie ? matchUserServices(drawnMovie.streamingProviders || [], userStreamingServices) : []),
       [drawnMovie, userStreamingServices]
@@ -844,6 +860,23 @@ return (
                     }}
                   />
                 </div>
+
+                {/* Below both actions rather than between them: the two buttons
+                    are what you came to press, and a setting wedged between
+                    them reads as a third one. Hidden rather than disabled for a
+                    member who cannot draw, which is the opposite of the draw
+                    button above -- a greyed draw button explains why they
+                    cannot draw, with drawGuardMessage beside it, while a greyed
+                    ticket explains nothing and advertises a ceremony they can
+                    never start. */}
+                {canCurrentUserDraw && (
+                  <div className="mt-3 flex justify-center">
+                    <TheaterTicket
+                      enabled={isTheaterModeEnabled}
+                      onToggle={(next) => setDeviceDrawSetting("theaterModeEnabled", next)}
+                    />
+                  </div>
+                )}
                 {drawGuardMessage && (
                   <p className="mt-2 text-center text-sm text-amber-300">{drawGuardMessage}</p>
                 )}

@@ -25,11 +25,30 @@ export default function useDeviceDrawSettings(
   accountSettings,
   surfaceDefaults = NO_SURFACE_DEFAULTS
 ) {
-  const [overrides, setOverrides_] = useState(() => readDeviceSettingsOverrides(userId));
+  // The overrides are stored with the account they were read for, because the
+  // account can arrive after the first render: the dashboard resolves it from
+  // the session asynchronously, while the television mounts inside an auth gate
+  // and has it immediately. Keeping the empty answer taken before anyone was
+  // signed in would mean a device's saved settings never loaded at all.
+  const [stored, setStored] = useState(() => ({
+    userId,
+    overrides: readDeviceSettingsOverrides(userId),
+  }));
   // A write that storage refuses still applies for this session; saying so is
   // the difference between a setting that did not stick and one that looks
   // broken.
   const [isPersisted, setIsPersisted] = useState(true);
+
+  // Adjusting state during render rather than in an effect, which is React's
+  // own answer for state derived from changing props. An effect would paint one
+  // frame of the wrong answer first -- for a switch, a ticket that reads Off
+  // and then flips to On by itself.
+  if (stored.userId !== userId) {
+    setStored({ userId, overrides: readDeviceSettingsOverrides(userId) });
+    setIsPersisted(true);
+  }
+
+  const overrides = stored.overrides;
 
   const settings = useMemo(
     () => mergeDeviceDrawSettings(accountSettings, overrides, surfaceDefaults),
@@ -38,10 +57,10 @@ export default function useDeviceDrawSettings(
 
   const setOverride = useCallback(
     (name, value) => {
-      setOverrides_((current) => {
-        const next = { ...current, [name]: value };
+      setStored((current) => {
+        const next = { ...current.overrides, [name]: value };
         setIsPersisted(writeDeviceSettingsOverrides(userId, next));
-        return next;
+        return { ...current, overrides: next };
       });
     },
     [userId]
@@ -51,10 +70,10 @@ export default function useDeviceDrawSettings(
   // together or the surface briefly holds a state the control cannot show.
   const setOverrides = useCallback(
     (patch) => {
-      setOverrides_((current) => {
-        const next = { ...current, ...patch };
+      setStored((current) => {
+        const next = { ...current.overrides, ...patch };
         setIsPersisted(writeDeviceSettingsOverrides(userId, next));
-        return next;
+        return { ...current, overrides: next };
       });
     },
     [userId]
@@ -62,7 +81,7 @@ export default function useDeviceDrawSettings(
 
   const clearOverrides = useCallback(() => {
     setIsPersisted(clearDeviceSettingsOverrides(userId));
-    setOverrides_({});
+    setStored((current) => ({ ...current, overrides: {} }));
   }, [userId]);
 
   return {

@@ -34,6 +34,11 @@ const OVERRIDABLE = new Set(DEVICE_OVERRIDABLE_SETTINGS);
 // every render, which keeps the merge memoizable.
 export const NO_SURFACE_DEFAULTS = Object.freeze({});
 
+// The phone and laptop decline to inherit theater mode, because enabling it
+// meant enabling it for a television. Every other setting still follows the
+// account here; the ticket beside the draw button is how this device says yes.
+export const WEB_SURFACE_DEFAULTS = Object.freeze({ theaterModeEnabled: false });
+
 function getStorage() {
   try {
     return window.localStorage;

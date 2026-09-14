@@ -516,4 +516,67 @@ describe("BowlDashboard draw preferences", () => {
     expect(mocks.state.reloadPreferences).toHaveBeenCalledTimes(1);
     expect(mocks.state.saveDefaultDrawSettings).not.toHaveBeenCalled();
   });
+
+  // The dashboard reads theaterModeEnabled through the device layer, which is
+  // the point: the account flag means "on the television," and a laptop that
+  // inherited it would start playing previews at someone who never asked.
+  describe("theater ticket", () => {
+    beforeEach(() => {
+      window.localStorage.clear();
+    });
+
+    afterEach(() => {
+      window.localStorage.clear();
+    });
+
+    it("starts off even when the account turned theater mode on for a television", async () => {
+      mocks.state.defaultDrawSettings = {
+        ...mocks.state.defaultDrawSettings,
+        theaterModeEnabled: true,
+      };
+      renderDashboard();
+      await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+      expect(screen.getByRole("switch", { name: /theater mode/i })).toHaveAttribute(
+        "aria-checked",
+        "false"
+      );
+    });
+
+    it("arms on this device without touching the account setting", async () => {
+      renderDashboard();
+      await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole("switch", { name: /theater mode/i }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("switch", { name: /theater mode on/i })).toHaveAttribute(
+          "aria-checked",
+          "true"
+        )
+      );
+      // Disarming here must never reach across and change a television, so the
+      // ticket writes the device store and nothing else.
+      expect(
+        JSON.parse(window.localStorage.getItem("movie-bowl:tv:draw-settings:u1"))
+      ).toEqual({ theaterModeEnabled: true });
+      expect(mocks.state.saveDefaultDrawSettings).not.toHaveBeenCalledWith(
+        expect.objectContaining({ theaterModeEnabled: expect.anything() })
+      );
+    });
+
+    it("remembers this device's answer across a reload", async () => {
+      window.localStorage.setItem(
+        "movie-bowl:tv:draw-settings:u1",
+        JSON.stringify({ theaterModeEnabled: true })
+      );
+      renderDashboard();
+      await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+      expect(screen.getByRole("switch", { name: /theater mode on/i })).toHaveAttribute(
+        "aria-checked",
+        "true"
+      );
+    });
+  });
 });
