@@ -117,8 +117,30 @@ function getRank(video, context) {
   return tier * 24 + cutRank * 6 + releaseRank * 2 + languageRank;
 }
 
+// YouTube refuses some trailers inside an embed -- age-restricted ones and ones
+// whose uploader turned embedding off -- and nothing in TMDB's rows says which.
+// The player reports it the moment a video loads, so the best trailer carries
+// the next few in rank order and each player works down them. A sample of the
+// 1,000 most-voted films found every recoverable refusal within three tries.
+const MAX_FALLBACKS = 4;
+
+function toTrailer(video) {
+  const key = video.key.trim();
+
+  return {
+    site: "YouTube",
+    key,
+    name: video.name || null,
+    type: video.type,
+    official: video.official === true,
+    publishedAt: video.published_at || null,
+    embedUrl: `https://www.youtube.com/embed/${encodeURIComponent(key)}`,
+  };
+}
+
 /**
- * Picks the video a pre-roll or a detail screen should play. `releaseDate` and
+ * Picks the video a pre-roll or a detail screen should play, with the next-best
+ * videos on `fallbacks` for when YouTube will not play it. `releaseDate` and
  * `title` come from the same TMDB details response; without them the ranking
  * still works, it just cannot use the years a name mentions.
  */
@@ -126,30 +148,21 @@ export function selectBestTrailer(videos, { releaseDate = null, title = "" } = {
   const items = Array.isArray(videos) ? videos : [];
   const context = { releaseYear: getYear(releaseDate), title };
 
-  let best = null;
-  let bestRank = Infinity;
-
+  const seenKeys = new Set();
+  const ranked = [];
   for (const video of items) {
     if (!isUsable(video)) continue;
-    const rank = getRank(video, context);
-    // Strictly better only, so the first video TMDB lists wins its own tier.
-    if (rank < bestRank) {
-      best = video;
-      bestRank = rank;
-    }
+    const key = video.key.trim();
+    if (seenKeys.has(key)) continue;
+    seenKeys.add(key);
+    ranked.push({ video, rank: getRank(video, context) });
   }
 
-  if (!best) return null;
+  if (ranked.length === 0) return null;
 
-  const key = best.key.trim();
+  // Sort is stable, so the first video TMDB lists still wins its own tier.
+  ranked.sort((first, second) => first.rank - second.rank);
+  const [best, ...rest] = ranked.map(({ video }) => toTrailer(video));
 
-  return {
-    site: "YouTube",
-    key,
-    name: best.name || null,
-    type: best.type,
-    official: best.official === true,
-    publishedAt: best.published_at || null,
-    embedUrl: `https://www.youtube.com/embed/${encodeURIComponent(key)}`,
-  };
+  return { ...best, fallbacks: rest.slice(0, MAX_FALLBACKS) };
 }

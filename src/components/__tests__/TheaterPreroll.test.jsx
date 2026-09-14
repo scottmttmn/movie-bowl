@@ -91,6 +91,28 @@ describe("TheaterPreroll", () => {
     expect(player.loadVideoById).toHaveBeenCalledWith("bbb");
   });
 
+  // An age-restricted or unembeddable trailer is refused as it loads. The
+  // title is still worth previewing, so its next trailer gets a turn first.
+  it("tries a refused preview's fallback before moving on", async () => {
+    await renderPreroll({
+      queue: [
+        { ...QUEUE[0], trailer: { key: "aaa", site: "YouTube", fallbacks: [{ key: "aaa-2" }] } },
+        QUEUE[1],
+      ],
+    });
+    ready();
+
+    act(() => playerOptions.events.onError({ data: 150 }));
+    expect(player.loadVideoById).toHaveBeenLastCalledWith("aaa-2");
+
+    act(() => playerOptions.events.onError({ data: 150 }));
+    expect(player.loadVideoById).toHaveBeenLastCalledWith("bbb");
+
+    // The retry count starts over for the new title, so its end still closes out the queue.
+    act(() => playerOptions.events.onStateChange({ data: 0 }));
+    expect(screen.getByText(/feature presentation/i)).toBeInTheDocument();
+  });
+
   describe("when the browser refuses autoplay", () => {
     it("asks for the gesture it needs instead of stalling", async () => {
       await renderPreroll();

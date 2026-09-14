@@ -251,6 +251,28 @@ describe("TV theater mode", () => {
     expect(player.loadVideoById).toHaveBeenCalledWith("tenet");
   });
 
+  it("tries the same title's next trailer before moving to the next preview", async () => {
+    mocks.getTmdbMovieDetails.mockImplementation(async (id) =>
+      id === 202
+        ? { title: "Dune", trailer: { key: "dune", fallbacks: [{ key: "dune-teaser" }] } }
+        : DETAILS_BY_ID[id] || {}
+    );
+
+    await drawWithTheaterMode();
+    await screen.findByRole("dialog", { name: /previews before arrival/i });
+    await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      playerOptions.events.onError({ data: 150 });
+    });
+    expect(player.loadVideoById).toHaveBeenLastCalledWith("dune-teaser");
+
+    act(() => {
+      playerOptions.events.onError({ data: 150 });
+    });
+    expect(player.loadVideoById).toHaveBeenLastCalledWith("tenet");
+  });
+
   it("pauses on Select and shows nothing else while playing", async () => {
     await drawWithTheaterMode();
     await screen.findByRole("dialog", { name: /previews before arrival/i });

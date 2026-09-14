@@ -41,6 +41,26 @@ export function getYouTubeVideoId(trailer) {
   return match?.[1] ? decodeURIComponent(match[1]) : "";
 }
 
+// The trailer first, then the ranked fallbacks `selectBestTrailer` attached, as
+// the video ids a player should try in order when YouTube refuses one.
+export function getTrailerSequence(trailer) {
+  const fallbacks = Array.isArray(trailer?.fallbacks) ? trailer.fallbacks : [];
+  const ids = [trailer, ...fallbacks].map(getYouTubeVideoId).filter(Boolean);
+  return [...new Set(ids)];
+}
+
+// A trailer someone opens themselves: YouTube's controls and no autoplay, but
+// with the player API enabled so a refused video can be swapped for the next.
+export function getTrailerEmbedUrl(trailer) {
+  const videoId = getYouTubeVideoId(trailer);
+  if (!videoId) return trailer?.embedUrl || "";
+
+  const url = new URL(`https://www.youtube.com/embed/${encodeURIComponent(videoId)}`);
+  url.searchParams.set("enablejsapi", "1");
+  url.searchParams.set("origin", window.location.origin);
+  return url.toString();
+}
+
 export function getAutoplayTrailerUrl(trailer, { preroll = false, inline = false } = {}) {
   const videoId = getYouTubeVideoId(trailer);
   if (!videoId) return trailer?.embedUrl || "";

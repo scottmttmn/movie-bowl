@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { getAutoplayTrailerUrl, loadYouTubeIframeApi } from "../../lib/youtubePlayer";
+import { getAutoplayTrailerUrl, getTrailerSequence, loadYouTubeIframeApi } from "../../lib/youtubePlayer";
 
 const ANNOUNCEMENT_MS = 4200;
 const FEATURE_CARD_MS = 3600;
@@ -11,7 +11,9 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
   const reclaimFocusRef = useRef(() => {});
   const playerRef = useRef(null);
   const indexRef = useRef(0);
+  const attemptRef = useRef(0);
   const advanceRef = useRef(() => {});
+  const refusedRef = useRef(() => {});
   const finishRef = useRef(onFinish);
 
   const [isPaused, setIsPaused] = useState(false);
@@ -37,6 +39,7 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
     }
 
     indexRef.current = next;
+    attemptRef.current = 0;
     setIsPaused(false);
     setShowAnnouncement(false);
 
@@ -44,9 +47,24 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
     if (nextKey) playerRef.current?.loadVideoById?.(String(nextKey));
   }, [queue]);
 
+  // A refusal is about the video, not the title, so the same title's next-best
+  // trailer gets a turn before the queue moves on without it.
+  const playFallback = useCallback(() => {
+    const sequence = getTrailerSequence(queue[indexRef.current]?.trailer);
+    const next = attemptRef.current + 1;
+    if (next >= sequence.length) {
+      advance();
+      return;
+    }
+
+    attemptRef.current = next;
+    playerRef.current?.loadVideoById?.(sequence[next]);
+  }, [queue, advance]);
+
   useEffect(() => {
     advanceRef.current = advance;
-  }, [advance]);
+    refusedRef.current = playFallback;
+  }, [advance, playFallback]);
 
   useLayoutEffect(() => {
     const overlay = overlayRef.current;
@@ -88,9 +106,9 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
                 advanceRef.current();
               }
             },
-            // A pulled or region-blocked trailer silently gives way to the
-            // next one rather than stalling the room on a dead frame.
-            onError: () => advanceRef.current(),
+            // A pulled, age-restricted or unembeddable trailer silently gives
+            // way rather than stalling the room on a dead frame.
+            onError: () => refusedRef.current(),
           },
         });
       })
