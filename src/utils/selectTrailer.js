@@ -29,13 +29,35 @@ function isUsable(video) {
   return true;
 }
 
-// Verified source first, then the fuller cut, then English: an official teaser
-// is a safer thing to play than an unflagged upload calling itself the trailer.
+// TMDB has no field saying which release a trailer was cut for, and for an
+// older film the studio's newest official trailer is usually an anniversary or
+// restoration campaign. The name is the only place that is ever admitted.
+// Resolution words stay out: "4K Trailer" is how an original gets re-uploaded,
+// and a restoration names itself.
+//
+// Upload date is no help either way. Lucasfilm uploaded the re-release
+// trailers for Star Wars and Empire as plain "Trailer" a year before the originals,
+// so preferring the earliest upload picked the re-release for both.
+const ORIGINAL_PATTERN = /\b(original|theatrical)\b/i;
+const REISSUE_PATTERN =
+  /\b(anniversary|re-?release|re-?issue|remaster(ed)?|restor(ed|ation)|blu-?ray|digital|special\s+edition|director'?s\s+cut|big\s+screen\s+classics)\b/i;
+
+function getReleaseRank(video) {
+  const name = String(video?.name || "");
+  if (REISSUE_PATTERN.test(name)) return 2;
+  if (ORIGINAL_PATTERN.test(name)) return 0;
+  return 1;
+}
+
+// Verified source first, then which release the name admits to, then the fuller
+// cut, then English: an official teaser is a safer thing to play than an
+// unflagged upload calling itself the trailer, and an original teaser is closer
+// to the film than a restoration's trailer.
 function getRank(video) {
   const officialRank = video.official === true ? 0 : 1;
   const languageRank =
     String(video.iso_639_1 || "").toLowerCase() === "en" ? 0 : 1;
-  return officialRank * 4 + getTypeRank(video) * 2 + languageRank;
+  return officialRank * 12 + getReleaseRank(video) * 4 + getTypeRank(video) * 2 + languageRank;
 }
 
 export function selectBestTrailer(videos) {
