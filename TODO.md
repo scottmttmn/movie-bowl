@@ -181,7 +181,7 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   silently widening from "on the television" for existing accounts. Keep
   `deviceDrawSettings.js`'s storage prefix, which still says `tv`, or every
   television forgets its overrides. **Shipped September 14, 2026.** What remains
-  is the rest of the design doc's sketch: remove `TopNav`'s TV mode item, rewrite
+  is the rest of the design doc's sketch: rewrite
   the "TV & playback" settings copy now that the section governs two surfaces,
   and the pairing typography. This does put a control on the bowl page for everyone,
   reversing an earlier line in the design doc, and it is paid for deliberately:
@@ -193,10 +193,10 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   nobody can take, since Roku ships no browser and Google TV and Android TV have
   none preinstalled. The laptop is safe on `/tv` and tested there, but it is not
   where a laptop user belongs: the dashboard already draws and opens the movie,
-  so the route offers them nothing except the pre-roll above. Once that lands,
-  remove `TopNav`'s "TV mode" item -- and keep the `/tv` route, which the Google
-  TV shell loads directly by URL. Copy about the app itself stays staged against
-  the Play roadmap, with the About page speaking last. Plan, not implementation:
+  so the route offers them nothing except the pre-roll above. `TopNav`'s "TV
+  mode" item is gone; the `/tv` route stays, because the Google TV shell loads it
+  directly by URL. Copy about the app itself stays staged against the Play
+  roadmap, with the About page speaking last. Specified in
   `output/designs/tv-web-seam.md`.
 
 ## Technical Debt / Maintenance
