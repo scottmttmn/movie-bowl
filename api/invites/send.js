@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { recordEmailUsage } from "../_lib/usageCounters.js";
 
 const MAX_INVITES_PER_REQUEST = 25;
 
@@ -256,6 +257,10 @@ export default async function handler(req, res) {
 
   const sent = results.filter((result) => result.ok).length;
   const failed = results.length - sent;
+
+  // Attempts, not successes: a rejected send still reached the vendor and still
+  // spent the quota this counter exists to watch.
+  await recordEmailUsage(results.length, { label: "invites/send" });
 
   res.status(200).json({
     sent,
