@@ -41,6 +41,20 @@ export function getYouTubeVideoId(trailer) {
   return match?.[1] ? decodeURIComponent(match[1]) : "";
 }
 
+// YouTube sizes its stream to the player's box times devicePixelRatio, and it
+// cannot see a zoom applied to the page around it. The TV shell lays pages out
+// at 1920x1080 CSS pixels with a ratio of 2 and zooms them to 0.5, so a
+// fullscreen player there believes it is on a 4K screen and climbs to 1440p --
+// which the onn. Full HD device can only decode in software, and stalls on
+// until YouTube backs down about fifteen seconds later. Laying the player out
+// at the page's zoom and scaling it back up hands YouTube the screen's real
+// size. Anywhere the page is not zoomed out this returns nothing.
+export function getPlayerZoomStyle() {
+  const scale = Number(window.visualViewport?.scale);
+  if (!Number.isFinite(scale) || scale <= 0 || scale >= 1) return undefined;
+  return { "--player-zoom": scale };
+}
+
 // The trailer first, then the ranked fallbacks `selectBestTrailer` attached, as
 // the video ids a player should try in order when YouTube refuses one.
 export function getTrailerSequence(trailer) {

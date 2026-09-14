@@ -305,6 +305,20 @@ describe("TV theater mode", () => {
     expect(cover()).toBeInTheDocument();
   });
 
+  it("lays the previews out at the TV's page zoom so YouTube sizes the stream to the screen", async () => {
+    const original = Object.getOwnPropertyDescriptor(window, "visualViewport");
+    Object.defineProperty(window, "visualViewport", { configurable: true, value: { scale: 0.5 } });
+    try {
+      await drawWithTheaterMode();
+      await screen.findByRole("dialog", { name: /previews before arrival/i });
+
+      expect(screen.getByTitle(/movie bowl previews/i).style.getPropertyValue("--player-zoom")).toBe("0.5");
+    } finally {
+      if (original) Object.defineProperty(window, "visualViewport", original);
+      else delete window.visualViewport;
+    }
+  });
+
   it("pauses on Select and shows nothing else while playing", async () => {
     await drawWithTheaterMode();
     await screen.findByRole("dialog", { name: /previews before arrival/i });

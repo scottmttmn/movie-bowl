@@ -1,6 +1,7 @@
 import { useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import {
   getAutoplayTrailerUrl,
+  getPlayerZoomStyle,
   getTrailerSequence,
   loadYouTubeIframeApi,
 } from "../../lib/youtubePlayer";
@@ -22,6 +23,7 @@ export default function TvFullscreenTrailer({ movieTitle, trailer, onClose }) {
   const sequence = useMemo(() => getTrailerSequence(trailer), [trailer]);
   const [isUnavailable, setIsUnavailable] = useState(false);
   const [isCovered, setIsCovered] = useState(true);
+  const [playerZoomStyle] = useState(getPlayerZoomStyle);
 
   useEffect(() => {
     closeRef.current = onClose;
@@ -143,6 +145,7 @@ export default function TvFullscreenTrailer({ movieTitle, trailer, onClose }) {
         id={playerId}
         src={getAutoplayTrailerUrl(trailer)}
         title={`${movieTitle} trailer`}
+        style={playerZoomStyle}
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
         allowFullScreen
       />
