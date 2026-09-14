@@ -86,7 +86,10 @@ export async function getTmdbMovieDetails(id) {
     .then((data) => {
       const value = {
         ...data,
-        trailer: selectBestTrailer(data?.videos?.results),
+        trailer: selectBestTrailer(data?.videos?.results, {
+          releaseDate: data?.release_date,
+          title: data?.title,
+        }),
       };
       if (requestGeneration === movieDetailsGeneration) {
         movieDetailsCache.set(tmdbId, {
