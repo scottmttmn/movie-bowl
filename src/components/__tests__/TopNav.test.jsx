@@ -46,7 +46,9 @@ describe("TopNav", () => {
     expect(screen.getByRole("menuitem", { name: /about/i })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /my bowls/i })).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /watch history/i })).toBeInTheDocument();
-    expect(screen.getByRole("menuitem", { name: /tv mode/i })).toBeInTheDocument();
+    // The Google TV app loads /tv by URL, and a laptop is better served by the
+    // dashboard, so the route stays without a way to it from here.
+    expect(screen.queryByRole("menuitem", { name: /tv mode/i })).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /settings/i })).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "Escape" });
