@@ -23,12 +23,6 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   Reintroducing late returns is not the answer here -- see
   `output/designs/tv-watch-history-details-and-safe-return.md`.
 
-- TV pairing typography from physical onn. Full HD hardware: the instructional
-  copy is difficult to read at viewing distance and the fallback pairing code
-  is too small. Increase both, with the code getting the stronger size bump;
-  keep the QR code at its current size, which tested well on the same screen.
-  Reconfirmed September 9 on the clean Google Play installation; fix before the
-  friends-and-family cohort.
 - Public add-link comment ordering: move the comment field below movie search
   so the flow matches the signed-in Add dialog and manual-history form. Agreed
   as a small near-term follow-up, not part of the Play owner pilot.
@@ -190,10 +184,10 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   silently widening from "on the television" for existing accounts. Keep
   `deviceDrawSettings.js`'s storage prefix, which still says `tv`, or every
   television forgets its overrides. **Shipped September 14, 2026.** What remains
-  is the rest of the design doc's sketch: rewrite
-  the "TV & playback" settings copy now that the section governs two surfaces,
-  and the pairing typography. This does put a control on the bowl page for everyone,
-  reversing an earlier line in the design doc, and it is paid for deliberately:
+  is the rest of the design doc's sketch: rewrite the "TV & playback" settings
+  copy now that the section governs two surfaces. This does put a control on the
+  bowl page for everyone, reversing an earlier line in the design doc, and it is
+  paid for deliberately:
   it is also the only thing that makes the feature discoverable on the web.
   Specified in `output/designs/tv-web-seam.md`.
 
