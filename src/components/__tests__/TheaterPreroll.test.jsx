@@ -145,6 +145,30 @@ describe("TheaterPreroll", () => {
 
       expect(onFinish).toHaveBeenCalled();
     });
+
+    // The overlay's Enter/Space shortcut listens on the window, so without a
+    // guard it swallowed the focused button's own activation and paused instead.
+    it("leaves the exit's own Enter and Space alone", async () => {
+      await renderPreroll();
+      ready();
+      act(() => playerOptions.events.onStateChange({ data: 1 }));
+
+      const exit = screen.getByRole("button", { name: /exit previews/i });
+      exit.focus();
+
+      expect(fireEvent.keyDown(exit, { key: "Enter" })).toBe(true);
+      expect(fireEvent.keyDown(exit, { key: " " })).toBe(true);
+      expect(player.pauseVideo).not.toHaveBeenCalled();
+    });
+  });
+
+  it("pauses on Enter when no control has focus", async () => {
+    await renderPreroll();
+    ready();
+    act(() => playerOptions.events.onStateChange({ data: 1 }));
+
+    expect(fireEvent.keyDown(screen.getByRole("dialog"), { key: "Enter" })).toBe(false);
+    expect(player.pauseVideo).toHaveBeenCalled();
   });
 
   it("pauses and resumes on the surface, because a living room has a doorbell", async () => {

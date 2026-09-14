@@ -177,6 +177,12 @@ export default function TheaterPreroll({ queue, featureTitle, onFinish }) {
         return;
       }
       if (event.key === " " || event.key === "Enter") {
+        // A focused control already owns these keys. Claiming them here would
+        // turn Enter on Exit into a pause, and the surface button reaches the
+        // same handler through its own click anyway.
+        if (event.target instanceof Element && event.target.closest("button, a, input, select, textarea")) {
+          return;
+        }
         event.preventDefault();
         if (needsTap) startAfterRefusal();
         else togglePause();

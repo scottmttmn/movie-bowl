@@ -111,7 +111,7 @@ vi.mock("../../lib/streamingProviders", () => ({
 }));
 
 vi.mock("../../lib/theaterPreviews", () => ({
-  resolveEligiblePreviewIds: vi.fn(async () => null),
+  resolveEligiblePreviewIds: vi.fn(async () => mocks.state.resolveEligiblePreviewIds?.() ?? null),
   fetchMovieTrailer: vi.fn(async (movie) => ({ key: `key-${movie.id}`, site: "YouTube" })),
 }));
 
@@ -606,6 +606,55 @@ describe("BowlDashboard draw preferences", () => {
       expect(reveal).toHaveAttribute("aria-hidden", "true");
       expect(reveal).toHaveAttribute("inert");
       delete window.YT;
+    });
+
+    // The queue resolves after the reveal is up. Dismissing the reveal before
+    // it lands must drop it, or the next draw opens on a stale pre-roll --
+    // even with the ticket switched off in between.
+    it("drops previews that resolve after the reveal was closed", async () => {
+      window.YT = {
+        Player: vi.fn(() => ({ playVideo: vi.fn(), destroy: vi.fn() })),
+        PlayerState: { ENDED: 0, PLAYING: 1 },
+      };
+      window.localStorage.setItem(
+        "movie-bowl:tv:draw-settings:u1",
+        JSON.stringify({ theaterModeEnabled: true })
+      );
+      let releaseLookup;
+      mocks.state.resolveEligiblePreviewIds = () =>
+        new Promise((resolve) => {
+          releaseLookup = () => resolve(null);
+        });
+      mocks.state.bowlData = {
+        remaining: [
+          { id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A" },
+          { id: "m2", added_by: "u1", tmdb_id: 102, title: "Movie B" },
+        ],
+        watched: [],
+      };
+      mocks.state.handleDraw.mockResolvedValue({ id: "m1", tmdb_id: 101, title: "Movie A" });
+
+      try {
+        renderDashboard();
+        await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+        confirmDraw();
+
+        await waitFor(() => expect(releaseLookup).toBeDefined());
+        const reveal = document.querySelector(".modal-overlay");
+        fireEvent.click(within(reveal).getAllByRole("button", { name: /close/i })[0]);
+        await waitFor(() => expect(document.querySelector(".modal-overlay")).not.toBeInTheDocument());
+
+        await act(async () => releaseLookup());
+        fireEvent.click(screen.getByRole("switch", { name: /theater mode on/i }));
+        mocks.state.resolveEligiblePreviewIds = null;
+        confirmDraw();
+
+        await waitFor(() => expect(screen.getByRole("heading", { name: /movie a/i })).toBeInTheDocument());
+        expect(screen.queryByRole("dialog", { name: /previews before/i })).not.toBeInTheDocument();
+      } finally {
+        mocks.state.resolveEligiblePreviewIds = null;
+        delete window.YT;
+      }
     });
 
     it("shows no previews when this device never armed the ticket", async () => {

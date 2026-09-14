@@ -462,6 +462,11 @@ export default function BowlDashboard() {
     const theaterTrailerCount = clampTheaterTrailerCount(deviceDrawSettings.theaterTrailerCount);
     const [trailerQueue, setTrailerQueue] = useState([]);
     const [isTheaterPlaying, setIsTheaterPlaying] = useState(false);
+    // The queue resolves through several lookups after the reveal is already
+    // up, so it can land after that reveal has been dismissed. Each start takes
+    // a number and closing the reveal takes another; a lookup that comes back
+    // holding a stale number belongs to a draw nobody is looking at any more.
+    const theaterRequestRef = useRef(0);
 
     const drawnMovieMatchingProviders = useMemo(
       () => (drawnMovie ? matchUserServices(drawnMovie.streamingProviders || [], userStreamingServices) : []),
@@ -700,6 +705,7 @@ export default function BowlDashboard() {
     // what was drawn. A failure anywhere costs the previews and leaves the
     // reveal exactly as an ordinary draw would.
     const startTheater = async (drawn) => {
+      const requestId = ++theaterRequestRef.current;
       try {
         const eligibleMovieIds = await resolveEligiblePreviewIds({
           movies: bowl.remaining,
@@ -719,7 +725,7 @@ export default function BowlDashboard() {
           recentKeys: readRecentTrailerKeys(),
           fetchTrailer: fetchMovieTrailer,
         });
-        if (queue.length === 0) return;
+        if (queue.length === 0 || requestId !== theaterRequestRef.current) return;
 
         // Recorded up front, including on an early exit: a few previews nobody
         // watched to the end are still previews this device has just shown.
@@ -734,6 +740,12 @@ export default function BowlDashboard() {
     const endTheater = () => {
       setIsTheaterPlaying(false);
       setTrailerQueue([]);
+    };
+
+    const closeReveal = () => {
+      theaterRequestRef.current += 1;
+      endTheater();
+      setDrawnMovie(null);
     };
 
     // Fired by a completed hold on the draw button, or by the keyboard path's
@@ -1454,7 +1466,7 @@ return (
                     ? preferredWebLaunchCandidate
                     : null
                 }
-                onClose={() => setDrawnMovie(null)}
+                onClose={closeReveal}
               />
             )}
             {selectedDetailMovie && (
