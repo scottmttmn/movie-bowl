@@ -179,8 +179,9 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   reach across and turn theater mode off on a television; a web device with
   nothing stored starts off, which is what keeps `theaterModeEnabled` from
   silently widening from "on the television" for existing accounts. Keep
-  `tvDrawSettings.js`'s storage prefix when generalising it, or every television
-  forgets its overrides. This does put a control on the bowl page for everyone,
+  `deviceDrawSettings.js`'s storage prefix, which still says `tv`, or every
+  television forgets its overrides. The override layer has landed; the ticket
+  and the web pre-roll have not. This does put a control on the bowl page for everyone,
   reversing an earlier line in the design doc, and it is paid for deliberately:
   it is also the only thing that makes the feature discoverable on the web.
   Specified in `output/designs/tv-web-seam.md`.

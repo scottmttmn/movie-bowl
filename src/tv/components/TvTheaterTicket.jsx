@@ -9,7 +9,7 @@
  *
  * The stub says on or off and not how many previews. The count is the phone's
  * to set -- `theaterTrailerCount` is deliberately not in
- * TV_OVERRIDABLE_SETTINGS -- so printing it here offered a number nobody in
+ * DEVICE_OVERRIDABLE_SETTINGS -- so printing it here offered a number nobody in
  * the room could act on. Worse, it was a number this control cannot know:
  * buildTrailerQueue resolves *up to* that many, and a bowl short on trailers
  * yields fewer, so a ticket promising three could be followed by a pre-roll

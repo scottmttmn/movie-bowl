@@ -1,10 +1,11 @@
 # The Seam Between the Web App and the Television
 
-Status: idea, recorded for later. Nothing here is implemented. The decision in
-"The Supported Surfaces" is settled, and so is the shape of the dashboard
-affordance — a theater mode switch beside the draw button, revised September 12,
-2026 from an earlier offer-shaped proposal. The work itself is unbuilt, and the
-remaining open questions are genuinely open.
+Status: **in progress.** The decision in "The Supported Surfaces" is settled, and
+so is the shape of the dashboard affordance — a theater mode switch beside the
+draw button, revised September 12, 2026 from an earlier offer-shaped proposal.
+The device override layer it stands on landed September 14, 2026
+(`src/utils/deviceDrawSettings.js`); the ticket and the web pre-roll have not
+been built. The remaining open questions are genuinely open.
 
 ## The Supported Surfaces
 
@@ -268,7 +269,7 @@ a working agreement, and a forked pre-roll would drift.
 Both controls stay, and the section around them gets rewritten.
 
 The plain reason is `theaterTrailerCount`. It has no override layer — the count
-is deliberately absent from `TV_OVERRIDABLE_SETTINGS`, because a television
+is deliberately absent from `DEVICE_OVERRIDABLE_SETTINGS`, because a television
 cannot act on a number it has no control for, and `TvTheaterTicket`'s comment
 explains why the stub says on or off instead. So the count is account-level on
 both surfaces and Settings is its only home. The section exists either way, and
@@ -276,8 +277,8 @@ a count sitting alone, governing a feature with no visible on or off anywhere
 near it, is stranger than a toggle beside it.
 
 The supporting reason is a television that cannot write to storage at all.
-`tvDrawSettings.js` catches an accessor that throws — some Android WebView
-configurations do — and `useTvDrawSettings` surfaces that as `isPersisted`,
+`deviceDrawSettings.js` catches an accessor that throws — some Android WebView
+configurations do — and `useDeviceDrawSettings` surfaces that as `isPersisted`,
 which is the warning the tonight screen already shows: *"This TV can't remember
 settings, so these last until it restarts."* The override still applies for the
 evening, because the hook holds it in React state regardless of whether the
@@ -308,11 +309,10 @@ dashboard honours the same flag, that meaning silently widens for every existing
 account — everyone who enabled it for their television starts getting previews
 offered on their laptop, without having asked for anything.
 
-The existing per-device mechanism points the wrong way to help. `tvDrawSettings.js`
-stores a `localStorage` patch, keyed by account, that lets a *television* diverge
-from the account (`TV_OVERRIDABLE_SETTINGS` currently allows `prioritizeStreaming`,
-`useStreamingRank` and `theaterModeEnabled`). There is no laptop-side override,
-because `readTvSettingsOverrides` is only consumed by the television surface.
+The per-device mechanism that existed when this was written pointed the wrong
+way to help. `src/tv/utils/tvDrawSettings.js` stored a `localStorage` patch,
+keyed by account, that let a *television* diverge from the account. There was no
+laptop-side override, because only the television surface ever read it.
 
 This document once offered two ways out and preferred the cheaper one: let the
 dashboard affordance be opt-in on its own terms, since an offer rather than an
@@ -320,12 +320,16 @@ automatic start costs a surprised user at most one ignorable control. That
 option dies with the offer shape. A switch has to write somewhere.
 
 So take the other one: **generalise the override from "this television" to "this
-device."** `tvDrawSettings.js` is most of the way there already — keyed by
-account, deliberately a patch rather than a snapshot so later account edits still
+device."** The file was most of the way there already — keyed by account,
+deliberately a patch rather than a snapshot so later account edits still
 propagate, already degrading silently when storage throws, and already listing
-`theaterModeEnabled` among the settings that may diverge. What is
-television-specific is the filename, the storage prefix, and the reasoning for
+`theaterModeEnabled` among the settings that may diverge. What was
+television-specific was the filename, the storage prefix, and the reasoning for
 *which* settings may diverge, which is argued from what a D-pad can operate.
+
+**Done.** It now lives at `src/utils/deviceDrawSettings.js` with
+`src/hooks/useDeviceDrawSettings.js` beside it, `DEVICE_OVERRIDABLE_SETTINGS`
+unchanged in content, and the storage prefix deliberately untouched.
 
 The switch must not write the account setting. Turning theater mode off on a
 laptop would otherwise reach across and disarm a television in a room nobody was
@@ -338,7 +342,11 @@ Three things need care:
    who enabled theater mode enabled it *for* a television. The dashboard cannot
    inherit that reading without silently widening it, so the web surface treats a
    missing override as off, and the ticket is how you arm it. In code this is a
-   surface default laid under the account settings, not a second preference.
+   surface default sitting *between* the account and the device overrides, not a
+   second preference and not a floor beneath everything: it has to beat the
+   account value, or the laptop would inherit the very setting it is declining,
+   while still losing to an override somebody set on the device in front of
+   them. `mergeDeviceDrawSettings` spreads them in that order.
 
    This asymmetry is smaller than it looks, and it is worth saying so before
    someone budgets a migration for it. `theaterModeEnabled` already defaults to
@@ -360,7 +368,7 @@ Three things need care:
    not in this category: losing that history costs a repeated preview, so it can
    be renamed freely.)
 3. **The list of what may diverge deserves a fresh answer per device class, but
-   not today.** `TV_OVERRIDABLE_SETTINGS` is short because a television shows
+   not today.** `DEVICE_OVERRIDABLE_SETTINGS` is short because a television shows
    what the room can decide, and because genres and runtime have no control a
    D-pad can work. A pointer and a keyboard dissolve the second argument but not
    the first. Theater mode is the only setting the dashboard wants to override,
@@ -436,7 +444,7 @@ one piece of work; they are the same screen and the same audience.
 5. ~~Does anything else want per-device divergence?~~ Moot: the switch forces the
    per-device override regardless, because it cannot write the account setting
    without reaching across to the television. Whether any *other* setting wants
-   to diverge is still unasked, and `TV_OVERRIDABLE_SETTINGS` stays as it is
+   to diverge is still unasked, and `DEVICE_OVERRIDABLE_SETTINGS` stays as it is
    until one does.
 6. **What is the install route for a cohort member?** A Play link, an email
    invitation to the test track, or something the web app renders. A
@@ -459,10 +467,10 @@ one piece of work; they are the same screen and the same audience.
 ## Sketch of the Work
 
 1. The dashboard pre-roll, armed by a ticket beside the draw button and started
-   by the draw. Three pieces, in this order: generalise `tvDrawSettings.js` to a
-   device override (keeping its storage prefix) with an off-by-default surface
-   default for the web; move `theaterQueue.js` and `youtubePlayer.js` out of
-   `src/tv/`; then the ticket and the web pre-roll overlay, with a visible exit,
+   by the draw. Three pieces, in this order: ~~generalise `tvDrawSettings.js` to
+   a device override (keeping its storage prefix) with an off-by-default surface
+   default for the web~~ (landed as `src/utils/deviceDrawSettings.js`); move
+   `theaterQueue.js` and `youtubePlayer.js` out of `src/tv/`; then the ticket and the web pre-roll overlay, with a visible exit,
    `playsinline=1`, and the tap-to-start fallback for a refused autoplay. The
    ticket renders only when `canCurrentUserDraw`, and the pre-roll starts on the
    draw with no confirmation. This is the real feature

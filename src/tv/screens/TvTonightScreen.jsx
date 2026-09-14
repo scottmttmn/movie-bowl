@@ -39,7 +39,7 @@ import TvTheaterTicket from "../components/TvTheaterTicket";
 import { getStreamingMode, getStreamingModeSettings } from "../utils/streamingMode";
 import TvTheaterPreroll from "../components/TvTheaterPreroll";
 import { useTvBowlAccess } from "../hooks/useTvBowls";
-import useTvDrawSettings from "../hooks/useTvDrawSettings";
+import useDeviceDrawSettings from "../../hooks/useDeviceDrawSettings";
 import useTvSpatialNavigation from "../hooks/useTvSpatialNavigation";
 import {
   buildTrailerQueue,
@@ -882,7 +882,7 @@ export default function TvTonightScreen({ userId }) {
     setOverride: setTvSetting,
     setOverrides: setTvSettings,
     clearOverrides: clearTvSettings,
-  } = useTvDrawSettings(userId, accountDrawSettings);
+  } = useDeviceDrawSettings(userId, accountDrawSettings);
 
   const isTvOverridden = (name) =>
     Object.prototype.hasOwnProperty.call(overriddenSettings, name);
