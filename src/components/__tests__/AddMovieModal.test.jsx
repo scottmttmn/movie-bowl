@@ -301,9 +301,14 @@ describe("AddMovieModal", () => {
     expect(toggle).toHaveAttribute("aria-expanded", "false");
     expect(screen.queryByTitle("Dune trailer")).not.toBeInTheDocument();
 
+    const playIcon = toggle.querySelector("svg").innerHTML;
+
     fireEvent.click(toggle);
 
-    expect(screen.getByRole("button", { name: /hide trailer/i })).toHaveAttribute("aria-expanded", "true");
+    const hideToggle = screen.getByRole("button", { name: /hide trailer/i });
+    expect(hideToggle).toHaveAttribute("aria-expanded", "true");
+    // Hiding must not wear the play icon, or the two states read as one action.
+    expect(hideToggle.querySelector("svg").innerHTML).not.toBe(playIcon);
     expect(screen.getByTitle("Dune trailer")).toHaveAttribute(
       "src",
       "https://www.youtube.com/embed/abc123"
