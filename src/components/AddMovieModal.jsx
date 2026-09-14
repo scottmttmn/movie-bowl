@@ -6,6 +6,7 @@ import { matchUserServices, normalizeStreamingServices } from "../utils/streamin
 import ProviderLinksAttribution from "./ProviderLinksAttribution";
 import MoviePosterPin from "./MoviePosterPin";
 import ServiceLogo from "./ServiceLogo";
+import TrailerEmbed from "./TrailerEmbed";
 import { getMovieAttributionLabel } from "../utils/drawBuckets";
 import {
   MAX_MOVIE_NOTE_LENGTH,
@@ -301,12 +302,10 @@ export default function AddMovieModal({
 
           {hasTrailer && isTrailerVisible && (
             <div id={trailerRegionId} className="surface-card aspect-video overflow-hidden">
-              <iframe
-                src={movie.trailer.embedUrl}
+              <TrailerEmbed
+                trailer={movie.trailer}
                 title={`${movie.title} trailer`}
                 className="h-full w-full"
-                allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-                allowFullScreen
               />
             </div>
           )}

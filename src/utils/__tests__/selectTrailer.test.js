@@ -290,6 +290,46 @@ describe("selectBestTrailer", () => {
     expect(trailer).toBeNull();
   });
 
+  describe("fallbacks", () => {
+    // The Godfather's rows: the original trailer is age-restricted, so a
+    // player needs the rest in the same order the ranking would choose them.
+    it("carries the remaining trailers in rank order", () => {
+      const trailer = selectBestTrailer([
+        { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "50th", name: "50th Anniversary Trailer" },
+        { site: "YouTube", type: "Teaser", official: true, iso_639_1: "en", key: "45th", name: "45th Anniversary Spot" },
+        { site: "YouTube", type: "Clip", official: true, iso_639_1: "en", key: "clip", name: "Opening Scene" },
+        { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "original", name: "Original Trailer" },
+      ]);
+
+      expect(trailer.key).toBe("original");
+      expect(trailer.fallbacks.map((fallback) => fallback.key)).toEqual(["50th", "45th"]);
+      expect(trailer.fallbacks[0]).toMatchObject({
+        embedUrl: "https://www.youtube.com/embed/50th",
+        name: "50th Anniversary Trailer",
+      });
+      expect(trailer.fallbacks[0]).not.toHaveProperty("fallbacks");
+    });
+
+    it("keeps at most four and never repeats a video", () => {
+      const trailer = selectBestTrailer([
+        { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "a", name: "Trailer" },
+        { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "a", name: "Trailer" },
+        ...["b", "c", "d", "e", "f"].map((key) => ({ site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key, name: `Trailer ${key}` })),
+      ]);
+
+      expect(trailer.key).toBe("a");
+      expect(trailer.fallbacks.map((fallback) => fallback.key)).toEqual(["b", "c", "d", "e"]);
+    });
+
+    it("is empty when there is only one usable video", () => {
+      const trailer = selectBestTrailer([
+        { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "only", name: "Trailer" },
+      ]);
+
+      expect(trailer.fallbacks).toEqual([]);
+    });
+  });
+
   it("returns null for missing or empty video lists", () => {
     expect(selectBestTrailer(undefined)).toBeNull();
     expect(selectBestTrailer([])).toBeNull();

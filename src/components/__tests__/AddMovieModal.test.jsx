@@ -311,7 +311,7 @@ describe("AddMovieModal", () => {
     expect(hideToggle.querySelector("svg").innerHTML).not.toBe(playIcon);
     expect(screen.getByTitle("Dune trailer")).toHaveAttribute(
       "src",
-      "https://www.youtube.com/embed/abc123"
+      expect.stringContaining("https://www.youtube.com/embed/abc123")
     );
 
     fireEvent.click(screen.getByRole("button", { name: /hide trailer/i }));

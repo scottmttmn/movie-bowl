@@ -1,8 +1,6 @@
 import {
   useCallback,
   useEffect,
-  useId,
-  useLayoutEffect,
   useMemo,
   useRef,
   useState,
@@ -36,6 +34,7 @@ import TvDrawMethodMark from "../components/TvDrawMethodMark";
 import TvTheaterTicket from "../components/TvTheaterTicket";
 import { getStreamingMode, getStreamingModeSettings } from "../utils/streamingMode";
 import TvTheaterPreroll from "../components/TvTheaterPreroll";
+import TvFullscreenTrailer from "../components/TvFullscreenTrailer";
 import { useTvBowlAccess } from "../hooks/useTvBowls";
 import useDeviceDrawSettings from "../../hooks/useDeviceDrawSettings";
 import useTvSpatialNavigation from "../hooks/useTvSpatialNavigation";
@@ -49,11 +48,6 @@ import {
   readExternalReturn,
   rememberExternalReturn,
 } from "../utils/externalReturn";
-import {
-  getAutoplayTrailerUrl,
-  getYouTubeVideoId,
-  loadYouTubeIframeApi,
-} from "../../lib/youtubePlayer";
 
 const MIN_DRAW_ANIMATION_MS = 1800;
 
@@ -350,112 +344,6 @@ function TvRecentDraws({ movies, restoreFocusId, onFocusRestored, onSelect }) {
           );
         })}
       </div>
-    </section>
-  );
-}
-
-function TvFullscreenTrailer({ movieTitle, trailer, onClose }) {
-  const playerId = `tv-trailer-${useId().replace(/:/g, "")}`;
-  const overlayRef = useRef(null);
-  const playerRef = useRef(null);
-  const enteredFullscreenRef = useRef(false);
-  const videoId = getYouTubeVideoId(trailer);
-
-  useLayoutEffect(() => {
-    const overlay = overlayRef.current;
-    if (!overlay) return undefined;
-
-    const getFullscreenElement = () =>
-      document.fullscreenElement || document.webkitFullscreenElement;
-    const handleFullscreenChange = () => {
-      if (getFullscreenElement() === overlay) {
-        enteredFullscreenRef.current = true;
-      } else if (enteredFullscreenRef.current) {
-        enteredFullscreenRef.current = false;
-        onClose();
-      }
-    };
-
-    document.addEventListener("fullscreenchange", handleFullscreenChange);
-    document.addEventListener("webkitfullscreenchange", handleFullscreenChange);
-
-    const requestFullscreen =
-      overlay.requestFullscreen || overlay.webkitRequestFullscreen;
-    if (requestFullscreen) {
-      Promise.resolve(requestFullscreen.call(overlay)).catch(() => {
-        // The full-viewport overlay remains the fallback when native fullscreen
-        // is unavailable or blocked by the television browser.
-      });
-    }
-
-    return () => {
-      document.removeEventListener("fullscreenchange", handleFullscreenChange);
-      document.removeEventListener(
-        "webkitfullscreenchange",
-        handleFullscreenChange
-      );
-    };
-  }, [onClose]);
-
-  useEffect(() => {
-    if (!videoId) return undefined;
-
-    let cancelled = false;
-
-    loadYouTubeIframeApi()
-      .then((youtube) => {
-        if (cancelled || !youtube?.Player) return;
-
-        playerRef.current = new youtube.Player(playerId, {
-          events: {
-            onReady: (event) => event.target.playVideo(),
-            onStateChange: (event) => {
-              if (
-                event.data === 0 ||
-                event.data === youtube.PlayerState?.ENDED
-              ) {
-                onClose();
-              }
-            },
-          },
-        });
-      })
-      .catch((error) => {
-        console.error("[TvFullscreenTrailer] Player API unavailable", error);
-      });
-
-    return () => {
-      cancelled = true;
-      playerRef.current?.destroy?.();
-      playerRef.current = null;
-    };
-  }, [onClose, playerId, videoId]);
-
-  return (
-    <section
-      ref={overlayRef}
-      className="tv-trailer-overlay"
-      role="dialog"
-      aria-modal="true"
-      aria-label={`${movieTitle} trailer`}
-    >
-      <iframe
-        id={playerId}
-        src={getAutoplayTrailerUrl(trailer)}
-        title={`${movieTitle} trailer`}
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-        allowFullScreen
-      />
-      <button
-        type="button"
-        className="tv-trailer-close"
-        data-tv-focusable
-        data-tv-nav-group="trailer"
-        data-tv-autofocus="true"
-        onClick={onClose}
-      >
-        Close trailer
-      </button>
     </section>
   );
 }
