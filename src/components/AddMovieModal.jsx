@@ -256,9 +256,15 @@ export default function AddMovieModal({
                     aria-controls={trailerRegionId}
                     onClick={() => setIsTrailerVisible((prev) => !prev)}
                   >
-                    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="currentColor">
-                      <path d="M8 4.5v15l12-7.5z" />
-                    </svg>
+                    {isTrailerVisible ? (
+                      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                        <path d="M6 15l6-6 6 6" />
+                      </svg>
+                    ) : (
+                      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="currentColor">
+                        <path d="M8 4.5v15l12-7.5z" />
+                      </svg>
+                    )}
                     {isTrailerVisible ? "Hide trailer" : "Watch trailer"}
                   </button>
                 )}
