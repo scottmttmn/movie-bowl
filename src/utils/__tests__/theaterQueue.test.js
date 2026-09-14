@@ -4,7 +4,7 @@ import {
   readRecentTrailerKeys,
   rememberTrailerKeys,
   selectTrailerCandidates,
-} from "../utils/theaterQueue";
+} from "../theaterQueue";
 
 // Fisher-Yates leaves the list untouched when every draw picks the last slot.
 const inOrder = () => 0.999999;

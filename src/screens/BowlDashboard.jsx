@@ -17,6 +17,10 @@ import useDrawProviderLinks from "../hooks/useDrawProviderLinks";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import useDeviceDrawSettings from "../hooks/useDeviceDrawSettings";
 import TheaterTicket from "../components/TheaterTicket";
+import TheaterPreroll from "../components/TheaterPreroll";
+import { buildTrailerQueue, readRecentTrailerKeys, rememberTrailerKeys } from "../utils/theaterQueue";
+import { fetchMovieTrailer, resolveEligiblePreviewIds } from "../lib/theaterPreviews";
+import { clampTheaterTrailerCount } from "../utils/drawSettings";
 import { WEB_SURFACE_DEFAULTS } from "../utils/deviceDrawSettings";
 import useAutosave from "../hooks/useAutosave";
 import AutosaveStatus from "../components/AutosaveStatus";
@@ -455,6 +459,9 @@ export default function BowlDashboard() {
       setOverride: setDeviceDrawSetting,
     } = useDeviceDrawSettings(currentUserId, defaultDrawSettings, WEB_SURFACE_DEFAULTS);
     const isTheaterModeEnabled = Boolean(deviceDrawSettings.theaterModeEnabled);
+    const theaterTrailerCount = clampTheaterTrailerCount(deviceDrawSettings.theaterTrailerCount);
+    const [trailerQueue, setTrailerQueue] = useState([]);
+    const [isTheaterPlaying, setIsTheaterPlaying] = useState(false);
 
     const drawnMovieMatchingProviders = useMemo(
       () => (drawnMovie ? matchUserServices(drawnMovie.streamingProviders || [], userStreamingServices) : []),
@@ -689,6 +696,46 @@ export default function BowlDashboard() {
       };
     };
 
+    // Resolved after the pick rather than before it, so nothing here can touch
+    // what was drawn. A failure anywhere costs the previews and leaves the
+    // reveal exactly as an ordinary draw would.
+    const startTheater = async (drawn) => {
+      try {
+        const eligibleMovieIds = await resolveEligiblePreviewIds({
+          movies: bowl.remaining,
+          drawOptions: {
+            prioritizeByServices: prioritizeStreaming,
+            prioritizeByServiceRank: useStreamingRank,
+            userStreamingServices,
+            ...drawFilters,
+          },
+          fetchers: filterMetadataFetchers,
+        });
+        const queue = await buildTrailerQueue({
+          movies: bowl.remaining,
+          eligibleMovieIds,
+          excludeMovieId: drawn.id,
+          count: theaterTrailerCount,
+          recentKeys: readRecentTrailerKeys(),
+          fetchTrailer: fetchMovieTrailer,
+        });
+        if (queue.length === 0) return;
+
+        // Recorded up front, including on an early exit: a few previews nobody
+        // watched to the end are still previews this device has just shown.
+        rememberTrailerKeys(queue.map((entry) => entry.trailer?.key));
+        setTrailerQueue(queue);
+        setIsTheaterPlaying(true);
+      } catch (error) {
+        console.error("[BowlDashboard] Failed to start the pre-roll", error);
+      }
+    };
+
+    const endTheater = () => {
+      setIsTheaterPlaying(false);
+      setTrailerQueue([]);
+    };
+
     // Fired by a completed hold on the draw button, or by the keyboard path's
     // confirm dialog — both arrive here with intent already established.
     const runDraw = async () => {
@@ -716,6 +763,11 @@ export default function BowlDashboard() {
         if (movie) {
           const detailMovie = await buildDetailMovie(movie);
           setDrawnMovie(detailMovie);
+          // Armed on this device, so no confirmation: the ticket beside the
+          // draw button already answered that question. The reveal is set
+          // first and the previews play over it, which is the order the
+          // television runs and the order a cinema runs.
+          if (isTheaterModeEnabled) startTheater(detailMovie);
         }
       } finally {
         setIsDrawing(false);
@@ -1381,6 +1433,16 @@ return (
                   </div>
                 </div>
               </div>
+            )}
+            {/* Over the reveal rather than instead of it: the pick is shown
+                first and the previews play on top, so backing out at any point
+                lands on the drawn movie with nothing lost. */}
+            {isTheaterPlaying && drawnMovie && (
+              <TheaterPreroll
+                queue={trailerQueue}
+                featureTitle={drawnMovie.title || ""}
+                onFinish={endTheater}
+              />
             )}
             {drawnMovie && (
               <AddMovieModal

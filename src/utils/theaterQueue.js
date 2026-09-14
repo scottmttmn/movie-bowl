@@ -1,4 +1,4 @@
-import { clampTheaterTrailerCount } from "../../utils/drawSettings";
+import { clampTheaterTrailerCount } from "./drawSettings";
 
 const RECENT_TRAILER_STORAGE_KEY = "movie-bowl:tv:recent-trailers";
 

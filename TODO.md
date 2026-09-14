@@ -180,8 +180,10 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   nothing stored starts off, which is what keeps `theaterModeEnabled` from
   silently widening from "on the television" for existing accounts. Keep
   `deviceDrawSettings.js`'s storage prefix, which still says `tv`, or every
-  television forgets its overrides. The override layer has landed; the ticket
-  and the web pre-roll have not. This does put a control on the bowl page for everyone,
+  television forgets its overrides. **Shipped September 14, 2026.** What remains
+  is the rest of the design doc's sketch: remove `TopNav`'s TV mode item, rewrite
+  the "TV & playback" settings copy now that the section governs two surfaces,
+  and the pairing typography. This does put a control on the bowl page for everyone,
   reversing an earlier line in the design doc, and it is paid for deliberately:
   it is also the only thing that makes the feature discoverable on the web.
   Specified in `output/designs/tv-web-seam.md`.

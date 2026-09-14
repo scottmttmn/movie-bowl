@@ -1,11 +1,14 @@
 # The Seam Between the Web App and the Television
 
-Status: **in progress.** The decision in "The Supported Surfaces" is settled, and
-so is the shape of the dashboard affordance — a theater mode switch beside the
-draw button, revised September 12, 2026 from an earlier offer-shaped proposal.
-The device override layer it stands on landed September 14, 2026
-(`src/utils/deviceDrawSettings.js`); the ticket and the web pre-roll have not
-been built. The remaining open questions are genuinely open.
+Status: **shipped September 14, 2026**, for the part this document is mostly
+about. The decision in "The Supported Surfaces" is settled, and so is the shape
+of the dashboard affordance — a theater mode switch beside the draw button,
+revised September 12, 2026 from an earlier offer-shaped proposal. The device
+override layer (`src/utils/deviceDrawSettings.js`), the ticket
+(`src/components/TheaterTicket.jsx`) and the web pre-roll
+(`src/components/TheaterPreroll.jsx`) are all built. Steps 2 through 5 of
+"Sketch of the Work" are not, and the remaining open questions are genuinely
+open.
 
 ## The Supported Surfaces
 
@@ -466,15 +469,14 @@ one piece of work; they are the same screen and the same audience.
 
 ## Sketch of the Work
 
-1. The dashboard pre-roll, armed by a ticket beside the draw button and started
-   by the draw. Three pieces, in this order: ~~generalise `tvDrawSettings.js` to
-   a device override (keeping its storage prefix) with an off-by-default surface
-   default for the web~~ (landed as `src/utils/deviceDrawSettings.js`); move
-   `theaterQueue.js` and `youtubePlayer.js` out of `src/tv/`; then the ticket and the web pre-roll overlay, with a visible exit,
-   `playsinline=1`, and the tap-to-start fallback for a refused autoplay. The
-   ticket renders only when `canCurrentUserDraw`, and the pre-roll starts on the
-   draw with no confirmation. This is the real feature
-   and the rest depends on it.
+1. ~~The dashboard pre-roll, armed by a ticket beside the draw button and
+   started by the draw.~~ **Done.** The device override keeping its storage
+   prefix; the moves out of `src/tv/` (`theaterQueue.js` to `src/utils/`,
+   `youtubePlayer.js` to `src/lib/`, and the television's two inline preview
+   lookups to `src/lib/theaterPreviews.js` so neither surface forks them); the
+   ticket, rendered only when `canCurrentUserDraw`; and the overlay with a
+   visible exit, `playsinline=1` and the tap-to-start fallback for a refused
+   autoplay, starting on the draw with no confirmation.
 2. Remove the `TopNav` item; update `TopNav.test.jsx`.
 3. Settings copy, once the section governs two surfaces.
 4. Pairing screen typography, together with the existing `TODO.md` item.

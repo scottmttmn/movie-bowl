@@ -338,6 +338,42 @@
     background: rgba(225, 29, 72, 0.3);
   }
 
+  /* The pre-roll. Fixed rather than natively fullscreen on purpose -- see the
+     component -- so it must sit above every modal, the reveal included, because
+     it plays over the drawn movie the way the television plays over its. */
+  .theater-preroll {
+    @apply fixed inset-0 z-[100] flex items-center justify-center bg-black;
+  }
+
+  .theater-preroll iframe {
+    @apply absolute inset-0 h-full w-full border-0;
+  }
+
+  /* A click must not reach the iframe, where no handler of ours can see it. */
+  .theater-preroll-surface {
+    @apply absolute inset-0 h-full w-full cursor-default border-0 bg-transparent;
+  }
+
+  .theater-preroll-card {
+    @apply pointer-events-none relative mx-4 max-w-lg rounded-2xl bg-slate-950/80 px-6 py-5 text-center backdrop-blur-sm;
+  }
+
+  .theater-preroll-title {
+    @apply mt-1 text-2xl font-bold text-slate-50 sm:text-3xl;
+  }
+
+  .theater-preroll-feature {
+    @apply mt-1 text-sm text-slate-300;
+  }
+
+  .theater-preroll-paused {
+    @apply pointer-events-none relative rounded-full bg-slate-950/75 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-slate-200;
+  }
+
+  .theater-preroll-exit {
+    @apply absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full border border-slate-700/70 bg-slate-950/70 text-xl leading-none text-slate-300 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/70;
+  }
+
   .about-demo-card-featured {
     @apply border-rose-800/80;
     background:

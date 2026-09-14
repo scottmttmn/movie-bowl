@@ -110,6 +110,11 @@ vi.mock("../../lib/streamingProviders", () => ({
   fetchStreamingProviders: vi.fn(async () => ({ providers: [], region: "US", fetchedAt: null })),
 }));
 
+vi.mock("../../lib/theaterPreviews", () => ({
+  resolveEligiblePreviewIds: vi.fn(async () => null),
+  fetchMovieTrailer: vi.fn(async (movie) => ({ key: `key-${movie.id}`, site: "YouTube" })),
+}));
+
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
   return {
@@ -563,6 +568,55 @@ describe("BowlDashboard draw preferences", () => {
       expect(mocks.state.saveDefaultDrawSettings).not.toHaveBeenCalledWith(
         expect.objectContaining({ theaterModeEnabled: expect.anything() })
       );
+    });
+
+    // Armed, the web behaves as the television does: the pick is revealed and
+    // the previews play over it, with no prompt in between. The ticket beside
+    // the draw button already answered that question.
+    it("plays previews over the reveal once an armed draw lands", async () => {
+      window.YT = {
+        Player: vi.fn(() => ({ playVideo: vi.fn(), destroy: vi.fn() })),
+        PlayerState: { ENDED: 0, PLAYING: 1 },
+      };
+      window.localStorage.setItem(
+        "movie-bowl:tv:draw-settings:u1",
+        JSON.stringify({ theaterModeEnabled: true })
+      );
+      mocks.state.bowlData = {
+        remaining: [
+          { id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A" },
+          { id: "m2", added_by: "u1", tmdb_id: 102, title: "Movie B" },
+        ],
+        watched: [],
+      };
+      mocks.state.handleDraw.mockResolvedValue({ id: "m1", tmdb_id: 101, title: "Movie A" });
+
+      renderDashboard();
+      await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+      confirmDraw();
+
+      await waitFor(() =>
+        expect(screen.getByRole("dialog", { name: /previews before movie a/i })).toBeInTheDocument()
+      );
+      delete window.YT;
+    });
+
+    it("shows no previews when this device never armed the ticket", async () => {
+      mocks.state.bowlData = {
+        remaining: [
+          { id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A" },
+          { id: "m2", added_by: "u1", tmdb_id: 102, title: "Movie B" },
+        ],
+        watched: [],
+      };
+      mocks.state.handleDraw.mockResolvedValue({ id: "m1", tmdb_id: 101, title: "Movie A" });
+
+      renderDashboard();
+      await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+      confirmDraw();
+
+      await waitFor(() => expect(screen.getByRole("heading", { name: /movie a/i })).toBeInTheDocument());
+      expect(screen.queryByRole("dialog", { name: /previews before/i })).not.toBeInTheDocument();
     });
 
     it("remembers this device's answer across a reload", async () => {
