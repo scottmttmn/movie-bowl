@@ -57,6 +57,56 @@ describe("TvFullscreenTrailer", () => {
     expect(onClose).toHaveBeenCalled();
   });
 
+  describe("the cover", () => {
+    const cover = () => document.querySelector(".tv-trailer-cover");
+
+    // YouTube paints "unavailable" before the refusal reaches us.
+    it("stays over a refused trailer until the fallback is playing", async () => {
+      await renderTrailer();
+      expect(cover()).toBeInTheDocument();
+
+      act(() => playerOptions.events.onError({ data: 150 }));
+      expect(cover()).toBeInTheDocument();
+
+      act(() => playerOptions.events.onStateChange({ data: 1 }));
+      expect(cover()).not.toBeInTheDocument();
+    });
+
+    // Recorded against real YouTube: a refused fallback reports BUFFERING
+    // before its error, so lifting on it flashed the refusal screen.
+    it("does not lift while a fallback is only buffering", async () => {
+      await renderTrailer();
+
+      act(() => playerOptions.events.onError({ data: 150 }));
+      act(() => playerOptions.events.onStateChange({ data: 3 }));
+
+      expect(cover()).toBeInTheDocument();
+    });
+
+    it("keeps YouTube's message covered once every trailer is refused", async () => {
+      await renderTrailer();
+
+      act(() => playerOptions.events.onError({ data: 150 }));
+      act(() => playerOptions.events.onError({ data: 150 }));
+
+      expect(cover()).toBeInTheDocument();
+      expect(screen.getByRole("status")).toHaveTextContent(/trailer unavailable/i);
+    });
+
+    it("shows the player if an accepted trailer never starts", async () => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+      try {
+        await renderTrailer();
+
+        act(() => vi.advanceTimersByTime(4000));
+
+        expect(cover()).not.toBeInTheDocument();
+      } finally {
+        vi.useRealTimers();
+      }
+    });
+  });
+
   it("closes when the trailer finishes", async () => {
     const { onClose } = await renderTrailer();
 

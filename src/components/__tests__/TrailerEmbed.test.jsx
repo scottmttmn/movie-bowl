@@ -57,6 +57,79 @@ describe("TrailerEmbed", () => {
     expect(screen.getByTitle("The Godfather trailer")).toBeInTheDocument();
   });
 
+  // The embed paints YouTube's "unavailable" screen before the API can report
+  // the refusal, so the player stays covered until a video is accepted.
+  describe("the cover", () => {
+    beforeEach(() => {
+      vi.useFakeTimers({ shouldAdvanceTime: true });
+    });
+
+    afterEach(() => {
+      vi.useRealTimers();
+    });
+
+    const cover = () => screen.queryByTestId("trailer-cover");
+
+    it("hides a refused trailer and lifts once the fallback is accepted", async () => {
+      render(<TrailerEmbed trailer={GODFATHER} title="The Godfather trailer" />);
+      expect(cover()).toBeInTheDocument();
+      await waitFor(() => expect(playerOptions).toBeDefined());
+
+      // The refusal lands in the same tick as ready, before the grace period.
+      act(() => playerOptions.events.onReady({ target: player }));
+      act(() => playerOptions.events.onError({ data: 150 }));
+      act(() => vi.advanceTimersByTime(1000));
+      expect(cover()).toBeInTheDocument();
+
+      act(() => playerOptions.events.onStateChange({ data: 5 }));
+      act(() => vi.advanceTimersByTime(300));
+      expect(cover()).not.toBeInTheDocument();
+    });
+
+    it("lifts on a trailer that is accepted outright", async () => {
+      render(<TrailerEmbed trailer={GODFATHER} title="The Godfather trailer" />);
+      await waitFor(() => expect(playerOptions).toBeDefined());
+
+      act(() => playerOptions.events.onReady({ target: player }));
+      act(() => vi.advanceTimersByTime(300));
+
+      expect(cover()).not.toBeInTheDocument();
+    });
+
+    // On the web YouTube's own message links out, so it is worth showing.
+    it("lifts on YouTube's message once every trailer is refused", async () => {
+      render(<TrailerEmbed trailer={GODFATHER} title="The Godfather trailer" />);
+      await waitFor(() => expect(playerOptions).toBeDefined());
+
+      act(() => playerOptions.events.onError({ data: 150 }));
+      act(() => playerOptions.events.onError({ data: 150 }));
+      expect(cover()).toBeInTheDocument();
+
+      act(() => playerOptions.events.onError({ data: 150 }));
+      expect(cover()).not.toBeInTheDocument();
+    });
+
+    it("never holds a blank box if the player does not answer", async () => {
+      render(<TrailerEmbed trailer={GODFATHER} title="The Godfather trailer" />);
+      await waitFor(() => expect(playerOptions).toBeDefined());
+
+      act(() => vi.advanceTimersByTime(4000));
+
+      expect(cover()).not.toBeInTheDocument();
+    });
+
+    it("is never drawn when there is nothing to fall back to", () => {
+      render(
+        <TrailerEmbed
+          trailer={{ site: "YouTube", key: "only", embedUrl: "https://www.youtube.com/embed/only", fallbacks: [] }}
+          title="Only trailer"
+        />
+      );
+
+      expect(cover()).not.toBeInTheDocument();
+    });
+  });
+
   it("does not load the player API when there is nothing to fall back to", () => {
     render(
       <TrailerEmbed
