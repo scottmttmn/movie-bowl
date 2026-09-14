@@ -110,6 +110,11 @@ vi.mock("../../lib/streamingProviders", () => ({
   fetchStreamingProviders: vi.fn(async () => ({ providers: [], region: "US", fetchedAt: null })),
 }));
 
+vi.mock("../../lib/theaterPreviews", () => ({
+  resolveEligiblePreviewIds: vi.fn(async () => mocks.state.resolveEligiblePreviewIds?.() ?? null),
+  fetchMovieTrailer: vi.fn(async (movie) => ({ key: `key-${movie.id}`, site: "YouTube" })),
+}));
+
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
   return {
@@ -515,5 +520,222 @@ describe("BowlDashboard draw preferences", () => {
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(mocks.state.reloadPreferences).toHaveBeenCalledTimes(1);
     expect(mocks.state.saveDefaultDrawSettings).not.toHaveBeenCalled();
+  });
+
+  // The dashboard reads theaterModeEnabled through the device layer, which is
+  // the point: the account flag means "on the television," and a laptop that
+  // inherited it would start playing previews at someone who never asked.
+  describe("theater ticket", () => {
+    beforeEach(() => {
+      window.localStorage.clear();
+    });
+
+    afterEach(() => {
+      window.localStorage.clear();
+    });
+
+    it("starts off even when the account turned theater mode on for a television", async () => {
+      mocks.state.defaultDrawSettings = {
+        ...mocks.state.defaultDrawSettings,
+        theaterModeEnabled: true,
+      };
+      renderDashboard();
+      await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+      expect(screen.getByRole("switch", { name: /theater mode/i })).toHaveAttribute(
+        "aria-checked",
+        "false"
+      );
+    });
+
+    it("arms on this device without touching the account setting", async () => {
+      renderDashboard();
+      await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole("switch", { name: /theater mode/i }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("switch", { name: /theater mode on/i })).toHaveAttribute(
+          "aria-checked",
+          "true"
+        )
+      );
+      // Disarming here must never reach across and change a television, so the
+      // ticket writes the device store and nothing else.
+      expect(
+        JSON.parse(window.localStorage.getItem("movie-bowl:tv:draw-settings:u1"))
+      ).toEqual({ theaterModeEnabled: true });
+      expect(mocks.state.saveDefaultDrawSettings).not.toHaveBeenCalledWith(
+        expect.objectContaining({ theaterModeEnabled: expect.anything() })
+      );
+    });
+
+    // Armed, the web behaves as the television does: the pick is revealed and
+    // the previews play over it, with no prompt in between. The ticket beside
+    // the draw button already answered that question.
+    it("plays previews over the reveal once an armed draw lands", async () => {
+      window.YT = {
+        Player: vi.fn(() => ({ playVideo: vi.fn(), destroy: vi.fn() })),
+        PlayerState: { ENDED: 0, PLAYING: 1 },
+      };
+      window.localStorage.setItem(
+        "movie-bowl:tv:draw-settings:u1",
+        JSON.stringify({ theaterModeEnabled: true })
+      );
+      mocks.state.bowlData = {
+        remaining: [
+          { id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A" },
+          { id: "m2", added_by: "u1", tmdb_id: 102, title: "Movie B" },
+        ],
+        watched: [],
+      };
+      mocks.state.handleDraw.mockResolvedValue({ id: "m1", tmdb_id: 101, title: "Movie A" });
+
+      renderDashboard();
+      await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+      confirmDraw();
+
+      await waitFor(() =>
+        expect(screen.getByRole("dialog", { name: /previews before movie a/i })).toBeInTheDocument()
+      );
+
+      // The reveal stays mounted underneath, so backing out lands on the drawn
+      // movie -- but it must not be reachable while the previews play, or a
+      // stray Enter opens a provider mid-preview.
+      const reveal = document.querySelector(".modal-overlay");
+      expect(reveal).toHaveAttribute("aria-hidden", "true");
+      expect(reveal).toHaveAttribute("inert");
+      delete window.YT;
+    });
+
+    // A refused autoplay swaps in "Tap to start", which re-attaches the
+    // pre-roll's key listener after the reveal's. Escape must still leave the
+    // previews and land on the pick rather than dismissing both.
+    it("exits previews on Escape after autoplay was refused, keeping the reveal", async () => {
+      let playerOptions;
+      window.YT = {
+        Player: vi.fn((_id, options) => {
+          playerOptions = options;
+          return { playVideo: vi.fn(), destroy: vi.fn() };
+        }),
+        PlayerState: { ENDED: 0, PLAYING: 1 },
+      };
+      window.localStorage.setItem(
+        "movie-bowl:tv:draw-settings:u1",
+        JSON.stringify({ theaterModeEnabled: true })
+      );
+      mocks.state.bowlData = {
+        remaining: [
+          { id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A" },
+          { id: "m2", added_by: "u1", tmdb_id: 102, title: "Movie B" },
+        ],
+        watched: [],
+      };
+      mocks.state.handleDraw.mockResolvedValue({ id: "m1", tmdb_id: 101, title: "Movie A" });
+
+      try {
+        renderDashboard();
+        await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+        confirmDraw();
+
+        await waitFor(() => expect(playerOptions).toBeDefined());
+        act(() => playerOptions.events.onReady({ target: { playVideo: vi.fn() } }));
+        await waitFor(
+          () => expect(screen.getByRole("button", { name: /start previews/i })).toBeInTheDocument(),
+          { timeout: 3000 }
+        );
+
+        fireEvent.keyDown(window, { key: "Escape" });
+
+        await waitFor(() =>
+          expect(screen.queryByRole("dialog", { name: /previews before/i })).not.toBeInTheDocument()
+        );
+        expect(document.querySelector(".modal-overlay")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: /movie a/i })).toBeInTheDocument();
+      } finally {
+        delete window.YT;
+      }
+    });
+
+    // The queue resolves after the reveal is up. Dismissing the reveal before
+    // it lands must drop it, or the next draw opens on a stale pre-roll --
+    // even with the ticket switched off in between.
+    it("drops previews that resolve after the reveal was closed", async () => {
+      window.YT = {
+        Player: vi.fn(() => ({ playVideo: vi.fn(), destroy: vi.fn() })),
+        PlayerState: { ENDED: 0, PLAYING: 1 },
+      };
+      window.localStorage.setItem(
+        "movie-bowl:tv:draw-settings:u1",
+        JSON.stringify({ theaterModeEnabled: true })
+      );
+      let releaseLookup;
+      mocks.state.resolveEligiblePreviewIds = () =>
+        new Promise((resolve) => {
+          releaseLookup = () => resolve(null);
+        });
+      mocks.state.bowlData = {
+        remaining: [
+          { id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A" },
+          { id: "m2", added_by: "u1", tmdb_id: 102, title: "Movie B" },
+        ],
+        watched: [],
+      };
+      mocks.state.handleDraw.mockResolvedValue({ id: "m1", tmdb_id: 101, title: "Movie A" });
+
+      try {
+        renderDashboard();
+        await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+        confirmDraw();
+
+        await waitFor(() => expect(releaseLookup).toBeDefined());
+        const reveal = document.querySelector(".modal-overlay");
+        fireEvent.click(within(reveal).getAllByRole("button", { name: /close/i })[0]);
+        await waitFor(() => expect(document.querySelector(".modal-overlay")).not.toBeInTheDocument());
+
+        await act(async () => releaseLookup());
+        fireEvent.click(screen.getByRole("switch", { name: /theater mode on/i }));
+        mocks.state.resolveEligiblePreviewIds = null;
+        confirmDraw();
+
+        await waitFor(() => expect(screen.getByRole("heading", { name: /movie a/i })).toBeInTheDocument());
+        expect(screen.queryByRole("dialog", { name: /previews before/i })).not.toBeInTheDocument();
+      } finally {
+        mocks.state.resolveEligiblePreviewIds = null;
+        delete window.YT;
+      }
+    });
+
+    it("shows no previews when this device never armed the ticket", async () => {
+      mocks.state.bowlData = {
+        remaining: [
+          { id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A" },
+          { id: "m2", added_by: "u1", tmdb_id: 102, title: "Movie B" },
+        ],
+        watched: [],
+      };
+      mocks.state.handleDraw.mockResolvedValue({ id: "m1", tmdb_id: 101, title: "Movie A" });
+
+      renderDashboard();
+      await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+      confirmDraw();
+
+      await waitFor(() => expect(screen.getByRole("heading", { name: /movie a/i })).toBeInTheDocument());
+      expect(screen.queryByRole("dialog", { name: /previews before/i })).not.toBeInTheDocument();
+    });
+
+    it("remembers this device's answer across a reload", async () => {
+      window.localStorage.setItem(
+        "movie-bowl:tv:draw-settings:u1",
+        JSON.stringify({ theaterModeEnabled: true })
+      );
+      renderDashboard();
+      await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+      expect(screen.getByRole("switch", { name: /theater mode on/i })).toHaveAttribute(
+        "aria-checked",
+        "true"
+      );
+    });
   });
 });

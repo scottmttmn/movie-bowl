@@ -41,7 +41,7 @@ export function getYouTubeVideoId(trailer) {
   return match?.[1] ? decodeURIComponent(match[1]) : "";
 }
 
-export function getAutoplayTrailerUrl(trailer, { preroll = false } = {}) {
+export function getAutoplayTrailerUrl(trailer, { preroll = false, inline = false } = {}) {
   const videoId = getYouTubeVideoId(trailer);
   if (!videoId) return trailer?.embedUrl || "";
 
@@ -51,7 +51,11 @@ export function getAutoplayTrailerUrl(trailer, { preroll = false } = {}) {
   url.searchParams.set("autoplay", "1");
   url.searchParams.set("enablejsapi", "1");
   url.searchParams.set("rel", "0");
-  url.searchParams.set("playsinline", "0");
+  // A television plays fullscreen and does not care, but iOS reads `0` as
+  // permission to hand the video to its own fullscreen player. That ends the
+  // trailer outside our overlay, and getting back in for the next one needs a
+  // fresh gesture -- so an inline queue is broken by it, not merely relocated.
+  url.searchParams.set("playsinline", inline ? "1" : "0");
   url.searchParams.set("origin", window.location.origin);
 
   // Removing our own controls does not stop the room skipping ahead: the embed

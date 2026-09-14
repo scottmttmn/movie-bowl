@@ -1,8 +1,10 @@
 # TV Draw Filters and Per-TV Preferences
 
 Status: partly implemented September 4, 2026. The settings layer and every
-boolean toggle are built (`src/tv/utils/tvDrawSettings.js`,
-`src/tv/hooks/useTvDrawSettings.js`, `src/tv/components/TvDrawPreferences.jsx`).
+boolean toggle are built (`src/utils/deviceDrawSettings.js`,
+`src/hooks/useDeviceDrawSettings.js`, `src/tv/components/TvDrawPreferences.jsx`).
+The settings layer moved out of `src/tv/` when the dashboard came to need it too
+— see `tv-web-seam.md`; the television's behaviour did not change.
 Ratings are still to come. Genres and runtime stay phone-only by design — see
 [What is editable on TV](#what-is-editable-on-tv).
 

@@ -288,6 +288,92 @@
       0 24px 60px -42px rgba(0, 0, 0, 0.95);
   }
 
+  /* Theater mode, as a ticket -- the same object the television wears, in this
+     surface's own vocabulary. It is the only control beside the draw button
+     about the occasion rather than about the pool, and a torn paper stub is how
+     it says so without a label explaining it. The bowl is full of paper slips;
+     this is the same paper. */
+  .theater-ticket {
+    @apply inline-flex rounded-xl border border-transparent bg-transparent p-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/70;
+  }
+
+  /* The perforations are a mask, and a mask clips everything the element paints
+     -- an outer focus ring included. Masking a face inside the button leaves
+     the button itself free to wear the ring every other control wears. */
+  .theater-ticket-face {
+    @apply flex min-h-11 items-center gap-2.5 rounded-lg px-3 text-[0.7rem] font-bold uppercase text-slate-400 transition;
+    background: rgba(148, 163, 184, 0.14);
+    letter-spacing: 0.06em;
+    -webkit-mask:
+      radial-gradient(circle 8px at 0 50%, transparent 99%, #000 100%),
+      radial-gradient(circle 8px at 100% 50%, transparent 99%, #000 100%);
+    -webkit-mask-composite: source-in;
+    mask:
+      radial-gradient(circle 8px at 0 50%, transparent 99%, #000 100%),
+      radial-gradient(circle 8px at 100% 50%, transparent 99%, #000 100%);
+    mask-composite: intersect;
+  }
+
+  .theater-ticket-stub {
+    @apply pr-2.5 text-slate-500;
+    border-right: 2px dashed rgba(148, 163, 184, 0.4);
+  }
+
+  .theater-ticket[data-on] .theater-ticket-face {
+    @apply text-rose-100;
+    background: rgba(225, 29, 72, 0.22);
+  }
+
+  .theater-ticket[data-on] .theater-ticket-stub {
+    @apply text-rose-300;
+    border-right-color: rgba(244, 63, 94, 0.5);
+  }
+
+  .theater-ticket:hover:not(:disabled) .theater-ticket-face {
+    @apply text-slate-200;
+    background: rgba(148, 163, 184, 0.22);
+  }
+
+  .theater-ticket[data-on]:hover:not(:disabled) .theater-ticket-face {
+    background: rgba(225, 29, 72, 0.3);
+  }
+
+  /* The pre-roll. Fixed rather than natively fullscreen on purpose -- see the
+     component -- so it must sit above every modal, the reveal included, because
+     it plays over the drawn movie the way the television plays over its. */
+  .theater-preroll {
+    @apply fixed inset-0 z-[100] flex items-center justify-center bg-black;
+  }
+
+  .theater-preroll iframe {
+    @apply absolute inset-0 h-full w-full border-0;
+  }
+
+  /* A click must not reach the iframe, where no handler of ours can see it. */
+  .theater-preroll-surface {
+    @apply absolute inset-0 h-full w-full cursor-default border-0 bg-transparent;
+  }
+
+  .theater-preroll-card {
+    @apply pointer-events-none relative mx-4 max-w-lg rounded-2xl bg-slate-950/80 px-6 py-5 text-center backdrop-blur-sm;
+  }
+
+  .theater-preroll-title {
+    @apply mt-1 text-2xl font-bold text-slate-50 sm:text-3xl;
+  }
+
+  .theater-preroll-feature {
+    @apply mt-1 text-sm text-slate-300;
+  }
+
+  .theater-preroll-paused {
+    @apply pointer-events-none relative rounded-full bg-slate-950/75 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-slate-200;
+  }
+
+  .theater-preroll-exit {
+    @apply absolute right-3 top-3 flex h-10 w-10 items-center justify-center rounded-full border border-slate-700/70 bg-slate-950/70 text-xl leading-none text-slate-300 transition hover:text-white focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/70;
+  }
+
   .about-demo-card-featured {
     @apply border-rose-800/80;
     background:

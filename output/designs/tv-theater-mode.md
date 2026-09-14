@@ -5,6 +5,10 @@ title links and the voice card) are implemented, and a validation harness for
 phase 4 lives in `tv-android/`. Phase 3 has no code. The roadmap below sequences
 the rest; later phases are not a commitment to build.
 
+This document is about the television. Bringing the same pre-roll to the phone
+and laptop draw is specified in `tv-web-seam.md` and shares this file's queue
+and player code; the roadmap below does not cover it.
+
 ## Product Idea
 
 Theater mode is an optional post-draw experience for Movie Bowl on a television.

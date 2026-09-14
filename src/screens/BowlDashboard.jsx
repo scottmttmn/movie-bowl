@@ -15,6 +15,13 @@ import useUserBowls from "../hooks/useUserBowls";
 import useBowl from "../hooks/useBowl";
 import useDrawProviderLinks from "../hooks/useDrawProviderLinks";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
+import useDeviceDrawSettings from "../hooks/useDeviceDrawSettings";
+import TheaterTicket from "../components/TheaterTicket";
+import TheaterPreroll from "../components/TheaterPreroll";
+import { buildTrailerQueue, readRecentTrailerKeys, rememberTrailerKeys } from "../utils/theaterQueue";
+import { fetchMovieTrailer, resolveEligiblePreviewIds } from "../lib/theaterPreviews";
+import { clampTheaterTrailerCount } from "../utils/drawSettings";
+import { WEB_SURFACE_DEFAULTS } from "../utils/deviceDrawSettings";
 import useAutosave from "../hooks/useAutosave";
 import AutosaveStatus from "../components/AutosaveStatus";
 import { STREAMING_MATCH_STATUS } from "../utils/streamingMatchSummary";
@@ -440,6 +447,27 @@ export default function BowlDashboard() {
       setUseStreamingRank(true);
     };
     const drawMethodBucketsByContributor = getDrawMethod(drawMethod).bucketsByContributor;
+    // Only theaterModeEnabled comes from the device layer. prioritizeStreaming
+    // and useStreamingRank are overridable too, but on this screen they are
+    // local state that the filter panel saves back to the account -- a device
+    // override sitting on top of a control that writes the account would make
+    // the panel look broken, and would leak a television's choice into the
+    // account the next time somebody saved filters here. A setting can have a
+    // device override or an account-writing control on a surface, not both.
+    const {
+      settings: deviceDrawSettings,
+      setOverride: setDeviceDrawSetting,
+    } = useDeviceDrawSettings(currentUserId, defaultDrawSettings, WEB_SURFACE_DEFAULTS);
+    const isTheaterModeEnabled = Boolean(deviceDrawSettings.theaterModeEnabled);
+    const theaterTrailerCount = clampTheaterTrailerCount(deviceDrawSettings.theaterTrailerCount);
+    const [trailerQueue, setTrailerQueue] = useState([]);
+    const [isTheaterPlaying, setIsTheaterPlaying] = useState(false);
+    // The queue resolves through several lookups after the reveal is already
+    // up, so it can land after that reveal has been dismissed. Each start takes
+    // a number and closing the reveal takes another; a lookup that comes back
+    // holding a stale number belongs to a draw nobody is looking at any more.
+    const theaterRequestRef = useRef(0);
+
     const drawnMovieMatchingProviders = useMemo(
       () => (drawnMovie ? matchUserServices(drawnMovie.streamingProviders || [], userStreamingServices) : []),
       [drawnMovie, userStreamingServices]
@@ -673,6 +701,53 @@ export default function BowlDashboard() {
       };
     };
 
+    // Resolved after the pick rather than before it, so nothing here can touch
+    // what was drawn. A failure anywhere costs the previews and leaves the
+    // reveal exactly as an ordinary draw would.
+    const startTheater = async (drawn) => {
+      const requestId = ++theaterRequestRef.current;
+      try {
+        const eligibleMovieIds = await resolveEligiblePreviewIds({
+          movies: bowl.remaining,
+          drawOptions: {
+            prioritizeByServices: prioritizeStreaming,
+            prioritizeByServiceRank: useStreamingRank,
+            userStreamingServices,
+            ...drawFilters,
+          },
+          fetchers: filterMetadataFetchers,
+        });
+        const queue = await buildTrailerQueue({
+          movies: bowl.remaining,
+          eligibleMovieIds,
+          excludeMovieId: drawn.id,
+          count: theaterTrailerCount,
+          recentKeys: readRecentTrailerKeys(),
+          fetchTrailer: fetchMovieTrailer,
+        });
+        if (queue.length === 0 || requestId !== theaterRequestRef.current) return;
+
+        // Recorded up front, including on an early exit: a few previews nobody
+        // watched to the end are still previews this device has just shown.
+        rememberTrailerKeys(queue.map((entry) => entry.trailer?.key));
+        setTrailerQueue(queue);
+        setIsTheaterPlaying(true);
+      } catch (error) {
+        console.error("[BowlDashboard] Failed to start the pre-roll", error);
+      }
+    };
+
+    const endTheater = () => {
+      setIsTheaterPlaying(false);
+      setTrailerQueue([]);
+    };
+
+    const closeReveal = () => {
+      theaterRequestRef.current += 1;
+      endTheater();
+      setDrawnMovie(null);
+    };
+
     // Fired by a completed hold on the draw button, or by the keyboard path's
     // confirm dialog — both arrive here with intent already established.
     const runDraw = async () => {
@@ -700,6 +775,11 @@ export default function BowlDashboard() {
         if (movie) {
           const detailMovie = await buildDetailMovie(movie);
           setDrawnMovie(detailMovie);
+          // Armed on this device, so no confirmation: the ticket beside the
+          // draw button already answered that question. The reveal is set
+          // first and the previews play over it, which is the order the
+          // television runs and the order a cinema runs.
+          if (isTheaterModeEnabled) startTheater(detailMovie);
         }
       } finally {
         setIsDrawing(false);
@@ -844,6 +924,23 @@ return (
                     }}
                   />
                 </div>
+
+                {/* Below both actions rather than between them: the two buttons
+                    are what you came to press, and a setting wedged between
+                    them reads as a third one. Hidden rather than disabled for a
+                    member who cannot draw, which is the opposite of the draw
+                    button above -- a greyed draw button explains why they
+                    cannot draw, with drawGuardMessage beside it, while a greyed
+                    ticket explains nothing and advertises a ceremony they can
+                    never start. */}
+                {canCurrentUserDraw && (
+                  <div className="mt-3 flex justify-center">
+                    <TheaterTicket
+                      enabled={isTheaterModeEnabled}
+                      onToggle={(next) => setDeviceDrawSetting("theaterModeEnabled", next)}
+                    />
+                  </div>
+                )}
                 {drawGuardMessage && (
                   <p className="mt-2 text-center text-sm text-amber-300">{drawGuardMessage}</p>
                 )}
@@ -1349,16 +1446,27 @@ return (
                 </div>
               </div>
             )}
+            {/* Over the reveal rather than instead of it: the pick is shown
+                first and the previews play on top, so backing out at any point
+                lands on the drawn movie with nothing lost. */}
+            {isTheaterPlaying && drawnMovie && (
+              <TheaterPreroll
+                queue={trailerQueue}
+                featureTitle={drawnMovie.title || ""}
+                onFinish={endTheater}
+              />
+            )}
             {drawnMovie && (
               <AddMovieModal
                 movie={drawnMovie}
+                isObscured={isTheaterPlaying}
                 userStreamingServices={userStreamingServices}
                 webLaunchCandidate={
                   defaultDrawSettings.enablePreferredWebLaunch
                     ? preferredWebLaunchCandidate
                     : null
                 }
-                onClose={() => setDrawnMovie(null)}
+                onClose={closeReveal}
               />
             )}
             {selectedDetailMovie && (

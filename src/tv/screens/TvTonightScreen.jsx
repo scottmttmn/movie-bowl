@@ -12,14 +12,12 @@ import BowlIllustration from "../../components/BowlIllustration";
 import useBowl from "../../hooks/useBowl";
 import useUserStreamingServices from "../../hooks/useUserStreamingServices";
 import { getTmdbMovieDetails } from "../../lib/tmdbApi";
+import { fetchMovieTrailer, resolveEligiblePreviewIds } from "../../lib/theaterPreviews";
 import { getMovieAttributionLabel } from "../../utils/drawBuckets";
-import { getDrawablePoolMovies } from "../../utils/drawPool";
 import { getDrawReadout } from "../../utils/drawReadout";
-import { getResolvedDrawPool } from "../../utils/drawSelection";
 import { clampTheaterTrailerCount } from "../../utils/drawSettings";
 import { getPosterUrl } from "../../utils/getPosterUrl";
 import { getProviderLogoUrl } from "../../utils/getProviderLogoUrl";
-import { getMovieFromDrawCandidate } from "../../utils/selectDrawCandidate";
 import { matchUserServices } from "../../utils/streamingServices";
 
 import useDrawPoolCount, { DRAW_POOL_STATUS } from "../../hooks/useDrawPoolCount";
@@ -39,13 +37,13 @@ import TvTheaterTicket from "../components/TvTheaterTicket";
 import { getStreamingMode, getStreamingModeSettings } from "../utils/streamingMode";
 import TvTheaterPreroll from "../components/TvTheaterPreroll";
 import { useTvBowlAccess } from "../hooks/useTvBowls";
-import useTvDrawSettings from "../hooks/useTvDrawSettings";
+import useDeviceDrawSettings from "../../hooks/useDeviceDrawSettings";
 import useTvSpatialNavigation from "../hooks/useTvSpatialNavigation";
 import {
   buildTrailerQueue,
   readRecentTrailerKeys,
   rememberTrailerKeys,
-} from "../utils/theaterQueue";
+} from "../../utils/theaterQueue";
 import {
   clearExternalReturn,
   readExternalReturn,
@@ -55,7 +53,7 @@ import {
   getAutoplayTrailerUrl,
   getYouTubeVideoId,
   loadYouTubeIframeApi,
-} from "../utils/youtubePlayer";
+} from "../../lib/youtubePlayer";
 
 const MIN_DRAW_ANIMATION_MS = 1800;
 
@@ -125,35 +123,6 @@ async function enrichHistoryMovie(movie) {
 // titles that could actually come up next instead of anything left in the bowl.
 // The rating and provider caches are warm from the draw that just ran, so this
 // normally resolves without a network round trip.
-async function resolveEligiblePreviewIds({ movies, drawOptions, fetchers }) {
-  try {
-    const { candidates } = await getResolvedDrawPool({
-      remainingMovies: getDrawablePoolMovies(movies),
-      ...drawOptions,
-      fetchMovieDetails: fetchers.fetchMovieDetails,
-      fetchProviders: fetchers.fetchProviders,
-      fetchFilterMetadata: fetchers.fetchFilterMetadata,
-    });
-    return candidates
-      .map((candidate) => getMovieFromDrawCandidate(candidate)?.id)
-      .filter(Boolean);
-  } catch (error) {
-    console.error("[TvTonightScreen] Failed to resolve the eligible preview pool", error);
-    // Previews degrade to the whole bowl rather than losing the pre-roll.
-    return null;
-  }
-}
-
-async function fetchMovieTrailer(movie) {
-  try {
-    const details = await getTmdbMovieDetails(Number(movie?.tmdb_id));
-    return details?.trailer || null;
-  } catch (error) {
-    console.error("[TvTonightScreen] Failed to load a preview trailer", error);
-    return null;
-  }
-}
-
 function getAvailableGenres(movies) {
   return [
     ...new Set(
@@ -882,7 +851,7 @@ export default function TvTonightScreen({ userId }) {
     setOverride: setTvSetting,
     setOverrides: setTvSettings,
     clearOverrides: clearTvSettings,
-  } = useTvDrawSettings(userId, accountDrawSettings);
+  } = useDeviceDrawSettings(userId, accountDrawSettings);
 
   const isTvOverridden = (name) =>
     Object.prototype.hasOwnProperty.call(overriddenSettings, name);

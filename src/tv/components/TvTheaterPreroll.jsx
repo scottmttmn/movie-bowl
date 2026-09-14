@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { getAutoplayTrailerUrl, loadYouTubeIframeApi } from "../utils/youtubePlayer";
+import { getAutoplayTrailerUrl, loadYouTubeIframeApi } from "../../lib/youtubePlayer";
 
 const ANNOUNCEMENT_MS = 4200;
 const FEATURE_CARD_MS = 3600;
