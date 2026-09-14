@@ -598,6 +598,13 @@ describe("BowlDashboard draw preferences", () => {
       await waitFor(() =>
         expect(screen.getByRole("dialog", { name: /previews before movie a/i })).toBeInTheDocument()
       );
+
+      // The reveal stays mounted underneath, so backing out lands on the drawn
+      // movie -- but it must not be reachable while the previews play, or a
+      // stray Enter opens a provider mid-preview.
+      const reveal = document.querySelector(".modal-overlay");
+      expect(reveal).toHaveAttribute("aria-hidden", "true");
+      expect(reveal).toHaveAttribute("inert");
       delete window.YT;
     });
 

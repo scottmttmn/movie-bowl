@@ -478,3 +478,28 @@ describe("AddMovieModal", () => {
     );
   });
 });
+
+describe("AddMovieModal when something is stacked over it", () => {
+  const movie = { id: "m1", title: "Arrival", tmdb_id: 101 };
+
+  afterEach(() => cleanup());
+
+  it("stays in the accessibility tree and reachable by default", () => {
+    render(<AddMovieModal movie={movie} onClose={vi.fn()} />);
+
+    const overlay = screen.getByRole("dialog", { name: /arrival/i }).parentElement;
+    expect(overlay).not.toHaveAttribute("aria-hidden");
+    expect(overlay).not.toHaveAttribute("inert");
+  });
+
+  // The theater pre-roll plays over the reveal rather than replacing it. inert
+  // is the half that matters: aria-hidden alone leaves "Open on Web" focusable
+  // behind the overlay, where a stray Enter can still launch a provider.
+  it("goes inert and out of the tree while a pre-roll covers it", () => {
+    render(<AddMovieModal movie={movie} isObscured onClose={vi.fn()} />);
+
+    const overlay = document.querySelector(".modal-overlay");
+    expect(overlay).toHaveAttribute("aria-hidden", "true");
+    expect(overlay).toHaveAttribute("inert");
+  });
+});

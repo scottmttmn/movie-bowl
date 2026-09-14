@@ -1447,6 +1447,7 @@ return (
             {drawnMovie && (
               <AddMovieModal
                 movie={drawnMovie}
+                isObscured={isTheaterPlaying}
                 userStreamingServices={userStreamingServices}
                 webLaunchCandidate={
                   defaultDrawSettings.enablePreferredWebLaunch

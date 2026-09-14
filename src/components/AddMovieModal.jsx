@@ -40,6 +40,7 @@ export default function AddMovieModal({
   noteHeading = null,
   onTogglePin = null,
   pinDisabledReason = "",
+  isObscured = false,
 }) {
   const [displayedNote, setDisplayedNote] = useState(() => normalizeMovieNote(movie?.note));
   const [noteDraft, setNoteDraft] = useState(() => movie?.note || "");
@@ -91,7 +92,12 @@ export default function AddMovieModal({
   // 2) "Just drawn" flow (movie is defined): show details for the drawn movie.
   if (!movie) {
     return (
-      <div className="modal-overlay z-50" role="presentation">
+      <div
+        className="modal-overlay z-50"
+        role="presentation"
+        aria-hidden={isObscured ? "true" : undefined}
+        inert={isObscured}
+      >
         <div className="modal-surface max-h-[92vh] max-w-4xl overflow-y-auto p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="movie-search-title">
           <button
             onClick={onClose}
@@ -190,7 +196,17 @@ export default function AddMovieModal({
   };
 
   return (
-    <div className={inline ? "bowl-add-inline-details" : "modal-overlay z-50"} role={inline ? undefined : "presentation"}>
+    // Something is stacked on top of this modal -- the theater pre-roll plays
+    // over the reveal rather than replacing it. aria-hidden takes it out of the
+    // accessibility tree, and inert takes its controls out of the focus order,
+    // which is the half that matters: without it a stray Enter during previews
+    // can still reach "Open on Web in [service]" behind the overlay.
+    <div
+      className={inline ? "bowl-add-inline-details" : "modal-overlay z-50"}
+      role={inline ? undefined : "presentation"}
+      aria-hidden={isObscured ? "true" : undefined}
+      inert={isObscured}
+    >
       <div className={inline ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "modal-surface flex max-h-[92dvh] max-w-3xl flex-col overflow-clip"} role={inline ? undefined : "dialog"} aria-modal={inline ? undefined : "true"} aria-labelledby="movie-detail-title">
         <div className={inline ? "mb-3 shrink-0" : "flex shrink-0 items-center justify-between gap-4 px-5 py-3 sm:px-7 sm:py-4"}>
           {!inline && <p className="eyebrow">Movie details</p>}
