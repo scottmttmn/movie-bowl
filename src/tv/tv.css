@@ -1451,6 +1451,12 @@ html.tv-root {
   border: 0;
 }
 
+.tv-theater-cover {
+  position: absolute;
+  inset: 0;
+  background: black;
+}
+
 /* The pre-roll draws nothing while it plays. This is the only mark it makes,
    and only while paused — the room needs to know the silence is deliberate. */
 .tv-theater-paused {

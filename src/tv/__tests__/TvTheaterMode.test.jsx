@@ -273,6 +273,38 @@ describe("TV theater mode", () => {
     expect(player.loadVideoById).toHaveBeenLastCalledWith("tenet");
   });
 
+  // YouTube paints "unavailable" before the refusal reaches the page, and a
+  // refused fallback reports buffering first, so only playing lifts the cover.
+  it("covers each preview until it plays, including a refused one's fallback", async () => {
+    mocks.getTmdbMovieDetails.mockImplementation(async (id) =>
+      id === 202
+        ? { title: "Dune", trailer: { key: "dune", fallbacks: [{ key: "dune-teaser" }] } }
+        : DETAILS_BY_ID[id] || {}
+    );
+    const cover = () => document.querySelector(".tv-theater-cover");
+
+    await drawWithTheaterMode();
+    await screen.findByRole("dialog", { name: /previews before arrival/i });
+    await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
+    expect(cover()).toBeInTheDocument();
+
+    act(() => {
+      playerOptions.events.onError({ data: 150 });
+      playerOptions.events.onStateChange({ data: 3 });
+    });
+    expect(cover()).toBeInTheDocument();
+
+    act(() => {
+      playerOptions.events.onStateChange({ data: 1 });
+    });
+    expect(cover()).toBeNull();
+
+    act(() => {
+      playerOptions.events.onStateChange({ data: 0 });
+    });
+    expect(cover()).toBeInTheDocument();
+  });
+
   it("pauses on Select and shows nothing else while playing", async () => {
     await drawWithTheaterMode();
     await screen.findByRole("dialog", { name: /previews before arrival/i });

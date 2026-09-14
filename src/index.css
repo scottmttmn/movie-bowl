@@ -349,6 +349,10 @@
     @apply absolute inset-0 h-full w-full border-0;
   }
 
+  .theater-preroll-cover {
+    @apply absolute inset-0 bg-black;
+  }
+
   /* A click must not reach the iframe, where no handler of ours can see it. */
   .theater-preroll-surface {
     @apply absolute inset-0 h-full w-full cursor-default border-0 bg-transparent;

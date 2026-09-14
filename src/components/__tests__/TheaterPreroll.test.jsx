@@ -113,6 +113,83 @@ describe("TheaterPreroll", () => {
     expect(screen.getByText(/feature presentation/i)).toBeInTheDocument();
   });
 
+  // The embed paints YouTube's "unavailable" screen before a refusal reaches
+  // us, so each preview stays covered until it is actually playing.
+  describe("the cover", () => {
+    const cover = () => screen.queryByTestId("preroll-cover");
+
+    it("stays until the first preview plays", async () => {
+      await renderPreroll();
+      ready();
+      expect(cover()).toBeInTheDocument();
+
+      act(() => playerOptions.events.onStateChange({ data: 1 }));
+      expect(cover()).not.toBeInTheDocument();
+    });
+
+    // Recorded against real YouTube: a refused fallback buffers, then errors.
+    it("comes back for a refused preview and ignores buffering on the fallback", async () => {
+      await renderPreroll({
+        queue: [
+          { ...QUEUE[0], trailer: { key: "aaa", site: "YouTube", fallbacks: [{ key: "aaa-2" }] } },
+          QUEUE[1],
+        ],
+      });
+      ready();
+      act(() => playerOptions.events.onStateChange({ data: 1 }));
+      expect(cover()).not.toBeInTheDocument();
+
+      act(() => playerOptions.events.onError({ data: 150 }));
+      expect(cover()).toBeInTheDocument();
+
+      act(() => playerOptions.events.onStateChange({ data: 3 }));
+      expect(cover()).toBeInTheDocument();
+
+      act(() => playerOptions.events.onStateChange({ data: 1 }));
+      expect(cover()).not.toBeInTheDocument();
+    });
+
+    it("covers the gap between one preview ending and the next playing", async () => {
+      await renderPreroll();
+      ready();
+      act(() => playerOptions.events.onStateChange({ data: 1 }));
+
+      act(() => playerOptions.events.onStateChange({ data: 0 }));
+      expect(cover()).toBeInTheDocument();
+    });
+
+    it("leaves a paused preview visible", async () => {
+      await renderPreroll();
+      ready();
+      act(() => playerOptions.events.onStateChange({ data: 1 }));
+
+      fireEvent.click(screen.getByRole("button", { name: /pause previews/i }));
+
+      expect(cover()).not.toBeInTheDocument();
+    });
+
+    it("keeps tap-to-start reachable above it when autoplay is refused", async () => {
+      await renderPreroll();
+      ready();
+      act(() => vi.advanceTimersByTime(1500));
+
+      expect(cover()).toBeInTheDocument();
+      fireEvent.click(screen.getByRole("button", { name: /start previews/i }));
+      expect(player.playVideo).toHaveBeenCalledTimes(2);
+    });
+
+    it("sits behind the feature card", async () => {
+      await renderPreroll({ queue: [QUEUE[0]] });
+      ready();
+      act(() => playerOptions.events.onStateChange({ data: 1 }));
+
+      act(() => playerOptions.events.onStateChange({ data: 0 }));
+
+      expect(screen.getByText(/feature presentation/i)).toBeInTheDocument();
+      expect(cover()).toBeInTheDocument();
+    });
+  });
+
   describe("when the browser refuses autoplay", () => {
     it("asks for the gesture it needs instead of stalling", async () => {
       await renderPreroll();
