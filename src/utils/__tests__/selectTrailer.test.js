@@ -132,13 +132,135 @@ describe("selectBestTrailer", () => {
     expect(trailer).toMatchObject({ key: "theatrical" });
   });
 
-  it("still puts a verified trailer ahead of an unflagged upload calling itself the original", () => {
+  // Ghost's rows. Unofficial uploads that survive the fan-edit filter and name
+  // themselves the theatrical cut are archive scans -- the actual trailer --
+  // where the official anniversary trailer is a different one.
+  it("prefers an unofficial original over an official re-release", () => {
+    const trailer = selectBestTrailer(
+      [
+        { site: "YouTube", type: "Trailer", official: false, iso_639_1: "en", key: "scan", name: "Ghost (1990) Theatrical Trailer [4K] [FTD-0895]" },
+        { site: "YouTube", type: "Teaser", official: true, iso_639_1: "en", key: "tcm", name: "TCM Big Screen Classics Spot" },
+        { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "30th", name: "30th Anniversary Official Trailer" },
+      ],
+      { releaseDate: "1990-07-13", title: "Ghost" }
+    );
+
+    expect(trailer).toMatchObject({ key: "scan", official: false });
+  });
+
+  it("still prefers an official trailer with no sign of re-release over an unofficial original", () => {
+    const trailer = selectBestTrailer(
+      [
+        { site: "YouTube", type: "Trailer", official: false, iso_639_1: "en", key: "scan", name: "Original Theatrical Trailer" },
+        { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "official", name: "Trailer" },
+      ],
+      { releaseDate: "1990-07-13" }
+    );
+
+    expect(trailer).toMatchObject({ key: "official" });
+  });
+
+  // Barbie's rows, newest first. TMDB types the promo as Trailer.
+  it("ranks named promos below anything that calls itself a trailer", () => {
     const trailer = selectBestTrailer([
-      { site: "YouTube", type: "Trailer", official: false, iso_639_1: "en", key: "unflagged", name: "Original 1972 Trailer", published_at: "2008-01-01T00:00:00.000Z" },
-      { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "anniversary", name: "50th Anniversary Trailer", published_at: "2022-01-13T00:00:00.000Z" },
+      { site: "YouTube", type: "Teaser", official: true, iso_639_1: "en", key: "max", name: "Streaming Exclusively on Max" },
+      { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "ken", name: "Just Ken Exclusive" },
+      { site: "YouTube", type: "Teaser", official: true, iso_639_1: "en", key: "dream", name: "Dream" },
+      { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "main", name: "Main Trailer" },
+      { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "teaser", name: "Teaser Trailer" },
     ]);
 
-    expect(trailer).toMatchObject({ key: "anniversary" });
+    expect(trailer).toMatchObject({ key: "main" });
+  });
+
+  it("ranks a TV spot below a trailer even when TMDB types both as trailers", () => {
+    const trailer = selectBestTrailer([
+      { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "spot", name: "Extended Red Band TV Spot" },
+      { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "trailer", name: "Official Trailer" },
+    ]);
+
+    expect(trailer).toMatchObject({ key: "trailer" });
+  });
+
+  it("still plays a promo when it is all there is", () => {
+    const trailer = selectBestTrailer([
+      { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "promo", name: "Special Look" },
+    ]);
+
+    expect(trailer).toMatchObject({ key: "promo" });
+  });
+
+  describe("with the film's release date", () => {
+    // Bridget Jones's Diary's rows.
+    it("reads a year after release as a re-release", () => {
+      const trailer = selectBestTrailer(
+        [
+          { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "2022", name: "Official 2022 Trailer" },
+          { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "plain", name: "Bridget Jones's Diary - Trailer" },
+        ],
+        { releaseDate: "2001-04-13", title: "Bridget Jones's Diary" }
+      );
+
+      expect(trailer).toMatchObject({ key: "plain" });
+    });
+
+    // The Nightmare Before Christmas's rows: the international cut came a year
+    // later, so only the release year itself marks the original.
+    it("reads the release year itself as the original", () => {
+      const trailer = selectBestTrailer(
+        [
+          { site: "YouTube", type: "Trailer", official: false, iso_639_1: "en", key: "1994", name: "The Nightmare Before Christmas - 1994 International Trailer (35mm 4K)" },
+          { site: "YouTube", type: "Trailer", official: false, iso_639_1: "en", key: "1993", name: "1993 Theatrical Trailer" },
+          { site: "YouTube", type: "Trailer", official: false, iso_639_1: "en", key: "sneak", name: "1993 Sneak Peek Trailer" },
+        ],
+        { releaseDate: "1993-10-09", title: "The Nightmare Before Christmas" }
+      );
+
+      expect(trailer).toMatchObject({ key: "1993" });
+    });
+
+    it("does not mistake a year in the film's own title for a re-release", () => {
+      const trailer = selectBestTrailer(
+        [
+          { site: "YouTube", type: "Teaser", official: true, iso_639_1: "en", key: "teaser", name: "Teaser" },
+          { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "trailer", name: "2001: A Space Odyssey - Trailer" },
+        ],
+        { releaseDate: "1968-04-02", title: "2001: A Space Odyssey" }
+      );
+
+      expect(trailer).toMatchObject({ key: "trailer" });
+    });
+
+    // Finding Nemo's 3D trailer was uploaded for its 2012 re-release; Green
+    // Lantern's was cut for its first run.
+    it("counts 3D and IMAX against a video only when it was uploaded well after release", () => {
+      const nemo = selectBestTrailer(
+        [
+          { site: "YouTube", type: "Trailer", official: false, iso_639_1: "en", key: "original", name: "Finding Nemo (2003) Trailer 2", published_at: "2018-02-11T00:00:00.000Z" },
+          { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "3d", name: "Finding Nemo 3D Trailer", published_at: "2012-05-23T00:00:00.000Z" },
+        ],
+        { releaseDate: "2003-05-30", title: "Finding Nemo" }
+      );
+      const lantern = selectBestTrailer(
+        [
+          { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "3d", name: "3D Trailer", published_at: "2011-05-23T00:00:00.000Z" },
+          { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "plain", name: "Trailer", published_at: "2011-05-04T00:00:00.000Z" },
+        ],
+        { releaseDate: "2011-06-14", title: "Green Lantern" }
+      );
+
+      expect(nemo).toMatchObject({ key: "original" });
+      expect(lantern).toMatchObject({ key: "3d" });
+    });
+
+    it("ranks without years when the release date is missing", () => {
+      const trailer = selectBestTrailer([
+        { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "2022", name: "Official 2022 Trailer" },
+        { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "plain", name: "Trailer" },
+      ]);
+
+      expect(trailer).toMatchObject({ key: "2022" });
+    });
   });
 
   it("declines an unflagged video whose name advertises a fan edit", () => {

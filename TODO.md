@@ -85,6 +85,17 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 - Watched-outside-the-bowl removals leave no trace: logging a manual watch can now pull your own undrawn slips out of the bowls holding them, but that is a hard delete, so the other members just see the bowl shrink. Everything else in the history model keeps the fact (draw events are immutable, returns set `returned_at`). Worth deciding whether this should be an event the bowl can show instead.
 - Future odds-panel accuracy: before rendering `buildDrawOddsStats`, feed it the resolved eligible pool rather than `bowl.remaining`; otherwise it would show a flat 1/N for contributors the filters or streaming priority cannot reach. Separately decide whether unreachable contributors deserve a fallback that keeps them in play rather than only honest copy.
 
+- Trailers YouTube will not play in an embed. The Godfather's "Original
+  Trailer" is age-restricted, so the player shows a verification wall and a
+  "Watch on YouTube" link instead of playing. A September 14 sample of the
+  1,000 most-voted TMDB films also found 5 picks oEmbed refuses outright
+  (401/403), each with a playable alternative. Ranking cannot see either: TMDB's
+  video rows carry no age or embeddability flag, and oEmbed answers 200 for an
+  age-restricted video. Worth finding out what the IFrame API reports for an
+  age wall (the pre-roll already skips a trailer on `onError`, the details
+  screen does not) before reaching for a server-side check or the YouTube Data
+  API's `contentRating`, which needs its own key and quota.
+
 ## Future Product Concepts
 
 - Assistant voice capture: **failed feasibility gate, closed September 4,

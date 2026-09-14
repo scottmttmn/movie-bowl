@@ -30,45 +30,108 @@ function isUsable(video) {
 }
 
 // TMDB has no field saying which release a trailer was cut for, and for an
-// older film the studio's newest official trailer is usually an anniversary or
-// restoration campaign. The name is the only place that is ever admitted.
-// Resolution words stay out: "4K Trailer" is how an original gets re-uploaded,
-// and a restoration names itself.
+// older film the studio's newest official trailer is usually an anniversary,
+// restoration or home-video campaign. The name is the only place that is ever
+// admitted. Resolution words stay out: "4K Trailer" is how an original gets
+// re-uploaded, and a restoration names itself.
 //
-// Upload date is no help either way. Lucasfilm uploaded the re-release
-// trailers for Star Wars and Empire as plain "Trailer" a year before the originals,
-// so preferring the earliest upload picked the re-release for both.
+// Upload date cannot date a trailer on its own. Lucasfilm uploaded the
+// re-release trailers for Star Wars and Empire as plain "Trailer" a year before
+// the originals, so preferring the earliest upload picked the wrong cut for both.
 const ORIGINAL_PATTERN = /\b(original|theatrical)\b/i;
 const REISSUE_PATTERN =
-  /\b(anniversary|re-?release|re-?issue|remaster(ed)?|restor(ed|ation)|blu-?ray|digital|special\s+edition|director'?s\s+cut|big\s+screen\s+classics)\b/i;
+  /\b(anniversary|re-?release|re-?issue|remaster(ed)?|restor(ed|ation)|blu-?ray|dvd|digital|home\s+(entertainment|video)|collection|disney\+|streaming|(special|extended|platinum|diamond|signature|ultimate|collector'?s)\s+edition|final\s+cut|director'?s\s+cut|big\s+screen\s+classics|fathom|ghibli\s+fest)\b/i;
 
-function getReleaseRank(video) {
+// 3D and IMAX trailers were cut for plenty of first releases, so these only
+// count against a video uploaded well after the film came out -- which is how
+// Finding Nemo's 3D re-release and Jaws in IMAX present themselves.
+const LATE_FORMAT_PATTERN = /\b(3-?d|imax)\b/i;
+const LATE_UPLOAD_YEARS = 2;
+
+// TMDB types plenty of TV spots and named promos ("Just Ken Exclusive",
+// "Special Look") as Trailer, and lists them first because they are newest. A
+// name that never calls itself a trailer ranks with them: it is the most
+// reliable sign a row is marketing rather than the trailer itself.
+const NOT_A_TRAILER_PATTERN = /\b(spot|sneak\s+peek|extended\s+look|featurette|clip|commercial)\b/i;
+const TRAILER_WORD_PATTERN = /\b(trailers?|teaser|preview)\b/i;
+
+const YEAR_PATTERN = /\b(19[2-9]\d|20[0-3]\d)\b/g;
+
+function getYear(value) {
+  const year = Number(String(value || "").slice(0, 4));
+  return Number.isInteger(year) && year > 0 ? year : null;
+}
+
+function escapeRegExp(value) {
+  return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+}
+
+// The film's own title comes out first, or "2001: A Space Odyssey" and "2012"
+// would read as years decades after their own releases.
+function getNamedYears(name, filmTitle) {
+  const title = String(filmTitle || "").trim();
+  const withoutTitle = title ? name.replace(new RegExp(escapeRegExp(title), "gi"), " ") : name;
+  return [...withoutTitle.matchAll(YEAR_PATTERN)].map((match) => Number(match[1]));
+}
+
+function describeVideo(video, { releaseYear, title }) {
   const name = String(video?.name || "");
-  if (REISSUE_PATTERN.test(name)) return 2;
-  if (ORIGINAL_PATTERN.test(name)) return 0;
-  return 1;
+  const namedYears = releaseYear ? getNamedYears(name, title) : [];
+  const uploadYear = getYear(video?.published_at);
+
+  const isReissue =
+    REISSUE_PATTERN.test(name) ||
+    namedYears.some((year) => year > releaseYear + 1) ||
+    Boolean(releaseYear && uploadYear && uploadYear > releaseYear + LATE_UPLOAD_YEARS && LATE_FORMAT_PATTERN.test(name));
+  const isOriginal =
+    !isReissue && (ORIGINAL_PATTERN.test(name) || namedYears.includes(releaseYear));
+  const isTrailerCut = !NOT_A_TRAILER_PATTERN.test(name) && TRAILER_WORD_PATTERN.test(name);
+
+  return { isReissue, isOriginal, isTrailerCut };
 }
 
-// Verified source first, then which release the name admits to, then the fuller
-// cut, then English: an official teaser is a safer thing to play than an
-// unflagged upload calling itself the trailer, and an original teaser is closer
-// to the film than a restoration's trailer.
-function getRank(video) {
-  const officialRank = video.official === true ? 0 : 1;
-  const languageRank =
-    String(video.iso_639_1 || "").toLowerCase() === "en" ? 0 : 1;
-  return officialRank * 12 + getReleaseRank(video) * 4 + getTypeRank(video) * 2 + languageRank;
+// Tiers, best first:
+//   0 official, no sign of a re-release
+//   1 unofficial, but naming itself the original or theatrical cut
+//   2 official re-release
+//   3 unofficial, no sign either way
+//   4 unofficial re-release
+// Tier 1 sits above tier 2 because the unofficial originals that survive the
+// fan-edit filter are archive scans and classic-trailer channels -- the actual
+// trailer, where an official anniversary cut is a different one. Within a tier
+// a real trailer beats a spot or promo, then a trailer beats a teaser, then an
+// original beats a neutral name, then English.
+function getRank(video, context) {
+  const official = video.official === true;
+  const { isReissue, isOriginal, isTrailerCut } = describeVideo(video, context);
+
+  let tier;
+  if (official) tier = isReissue ? 2 : 0;
+  else if (isOriginal) tier = 1;
+  else tier = isReissue ? 4 : 3;
+
+  const cutRank = isTrailerCut ? getTypeRank(video) : 2;
+  const releaseRank = isReissue ? 2 : isOriginal ? 0 : 1;
+  const languageRank = String(video.iso_639_1 || "").toLowerCase() === "en" ? 0 : 1;
+
+  return tier * 24 + cutRank * 6 + releaseRank * 2 + languageRank;
 }
 
-export function selectBestTrailer(videos) {
+/**
+ * Picks the video a pre-roll or a detail screen should play. `releaseDate` and
+ * `title` come from the same TMDB details response; without them the ranking
+ * still works, it just cannot use the years a name mentions.
+ */
+export function selectBestTrailer(videos, { releaseDate = null, title = "" } = {}) {
   const items = Array.isArray(videos) ? videos : [];
+  const context = { releaseYear: getYear(releaseDate), title };
 
   let best = null;
   let bestRank = Infinity;
 
   for (const video of items) {
     if (!isUsable(video)) continue;
-    const rank = getRank(video);
+    const rank = getRank(video, context);
     // Strictly better only, so the first video TMDB lists wins its own tier.
     if (rank < bestRank) {
       best = video;

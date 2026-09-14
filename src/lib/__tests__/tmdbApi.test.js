@@ -172,6 +172,27 @@ describe("tmdbApi", () => {
     );
   });
 
+  it("ranks trailers against the film's own release date and title", async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({
+        id: 634,
+        title: "Bridget Jones's Diary",
+        release_date: "2001-04-13",
+        videos: {
+          results: [
+            { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "2022", name: "Official 2022 Trailer" },
+            { site: "YouTube", type: "Trailer", official: true, iso_639_1: "en", key: "plain", name: "Official Trailer" },
+          ],
+        },
+      }),
+    });
+
+    await expect(getTmdbMovieDetails("634")).resolves.toMatchObject({
+      trailer: { key: "plain" },
+    });
+  });
+
   it("returns null trailer when no usable YouTube video exists", async () => {
     global.fetch.mockResolvedValue({
       ok: true,
