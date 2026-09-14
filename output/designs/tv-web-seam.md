@@ -152,7 +152,7 @@ says whether tonight has them. So the two surfaces stop diverging:
 | With it off | nothing | nothing |
 | With it on | previews start once the pick is revealed | the same |
 | What toggling writes | a per-device override | a per-device override |
-| A device with nothing stored | follows the account setting | **off** |
+| A device with nothing stored | follows the account setting | off |
 
 **Armed is the consent that lets the dashboard start on its own.** The offer
 shape was compensating for an absence: an account flag set for a television,
@@ -170,6 +170,14 @@ as the filters made it read as one of them. The dashboard's filters sit behind a
 modal opened from `BowlStatLine`, so filing the ticket there would bury a state
 control behind a button *and* class it as filtering. Both are wrong, for the
 same reason.
+
+**One part of the ticket does not port.** `TvTheaterTicket` takes `isOverridden`
+and draws a divergence mark, with an sr-only "set on this TV," when the device
+disagrees with the account. On the dashboard that mark would be lit whenever the
+ticket is on and never otherwise, because the web's base is `false` — so it would
+stop reporting divergence and start restating the switch beside it. Either leave
+it on the television, or have it compare against the surface default rather than
+the account.
 
 **The cost, stated plainly.** The ticket is visible to every account, including
 the ones that will never turn it on — which is the thing this document
@@ -218,6 +226,44 @@ which is the layer rule — and `youtubePlayer.js` in `src/lib/`, since it wraps
 external service. Move rather than copy: one clear implementation per feature is
 a working agreement, and a forked pre-roll would drift.
 
+## What Settings Keeps
+
+Both controls stay, and the section around them gets rewritten.
+
+The plain reason is `theaterTrailerCount`. It has no override layer — the count
+is deliberately absent from `TV_OVERRIDABLE_SETTINGS`, because a television
+cannot act on a number it has no control for, and `TvTheaterTicket`'s comment
+explains why the stub says on or off instead. So the count is account-level on
+both surfaces and Settings is its only home. The section exists either way, and
+a count sitting alone, governing a feature with no visible on or off anywhere
+near it, is stranger than a toggle beside it.
+
+The supporting reason is a television that cannot write to storage at all.
+`tvDrawSettings.js` catches an accessor that throws — some Android WebView
+configurations do — and `useTvDrawSettings` surfaces that as `isPersisted`,
+which is the warning the tonight screen already shows: *"This TV can't remember
+settings, so these last until it restarts."* The override still applies for the
+evening, because the hook holds it in React state regardless of whether the
+write landed. It simply is not written down. On the next start the television
+reads `{}` and falls through to whatever is underneath. With the account setting
+underneath, someone who turned theater mode on once, anywhere, gets it back every
+restart. With nothing underneath, they would get `false` every restart, press the
+ticket, and lose it again — a setting that appears to work each time you touch it
+and silently reverts, with no durable layer left to hold it.
+
+That case is narrower than it first appears and should not be oversold: since
+`theaterModeEnabled` defaults to `false`, it only reaches accounts that turned
+theater mode on *and* own a television whose storage is broken. It is a small
+population and a total failure for them, which is enough to keep a control that
+is staying anyway.
+
+What has to change is the copy. The heading "TV & playback" and the subtitle
+"How the TV app behaves once a movie is drawn" both stop being true the moment
+the count governs the dashboard too. The toggle also needs to say what it now
+does — previews on televisions, unless a device has been told otherwise — since
+the dashboard deliberately does not read it. The per-device half of that story
+is told by the ticket, where you meet it, rather than by more words here.
+
 ## The Preference Trap
 
 `theaterModeEnabled` currently *means* "on the television." The moment the
@@ -251,13 +297,21 @@ standing in — the same failure as the trap above, pointed the other way.
 Three things need care:
 
 1. **A web device with nothing stored starts off; a television falls through to
-   the account setting.** This is the one deliberate asymmetry, and it is also
-   the whole migration. The television's fall-through is correct there: someone
+   the account setting.** The television's fall-through is correct there: someone
    who enabled theater mode enabled it *for* a television. The dashboard cannot
    inherit that reading without silently widening it, so the web surface treats a
-   missing override as off and the ticket is how you arm it. Nobody's stored
-   settings change, and no laptop plays previews at anyone unasked. In code this
-   is a surface default laid under the account settings, not a second preference.
+   missing override as off, and the ticket is how you arm it. In code this is a
+   surface default laid under the account settings, not a second preference.
+
+   This asymmetry is smaller than it looks, and it is worth saying so before
+   someone budgets a migration for it. `theaterModeEnabled` already defaults to
+   `false` — `DEFAULT_DRAW_SETTINGS` sets it, and `normalizeDefaultDrawSettings`
+   coerces anything missing to the same — so for every account that never opened
+   the setting, "follow the account" and "start off" return the identical answer
+   on every device. The two rules only diverge for accounts that deliberately
+   turned theater mode on, and for them the divergence is the intended behaviour
+   rather than a cost: it is precisely the widening this section exists to
+   prevent. No stored value changes, and nothing needs migrating.
 2. **One override store per device, not one per surface.** A laptop that visits
    both `/tv` and the dashboard is one device, so arming theater mode on one
    should arm it on the other. That also means the existing storage prefix stays
@@ -331,12 +385,10 @@ one piece of work; they are the same screen and the same audience.
 2. ~~Does the web pre-roll reuse `theaterQueue` as-is?~~ Yes, and it moves to
    `src/utils/` where the layer rule puts it, with `youtubePlayer.js` going to
    `src/lib/`. Moved, not copied.
-3. **What does the settings section become** once it governs two surfaces? The
-   heading "TV & playback" and the subtitle "How the TV app behaves once a movie
-   is drawn" are both untrue the moment the dashboard honours the same flag.
-   This is now certain to need doing rather than a question of whether — what is
-   open is the wording, and whether the per-device switch means the account-level
-   count is the only thing left worth showing there.
+3. ~~Does the "TV & playback" settings section need renaming, and does the
+   account toggle survive the per-device switch?~~ Renaming yes, and the toggle
+   stays. See "What Settings Keeps" above. The wording itself is still unwritten,
+   which is drafting rather than a design question.
 4. **Is `theaterTrailerCount` right for both?** Three previews is a cinema on a
    television; it may be long on a laptop where someone is about to walk away,
    and it is three HD trailers of cellular data on a phone. Note that the count
