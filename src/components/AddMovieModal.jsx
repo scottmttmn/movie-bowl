@@ -58,7 +58,10 @@ export default function AddMovieModal({
   }, [inline]);
 
   useEffect(() => {
-    if (inline) return undefined;
+    // Covered by the pre-roll, Escape belongs to the overlay on top. Checking
+    // defaultPrevented alone depends on which listener was attached last, and
+    // the pre-roll re-attaches its own whenever its state changes.
+    if (inline || isObscured) return undefined;
     const handleKeyDown = (event) => {
       if (event.key === "Escape" && !event.defaultPrevented) {
         onClose?.();
@@ -69,7 +72,7 @@ export default function AddMovieModal({
     return () => {
       window.removeEventListener("keydown", handleKeyDown);
     };
-  }, [onClose, inline]);
+  }, [onClose, inline, isObscured]);
 
   useEffect(() => {
     setDisplayedNote(normalizeMovieNote(movie?.note));

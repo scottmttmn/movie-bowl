@@ -502,4 +502,18 @@ describe("AddMovieModal when something is stacked over it", () => {
     expect(overlay).toHaveAttribute("aria-hidden", "true");
     expect(overlay).toHaveAttribute("inert");
   });
+
+  // Escape exits the previews, not the reveal under them -- whichever of the
+  // two window listeners happened to be attached first.
+  it("leaves Escape to the pre-roll while covered", () => {
+    const onClose = vi.fn();
+    const { rerender } = render(<AddMovieModal movie={movie} isObscured onClose={onClose} />);
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).not.toHaveBeenCalled();
+
+    rerender(<AddMovieModal movie={movie} onClose={onClose} />);
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(onClose).toHaveBeenCalledTimes(1);
+  });
 });

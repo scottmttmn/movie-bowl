@@ -608,6 +608,55 @@ describe("BowlDashboard draw preferences", () => {
       delete window.YT;
     });
 
+    // A refused autoplay swaps in "Tap to start", which re-attaches the
+    // pre-roll's key listener after the reveal's. Escape must still leave the
+    // previews and land on the pick rather than dismissing both.
+    it("exits previews on Escape after autoplay was refused, keeping the reveal", async () => {
+      let playerOptions;
+      window.YT = {
+        Player: vi.fn((_id, options) => {
+          playerOptions = options;
+          return { playVideo: vi.fn(), destroy: vi.fn() };
+        }),
+        PlayerState: { ENDED: 0, PLAYING: 1 },
+      };
+      window.localStorage.setItem(
+        "movie-bowl:tv:draw-settings:u1",
+        JSON.stringify({ theaterModeEnabled: true })
+      );
+      mocks.state.bowlData = {
+        remaining: [
+          { id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A" },
+          { id: "m2", added_by: "u1", tmdb_id: 102, title: "Movie B" },
+        ],
+        watched: [],
+      };
+      mocks.state.handleDraw.mockResolvedValue({ id: "m1", tmdb_id: 101, title: "Movie A" });
+
+      try {
+        renderDashboard();
+        await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+        confirmDraw();
+
+        await waitFor(() => expect(playerOptions).toBeDefined());
+        act(() => playerOptions.events.onReady({ target: { playVideo: vi.fn() } }));
+        await waitFor(
+          () => expect(screen.getByRole("button", { name: /start previews/i })).toBeInTheDocument(),
+          { timeout: 3000 }
+        );
+
+        fireEvent.keyDown(window, { key: "Escape" });
+
+        await waitFor(() =>
+          expect(screen.queryByRole("dialog", { name: /previews before/i })).not.toBeInTheDocument()
+        );
+        expect(document.querySelector(".modal-overlay")).toBeInTheDocument();
+        expect(screen.getByRole("heading", { name: /movie a/i })).toBeInTheDocument();
+      } finally {
+        delete window.YT;
+      }
+    });
+
     // The queue resolves after the reveal is up. Dismissing the reveal before
     // it lands must drop it, or the next draw opens on a stale pre-roll --
     // even with the ticket switched off in between.
