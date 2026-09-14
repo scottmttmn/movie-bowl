@@ -6,9 +6,9 @@ of the dashboard affordance — a theater mode switch beside the draw button,
 revised September 12, 2026 from an earlier offer-shaped proposal. The device
 override layer (`src/utils/deviceDrawSettings.js`), the ticket
 (`src/components/TheaterTicket.jsx`) and the web pre-roll
-(`src/components/TheaterPreroll.jsx`) are all built, and the `TopNav` item is
-gone. Steps 3 through 5 of "Sketch of the Work" are not, and the remaining open
-questions are genuinely open.
+(`src/components/TheaterPreroll.jsx`) are all built, the `TopNav` item is gone,
+and the pairing screen's type has been enlarged. Steps 3 and 5 of "Sketch of the
+Work" are not done, and the remaining open questions are genuinely open.
 
 ## The Supported Surfaces
 
@@ -480,7 +480,8 @@ one piece of work; they are the same screen and the same audience.
 2. ~~Remove the `TopNav` item; update `TopNav.test.jsx`.~~ **Done.** The
    `/tv` route is untouched.
 3. Settings copy, once the section governs two surfaces.
-4. Pairing screen typography, together with the existing `TODO.md` item.
+4. ~~Pairing screen typography, together with the existing `TODO.md` item.~~
+   **Done.** The QR code kept its size.
 5. Draft the phase-gated Google TV copy, shipped dark behind one constant.
 
 Steps 2 through 5 are small. Step 1 is a feature and should be scheduled as one.
