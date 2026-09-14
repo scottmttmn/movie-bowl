@@ -1355,11 +1355,17 @@ html.tv-root {
   background: black;
 }
 
-.tv-trailer-overlay iframe {
+/* --player-zoom is the page's own zoom, set only when the page is zoomed out.
+   The player is laid out that much smaller and scaled back up, so YouTube picks
+   a stream for the screen's real pixels; see getPlayerZoomStyle. The overlays
+   centre their items, so scaling about the centre fills the screen again. */
+.tv-trailer-overlay iframe,
+.tv-theater-overlay iframe {
   display: block;
-  width: 100%;
-  height: 100%;
+  width: calc(100% * var(--player-zoom, 1));
+  height: calc(100% * var(--player-zoom, 1));
   border: 0;
+  transform: scale(calc(1 / var(--player-zoom, 1)));
 }
 
 /* Hides YouTube's own "unavailable" screen while a refused trailer is swapped. */
@@ -1442,13 +1448,6 @@ html.tv-root {
   place-items: center;
   overflow: hidden;
   background: black;
-}
-
-.tv-theater-overlay iframe {
-  display: block;
-  width: 100%;
-  height: 100%;
-  border: 0;
 }
 
 .tv-theater-cover {

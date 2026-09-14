@@ -1,5 +1,10 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { getAutoplayTrailerUrl, getTrailerSequence, loadYouTubeIframeApi } from "../../lib/youtubePlayer";
+import {
+  getAutoplayTrailerUrl,
+  getPlayerZoomStyle,
+  getTrailerSequence,
+  loadYouTubeIframeApi,
+} from "../../lib/youtubePlayer";
 
 const ANNOUNCEMENT_MS = 4200;
 const FEATURE_CARD_MS = 3600;
@@ -31,6 +36,7 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
   // a refusal, and a refused fallback reports buffering before its error, so
   // each preview stays covered until it is actually playing.
   const [isCovered, setIsCovered] = useState(true);
+  const [playerZoomStyle] = useState(getPlayerZoomStyle);
 
   // The queue is fixed for the life of the overlay, so the iframe keeps one
   // src for the whole sequence and later previews arrive via loadVideoById.
@@ -246,6 +252,7 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
         id={playerId}
         src={firstTrailerUrl}
         title="Movie Bowl previews"
+        style={playerZoomStyle}
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
         allowFullScreen
       />

@@ -107,6 +107,30 @@ describe("TvFullscreenTrailer", () => {
     });
   });
 
+  describe("player size", () => {
+    const original = Object.getOwnPropertyDescriptor(window, "visualViewport");
+
+    afterEach(() => {
+      if (original) Object.defineProperty(window, "visualViewport", original);
+      else delete window.visualViewport;
+    });
+
+    // Recorded on the onn. Full HD device: sized to the zoomed-out page, the
+    // player picked 1440p VP9 and stalled; sized to the zoom it held 1080p.
+    it("lays the player out at the TV's page zoom", async () => {
+      Object.defineProperty(window, "visualViewport", { configurable: true, value: { scale: 0.5 } });
+      await renderTrailer();
+
+      expect(screen.getByTitle("The Godfather trailer").style.getPropertyValue("--player-zoom")).toBe("0.5");
+    });
+
+    it("sets no zoom where the page is not zoomed out", async () => {
+      await renderTrailer();
+
+      expect(screen.getByTitle("The Godfather trailer").style.getPropertyValue("--player-zoom")).toBe("");
+    });
+  });
+
   it("closes when the trailer finishes", async () => {
     const { onClose } = await renderTrailer();
 
