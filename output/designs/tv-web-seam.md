@@ -218,29 +218,44 @@ television-specific. Four things do not carry over:
   a control the television refuses to have, which is a real divergence from "a
   cinema has no controls" rather than an oversight to be tidied away later.
 - **`playsinline` must be `1`.** `getAutoplayTrailerUrl` sets it to `0`, which on
-  iOS hands each video to the native fullscreen player and takes the queue
-  overlay off screen entirely. The builder already varies by caller through its
-  `preroll` option, so this is another option rather than a change to what the
-  television sends.
-- **Autoplay chaining needs hardware.** The television reuses one `YT.Player` and
-  calls `loadVideoById()` so the draw press keeps satisfying autoplay policy.
-  Whether that gesture still carries across videos in iOS Safari is unverified,
-  and a reel that stalls on the second preview is worse than no reel at all.
-  Test on a phone before the phone ships.
+  iOS hands each video to the native fullscreen player. That is not a styling
+  complaint: the video then ends *outside* our overlay, and getting back in for
+  the next preview needs a fresh gesture, so `0` breaks the queue rather than
+  merely relocating it. No device is needed to settle this — the question was
+  never whether `1` is right but what `0` does, and that is known. The builder
+  already varies by caller through its `preroll` option, so this is another
+  option rather than a change to what the television sends.
+- **Autoplay is detected, not assumed.** Two versions of one risk: the
+  hold-to-draw press is a real gesture, but the queue resolves through TMDB
+  lookups before any player exists, so the browser may not count the first
+  preview as gesture-initiated; and the television's `loadVideoById()` trick for
+  keeping that gesture alive across videos may not hold everywhere. Neither is
+  worth predicting. Call `playVideo()`, and if the player has not reached
+  `PLAYING` within about a second, draw a tap-to-start target over the
+  announcement card — on tap, `playVideo()` runs inside a genuine gesture handler
+  and cannot be refused. The same check covers a stall on preview two.
+
+  This is the pattern the pre-roll already uses one layer up: `TvTheaterPreroll`
+  requests fullscreen, catches the rejection, and falls back to the full-viewport
+  overlay. Doing the same for playback costs one tap in the worst case, keeps it
+  inside the ceremony rather than in front of it as a dialog would, and answers
+  the question on every browser rather than only the ones anyone tested. It also
+  does not disturb the no-confirmation decision above: the tap appears only when
+  autoplay has already failed, never as a step in the normal path.
 - **Pause needs a pointer gesture.** The television binds it to Select on
   `window`. The key handler already accepts Space, so the web wants
   click-to-pause on the overlay added beside it.
-- **The draw gesture may be stale by the time the first preview plays.** This is
-  the one risk that could overrule the no-confirmation decision above on
-  engineering grounds rather than product ones. The hold-to-draw press is a real
-  user gesture, but the queue resolves asynchronously through TMDB lookups before
-  any player exists, so the browser may no longer count playback as
-  gesture-initiated when it finally starts. Chrome is usually permissive here and
-  Safari is not, iOS least of all. If it does refuse, the fallback is a tap on the
-  pre-roll's opening announcement card rather than a dialog before it — one tap,
-  inside the ceremony instead of in front of it, and the card is already on screen
-  saying what is about to play. Establish which on hardware before writing the
-  copy either way.
+
+**There is no iOS device available to test on**, and the design above is shaped
+by that rather than merely inconvenienced by it. Every iOS-specific risk here is
+either decidable from reasoning (`playsinline`) or handled by a runtime fallback
+that triggers on the failure itself (autoplay), so none of them blocks shipping
+and none should be written up as "verify on hardware first" again. What a real
+iPhone would still improve is judgement rather than correctness — whether the
+exit control is reachable one-handed, whether the announcement card holds long
+enough on a small screen — and that is the kind of thing revised after living
+with it anyway. A cloud device session or two minutes with a borrowed phone
+covers it whenever someone wants to look; neither is a prerequisite.
 
 Two files move, which answers a question this document previously left open.
 `theaterQueue.js` belongs in `src/utils/` — it is pure and dependency-free,
@@ -447,9 +462,10 @@ one piece of work; they are the same screen and the same audience.
    by the draw. Three pieces, in this order: generalise `tvDrawSettings.js` to a
    device override (keeping its storage prefix) with an off-by-default surface
    default for the web; move `theaterQueue.js` and `youtubePlayer.js` out of
-   `src/tv/`; then the ticket and the web pre-roll overlay, with a visible exit
-   and `playsinline=1`. The ticket renders only when `canCurrentUserDraw`, and
-   the pre-roll starts on the draw with no confirmation. This is the real feature
+   `src/tv/`; then the ticket and the web pre-roll overlay, with a visible exit,
+   `playsinline=1`, and the tap-to-start fallback for a refused autoplay. The
+   ticket renders only when `canCurrentUserDraw`, and the pre-roll starts on the
+   draw with no confirmation. This is the real feature
    and the rest depends on it.
 2. Remove the `TopNav` item; update `TopNav.test.jsx`.
 3. Settings copy, once the section governs two surfaces.
