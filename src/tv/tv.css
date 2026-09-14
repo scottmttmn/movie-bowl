@@ -1362,12 +1362,15 @@ html.tv-root {
   border: 0;
 }
 
-/* Low and centred, clear of YouTube's own "Video unavailable" message. */
+/* Hides YouTube's own "unavailable" screen while a refused trailer is swapped. */
+.tv-trailer-cover {
+  position: absolute;
+  inset: 0;
+  background: black;
+}
+
 .tv-trailer-unavailable {
   position: absolute;
-  bottom: clamp(24px, 8vh, 96px);
-  left: 50%;
-  transform: translateX(-50%);
   margin: 0;
   white-space: nowrap;
   padding: 0.75rem 1.4rem;

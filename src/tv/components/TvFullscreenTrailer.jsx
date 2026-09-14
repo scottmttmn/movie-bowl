@@ -5,6 +5,14 @@ import {
   loadYouTubeIframeApi,
 } from "../../lib/youtubePlayer";
 
+// Only PLAYING proves a video was accepted. loadVideoById reports BUFFERING
+// before YouTube decides, so a refused fallback buffers and then errors.
+const PLAYING = 1;
+
+// If a trailer is accepted but never starts -- autoplay held back, a stalled
+// network -- show the player rather than a black screen.
+const MAX_COVER_MS = 4000;
+
 export default function TvFullscreenTrailer({ movieTitle, trailer, onClose }) {
   const playerId = `tv-trailer-${useId().replace(/:/g, "")}`;
   const overlayRef = useRef(null);
@@ -13,6 +21,7 @@ export default function TvFullscreenTrailer({ movieTitle, trailer, onClose }) {
   const closeRef = useRef(onClose);
   const sequence = useMemo(() => getTrailerSequence(trailer), [trailer]);
   const [isUnavailable, setIsUnavailable] = useState(false);
+  const [isCovered, setIsCovered] = useState(true);
 
   useEffect(() => {
     closeRef.current = onClose;
@@ -59,6 +68,15 @@ export default function TvFullscreenTrailer({ movieTitle, trailer, onClose }) {
 
     let cancelled = false;
     let attempt = 0;
+    let coverTimer = null;
+    const reveal = () => {
+      if (!cancelled) setIsCovered(false);
+    };
+    const coverUntilPlaying = () => {
+      window.clearTimeout(coverTimer);
+      coverTimer = window.setTimeout(reveal, MAX_COVER_MS);
+    };
+    coverUntilPlaying();
 
     loadYouTubeIframeApi()
       .then((youtube) => {
@@ -68,6 +86,10 @@ export default function TvFullscreenTrailer({ movieTitle, trailer, onClose }) {
           events: {
             onReady: (event) => event.target.playVideo(),
             onStateChange: (event) => {
+              if (event.data === PLAYING) {
+                window.clearTimeout(coverTimer);
+                reveal();
+              }
               if (
                 event.data === 0 ||
                 event.data === youtube.PlayerState?.ENDED
@@ -76,14 +98,19 @@ export default function TvFullscreenTrailer({ movieTitle, trailer, onClose }) {
               }
             },
             // YouTube refuses age-restricted and unembeddable trailers the
-            // moment they load. The next-best trailer plays instead; once none
-            // are left the overlay says so, because the "Watch on YouTube" link
-            // under YouTube's own message leads nowhere inside the TV app.
+            // moment they load, after the embed has already painted its
+            // "unavailable" screen -- which is why the player starts covered.
+            // The next-best trailer plays instead; once none are left the
+            // overlay says so over the cover, because the "Watch on YouTube"
+            // link under YouTube's own message leads nowhere inside the TV app.
             onError: () => {
               attempt += 1;
+              setIsCovered(true);
               if (attempt < sequence.length) {
+                coverUntilPlaying();
                 playerRef.current?.loadVideoById?.(sequence[attempt]);
               } else {
+                window.clearTimeout(coverTimer);
                 setIsUnavailable(true);
               }
             },
@@ -92,10 +119,13 @@ export default function TvFullscreenTrailer({ movieTitle, trailer, onClose }) {
       })
       .catch((error) => {
         console.error("[TvFullscreenTrailer] Player API unavailable", error);
+        window.clearTimeout(coverTimer);
+        reveal();
       });
 
     return () => {
       cancelled = true;
+      window.clearTimeout(coverTimer);
       playerRef.current?.destroy?.();
       playerRef.current = null;
     };
@@ -116,6 +146,7 @@ export default function TvFullscreenTrailer({ movieTitle, trailer, onClose }) {
         allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
         allowFullScreen
       />
+      {isCovered && <div className="tv-trailer-cover" aria-hidden="true" />}
       {isUnavailable && (
         <p className="tv-trailer-unavailable" role="status">
           Trailer unavailable
