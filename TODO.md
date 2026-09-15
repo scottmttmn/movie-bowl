@@ -2,15 +2,6 @@
 
 Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
-## Release housekeeping
-
-- Reconcile the deployed `test-cleanup-between-renders` branch with the newer
-  `main` before the next production deployment. The release branch carries the
-  Node 24 pin, Supabase session coordination, daily metadata-refresh fix,
-  environment-file ignore, and public-comment follow-up; `main` has since moved
-  through the TV title-width and theater-ticket copy fixes. Do not redeploy
-  either branch alone and accidentally drop the other side.
-
 ## UX / UI Polish
 
 - Let a bowl owner delete entries from the bowl's watched history. Returning a

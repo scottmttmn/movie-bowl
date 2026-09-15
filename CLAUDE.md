@@ -10,7 +10,7 @@ the code is put together and what to do when changing it.
 ## Commands
 
 ```bash
-npm install          # Node >=20.19 <21 or >=22.12 (see package.json engines)
+npm ci               # Node 24 LTS (.nvmrc; package.json engines)
 npm run dev          # Vite dev server, frontend only — /api/* routes will 404
 npm run dev:api      # full local behavior including /api/* serverless routes
 npm run test:run     # run the whole Vitest suite once (the pre-merge gate)
@@ -34,7 +34,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (127 test files / 1048 tests, 52 Playwright tests with 5 skipped,
+fully green (128 test files / 1049 tests, 52 Playwright tests with 5 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.

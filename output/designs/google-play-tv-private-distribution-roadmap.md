@@ -9,10 +9,9 @@ Implementation progress:
 
 - The production pairing migration, rate-limit secret, abuse controls, Node 24
   runtime, and session-coordination repair are deployed. The production phone
-  and television smoke pass completed September 9. That web release currently
-  lives on `test-cleanup-between-renders`; reconcile its deployed runtime,
-  session, cron, and documentation commits with the newer `main` before the next
-  production deployment.
+  and television smoke pass completed September 9. That release was cut from a
+  side branch; its runtime and session commits were brought back to `main` on
+  September 14, and production deploys from `main`.
 - A dedicated upload key was created and backed up outside the repository. The
   signed `0.1.0` bundle was verified for signature, package, version, production
   URL, cleartext policy, and absence of native libraries before upload.
