@@ -173,7 +173,6 @@ describe("UserSettings", () => {
   it("supports search, selection shortcuts, reordering, removal, and back navigation", () => {
     renderSettings();
 
-    fireEvent.click(screen.getByText("Add services"));
     fireEvent.change(screen.getByPlaceholderText("Search services..."), {
       target: { value: "crunch" },
     });
@@ -336,7 +335,6 @@ describe("UserSettings", () => {
   it("shows an empty state when search finds no services", () => {
     renderSettings();
 
-    fireEvent.click(screen.getByText("Add services"));
     fireEvent.change(screen.getByPlaceholderText("Search services..."), {
       target: { value: "zzz" },
     });
