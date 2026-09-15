@@ -131,18 +131,21 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   double-counting and making sibling retirement visible. Analysed under
   "Edge Case: Somebody Else Already Added It" in
   `output/designs/pinned-movie.md`; needs its own design before any code.
-- Solo draw: pick privately from only your own titles, pooled across every bowl
-  you belong to by default and narrowable to a subset. It ships as a solo
-  *pick* — it selects, shows you one title, and writes nothing to any bowl —
-  because pooling makes every "remove it from the group's pool" option worse
-  (a withdrawal would fire into bowls that had no part in the evening) and the
-  shipped Watch List removal offer already covers the aftermath of watching
-  alone, cross-bowl, leaving only the picking as new. No migration, no RPC, no
-  draw-permission or visibility decision. It also owes `guest-night.md` the
-  cross-bowl pool primitive, which under RLS is one `bowl_movies` select.
-  Open before code: duplicate titles across bowls, what a per-bowl pin means in
-  a pooled pick, and whether the scope selection is remembered. Plan, not
-  implementation: `output/designs/solo-draw.md`.
+- Solo draw: draw privately from only your own titles, pooled across every bowl
+  you belong to by default and narrowable to a subset. It ends the way watching
+  alone already ends here — the drawn title is recorded in your watch list
+  through `create_manual_watch_event`, and then the existing
+  `RemoveFromBowlsModal` offers to pull it out of the bowls still holding it.
+  No `bowl_draw_events` row and no `drawn_at` stamp, so nothing leaves a bowl
+  except by that explicit offer, which is what keeps a pooled draw from making
+  titles vanish out of bowls that had no part in the evening. No migration and
+  no RPC: RLS already permits the whole cross-bowl read, and the write and the
+  offer are the Watch List's own save path lifted into a shared module. It also
+  owes `guest-night.md` the cross-bowl pool primitive. Open before code: whether
+  the watch is written at reveal or on an explicit commitment (leaning
+  commitment, so drawing again stays free), whether it needs its own
+  `source_kind`, duplicate titles across bowls, and what a per-bowl pin means in
+  a pooled draw. Plan, not implementation: `output/designs/solo-draw.md`.
 - Guest night: make sharing episodic instead of persistent. A visiting friend's
   titles join one evening's draw, the movie lands in both watch histories but
   only the host bowl's strip, and nothing permanent is created. Three separable
