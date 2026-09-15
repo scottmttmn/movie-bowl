@@ -309,13 +309,14 @@ free-plan limitations. Summary:
 This improves the phone experience too, so it is worth doing even if theater
 mode never ships.
 
-### Phase 2.5 — Web auto-start (optional probe, web only)
+### Phase 2.5 — Auto-start in the Google TV app (planned)
 
-Navigate the television to the feature at the end of the pre-roll instead of
-ending on a focused button. Reaches real playback only where a provider's detail
-URL rewrites into a watch URL, so it is partial by nature — but it is a pure
-client change on top of phase 2 and answers phase 3's gate without hardware.
-Skippable: phase 3 does not depend on it. See `web-autostart-handoff.md`.
+Open the feature in its streaming app at the end of the pre-roll instead of
+ending on a focused button, through the shell's existing provider handoff.
+Planned for the Google TV app rather than a television browser, now that the
+app exists: nothing is popup-blocked there and Movie Bowl survives the handoff.
+It answers phase 3's gate directly, in the room, without a LAN bridge. See
+`tv-autostart-handoff.md`.
 
 ### Phase 3 — Personal auto-start over the LAN (household only)
 
@@ -372,8 +373,9 @@ drive a TV assistant programmatically — no third-party API exists for the last
   different contributors and genres?
 - If a trailer fails, should it be silently replaced or should the pre-roll become
   shorter?
-- Should the selected feature launch immediately after the final trailer or after
-  a brief confirmation countdown?
+- ~~Should the selected feature launch immediately after the final trailer or after
+  a brief confirmation countdown?~~ After the "Feature Presentation" card, which
+  is the countdown, with Back as the escape. See `tv-autostart-handoff.md`.
 
 ## Success Test
 

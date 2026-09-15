@@ -100,21 +100,20 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   migration and Watchmode configuration are deployed; activation instructions
   are in `README.md`. The Google TV shell in `tv-android/` has reached an
   owner-only Google Play internal test, and its provider handoff is confirmed
-  on physical hardware for Max. Remaining roadmap work is LAN auto-start (no
-  code), the Play update-retention test, and store hardening before the
+  on physical hardware for Max. Remaining roadmap work is the auto-start
+  handoff below, the Play update-retention test, and store hardening before the
   friends-and-family cohort. That path is specified in
   `output/designs/google-play-tv-private-distribution-roadmap.md`. See
   `output/designs/tv-theater-mode.md` and `output/designs/provider-deep-links.md`.
-- Web auto-start handoff: end the pre-roll by navigating the television to the
-  feature instead of parking on the "Open [service]" button. Pure client change
-  on top of phase 2's links, no bridge and no native shell, but it only reaches
-  real playback where a detail URL rewrites into a watch URL — Netflix cleanly,
-  most services not at all. Worth it mainly as an early answer to phase 3's
-  gate: does automatic playback beat one OK press? Blocked on one unverified
-  assumption: nothing in the repo knows what URL shape Watchmode really returns
-  for Netflix, and confirming playback needs a signed-in browser. Settle that
-  before building anything. Plan, not implementation:
-  `output/designs/web-autostart-handoff.md`.
+- TV auto-start handoff: when the pre-roll ends, the Google TV app opens the
+  drawn movie in its streaming app with no press, through the same handoff the
+  "Open [service]" button uses. Web-only change, no new Android build; fires
+  only inside the TV app, only with a title link, only at the natural end of the
+  pre-roll. The first hardware check is whether a script-opened window reaches
+  the shell's `onCreateWindow` as the anchor does. Actual playback (rewriting a
+  Netflix detail URL to `/watch/<id>`) is a later, per-service step that needs a
+  real Watchmode URL and a check on the television. Plan, not implementation:
+  `output/designs/tv-autostart-handoff.md`.
 - Deterministic draw preview, steps 2 and 3: give rotation bowls a real contributor lookahead (the order is already derivable from `bowl_draw_events`, so it needs no new state), and only after living with that decide whether a committed schedule ships as a fourth draw method. A bowl-wide committed queue is blocked on filters being per-user today. Plan, not implementation: `output/designs/deterministic-draw-preview.md`.
 - Personal movie ordering: let contributors rank their own undrawn titles, independently of contributor rotation. Needs a separate design for method scope, link-guest ownership, accessible reordering, and where new or returned movies land. The pinned movie shipped as the one-title version; full ordering remains a separate feature.
 - Within-person title weights: let a contributor set relative odds among their own
