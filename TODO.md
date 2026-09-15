@@ -131,12 +131,21 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   double-counting and making sibling retirement visible. Analysed under
   "Edge Case: Somebody Else Already Added It" in
   `output/designs/pinned-movie.md`; needs its own design before any code.
-- Solo draw: draw privately from only your own titles, in one bowl or pooled
-  across all of them. The cheap version is "solo pick" — choose from your own
-  titles and write nothing to the bowl — because the shipped Watch List removal
-  offer already covers the aftermath of watching alone, leaving only the picking
-  as new. That version needs no migration, no RPC, and no decision about what
-  other members see. See `output/designs/solo-draw.md`.
+- Solo draw: draw privately from your own titles across all your bowls, with
+  scope narrowing. Reveal commits the pick to personal history; no acceptance
+  or redraw controls. Bowl copies stay available. Personal history offers
+  deletion (labelled undo for two hours) and a separate optional "Remove from
+  my bowls…" action; deletion never restores separately removed copies.
+  Preserve the manual entry's immediate removal offer. A later opt-in setting
+  removes your copies automatically at reveal, off by default; only then does
+  undo become a server-enforced operation that restores them. Each TMDB movie gets one chance;
+  custom titles stay separate without name matching. Eligible pinned titles go
+  first after all filters, sampled uniformly without clearing their pins.
+  Repeat picks remain possible by design. Own `/solo-draw` route, dashboard
+  filter settings, read-only slip note. Persistence: a `solo_draw` watch event
+  built server-side by `record_solo_draw`, with source row and retry id.
+  Empty states and large-pool lookup controls belong in the initial release.
+  Plan, not implementation: `output/designs/solo-draw.md`.
 - Guest night: make sharing episodic instead of persistent. A visiting friend's
   titles join one evening's draw, the movie lands in both watch histories but
   only the host bowl's strip, and nothing permanent is created. Three separable
