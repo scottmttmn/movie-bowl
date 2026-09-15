@@ -1,6 +1,8 @@
 # Theater Auto-Start Handoff
 
-Status: **plan, not implemented.** Replaces the browser-era "Web Auto-Start
+Status: **implemented; not yet verified on hardware.** The web code, unit
+tests and component tests have landed; the onn box and desktop browser checks
+under "Testing" have not been run. Replaces the browser-era "Web Auto-Start
 Handoff" plan, which was written before the Google TV app and the web pre-roll
 existed.
 
@@ -113,8 +115,9 @@ phone or tablet reports a coarse one. When it guesses wrong it guesses toward
 the button, which is the safe direction.
 
 **One launch path per surface.** The television's anchor `onClick` and its
-auto-start both call one `launchProvider` in `TvTonightScreen.jsx`: clear
-`providerLaunchMessage`, `rememberExternalReturn`, open the URL as a new window.
+auto-start both call one `beginProviderLaunch` in `TvTonightScreen.jsx`: clear
+`providerLaunchMessage` and `rememberExternalReturn`. The auto-start then opens
+the URL as a new window, where the anchor's own `href` does the same.
 The dashboard's auto-start calls `location.assign` with the same
 `preferredWebLaunchCandidate` its "Open on Web" link renders, so the two can
 never point at different pages. Both anchors keep their `href`.
@@ -197,8 +200,9 @@ is the reason it waits on the same checks rather than shipping first.
 - `BowlDashboard`: completing the pre-roll calls `location.assign` once on a
   fine pointer; Escape and Exit do not; a coarse pointer does not; the setting
   off does not; a hidden tab does not.
-- Playwright: the desktop project asserts the navigation, stubbed at the
-  provider origin by `fakeBackend.js`; the mobile project asserts none.
+- Playwright does not cover it. The smoke suite has no YouTube player fake, so
+  it cannot run a pre-roll to its end; the desktop/phone split is held by the
+  `BowlDashboard` tests above, which stub the primary pointer instead.
 - On the onn box, recorded in the compatibility record Milestone 5 of the Play
   roadmap asks for:
   1. Pre-roll ends → Max opens on the drawn title with no press.

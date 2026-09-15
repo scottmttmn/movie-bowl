@@ -1524,6 +1524,12 @@ html.tv-root {
   font-weight: 700;
 }
 
+.tv-theater-feature-logo {
+  width: clamp(2.5rem, 4vw, 3.5rem);
+  height: clamp(2.5rem, 4vw, 3.5rem);
+  margin-top: 0.6rem;
+}
+
 .tv-pairing-page {
   display: grid;
   width: min(100%, 1920px);

@@ -37,7 +37,7 @@ import { MAX_BOWLS_PER_USER, MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLim
 import { canReturnDrawToBowl } from "../utils/watchHistory";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 import { matchUserServices } from "../utils/streamingServices";
-import { resolvePreferredLaunchTarget } from "../utils/webLaunch";
+import { getAutoStartMode, getAutoStartSurface, resolvePreferredLaunchTarget } from "../utils/webLaunch";
 import useBowlAdd from "../hooks/useBowlAdd";
 import { notifyBowlChange } from "../lib/bowlChanges";
 import {
@@ -740,6 +740,30 @@ export default function BowlDashboard() {
     const endTheater = () => {
       setIsTheaterPlaying(false);
       setTrailerQueue([]);
+    };
+
+    // A desktop tab can follow the feature card to the provider's title page:
+    // a timer may navigate the tab even though it may not open a new one, and
+    // the browser's Back comes home. A phone cannot hand that navigation to the
+    // installed app, so it keeps the button. The candidate is already null
+    // unless the reveal would offer the link at all.
+    const autoStartCandidate =
+      getAutoStartMode({
+        surface: getAutoStartSurface({
+          userAgent: window.navigator?.userAgent,
+          hasFinePointer: Boolean(window.matchMedia?.("(pointer: fine)")?.matches),
+        }),
+        launchCandidate: preferredWebLaunchCandidate,
+      }) === "navigate"
+        ? preferredWebLaunchCandidate
+        : null;
+
+    const completeTheater = () => {
+      endTheater();
+      // Previews left running in a background tab must not pull it out from
+      // under someone working elsewhere.
+      if (!autoStartCandidate || document.visibilityState === "hidden") return;
+      window.location.assign(autoStartCandidate.url);
     };
 
     const closeReveal = () => {
@@ -1453,7 +1477,9 @@ return (
               <TheaterPreroll
                 queue={trailerQueue}
                 featureTitle={drawnMovie.title || ""}
+                featureServiceName={autoStartCandidate?.serviceName}
                 onFinish={endTheater}
+                onComplete={completeTheater}
               />
             )}
             {drawnMovie && (

@@ -20,6 +20,8 @@ const mocks = vi.hoisted(() => {
     handleDeleteMovie: vi.fn(async () => true),
     handleReaddMovie: vi.fn(async () => true),
     streamingServices: [],
+    providerLinks: [],
+    drawnProviders: [],
     defaultDrawSettings: {
       prioritizeStreaming: false,
       useStreamingRank: true,
@@ -107,7 +109,15 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
 vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
 
 vi.mock("../../lib/streamingProviders", () => ({
-  fetchStreamingProviders: vi.fn(async () => ({ providers: [], region: "US", fetchedAt: null })),
+  fetchStreamingProviders: vi.fn(async () => ({
+    providers: mocks.state.drawnProviders,
+    region: "US",
+    fetchedAt: null,
+  })),
+}));
+
+vi.mock("../../hooks/useDrawProviderLinks", () => ({
+  default: () => ({ providerLinks: mocks.state.providerLinks, startLookup: vi.fn() }),
 }));
 
 vi.mock("../../lib/theaterPreviews", () => ({
@@ -158,6 +168,8 @@ describe("BowlDashboard draw preferences", () => {
     mocks.state.drawOdds = [{ bucketKey: "user:u1", member: "owner@example.com", movieCount: 1, drawOdds: 1 }];
     mocks.state.handleDraw.mockClear();
     mocks.state.streamingServices = [];
+    mocks.state.providerLinks = [];
+    mocks.state.drawnProviders = [];
     mocks.state.defaultDrawSettings = {
       prioritizeStreaming: false,
       useStreamingRank: true,
@@ -736,6 +748,148 @@ describe("BowlDashboard draw preferences", () => {
         "aria-checked",
         "true"
       );
+    });
+  });
+  // The desktop half of theater auto-start. The television's half is covered in
+  // src/tv/__tests__/TvTheaterMode.test.jsx.
+  describe("theater auto-start", () => {
+    const NETFLIX_TITLE_URL = "https://www.netflix.com/title/80117401";
+    let assign;
+    let playerOptions;
+
+    function useFinePointer(matches) {
+      vi.stubGlobal("matchMedia", vi.fn((query) => ({ matches: query === "(pointer: fine)" && matches })));
+    }
+
+    async function playToFeatureCard() {
+      renderDashboard();
+      await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+      confirmDraw();
+
+      await waitFor(() => expect(playerOptions).toBeDefined());
+      act(() => playerOptions.events.onStateChange({ data: 1 }));
+      vi.useFakeTimers();
+      act(() => playerOptions.events.onStateChange({ data: 0 }));
+      expect(screen.getByRole("heading", { name: /feature presentation/i })).toBeInTheDocument();
+    }
+
+    async function finishFeatureCard() {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3600);
+      });
+      vi.useRealTimers();
+    }
+
+    beforeEach(() => {
+      window.localStorage.clear();
+      window.localStorage.setItem(
+        "movie-bowl:tv:draw-settings:u1",
+        JSON.stringify({ theaterModeEnabled: true })
+      );
+      playerOptions = undefined;
+      window.YT = {
+        Player: vi.fn((_id, options) => {
+          playerOptions = options;
+          return { playVideo: vi.fn(), stopVideo: vi.fn(), destroy: vi.fn() };
+        }),
+        PlayerState: { ENDED: 0, PLAYING: 1 },
+      };
+      assign = vi.fn();
+      vi.stubGlobal("location", { ...window.location, assign });
+      useFinePointer(true);
+      mocks.state.streamingServices = ["Netflix"];
+      mocks.state.providerLinks = [{ service: "Netflix", type: "sub", webUrl: NETFLIX_TITLE_URL }];
+      mocks.state.drawnProviders = ["Netflix"];
+      mocks.state.defaultDrawSettings = {
+        ...mocks.state.defaultDrawSettings,
+        enablePreferredWebLaunch: true,
+      };
+      mocks.state.bowlData = {
+        remaining: [
+          { id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A" },
+          { id: "m2", added_by: "u1", tmdb_id: 102, title: "Movie B" },
+        ],
+        watched: [],
+      };
+      mocks.state.handleDraw.mockResolvedValue({ id: "m1", tmdb_id: 101, title: "Movie A" });
+    });
+
+    afterEach(() => {
+      delete window.YT;
+      vi.unstubAllGlobals();
+      window.localStorage.clear();
+    });
+
+    it("sends the tab to the provider's title page once the feature card runs its course", async () => {
+      await playToFeatureCard();
+
+      expect(document.querySelector(".theater-preroll-logo")).not.toBeNull();
+      expect(assign).not.toHaveBeenCalled();
+
+      await finishFeatureCard();
+
+      expect(assign).toHaveBeenCalledTimes(1);
+      expect(assign).toHaveBeenCalledWith(NETFLIX_TITLE_URL);
+    });
+
+    it("does not leave when Escape ends the previews", async () => {
+      await playToFeatureCard();
+
+      fireEvent.keyDown(window, { key: "Escape" });
+      await finishFeatureCard();
+
+      expect(screen.queryByRole("dialog", { name: /previews before/i })).not.toBeInTheDocument();
+      expect(assign).not.toHaveBeenCalled();
+    });
+
+    it("does not leave when Exit ends the previews", async () => {
+      await playToFeatureCard();
+
+      fireEvent.click(screen.getByRole("button", { name: /exit previews/i }));
+      await finishFeatureCard();
+
+      expect(assign).not.toHaveBeenCalled();
+    });
+
+    it("keeps the button on a phone", async () => {
+      useFinePointer(false);
+      await playToFeatureCard();
+
+      expect(document.querySelector(".theater-preroll-logo")).toBeNull();
+      await finishFeatureCard();
+
+      expect(assign).not.toHaveBeenCalled();
+      expect(screen.getByRole("link", { name: /open on web in netflix/i })).toHaveAttribute(
+        "href",
+        NETFLIX_TITLE_URL
+      );
+    });
+
+    it("never launches what the reveal would not offer", async () => {
+      mocks.state.defaultDrawSettings = {
+        ...mocks.state.defaultDrawSettings,
+        enablePreferredWebLaunch: false,
+      };
+      await playToFeatureCard();
+      await finishFeatureCard();
+
+      expect(assign).not.toHaveBeenCalled();
+    });
+
+    it("keeps the button when only a search link is known", async () => {
+      mocks.state.providerLinks = [];
+      await playToFeatureCard();
+      await finishFeatureCard();
+
+      expect(assign).not.toHaveBeenCalled();
+    });
+
+    it("does not navigate a tab nobody is looking at", async () => {
+      await playToFeatureCard();
+      vi.spyOn(document, "visibilityState", "get").mockReturnValue("hidden");
+      await finishFeatureCard();
+
+      expect(assign).not.toHaveBeenCalled();
     });
   });
 });

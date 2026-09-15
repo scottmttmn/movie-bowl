@@ -1,5 +1,11 @@
 import { describe, expect, it } from "vitest";
-import { resolvePreferredLaunchTarget, resolvePreferredWebLaunchCandidate } from "../webLaunch";
+import {
+  AUTO_START_SURFACE,
+  getAutoStartMode,
+  getAutoStartSurface,
+  resolvePreferredLaunchTarget,
+  resolvePreferredWebLaunchCandidate,
+} from "../webLaunch";
 
 describe("resolvePreferredWebLaunchCandidate", () => {
   it("picks the highest-ranked matching provider with a known web mapping", () => {
@@ -90,5 +96,52 @@ describe("resolvePreferredLaunchTarget", () => {
   it("rejects executable URLs, falling back to the service's search", () => {
     const result = resolvePreferredLaunchTarget({ ...options, providerLinks: [{ ...netflix, webUrl: "javascript:alert(1)" }] });
     expect(result.linkType).toBe("search");
+  });
+});
+
+describe("getAutoStartSurface", () => {
+  it("recognises the Google TV app by its user agent tag", () => {
+    expect(getAutoStartSurface({
+      userAgent: "Mozilla/5.0 (Linux; Android 14) Chrome/128.0 MovieBowlTV/0.1 AndroidTV",
+      hasFinePointer: false,
+    })).toBe(AUTO_START_SURFACE.tvApp);
+  });
+
+  it("treats a fine primary pointer as a desktop and anything else as touch", () => {
+    expect(getAutoStartSurface({ userAgent: "Mozilla/5.0 (Macintosh)", hasFinePointer: true }))
+      .toBe(AUTO_START_SURFACE.desktop);
+    expect(getAutoStartSurface({ userAgent: "Mozilla/5.0 (iPhone)", hasFinePointer: false }))
+      .toBe(AUTO_START_SURFACE.touch);
+    expect(getAutoStartSurface()).toBe(AUTO_START_SURFACE.touch);
+  });
+});
+
+describe("getAutoStartMode", () => {
+  const titleLink = { serviceName: "Max", url: "https://play.max.com/movie/abc", linkType: "title" };
+  const searchLink = { serviceName: "Max", url: "https://play.max.com/search?q=Dune", linkType: "search" };
+
+  it("opens a window in the TV app and navigates on a desktop", () => {
+    expect(getAutoStartMode({ surface: AUTO_START_SURFACE.tvApp, launchCandidate: titleLink })).toBe("window");
+    expect(getAutoStartMode({ surface: AUTO_START_SURFACE.desktop, launchCandidate: titleLink })).toBe("navigate");
+  });
+
+  it("never auto-starts on touch", () => {
+    expect(getAutoStartMode({ surface: AUTO_START_SURFACE.touch, launchCandidate: titleLink })).toBeNull();
+  });
+
+  it("never auto-starts a search link or a missing candidate", () => {
+    for (const surface of Object.values(AUTO_START_SURFACE)) {
+      expect(getAutoStartMode({ surface, launchCandidate: searchLink })).toBeNull();
+      expect(getAutoStartMode({ surface, launchCandidate: null })).toBeNull();
+      expect(getAutoStartMode({ surface, launchCandidate: { ...titleLink, url: null } })).toBeNull();
+    }
+  });
+
+  it("stands down once a launch has already failed", () => {
+    expect(getAutoStartMode({
+      surface: AUTO_START_SURFACE.tvApp,
+      launchCandidate: titleLink,
+      launchError: "Max isn't installed on this TV.",
+    })).toBeNull();
   });
 });
