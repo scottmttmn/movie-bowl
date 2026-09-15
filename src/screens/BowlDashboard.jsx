@@ -977,6 +977,20 @@ return (
                   <p className="mt-2 text-center text-sm text-amber-300">{drawGuardMessage}</p>
                 )}
 
+                {/* Watching alone is not the bowl's turn, so it is a link out
+                    rather than another button in the stack above. It carries
+                    this bowl as the starting scope, because arriving from
+                    inside a bowl is a statement about context. */}
+                <div className="mt-3 flex justify-center">
+                  <button
+                    type="button"
+                    className="btn btn-ghost text-sm"
+                    onClick={() => navigate(`/solo-draw?bowl=${bowlId}`)}
+                  >
+                    Draw for myself
+                  </button>
+                </div>
+
                 {addGuardMessage && (
                   <p className="mt-2 text-center text-sm text-amber-300">{addGuardMessage}</p>
                 )}

@@ -513,6 +513,61 @@ class FakeBackend {
       return;
     }
 
+    if (rpcName === "record_solo_draw") {
+      const movie = this.state.bowl_movies.find(
+        (row) =>
+          row.id === args.p_bowl_movie_id &&
+          row.added_by === this.state.currentUser.id &&
+          !row.drawn_at
+      );
+      if (!movie) {
+        await fulfillJson(
+          route,
+          { message: "This movie is no longer available to draw.", code: "P0001" },
+          400
+        );
+        return;
+      }
+
+      // Replay returns the original entry, as the real RPC does.
+      const existing = this.state.user_watch_events.find(
+        (row) =>
+          row.user_id === this.state.currentUser.id && row.request_id === args.p_request_id
+      );
+      if (existing) {
+        await fulfillJson(route, existing);
+        return;
+      }
+
+      const now = new Date().toISOString();
+      const bowl = this.state.bowls.find((row) => row.id === movie.bowl_id);
+      // A solo draw changes no bowl: the slip keeps its drawn_at and its pin.
+      const event = {
+        id: nextId(this.state, "watch", "user_watch_events"),
+        user_id: this.state.currentUser.id,
+        source_draw_event_id: null,
+        source_kind: "solo_draw",
+        source_bowl_movie_id: movie.id,
+        source_bowl_id: movie.bowl_id,
+        request_id: args.p_request_id,
+        bowl_name: bowl?.name || "Movie Bowl",
+        tmdb_id: movie.tmdb_id,
+        title: movie.title,
+        poster_path: movie.poster_path || null,
+        release_date: movie.release_date || null,
+        runtime: movie.runtime || null,
+        genres: movie.genres || [],
+        overview: movie.overview || null,
+        note: movie.note || null,
+        watched_on: formatCalendarDateAtTimeZone(now, args.p_watched_timezone || "UTC"),
+        created_at: now,
+        updated_at: now,
+      };
+      this.state.user_watch_events.push(event);
+      await fulfillJson(route, event);
+      return;
+    }
+
     if (rpcName === "set_own_bowl_movie_pin") {
       const movie = this.state.bowl_movies.find((row) =>
         row.id === args.p_bowl_movie_id && row.added_by === this.state.currentUser.id &&

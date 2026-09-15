@@ -131,6 +131,7 @@ vi.mock("../../components/WatchHistoryEntryModal", () => ({
   ),
 }));
 
+import { MemoryRouter } from "react-router-dom";
 import WatchListPage from "../WatchListPage";
 
 describe("WatchListPage", () => {
@@ -194,7 +195,11 @@ describe("WatchListPage", () => {
   });
 
   it("loads personal watch events and shows duplicates from bowls and manual entries", async () => {
-    render(<WatchListPage />);
+    render(
+    <MemoryRouter>
+      <WatchListPage />
+    </MemoryRouter>
+  );
 
     await waitFor(() => {
       expect(screen.getByText("Watch History")).toBeInTheDocument();
@@ -233,7 +238,11 @@ describe("WatchListPage", () => {
       },
     ];
 
-    render(<WatchListPage />);
+    render(
+    <MemoryRouter>
+      <WatchListPage />
+    </MemoryRouter>
+  );
 
     const yearSelect = await screen.findByLabelText(/year watched/i);
     expect(yearSelect).toHaveValue("2026");
@@ -282,7 +291,11 @@ describe("WatchListPage", () => {
       },
     ];
 
-    render(<WatchListPage />);
+    render(
+    <MemoryRouter>
+      <WatchListPage />
+    </MemoryRouter>
+  );
 
     await screen.findByText("March First");
 
@@ -298,7 +311,11 @@ describe("WatchListPage", () => {
   it("shows an empty state when no watched movies are available", async () => {
     mocks.state.watchedRows = [];
 
-    render(<WatchListPage />);
+    render(
+    <MemoryRouter>
+      <WatchListPage />
+    </MemoryRouter>
+  );
 
     await waitFor(() => {
       expect(screen.getByText(/no watched movies yet/i)).toBeInTheDocument();
@@ -308,7 +325,11 @@ describe("WatchListPage", () => {
   });
 
   it("disables Letterboxd export while the watch list is loading", () => {
-    render(<WatchListPage />);
+    render(
+    <MemoryRouter>
+      <WatchListPage />
+    </MemoryRouter>
+  );
 
     expect(screen.getByRole("button", { name: /export all history csv/i })).toBeDisabled();
   });
@@ -347,7 +368,11 @@ describe("WatchListPage", () => {
     });
 
     try {
-      render(<WatchListPage />);
+      render(
+    <MemoryRouter>
+      <WatchListPage />
+    </MemoryRouter>
+  );
 
       await waitFor(() => {
         expect(screen.getByRole("button", { name: /export all history csv/i })).toBeEnabled();
@@ -391,7 +416,11 @@ describe("WatchListPage", () => {
   });
 
   it("opens an enriched detail modal and can start editing a TMDB watch event", async () => {
-    render(<WatchListPage />);
+    render(
+    <MemoryRouter>
+      <WatchListPage />
+    </MemoryRouter>
+  );
 
     await waitFor(() => {
       expect(screen.getByText("Owned Favorite")).toBeInTheDocument();
@@ -416,7 +445,11 @@ describe("WatchListPage", () => {
   });
 
   it("keeps manual entries distinct from bowl entries and skips TMDB enrichment for custom titles", async () => {
-    render(<WatchListPage />);
+    render(
+    <MemoryRouter>
+      <WatchListPage />
+    </MemoryRouter>
+  );
 
     await waitFor(() => {
       expect(screen.getAllByText("Shared Favorite")).toHaveLength(2);
@@ -433,7 +466,11 @@ describe("WatchListPage", () => {
   });
 
   it("creates a manual watch event without requiring a bowl", async () => {
-    render(<WatchListPage />);
+    render(
+    <MemoryRouter>
+      <WatchListPage />
+    </MemoryRouter>
+  );
 
     await screen.findByText("Owned Favorite");
     fireEvent.click(screen.getByRole("button", { name: /log a watched movie/i }));
@@ -455,7 +492,11 @@ describe("WatchListPage", () => {
   });
 
   it("updates and removes only the selected personal history event", async () => {
-    render(<WatchListPage />);
+    render(
+    <MemoryRouter>
+      <WatchListPage />
+    </MemoryRouter>
+  );
 
     await screen.findByText("Owned Favorite");
     fireEvent.click(screen.getByRole("button", { name: /owned favorite/i }));
@@ -492,7 +533,11 @@ describe("WatchListPage", () => {
   });
 
   it("updates a manual history comment without touching bowl-draw snapshots", async () => {
-    render(<WatchListPage />);
+    render(
+    <MemoryRouter>
+      <WatchListPage />
+    </MemoryRouter>
+  );
 
     await waitFor(() => {
       expect(screen.getAllByText("Shared Favorite")).toHaveLength(2);

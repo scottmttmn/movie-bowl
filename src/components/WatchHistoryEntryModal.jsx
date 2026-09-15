@@ -13,11 +13,25 @@ function normalizeDateInput(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : "";
 }
 
+// Two hours, matching the group draw's undo window. A solo draw changed no
+// bowl, so there is nothing to put back and undo is the same delete as always
+// -- what the window buys is the word: inside it this reads as undoing tonight's
+// draw, after it as editing your history.
+const SOLO_UNDO_WINDOW_MS = 2 * 60 * 60 * 1000;
+
+function isWithinSoloUndoWindow(entry, now = Date.now()) {
+  if (entry?.source_kind !== "solo_draw" || !entry?.created_at) return false;
+  const committedAt = new Date(entry.created_at).getTime();
+  if (Number.isNaN(committedAt)) return false;
+  return now - committedAt <= SOLO_UNDO_WINDOW_MS;
+}
+
 export default function WatchHistoryEntryModal({
   entry = null,
   onClose,
   onSave,
   onDelete,
+  onRemoveFromBowls = null,
   isSaving = false,
   errorMessage = "",
 }) {
@@ -29,8 +43,12 @@ export default function WatchHistoryEntryModal({
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const isEditing = Boolean(entry?.id);
-  const isBowlDrawEntry = entry?.source_kind === "bowl_draw";
-  const bowlDrawNote = isBowlDrawEntry ? normalizeMovieNote(entry?.note) : null;
+  const isSoloDrawEntry = entry?.source_kind === "solo_draw";
+  // The note came off the slip, so it says why the movie was in the bowl, not
+  // what you thought of it. Editable only where it was written by hand.
+  const isDrawnEntry = entry?.source_kind === "bowl_draw" || isSoloDrawEntry;
+  const drawnNote = isDrawnEntry ? normalizeMovieNote(entry?.note) : null;
+  const canUndoSolo = isWithinSoloUndoWindow(entry);
   const posterUrl = useMemo(
     () => (selectedMovie ? getPosterUrl(selectedMovie, "w200") : null),
     [selectedMovie]
@@ -52,7 +70,7 @@ export default function WatchHistoryEntryModal({
       title: title.trim(),
       watched_on: watchedOn,
       release_date: releaseDate || null,
-      note: isBowlDrawEntry ? entry?.note ?? null : normalizeMovieNote(note),
+      note: isDrawnEntry ? entry?.note ?? null : normalizeMovieNote(note),
     });
   };
 
@@ -149,7 +167,7 @@ export default function WatchHistoryEntryModal({
               </label>
             </div>
 
-            {isBowlDrawEntry ? (
+            {isDrawnEntry ? (
               <section
                 className="rounded-xl border border-slate-700 bg-slate-950/45 p-3"
                 aria-labelledby="bowl-draw-comment-heading"
@@ -159,15 +177,15 @@ export default function WatchHistoryEntryModal({
                     id="bowl-draw-comment-heading"
                     className="text-sm font-semibold text-slate-200"
                   >
-                    Comment from bowl draw
+                    {isSoloDrawEntry ? "Comment from the bowl" : "Comment from bowl draw"}
                   </h3>
                   <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-xs font-semibold text-slate-300">
                     Read only
                   </span>
                 </div>
-                {bowlDrawNote ? (
+                {drawnNote ? (
                   <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-200">
-                    {bowlDrawNote}
+                    {drawnNote}
                   </p>
                 ) : (
                   <p className="mt-3 text-sm italic text-slate-400">
@@ -220,21 +238,33 @@ export default function WatchHistoryEntryModal({
                     onClick={() => onDelete?.(entry)}
                     disabled={isSaving}
                   >
-                    Remove entry
+                    {canUndoSolo ? "Undo draw" : "Remove entry"}
                   </button>
                 </div>
               </div>
             ) : (
               <div className="flex flex-col-reverse gap-3 sm:flex-row sm:items-center sm:justify-between">
                 {isEditing ? (
-                  <button
-                    type="button"
-                    className="btn btn-ghost px-3 py-2 text-sm text-rose-300 hover:text-rose-200"
-                    onClick={() => setConfirmingDelete(true)}
-                    disabled={isSaving}
-                  >
-                    Remove from history
-                  </button>
+                  <div className="flex flex-wrap items-center gap-2">
+                    <button
+                      type="button"
+                      className="btn btn-ghost px-3 py-2 text-sm text-rose-300 hover:text-rose-200"
+                      onClick={() => setConfirmingDelete(true)}
+                      disabled={isSaving}
+                    >
+                      {canUndoSolo ? "Undo draw" : "Remove from history"}
+                    </button>
+                    {onRemoveFromBowls && (
+                      <button
+                        type="button"
+                        className="btn btn-ghost px-3 py-2 text-sm"
+                        onClick={() => onRemoveFromBowls(entry)}
+                        disabled={isSaving}
+                      >
+                        Remove from my bowls…
+                      </button>
+                    )}
+                  </div>
                 ) : (
                   <span />
                 )}
