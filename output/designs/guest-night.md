@@ -58,7 +58,10 @@ many bowls, writing *no* `bowl_draw_events` row. Guest night is many people
 across many bowls, writing one `bowl_draw_events` row and extra
 `user_watch_events` rows. Both need the same missing primitive: resolving one
 eligible pool that spans more than one bowl. Whichever ships first should build
-that primitive so the second one inherits it.
+that primitive so the second one inherits it — and solo draw has since taken
+that job, because pooling across every bowl you belong to is now its default
+scope rather than a later phase. Guest night should inherit the resolver rather
+than rebuild it.
 
 ## Three Features, Not One
 

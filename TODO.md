@@ -131,12 +131,18 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   double-counting and making sibling retirement visible. Analysed under
   "Edge Case: Somebody Else Already Added It" in
   `output/designs/pinned-movie.md`; needs its own design before any code.
-- Solo draw: draw privately from only your own titles, in one bowl or pooled
-  across all of them. The cheap version is "solo pick" — choose from your own
-  titles and write nothing to the bowl — because the shipped Watch List removal
-  offer already covers the aftermath of watching alone, leaving only the picking
-  as new. That version needs no migration, no RPC, and no decision about what
-  other members see. See `output/designs/solo-draw.md`.
+- Solo draw: pick privately from only your own titles, pooled across every bowl
+  you belong to by default and narrowable to a subset. It ships as a solo
+  *pick* — it selects, shows you one title, and writes nothing to any bowl —
+  because pooling makes every "remove it from the group's pool" option worse
+  (a withdrawal would fire into bowls that had no part in the evening) and the
+  shipped Watch List removal offer already covers the aftermath of watching
+  alone, cross-bowl, leaving only the picking as new. No migration, no RPC, no
+  draw-permission or visibility decision. It also owes `guest-night.md` the
+  cross-bowl pool primitive, which under RLS is one `bowl_movies` select.
+  Open before code: duplicate titles across bowls, what a per-bowl pin means in
+  a pooled pick, and whether the scope selection is remembered. Plan, not
+  implementation: `output/designs/solo-draw.md`.
 - Guest night: make sharing episodic instead of persistent. A visiting friend's
   titles join one evening's draw, the movie lands in both watch histories but
   only the host bowl's strip, and nothing permanent is created. Three separable
