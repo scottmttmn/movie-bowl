@@ -175,6 +175,13 @@ links enabled, open the installed app without promising a populated search
 field. With them, expect the title itself, while remembering this is confirmed
 for one service — the others need the same check and may differ.
 
+Theater mode's auto-start takes the same path without a press: when the pre-roll
+ends, the page opens the title link as a new window and `onCreateWindow` hands
+it to the provider. Verified September 14, 2026 on the same onn box with Max:
+the app opened on the title, Back returned to the reveal without relaunching
+(after three presses, through Max's own back stack), and a service whose app
+was not installed showed the error line instead.
+
 The drawn-result snapshot is kept in WebView session storage for up to 30 minutes
 after a provider action. It survives an app handoff and a renderer reload, but is
 cleared when the viewer backs out of the result, changes bowls, or starts another
