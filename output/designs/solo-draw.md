@@ -1,11 +1,12 @@
 # Solo Draw
 
-Status: plan, not implementation. Nothing here exists in code. Two things are
-settled: the pool spans **every bowl you belong to by default**, narrowable to a
-subset, and the draw **ends in your watch list** — it records the watch and then
-offers to pull the title out of the bowls holding it, exactly as a manual Watch
-List entry does today. What remains open is listed under "Still Open" and should
-be answered before the build starts.
+Status: plan, not implementation. Nothing here exists in code. Product review
+settled the draw lifecycle: revealing a solo draw commits it to personal history,
+with no acceptance or redraw controls on the result. Bowl copies remain available.
+Optional removal lives in personal history. Solo undo is available there for two
+hours; ordinary history deletion remains available afterward. Neither reverses a
+separate bowl removal. The pool spans every bowl you belong to by default and can
+be narrowed to a subset. Persistence work is listed under "Remaining Technical Design".
 
 ## Product Idea
 
@@ -18,9 +19,10 @@ narrow it — to one bowl, or to a few — when the context calls for it.
 
 The draw itself is still a draw. The point is not to browse and pick; it is to
 hand the choice to the bowl on a night when nobody else is in the room. And it
-finishes the way watching alone already finishes in this app: the title lands in
-your watch list, and you are offered the chance to take it out of the bowls that
-are still holding it.
+commits the choice when the movie is revealed, as the existing draw does. The
+title lands in your watch list and the result stays focused on watching it.
+Deciding whether you still want to suggest it to each group is a separate action
+available from personal history.
 
 ## What It Writes, and What It Does Not
 
@@ -36,10 +38,11 @@ participant. A solo draw writes the last of those and skips the first two:
 - **No `drawn_at` stamp.** The title is not marked as drawn out from under the
   other members.
 
-Then it offers the removal, and *that* is the only thing that can change what
-another member sees. It is an offer, not a consequence — the same offer, doing
-the same hard delete of your own undrawn slips, that the Watch List already
-makes after a manual entry.
+The reveal does not open a removal prompt. From the solo entry in personal
+history, "Remove from my bowls…" opens the existing bowl-selection dialog.
+Only that separate, explicit removal can change what another member sees.
+It uses the same deletion of your own undrawn slips that the Watch List already
+offers after a manual entry. The manual-entry flow keeps its immediate offer.
 
 That shape is what keeps pooling honest. A draw that stamped `drawn_at` across
 several bowls would make titles vanish from bowls whose members had no part in
@@ -55,13 +58,13 @@ It also settles most of what the earlier draft left open:
   group's turn, and no turn is taken. What the removal offer does touch is
   already governed: `bowl_movies_delete_owner_or_own_undrawn` permits deleting
   your own undrawn slips, which is precisely the set the offer acts on.
-- **Is it reversible?** Yes, and the undo already exists.
-  `delete_user_watch_event` removes the history row, and the Watch List already
-  wires it up with no time limit — unlike the group draw's two-hour return
-  window, which is short because it also puts a title back in a shared pool.
-  One asymmetry to state plainly: deleting the history row does not undo a
-  removal you accepted. Those are two decisions and only the second one reached
-  a bowl.
+- **Is it reversible?** Solo undo is available from personal history for two
+  hours after the draw commits, matching the group draw's undo window. It removes
+  the solo history entry; there is no automatic bowl mutation to reverse.
+  A separate "Remove from my bowls…" action is not part of undo: copies removed
+  that way stay removed. Explain this when removing them. After two hours, the
+  undo action expires, but ordinary history deletion remains available without a
+  time limit. Do not call history deletion "undo" or "return to bowl".
 - **What is the visibility rule?** Nothing new. The watch event is private by
   RLS; the removal is the same untraced shrink the Watch List offer already
   causes, which `TODO.md` already carries as an open complaint. If that is ever
@@ -69,23 +72,22 @@ It also settles most of what the earlier draft left open:
   same mechanism rather than growing a second one.
 - **What does the bowl's draw method mean here?** Nothing, and now for two
   reasons. A solo pool has a single contributor, so person-first, title-first and
-  rotation all collapse to a uniform pick. Pooled, the bowls in scope may also
-  disagree about their method, and there is no sensible way to reconcile three
-  owners' choices into one pick. The setting that would still matter is
-  within-person title weights, recorded in `bowl-draw-methods.md`; solo draw and
-  those weights are the same selection step.
+  rotation have no contributor choice to make. Pooled bowls may also disagree
+  about their method. Solo selection instead follows the pin rule below and
+  chooses uniformly among distinct eligible titles in the resulting pool.
+  Within-person title weights remain a separate future idea.
 
-## The Ending Already Shipped
+## Reuse the Manual Entry Operations, With Different Timing
 
-The whole sequence after the pick exists, works cross-bowl, and is reusable
-almost as-is. `handleSaveEntry` in `src/screens/WatchListPage.jsx` does exactly
-what a solo draw needs to do, in this order:
+The manual entry operations exist and work cross-bowl, but their timing differs
+from the agreed solo flow. `handleSaveEntry` in `src/screens/WatchListPage.jsx`
+currently performs this sequence:
 
 1. `create_manual_watch_event` with the full snapshot — `p_title`,
    `p_watched_on`, `p_tmdb_id`, `p_poster_path`, `p_release_date`, `p_runtime`,
-   `p_genres`, `p_overview`, `p_note`. A drawn `bowl_movies` row carries every
-   one of those fields already, so a solo draw fills the call from the row it
-   drew rather than from a form.
+   `p_genres`, `p_overview`, `p_note`. A selected `bowl_movies` row supplies the
+   title snapshot; the watch date must be assigned at commitment rather than
+   read from the undrawn row.
 2. Reload the list.
 3. `findOwnUndrawnBowlMovies(tmdbId)` — which queries `bowl_movies` for
    `added_by = <you>` and `drawn_at is null` with **no bowl filter at all**, then
@@ -95,10 +97,21 @@ what a solo draw needs to do, in this order:
 
 `RemoveFromBowlsModal` is purely presentational — `title`, `matches`, `onKeep`,
 `onRemove`, `isRemoving`, `errorMessage`, with each match a `{ id, bowlId,
-bowlName }` — so it drops into a draw result screen untouched. Steps 1, 3 and 4
-are the reusable seam; they should be lifted out of the screen into a shared
-hook or `lib/` module, since they are Supabase writes and state rather than pure
-logic, and the layer rules put those out of `utils/`.
+bowlName }`. Reuse it from the solo history entry, not the reveal. Extract the
+snapshot handling, lookup and removal operations into shared hooks/service
+helpers; hooks own React state and data orchestration, and pure selection stays
+in `utils/`. Keep saving and offering removal independently callable: manual
+entry still saves then offers immediately, while solo draw saves at reveal and
+looks up current bowl copies only when the history action is opened.
+
+The history action must work after reload and on another device, including for
+custom titles. A reveal's in-memory row id is not sufficient. The persistence
+plan must retain the origin information needed for that later lookup, alongside
+an identifiable solo record and its actual commit time. The existing manual
+write is a reference for snapshot handling, not a settled persistence contract.
+The earlier "no migration, no RPC" promise is withdrawn until this is designed.
+Any new undo operation must enforce ownership and the two-hour limit on the
+server, measured from commit time rather than an editable watched date.
 
 The comment above `findOwnUndrawnBowlMovies` explains why the offer is scoped to
 your own rows, and it applies here unchanged: RLS would let a bowl owner delete
@@ -112,12 +125,12 @@ through only when it is positive. Custom titles carry a **negative synthetic
 `tmdb_id`**, so a manual entry for a custom title never gets a removal offer at
 all — the slip stays in the bowl with nothing on screen to explain it.
 
-A solo draw does not have that limitation, because it knows the exact
-`bowl_movies.id` it drew. So the offer should be assembled from both: the drawn
-row by id, plus the `tmdb_id` lookup when the id is positive, which picks up the
-same title sitting in your other bowls. Custom titles then get an offer covering
-the row that was actually drawn, which is more than the Watch List can manage
-today and closes the gap for this path.
+A solo draw knows the exact `bowl_movies.id` it drew. Retain that identity for
+the history action. On opening the removal offer, re-query that row under current
+access, ownership and undrawn conditions, plus the `tmdb_id` lookup when the id
+is positive, which picks up the same title sitting in your other bowls. Merge
+matches by row id so the source copy is not offered twice. Custom titles then
+get an offer covering the row that was actually drawn, if it is still eligible.
 
 ## The Cross-Bowl Pool Primitive
 
@@ -189,85 +202,125 @@ default is overridden before the person sees anything:
 
 The selector itself is a multi-select of your bowls with a count of your undrawn
 titles beside each, so the trade between breadth and lookup cost is visible while
-you make it. Whether the last selection is remembered, and where, is open below.
+you make it. For the initial release, keep scope changes only while the solo
+screen is mounted. Opening a new solo session uses the entry-point default;
+there is no saved scope preference. Always display the active scope.
 
-## Still Open
+### Empty States
 
-These are genuinely open and want answers before code.
+Disable drawing when there are no eligible titles and explain why:
 
-- **When does the watch get written?** This is now the central question, because
-  the draw is no longer inert. Writing at reveal is the most literal reading of
-  "the draw adds it to your watch list," and it matches the group draw, which
-  also writes `user_watch_events` the moment it draws. But it makes drawing again
-  cost something: every rejected pick leaves a watch you did not watch and have
-  to go delete. **Leaning: the reveal writes nothing, and the result card carries
-  the commitment** — one control that records the watch and opens the removal
-  offer, beside a "draw again" that stays free. That keeps the write true at the
-  moment it happens and still delivers the whole flow in one tap. The group draw
-  can afford the other answer because spending the turn is the point, and because
-  returning within two hours deletes the history rows it generated; a solo draw
-  has no equivalent pressure to commit. Worth deciding deliberately rather than
-  inheriting.
-- **Does it need its own `source_kind`?** `user_watch_events.source_kind` checks
-  against `('bowl_draw', 'manual')`. Writing through `create_manual_watch_event`
-  means `'manual'`, which needs no migration and, usefully, leaves the entry note
-  editable — note editing is gated on `source_kind === "manual"` in both the
-  screen and `update_user_watch_event`. The cost is that the watch list cannot
-  tell you the bowl chose it. A `'solo_draw'` value would need a migration
-  altering the check constraint plus a pass over everything that branches on that
-  column, to buy a label with no behavior attached. Leaning toward `'manual'`,
-  with one honest consequence recorded: rows written as `'manual'` stay
-  indistinguishable forever if a `'solo_draw'` value is ever added later.
-- **Duplicates across bowls.** The same film in three bowls is three
-  `bowl_movies` rows, and an undeduped pooled draw would weight it three times.
-  Deduping by `tmdb_id` handles every TMDB title; custom titles carry per-row
-  negative synthetic ids that cannot be matched across bowls, and normalized-title
-  matching is the only fallback available. Note this is a *selection* question
-  only — the removal offer handles siblings correctly either way, because it
-  looks the title up across bowls rather than acting on the drawn row alone.
-- **Pins.** `bowl_movies_one_pin_per_contributor` allows one pin per contributor
-  *per bowl*, so a pooled scope can contain several of your pins. A pin is a
-  promise about your next turn in that bowl, which a solo draw does not consume,
-  so the honest reading is that pins carry no selection authority here — but a
-  pooled draw that quietly ignored several pins would still surprise someone who
-  set them. Leaning: ignore pins in selection and say so once in the surface's own
-  copy. Needs a decision, not a lean.
-- **Remembering the scope.** A remembered selection is convenient and also the
-  kind of state that narrows a draw with nothing on screen explaining it — the
-  failure mode `deviceDrawSettings.js` calls out for device overrides. If it is
-  remembered, it belongs in device storage wrapped in try/catch and it must be
-  shown, not merely applied.
-- **The empty state.** Pooled, "you have no undrawn titles anywhere" is a real
-  and fairly bleak state, and it is reached differently from "your filters
-  excluded everything" and from "you narrowed to one bowl and it is empty." Each
-  wants its own sentence, in the style the draw already uses when a filter empties
-  the pool.
+- No bowls selected: "Choose at least one bowl."
+- No own undrawn titles across accessible bowls: "You have no movies to draw.
+  Add a movie to a bowl to get started."
+- Selected bowls have no own undrawn titles: "You have no movies in these bowls.
+  Choose another bowl or add a movie."
+- Filters exclude the pool: reuse the existing filter-specific explanation and
+  offer access to the filters.
 
+A failed read is an error with Retry, not an empty pool. Large pools retain the
+manual lookup affordance and loading feedback described above.
+
+## Duplicate Titles
+
+Each TMDB movie gets one chance in the final solo selection, however many bowls
+hold it. Group eligible rows by positive integer `tmdb_id` after scope and
+filters have been applied, then apply pin priority and choose uniformly among
+the remaining groups.
+Custom titles remain separate by bowl-movie row id. Do not match by normalized
+title: that could combine different films and requires ambiguous matching rules.
+
+Choose a stable representative from each group (lowest row id) for its snapshot
+and source-row identity. Keep that row's fields together, including its note;
+do not merge notes or metadata from different copies. This is selection-only:
+no rows are combined or changed in the bowls. The later removal action still
+looks up all currently eligible own copies, independently of selection scope.
+Per-bowl scope counts remain counts of slips in that bowl, not unique titles
+across the entire pool.
+
+## Pins
+
+Apply the selected bowl scope and all draw filters, including streaming priority,
+before considering pins. A distinct title is pinned for solo selection when any
+of its eligible copies is pinned. If any eligible titles are pinned, choose
+uniformly among those titles; otherwise choose uniformly among all eligible
+titles. Pinning a TMDB movie in several bowls does not multiply its chances.
+Pins outside the selected scope or on copies excluded by filters have no effect.
+
+Drawing solo leaves bowl copies and their pins intact. Separately removing a
+copy removes that copy's pin with it. Explain the rule as: "Your pinned movies
+go first when they match your filters."
+
+Repeat picks are intentional for the initial release. Because copies and pins
+remain, a subsequent solo draw can select the same movie again. With one
+eligible pinned title it will select that title again. Do not automatically
+clear pins or exclude recently watched titles; those would be separate product
+changes.
+
+## Remaining Technical Design
+
+The product decisions above are settled. Resolve the persistence contract before
+implementation.
+
+- **How is a solo draw persisted?** Commit at reveal and the two-hour undo are
+  settled. Specify how to distinguish a solo entry from a manual entry, retain
+  its commit time and source-row identity, and enforce undo ownership and expiry.
+  Decide whether this uses a new `source_kind` or other explicit metadata; do not
+  write indistinguishable manual rows and expect to recover their origin later.
+  Include retry handling so an uncertain save cannot create duplicate entries.
+  Review existing source-kind branches, including note editing, display and
+  export. The schema/RPC details need design before implementation.
 ## Build Plan
 
-Three steps. The first is the whole feature; the others are polish that should
-wait for the first to be lived with.
+1. **Settle persistence.** Specify solo identity, commit time, durable source
+   information, retry handling and the server-enforced undo path.
+2. **Ship a complete pooled solo flow.** Reuse the filtered-pool logic with an
+   injected `randomFn`, and put cross-bowl reads and state in a hook. Add scope
+   selection and the draw action. Persist successfully before presenting the
+   committed result; show a recoverable error if saving fails. The reveal has
+   no acceptance, redraw, undo or removal controls. Personal history supplies
+   the two-hour undo, ordinary deletion, and optional removal action. Preserve
+   the manual entry's immediate removal offer. Include distinct empty states,
+   loading/error states, scope counts and the existing large-pool manual lookup
+   affordance in this first release, rather than deferring them as polish.
+3. **Later, optional enhancements.** Consider an opt-in setting, "Offer to remove
+   movies from my bowls after a solo draw," which opens the removal prompt after
+   the committed reveal. Default remains off. This setting never adds acceptance
+   or free redraws and does not change undo semantics. Within-person title
+   weights remain a separate later decision.
 
-1. **Solo draw, pooled.** Lift the watch-event write and the removal offer out of
-   `WatchListPage` into a shared hook or `lib/` module, taking a title snapshot
-   plus the bowl-movie ids to offer, so both surfaces call the same path. Add a
-   pure `utils/` selector over the filtered cross-bowl pool with an injected
-   `randomFn`. Add a hook holding the single `bowl_movies` read, the bowl-name
-   join and the scope selection. Add a screen: scope selector, draw action,
-   result card, the commitment control, then the existing
-   `RemoveFromBowlsModal`. No migration, no RPC, no new table, no change to any
-   bowl's draw behavior.
-2. **Cost and readout polish.** The manual "check filter matches" path, the
-   per-bowl undrawn counts in the selector, and the empty states above.
-3. **Only then**, decide whether within-person title weights belong here — see
-   `bowl-draw-methods.md`. Solo draw and those weights are the same selection
-   step, and building weights first would have meant building them blind.
+Guest night can reuse the pure pool/filter logic. Its cross-user data access
+still needs its own authorization and server-side resolution as described in
+`guest-night.md`; the solo client query does not provide that capability.
 
-Guest night inherits the pool primitive from step 1 and should not rebuild it.
+### Acceptance criteria
 
-Because step 1 touches the Watch List's save path and `MovieSearch`-adjacent
-snapshot handling, it wants matching tests on the extracted module rather than
-only on the new screen — shared code gains behavior only with tests that cover
+- Revealing commits exactly one private solo history entry and changes no bowl.
+- Eligible copies of the same positive TMDB id have one combined chance; custom
+  rows remain distinct even when their titles match. Scope and filters apply
+  before grouping, and the chosen representative is stable.
+- Eligible pinned titles take priority after all filters; multiple pinned
+  titles have equal chances, duplicate pins add no weight, and solo draws do
+  not clear pins. Repeated picks, including the sole eligible pinned title,
+  remain possible without an automatic recently-watched exclusion.
+- Opening a new solo session uses its entry-point scope; scope changes are not
+  saved across sessions.
+- Closing the result does not undo the draw; the result has no acceptance or
+  redraw controls and does not open the removal prompt by default.
+- Personal history offers solo undo through two hours after commit. The server
+  rejects later undo; ordinary history deletion remains available afterward.
+- A separate removal affects only selected, currently accessible, own undrawn
+  copies. Undo or deletion of the watch entry never restores those copies, and
+  the removal dialog explains that consequence.
+- Removal lookup works after reload, including the source row for custom titles,
+  and safely handles copies that have since been drawn, removed or lost access.
+- Empty scopes, fully filtered pools, failed reads/writes and large lookup sets
+  have usable states in the initial release.
+- Existing manual entry and group draw flows retain their behavior.
+
+Because the implementation touches the Watch List's save path and
+`MovieSearch`-adjacent snapshot handling, it wants matching tests on the
+extracted module rather than only on the new screen — shared code gains behavior only with tests that cover
 both callers, and the manual entry flow is one of the flows that must keep
 working.
 
@@ -286,5 +339,6 @@ path (no draw event means undo needs its own marker on `bowl_movies`), a
 per-candidate permission check, and — pooled — a story for titles disappearing
 from bowls that were not part of the evening.
 
-The offer-based ending gets the same outcome for the person doing it, needs none
-of that, and leaves the choice with them.
+Keeping copies in the bowls leaves withdrawal as a deliberate later choice.
+It avoids automatic shared-pool mutations, but the committed solo record and its
+bounded undo still require their own persistence design.

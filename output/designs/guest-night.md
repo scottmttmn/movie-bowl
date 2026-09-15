@@ -57,11 +57,11 @@ Guest night is also the mirror of `solo-draw.md`. Solo draw is one person across
 many bowls, writing *no* `bowl_draw_events` row. Guest night is many people
 across many bowls, writing one `bowl_draw_events` row and extra
 `user_watch_events` rows. Both need the same missing primitive: resolving one
-eligible pool that spans more than one bowl. Whichever ships first should build
-that primitive so the second one inherits it — and solo draw has since taken
-that job, because pooling across every bowl you belong to is now its default
-scope rather than a later phase. Guest night should inherit the resolver rather
-than rebuild it.
+eligible pool that spans more than one bowl. Solo draw plans to build the pure
+pool/filter logic first, with all of the user's bowls as its default scope.
+Guest night should reuse those pieces where applicable. Its cross-user access
+still requires the authorized server-side resolution described in phase 3;
+solo draw's client-side read of the caller's own rows cannot replace that.
 
 ## Three Features, Not One
 

@@ -131,21 +131,20 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   double-counting and making sibling retirement visible. Analysed under
   "Edge Case: Somebody Else Already Added It" in
   `output/designs/pinned-movie.md`; needs its own design before any code.
-- Solo draw: draw privately from only your own titles, pooled across every bowl
-  you belong to by default and narrowable to a subset. It ends the way watching
-  alone already ends here — the drawn title is recorded in your watch list
-  through `create_manual_watch_event`, and then the existing
-  `RemoveFromBowlsModal` offers to pull it out of the bowls still holding it.
-  No `bowl_draw_events` row and no `drawn_at` stamp, so nothing leaves a bowl
-  except by that explicit offer, which is what keeps a pooled draw from making
-  titles vanish out of bowls that had no part in the evening. No migration and
-  no RPC: RLS already permits the whole cross-bowl read, and the write and the
-  offer are the Watch List's own save path lifted into a shared module. It also
-  owes `guest-night.md` the cross-bowl pool primitive. Open before code: whether
-  the watch is written at reveal or on an explicit commitment (leaning
-  commitment, so drawing again stays free), whether it needs its own
-  `source_kind`, duplicate titles across bowls, and what a per-bowl pin means in
-  a pooled draw. Plan, not implementation: `output/designs/solo-draw.md`.
+- Solo draw: draw privately from your own titles across all your bowls, with
+  scope narrowing. Reveal commits the pick to personal history; no acceptance
+  or redraw controls. Bowl copies stay available. Personal history offers a
+  two-hour solo undo and a separate optional "Remove from my bowls…" action.
+  Undo deletes the solo entry and never restores separately removed copies;
+  ordinary history deletion remains available after the undo window. Preserve
+  the manual entry's immediate removal offer. A later opt-in setting may offer
+  removal after solo reveal, off by default. Each TMDB movie gets one chance;
+  custom titles stay separate without name matching. Eligible pinned titles go
+  first after all filters, sampled uniformly without clearing their pins.
+  Repeat picks remain possible by design. Before code: persistence
+  for solo identity, commit time and source-row lookup.
+  Empty states and large-pool lookup controls belong in the initial release.
+  Plan, not implementation: `output/designs/solo-draw.md`.
 - Guest night: make sharing episodic instead of persistent. A visiting friend's
   titles join one evening's draw, the movie lands in both watch histories but
   only the host bowl's strip, and nothing permanent is created. Three separable
