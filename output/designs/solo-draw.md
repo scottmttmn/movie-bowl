@@ -9,7 +9,9 @@ bowl change to reverse, undo and deletion do the same thing. Neither reverses a
 separate bowl removal. A later opt-in setting removes your copies automatically
 at reveal, and only then does undo become a real, server-enforced operation that
 restores them. The pool spans every bowl you belong to by default and can be
-narrowed to a subset. Persistence work is listed under "Remaining Technical Design".
+narrowed to a subset. It lives at its own route, `/solo-draw`, uses the same
+filter settings as the dashboard, and keeps the drawn slip's note read-only. The
+persistence contract is under "Persistence Contract".
 
 ## Product Idea
 
@@ -92,9 +94,8 @@ currently performs this sequence:
 
 1. `create_manual_watch_event` with the full snapshot — `p_title`,
    `p_watched_on`, `p_tmdb_id`, `p_poster_path`, `p_release_date`, `p_runtime`,
-   `p_genres`, `p_overview`, `p_note`. A selected `bowl_movies` row supplies the
-   title snapshot; the watch date must be assigned at commitment rather than
-   read from the undrawn row.
+   `p_genres`, `p_overview`, `p_note`. Solo draw does not reuse this write: its
+   snapshot comes from the drawn row on the server (see "Persistence Contract").
 2. Reload the list.
 3. `findOwnUndrawnBowlMovies(tmdbId)` — which queries `bowl_movies` for
    `added_by = <you>` and `drawn_at is null` with **no bowl filter at all**, then
@@ -105,19 +106,16 @@ currently performs this sequence:
 `RemoveFromBowlsModal` is purely presentational — `title`, `matches`, `onKeep`,
 `onRemove`, `isRemoving`, `errorMessage`, with each match a `{ id, bowlId,
 bowlName }`. Reuse it from the solo history entry, not the reveal. Extract the
-snapshot handling, lookup and removal operations into shared hooks/service
+lookup and removal operations into shared hooks/service
 helpers; hooks own React state and data orchestration, and pure selection stays
 in `utils/`. Keep saving and offering removal independently callable: manual
 entry still saves then offers immediately, while solo draw saves at reveal and
 looks up current bowl copies only when the history action is opened.
 
 The history action must work after reload and on another device, including for
-custom titles. A reveal's in-memory row id is not sufficient. The persistence
-plan must retain the origin information needed for that later lookup, alongside
-an identifiable solo record and its actual commit time. The existing manual
-write is a reference for snapshot handling, not a settled persistence contract.
-The earlier "no migration, no RPC" promise is withdrawn until this is designed.
-The initial release needs no undo operation beyond the existing
+custom titles. A reveal's in-memory row id is not sufficient, so the solo entry
+records its source row; see "Persistence Contract". This needs one migration and
+one new RPC. The initial release needs no undo operation beyond the existing
 `delete_user_watch_event`; the two-hour label is measured from commit time, not
 the editable watched date.
 
@@ -170,9 +168,14 @@ watch-event write, and the removal offer.
 
 ## Filters, and What They Cost
 
-Your own account draw settings apply — rating, genre, runtime, streaming
-priority — because they are already the answer to "what am I willing to watch
-tonight," and they need no new plumbing. `getResolvedDrawPool` applies rating,
+The solo screen uses exactly the filters the dashboard uses — rating, genre,
+runtime, streaming priority — because they are already the answer to "what am I
+willing to watch tonight." That means the same effective settings, not the bare
+account defaults: `useDeviceDrawSettings(userId, accountSettings,
+WEB_SURFACE_DEFAULTS)` merges this device's overrides over the account, with
+streaming services from `useUserStreamingServices`, and adjusting a filter on the
+solo screen writes the same device override the dashboard would. A filter changed
+on one surface is changed on the other. `getResolvedDrawPool` applies rating,
 genre and runtime in that order and then streaming priority, and it is
 indifferent to which bowl a row came from.
 
@@ -199,12 +202,17 @@ are the reusable parts.
 
 ## Scope and Narrowing
 
-Default is every bowl you belong to. The entry point decides whether that
-default is overridden before the person sees anything:
+Solo draw is its own route, `/solo-draw`, lazily imported and wrapped in
+`RequireAuth` like the other screens. Default is every bowl you belong to. The
+entry point decides whether that default is overridden before the person sees
+anything:
 
-- From the personal surface (the Watch List, or wherever the nav puts it), the
-  scope starts as all bowls.
-- From a bowl's own dashboard, the scope starts as that bowl, because arriving
+- From Watch History, the link is plain `/solo-draw` and the scope starts as all
+  bowls.
+- From a bowl's own dashboard, the link is `/solo-draw?bowl=<id>` and the scope
+  starts as that bowl. Like the invitations hub's `?bowl=`, it is a hint honoured
+  only while the bowl is still among yours; otherwise the scope falls back to all
+  bowls. Arriving
   from inside a bowl is a statement about context. It is a starting point, not a
   lock — the selector is right there and "all bowls" is one tap away.
 
@@ -265,23 +273,69 @@ eligible pinned title it will select that title again. Do not automatically
 clear pins or exclude recently watched titles; those would be separate product
 changes.
 
-## Remaining Technical Design
+## Persistence Contract
 
-The product decisions above are settled. Resolve the persistence contract before
-implementation.
+One migration, one RPC, no new table. A solo draw is a `user_watch_events` row
+the server builds from the drawn slip.
 
-- **How is a solo draw persisted?** Commit at reveal is settled. Specify how to
-  distinguish a solo entry from a manual entry, retain its commit time and
-  source-row identity. Decide whether this uses a new `source_kind` or other
-  explicit metadata; do not write indistinguishable manual rows and expect to
-  recover their origin later. Include retry handling so an uncertain save cannot
-  create duplicate entries. Review existing source-kind branches, including note
-  editing, display and export. The schema/RPC details need design before
-  implementation.
-- **Leave room for automatic removal.** The initial release removes nothing, but
-  the contract should have an obvious place to associate a solo entry with the
-  bowl copies it removed, so the setting below can add a restoring undo without
-  reshaping the record. Do not build the restore path yet.
+**Schema.** On `user_watch_events`:
+
+- `source_kind` gains `'solo_draw'` in its check constraint. Existing
+  `source_kind = 'bowl_draw'` branches (return cleanup, the entry modal's
+  draw-only fields) do not match it, which is the intent.
+- `source_bowl_movie_id uuid references bowl_movies(id) on delete set null` and
+  `source_bowl_id uuid references bowls(id) on delete set null` — the slip that
+  was drawn and its bowl. They power the history removal lookup for custom
+  titles. Null once the slip or bowl is gone, which is the same answer the lookup
+  would reach anyway.
+- `request_id uuid`, with `unique (user_id, request_id)`. The client generates it
+  once per draw and reuses it on retry.
+- A check that `request_id` is present exactly when `source_kind = 'solo_draw'`,
+  and that source columns are null on other kinds, so a solo row cannot be
+  indistinguishable from a manual one.
+- `created_at` is the commit time. No RPC writes it after insert, so it is the
+  undo label's clock; `watched_on` stays editable and is never used for that.
+
+**`record_solo_draw(p_bowl_movie_id uuid, p_watched_timezone text, p_request_id
+uuid) returns user_watch_events`**, security definer, granted to
+`authenticated` only:
+
+1. Require `auth.uid()`, a non-null request id and a recognised timezone (same
+   check as `_record_bowl_movie_draw`).
+2. If a row already exists for `(auth.uid(), p_request_id)`, return it when its
+   `source_bowl_movie_id` matches and raise otherwise. A retry after a timeout
+   therefore returns the original entry instead of writing a second one.
+3. Select the slip where `added_by = auth.uid()` and `drawn_at is null`, and
+   require current owner or member access on its bowl via `is_bowl_owner` /
+   `is_bowl_member`. Otherwise raise the generic "no longer available" error, so
+   a stale id and someone else's id are indistinguishable.
+4. Insert the entry with the snapshot copied from the slip — title, TMDB id,
+   poster, release date, runtime, genres, overview, note — plus the bowl name,
+   both source ids, the request id, and `watched_on` computed from `now()` in the
+   given timezone. A unique violation on the request id (a concurrent retry)
+   returns the winning row, as in step 2.
+5. Change nothing on `bowl_movies`, pins included, and write no
+   `bowl_draw_events` row.
+
+The client never supplies the snapshot, so a solo entry always describes a
+title that really was one of your undrawn slips.
+
+**Existing operations.** Deleting a solo entry, including the two-hour undo
+label, is `delete_user_watch_event` unchanged. `update_user_watch_event` already
+edits notes only when `source_kind = 'manual'`, so the solo note is read-only —
+it is the slip's "why it's in the bowl" snapshot, the same as a group draw's —
+while title and watched date remain editable like any entry. Letterboxd export
+reads every entry and needs no branch. Personal history shows a solo entry's
+bowl name like a group draw's, marked as solo compactly (an icon, not a label).
+
+**Tests.** pgTAP suite for the migration: owner vs member vs former member vs
+non-member, someone else's slip, drawn slip, public-link slip, replay with the
+same and a mismatched source, the bowl left unchanged, note read-only through
+`update_user_watch_event`, and anonymous denied. Revert in `supabase/rollback/`.
+
+**Room for automatic removal.** Removed copies belong in a child table keyed by
+the solo entry's id, added with the setting below. Nothing in this contract
+needs to change for it; do not build it yet.
 
 ## Later: Remove Automatically
 
@@ -314,8 +368,8 @@ what undo has to mean, so the initial persistence should not preclude it.
 
 ## Build Plan
 
-1. **Settle persistence.** Specify solo identity, commit time, durable source
-   information and retry handling, leaving room to record removed copies later.
+1. **Persistence.** The migration, `record_solo_draw`, pgTAP suite and rollback
+   described under "Persistence Contract".
 2. **Ship a complete pooled solo flow.** Reuse the filtered-pool logic with an
    injected `randomFn`, and put cross-bowl reads and state in a hook. Add scope
    selection and the draw action. Persist successfully before presenting the

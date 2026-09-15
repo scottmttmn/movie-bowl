@@ -141,8 +141,9 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   undo become a server-enforced operation that restores them. Each TMDB movie gets one chance;
   custom titles stay separate without name matching. Eligible pinned titles go
   first after all filters, sampled uniformly without clearing their pins.
-  Repeat picks remain possible by design. Before code: persistence
-  for solo identity, commit time and source-row lookup.
+  Repeat picks remain possible by design. Own `/solo-draw` route, dashboard
+  filter settings, read-only slip note. Persistence: a `solo_draw` watch event
+  built server-side by `record_solo_draw`, with source row and retry id.
   Empty states and large-pool lookup controls belong in the initial release.
   Plan, not implementation: `output/designs/solo-draw.md`.
 - Guest night: make sharing episodic instead of persistent. A visiting friend's
