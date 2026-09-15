@@ -216,6 +216,24 @@ describe("UserSettings", () => {
     expect(mocks.navigate).toHaveBeenCalledWith(-1);
   });
 
+  it("moves a service directly to any position without dragging", () => {
+    mocks.hook.streamingServices = ["Netflix", "Hulu", "Disney+", "Max"];
+    const { rerender } = renderSettings();
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Position of Max" }), {
+      target: { value: "0" },
+    });
+    expect(mocks.hook.setStreamingServices).toHaveBeenLastCalledWith(["Max", "Netflix", "Hulu", "Disney+"]);
+    mocks.hook.streamingServices = ["Max", "Netflix", "Hulu", "Disney+"];
+    rerender(<UserSettings />);
+    expect(screen.getByRole("combobox", { name: "Position of Max" })).toHaveValue("0");
+
+    fireEvent.change(screen.getByRole("combobox", { name: "Position of Max" }), {
+      target: { value: "3" },
+    });
+    expect(mocks.hook.setStreamingServices).toHaveBeenLastCalledWith(["Netflix", "Hulu", "Disney+", "Max"]);
+  });
+
   it("summarizes each section in the header and links to it", () => {
     mocks.hook.defaultDrawSettings = {
       ...mocks.hook.defaultDrawSettings,
