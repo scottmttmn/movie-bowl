@@ -5,6 +5,7 @@ import {
   getTrailerSequence,
   loadYouTubeIframeApi,
 } from "../../lib/youtubePlayer";
+import ServiceLogo from "../../components/ServiceLogo";
 
 const ANNOUNCEMENT_MS = 4200;
 const FEATURE_CARD_MS = 3600;
@@ -15,7 +16,16 @@ const PLAYING = 1;
 // black screen.
 const MAX_COVER_MS = 4000;
 
-export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
+// onFinish is every way out; onComplete is only the feature card running its
+// course. They differ because the natural end may open the provider app, and an
+// exit never should.
+export default function TvTheaterPreroll({
+  queue,
+  featureTitle,
+  featureServiceName = null,
+  onFinish,
+  onComplete = onFinish,
+}) {
   const playerId = `tv-preroll-${useId().replace(/:/g, "")}`;
   const overlayRef = useRef(null);
   const iframeRef = useRef(null);
@@ -27,6 +37,7 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
   const refusedRef = useRef(() => {});
   const revealRef = useRef(() => {});
   const finishRef = useRef(onFinish);
+  const completeRef = useRef(onComplete);
   const coverTimerRef = useRef(null);
 
   const [isPaused, setIsPaused] = useState(false);
@@ -47,7 +58,8 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
 
   useEffect(() => {
     finishRef.current = onFinish;
-  }, [onFinish]);
+    completeRef.current = onComplete;
+  }, [onFinish, onComplete]);
 
   const coverUntilPlaying = useCallback(() => {
     setIsCovered(true);
@@ -175,7 +187,7 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
     if (phase !== "feature") return undefined;
 
     playerRef.current?.stopVideo?.();
-    const timer = window.setTimeout(() => finishRef.current(), FEATURE_CARD_MS);
+    const timer = window.setTimeout(() => completeRef.current(), FEATURE_CARD_MS);
     return () => window.clearTimeout(timer);
   }, [phase]);
 
@@ -268,6 +280,9 @@ export default function TvTheaterPreroll({ queue, featureTitle, onFinish }) {
           <p className="tv-kicker">And now</p>
           <h1>Feature Presentation</h1>
           <p className="tv-theater-feature-title">{featureTitle}</p>
+          {featureServiceName && (
+            <ServiceLogo service={featureServiceName} className="tv-theater-feature-logo" />
+          )}
         </div>
       ) : (
         <>

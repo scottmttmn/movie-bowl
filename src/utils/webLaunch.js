@@ -71,3 +71,30 @@ export function resolvePreferredLaunchTarget({ providerLinks = [], ...options })
     },
   };
 }
+
+export const AUTO_START_SURFACE = {
+  tvApp: "tv-app",
+  desktop: "desktop",
+  touch: "touch",
+};
+
+// The Google TV shell tags its user agent. Otherwise the primary pointer, not
+// the screen width, separates a desktop from a phone: a touchscreen laptop
+// still reports a fine pointer, and a wrong guess lands on the button.
+export function getAutoStartSurface({ userAgent = "", hasFinePointer = false } = {}) {
+  if (/\bMovieBowlTV\//.test(String(userAgent))) return AUTO_START_SURFACE.tvApp;
+  return hasFinePointer ? AUTO_START_SURFACE.desktop : AUTO_START_SURFACE.touch;
+}
+
+// How the end of a pre-roll opens the feature, or null when it should not. A
+// phone gets null because a web link opened by a timer, rather than a tap, stays
+// in the browser instead of reaching the installed app. A search link gets null
+// everywhere: an unattended room is worse off on a results page than on the
+// button.
+export function getAutoStartMode({ surface, launchCandidate, launchError = null } = {}) {
+  if (launchError) return null;
+  if (launchCandidate?.linkType !== "title" || !launchCandidate?.url) return null;
+  if (surface === AUTO_START_SURFACE.tvApp) return "window";
+  if (surface === AUTO_START_SURFACE.desktop) return "navigate";
+  return null;
+}

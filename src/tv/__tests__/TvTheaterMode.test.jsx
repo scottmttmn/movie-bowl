@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
   handleReaddMovie: vi.fn(),
   getTmdbMovieDetails: vi.fn(),
   drawSettings: {},
+  providerLinks: [],
 }));
 
 vi.mock("../hooks/useTvBowls", () => ({
@@ -55,11 +56,14 @@ vi.mock("../../lib/tmdbApi", () => ({
 vi.mock("../../lib/streamingProviders", () => ({
   fetchStreamingProviders: async () => ({ providers: [], region: "US", fetchedAt: null }),
 }));
-vi.mock("../../lib/providerLinks", () => ({ fetchProviderLinks: async () => ({ links: [] }) }));
+vi.mock("../../lib/providerLinks", () => ({
+  fetchProviderLinks: async () => ({ links: mocks.providerLinks }),
+}));
 
 import { clearDrawSelectionCache } from "../../utils/drawSelection";
 import { MPAA_RATING_OPTIONS } from "../../utils/movieRatings";
 import TvTonightScreen from "../screens/TvTonightScreen";
+import { readExternalReturn } from "../utils/externalReturn";
 
 const DRAWN_MOVIE = {
   id: "movie-1",
@@ -130,6 +134,7 @@ describe("TV theater mode", () => {
     mocks.handleDraw.mockReset();
     mocks.handleReaddMovie.mockReset();
     mocks.getTmdbMovieDetails.mockReset();
+    mocks.providerLinks = [];
     mocks.drawSettings = {
       prioritizeStreaming: false,
       selectedRatings: ["PG", "PG-13", "R"],
@@ -522,5 +527,95 @@ describe("TV theater mode", () => {
     expect(screen.getByText(/tonight's pick/i)).toBeInTheDocument();
     // Only the drawn movie is enriched; no preview lookups are made.
     expect(mocks.getTmdbMovieDetails).toHaveBeenCalledTimes(1);
+  });
+  describe("auto-start", () => {
+    const TV_APP_USER_AGENT =
+      "Mozilla/5.0 (Linux; Android 14) Chrome/128.0 MovieBowlTV/0.1 AndroidTV";
+    const NETFLIX_TITLE_URL = "https://www.netflix.com/title/80117401";
+    let openSpy;
+
+    function useUserAgent(userAgent) {
+      vi.spyOn(window.navigator, "userAgent", "get").mockReturnValue(userAgent);
+    }
+
+    async function playToFeatureCard() {
+      await drawWithTheaterMode();
+      await screen.findByRole("dialog", { name: /previews before arrival/i });
+      await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
+      act(() => {
+        playerOptions.events.onStateChange({ data: 0 });
+      });
+      vi.useFakeTimers();
+      act(() => {
+        playerOptions.events.onStateChange({ data: 0 });
+      });
+      expect(screen.getByRole("heading", { name: /feature presentation/i })).toBeInTheDocument();
+    }
+
+    async function finishFeatureCard() {
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3600);
+      });
+      vi.useRealTimers();
+    }
+
+    beforeEach(() => {
+      openSpy = vi.spyOn(window, "open").mockReturnValue(null);
+      mocks.providerLinks = [
+        { service: "Netflix", type: "sub", webUrl: NETFLIX_TITLE_URL },
+      ];
+    });
+
+    it("opens the provider app once the feature card runs its course", async () => {
+      useUserAgent(TV_APP_USER_AGENT);
+      await playToFeatureCard();
+
+      expect(document.querySelector(".tv-theater-feature-logo")).not.toBeNull();
+      expect(openSpy).not.toHaveBeenCalled();
+
+      await finishFeatureCard();
+
+      expect(openSpy).toHaveBeenCalledTimes(1);
+      expect(openSpy).toHaveBeenCalledWith(NETFLIX_TITLE_URL, "_blank", "noopener,noreferrer");
+      // The same bookkeeping as a press, so Back from the app finds the reveal.
+      expect(readExternalReturn("family")).toEqual(expect.objectContaining({ id: "movie-1" }));
+      expect(screen.getByRole("link", { name: /^open netflix$/i })).toBeInTheDocument();
+    });
+
+    it("does not open anything when Back ends the previews", async () => {
+      useUserAgent(TV_APP_USER_AGENT);
+      await playToFeatureCard();
+
+      fireEvent.keyDown(window, { key: "Escape" });
+      await finishFeatureCard();
+
+      expect(screen.queryByRole("dialog", { name: /previews before arrival/i })).not.toBeInTheDocument();
+      expect(openSpy).not.toHaveBeenCalled();
+    });
+
+    it("keeps the button when only a search link is known", async () => {
+      useUserAgent(TV_APP_USER_AGENT);
+      mocks.providerLinks = [];
+      await playToFeatureCard();
+
+      expect(document.querySelector(".tv-theater-feature-logo")).toBeNull();
+      await finishFeatureCard();
+
+      expect(openSpy).not.toHaveBeenCalled();
+      expect(screen.getByRole("link", { name: /^open netflix$/i })).toHaveAttribute(
+        "href",
+        expect.stringContaining("/search")
+      );
+    });
+
+    it("keeps the button outside the Google TV app", async () => {
+      useUserAgent("Mozilla/5.0 (Macintosh) Chrome/128.0");
+      await playToFeatureCard();
+
+      expect(document.querySelector(".tv-theater-feature-logo")).toBeNull();
+      await finishFeatureCard();
+
+      expect(openSpy).not.toHaveBeenCalled();
+    });
   });
 });

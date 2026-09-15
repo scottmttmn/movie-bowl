@@ -23,7 +23,11 @@ import {
   STREAMING_MATCH_STATUS,
   STREAMING_MATCH_TONE,
 } from "../../utils/streamingMatchSummary";
-import { resolvePreferredLaunchTarget } from "../../utils/webLaunch";
+import {
+  getAutoStartMode,
+  getAutoStartSurface,
+  resolvePreferredLaunchTarget,
+} from "../../utils/webLaunch";
 import { canReturnDrawToBowl } from "../../utils/watchHistory";
 import useDrawProviderLinks from "../../hooks/useDrawProviderLinks";
 import ProviderLinksAttribution from "../../components/ProviderLinksAttribution";
@@ -1001,6 +1005,33 @@ export default function TvTonightScreen({ userId }) {
     rememberTrailerKeys(trailerQueue.map((item) => item.trailer?.key));
   }, [trailerQueue]);
 
+  const beginProviderLaunch = useCallback(() => {
+    setProviderLaunchMessage(null);
+    rememberExternalReturn({ bowlId, movie: drawnMovie });
+  }, [bowlId, drawnMovie]);
+
+  // Only the Google TV app auto-starts from this route: its shell hands a new
+  // window to the provider app and keeps Movie Bowl behind it. A laptop on /tv
+  // is not the room this was built for, and keeps the button.
+  const autoStartCandidate =
+    getAutoStartMode({
+      surface: getAutoStartSurface({ userAgent: window.navigator?.userAgent }),
+      launchCandidate: preferredWebLaunchCandidate,
+      launchError: providerLaunchMessage,
+    }) === "window"
+      ? preferredWebLaunchCandidate
+      : null;
+
+  // The feature card ran its course. Previews only play after a fresh draw,
+  // never on a reveal restored from a provider handoff, so coming back from
+  // the app cannot send the room straight back into it.
+  const completeTheater = useCallback(() => {
+    endTheater();
+    if (!autoStartCandidate) return;
+    beginProviderLaunch();
+    window.open(autoStartCandidate.url, "_blank", "noopener,noreferrer");
+  }, [endTheater, autoStartCandidate, beginProviderLaunch]);
+
   useTvSpatialNavigation({
     scopeKey: [
       "tonight",
@@ -1175,10 +1206,7 @@ export default function TvTonightScreen({ userId }) {
           isDialogOpen={Boolean(pendingReturn) || isTheaterPlaying}
           webLaunchCandidate={preferredWebLaunchCandidate}
           providerLaunchMessage={providerLaunchMessage}
-          onProviderLaunch={() => {
-            setProviderLaunchMessage(null);
-            rememberExternalReturn({ bowlId, movie: drawnMovie });
-          }}
+          onProviderLaunch={beginProviderLaunch}
           onCloseTrailer={() => setShowTrailer(false)}
           onToggleTrailer={() => setShowTrailer((current) => !current)}
         />
@@ -1186,7 +1214,9 @@ export default function TvTonightScreen({ userId }) {
           <TvTheaterPreroll
             queue={trailerQueue}
             featureTitle={drawnMovie.title}
+            featureServiceName={autoStartCandidate?.serviceName}
             onFinish={endTheater}
+            onComplete={completeTheater}
           />
         )}
       </>
