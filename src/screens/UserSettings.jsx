@@ -288,11 +288,11 @@ export default function UserSettings() {
               </span>
             </div>
             <p className="mt-1 text-sm text-slate-400">
-              Say what you can actually play tonight, then rank it. Draws can prefer titles waiting on your top service.
+              Rank your services in the order you prefer to watch.
             </p>
 
             <div className="mt-5">
-              <h3 className="eyebrow">Your ranking</h3>
+              <h3 className="eyebrow">Your watch order</h3>
               {!hasServices ? (
                 <p className="surface-card mt-2 px-3.5 py-3 text-sm text-slate-400">
                   Nothing picked yet. Choose services below and they will show up here in priority order.
@@ -300,9 +300,9 @@ export default function UserSettings() {
               ) : (
                 <>
                   <p className="mt-1 text-sm text-slate-400">
-                    Drag a row or use the arrows. Higher services are prioritized first.
+                    Tap a number to change its position.
                   </p>
-                  <ol className="mt-3 space-y-1.5">
+                  <ol aria-label="Streaming service ranking" className="mt-3 space-y-2">
                     {streamingServices.map((service, index) => (
                       <li key={service}>
                         <div
@@ -331,30 +331,40 @@ export default function UserSettings() {
                             event.preventDefault();
                             commitDrop(dropIndexForPointer(event, index));
                           }}
-                          className={`surface-card flex items-center justify-between gap-2 px-3 py-2 transition hover:border-slate-600 ${
+                          className={`flex items-center justify-between gap-1 rounded-xl border px-2 py-2 sm:gap-2 sm:p-3 transition ${index === 0 ? "border-rose-500/40 bg-rose-950/20" : "border-slate-800 bg-slate-950/40 hover:border-slate-600"} ${
                             draggedService === service ? "opacity-60" : ""
                           }`}
                         >
-                          <div className="flex min-w-0 items-center gap-3">
+                          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
                             <span
-                              className="cursor-grab text-slate-500"
+                              className="hidden cursor-grab text-slate-500 sm:inline"
                               aria-hidden="true"
                               title="Drag to reorder"
                             >
                               ⋮⋮
                             </span>
-                            <span className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-950/70 text-xs font-semibold text-slate-300">
-                              {index + 1}
-                            </span>
-                            <ServiceLogo service={service} />
-                            <span className="truncate text-slate-100">{service}</span>
+                            <select
+                              aria-label={`Position of ${service}`}
+                              value={index}
+                              onChange={(event) => moveServiceByOffset(service, Number(event.target.value) - index)}
+                              className={`h-11 w-12 shrink-0 cursor-pointer rounded-lg border-0 pl-2 text-sm font-semibold tabular-nums focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-400 ${index === 0 ? "bg-rose-950/50 text-rose-200" : "bg-slate-800 text-slate-200"}`}
+                            >
+                              {streamingServices.map((_, position) => (
+                                <option key={position} value={position}>{position + 1}</option>
+                              ))}
+                            </select>
+                            <ServiceLogo service={service} className="h-7 w-7 sm:h-9 sm:w-9" />
+                            <div className="min-w-0">
+                              <span className="block break-words text-sm font-semibold text-slate-100 sm:text-base">{service}</span>
+                              {index === 0 && <span className="block text-xs text-rose-300">First choice</span>}
+                            </div>
                           </div>
-                          <div className="flex shrink-0 items-center gap-1">
+                          <div className="ml-auto flex shrink-0 items-center rounded-lg sm:border sm:border-slate-700/60 sm:bg-slate-900/70">
                             <button
                               type="button"
                               onClick={() => moveServiceByOffset(service, -1)}
                               disabled={index === 0}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-800 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                              className="hidden h-11 w-11 items-center justify-center rounded-lg text-lg text-slate-300 sm:inline-flex transition hover:bg-slate-800 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-400 disabled:cursor-not-allowed disabled:opacity-25 sm:w-11"
                               aria-label={`Move ${service} up`}
                               title={`Move ${service} up`}
                             >
@@ -364,7 +374,7 @@ export default function UserSettings() {
                               type="button"
                               onClick={() => moveServiceByOffset(service, 1)}
                               disabled={index === streamingServices.length - 1}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-slate-800 hover:text-slate-100 disabled:cursor-not-allowed disabled:opacity-40"
+                              className="hidden h-11 w-11 items-center justify-center rounded-lg text-lg text-slate-300 sm:inline-flex transition hover:bg-slate-800 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-400 disabled:cursor-not-allowed disabled:opacity-25 sm:w-11"
                               aria-label={`Move ${service} down`}
                               title={`Move ${service} down`}
                             >
@@ -373,7 +383,7 @@ export default function UserSettings() {
                             <button
                               type="button"
                               onClick={() => toggleService(service)}
-                              className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 transition hover:bg-rose-950/60 hover:text-rose-200"
+                              className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-lg text-slate-500 transition hover:bg-rose-950/60 hover:text-rose-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-400 sm:w-11"
                               aria-label={`Remove ${service}`}
                               title={`Remove ${service}`}
                             >
@@ -396,12 +406,17 @@ export default function UserSettings() {
               )}
             </div>
 
-            <div className="mt-6 border-t border-slate-800 pt-5">
-              <h3 className="eyebrow">Pick your services</h3>
+            <details className="group mt-4 rounded-xl border border-slate-700/70 bg-slate-900/30 p-4" open={hasServices ? undefined : true}>
+              <summary className="cursor-pointer rounded text-sm font-semibold text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-400">
+                Add services
+                <span className="ml-2 font-normal text-slate-400">Search or browse</span>
+              </summary>
+              <p className="mt-3 text-sm text-slate-400">New services go to the bottom of your order.</p>
               <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
                 <input
                   id="streaming-services-search"
                   name="streaming_services_search"
+                  aria-label="Search streaming services"
                   type="text"
                   value={searchTerm}
                   onChange={(e) => setSearchTerm(e.target.value)}
@@ -478,7 +493,7 @@ export default function UserSettings() {
                   })}
                 </div>
               )}
-            </div>
+            </details>
 
             <div className="mt-6 space-y-4 border-t border-slate-800 pt-5">
               <h3 className="eyebrow">Playback handoff</h3>

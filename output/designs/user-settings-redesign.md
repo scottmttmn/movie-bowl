@@ -40,9 +40,13 @@ Draw filters now live only in the dashboard overlay and autosave; see
   section ids, so the page needs no separate nav and no scroll-spy JS. They
   live in `components/SettingsSectionNav.jsx`, shared with Bowl Settings (see
   `bowl-settings-redesign.md`).
-- **Streaming services is one flow.** "Your ranking" (numbered rows, drag,
-  arrows, remove) sits above "Pick your services" (search, quick actions, chip
-  grid), so picking a service visibly lands in the ranking. The tabs are gone.
+- **Streaming services is one flow.** "Your watch order" (direct position selectors, desktop drag,
+  arrows, remove) sits above an "Add services" disclosure (search, quick actions,
+  chip grid). The picker opens automatically for an empty list. Rank numbers
+  open native selectors for moving directly to any position on mobile. Controls
+  have 44-pixel touch targets. Mobile uses the rank selector and remove button
+  in a compact single row; step arrows and drag handles appear on desktop.
+  The first service is highlighted as "First choice". The tabs are gone.
   The two drop rails per row are gone too: a row's own `dragover` already knew
   whether the pointer was in its top or bottom half, so the insertion point is
   now a single rose line rendered from that.
