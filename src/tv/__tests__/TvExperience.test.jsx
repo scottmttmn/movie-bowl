@@ -1236,4 +1236,40 @@ describe("Movie Bowl TV experience", () => {
     expect(screen.getByText(/netflix isn't installed/i)).toBeInTheDocument();
     expect(screen.getByRole("heading", { name: /arrival/i })).toBeInTheDocument();
   });
+
+  // Pressing again can only fail the same way, so the button stays to name the
+  // service but cannot be pressed, and focus moves off it rather than to nowhere.
+  it("disables the provider button once its launch fails and moves focus to the trailer", async () => {
+    window.sessionStorage.setItem(
+      "movie-bowl:tv:external-return",
+      JSON.stringify({
+        bowlId: "family",
+        movie: {
+          id: "movie-1",
+          title: "Arrival",
+          streamingProviders: ["Netflix"],
+          trailer: { key: "arrival", embedUrl: "https://www.youtube.com/embed/arrival" },
+        },
+        savedAt: Date.now(),
+      })
+    );
+
+    renderTonight();
+    const openLink = await screen.findByRole("link", { name: /^open netflix$/i });
+    await waitFor(() => expect(openLink).toHaveFocus());
+
+    act(() => {
+      window.dispatchEvent(
+        new CustomEvent("moviebowl:provider-launch-error", {
+          detail: { message: "Netflix isn't installed on this TV." },
+        })
+      );
+    });
+
+    expect(screen.queryByRole("link", { name: /^open netflix$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^open netflix$/i })).toBeDisabled();
+    await waitFor(() =>
+      expect(screen.getByRole("button", { name: /watch trailer/i })).toHaveFocus()
+    );
+  });
 });

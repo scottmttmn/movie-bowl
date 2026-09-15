@@ -378,6 +378,12 @@ function TvMovieDetailStage({
   const providerLogos = movie.streamingProviderLogos || {};
   const runtimeLabel = movie.runtime ? `${movie.runtime} min` : null;
   const trailer = movie.trailer;
+  const canOfferLaunch = showWhereToWatch && Boolean(webLaunchCandidate?.url);
+  // The shell only reports a launch it could not complete -- the app is not
+  // installed, or would not open -- and pressing again can only fail the same
+  // way. So the button stays, naming the service beside the reason, but cannot
+  // be pressed, and the trailer takes the focus it held.
+  const canLaunch = canOfferLaunch && !providerLaunchMessage;
 
   return (
     <section className="tv-reveal is-kept">
@@ -440,7 +446,7 @@ function TvMovieDetailStage({
         )}
 
         <div className="tv-reveal-actions">
-          {showWhereToWatch && webLaunchCandidate?.url && (
+          {canLaunch && (
             <a
               className="tv-button tv-button-secondary"
               data-tv-focusable
@@ -458,17 +464,30 @@ function TvMovieDetailStage({
               Open {webLaunchCandidate.serviceName}
             </a>
           )}
+          {canOfferLaunch && !canLaunch && (
+            // An anchor cannot be disabled. A disabled button drops out of the
+            // spatial navigation's focusable set and picks up its dimmed style.
+            <button
+              type="button"
+              className="tv-button tv-button-secondary"
+              data-tv-focusable
+              data-tv-nav-group="reveal-actions"
+              disabled
+            >
+              <ServiceLogo
+                service={webLaunchCandidate.serviceName}
+                className="tv-launch-logo"
+              />
+              Open {webLaunchCandidate.serviceName}
+            </button>
+          )}
           {trailer?.embedUrl && (
             <button
               type="button"
               className="tv-button tv-button-secondary"
               data-tv-focusable
               data-tv-nav-group="reveal-actions"
-              data-tv-autofocus={
-                playbackAutofocus && !(showWhereToWatch && webLaunchCandidate?.url)
-                  ? "true"
-                  : undefined
-              }
+              data-tv-autofocus={playbackAutofocus && !canLaunch ? "true" : undefined}
               onClick={onToggleTrailer}
             >
               Watch trailer
@@ -1046,6 +1065,8 @@ export default function TvTonightScreen({ userId }) {
       isTheaterPlaying,
       pendingReturn?.drawEventId || "",
       Boolean(accessError),
+      // A failed launch disables the focused button, so focus has to move on.
+      Boolean(providerLaunchMessage),
     ].join(":"),
     onBack: () => {
       if (isDrawing) return;
