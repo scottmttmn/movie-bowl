@@ -65,6 +65,20 @@ function SettingToggle({
   );
 }
 
+// Mounted only after preferences load. Later selections must not reset the disclosure.
+function ServicePicker({ initiallyOpen, children }) {
+  const [open, setOpen] = useState(initiallyOpen);
+  return (
+    <details
+      className="group mt-4 rounded-xl border border-slate-700/70 bg-slate-900/30 p-4"
+      open={open}
+      onToggle={(event) => setOpen(event.currentTarget.open)}
+    >
+      {children}
+    </details>
+  );
+}
+
 export default function UserSettings() {
   const navigate = useNavigate();
   const location = useLocation();
@@ -406,7 +420,7 @@ export default function UserSettings() {
               )}
             </div>
 
-            <details className="group mt-4 rounded-xl border border-slate-700/70 bg-slate-900/30 p-4" open={hasServices ? undefined : true}>
+            <ServicePicker initiallyOpen={!hasServices}>
               <summary className="cursor-pointer rounded text-sm font-semibold text-slate-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-400">
                 Add services
                 <span className="ml-2 font-normal text-slate-400">Search or browse</span>
@@ -493,7 +507,7 @@ export default function UserSettings() {
                   })}
                 </div>
               )}
-            </details>
+            </ServicePicker>
 
             <div className="mt-6 space-y-4 border-t border-slate-800 pt-5">
               <h3 className="eyebrow">Playback handoff</h3>

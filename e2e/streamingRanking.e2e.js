@@ -34,3 +34,31 @@ test("service ranking supports direct positioning and saves across reloads", asy
   });
   expect(errors).toEqual([]);
 });
+
+
+test("first-time service selection keeps the picker open until dismissed", async ({ page, backend }) => {
+  await backend.authenticate(page);
+  backend.state.profiles[0].streaming_services = [];
+  await page.goto("/settings");
+  const picker = page.locator("#streaming-services details");
+  const search = page.getByRole("textbox", { name: "Search streaming services" });
+  await expect(picker).toHaveAttribute("open", "");
+  await expect(search).toBeVisible();
+
+  for (const service of ["Netflix", "Hulu"]) {
+    await page.locator(`label[for="streaming-service-${service.toLowerCase()}"]`).click();
+    await expect(page.getByRole("combobox", { name: `Position of ${service}` })).toBeVisible();
+    await expect(page.getByRole("status")).toContainText("All changes saved");
+    await expect(picker).toHaveAttribute("open", "");
+    await expect(search).toBeVisible();
+  }
+
+  await picker.locator("summary").click();
+  await expect(search).not.toBeVisible();
+  await page.getByRole("button", { name: "Remove Netflix", exact: true }).click();
+  await page.getByRole("button", { name: "Remove Hulu", exact: true }).click();
+  await expect(page.getByRole("status")).toContainText("All changes saved");
+  await expect(search).not.toBeVisible();
+  await picker.locator("summary").click();
+  await expect(search).toBeVisible();
+});
