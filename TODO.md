@@ -112,12 +112,8 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   hand a web link to an installed app. Web-only change, no new Android build;
   fires only with a title link, and never after an exit. **Shipped; verified
   September 14, 2026 for Max on the onn Google TV box and Paramount+ on a
-  desktop browser.** The checks not yet run are marked in the design. Two
-  follow-ups from that pass:
-  - Desktop: the reveal flashes between the feature card and the provider
-    page, because the overlay is torn down before the navigation paints.
-    Leaving the feature card up on the navigate path would close it; Escape
-    and Exit still work there if the navigation stalls.
+  desktop browser.** The checks not yet run are marked in the design. One
+  follow-up from that pass remains:
   - TV: when the provider app is not installed, the error line appears but
     "Open [service]" stays pressable, and pressing it can only fail again.
     Consider disabling it for that draw -- but it is the reveal's autofocus

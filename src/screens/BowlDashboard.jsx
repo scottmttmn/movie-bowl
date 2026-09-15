@@ -759,10 +759,18 @@ export default function BowlDashboard() {
         : null;
 
     const completeTheater = () => {
-      endTheater();
       // Previews left running in a background tab must not pull it out from
       // under someone working elsewhere.
-      if (!autoStartCandidate || document.visibilityState === "hidden") return;
+      if (!autoStartCandidate || document.visibilityState === "hidden") {
+        endTheater();
+        return;
+      }
+      // The feature card stays up until the provider's page replaces it.
+      // Tearing the overlay down first flashed the reveal for as long as that
+      // page took to arrive. Escape and Exit still work if it never does, and
+      // a Back that restores this page from the bfcache lands on the reveal
+      // rather than on a card with nothing left to count down.
+      window.addEventListener("pageshow", endTheater, { once: true });
       window.location.assign(autoStartCandidate.url);
     };
 
