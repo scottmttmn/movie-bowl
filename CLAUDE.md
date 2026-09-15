@@ -240,7 +240,7 @@ back with a fresh timestamp to run). See `supabase/README.md`.
 Run database tests with `./scripts/pgtap.sh`, which builds a disposable local
 Supabase project from a schema-only dump of the linked project, applies whatever
 is not yet deployed, runs the suites and removes the project on exit. Never
-against the hosted database: pgTAP writes rows. A clean run is 19 suites / 501
+against the hosted database: pgTAP writes rows. A clean run is 20 suites / 526
 assertions, all passing.
 
 The script clears Supabase's default privileges before restoring the dump, and

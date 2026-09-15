@@ -1,6 +1,8 @@
 # Solo Draw
 
-Status: plan, not implementation. Nothing here exists in code. Product review
+Status: partly built. The persistence contract below has landed --
+`record_solo_draw`, the `solo_draw` watch event kind and their pgTAP suite. No
+screen draws one yet, so nothing in the app reaches it. Product review
 settled the draw lifecycle: revealing a solo draw commits it to personal history,
 with no acceptance or redraw controls on the result. Bowl copies remain available.
 Optional removal lives in personal history. For two hours the entry's delete
@@ -368,8 +370,8 @@ what undo has to mean, so the initial persistence should not preclude it.
 
 ## Build Plan
 
-1. **Persistence.** The migration, `record_solo_draw`, pgTAP suite and rollback
-   described under "Persistence Contract".
+1. **Persistence.** *Done* — the migration, `record_solo_draw`, pgTAP suite and
+   rollback described under "Persistence Contract".
 2. **Ship a complete pooled solo flow.** Reuse the filtered-pool logic with an
    injected `randomFn`, and put cross-bowl reads and state in a hook. Add scope
    selection and the draw action. Persist successfully before presenting the
