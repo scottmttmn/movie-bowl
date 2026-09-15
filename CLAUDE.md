@@ -34,7 +34,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (130 test files / 1093 tests, 56 Playwright tests with 5 skipped,
+fully green (134 test files / 1123 tests, 60 Playwright tests with 5 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -139,7 +139,7 @@ The check is production-only; the dev server has HMR and no manifest to serve.
 ### Routes (`src/App.jsx`)
 
 `/` (HomeRedirect), `/bowls`, `/bowl/:bowlId`, `/bowl/:bowlId/settings`,
-`/settings`, `/watch-list`, `/invites`, `/about`, `/login`,
+`/settings`, `/watch-list`, `/solo-draw`, `/invites`, `/about`, `/login`,
 `/accept-invite/:token`, `/add-to-bowl/:token`, `/tv/*`.
 
 Everything except `/login`, `/about`, `/accept-invite/:token`, and
@@ -211,6 +211,7 @@ because they are the atomic/permission-checked path:
 `draw_bowl_movie_by_rotation`, `return_bowl_draw_to_bowl`,
 `save_bowl_draw_access`, `save_bowl_draw_method`, `delete_owned_bowl`,
 `set_own_bowl_movie_pin`, `consume_bowl_add_link`, `create_manual_watch_event`,
+`record_solo_draw`,
 `update_user_watch_event`, `delete_user_watch_event`.
 
 Invitations live at `/invites`, the one surface that sends, accepts, declines,

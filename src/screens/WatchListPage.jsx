@@ -1,9 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import { Link } from "react-router-dom";
 import AddMovieModal from "../components/AddMovieModal";
 import RemoveFromBowlsModal from "../components/RemoveFromBowlsModal";
 import WatchHistoryEntryModal from "../components/WatchHistoryEntryModal";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { notifyBowlChange } from "../lib/bowlChanges";
+import { findOwnUndrawnBowlCopies, removeOwnBowlCopies } from "../lib/ownBowlCopies";
 import { supabase } from "../lib/supabase";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { getMovieNoteValidationError, normalizeMovieNote } from "../utils/movieNote";
@@ -68,7 +70,7 @@ export default function WatchListPage() {
       const { data: watchedRows, error: watchedError } = await supabase
         .from("user_watch_events")
         .select(
-          "id, source_draw_event_id, source_kind, bowl_name, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, watched_on, created_at, updated_at"
+          "id, source_draw_event_id, source_kind, source_bowl_movie_id, bowl_name, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, watched_on, created_at, updated_at"
         )
         .eq("user_id", user.id)
         .order("watched_on", { ascending: false })
@@ -244,60 +246,6 @@ export default function WatchListPage() {
           .filter(Boolean)
       : [];
 
-  // Only your own undrawn slips are offered. RLS would let a bowl owner delete
-  // anyone's row, but silently dropping someone else's title would also shift
-  // person-first odds for the whole bowl with no visible cause.
-  const findOwnUndrawnBowlMovies = async (tmdbId) => {
-    if (!Number.isInteger(tmdbId) || tmdbId <= 0) return [];
-
-    try {
-      const { data: authData, error: authError } = await supabase.auth.getSession();
-      const user = authData?.session?.user;
-
-      if (authError || !user) return [];
-
-      const { data: bowlMovies, error: bowlMoviesError } = await supabase
-        .from("bowl_movies")
-        .select("id, bowl_id")
-        .eq("added_by", user.id)
-        .eq("tmdb_id", tmdbId)
-        .is("drawn_at", null);
-
-      if (bowlMoviesError) {
-        console.error("[WatchListPage] Failed to look up bowl copies", bowlMoviesError);
-        return [];
-      }
-
-      const matches = bowlMovies || [];
-      if (matches.length === 0) return [];
-
-      const { data: bowlRows, error: bowlsError } = await supabase
-        .from("bowls")
-        .select("id, name")
-        .in("id", [...new Set(matches.map((match) => match.bowl_id))]);
-
-      if (bowlsError) {
-        console.error("[WatchListPage] Failed to load bowl names", bowlsError);
-        return [];
-      }
-
-      const bowlNames = new Map((bowlRows || []).map((bowl) => [bowl.id, bowl.name]));
-
-      return matches
-        .filter((match) => bowlNames.has(match.bowl_id))
-        .map((match) => ({
-          id: match.id,
-          bowlId: match.bowl_id,
-          bowlName: bowlNames.get(match.bowl_id),
-        }));
-    } catch (error) {
-      // The prompt is a convenience on top of a saved entry, so a failed lookup
-      // degrades to not offering it rather than breaking the save.
-      console.error("[WatchListPage] Unexpected error looking up bowl copies", error);
-      return [];
-    }
-  };
-
   const handleSaveEntry = async (entry) => {
     const title = String(entry?.title || "").trim();
     if (!title || !entry?.watched_on) {
@@ -358,7 +306,7 @@ export default function WatchListPage() {
       await loadWatchList();
 
       if (createdTmdbId) {
-        const matches = await findOwnUndrawnBowlMovies(createdTmdbId);
+        const matches = await findOwnUndrawnBowlCopies({ tmdbId: createdTmdbId });
 
         if (matches.length > 0) {
           setBowlRemovalError("");
@@ -373,40 +321,45 @@ export default function WatchListPage() {
     }
   };
 
+  // Offered from a solo entry rather than at the reveal: drawing alone does not
+  // decide anything for the groups you share those copies with, and the lookup
+  // has to answer for the bowls as they are now, not as they were that night.
+  const handleOfferBowlRemoval = async (entry) => {
+    if (!entry?.id || isSavingEntry) return;
+
+    setEntryEditorError("");
+    const matches = await findOwnUndrawnBowlCopies({
+      tmdbId: Number(entry.tmdb_id),
+      bowlMovieId: entry.source_bowl_movie_id || null,
+    });
+
+    if (matches.length === 0) {
+      setEntryEditorError("This movie is no longer in any of your bowls.");
+      return;
+    }
+
+    setIsEntryEditorOpen(false);
+    setEditingEntry(null);
+    setBowlRemovalError("");
+    setBowlRemoval({ title: entry.title, matches });
+  };
+
   const handleRemoveFromBowls = async (bowlMovieIds) => {
-    const targetIds = (bowlMovieIds || []).filter(Boolean);
-    if (targetIds.length === 0 || isRemovingFromBowls) return;
+    if (isRemovingFromBowls) return;
 
     setIsRemovingFromBowls(true);
     setBowlRemovalError("");
 
     try {
-      const { data: authData, error: authError } = await supabase.auth.getSession();
-      const user = authData?.session?.user;
+      const removal = await removeOwnBowlCopies(bowlMovieIds);
 
-      if (authError || !user) {
-        setBowlRemovalError("Could not remove it from your bowls. Please try again.");
+      if (!removal.ok) {
+        setBowlRemovalError(removal.message);
         return;
       }
 
-      const { error } = await supabase
-        .from("bowl_movies")
-        .delete()
-        .in("id", targetIds)
-        .eq("added_by", user.id)
-        .is("drawn_at", null);
-
-      if (error) {
-        console.error("[WatchListPage] Failed to remove movie from bowls", error);
-        setBowlRemovalError("Could not remove it from your bowls. Please try again.");
-        return;
-      }
-
-      notifyBowlChange({ userId: user.id });
+      notifyBowlChange({ userId: removal.userId });
       setBowlRemoval(null);
-    } catch (error) {
-      console.error("[WatchListPage] Unexpected error removing movie from bowls", error);
-      setBowlRemovalError("Could not remove it from your bowls. Please try again.");
     } finally {
       setIsRemovingFromBowls(false);
     }
@@ -480,6 +433,11 @@ export default function WatchListPage() {
             >
               Log a watched movie
             </button>
+            {/* From here the pool is every bowl: this is the personal surface,
+                so nothing has narrowed the scope yet. */}
+            <Link to="/solo-draw" className="btn btn-secondary whitespace-nowrap">
+              Draw for myself
+            </Link>
             <button
               type="button"
               className="btn btn-secondary whitespace-nowrap disabled:cursor-not-allowed disabled:border-slate-800 disabled:bg-slate-900 disabled:text-slate-400 disabled:shadow-none"
@@ -610,8 +568,13 @@ export default function WatchListPage() {
                                     ({movie.releaseYear})
                                   </span>
                                 </div>
-                                <p className="mt-2 text-sm text-slate-300">
+                                <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-300">
                                   {movie.bowlName ? `From ${movie.bowlName}` : "Added manually"}
+                                  {movie.source_kind === "solo_draw" && (
+                                    <span className="rounded-full border border-slate-700 px-2 py-0.5 text-xs text-slate-400">
+                                      Solo
+                                    </span>
+                                  )}
                                 </p>
                                 {movie.watchedDateLabel && (
                                   <p className="mt-1 text-sm text-slate-400">
@@ -658,6 +621,9 @@ export default function WatchListPage() {
           }}
           onSave={handleSaveEntry}
           onDelete={handleDeleteEntry}
+          onRemoveFromBowls={
+            editingEntry?.source_kind === "solo_draw" ? handleOfferBowlRemoval : null
+          }
           isSaving={isSavingEntry}
           errorMessage={entryEditorError}
         />

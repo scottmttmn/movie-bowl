@@ -67,6 +67,7 @@ const AboutPage = lazyScreen(() => import("./screens/AboutPage"));
 const VoiceProbePrivacyPage = lazyScreen(() => import("./screens/VoiceProbePrivacyPage"));
 const PublicAddLinkPage = lazyScreen(() => import("./screens/PublicAddLinkPage"));
 const WatchListPage = lazyScreen(() => import("./screens/WatchListPage"));
+const SoloDrawPage = lazyScreen(() => import("./screens/SoloDrawPage"));
 const InvitesPage = lazyScreen(() => import("./screens/InvitesPage"));
 const HomeRedirect = lazyScreen(() => import("./screens/HomeRedirect"));
 const TvApp = lazyScreen(() => import("./tv/TvApp"));
@@ -279,6 +280,11 @@ function App() {
               <Route path="/watch-list" element={
                 <RequireAuth>
                   <WatchListPage />
+                </RequireAuth>
+              } />
+              <Route path="/solo-draw" element={
+                <RequireAuth>
+                  <SoloDrawPage />
                 </RequireAuth>
               } />
               <Route path="/invites" element={

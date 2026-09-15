@@ -126,3 +126,42 @@ export function normalizeDefaultDrawSettings(value) {
         : Boolean(source.includeUnknownRuntime),
   };
 }
+
+/**
+ * Turns saved draw settings into the filter object the draw and its readouts
+ * take. Surfaces that edit filters in place (the dashboard's panel) build the
+ * same object from their own local state; this is for surfaces that only read
+ * the settings, so the two cannot disagree about what a saved setting means.
+ *
+ * `availableGenres` stands in for "all genres" when nothing is selected, since
+ * the genre stage matches against a list rather than a wildcard.
+ */
+export function buildDrawFiltersFromSettings(
+  settings,
+  { userStreamingServices = [], availableGenres = DRAW_GENRE_OPTIONS } = {}
+) {
+  const normalized = normalizeDefaultDrawSettings(settings);
+  const allowedGenres = Array.isArray(normalized.selectedGenres)
+    ? normalized.selectedGenres
+    : availableGenres;
+
+  return {
+    prioritizeByServices:
+      normalized.prioritizeStreaming && (userStreamingServices || []).length > 0,
+    prioritizeByServiceRank: normalized.useStreamingRank,
+    userStreamingServices: userStreamingServices || [],
+    ratingFilter: {
+      allowedRatings: normalized.selectedRatings,
+      includeUnknown: normalized.includeUnknownRatings,
+    },
+    genreFilter: {
+      allowedGenres,
+      includeUnknown: normalized.includeUnknownGenres,
+    },
+    runtimeFilter: {
+      minMinutes: normalized.runtimeMinMinutes,
+      maxMinutes: normalized.runtimeMaxMinutes,
+      includeUnknown: normalized.includeUnknownRuntime,
+    },
+  };
+}

@@ -113,10 +113,15 @@ vi.mock("../../components/WatchHistoryEntryModal", () => ({
   ),
 }));
 
+import { MemoryRouter } from "react-router-dom";
 import WatchListPage from "../WatchListPage";
 
 async function saveManualEntry() {
-  render(<WatchListPage />);
+  render(
+    <MemoryRouter>
+      <WatchListPage />
+    </MemoryRouter>
+  );
 
   await waitFor(() => {
     expect(screen.getByText("Watch History")).toBeInTheDocument();
