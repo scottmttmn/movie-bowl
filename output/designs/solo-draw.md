@@ -3,10 +3,13 @@
 Status: plan, not implementation. Nothing here exists in code. Product review
 settled the draw lifecycle: revealing a solo draw commits it to personal history,
 with no acceptance or redraw controls on the result. Bowl copies remain available.
-Optional removal lives in personal history. Solo undo is available there for two
-hours; ordinary history deletion remains available afterward. Neither reverses a
-separate bowl removal. The pool spans every bowl you belong to by default and can
-be narrowed to a subset. Persistence work is listed under "Remaining Technical Design".
+Optional removal lives in personal history. For two hours the entry's delete
+action is labelled as undo; there is no separate undo operation, because with no
+bowl change to reverse, undo and deletion do the same thing. Neither reverses a
+separate bowl removal. A later opt-in setting removes your copies automatically
+at reveal, and only then does undo become a real, server-enforced operation that
+restores them. The pool spans every bowl you belong to by default and can be
+narrowed to a subset. Persistence work is listed under "Remaining Technical Design".
 
 ## Product Idea
 
@@ -58,13 +61,17 @@ It also settles most of what the earlier draft left open:
   group's turn, and no turn is taken. What the removal offer does touch is
   already governed: `bowl_movies_delete_owner_or_own_undrawn` permits deleting
   your own undrawn slips, which is precisely the set the offer acts on.
-- **Is it reversible?** Solo undo is available from personal history for two
-  hours after the draw commits, matching the group draw's undo window. It removes
-  the solo history entry; there is no automatic bowl mutation to reverse.
-  A separate "Remove from my bowls…" action is not part of undo: copies removed
-  that way stay removed. Explain this when removing them. After two hours, the
-  undo action expires, but ordinary history deletion remains available without a
-  time limit. Do not call history deletion "undo" or "return to bowl".
+- **Is it reversible?** Yes, by deleting the history entry, and in the initial
+  release that is all undo is. A solo draw changes no bowl, so undoing it and
+  deleting its entry do exactly the same thing; ordinary deletion has no time
+  limit, which means a server-enforced two-hour undo would guard nothing. For two
+  hours after the draw commits, matching the group draw's window, personal
+  history labels the delete action as undo; afterwards it reads as ordinary
+  removal from history. Never call it "return to bowl". A separate "Remove from
+  my bowls…" action is not part of undo: copies removed that way stay removed.
+  Explain this when removing them. The automatic-removal setting under
+  "Later: Remove Automatically" is the one case where undo has to become its
+  own operation.
 - **What is the visibility rule?** Nothing new. The watch event is private by
   RLS; the removal is the same untraced shrink the Watch List offer already
   causes, which `TODO.md` already carries as an open complaint. If that is ever
@@ -110,8 +117,9 @@ plan must retain the origin information needed for that later lookup, alongside
 an identifiable solo record and its actual commit time. The existing manual
 write is a reference for snapshot handling, not a settled persistence contract.
 The earlier "no migration, no RPC" promise is withdrawn until this is designed.
-Any new undo operation must enforce ownership and the two-hour limit on the
-server, measured from commit time rather than an editable watched date.
+The initial release needs no undo operation beyond the existing
+`delete_user_watch_event`; the two-hour label is measured from commit time, not
+the editable watched date.
 
 The comment above `findOwnUndrawnBowlMovies` explains why the offer is scoped to
 your own rows, and it applies here unchanged: RLS would let a bowl owner delete
@@ -262,32 +270,64 @@ changes.
 The product decisions above are settled. Resolve the persistence contract before
 implementation.
 
-- **How is a solo draw persisted?** Commit at reveal and the two-hour undo are
-  settled. Specify how to distinguish a solo entry from a manual entry, retain
-  its commit time and source-row identity, and enforce undo ownership and expiry.
-  Decide whether this uses a new `source_kind` or other explicit metadata; do not
-  write indistinguishable manual rows and expect to recover their origin later.
-  Include retry handling so an uncertain save cannot create duplicate entries.
-  Review existing source-kind branches, including note editing, display and
-  export. The schema/RPC details need design before implementation.
+- **How is a solo draw persisted?** Commit at reveal is settled. Specify how to
+  distinguish a solo entry from a manual entry, retain its commit time and
+  source-row identity. Decide whether this uses a new `source_kind` or other
+  explicit metadata; do not write indistinguishable manual rows and expect to
+  recover their origin later. Include retry handling so an uncertain save cannot
+  create duplicate entries. Review existing source-kind branches, including note
+  editing, display and export. The schema/RPC details need design before
+  implementation.
+- **Leave room for automatic removal.** The initial release removes nothing, but
+  the contract should have an obvious place to associate a solo entry with the
+  bowl copies it removed, so the setting below can add a restoring undo without
+  reshaping the record. Do not build the restore path yet.
+
+## Later: Remove Automatically
+
+A later opt-in setting, "Remove movies from my bowls when I draw solo," deletes
+your copies at reveal instead of leaving them for the history action. Default
+is off. It never adds acceptance or free redraws. It is deferred, but it changes
+what undo has to mean, so the initial persistence should not preclude it.
+
+- **Which copies.** Every currently accessible, own undrawn copy of the drawn
+  title in any of your bowls, not only the bowls in the draw's scope: once you
+  have watched it, it is watched everywhere. This is the same set the manual
+  entry's removal prompt offers. Custom titles remove the drawn source row.
+- **Same transaction.** The watch entry and the removals commit together, so a
+  reveal never shows a pick whose copies are half removed.
+- **Undo restores the copies.** With removal automatic, a random draw would
+  otherwise cost you the title in every bowl — its note, its pin and its place —
+  with no chance to decline. So while the setting is on, undo becomes its own
+  operation: within two hours of commit it deletes the entry and restores each
+  removed copy as it was, including note and pin. The server enforces ownership
+  and the window, measured from commit time. That requires retaining what was
+  removed (a snapshot, or a removal marker instead of a delete).
+- **Restore conflicts.** If a restored copy can no longer go back — the bowl is
+  gone, you lost access, or the same title was added again — skip that copy,
+  restore the rest, and say which were skipped. Undo still deletes the entry.
+- **After the window.** Ordinary history deletion remains available and does not
+  restore copies, as elsewhere in this plan.
+- **Visibility.** Titles leave shared bowls with no event explaining it — the
+  same untraced shrink the manual removal already causes, now without a prompt.
+  If the bowl ever gains a removal event, this should use it.
+
 ## Build Plan
 
 1. **Settle persistence.** Specify solo identity, commit time, durable source
-   information, retry handling and the server-enforced undo path.
+   information and retry handling, leaving room to record removed copies later.
 2. **Ship a complete pooled solo flow.** Reuse the filtered-pool logic with an
    injected `randomFn`, and put cross-bowl reads and state in a hook. Add scope
    selection and the draw action. Persist successfully before presenting the
    committed result; show a recoverable error if saving fails. The reveal has
    no acceptance, redraw, undo or removal controls. Personal history supplies
-   the two-hour undo, ordinary deletion, and optional removal action. Preserve
+   deletion (labelled as undo for two hours) and the optional removal action. Preserve
    the manual entry's immediate removal offer. Include distinct empty states,
    loading/error states, scope counts and the existing large-pool manual lookup
    affordance in this first release, rather than deferring them as polish.
-3. **Later, optional enhancements.** Consider an opt-in setting, "Offer to remove
-   movies from my bowls after a solo draw," which opens the removal prompt after
-   the committed reveal. Default remains off. This setting never adds acceptance
-   or free redraws and does not change undo semantics. Within-person title
-   weights remain a separate later decision.
+3. **Later, optional enhancements.** The automatic-removal setting and its
+   restoring undo, as described under "Later: Remove Automatically". Within-person
+   title weights remain a separate later decision.
 
 Guest night can reuse the pure pool/filter logic. Its cross-user data access
 still needs its own authorization and server-side resolution as described in
@@ -306,9 +346,9 @@ still needs its own authorization and server-side resolution as described in
 - Opening a new solo session uses its entry-point scope; scope changes are not
   saved across sessions.
 - Closing the result does not undo the draw; the result has no acceptance or
-  redraw controls and does not open the removal prompt by default.
-- Personal history offers solo undo through two hours after commit. The server
-  rejects later undo; ordinary history deletion remains available afterward.
+  redraw controls and does not open the removal prompt.
+- Personal history labels deleting a solo entry as undo through two hours after
+  commit, and as ordinary removal afterward; both delete only the entry.
 - A separate removal affects only selected, currently accessible, own undrawn
   copies. Undo or deletion of the watch entry never restores those copies, and
   the removal dialog explains that consequence.
@@ -340,5 +380,6 @@ per-candidate permission check, and — pooled — a story for titles disappeari
 from bowls that were not part of the evening.
 
 Keeping copies in the bowls leaves withdrawal as a deliberate later choice.
-It avoids automatic shared-pool mutations, but the committed solo record and its
-bounded undo still require their own persistence design.
+It avoids automatic shared-pool mutations by default; the opt-in setting under
+"Later: Remove Automatically" brings them back only for people who ask, and
+inherits the reversibility and visibility questions above when it does.

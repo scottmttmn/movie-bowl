@@ -133,12 +133,12 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   `output/designs/pinned-movie.md`; needs its own design before any code.
 - Solo draw: draw privately from your own titles across all your bowls, with
   scope narrowing. Reveal commits the pick to personal history; no acceptance
-  or redraw controls. Bowl copies stay available. Personal history offers a
-  two-hour solo undo and a separate optional "Remove from my bowls…" action.
-  Undo deletes the solo entry and never restores separately removed copies;
-  ordinary history deletion remains available after the undo window. Preserve
-  the manual entry's immediate removal offer. A later opt-in setting may offer
-  removal after solo reveal, off by default. Each TMDB movie gets one chance;
+  or redraw controls. Bowl copies stay available. Personal history offers
+  deletion (labelled undo for two hours) and a separate optional "Remove from
+  my bowls…" action; deletion never restores separately removed copies.
+  Preserve the manual entry's immediate removal offer. A later opt-in setting
+  removes your copies automatically at reveal, off by default; only then does
+  undo become a server-enforced operation that restores them. Each TMDB movie gets one chance;
   custom titles stay separate without name matching. Eligible pinned titles go
   first after all filters, sampled uniformly without clearing their pins.
   Repeat picks remain possible by design. Before code: persistence
