@@ -110,12 +110,32 @@ vercel dev --listen 0.0.0.0:3000
   Override the host with `-PtvDebugHost=<lan-ip>` for a physical device.
 - Sideload: `https://moviebowl.app/tv`, debug-signed and debuggable, for
   physical-device testing.
-- Release: `https://moviebowl.app/tv`, cleartext disabled, and unsigned by
-  default in Gradle. The first Play bundle was signed through Android Studio
-  with the dedicated upload key; repeatable environment-backed signing remains
-  open. Never let the debug-signed `sideload` variant stand in for a store build.
+- Release: `https://moviebowl.app/tv`, cleartext disabled, and signed with the
+  upload key when all four release environment values below are present.
+  Android Studio's signed-bundle wizard remains a supported fallback. Never let
+  the debug-signed `sideload` variant stand in for a store build.
 
 The URL values live in `app/build.gradle.kts`.
+
+## Sign a Play release
+
+For a repeatable command-line release, provide these values through the
+developer environment:
+
+- `MOVIE_BOWL_TV_UPLOAD_STORE_FILE`
+- `MOVIE_BOWL_TV_UPLOAD_STORE_PASSWORD`
+- `MOVIE_BOWL_TV_UPLOAD_KEY_ALIAS`
+- `MOVIE_BOWL_TV_UPLOAD_KEY_PASSWORD`
+
+The store file value is the absolute path to the backed-up Movie Bowl TV upload
+keystore. Keep the passwords in the password manager and inject them only for
+the release process; never add them or the keystore to Git. With all four values
+present, run `./gradlew bundleRelease`. Android Studio's **Build > Generate
+Signed App Bundle or APK** wizard uses the same upload key as a fallback.
+
+The current Play update-test candidate is version `0.1.1` (`versionCode 2`). It
+includes the newer native shell behavior while preserving the same package name
+and production URL.
 
 ## First QA pass
 
@@ -150,12 +170,30 @@ The Play-installed build passed fresh QR pairing, automatic continuation without
 a TV refresh, bowl entry, force-stop/resume to the same screen, cancellation of
 the sign-out confirmation, TV-only sign-out, and re-pairing. The phone session
 remained independent of the TV session. The pairing screen's instructional text
-and fallback code were again judged too small at viewing distance; that remains
-a polish item rather than a failure of the pairing flow.
+and fallback code were judged too small at viewing distance during that pilot;
+they were enlarged on September 14 and are included in the version 2 candidate.
 
-The next store-specific gate is an internal `versionCode 2` update that preserves
-the paired session. The rest of this QA list, Play's generated-device artifact
-inspection, listing assets, and the formal TV Ready review remain open.
+Internal release `0.1.1` (`versionCode 2`) was published September 15. It was
+installed through Google TV's **Manage updates** screen without uninstalling or
+clearing version 1. Opening the updated app returned directly to the existing
+bowl, so the Play update retained the paired session. Back from the bowl returned
+to the picker, and Back from the picker closed Movie Bowl to the TV home screen,
+confirming the new native shell was active. The rest of this QA list, Play's
+listing assets, and the formal TV Ready review remain open.
+
+## Hardware compatibility record
+
+| Device | Play catalog model | OS | Memory | Verified |
+| --- | --- | --- | --- | --- |
+| onn. Full HD Streaming Device | `onn XNA` | Android 14 | 1.5-1.6 GB | Play clean install of version 1; Play update to version 2 with paired-session retention; native Back-to-home behavior; Max title handoff |
+
+Google Play listed `onn XNA` among version 2's supported devices on September
+15, 2026. No device exclusion rule was needed.
+
+The version 2 Delivery view shows one 676 KB `base` module, installed at install
+time and deliverable to all supported devices. The signed AAB contains no native
+library entries, so there is no ABI-specific delivery or native-library porting
+work for this shell.
 
 ## Provider handoff behavior
 

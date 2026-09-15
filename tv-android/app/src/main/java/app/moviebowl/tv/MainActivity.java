@@ -70,7 +70,7 @@ public final class MainActivity extends Activity {
         settings.setSupportMultipleWindows(true);
         settings.setJavaScriptCanOpenWindowsAutomatically(true);
         settings.setUserAgentString(
-            settings.getUserAgentString() + " MovieBowlTV/0.1 AndroidTV"
+            settings.getUserAgentString() + " MovieBowlTV/" + BuildConfig.VERSION_NAME + " AndroidTV"
         );
 
         if (BuildConfig.DEBUG) {

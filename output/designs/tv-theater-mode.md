@@ -341,10 +341,12 @@ Gate: if this does not feel like magic in the room, do not build phase 4.
 contains the Java (not Kotlin) WebView shell with D-pad translation, QR pairing,
 fullscreen trailer hosting, and provider handoff. Version `0.1.0`
 (`versionCode 1`) installed from Play and passed clean pairing, force-stop/resume,
-TV-only sign-out, and re-pairing on physical hardware September 9, 2026. Its own
-README lists what remains before friends-and-family testing: repeatable release
-signing, the Play update-retention test, artwork, privacy review, and the rest of
-the physical-device quality pass.
+TV-only sign-out, and re-pairing on physical hardware September 9, 2026. Version
+`0.1.1` (`versionCode 2`) added environment-backed release signing and passed
+the Play update-retention test on September 15: the paired session survived and
+the app returned directly to the bowl. Its own README lists what remains before
+friends-and-family testing: artwork, privacy review, and the rest of the
+physical-device quality pass.
 
 ### Not on this roadmap
 

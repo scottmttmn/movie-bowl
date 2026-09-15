@@ -50,8 +50,8 @@ true when theater mode came to the dashboard draw.
   `moviebowl:provider-launch-error`, which the reveal renders as "[Service] isn't
   installed on this TV." beside the button.
 - **The web can tell it is inside the app.** The shell appends
-  `MovieBowlTV/0.1 AndroidTV` to the user agent, and has since `versionCode 1`,
-  so none of this needs a new Android build.
+  `MovieBowlTV/<version> AndroidTV` to the user agent (`MovieBowlTV/0.1
+  AndroidTV` in `versionCode 1`), so none of this needs a new Android build.
 
 **On a desktop browser one cost remains, and it is small.** The popup block
 still applies, so a new tab is out. A same-tab `location.assign()` is not gated

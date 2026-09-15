@@ -1,9 +1,12 @@
 # Private Google TV distribution roadmap
 
-Status: owner-only Play pilot in progress as of September 9, 2026. The
+Status: owner-only Play pilot in progress as of September 15, 2026. The
 production-service preflight is complete, and version `0.1.0` (`versionCode 1`)
 is available through Google Play's internal-testing track. The first clean Play
-installation passed; the in-place update test remains open.
+installation passed. Version `0.1.1` (`versionCode 2`) was published to the same
+track and installed as an ordinary Play update without uninstalling version 1;
+the paired session survived, the app returned directly to the bowl, and Back
+from the picker closed the app to the TV home screen as intended.
 
 Implementation progress:
 
@@ -19,10 +22,19 @@ Implementation progress:
   installed from Google Play on the physical onn. Google TV without ADB. Fresh
   QR pairing, automatic continuation, bowl entry, force-stop/resume to the same
   screen, TV-only sign-out, and re-pairing all passed.
-- Remaining release-hardening work includes repeatable environment-backed
-  signing configuration, explicit backup rules, final artwork and listing
-  material, the complete TV Ready disposition, low-memory recovery, and the
-  `versionCode 2` Play-update test.
+- The subsequent native-shell work enlarged pairing typography, corrected
+  fullscreen player sizing, tightened provider handoff behavior, and made
+  leaving `/tv` close the TV app instead of exposing the phone experience.
+- Version 2 adds environment-backed upload signing, explicit no-backup and
+  no-device-transfer rules, and a versioned TV user-agent. Its release lint and
+  build checks passed, the signed upload certificate was verified, and Google
+  Play accepted the bundle. Play generated one 676 KB install-time `base` module
+  deliverable to every supported device, and the signed AAB contains no native
+  libraries. Remaining release-hardening work includes final artwork and listing
+  material, the complete TV Ready disposition, low-memory recovery, and the rest
+  of the physical-device QA pass. Play's supported-device catalog lists the test
+  hardware as model `onn XNA` / **onn. Full HD Streaming Device**, Android 14,
+  with 1.5-1.6 GB RAM.
 
 ## Decision
 
@@ -73,17 +85,17 @@ The repo is past the prototype-only stage but is not yet store-ready:
   `targetSdk 35`. Those SDK values meet the current TV baseline.
 - The physical-device sideload flow has been exercised on an onn. Google TV
   device, including a confirmed Max title handoff.
-- `release` remains unsigned by default in Gradle. The first Play bundle was
-  signed through Android Studio with the dedicated upload key; repeatable
-  environment-backed signing configuration remains open. The existing
+- `release` is signed with the dedicated upload key when all four documented
+  environment values are present; it remains unsigned without them so Android
+  Studio's signed-bundle wizard can be used as a fallback. The existing
   `sideload` build is debug-signed and must never be uploaded as a store release.
 - The current banner is a vector declared as 320 by 180 dp. Store readiness
   requires a deliberate 320 by 180 pixel TV banner, plus Play listing artwork
   and at least one unaltered high-resolution TV screenshot.
-- Pairing rate limiting is deployed, and the first clean Play installation has
-  passed its authentication and restart checks. Full provider testing, privacy
-  review, the rest of the physical-TV QA pass, and an in-place Play update remain
-  open.
+- Pairing rate limiting is deployed, pairing typography has been enlarged, and
+  the first clean Play installation has passed its authentication and restart
+  checks. Full provider testing, privacy review, the rest of the physical-TV QA
+  pass, and an in-place Play update remain open.
 
 ## One-way decisions before the first upload
 
@@ -160,9 +172,11 @@ Owner: repo work
 
 Current status: partly complete. The first signed bundle proved the package,
 version, production URL, cleartext policy, signature, and no-native-library
-assumption. The one-off Android Studio signing flow is not yet the repeatable
-Gradle configuration required here. Artwork, explicit backup rules, remaining
-TV Ready dispositions, and low-memory recovery are also open.
+assumption. Repeatable environment-backed Gradle signing and explicit backup
+rules are now implemented for version 2, whose unsigned release build and lint
+checks pass. The version 2 signed bundle, upload certificate, Play-generated
+delivery, and absence of native libraries are verified. Artwork, remaining TV
+Ready dispositions, and low-memory recovery are still open.
 
 1. Add release signing configuration that reads paths and passwords from the
    developer environment, with no secret defaults and no checked-in values.
@@ -229,8 +243,14 @@ Owner: account owner
 Current status: items 1-3 passed on September 9 on the physical onn. Google TV.
 The Play-installed app also passed fresh pairing, automatic continuation, bowl
 entry, force-stop/resume, TV-only sign-out, and re-pairing. Complete the remaining
-QA cases, then prove an ordinary Play update with `versionCode 2` while retaining
-the paired session. Play's generated-device artifact check also remains open.
+QA cases. On September 15, version
+`0.1.1` (`versionCode 2`) was installed from **Manage updates** without
+uninstalling or clearing version 1. Opening the updated app returned directly to
+the existing bowl, proving that the paired session survives an ordinary Play
+update. Back from the bowl to the picker and then from the picker closed Movie
+Bowl to the TV home screen, confirming that the updated native shell was active.
+Play's generated catalog also lists the physical test device (`onn XNA`, Android
+14) among the version's supported devices, completing item 6.
 
 1. Add only the owner's Google account to the internal tester list.
 2. Open the opt-in link using the same Google account used on the physical TV.
