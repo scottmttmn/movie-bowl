@@ -110,11 +110,12 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   same handoff its "Open [service]" button uses; a desktop browser sends the tab
   to the provider's title page. Phones keep the button, because a timer cannot
   hand a web link to an installed app. Web-only change, no new Android build;
-  fires only with a title link, and never after an exit. The first hardware
-  check is whether a script-opened window reaches the shell's `onCreateWindow`
-  as the anchor does. Actual playback (rewriting a Netflix detail URL to
-  `/watch/<id>`) is a later, per-service step that needs a real Watchmode URL
-  and a check. Plan, not implementation:
+  fires only with a title link, and never after an exit. **Implemented, not yet
+  verified on hardware.** The first check on the onn box is whether a
+  script-opened window reaches the shell's `onCreateWindow` as the anchor does;
+  the rest of the device and desktop browser checks are listed in the design.
+  Actual playback (rewriting a Netflix detail URL to `/watch/<id>`) is a later,
+  per-service step that needs a real Watchmode URL and a check. See
   `output/designs/theater-autostart-handoff.md`.
 - Deterministic draw preview, steps 2 and 3: give rotation bowls a real contributor lookahead (the order is already derivable from `bowl_draw_events`, so it needs no new state), and only after living with that decide whether a committed schedule ships as a fourth draw method. A bowl-wide committed queue is blocked on filters being per-user today. Plan, not implementation: `output/designs/deterministic-draw-preview.md`.
 - Personal movie ordering: let contributors rank their own undrawn titles, independently of contributor rotation. Needs a separate design for method scope, link-guest ownership, accessible reordering, and where new or returned movies land. The pinned movie shipped as the one-title version; full ordering remains a separate feature.

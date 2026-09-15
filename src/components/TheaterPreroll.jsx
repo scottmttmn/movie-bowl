@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getAutoplayTrailerUrl, getTrailerSequence, loadYouTubeIframeApi } from "../lib/youtubePlayer";
+import ServiceLogo from "./ServiceLogo";
 
 const ANNOUNCEMENT_MS = 4200;
 const FEATURE_CARD_MS = 3600;
@@ -31,7 +32,15 @@ const ENDED = 0;
  *   exists the browser may no longer count it. Rather than predict which
  *   browsers refuse, ask for playback and watch whether it starts.
  */
-export default function TheaterPreroll({ queue, featureTitle, onFinish }) {
+export default function TheaterPreroll({
+  queue,
+  featureTitle,
+  featureServiceName = null,
+  onFinish,
+  // Only the feature card running its course. Escape and Exit stay on onFinish,
+  // because the natural end may leave for the provider and an exit never should.
+  onComplete = onFinish,
+}) {
   const playerId = `theater-preroll-${useId().replace(/:/g, "")}`;
   const overlayRef = useRef(null);
   const playerRef = useRef(null);
@@ -40,6 +49,7 @@ export default function TheaterPreroll({ queue, featureTitle, onFinish }) {
   const advanceRef = useRef(() => {});
   const refusedRef = useRef(() => {});
   const finishRef = useRef(onFinish);
+  const completeRef = useRef(onComplete);
   const graceTimerRef = useRef(null);
 
   const [isPaused, setIsPaused] = useState(false);
@@ -61,7 +71,8 @@ export default function TheaterPreroll({ queue, featureTitle, onFinish }) {
 
   useEffect(() => {
     finishRef.current = onFinish;
-  }, [onFinish]);
+    completeRef.current = onComplete;
+  }, [onFinish, onComplete]);
 
   const clearGrace = useCallback(() => {
     if (graceTimerRef.current) window.clearTimeout(graceTimerRef.current);
@@ -174,7 +185,7 @@ export default function TheaterPreroll({ queue, featureTitle, onFinish }) {
     if (phase !== "feature") return undefined;
 
     playerRef.current?.stopVideo?.();
-    const timer = window.setTimeout(() => finishRef.current(), FEATURE_CARD_MS);
+    const timer = window.setTimeout(() => completeRef.current(), FEATURE_CARD_MS);
     return () => window.clearTimeout(timer);
   }, [phase]);
 
@@ -260,6 +271,9 @@ export default function TheaterPreroll({ queue, featureTitle, onFinish }) {
           <p className="eyebrow">And now</p>
           <h2 className="theater-preroll-title">Feature Presentation</h2>
           <p className="theater-preroll-feature">{featureTitle}</p>
+          {featureServiceName && (
+            <ServiceLogo service={featureServiceName} className="theater-preroll-logo" />
+          )}
         </div>
       ) : (
         <>

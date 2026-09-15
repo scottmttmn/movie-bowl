@@ -370,6 +370,10 @@
     @apply mt-1 text-sm text-slate-300;
   }
 
+  .theater-preroll-logo {
+    @apply mx-auto mt-3 h-9 w-9;
+  }
+
   .theater-preroll-paused {
     @apply pointer-events-none relative rounded-full bg-slate-950/75 px-4 py-1.5 text-xs font-semibold uppercase tracking-widest text-slate-200;
   }
