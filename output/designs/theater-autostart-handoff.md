@@ -210,9 +210,10 @@ is the reason it waits on the same checks rather than shipping first.
      three presses of Back to get there, which is Max's own back stack rather
      than ours; accepted for now.
   3. Back during the feature card → the reveal, no launch. **Passed.**
-  4. A service whose app is not installed → the error line, button focused.
-     **Passed.** The button stays pressable beside the error, which is a
-     follow-up in `TODO.md`.
+  4. A service whose app is not installed → the error line. **Passed.** The
+     pass found "Open [service]" still pressable beside the error; it is now
+     disabled for that draw, and focus moves to "Watch trailer". The disabled
+     button is *not yet checked on hardware.*
   5. Provider links disabled → the reveal as today. *Not yet run.*
   6. Whether a script-opened window reaches `onCreateWindow` exactly as the
      anchor does. **Passed** — item 1 is the proof.
