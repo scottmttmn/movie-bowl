@@ -7,7 +7,8 @@ the rest; later phases are not a commitment to build.
 
 This document is about the television. Bringing the same pre-roll to the phone
 and laptop draw is specified in `tv-web-seam.md` and shares this file's queue
-and player code; the roadmap below does not cover it.
+and player code; the roadmap below does not cover it, except for phase 2.5's
+auto-start, which is planned for both.
 
 ## Product Idea
 
@@ -309,14 +310,14 @@ free-plan limitations. Summary:
 This improves the phone experience too, so it is worth doing even if theater
 mode never ships.
 
-### Phase 2.5 — Auto-start in the Google TV app (planned)
+### Phase 2.5 — Auto-start at the end of the pre-roll (planned)
 
-Open the feature in its streaming app at the end of the pre-roll instead of
-ending on a focused button, through the shell's existing provider handoff.
-Planned for the Google TV app rather than a television browser, now that the
-app exists: nothing is popup-blocked there and Movie Bowl survives the handoff.
-It answers phase 3's gate directly, in the room, without a LAN bridge. See
-`tv-autostart-handoff.md`.
+Open the feature at the end of the pre-roll instead of ending on a focused
+button. In the Google TV app that is the shell's existing provider handoff:
+nothing is popup-blocked there and Movie Bowl survives it. The web pre-roll gets
+the same on desktop browsers, where the tab navigates to the provider's title
+page; phones keep the button. It answers phase 3's gate directly, in the room,
+without a LAN bridge. See `theater-autostart-handoff.md`.
 
 ### Phase 3 — Personal auto-start over the LAN (household only)
 
@@ -375,7 +376,7 @@ drive a TV assistant programmatically — no third-party API exists for the last
   shorter?
 - ~~Should the selected feature launch immediately after the final trailer or after
   a brief confirmation countdown?~~ After the "Feature Presentation" card, which
-  is the countdown, with Back as the escape. See `tv-autostart-handoff.md`.
+  is the countdown, with Back as the escape. See `theater-autostart-handoff.md`.
 
 ## Success Test
 

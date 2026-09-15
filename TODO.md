@@ -105,15 +105,17 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   friends-and-family cohort. That path is specified in
   `output/designs/google-play-tv-private-distribution-roadmap.md`. See
   `output/designs/tv-theater-mode.md` and `output/designs/provider-deep-links.md`.
-- TV auto-start handoff: when the pre-roll ends, the Google TV app opens the
-  drawn movie in its streaming app with no press, through the same handoff the
-  "Open [service]" button uses. Web-only change, no new Android build; fires
-  only inside the TV app, only with a title link, only at the natural end of the
-  pre-roll. The first hardware check is whether a script-opened window reaches
-  the shell's `onCreateWindow` as the anchor does. Actual playback (rewriting a
-  Netflix detail URL to `/watch/<id>`) is a later, per-service step that needs a
-  real Watchmode URL and a check on the television. Plan, not implementation:
-  `output/designs/tv-autostart-handoff.md`.
+- Theater auto-start handoff: when the pre-roll ends on its own, open the drawn
+  movie with no press. The Google TV app opens the streaming app through the
+  same handoff its "Open [service]" button uses; a desktop browser sends the tab
+  to the provider's title page. Phones keep the button, because a timer cannot
+  hand a web link to an installed app. Web-only change, no new Android build;
+  fires only with a title link, and never after an exit. The first hardware
+  check is whether a script-opened window reaches the shell's `onCreateWindow`
+  as the anchor does. Actual playback (rewriting a Netflix detail URL to
+  `/watch/<id>`) is a later, per-service step that needs a real Watchmode URL
+  and a check. Plan, not implementation:
+  `output/designs/theater-autostart-handoff.md`.
 - Deterministic draw preview, steps 2 and 3: give rotation bowls a real contributor lookahead (the order is already derivable from `bowl_draw_events`, so it needs no new state), and only after living with that decide whether a committed schedule ships as a fourth draw method. A bowl-wide committed queue is blocked on filters being per-user today. Plan, not implementation: `output/designs/deterministic-draw-preview.md`.
 - Personal movie ordering: let contributors rank their own undrawn titles, independently of contributor rotation. Needs a separate design for method scope, link-guest ownership, accessible reordering, and where new or returned movies land. The pinned movie shipped as the one-title version; full ordering remains a separate feature.
 - Within-person title weights: let a contributor set relative odds among their own
