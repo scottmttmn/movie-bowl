@@ -830,6 +830,35 @@ describe("BowlDashboard draw preferences", () => {
 
       expect(assign).toHaveBeenCalledTimes(1);
       expect(assign).toHaveBeenCalledWith(NETFLIX_TITLE_URL);
+      // The card holds until the provider's page replaces this one, rather than
+      // flashing the reveal while that page loads.
+      expect(screen.getByRole("dialog", { name: /previews before movie a/i })).toBeInTheDocument();
+      expect(screen.getByRole("heading", { name: /feature presentation/i })).toBeInTheDocument();
+    });
+
+    it("lands on the reveal when Back restores the page from the bfcache", async () => {
+      await playToFeatureCard();
+      await finishFeatureCard();
+      expect(assign).toHaveBeenCalledTimes(1);
+
+      act(() => {
+        window.dispatchEvent(new Event("pageshow"));
+      });
+
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: /previews before/i })).not.toBeInTheDocument()
+      );
+      expect(screen.getByRole("heading", { name: /movie a/i })).toBeInTheDocument();
+    });
+
+    it("still exits from a card held for a navigation that never arrives", async () => {
+      await playToFeatureCard();
+      await finishFeatureCard();
+
+      fireEvent.click(screen.getByRole("button", { name: /exit previews/i }));
+
+      expect(screen.queryByRole("dialog", { name: /previews before/i })).not.toBeInTheDocument();
+      expect(assign).toHaveBeenCalledTimes(1);
     });
 
     it("does not leave when Escape ends the previews", async () => {
@@ -890,6 +919,7 @@ describe("BowlDashboard draw preferences", () => {
       await finishFeatureCard();
 
       expect(assign).not.toHaveBeenCalled();
+      expect(screen.queryByRole("dialog", { name: /previews before/i })).not.toBeInTheDocument();
     });
   });
 });

@@ -218,10 +218,11 @@ is the reason it waits on the same checks rather than shipping first.
      anchor does. **Passed** — item 1 is the proof.
 - On a desktop browser: the same flow in Chrome and Safari, signed in and
   signed out, including Back to the bowl. Paramount+ passed signed in on
-  September 14, 2026: the tab lands on the provider's title page. The reveal
-  flashes for a moment between the feature card and the provider page, because
-  `completeTheater` tears the overlay down before `location.assign` has anything
-  to show; that is a follow-up in `TODO.md`. Signed out, the second browser,
+  September 14, 2026: the tab lands on the provider's title page. That pass
+  showed the reveal flashing between the feature card and the provider page,
+  because the overlay was torn down before the navigation painted. The card now
+  holds until the provider's page replaces it, and a bfcache restore on Back
+  ends the pre-roll so it lands on the reveal. Signed out, the second browser,
   and Back to the bowl are *not yet run.*
 
 ## Compliance
