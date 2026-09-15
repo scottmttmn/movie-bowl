@@ -1,8 +1,8 @@
 # Theater Auto-Start Handoff
 
-Status: **implemented; not yet verified on hardware.** The web code, unit
-tests and component tests have landed; the onn box and desktop browser checks
-under "Testing" have not been run. Replaces the browser-era "Web Auto-Start
+Status: **implemented; verified on hardware for Max on the television and
+Paramount+ on a desktop browser (September 14, 2026).** The remaining checks
+under "Testing" are marked as such. Replaces the browser-era "Web Auto-Start
 Handoff" plan, which was written before the Google TV app and the web pre-roll
 existed.
 
@@ -204,17 +204,25 @@ is the reason it waits on the same checks rather than shipping first.
   it cannot run a pre-roll to its end; the desktop/phone split is held by the
   `BowlDashboard` tests above, which stub the primary pointer instead.
 - On the onn box, recorded in the compatibility record Milestone 5 of the Play
-  roadmap asks for:
-  1. Pre-roll ends → Max opens on the drawn title with no press.
-  2. Back from Max → the reveal, and no second launch.
-  3. Back during the feature card → the reveal, no launch.
+  roadmap asks for. Items 1-4 and 6 passed on September 14, 2026:
+  1. Pre-roll ends → Max opens on the drawn title with no press. **Passed.**
+  2. Back from Max → the reveal, and no second launch. **Passed.** It takes
+     three presses of Back to get there, which is Max's own back stack rather
+     than ours; accepted for now.
+  3. Back during the feature card → the reveal, no launch. **Passed.**
   4. A service whose app is not installed → the error line, button focused.
-  5. Provider links disabled → the reveal as today.
+     **Passed.** The button stays pressable beside the error, which is a
+     follow-up in `TODO.md`.
+  5. Provider links disabled → the reveal as today. *Not yet run.*
   6. Whether a script-opened window reaches `onCreateWindow` exactly as the
-     anchor does. The shell settings say it will; this is the one mechanism the
-     plan has not seen work, so it is the first thing to check.
+     anchor does. **Passed** — item 1 is the proof.
 - On a desktop browser: the same flow in Chrome and Safari, signed in and
-  signed out, including Back to the bowl.
+  signed out, including Back to the bowl. Paramount+ passed signed in on
+  September 14, 2026: the tab lands on the provider's title page. The reveal
+  flashes for a moment between the feature card and the provider page, because
+  `completeTheater` tears the overlay down before `location.assign` has anything
+  to show; that is a follow-up in `TODO.md`. Signed out, the second browser,
+  and Back to the bowl are *not yet run.*
 
 ## Compliance
 
