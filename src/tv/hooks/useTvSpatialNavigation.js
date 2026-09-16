@@ -225,6 +225,50 @@ function findFallbackCandidate(current, candidates, direction) {
   return candidates[currentIndex + step] || null;
 }
 
+
+/**
+ * Brings the focused control fully into view inside whatever scrolls it.
+ *
+ * "nearest" is the right instinct -- move as little as possible, so a remote
+ * does not fling a list about -- but Chromium reads a row that is merely
+ * *clipped* as near enough and leaves it hanging past the edge. On a phone the
+ * next flick fixes that; on a television the row you just landed on is the row
+ * you cannot read, and pressing down again to see it means passing it.
+ *
+ * So: ask for the minimum, then check the result against the scrollport and
+ * centre the element only if it is still cut off.
+ */
+function revealFocusedElement(element) {
+  if (!element?.scrollIntoView) return;
+
+  element.scrollIntoView({ block: "nearest", inline: "nearest" });
+
+  const scroller = findScrollableAncestor(element);
+  if (!scroller) return;
+
+  const elementBox = element.getBoundingClientRect();
+  const scrollerBox = scroller.getBoundingClientRect();
+  const isFullyVisible =
+    elementBox.top >= scrollerBox.top && elementBox.bottom <= scrollerBox.bottom;
+
+  if (!isFullyVisible) {
+    element.scrollIntoView({ block: "center", inline: "nearest" });
+  }
+}
+
+function findScrollableAncestor(element) {
+  let current = element.parentElement;
+
+  while (current && current !== document.body) {
+    const { overflowY } = window.getComputedStyle(current);
+    const scrolls = overflowY === "auto" || overflowY === "scroll";
+    if (scrolls && current.scrollHeight > current.clientHeight) return current;
+    current = current.parentElement;
+  }
+
+  return null;
+}
+
 export default function useTvSpatialNavigation({ scopeKey, onBack }) {
   const onBackRef = useRef(onBack);
 
@@ -285,7 +329,7 @@ export default function useTvSpatialNavigation({ scopeKey, onBack }) {
         : findFallbackCandidate(current, focusable, direction);
 
       next?.focus();
-      next?.scrollIntoView?.({ block: "nearest", inline: "nearest" });
+      revealFocusedElement(next);
     };
 
     window.addEventListener("keydown", handleKeyDown);
