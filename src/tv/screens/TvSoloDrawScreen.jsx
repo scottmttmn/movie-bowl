@@ -12,8 +12,12 @@ import { fetchStreamingProviders } from "../../lib/streamingProviders";
 import { fetchMovieTrailer, resolveEligiblePreviewIds } from "../../lib/theaterPreviews";
 import { getTmdbMovieDetails } from "../../lib/tmdbApi";
 import { clampTheaterTrailerCount } from "../../utils/drawSettings";
+import { getProviderLogoUrl } from "../../utils/getProviderLogoUrl";
+import { getServiceLogoPath } from "../../utils/providerLogos";
+import { getStreamingMode, getStreamingModeSettings } from "../utils/streamingMode";
 import {
   buildSoloPreviewPool,
+  filterSoloPoolByScope,
   groupSoloCandidatesByTitle,
 } from "../../utils/soloDrawSelection";
 import {
@@ -27,6 +31,7 @@ import {
   resolvePreferredLaunchTarget,
 } from "../../utils/webLaunch";
 import TvBrand from "../components/TvBrand";
+import TvSoloScopeSheet from "../components/TvSoloScopeSheet";
 import { TvDrawingScreen, TvRevealScreen } from "../components/TvDrawExperience";
 import TvTheaterPreroll from "../components/TvTheaterPreroll";
 import TvTheaterTicket from "../components/TvTheaterTicket";
@@ -114,6 +119,7 @@ export default function TvSoloDrawScreen({ userId }) {
     overriddenSettings,
     isPersisted: areTvSettingsPersisted,
     setOverride: setTvSetting,
+    setOverrides: setTvSettings,
   } = useDeviceDrawSettings(userId, accountDrawSettings);
   const {
     draw,
@@ -126,6 +132,11 @@ export default function TvSoloDrawScreen({ userId }) {
     canRetrySave,
   } = useSoloDraw();
 
+  const [showScopeSheet, setShowScopeSheet] = useState(false);
+  // Session-only, like the web screen's scope: a television is a shared object,
+  // and a bowl somebody excluded on Tuesday must not still be missing when
+  // another person draws on Friday.
+  const [scopeOverride, setScopeOverride] = useState(null);
   const [showDrawConfirm, setShowDrawConfirm] = useState(false);
   const [isPreparingReveal, setIsPreparingReveal] = useState(false);
   const [drawAnimationTitle, setDrawAnimationTitle] = useState("");
@@ -138,9 +149,24 @@ export default function TvSoloDrawScreen({ userId }) {
   const drawInFlightRef = useRef(false);
   const theaterRequestRef = useRef(0);
 
+  const bowlIds = useMemo(() => bowls.map((bowl) => bowl.id), [bowls]);
+  const selectedBowlIds = scopeOverride ?? bowlIds;
+  const scopedRows = useMemo(
+    () => filterSoloPoolByScope(rows, selectedBowlIds),
+    [rows, selectedBowlIds]
+  );
+  const postersByBowl = useMemo(() => {
+    const posters = {};
+    rows.forEach((row) => {
+      if (!row?.bowl_id) return;
+      const bowlPosters = posters[row.bowl_id] || (posters[row.bowl_id] = []);
+      if (row.poster_path && bowlPosters.length < 3) bowlPosters.push(row);
+    });
+    return posters;
+  }, [rows]);
   const availableGenres = useMemo(
-    () => getAvailableDrawGenres(rows),
-    [rows]
+    () => getAvailableDrawGenres(scopedRows),
+    [scopedRows]
   );
   const drawOptions = useMemo(
     () => buildTvDrawOptions(settings, streamingServices, availableGenres),
@@ -149,11 +175,32 @@ export default function TvSoloDrawScreen({ userId }) {
   const {
     status: drawPoolStatus,
     poolCount,
-  } = useDrawPoolCount(rows, drawOptions, SOLO_FILTER_METADATA_FETCHERS);
+    eligibleMovieIds,
+  } = useDrawPoolCount(scopedRows, drawOptions, SOLO_FILTER_METADATA_FETCHERS);
   const distinctTitleCount = useMemo(
-    () => groupSoloCandidatesByTitle(rows).length,
-    [rows]
+    () => groupSoloCandidatesByTitle(scopedRows).length,
+    [scopedRows]
   );
+  // Counted the same way as the pool it describes: the filters answer in rows,
+  // and a row is not a title -- a movie sitting in three bowls survives them
+  // three times but still has one chance. Null until the lookups land, because
+  // a filtered count that guesses is worse than one that waits.
+  const eligibleTitleCount = useMemo(() => {
+    if (!Array.isArray(eligibleMovieIds)) return null;
+    const eligible = new Set(eligibleMovieIds.map((id) => String(id)));
+    return groupSoloCandidatesByTitle(
+      scopedRows.filter((row) => eligible.has(String(row.id)))
+    ).length;
+  }, [eligibleMovieIds, scopedRows]);
+  const isFilteredCountReady =
+    drawPoolStatus === DRAW_POOL_STATUS.ready &&
+    eligibleTitleCount !== null &&
+    eligibleTitleCount < distinctTitleCount;
+  const streamingMode = getStreamingMode(settings);
+  const topService = streamingServices[0] || null;
+  const topServiceLogoUrl = topService
+    ? getProviderLogoUrl(getServiceLogoPath(topService), "w92")
+    : null;
   const filteredOut =
     drawPoolStatus === DRAW_POOL_STATUS.ready && poolCount === 0;
   const isBusy = isDrawing || isPreparingReveal;
@@ -330,19 +377,19 @@ export default function TvSoloDrawScreen({ userId }) {
       isPreferencesLoading ||
       poolErrorMessage ||
       filteredOut ||
-      rows.length === 0
+      scopedRows.length === 0
     ) {
       return;
     }
 
-    const drawPool = [...rows];
+    const drawPool = [...scopedRows];
     const options = { ...drawOptions };
     void revealCommittedDraw(() => draw(drawPool, options), drawPool, options);
   };
 
   const retryPendingSave = () => {
     if (!canRetrySave || isBusy) return;
-    const drawPool = [...rows];
+    const drawPool = [...scopedRows];
     const options = { ...drawOptions };
     void revealCommittedDraw(retrySave, drawPool, options);
   };
@@ -353,6 +400,8 @@ export default function TvSoloDrawScreen({ userId }) {
       isPoolLoading,
       isPreferencesLoading,
       showDrawConfirm,
+      showScopeSheet,
+      selectedBowlIds.join(","),
       isBusy,
       drawnMovie?.id || "",
       showTrailer,
@@ -366,6 +415,10 @@ export default function TvSoloDrawScreen({ userId }) {
       if (isBusy) return;
       if (isTheaterPlaying) {
         endTheater();
+        return;
+      }
+      if (showScopeSheet) {
+        setShowScopeSheet(false);
         return;
       }
       if (showDrawConfirm) {
@@ -446,7 +499,7 @@ export default function TvSoloDrawScreen({ userId }) {
     filteredOut ||
     rows.length === 0 ||
     canRetrySave;
-  const isBehindDialog = showDrawConfirm || canRetrySave;
+  const isBehindDialog = showDrawConfirm || canRetrySave || showScopeSheet;
 
   return (
     <main className="tv-page tv-solo-page">
@@ -495,12 +548,51 @@ export default function TvSoloDrawScreen({ userId }) {
               <span>Draw for myself</span>
             </button>
 
-            {!isPoolLoading && !poolErrorMessage && rows.length > 0 && !filteredOut && (
-              <p className="tv-solo-pool-summary">
-                <strong>{distinctTitleCount}</strong>{" "}
-                {pluralize(distinctTitleCount, "title")} across{" "}
-                <strong>{bowls.length}</strong> {pluralize(bowls.length, "bowl")}
-              </p>
+            {/* The readout is the control. One line says what the draw is
+                working from, and selecting it opens the sheet that changes it --
+                so the resting screen gains a sentence and a single D-pad stop
+                rather than a column of controls beside the draw target. */}
+            {!isPoolLoading && !poolErrorMessage && rows.length > 0 && (
+              <button
+                type="button"
+                className="tv-solo-pool-summary"
+                data-tv-focusable
+                data-tv-nav-group="solo-draw"
+                onClick={() => setShowScopeSheet(true)}
+              >
+                <span>
+                  {isFilteredCountReady ? (
+                    <>
+                      <strong>{eligibleTitleCount}</strong> of{" "}
+                      <strong>{distinctTitleCount}</strong>{" "}
+                      {pluralize(distinctTitleCount, "title")}
+                    </>
+                  ) : (
+                    <>
+                      <strong>{distinctTitleCount}</strong>{" "}
+                      {pluralize(distinctTitleCount, "title")}
+                    </>
+                  )}{" "}
+                  across <strong>{selectedBowlIds.length}</strong>{" "}
+                  {pluralize(selectedBowlIds.length, "bowl")}
+                </span>
+                {/* The count is the label; this says what pressing it does,
+                    which a sighted person reads from the sheet opening and a
+                    screen reader cannot. */}
+                <span className="sr-only">Change bowls and streaming</span>
+                {streamingMode !== "off" && topService && (
+                  <span className="tv-solo-summary-service">
+                    {topServiceLogoUrl ? (
+                      <img src={topServiceLogoUrl} alt={topService} />
+                    ) : (
+                      <span>{topService}</span>
+                    )}
+                    {streamingMode === "top" && (
+                      <span className="tv-solo-summary-first">first</span>
+                    )}
+                  </span>
+                )}
+              </button>
             )}
 
             {(isPoolLoading || isPreferencesLoading) && (
@@ -521,6 +613,11 @@ export default function TvSoloDrawScreen({ userId }) {
                   Try again
                 </button>
               </div>
+            )}
+            {!isPoolLoading && !poolErrorMessage && rows.length > 0 && scopedRows.length === 0 && (
+              <p className="tv-solo-status">
+                No bowls chosen. Open the line above to pick some.
+              </p>
             )}
             {!isPoolLoading && !poolErrorMessage && rows.length === 0 && (
               <p className="tv-solo-status">
@@ -556,6 +653,32 @@ export default function TvSoloDrawScreen({ userId }) {
           </div>
         </section>
       </div>
+
+      {showScopeSheet && (
+        <TvSoloScopeSheet
+          bowls={bowls}
+          selectedBowlIds={selectedBowlIds}
+          postersByBowl={postersByBowl}
+          services={streamingServices}
+          streamingMode={streamingMode}
+          topService={topService}
+          isStreamingOverridden={
+            Object.prototype.hasOwnProperty.call(overriddenSettings, "prioritizeStreaming") ||
+            Object.prototype.hasOwnProperty.call(overriddenSettings, "useStreamingRank")
+          }
+          onToggleBowl={(bowlId) =>
+            setScopeOverride((previous) => {
+              const current = previous ?? bowlIds;
+              return current.includes(bowlId)
+                ? current.filter((id) => id !== bowlId)
+                : [...current, bowlId];
+            })
+          }
+          onSelectAllBowls={() => setScopeOverride(bowlIds)}
+          onChangeStreamingMode={(mode) => setTvSettings(getStreamingModeSettings(mode))}
+          onClose={() => setShowScopeSheet(false)}
+        />
+      )}
 
       {showDrawConfirm && (
         <div className="tv-dialog-backdrop" role="presentation">

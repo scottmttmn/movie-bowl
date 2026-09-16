@@ -47,6 +47,9 @@ const mocks = vi.hoisted(() => ({
   theaterModeEnabled: false,
   isPersisted: true,
   setOverride: vi.fn(),
+  setOverrides: vi.fn(),
+  poolStatus: "unfiltered",
+  eligibleMovieIds: null,
   draw: vi.fn(),
   retrySave: vi.fn(),
   dismissResult: vi.fn(),
@@ -97,6 +100,7 @@ vi.mock("../../hooks/useDeviceDrawSettings", () => ({
     overriddenSettings: {},
     isPersisted: mocks.isPersisted,
     setOverride: mocks.setOverride,
+    setOverrides: mocks.setOverrides,
   }),
 }));
 
@@ -120,7 +124,11 @@ vi.mock("../../hooks/useDrawPoolCount", () => ({
     counting: "counting",
     ready: "ready",
   },
-  default: () => ({ status: "unfiltered", poolCount: mocks.rows.length }),
+  default: (rows) => ({
+    status: mocks.poolStatus,
+    poolCount: mocks.eligibleMovieIds ? mocks.eligibleMovieIds.length : (rows || []).length,
+    eligibleMovieIds: mocks.eligibleMovieIds,
+  }),
 }));
 
 vi.mock("../../hooks/useDrawProviderLinks", () => ({
@@ -202,6 +210,9 @@ describe("TV solo draw", () => {
     mocks.clearError.mockReset();
     mocks.reload.mockReset();
     mocks.setOverride.mockReset();
+    mocks.setOverrides.mockReset();
+    mocks.poolStatus = "unfiltered";
+    mocks.eligibleMovieIds = null;
     mocks.startProviderLookup.mockReset();
     mocks.getTmdbMovieDetails.mockReset().mockResolvedValue({
       title: "Arrival",
@@ -291,6 +302,127 @@ describe("TV solo draw", () => {
 
     fireEvent.click(screen.getByRole("switch", { name: /theater mode/i }));
     expect(mocks.setOverride).toHaveBeenCalledWith("theaterModeEnabled", true);
+  });
+
+  // What the draw is working from is a sentence at rest and a screen on demand:
+  // the stage keeps one target, and the detail that shaped the rejected
+  // exploration lives a press away.
+  it("opens the scope sheet from the line that reports the pool", () => {
+    renderSolo();
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /change bowls and streaming/i }));
+
+    const sheet = screen.getByRole("dialog");
+    expect(sheet).toHaveTextContent("Your bowls");
+    expect(screen.getByRole("button", { name: /family night/i })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+    // The streaming control belongs to the sheet, never to the idle stage.
+    expect(screen.getByRole("radiogroup", { name: /streaming/i })).toBeInTheDocument();
+  });
+
+  it("counts slips per bowl and distinct titles on the stage", () => {
+    renderSolo();
+
+    fireEvent.click(screen.getByRole("button", { name: /change bowls and streaming/i }));
+
+    // Two bowls hold two copies each of the same two movies: four slips, two
+    // titles, and each title still gets one chance.
+    expect(screen.getByRole("button", { name: /family night/i })).toHaveTextContent("2 titles");
+    fireEvent.click(screen.getByRole("button", { name: /^done$/i }));
+    expect(
+      screen.getByText((_content, element) =>
+        Boolean(element?.classList?.contains("tv-solo-pool-summary"))
+      )
+    ).toHaveTextContent("2 titles across 2 bowls");
+  });
+
+  it("narrows the pool to the chosen bowls and draws from them", async () => {
+    renderSolo();
+
+    fireEvent.click(screen.getByRole("button", { name: /change bowls and streaming/i }));
+    fireEvent.click(screen.getByRole("button", { name: /friday friends/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^done$/i }));
+
+    expect(
+      screen.getByText((_content, element) =>
+        Boolean(element?.classList?.contains("tv-solo-pool-summary"))
+      )
+    ).toHaveTextContent("2 titles across 1 bowl");
+
+    await revealMovie();
+
+    const [drawPool] = mocks.draw.mock.calls[0];
+    expect(drawPool.map((movie) => movie.id)).toEqual(["solo-feature", "solo-preview"]);
+  });
+
+  it("restores every bowl from the sheet", () => {
+    renderSolo();
+
+    fireEvent.click(screen.getByRole("button", { name: /change bowls and streaming/i }));
+    fireEvent.click(screen.getByRole("button", { name: /friday friends/i }));
+    expect(screen.getByRole("button", { name: /friday friends/i })).toHaveAttribute(
+      "aria-pressed",
+      "false"
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: /all bowls/i }));
+    expect(screen.getByRole("button", { name: /friday friends/i })).toHaveAttribute(
+      "aria-pressed",
+      "true"
+    );
+  });
+
+  it("says how many titles the filters leave, once it knows", () => {
+    mocks.poolStatus = "ready";
+    // One copy survives; its twin in the other bowl does not. They are one
+    // title either way, so the line must not say two.
+    mocks.eligibleMovieIds = ["solo-feature"];
+    renderSolo();
+
+    expect(
+      screen.getByText((_content, element) =>
+        Boolean(element?.classList?.contains("tv-solo-pool-summary"))
+      )
+    ).toHaveTextContent("1 of 2 titles across 2 bowls");
+  });
+
+  it("keeps the plain count while the filters are still being checked", () => {
+    mocks.poolStatus = "counting";
+    mocks.eligibleMovieIds = null;
+    renderSolo();
+
+    expect(
+      screen.getByText((_content, element) =>
+        Boolean(element?.classList?.contains("tv-solo-pool-summary"))
+      )
+    ).toHaveTextContent("2 titles across 2 bowls");
+  });
+
+  it("keeps a streaming change on this television", () => {
+    renderSolo();
+
+    fireEvent.click(screen.getByRole("button", { name: /change bowls and streaming/i }));
+    fireEvent.click(screen.getByRole("radio", { name: /favor netflix/i }));
+
+    // A television is shared: relaxing a filter tonight must not rewrite the
+    // account somebody browses with tomorrow.
+    expect(mocks.setOverrides).toHaveBeenCalledWith({
+      prioritizeStreaming: true,
+      useStreamingRank: false,
+    });
+  });
+
+  it("closes the sheet on Back before it leaves the screen", () => {
+    renderSolo();
+
+    fireEvent.click(screen.getByRole("button", { name: /change bowls and streaming/i }));
+    fireEvent.keyDown(window, { key: "Backspace" });
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Pick one of yours." })).toBeInTheDocument();
   });
 
   it("returns to the picker with solo focus restored", () => {

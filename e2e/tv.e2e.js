@@ -164,14 +164,35 @@ test("a paired TV can make a private solo draw without the busy bowl controls", 
     }
   );
 
+  // Saved services, so the sheet has a streaming control to show.
+  const soloProfile = backend.state.profiles.find((profile) => profile.id === "user-smoke");
+  if (soloProfile) soloProfile.streaming_services = ["Netflix", "Max"];
+
   await page.goto("/tv/bowls");
   await page.getByRole("button", { name: /draw from my movies/i }).press("Enter");
 
   await expect(page).toHaveURL(/\/tv\/solo$/);
   await expect(page.getByRole("heading", { name: "Pick one of yours." })).toBeVisible();
   await expect(page.getByText(/2 titles across 2 bowls/i)).toBeVisible();
+  // The streaming control is a press away, never on the resting stage.
   await expect(page.getByRole("radiogroup")).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("tv-solo-idle.png") });
+
+  // The line that reports the pool is also the way to change it.
+  await page.getByRole("button", { name: /change bowls and streaming/i }).press("Enter");
+  await expect(page.getByRole("dialog")).toContainText("Your bowls");
+  await expect(page.getByRole("radiogroup", { name: /streaming/i })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("tv-solo-scope.png") });
+
+  await page.getByRole("button", { name: /Solo Source B/ }).press("Enter");
+  await page.getByRole("button", { name: /^Done$/ }).press("Enter");
+  await expect(page.getByText(/1 title across 1 bowl/i)).toBeVisible();
+
+  // Back to everything, so the draw below can land on either title.
+  await page.getByRole("button", { name: /change bowls and streaming/i }).press("Enter");
+  await page.getByRole("button", { name: /^All bowls$/ }).press("Enter");
+  await page.getByRole("button", { name: /^Done$/ }).press("Enter");
+  await expect(page.getByText(/2 titles across 2 bowls/i)).toBeVisible();
 
   await page.getByRole("button", { name: /draw for myself/i }).press("Enter");
   await page.getByRole("button", { name: /reveal one/i }).press("Enter");
