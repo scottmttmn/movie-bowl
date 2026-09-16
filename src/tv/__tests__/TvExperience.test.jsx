@@ -136,6 +136,7 @@ function renderPicker({ autoOpenLastBowl = false, path = "/tv/bowls" } = {}) {
           }
         />
         <Route path="/tv/bowl/:bowlId" element={<div>Tonight route</div>} />
+        <Route path="/tv/solo" element={<div>Solo route</div>} />
       </Routes>
     </MemoryRouter>
   );
@@ -291,6 +292,16 @@ describe("Movie Bowl TV experience", () => {
     } finally {
       mocks.bowls = populatedBowls;
     }
+  });
+
+  it("offers solo draw as a quiet route choice before the bowls", async () => {
+    renderPicker();
+
+    const solo = await screen.findByRole("button", { name: /draw from my movies/i });
+    expect(solo).toHaveTextContent("One private pick from all of your bowls");
+
+    fireEvent.click(solo);
+    expect(screen.getByText("Solo route")).toBeInTheDocument();
   });
 
   it("remembers the last bowl as a focus preference on the bowl picker", async () => {

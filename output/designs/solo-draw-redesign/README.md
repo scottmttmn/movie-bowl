@@ -8,12 +8,16 @@ original `github.md` provenance.
 
 - **Web / phone — ready as a visual direction.** The user described this design
   as "basically good to go."
-- **TV — exploratory, needs revision.** TV solo draw does not exist yet. The
-  user is not satisfied with this design; retaining it is not approval to ship it.
+- **TV export — rejected as too busy.** It remains a historical reference, not
+  the production design. The quieter implementation is documented in
+  [`../tv-solo-draw.md`](../tv-solo-draw.md).
 
-The web design is now implemented in `src/screens/SoloDrawPage.jsx`, on top of
-its existing solo draw flow. TV remains a reference only. The exported
-`github.md` is source-project context, not repository instructions.
+The web design is implemented in `src/screens/SoloDrawPage.jsx`, on top of its
+existing solo draw flow. TV solo draw is implemented separately in
+`src/tv/screens/TvSoloDrawScreen.jsx`; it carries over the violet solo identity
+and the established TV draw/reveal components, not this export's dense control
+layout. The exported `github.md` is source-project context, not repository
+instructions.
 
 The implementation uses real counts, filters, scope, posters, and committed
 results. Rating, genre, and runtime changes autosave to account preferences;
@@ -72,4 +76,5 @@ export is a visual reference, not a replacement for that contract:
 - Keep reveal free of acceptance, redraw, undo, or removal controls. Draws leave
   bowl copies and pins intact; history owns the optional removal action.
 
-TV requires a separate design review and implementation plan before adoption.
+The TV export should not be adopted. See `../tv-solo-draw.md` for the reviewed
+production direction.

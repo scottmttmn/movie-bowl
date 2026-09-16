@@ -53,13 +53,18 @@ test("a paired TV can use remote selection to open a bowl", async ({ page, backe
 
   await expect(page.getByRole("heading", { name: "Choose a bowl" })).toBeVisible();
   const bowlButton = page.getByRole("button", { name: /Smoke TV/ });
+  const soloButton = page.getByRole("button", { name: /draw from my movies/i });
   const signOut = page.getByRole("button", { name: "Sign out of this TV", exact: true });
   await expect(bowlButton).toBeFocused();
   await bowlButton.press("ArrowUp");
+  await expect(soloButton).toBeFocused();
+  await soloButton.press("ArrowUp");
   await expect(signOut).toBeFocused();
   await signOut.press("ArrowDown");
   await expect(bowlButton).toBeFocused();
   await bowlButton.press("ArrowUp");
+  await expect(soloButton).toBeFocused();
+  await soloButton.press("ArrowUp");
   await expect(signOut).toBeFocused();
   await signOut.press("Enter");
   const dialog = page.getByRole("dialog", { name: "Sign out of this TV?" });
@@ -92,6 +97,94 @@ test("a paired TV can use remote selection to open a bowl", async ({ page, backe
   await expect(page.getByRole("heading", { name: "TV Smoke Feature" })).toBeVisible({
     timeout: 15_000,
   });
+});
+
+test("a paired TV can make a private solo draw without the busy bowl controls", async ({
+  page,
+  backend,
+}, testInfo) => {
+  test.skip(testInfo.project.name === "mobile-chromium", "TV smoke coverage uses the desktop viewport.");
+
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await backend.authenticate(page);
+  backend.state.bowls.push(
+    {
+      id: "bowl-tv-solo-a",
+      name: "Solo Source A",
+      owner_id: "user-smoke",
+      draw_access_mode: "all_members",
+      draw_method: "person_first",
+      created_at: "2026-09-16T12:00:00.000Z",
+    },
+    {
+      id: "bowl-tv-solo-b",
+      name: "Solo Source B",
+      owner_id: "user-smoke",
+      draw_access_mode: "all_members",
+      draw_method: "person_first",
+      created_at: "2026-09-16T12:00:00.000Z",
+    }
+  );
+  backend.state.bowl_members.push(
+    {
+      id: "member-tv-solo-a",
+      bowl_id: "bowl-tv-solo-a",
+      user_id: "user-smoke",
+      role: "Owner",
+    },
+    {
+      id: "member-tv-solo-b",
+      bowl_id: "bowl-tv-solo-b",
+      user_id: "user-smoke",
+      role: "Owner",
+    }
+  );
+  backend.state.bowl_movies.push(
+    {
+      id: "movie-tv-solo-a",
+      bowl_id: "bowl-tv-solo-a",
+      tmdb_id: -501,
+      title: "Quiet Solo Feature",
+      added_by: "user-smoke",
+      added_at: "2026-09-16T12:00:00.000Z",
+      drawn_at: null,
+      genres: ["Drama"],
+      runtime: 98,
+    },
+    {
+      id: "movie-tv-solo-b",
+      bowl_id: "bowl-tv-solo-b",
+      tmdb_id: -502,
+      title: "Second Solo Feature",
+      added_by: "user-smoke",
+      added_at: "2026-09-16T12:00:00.000Z",
+      drawn_at: null,
+      genres: ["Comedy"],
+      runtime: 104,
+    }
+  );
+
+  await page.goto("/tv/bowls");
+  await page.getByRole("button", { name: /draw from my movies/i }).press("Enter");
+
+  await expect(page).toHaveURL(/\/tv\/solo$/);
+  await expect(page.getByRole("heading", { name: "Pick one of yours." })).toBeVisible();
+  await expect(page.getByText(/2 titles across 2 bowls/i)).toBeVisible();
+  await expect(page.getByRole("radiogroup")).toHaveCount(0);
+  await page.screenshot({ path: testInfo.outputPath("tv-solo-idle.png") });
+
+  await page.getByRole("button", { name: /draw for myself/i }).press("Enter");
+  await page.getByRole("button", { name: /reveal one/i }).press("Enter");
+
+  await expect(
+    page.getByRole("heading", { name: /Quiet Solo Feature|Second Solo Feature/ })
+  ).toBeVisible({ timeout: 15_000 });
+  await expect(page.getByText(/Saved to your Watch History/)).toBeVisible();
+  expect(backend.state.user_watch_events).toHaveLength(1);
+  expect(backend.state.user_watch_events[0]).toEqual(
+    expect.objectContaining({ source_kind: "solo_draw", user_id: "user-smoke" })
+  );
+  expect(backend.consoleErrors).toEqual([]);
 });
 
 test("TV sign-out can retry a failure, revokes only this session, and returns to pairing", async ({ page, backend }, testInfo) => {

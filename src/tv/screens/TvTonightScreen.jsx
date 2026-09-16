@@ -15,8 +15,6 @@ import { getMovieAttributionLabel } from "../../utils/drawBuckets";
 import { getDrawReadout } from "../../utils/drawReadout";
 import { clampTheaterTrailerCount } from "../../utils/drawSettings";
 import { getPosterUrl } from "../../utils/getPosterUrl";
-import { getProviderLogoUrl } from "../../utils/getProviderLogoUrl";
-import { matchUserServices } from "../../utils/streamingServices";
 
 import useDrawPoolCount, { DRAW_POOL_STATUS } from "../../hooks/useDrawPoolCount";
 import {
@@ -30,9 +28,12 @@ import {
 } from "../../utils/webLaunch";
 import { canReturnDrawToBowl } from "../../utils/watchHistory";
 import useDrawProviderLinks from "../../hooks/useDrawProviderLinks";
-import ProviderLinksAttribution from "../../components/ProviderLinksAttribution";
-import ServiceLogo from "../../components/ServiceLogo";
 import TvBrand from "../components/TvBrand";
+import {
+  TvDrawingScreen,
+  TvMovieDetailStage,
+  TvRevealScreen,
+} from "../components/TvDrawExperience";
 import TvStreamingRail from "../components/TvStreamingRail";
 import TvDrawMethodMark from "../components/TvDrawMethodMark";
 import TvTheaterTicket from "../components/TvTheaterTicket";
@@ -52,6 +53,10 @@ import {
   readExternalReturn,
   rememberExternalReturn,
 } from "../utils/externalReturn";
+import {
+  buildTvDrawOptions,
+  getAvailableDrawGenres,
+} from "../utils/drawOptions";
 
 const MIN_DRAW_ANIMATION_MS = 1800;
 
@@ -64,16 +69,6 @@ const TV_PICKED_DATE_FORMATTER = new Intl.DateTimeFormat(undefined, {
   day: "numeric",
   year: "numeric",
 });
-
-function getYear(movie) {
-  return movie?.release_date ? String(movie.release_date).split("-")[0] : "";
-}
-
-function getGenreNames(movie) {
-  return (movie?.genres || [])
-    .map((genre) => (typeof genre === "string" ? genre : genre?.name))
-    .filter(Boolean);
-}
 
 function formatPickedDate(value) {
   if (!value) return null;
@@ -115,48 +110,6 @@ async function enrichHistoryMovie(movie) {
   }
 
   return mergeHistoryMovieDetails(movie, details);
-}
-
-// Previews run through the same resolver the draw uses, so the pre-roll shows
-// titles that could actually come up next instead of anything left in the bowl.
-// The rating and provider caches are warm from the draw that just ran, so this
-// normally resolves without a network round trip.
-function getAvailableGenres(movies) {
-  return [
-    ...new Set(
-      (movies || []).flatMap((movie) =>
-        (movie?.genres || [])
-          .map((genre) => (typeof genre === "string" ? genre : genre?.name))
-          .filter(Boolean)
-      )
-    ),
-  ].sort((a, b) => a.localeCompare(b));
-}
-
-function buildDrawOptions(defaultDrawSettings, streamingServices, availableGenres) {
-  const settings = defaultDrawSettings || {};
-  const selectedGenres = Array.isArray(settings.selectedGenres)
-    ? settings.selectedGenres.filter((genre) => availableGenres.includes(genre))
-    : availableGenres;
-
-  return {
-    prioritizeByServices: Boolean(settings.prioritizeStreaming),
-    prioritizeByServiceRank: Boolean(settings.useStreamingRank),
-    userStreamingServices: streamingServices,
-    ratingFilter: {
-      allowedRatings: settings.selectedRatings || [],
-      includeUnknown: Boolean(settings.includeUnknownRatings),
-    },
-    genreFilter: {
-      allowedGenres: selectedGenres,
-      includeUnknown: Boolean(settings.includeUnknownGenres),
-    },
-    runtimeFilter: {
-      minMinutes: Number(settings.runtimeMinMinutes || 0),
-      maxMinutes: Number(settings.runtimeMaxMinutes || 500),
-      includeUnknown: Boolean(settings.includeUnknownRuntime),
-    },
-  };
 }
 
 async function enrichDrawnMovie(movie) {
@@ -283,30 +236,6 @@ function TvDrawReadout({ readout, isApproximate, contributorReach, excludedContr
   );
 }
 
-function TvDrawingScreen({ bowlName, drawTitle, poolCount, totalCount, contributorReach }) {
-  const resolvedCount = poolCount ?? totalCount;
-  const excludedCount = contributorReach
-    ? contributorReach.totalCount - contributorReach.reachedCount
-    : 0;
-  const caption =
-    excludedCount > 0
-      ? `Tonight's eligible pool represents ${contributorReach.reachedCount} of ${contributorReach.totalCount} contributors.`
-      : `${resolvedCount} eligible ${resolvedCount === 1 ? "movie is" : "movies are"} in tonight's draw.`;
-
-  return (
-    <main className="tv-drawing-screen" role="status" aria-live="polite">
-      <p className="tv-kicker">{bowlName}</p>
-      <h1>Drawing tonight&apos;s movie…</h1>
-      <BowlIllustration
-        drawTitle={drawTitle}
-        isDrawing
-        className="tv-drawing-bowl"
-      />
-      <p className="tv-drawing-caption">{caption}</p>
-    </main>
-  );
-}
-
 function TvRecentDraws({ movies, restoreFocusId, onFocusRestored, onSelect }) {
   const recentMovies = movies || [];
   if (recentMovies.length === 0) return null;
@@ -349,231 +278,6 @@ function TvRecentDraws({ movies, restoreFocusId, onFocusRestored, onSelect }) {
         })}
       </div>
     </section>
-  );
-}
-
-function TvMovieDetailStage({
-  movie,
-  streamingServices,
-  showWhereToWatch = true,
-  kicker,
-  badgeLabel,
-  noteLabel = "Bowl note",
-  historyMetadata = [],
-  webLaunchCandidate,
-  providerLaunchMessage,
-  onProviderLaunch,
-  onToggleTrailer,
-  playbackAutofocus = true,
-  children,
-}) {
-  const year = getYear(movie);
-  const genres = getGenreNames(movie);
-  const matchingServices = matchUserServices(
-    movie.streamingProviders || [],
-    streamingServices
-  );
-  const providerNames =
-    matchingServices.length > 0 ? matchingServices : movie.streamingProviders || [];
-  const providerLogos = movie.streamingProviderLogos || {};
-  const runtimeLabel = movie.runtime ? `${movie.runtime} min` : null;
-  const trailer = movie.trailer;
-  const canOfferLaunch = showWhereToWatch && Boolean(webLaunchCandidate?.url);
-  // The shell only reports a launch it could not complete -- the app is not
-  // installed, or would not open -- and pressing again can only fail the same
-  // way. So the button stays, naming the service beside the reason, but cannot
-  // be pressed, and the trailer takes the focus it held.
-  const canLaunch = canOfferLaunch && !providerLaunchMessage;
-
-  return (
-    <section className="tv-reveal is-kept">
-      <div className="tv-poster-wrap">
-        <img
-          className="tv-reveal-poster"
-          src={getPosterUrl(movie, "w500")}
-          alt={`${movie.title} poster`}
-        />
-        {badgeLabel && <span className="tv-kept-badge">{badgeLabel}</span>}
-      </div>
-
-      <div className="tv-reveal-copy">
-        <p className="tv-kicker">{kicker}</p>
-        <h1>
-          {movie.title}
-          {year && <span> ({year})</span>}
-        </h1>
-
-        {(runtimeLabel || genres.length > 0) && (
-          <p className="tv-movie-facts">
-            {[runtimeLabel, ...genres.slice(0, 3)].filter(Boolean).join(" • ")}
-          </p>
-        )}
-
-        {historyMetadata.length > 0 && (
-          <p className="tv-history-metadata">
-            {historyMetadata.filter(Boolean).join(" • ")}
-          </p>
-        )}
-
-        {movie.overview && <p className="tv-overview">{movie.overview}</p>}
-
-        {movie.note && (
-          <div className="tv-movie-note">
-            <span>{noteLabel}</span>
-            <p>{movie.note}</p>
-          </div>
-        )}
-
-        {showWhereToWatch && providerNames.length > 0 && (
-          <div className="tv-provider-row">
-            <span>Available on</span>
-            {providerNames.slice(0, 4).map((provider) => {
-              const logoUrl = getProviderLogoUrl(providerLogos[provider], "w92");
-              return logoUrl ? (
-                // The name stays as the alt text, so a logo that fails to load
-                // on a television's connection leaves the row as it was.
-                <img
-                  key={provider}
-                  className="tv-provider-logo"
-                  src={logoUrl}
-                  alt={provider}
-                />
-              ) : (
-                <strong key={provider}>{provider}</strong>
-              );
-            })}
-          </div>
-        )}
-
-        <div className="tv-reveal-actions">
-          {canLaunch && (
-            <a
-              className="tv-button tv-button-secondary"
-              data-tv-focusable
-              data-tv-nav-group="reveal-actions"
-              data-tv-autofocus={playbackAutofocus ? "true" : undefined}
-              href={webLaunchCandidate.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={onProviderLaunch}
-            >
-              <ServiceLogo
-                service={webLaunchCandidate.serviceName}
-                className="tv-launch-logo"
-              />
-              Open {webLaunchCandidate.serviceName}
-            </a>
-          )}
-          {canOfferLaunch && !canLaunch && (
-            // An anchor cannot be disabled. A disabled button drops out of the
-            // spatial navigation's focusable set and picks up its dimmed style.
-            <button
-              type="button"
-              className="tv-button tv-button-secondary"
-              data-tv-focusable
-              data-tv-nav-group="reveal-actions"
-              disabled
-            >
-              <ServiceLogo
-                service={webLaunchCandidate.serviceName}
-                className="tv-launch-logo"
-              />
-              Open {webLaunchCandidate.serviceName}
-            </button>
-          )}
-          {trailer?.embedUrl && (
-            <button
-              type="button"
-              className="tv-button tv-button-secondary"
-              data-tv-focusable
-              data-tv-nav-group="reveal-actions"
-              data-tv-autofocus={playbackAutofocus && !canLaunch ? "true" : undefined}
-              onClick={onToggleTrailer}
-            >
-              Watch trailer
-            </button>
-          )}
-        </div>
-
-        {showWhereToWatch && webLaunchCandidate?.linkType === "title" && (
-          <ProviderLinksAttribution tv />
-        )}
-
-        {showWhereToWatch && providerLaunchMessage && (
-          <p className="tv-provider-launch-message" role="status">
-            {providerLaunchMessage}
-          </p>
-        )}
-
-        {children}
-      </div>
-    </section>
-  );
-}
-
-function TvRevealScreen({
-  bowlName,
-  movie,
-  streamingServices,
-  isPreparingPreviews,
-  showTrailer,
-  isDialogOpen,
-  webLaunchCandidate,
-  providerLaunchMessage,
-  onProviderLaunch,
-  onCloseTrailer,
-  onToggleTrailer,
-}) {
-  const trailer = movie.trailer;
-
-  // aria-hidden hides this from assistive tech and from our own navigation
-  // hook's filter, but it is not a focus guard. The television's WebView runs
-  // its own D-pad traversal when the page does not handle a key, and that walks
-  // straight into these controls: right then OK during previews opened the
-  // provider app. inert takes them out of the focus order itself, which is the
-  // only thing that holds when our JS never sees the press.
-  const isCoveredByOverlay = isDialogOpen || showTrailer;
-
-  return (
-    <>
-      <main
-        className="tv-page tv-reveal-page is-kept"
-        aria-hidden={isCoveredByOverlay ? "true" : undefined}
-        inert={isCoveredByOverlay}
-      >
-        <header className="tv-topbar">
-          <TvBrand />
-          <div className="tv-reveal-bowl-name">{bowlName}</div>
-        </header>
-
-        <TvMovieDetailStage
-          movie={movie}
-          streamingServices={streamingServices}
-          kicker="Decision made"
-          badgeLabel="Tonight's pick"
-          noteLabel="Why it’s in the bowl"
-          webLaunchCandidate={webLaunchCandidate}
-          providerLaunchMessage={providerLaunchMessage}
-          onProviderLaunch={onProviderLaunch}
-          onToggleTrailer={onToggleTrailer}
-        >
-          {isPreparingPreviews && (
-            <p className="tv-preview-status" role="status">
-              Loading previews…
-            </p>
-          )}
-        </TvMovieDetailStage>
-
-      </main>
-
-      {showTrailer && trailer?.embedUrl && (
-        <TvFullscreenTrailer
-          movieTitle={movie.title}
-          trailer={trailer}
-          onClose={onCloseTrailer}
-        />
-      )}
-    </>
   );
 }
 
@@ -801,11 +505,11 @@ export default function TvTonightScreen({ userId }) {
   );
 
   const availableGenres = useMemo(
-    () => getAvailableGenres(bowl.remaining),
+    () => getAvailableDrawGenres(bowl.remaining),
     [bowl.remaining]
   );
   const drawOptions = useMemo(
-    () => buildDrawOptions(defaultDrawSettings, streamingServices, availableGenres),
+    () => buildTvDrawOptions(defaultDrawSettings, streamingServices, availableGenres),
     [defaultDrawSettings, streamingServices, availableGenres]
   );
   // Held in refs rather than the preview effect's deps, the same trade-off
