@@ -88,6 +88,46 @@ export function getSoloDrawGroups(candidates) {
 }
 
 /**
+ * Adapts the cross-bowl solo pool to the bowl theater queue.
+ *
+ * The queue ranks row ids, while solo selection works with distinct title
+ * groups and lets eligible pins narrow the final choice. Translate those
+ * title-level rules back to one stable representative row per title so the
+ * shared queue can keep doing its ordinary ranking. The feature is excluded by
+ * title identity, not just by source row, because another bowl may hold a copy
+ * of the same movie.
+ */
+export function buildSoloPreviewPool(
+  movies,
+  { eligibleMovieIds = null, excludeMovie = null } = {}
+) {
+  const rows = Array.isArray(movies) ? movies : [];
+  const excluded = getMovieFromDrawCandidate(excludeMovie);
+  const excludedKey = excluded?.id ? getSoloGroupKey(excluded) : null;
+  const previewGroups = groupSoloCandidatesByTitle(rows).filter(
+    (group) => group.key !== excludedKey
+  );
+
+  if (!Array.isArray(eligibleMovieIds)) {
+    return {
+      movies: previewGroups.map((group) => group.movie),
+      eligibleMovieIds: null,
+    };
+  }
+
+  const eligibleIds = new Set(eligibleMovieIds.map(String));
+  const eligibleRows = rows.filter((movie) => eligibleIds.has(String(movie?.id)));
+  const drawableKeys = new Set(getSoloDrawGroups(eligibleRows).map((group) => group.key));
+
+  return {
+    movies: previewGroups.map((group) => group.movie),
+    eligibleMovieIds: previewGroups
+      .filter((group) => drawableKeys.has(group.key))
+      .map((group) => group.movie.id),
+  };
+}
+
+/**
  * Picks one title uniformly from the groups a solo draw may use.
  *
  * Returns the chosen candidate exactly as it arrived — wrapper or raw row — so

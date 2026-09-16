@@ -19,10 +19,10 @@ The implementation uses real counts, filters, scope, posters, and committed
 results. Rating, genre, and runtime changes autosave to account preferences;
 streaming priority uses the existing device overrides. The settings gear opens
 personal settings because a cross-bowl solo draw has no single bowl to configure.
-The theater toggle is deferred: the existing solo flow has no theater playback
-pipeline, and the prototype toggle did not implement one. Keyboard confirmation,
-modal focus management, loading/errors, save retry, and large-pool checks remain
-available.
+The theater ticket now uses the same device-local setting, pre-roll overlay,
+provider launch policy, and movie detail card as a bowl draw. Its preview pool
+keeps solo's distinct-title and pin rules. Keyboard confirmation, modal focus
+management, loading/errors, save retry, and large-pool checks remain available.
 
 ## Files and preview
 

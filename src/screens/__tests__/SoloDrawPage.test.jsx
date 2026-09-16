@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { MemoryRouter } from "react-router-dom";
 
@@ -17,6 +17,9 @@ const mocks = vi.hoisted(() => {
       errorMessage: "",
       canRetrySave: false,
     },
+    streamingServices: [],
+    defaultDrawSettings: {},
+    providerLinks: [],
   };
 
   return {
@@ -28,6 +31,19 @@ const mocks = vi.hoisted(() => {
     clearError: vi.fn(),
     runLookups: vi.fn(),
     poolStatus: { current: "unfiltered", poolCount: 0 },
+    saveDefaultDrawSettings: vi.fn(async () => ({ error: null })),
+    startProviderLookup: vi.fn(),
+    useDrawProviderLinks: vi.fn(),
+    getTmdbMovieDetails: vi.fn(async () => ({})),
+    fetchStreamingProviders: vi.fn(async () => ({
+      providers: [],
+      providerLogos: {},
+      region: "US",
+      fetchedAt: null,
+    })),
+    fetchMovieFilterMetadata: vi.fn(async () => ({})),
+    resolveEligiblePreviewIds: vi.fn(),
+    fetchMovieTrailer: vi.fn(),
   };
 });
 
@@ -47,7 +63,15 @@ vi.mock("../../hooks/useSoloDraw", () => ({
   }),
 }));
 vi.mock("../../hooks/useUserStreamingServices", () => ({
-  default: () => ({ streamingServices: [], defaultDrawSettings: {} }),
+  default: () => ({
+    streamingServices: mocks.state.streamingServices,
+    defaultDrawSettings: mocks.state.defaultDrawSettings,
+    setDefaultDrawSettings: vi.fn(),
+    saveDefaultDrawSettings: mocks.saveDefaultDrawSettings,
+  }),
+}));
+vi.mock("../../hooks/useDrawProviderLinks", () => ({
+  default: (...args) => mocks.useDrawProviderLinks(...args),
 }));
 vi.mock("../../hooks/useDrawPoolCount", () => ({
   default: () => ({
@@ -62,6 +86,19 @@ vi.mock("../../hooks/useDrawPoolCount", () => ({
     counting: "counting",
     ready: "ready",
   },
+}));
+vi.mock("../../lib/tmdbApi", () => ({
+  getTmdbMovieDetails: mocks.getTmdbMovieDetails,
+}));
+vi.mock("../../lib/streamingProviders", () => ({
+  fetchStreamingProviders: mocks.fetchStreamingProviders,
+}));
+vi.mock("../../lib/movieFilterMetadata", () => ({
+  fetchMovieFilterMetadata: mocks.fetchMovieFilterMetadata,
+}));
+vi.mock("../../lib/theaterPreviews", () => ({
+  resolveEligiblePreviewIds: mocks.resolveEligiblePreviewIds,
+  fetchMovieTrailer: mocks.fetchMovieTrailer,
 }));
 
 import SoloDrawPage from "../SoloDrawPage";
@@ -90,6 +127,9 @@ beforeEach(() => {
     errorMessage: "",
   };
   mocks.state.draw = { isDrawing: false, result: null, errorMessage: "", canRetrySave: false };
+  mocks.state.streamingServices = [];
+  mocks.state.defaultDrawSettings = {};
+  mocks.state.providerLinks = [];
   mocks.poolStatus.current = "unfiltered";
   mocks.poolStatus.poolCount = 0;
   mocks.poolStatus.eligibleMovieIds = undefined;
@@ -97,9 +137,38 @@ beforeEach(() => {
   mocks.retrySave.mockReset();
   mocks.reload.mockReset();
   mocks.runLookups.mockReset();
+  mocks.saveDefaultDrawSettings.mockClear();
+  mocks.startProviderLookup.mockClear();
+  mocks.useDrawProviderLinks.mockReset().mockImplementation(() => ({
+    providerLinks: mocks.state.providerLinks,
+    startLookup: mocks.startProviderLookup,
+  }));
+  mocks.getTmdbMovieDetails.mockReset().mockResolvedValue({});
+  mocks.fetchStreamingProviders.mockReset().mockResolvedValue({
+    providers: [],
+    providerLogos: {},
+    region: "US",
+    fetchedAt: null,
+  });
+  mocks.fetchMovieFilterMetadata.mockReset().mockResolvedValue({});
+  mocks.resolveEligiblePreviewIds.mockReset().mockImplementation(async ({ movies }) =>
+    movies.map((entry) => entry.id)
+  );
+  mocks.fetchMovieTrailer.mockReset().mockImplementation(async (entry) => ({
+    key: `trailer-${entry.id}`,
+    site: "YouTube",
+  }));
+  window.localStorage.clear();
+  vi.useRealTimers();
 });
 
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  window.localStorage.clear();
+  vi.useRealTimers();
+  delete window.YT;
+  vi.unstubAllGlobals();
+});
 
 describe("SoloDrawPage", () => {
   it("starts with every bowl from the personal surface", async () => {
@@ -232,6 +301,184 @@ describe("SoloDrawPage", () => {
     expect(dialog).toHaveTextContent("Movie m1");
     expect(dialog).toHaveTextContent("Saved to your watch history.");
     expect(screen.queryByRole("button", { name: /keep|accept|draw again|redraw|remove/i })).toBeNull();
+  });
+
+  it("holds the bowl animation before opening the normal movie detail", async () => {
+    mocks.draw.mockResolvedValue({
+      id: "m1",
+      bowl_id: "bowl-1",
+      tmdb_id: 100,
+      title: "Movie m1",
+      watchedOn: "2026-09-16",
+    });
+    mocks.getTmdbMovieDetails.mockResolvedValue({
+      trailer: { key: "feature-trailer", site: "YouTube" },
+    });
+
+    renderPage();
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: /hold to draw/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Draw" }));
+
+    expect(screen.getByText(/drawing a title from the bowl/i)).toBeInTheDocument();
+    await act(async () => {
+      await Promise.resolve();
+    });
+    expect(document.querySelector(".bowl-draw-pop-title")).toHaveTextContent("Movie m1");
+    expect(screen.queryByRole("heading", { name: "Movie m1", level: 2 })).toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1499);
+    });
+    expect(screen.queryByRole("heading", { name: "Movie m1", level: 2 })).toBeNull();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
+    });
+
+    expect(screen.getByRole("heading", { name: "Movie m1", level: 2 })).toBeInTheDocument();
+    expect(screen.getByText("Saved to your watch history.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /watch trailer/i })).toBeInTheDocument();
+    expect(mocks.startProviderLookup).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "m1", bowl_id: "bowl-1" })
+    );
+  });
+
+  it("stores the theater ticket on this device without changing account settings", async () => {
+    mocks.state.defaultDrawSettings = { theaterModeEnabled: true };
+    renderPage();
+
+    const ticket = screen.getByRole("switch", { name: /theater mode/i });
+    expect(ticket).toHaveAttribute("aria-checked", "false");
+    fireEvent.click(ticket);
+
+    await waitFor(() =>
+      expect(screen.getByRole("switch", { name: /theater mode on/i })).toHaveAttribute(
+        "aria-checked",
+        "true"
+      )
+    );
+    expect(
+      JSON.parse(window.localStorage.getItem("movie-bowl:tv:draw-settings:user-1"))
+    ).toEqual({ theaterModeEnabled: true });
+    expect(mocks.saveDefaultDrawSettings).not.toHaveBeenCalledWith(
+      expect.objectContaining({ theaterModeEnabled: expect.anything() })
+    );
+  });
+
+  it("plays solo previews over the detail and never previews a duplicate feature copy", async () => {
+    window.localStorage.setItem(
+      "movie-bowl:tv:draw-settings:user-1",
+      JSON.stringify({ theaterModeEnabled: true })
+    );
+    window.YT = {
+      Player: vi.fn(() => ({ playVideo: vi.fn(), destroy: vi.fn() })),
+      PlayerState: { ENDED: 0, PLAYING: 1 },
+    };
+    mocks.state.pool = {
+      rows: [
+        { ...movie("m1", "bowl-1"), tmdb_id: 101 },
+        { ...movie("m1-copy", "bowl-2"), tmdb_id: 101 },
+        { ...movie("m2", "bowl-2"), tmdb_id: 202 },
+      ],
+      bowls: [
+        { id: "bowl-1", name: "First Bowl", titleCount: 1 },
+        { id: "bowl-2", name: "Second Bowl", titleCount: 2 },
+      ],
+      bowlIds: ["bowl-1", "bowl-2"],
+      isLoading: false,
+      errorMessage: "",
+    };
+    mocks.draw.mockResolvedValue({
+      ...mocks.state.pool.rows[0],
+      title: "Feature Movie",
+      watchedOn: "2026-09-16",
+    });
+
+    renderPage();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    fireEvent.click(screen.getByRole("button", { name: /hold to draw/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Draw" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+
+    await waitFor(() =>
+      expect(
+        screen.getByRole("dialog", { name: /previews before feature movie/i })
+      ).toBeInTheDocument()
+    );
+    expect(mocks.fetchMovieTrailer).toHaveBeenCalledTimes(1);
+    expect(mocks.fetchMovieTrailer).toHaveBeenCalledWith(
+      expect.objectContaining({ id: "m2", tmdb_id: 202 })
+    );
+    const detail = document.querySelector(".modal-overlay");
+    expect(detail).toHaveAttribute("aria-hidden", "true");
+    expect(detail).toHaveAttribute("inert");
+  });
+
+  it("opens an exact provider title after the desktop pre-roll completes", async () => {
+    const providerUrl = "https://www.netflix.com/title/80117401";
+    const assign = vi.fn();
+    let playerOptions;
+    vi.stubGlobal("location", { ...window.location, assign });
+    vi.stubGlobal(
+      "matchMedia",
+      vi.fn((query) => ({ matches: query === "(pointer: fine)" }))
+    );
+    window.localStorage.setItem(
+      "movie-bowl:tv:draw-settings:user-1",
+      JSON.stringify({ theaterModeEnabled: true })
+    );
+    window.YT = {
+      Player: vi.fn((_id, options) => {
+        playerOptions = options;
+        return {
+          playVideo: vi.fn(),
+          stopVideo: vi.fn(),
+          destroy: vi.fn(),
+        };
+      }),
+      PlayerState: { ENDED: 0, PLAYING: 1 },
+    };
+    mocks.state.streamingServices = ["Netflix"];
+    mocks.state.defaultDrawSettings = { enablePreferredWebLaunch: true };
+    mocks.state.providerLinks = [
+      { service: "Netflix", type: "sub", webUrl: providerUrl },
+    ];
+    mocks.state.pool.rows = [
+      { ...movie("m1", "bowl-1"), tmdb_id: 101 },
+      { ...movie("m2", "bowl-2"), tmdb_id: 202 },
+    ];
+    mocks.draw.mockResolvedValue({
+      ...mocks.state.pool.rows[0],
+      title: "Feature Movie",
+      watchedOn: "2026-09-16",
+    });
+    mocks.fetchStreamingProviders.mockResolvedValue({
+      providers: ["Netflix"],
+      providerLogos: {},
+      region: "US",
+      fetchedAt: null,
+    });
+
+    renderPage();
+    vi.useFakeTimers({ shouldAdvanceTime: true });
+    fireEvent.click(screen.getByRole("button", { name: /hold to draw/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Draw" }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1500);
+    });
+    await waitFor(() => expect(playerOptions).toBeDefined());
+
+    act(() => playerOptions.events.onStateChange({ data: 1 }));
+    act(() => playerOptions.events.onStateChange({ data: 0 }));
+    expect(screen.getByRole("heading", { name: /feature presentation/i })).toBeInTheDocument();
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3600);
+    });
+    expect(assign).toHaveBeenCalledWith(providerUrl);
   });
 });
 

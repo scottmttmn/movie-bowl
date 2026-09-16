@@ -51,7 +51,7 @@ test("a solo draw commits to history and leaves the bowl untouched", async ({ pa
   await expect(reveal.getByText("Saved to your watch history.")).toBeVisible();
   // No acceptance, redraw or removal on the reveal: it is already committed.
   await expect(reveal.getByRole("button", { name: /again|keep|remove/i })).toHaveCount(0);
-  await reveal.getByRole("button", { name: "Done" }).click();
+  await reveal.getByRole("button", { name: "Close" }).click();
 
   // The bowl is exactly as it was, so the group's night is untouched.
   const soloMovie = backend.state.bowl_movies.find((movie) => movie.id === "solo-movie-1");
@@ -81,8 +81,8 @@ test("watch history can remove the bowl copies of a solo draw", async ({ page, b
   await page.getByRole("button", { name: "Draw", exact: true }).click();
 
   const reveal = page.getByRole("dialog");
-  const drawnTitle = await reveal.getByRole("heading").innerText();
-  await reveal.getByRole("button", { name: "Done" }).click();
+  const drawnTitle = await reveal.getByRole("heading", { level: 2 }).innerText();
+  await reveal.getByRole("button", { name: "Close" }).click();
 
   await page.goto("/watch-list");
   await page.getByRole("button").filter({ hasText: drawnTitle }).click();
