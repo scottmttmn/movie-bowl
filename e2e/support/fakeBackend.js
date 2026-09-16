@@ -189,7 +189,9 @@ function normalizeInsertedRows(body) {
   return Array.isArray(body) ? body : [body];
 }
 
-class FakeBackend {
+// Exported so surfaces other than the Playwright suite can borrow it -- the
+// visual-history capture signs a browser in exactly this way.
+export class FakeBackend {
   constructor() {
     this.state = createInitialState();
     this.requests = [];
