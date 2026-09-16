@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="342" height="513" viewBox="0 0 342 513" role="img" aria-label="The Long Goodbye">
+  <defs>
+    <linearGradient id="evolution-1" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#7c5cf0"/>
+      <stop offset="100%" stop-color="#2b1d63"/>
+    </linearGradient>
+  </defs>
+  <rect width="342" height="513" fill="url(#evolution-1)"/>
+  <rect x="16" y="16" width="310" height="481" fill="none" stroke="rgba(255,255,255,0.28)" stroke-width="2" rx="10"/>
+  <text x="171" y="250" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="34" font-weight="700" fill="#ffffff">
+    <tspan x="171" dy="0">The Long</tspan>
+    <tspan x="171" dy="46">Goodbye</tspan>
+  </text>
+  <text x="171" y="330" text-anchor="middle" font-family="Helvetica, Arial, sans-serif" font-size="20" fill="rgba(255,255,255,0.75)">1973</text>
+</svg>

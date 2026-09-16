@@ -1,0 +1,149 @@
+schemaVersion: 1
+
+# Which commits are worth reproducing. The defaults assume a generic web app;
+# this repo keeps a lot of non-rendering work beside the UI.
+heuristics:
+  uiPaths:
+    - index.html
+    - "src/**/*.{html,css,js,jsx}"
+    - "public/**/*"
+  alwaysPaths:
+    - package.json
+    - package-lock.json
+    - vite.config.js
+    - tailwind.config.js
+    - postcss.config.js
+  ignorePaths:
+    - "**/*.md"
+    - "**/__tests__/**"
+    - "**/*.{test,spec}.{js,jsx}"
+    - "e2e/**"
+    - "api/**"
+    - "supabase/**"
+    - "scripts/**"
+    - "output/**"
+    - "tv-android/**"
+    - "android-mobile/**"
+    - ".github/**"
+
+capture:
+  # Signs the browser in and stubs the backend before each capture, so the
+  # screens behind RequireAuth are the app rather than four photographs of the
+  # login page. Resolved inside each reproduced commit, so old commits use the
+  # version of this module they shipped with -- and commits older than the file
+  # capture signed out.
+  setupModule: e2e/support/captureSetup.js
+  # Not 4173: that is playwright.config.js's webServer port, and it starts with
+  # reuseExistingServer:false, so sharing the number means whichever runs second
+  # cannot bind.
+  baseURL: http://127.0.0.1:4183
+  colorScheme: dark
+  settleMs: 800
+
+reproduction:
+  port: 4183
+  env:
+    # The Supabase client throws "supabaseUrl is required" without these, so a
+    # capture would be a blank error page. Same unreachable values the Playwright
+    # suite uses: nothing is expected to answer them.
+    VITE_SUPABASE_URL: http://127.0.0.1:54321
+    VITE_SUPABASE_ANON_KEY: movie-bowl-e2e-anon-key
+  compatibility:
+    # Only tried after an exact reproduction fails, which for old commits is
+    # usually the lockfile: npm ci refuses a package-lock.json that no longer
+    # agrees with package.json, and several early commits predate this one.
+    enabled: true
+    profiles:
+      - name: loose-install
+        description: Install without the lockfile for commits npm ci refuses
+        installCommand: npm install --no-package-lock --no-audit --no-fund
+
+backfill:
+  maxCommits: 100
+
+screens:
+  # Everything else is behind RequireAuth, so a signed-out capture of it is the
+  # login screen wearing another route's name. These four are the app as a
+  # stranger sees it -- and "/" is the one with real continuity, because it was
+  # the whole app before auth arrived and is the login redirect after.
+  - name: home
+    path: /
+    viewports:
+      - name: desktop
+        width: 1280
+        height: 800
+      - name: mobile
+        width: 390
+        height: 844
+  - name: login
+    path: /login
+    viewports:
+      - name: desktop
+        width: 1280
+        height: 800
+      - name: mobile
+        width: 390
+        height: 844
+  - name: about
+    path: /about
+    viewports:
+      - name: desktop
+        width: 1280
+        height: 800
+
+  # Behind RequireAuth: these need the setup module above. The bowl id is the
+  # one it seeds.
+  - name: bowls
+    path: /bowls
+    viewports:
+      - name: desktop
+        width: 1280
+        height: 800
+  - name: bowl
+    path: /bowl/evolution-bowl
+    viewports:
+      - name: desktop
+        width: 1280
+        height: 800
+      - name: mobile
+        width: 390
+        height: 844
+  - name: watch-list
+    path: /watch-list
+    viewports:
+      - name: desktop
+        width: 1280
+        height: 800
+      - name: mobile
+        width: 390
+        height: 844
+  - name: solo-draw
+    path: /solo-draw
+    viewports:
+      - name: desktop
+        width: 1280
+        height: 800
+  - name: settings
+    path: /settings
+    viewports:
+      - name: desktop
+        width: 1280
+        height: 800
+  - name: tv-bowls
+    path: /tv/bowls
+    viewports:
+      - name: tv
+        width: 1920
+        height: 1080
+  - name: tv-pairing
+    path: /tv
+    # A fresh code, its countdown and its QR image change on every capture, so
+    # without masks every run would look like a meaningful change.
+    mask:
+      - .tv-pairing-code
+      - .tv-pairing-expiry
+      - .tv-pairing-qr
+    viewports:
+      - name: tv
+        width: 1920
+        height: 1080
