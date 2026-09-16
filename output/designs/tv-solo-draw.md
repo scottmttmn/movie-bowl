@@ -42,9 +42,15 @@ The revision separates the resting state from the tuning state rather than
 adding a second column to the stage:
 
 - The pool line becomes the single way in. It reads `2 of 6 titles across 2
-  bowls` beside the top service's logo, and selecting it opens a sheet. The
-  resting stage therefore gains one sentence and one focus stop, not a panel
+  bowls` beside the services the draw is using, and selecting it opens a sheet.
+  The resting stage therefore gains one sentence and one focus stop, not a panel
   competing with the draw target.
+- What the line shows about streaming follows the mode. `Top` names the service
+  the resolved pool actually landed on -- not the account's rank 1, which the
+  draw abandons whenever nothing on it survives the filters -- with `first`
+  beside it. `All` weights every service the same, so the line shows the set
+  (three logos and a `+N`) rather than electing one to stand for the rest. Off
+  shows none.
 - The sheet owns the screen: your bowls as poster stacks with a slip count and
   a checkbox, then the existing streaming modes and service ranking. A
   television reads one list at a distance far better than controls flanking the

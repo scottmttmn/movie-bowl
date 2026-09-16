@@ -49,6 +49,8 @@ import {
 const MIN_DRAW_ANIMATION_MS = 1800;
 const MAX_PREVIEW_WAIT_MS = 2500;
 const SOLO_RETURN_KEY = "solo";
+// Enough to show the set without turning the line into a logo parade.
+const MAX_SUMMARY_SERVICE_LOGOS = 3;
 
 const SOLO_FILTER_METADATA_FETCHERS = {
   fetchMovieDetails: getTmdbMovieDetails,
@@ -176,6 +178,7 @@ export default function TvSoloDrawScreen({ userId }) {
     status: drawPoolStatus,
     poolCount,
     eligibleMovieIds,
+    streamingMatch,
   } = useDrawPoolCount(scopedRows, drawOptions, SOLO_FILTER_METADATA_FETCHERS);
   const distinctTitleCount = useMemo(
     () => groupSoloCandidatesByTitle(scopedRows).length,
@@ -197,10 +200,32 @@ export default function TvSoloDrawScreen({ userId }) {
     eligibleTitleCount !== null &&
     eligibleTitleCount < distinctTitleCount;
   const streamingMode = getStreamingMode(settings);
-  const topService = streamingServices[0] || null;
-  const topServiceLogoUrl = topService
-    ? getProviderLogoUrl(getServiceLogoPath(topService), "w92")
-    : null;
+  // The service the resolved pool actually landed on, not the account's rank 1.
+  // They differ whenever nothing on the top service survives the filters: the
+  // draw falls through to the next one down, and a line that showed rank 1
+  // regardless would be naming a service the draw is not using. Same value the
+  // group stage's rail reads, so the two surfaces cannot disagree.
+  const drawingService = streamingMatch?.topService || null;
+  // "All" weights every service the same, so there is no service to name -- the
+  // line shows the set it is drawing from instead of picking one to stand for
+  // the rest.
+  const summaryServices = useMemo(() => {
+    if (streamingMode === "off") return [];
+    if (streamingMode === "all") return streamingServices;
+    return drawingService ? [drawingService] : [];
+  }, [streamingMode, streamingServices, drawingService]);
+  const summaryServiceLogos = useMemo(
+    () =>
+      summaryServices.slice(0, MAX_SUMMARY_SERVICE_LOGOS).map((service) => ({
+        service,
+        logoUrl: getProviderLogoUrl(getServiceLogoPath(service), "w92"),
+      })),
+    [summaryServices]
+  );
+  const hiddenSummaryServiceCount = Math.max(
+    0,
+    summaryServices.length - MAX_SUMMARY_SERVICE_LOGOS
+  );
   const filteredOut =
     drawPoolStatus === DRAW_POOL_STATUS.ready && poolCount === 0;
   const isBusy = isDrawing || isPreparingReveal;
@@ -580,12 +605,19 @@ export default function TvSoloDrawScreen({ userId }) {
                     which a sighted person reads from the sheet opening and a
                     screen reader cannot. */}
                 <span className="sr-only">Change bowls and streaming</span>
-                {streamingMode !== "off" && topService && (
+                {summaryServiceLogos.length > 0 && (
                   <span className="tv-solo-summary-service">
-                    {topServiceLogoUrl ? (
-                      <img src={topServiceLogoUrl} alt={topService} />
-                    ) : (
-                      <span>{topService}</span>
+                    {summaryServiceLogos.map(({ service, logoUrl }) =>
+                      logoUrl ? (
+                        <img key={service} src={logoUrl} alt={service} />
+                      ) : (
+                        <span key={service}>{service}</span>
+                      )
+                    )}
+                    {hiddenSummaryServiceCount > 0 && (
+                      <span className="tv-solo-summary-more">
+                        +{hiddenSummaryServiceCount}
+                      </span>
                     )}
                     {streamingMode === "top" && (
                       <span className="tv-solo-summary-first">first</span>
@@ -661,7 +693,7 @@ export default function TvSoloDrawScreen({ userId }) {
           postersByBowl={postersByBowl}
           services={streamingServices}
           streamingMode={streamingMode}
-          topService={topService}
+          topService={drawingService}
           isStreamingOverridden={
             Object.prototype.hasOwnProperty.call(overriddenSettings, "prioritizeStreaming") ||
             Object.prototype.hasOwnProperty.call(overriddenSettings, "useStreamingRank")
