@@ -50,6 +50,9 @@ const mocks = vi.hoisted(() => ({
   setOverrides: vi.fn(),
   poolStatus: "unfiltered",
   eligibleMovieIds: null,
+  streamingServices: ["Netflix"],
+  streamingMatch: { matchCount: 0, topService: null, topServiceCount: 0 },
+  drawSettings: null,
   draw: vi.fn(),
   retrySave: vi.fn(),
   dismissResult: vi.fn(),
@@ -76,10 +79,11 @@ vi.mock("../../hooks/useSoloDrawPool", () => ({
 
 vi.mock("../../hooks/useUserStreamingServices", () => ({
   default: () => ({
-    streamingServices: ["Netflix"],
+    streamingServices: mocks.streamingServices,
     defaultDrawSettings: {
-      prioritizeStreaming: false,
-      useStreamingRank: true,
+      ...(mocks.drawSettings || {}),
+      prioritizeStreaming: mocks.drawSettings?.prioritizeStreaming ?? false,
+      useStreamingRank: mocks.drawSettings?.useStreamingRank ?? true,
       theaterModeEnabled: mocks.theaterModeEnabled,
       theaterTrailerCount: 2,
       selectedRatings: ["PG", "PG-13", "R"],
@@ -128,6 +132,7 @@ vi.mock("../../hooks/useDrawPoolCount", () => ({
     status: mocks.poolStatus,
     poolCount: mocks.eligibleMovieIds ? mocks.eligibleMovieIds.length : (rows || []).length,
     eligibleMovieIds: mocks.eligibleMovieIds,
+    streamingMatch: mocks.streamingMatch,
   }),
 }));
 
@@ -213,6 +218,9 @@ describe("TV solo draw", () => {
     mocks.setOverrides.mockReset();
     mocks.poolStatus = "unfiltered";
     mocks.eligibleMovieIds = null;
+    mocks.streamingServices = ["Netflix"];
+    mocks.streamingMatch = { matchCount: 0, topService: null, topServiceCount: 0 };
+    mocks.drawSettings = null;
     mocks.startProviderLookup.mockReset();
     mocks.getTmdbMovieDetails.mockReset().mockResolvedValue({
       title: "Arrival",
@@ -423,6 +431,63 @@ describe("TV solo draw", () => {
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Pick one of yours." })).toBeInTheDocument();
+  });
+
+  it("names no service while streaming priority is off", () => {
+    renderSolo();
+
+    const summary = screen.getByRole("button", { name: /change bowls and streaming/i });
+    expect(summary.querySelectorAll("img")).toHaveLength(0);
+  });
+
+  // "All" weights every service the same, so there is no service to name and
+  // showing one would claim an order the draw is not using.
+  it("shows every service when none of them outranks another", () => {
+    mocks.streamingServices = ["Netflix", "Max", "Hulu"];
+    mocks.drawSettings = { prioritizeStreaming: true, useStreamingRank: false };
+    mocks.streamingMatch = { matchCount: 3, topService: null, topServiceCount: 0 };
+    renderSolo();
+
+    const summary = screen.getByRole("button", { name: /change bowls and streaming/i });
+    expect([...summary.querySelectorAll("img")].map((image) => image.alt)).toEqual([
+      "Netflix",
+      "Max",
+      "Hulu",
+    ]);
+    expect(summary).not.toHaveTextContent("first");
+  });
+
+  it("counts the services it cannot fit on the line", () => {
+    mocks.streamingServices = ["Netflix", "Max", "Hulu", "Prime Video", "Disney+"];
+    mocks.drawSettings = { prioritizeStreaming: true, useStreamingRank: false };
+    renderSolo();
+
+    const summary = screen.getByRole("button", { name: /change bowls and streaming/i });
+    expect(summary.querySelectorAll("img")).toHaveLength(3);
+    expect(summary).toHaveTextContent("+2");
+  });
+
+  // Rank 1 is not always what the draw uses: with nothing on it surviving the
+  // filters, the draw falls through, and the line has to follow.
+  it("names the service the draw actually landed on", () => {
+    mocks.streamingServices = ["Netflix", "Max", "Hulu"];
+    mocks.drawSettings = { prioritizeStreaming: true, useStreamingRank: true };
+    mocks.streamingMatch = { matchCount: 2, topService: "Max", topServiceCount: 2 };
+    renderSolo();
+
+    const summary = screen.getByRole("button", { name: /change bowls and streaming/i });
+    expect([...summary.querySelectorAll("img")].map((image) => image.alt)).toEqual(["Max"]);
+    expect(summary).toHaveTextContent("first");
+  });
+
+  it("waits for the pool before naming a favoured service", () => {
+    mocks.streamingServices = ["Netflix", "Max"];
+    mocks.drawSettings = { prioritizeStreaming: true, useStreamingRank: true };
+    mocks.streamingMatch = { matchCount: 0, topService: null, topServiceCount: 0 };
+    renderSolo();
+
+    const summary = screen.getByRole("button", { name: /change bowls and streaming/i });
+    expect(summary.querySelectorAll("img")).toHaveLength(0);
   });
 
   it("returns to the picker with solo focus restored", () => {
