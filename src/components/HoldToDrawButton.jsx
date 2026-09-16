@@ -14,6 +14,8 @@ export const HOLD_TO_DRAW_MS = 1000;
 export default function HoldToDrawButton({
   onHoldComplete,
   onKeyboardActivate,
+  label = "Hold to draw",
+  ariaLabel = "Draw movie from bowl. Press and hold to draw.",
   disabled = false,
   isLoading = false,
 }) {
@@ -66,7 +68,7 @@ export default function HoldToDrawButton({
       aria-label={
         isLoading
           ? "Drawing movie from bowl"
-          : "Draw movie from bowl. Press and hold to draw."
+          : ariaLabel
       }
     >
       <span
@@ -80,7 +82,7 @@ export default function HoldToDrawButton({
             : "transform 150ms ease-out",
         }}
       />
-      <span className="relative">{isLoading ? "Drawing..." : "Hold to draw"}</span>
+      <span className="relative">{isLoading ? "Drawing..." : label}</span>
     </button>
   );
 }

@@ -952,3 +952,223 @@
     opacity: 0.7;
   }
 }
+
+/* Solo draw shares the dashboard silhouette, with a private violet identity. */
+.solo-draw-layout {
+  max-width: 828px;
+  margin: 0 auto;
+  display: flex;
+  flex-direction: column;
+  gap: 20px;
+}
+
+.solo-draw-hero {
+  position: relative;
+  overflow: hidden;
+  border: 1px solid rgba(139,124,246,.3);
+  border-radius: 26px;
+  padding: 26px 22px 28px;
+  background: radial-gradient(circle at 50% 0%,rgba(124,92,240,.2),transparent 20rem),linear-gradient(145deg,#161630,#070a16);
+  box-shadow: inset 0 1px 0 #ffffff0b,0 30px 70px -44px #000;
+}
+
+.solo-draw-hero::before {
+  content: "";
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+  background: repeating-linear-gradient(135deg,#8b7cf608 0 1px,transparent 1px 11px);
+}
+
+.solo-eyebrow {
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .2em;
+  text-transform: uppercase;
+  color: #a5b4fc;
+}
+
+.solo-identity {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 12px 4px 4px;
+  border-radius: 999px;
+  border: 1px solid #8b7cf66b;
+  background: #7c5cf029;
+  color: #ddd6fe;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: .08em;
+  text-transform: uppercase;
+}
+
+.solo-avatar {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex-shrink: 0;
+  width: 26px;
+  height: 26px;
+  border-radius: 50%;
+  background: linear-gradient(#8b7cf6,#6d4df0);
+  color: white;
+  font-size: 12px;
+  font-weight: 800;
+}
+
+.solo-bowl-stage {
+  position: relative;
+  isolation: isolate;
+  width: 200px;
+  height: 170px;
+}
+
+.solo-bowl-stage .bowl-illustration-stage::before {
+  background: radial-gradient(ellipse,#7c5cf04d,transparent 72%);
+}
+
+.solo-bowl-avatar {
+  position: absolute;
+  right: 6px;
+  bottom: 18px;
+  width: 44px;
+  height: 44px;
+  border: 2px solid #0b0f1c;
+  font-size: 16px;
+  box-shadow: 0 10px 22px -10px #6d4df0e6;
+}
+
+.solo-draw-action .btn, .solo-primary {
+  border-color: #8b7cf6;
+  background: linear-gradient(#7c5cf0,#5b34d8);
+  box-shadow: inset 0 1px 0 #ffffff38,0 12px 28px -14px #7c5cf0e6;
+}
+
+.solo-draw-action .btn {
+  min-height: 52px;
+  border-radius: 14px;
+  font-size: 17px;
+}
+
+.solo-info-button {
+  display: inline-flex;
+  justify-content: center;
+  align-items: center;
+  min-width: 36px;
+  min-height: 36px;
+  margin-left: 4px;
+  border-radius: 50%;
+  color: #c4b5fd;
+  font-weight: 700;
+}
+
+.solo-info-button:hover {
+  background: #7c5cf033;
+}
+
+.solo-pool-panel {
+  min-width: 0;
+  border-radius: 20px;
+  border: 1px solid #94a3b829;
+  padding: 18px;
+  background: linear-gradient(145deg,#111a2bf5,#080d18fa);
+  box-shadow: inset 0 1px 0 #ffffff05;
+}
+
+.solo-scope-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  border-radius: 12px;
+  border: 1px solid #334155;
+  padding: 8px 14px;
+  background: #0f172a99;
+  color: #cbd5e1;
+  text-align: left;
+  font-size: 14px;
+}
+
+.solo-scope-chip span {
+  font-size: 12px;
+  opacity: .75;
+}
+
+.solo-scope-chip[aria-pressed="true"] {
+  border-color: #8b7cf68c;
+  background: #7c5cf033;
+  color: #ede9fe;
+  font-weight: 700;
+}
+
+.solo-all-bowls[aria-pressed="true"] {
+  border-color: #8b7cf6;
+  background: linear-gradient(#7c5cf0,#5b34d8);
+  color: white;
+}
+
+.solo-poster-strip {
+  display: flex;
+  gap: 12px;
+  overflow-x: auto;
+  padding: 14px 0 12px;
+}
+
+.solo-poster-card {
+  flex: 0 0 112px;
+  width: 112px;
+}
+
+.solo-poster-card img {
+  width: 112px;
+  height: 166px;
+  object-fit: cover;
+  border-radius: 10px;
+  border: 1px solid #94a3b838;
+  background: #0e1524;
+}
+
+.solo-dialog-surface {
+  max-height: calc(100dvh - 48px);
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  border-color: #8b7cf66b;
+  background: radial-gradient(circle at 50% 0%,#7c5cf033,transparent 16rem),linear-gradient(145deg,#161630,#090d18);
+}
+
+.solo-result .status-success {
+  padding: 10px 14px;
+  border: 1px solid #065f46b3;
+  border-radius: 12px;
+  background: #022c2273;
+}
+
+.solo-filter-section {
+  width: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  text-align: left;
+  cursor: pointer;
+  padding: 12px;
+  border: 1px solid #334155;
+  border-radius: 12px;
+  font-size: 14px;
+  font-weight: 600;
+}
+
+.solo-filter-controls input {
+  accent-color: #8b5cf6;
+}
+
+.solo-draw-page :focus-visible, .solo-dialog :focus-visible {
+  outline: 2px solid #c4b5fd;
+  outline-offset: 3px;
+}
+
+@media (max-width: 420px) {
+  .solo-draw-hero {
+    padding: 20px 16px 24px;
+  }
+}

@@ -99,3 +99,50 @@ test("watch history can remove the bowl copies of a solo draw", async ({ page, b
     .poll(() => backend.state.bowl_movies.filter((movie) => movie.title === drawnTitle).length)
     .toBe(0);
 });
+
+test("solo redesign keeps scope counts, filters and dialog focus usable", async ({ page, backend }) => {
+  await backend.authenticate(page);
+  seedTwoBowls(backend);
+  backend.state.bowl_movies[0].runtime = 95;
+  backend.state.bowl_movies[1].runtime = 180;
+  await page.goto("/solo-draw");
+  await expect(page.getByText("Drawing from 2 of 2 of your titles")).toBeVisible();
+  await expect(page.getByRole("heading", { name: "In your pool" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Press and hold to draw/i })).toBeEnabled();
+  await page.screenshot({ path: `test-results/solo-redesign-${test.info().project.name}.png`, fullPage: true });
+
+  await page.getByRole("button", { name: "Solo Two, 1 title" }).click();
+  await expect(page.getByRole("button", { name: "All bowls 2" })).toHaveAttribute("aria-pressed", "false");
+  await expect(page.getByRole("list", { name: "Movies in selected bowls" })).not.toContainText("Solo Two Pick");
+  await page.getByRole("button", { name: "All bowls 2" }).click();
+
+  await page.getByRole("button", { name: "Filters", exact: true }).click();
+  const filters = page.getByRole("dialog", { name: "Narrow the draw" });
+  await filters.getByRole("button", { name: "Runtime filter", exact: true }).click();
+  await filters.getByLabel("Maximum minutes").fill("120");
+  await expect(filters).toContainText("Drawing from 1 of 2 of your titles");
+  await expect.poll(() => backend.state.profiles[0].default_draw_settings?.runtimeMaxMinutes).toBe(120);
+  await page.screenshot({ path: `test-results/solo-filters-${test.info().project.name}.png`, fullPage: true });
+  await filters.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByRole("button", { name: "Filters", exact: true })).toBeFocused();
+
+  await page.reload();
+  await expect(page.getByText("Drawing from 1 of 2 of your titles")).toBeVisible();
+  await page.getByRole("button", { name: "How solo draw picks" }).click();
+  await expect(page.getByRole("dialog")).toContainText("Your pinned movies go first");
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("button", { name: "How solo draw picks" })).toBeFocused();
+
+  await page.getByRole("button", { name: "Filters", exact: true }).click();
+  await page.getByRole("button", { name: "Runtime filter", exact: true }).click();
+  await page.getByLabel("Maximum minutes").fill("50");
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByRole("button", { name: /Press and hold to draw/i })).toBeDisabled();
+  await expect(page.getByRole("button", { name: "Adjust filters" })).toBeVisible();
+  await page.getByRole("button", { name: "Adjust filters" }).click();
+  await page.getByRole("button", { name: "Reset", exact: true }).click();
+  await expect(page.getByRole("dialog")).toContainText("Drawing from 2 of 2 of your titles");
+  await page.getByRole("button", { name: "Done" }).click();
+  await expect(page.getByRole("button", { name: /Press and hold to draw/i })).toBeEnabled();
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
