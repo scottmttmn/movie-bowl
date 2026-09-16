@@ -2,6 +2,7 @@ import { useEffect } from "react";
 import { Route, Routes, useLocation, useNavigate } from "react-router-dom";
 import useAuth from "../hooks/useAuth";
 import TvBowlPicker from "./screens/TvBowlPicker";
+import TvSoloDrawScreen from "./screens/TvSoloDrawScreen";
 import TvTonightScreen from "./screens/TvTonightScreen";
 import "./tv.css";
 
@@ -67,6 +68,10 @@ export default function TvApp() {
           element={
             <TvTonightScreen userId={session?.user?.id || ""} />
           }
+        />
+        <Route
+          path="solo"
+          element={<TvSoloDrawScreen userId={session?.user?.id || ""} />}
         />
         <Route path="*" element={<TvNotFound />} />
       </Routes>

@@ -20,8 +20,11 @@ persistence contract is under "Persistence Contract".
 The [Solo Draw redesign](solo-draw-redesign/README.md) supplies the web page's
 violet hero, single-avatar identity, scope chips, poster strip, and result styling.
 The original exports and reference images are retained alongside implementation
-notes. TV is exploratory and needs revision; TV solo draw is not implemented.
-On the web, the theater ticket and post-draw playback now match the bowl flow.
+notes. The exported TV exploration was intentionally not adopted: its repeated
+identity, bowl chips, streaming rail, and recent-history strip were too busy at
+TV distance. The quieter production design is documented in
+`tv-solo-draw.md`. On both web and TV, the theater ticket and post-draw playback
+now match the bowl flow.
 
 ## Product Idea
 

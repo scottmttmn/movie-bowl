@@ -147,8 +147,10 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   Empty states and large-pool lookup controls belong in the initial release.
   Shipped at `/solo-draw`, except the deferred automatic-removal setting. See
   `output/designs/solo-draw.md`. Web redesign references and implementation notes
-  are in `output/designs/solo-draw-redesign/README.md`. Web solo draw now shares
-  the bowl's theater playback; TV still needs another design pass and implementation.
+  are in `output/designs/solo-draw-redesign/README.md`. Web and TV solo draw now
+  share the bowl's theater playback. The TV deliberately replaces the rejected
+  dense exploration with one quiet all-bowls stage; see
+  `output/designs/tv-solo-draw.md`.
 - Guest night: make sharing episodic instead of persistent. A visiting friend's
   titles join one evening's draw, the movie lands in both watch histories but
   only the host bowl's strip, and nothing permanent is created. Three separable

@@ -1,5 +1,5 @@
 import { useEffect, useMemo, useRef, useState } from "react";
-import { Navigate, useNavigate } from "react-router-dom";
+import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { formatRelativeDateLabel } from "../../utils/formatRelativeDate";
 import TvBrand from "../components/TvBrand";
 import { useTvBowls } from "../hooks/useTvBowls";
@@ -34,6 +34,7 @@ export default function TvBowlPicker({
   autoOpenLastBowl = false,
 }) {
   const navigate = useNavigate();
+  const location = useLocation();
   const { bowls, isLoading, errorMessage, reload } = useTvBowls(userId);
   const lastBowlId = useMemo(() => getLastBowlId(userId), [userId]);
   const hasRememberedBowl = bowls.some((bowl) => bowl.id === lastBowlId);
@@ -42,6 +43,7 @@ export default function TvBowlPicker({
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState("");
   const signOutPending = useRef(false);
+  const shouldFocusSolo = location.state?.focus === "solo";
 
   const closeSignOut = () => {
     if (signOutPending.current) return;
@@ -56,7 +58,7 @@ export default function TvBowlPicker({
   // browser so does the back button. A control that said "exit" and then landed
   // on the phone UI would be lying on the one surface that cannot use it.
   useTvSpatialNavigation({
-    scopeKey: showSignOut ? "picker-sign-out" : `picker:${isLoading}:${bowls.length}:${Boolean(errorMessage)}`,
+    scopeKey: showSignOut ? "picker-sign-out" : `picker:${isLoading}:${bowls.length}:${Boolean(errorMessage)}:${shouldFocusSolo}`,
     onBack: () => showSignOut ? closeSignOut() : navigate("/"),
   });
 
@@ -163,6 +165,28 @@ export default function TvBowlPicker({
         )}
 
         {!isLoading && !errorMessage && bowls.length > 0 && (
+          <section className="tv-solo-entry-section" aria-label="Solo draw" data-tv-nav-region="solo-entry">
+            <button
+              type="button"
+              className="tv-solo-entry"
+              data-tv-focusable
+              data-tv-autofocus={shouldFocusSolo ? "true" : undefined}
+              onClick={() => navigate("/tv/solo")}
+            >
+              <span className="tv-solo-entry-mark" aria-hidden="true">
+                {(userEmail || "You").slice(0, 1).toUpperCase()}
+              </span>
+              <span className="tv-solo-entry-copy">
+                <span className="tv-kicker">Watching on your own?</span>
+                <strong>Draw from my movies</strong>
+                <small>One private pick from all of your bowls</small>
+              </span>
+              <span className="tv-solo-entry-arrow" aria-hidden="true">→</span>
+            </button>
+          </section>
+        )}
+
+        {!isLoading && !errorMessage && bowls.length > 0 && (
           <section className="tv-bowl-grid" aria-label="Your bowls" data-tv-nav-region="bowl-grid">
             {bowls.map((bowl, index) => {
               const isLastBowl = bowl.id === lastBowlId;
@@ -178,7 +202,9 @@ export default function TvBowlPicker({
                   data-tv-focusable
                   data-tv-nav-group="bowl-grid"
                   data-tv-autofocus={
-                    isLastBowl || (!hasRememberedBowl && index === 0) ? "true" : undefined
+                    !shouldFocusSolo && (isLastBowl || (!hasRememberedBowl && index === 0))
+                      ? "true"
+                      : undefined
                   }
                   onClick={() => openBowl(bowl.id)}
                 >
