@@ -146,7 +146,9 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   built server-side by `record_solo_draw`, with source row and retry id.
   Empty states and large-pool lookup controls belong in the initial release.
   Shipped at `/solo-draw`, except the deferred automatic-removal setting. See
-  `output/designs/solo-draw.md`.
+  `output/designs/solo-draw.md`. Web redesign references and implementation notes
+  are in `output/designs/solo-draw-redesign/README.md`; TV needs another design
+  pass, and solo theater playback is deferred.
 - Guest night: make sharing episodic instead of persistent. A visiting friend's
   titles join one evening's draw, the movie lands in both watch histories but
   only the host bowl's strip, and nothing permanent is created. Three separable

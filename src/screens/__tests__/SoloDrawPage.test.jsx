@@ -53,6 +53,7 @@ vi.mock("../../hooks/useDrawPoolCount", () => ({
   default: () => ({
     status: mocks.poolStatus.current,
     poolCount: mocks.poolStatus.poolCount,
+    eligibleMovieIds: mocks.poolStatus.eligibleMovieIds,
     runLookups: mocks.runLookups,
   }),
   DRAW_POOL_STATUS: {
@@ -91,6 +92,7 @@ beforeEach(() => {
   mocks.state.draw = { isDrawing: false, result: null, errorMessage: "", canRetrySave: false };
   mocks.poolStatus.current = "unfiltered";
   mocks.poolStatus.poolCount = 0;
+  mocks.poolStatus.eligibleMovieIds = undefined;
   mocks.draw.mockReset();
   mocks.retrySave.mockReset();
   mocks.reload.mockReset();
@@ -230,5 +232,36 @@ describe("SoloDrawPage", () => {
     expect(dialog).toHaveTextContent("Movie m1");
     expect(dialog).toHaveTextContent("Saved to your watch history.");
     expect(screen.queryByRole("button", { name: /keep|accept|draw again|redraw|remove/i })).toBeNull();
+  });
+});
+
+
+describe("Solo draw redesign readouts", () => {
+  it("counts distinct eligible pinned titles after filters, not duplicate slips", () => {
+    mocks.state.pool.rows = [
+      { ...movie("m1", "bowl-1"), is_pinned: true },
+      movie("m2", "bowl-2"),
+      { ...movie("m3", "bowl-2"), tmdb_id: 200 },
+    ];
+    mocks.poolStatus.eligibleMovieIds = ["m1", "m2", "m3"];
+    renderPage();
+    expect(screen.getByText("Drawing from 1 of 2 of your titles")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "All bowls 3" })).toBeInTheDocument();
+  });
+
+  it("disables the draw and offers filters when every title is excluded", () => {
+    mocks.poolStatus.current = "ready";
+    mocks.poolStatus.poolCount = 0;
+    mocks.poolStatus.eligibleMovieIds = [];
+    renderPage();
+    expect(screen.getByRole("button", { name: /hold to draw/i })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Adjust filters" }));
+    expect(screen.getByRole("dialog", { name: "Narrow the draw" })).toBeInTheDocument();
+  });
+
+  it("prevents another draw while the previous pick is waiting for a save retry", () => {
+    mocks.state.draw.canRetrySave = true;
+    renderPage();
+    expect(screen.getByRole("button", { name: /hold to draw/i })).toBeDisabled();
   });
 });

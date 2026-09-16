@@ -15,6 +15,14 @@ narrowed to a subset. It lives at its own route, `/solo-draw`, uses the same
 filter settings as the dashboard, and keeps the drawn slip's note read-only. The
 persistence contract is under "Persistence Contract".
 
+## Visual design
+
+The [Solo Draw redesign](solo-draw-redesign/README.md) supplies the web page's
+violet hero, single-avatar identity, scope chips, poster strip, and result styling.
+The original exports and reference images are retained alongside implementation
+notes. TV is exploratory and needs revision; TV solo draw is not implemented.
+The prototype's theater toggle remains deferred pending solo theater playback.
+
 ## Product Idea
 
 Sometimes you are watching alone. You still want the bowl to decide for you, but
