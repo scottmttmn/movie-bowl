@@ -34,7 +34,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (135 test files / 1149 tests, 64 Playwright tests with 6 skipped,
+fully green (135 test files / 1149 tests, 66 Playwright tests with 7 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -372,6 +372,12 @@ then a generic 500. They run in Node and are excluded from coverage; they are
   you can arrow into and never back out of. That trap is easiest to walk into
   on a row whose end is the only way back: the TV streaming rail's modes are
   deliberately ungrouped for exactly that reason, and a test holds it.
+- Moving focus also scrolls it into view, and "nearest" alone is not enough:
+  Chromium treats a row that is merely clipped as near enough and leaves it
+  hanging past the edge of its scroller. On a phone the next flick fixes that;
+  on a television the row you just landed on is the row you cannot read. The
+  navigation hook asks for the minimum, then centres the element only when it
+  is still cut off.
 - `data-tv-nav-region` marks the bands a screen is built from — header, stage,
   the streaming rail beside it, the watched strip below. Moving between regions
   asks where the *regions* are, not where the control is, which is the only way

@@ -208,6 +208,91 @@ test("a paired TV can make a private solo draw without the busy bowl controls", 
   expect(backend.consoleErrors).toEqual([]);
 });
 
+test("the solo scope sheet scrolls with the remote and marks a TV-only setting", async ({ page, backend }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile-chromium", "TV smoke coverage uses the desktop viewport.");
+
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await backend.authenticate(page);
+  const profile = backend.state.profiles.find((row) => row.id === "user-smoke");
+  if (profile) profile.streaming_services = ["Netflix", "Max", "Hulu"];
+
+  // More bowls than the sheet can show at once, which is the only way to find
+  // out whether a remote can read the ones below the fold.
+  for (let index = 0; index < 7; index += 1) {
+    backend.state.bowls.push({
+      id: `scroll-bowl-${index}`,
+      name: `Scroll Bowl ${index}`,
+      owner_id: "user-smoke",
+      draw_access_mode: "all_members",
+      draw_method: "person_first",
+      created_at: "2026-09-16T12:00:00.000Z",
+    });
+    backend.state.bowl_members.push({
+      id: `scroll-member-${index}`,
+      bowl_id: `scroll-bowl-${index}`,
+      user_id: "user-smoke",
+      role: "Owner",
+    });
+    backend.state.bowl_movies.push({
+      id: `scroll-movie-${index}`,
+      bowl_id: `scroll-bowl-${index}`,
+      tmdb_id: -(600 + index),
+      title: `Scroll Feature ${index}`,
+      added_by: "user-smoke",
+      added_at: "2026-09-16T12:00:00.000Z",
+      drawn_at: null,
+      genres: ["Drama"],
+      runtime: 100,
+    });
+  }
+
+  await page.goto("/tv/solo");
+  await page.getByRole("button", { name: /change bowls and streaming/i }).press("Enter");
+  await expect(page.getByRole("dialog")).toContainText("Your bowls");
+
+  // Walk up into the list, then back down past the fold. Every row the remote
+  // lands on has to be readable, not merely reachable.
+  for (let press = 0; press < 4; press += 1) {
+    await page.keyboard.press("ArrowUp");
+  }
+  for (let press = 0; press < 5; press += 1) {
+    await page.keyboard.press("ArrowDown");
+    const visibility = await page.evaluate(() => {
+      const list = document.querySelector(".tv-solo-sheet-bowls");
+      const focused = document.activeElement;
+      if (!list || !focused || !list.contains(focused)) return null;
+      const listBox = list.getBoundingClientRect();
+      const focusedBox = focused.getBoundingClientRect();
+      return {
+        name: focused.textContent,
+        clippedTop: focusedBox.top < listBox.top - 1,
+        clippedBottom: focusedBox.bottom > listBox.bottom + 1,
+      };
+    });
+    if (visibility) {
+      expect(visibility, `${visibility.name} was cut off`).toMatchObject({
+        clippedTop: false,
+        clippedBottom: false,
+      });
+    }
+  }
+
+  // A device override belongs to the whole control, so its marker must not sit
+  // on one service's logo like a badge about that service.
+  await page.getByRole("radio", { name: /favor netflix, then max, then hulu/i }).press("Enter");
+  const marker = page.locator(".tv-solo-sheet-streaming .tv-rail-diverged");
+  await expect(marker).toBeVisible();
+  const lastLogo = page.locator(".tv-solo-sheet-streaming .tv-rail-item").last();
+  const [markerBox, logoBox] = await Promise.all([marker.boundingBox(), lastLogo.boundingBox()]);
+  const overlapsLastLogo =
+    markerBox.x < logoBox.x + logoBox.width &&
+    markerBox.x + markerBox.width > logoBox.x &&
+    markerBox.y < logoBox.y + logoBox.height &&
+    markerBox.y + markerBox.height > logoBox.y;
+  expect(overlapsLastLogo).toBe(false);
+  await page.screenshot({ path: testInfo.outputPath("tv-solo-scope-scrolled.png") });
+});
+
 test("TV sign-out can retry a failure, revokes only this session, and returns to pairing", async ({ page, backend }, testInfo) => {
   test.skip(testInfo.project.name === "mobile-chromium", "TV smoke coverage uses the desktop viewport.");
   await page.setViewportSize({ width: 1280, height: 720 });
