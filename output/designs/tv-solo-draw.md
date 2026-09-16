@@ -1,6 +1,7 @@
 # TV Solo Draw
 
-Status: implemented September 16, 2026.
+Status: implemented September 16, 2026; scope and streaming brought onto
+the screen behind the pool line the same day.
 
 The TV now offers solo draw from the bowl picker at `/tv/solo`. It uses the
 same private, committed selection as the web flow: only titles added by the
@@ -20,15 +21,48 @@ The production screen keeps four things:
 
 - a short statement of what solo draw does;
 - one dominant `Draw for myself` target;
-- a quiet distinct-title and bowl count; and
+- a quiet line reporting the pool; and
 - the theater ticket, because it changes what happens immediately after this
   draw and is therefore a decision for the room.
 
-The screen deliberately does not offer bowl scope, filter editing, streaming
-ranking, identity badges, or history browsing. Solo TV draws use all accessible
-bowls and inherit saved account filters plus this TV's existing device
-overrides. Those rules still shape selection; they do not need a control on the
-idle screen. The phone/web remains the place to change them.
+The screen still does not offer filter editing, identity badges, or history
+browsing on the stage. Solo TV draws inherit saved account filters plus this
+TV's device overrides, and the phone remains the place to change rating, genre
+and runtime.
+
+## The readout is the control
+
+The first release showed neither scope nor streaming, on the reasoning that
+rules which shape selection need no control on an idle screen. That was half
+right: the rules do not need controls, but the room does need to know what they
+are, and somebody watching alone reasonably wants tonight's answer to differ
+from last night's without fetching a phone.
+
+The revision separates the resting state from the tuning state rather than
+adding a second column to the stage:
+
+- The pool line becomes the single way in. It reads `2 of 6 titles across 2
+  bowls` beside the top service's logo, and selecting it opens a sheet. The
+  resting stage therefore gains one sentence and one focus stop, not a panel
+  competing with the draw target.
+- The sheet owns the screen: your bowls as poster stacks with a slip count and
+  a checkbox, then the existing streaming modes and service ranking. A
+  television reads one list at a distance far better than controls flanking the
+  thing it is competing with, which is what the rejected export tried.
+- Bowl scope is session-only, as on the web. A television is shared, and a bowl
+  excluded on Tuesday must not still be missing when somebody else draws on
+  Friday.
+- A streaming change writes this TV's device override, never the account, so
+  relaxing a filter tonight does not rewrite what the owner browses with
+  tomorrow.
+
+Counts say what they can afford. Per bowl the sheet shows slips -- your own
+undrawn rows in that bowl -- because that is what adding the bowl brings in and
+it costs nothing to know. The stage line de-duplicates into distinct titles,
+matching the draw, where a movie in three bowls still has one chance. It shows
+the filtered count only once the lookups land: `2 of 6 titles` when they have,
+`6 titles` while they have not, since a filtered number that guesses is worse
+than one that waits.
 
 Solo uses violet to distinguish a private draw from the rose group-bowl stage,
 but keeps the TV type ramp, bowl illustration, ticket, dialogs, focus ring, and
@@ -40,14 +74,16 @@ movie detail treatment.
    the bowl cards. Returning from solo restores focus to it.
 2. Select opens the quiet solo stage. Select on the draw target opens a short
    confirmation; the TV does not require a remote long-press.
-3. The draw is committed before reveal and held behind the TV's minimum draw
+3. The pool line opens the scope sheet, where bowls are checked and streaming
+   priority is set. Back closes the sheet before it leaves the screen.
+4. The draw is committed before reveal and held behind the TV's minimum draw
    animation. A failed save never reveals the title and retries with the same
    request id.
-4. With theater mode off, the standard TV movie detail opens immediately.
-5. With theater mode on, eligible previews are deduplicated by solo title
+5. With theater mode off, the standard TV movie detail opens immediately.
+6. With theater mode on, eligible previews are deduplicated by solo title
    identity, all copies of the feature are excluded, and the TV pre-roll runs.
    Its natural completion uses the existing safe provider-app handoff.
-6. Back exits previews first, then the trailer or reveal, and finally returns to
+7. Back exits previews first, then the trailer or reveal, and finally returns to
    the bowl picker. A provider return restores the committed reveal instead of
    drawing again.
 

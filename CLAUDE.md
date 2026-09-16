@@ -34,7 +34,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (135 test files / 1141 tests, 64 Playwright tests with 6 skipped,
+fully green (135 test files / 1149 tests, 64 Playwright tests with 6 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
