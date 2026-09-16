@@ -1,5 +1,6 @@
 import { describe, expect, it } from "vitest";
 import {
+  buildSoloPreviewPool,
   filterSoloPoolByScope,
   getSoloDrawGroups,
   getSoloScopeCounts,
@@ -97,6 +98,52 @@ describe("getSoloDrawGroups", () => {
     const groups = getSoloDrawGroups([row("a", { tmdb_id: 1 }), row("b", { tmdb_id: 2 })]);
 
     expect(groups).toHaveLength(2);
+  });
+});
+
+describe("buildSoloPreviewPool", () => {
+  it("collapses duplicate copies and excludes every copy of the feature", () => {
+    const feature = row("feature-b", { bowl_id: "bowl-2", tmdb_id: 500 });
+    const preview = buildSoloPreviewPool(
+      [
+        row("feature-a", { bowl_id: "bowl-1", tmdb_id: 500 }),
+        feature,
+        row("other-a", { bowl_id: "bowl-1", tmdb_id: 900 }),
+        row("other-b", { bowl_id: "bowl-2", tmdb_id: 900 }),
+      ],
+      { excludeMovie: feature }
+    );
+
+    expect(preview.movies).toHaveLength(1);
+    expect(preview.movies[0]).toMatchObject({ id: "other-a", tmdb_id: 900 });
+    expect(preview.eligibleMovieIds).toBeNull();
+  });
+
+  it("maps filtered title identity back to the stable preview representative", () => {
+    const preview = buildSoloPreviewPool(
+      [
+        row("a", { bowl_id: "bowl-1", tmdb_id: 500 }),
+        row("b", { bowl_id: "bowl-2", tmdb_id: 500 }),
+        row("c", { bowl_id: "bowl-3", tmdb_id: 900 }),
+      ],
+      { eligibleMovieIds: ["b"] }
+    );
+
+    expect(preview.movies.map((movie) => movie.id)).toEqual(["a", "c"]);
+    expect(preview.eligibleMovieIds).toEqual(["a"]);
+  });
+
+  it("ranks only eligible pinned titles when pins narrow the solo draw", () => {
+    const preview = buildSoloPreviewPool(
+      [
+        row("a", { tmdb_id: 100, is_pinned: true }),
+        row("b", { tmdb_id: 200 }),
+        row("c", { tmdb_id: 300, is_pinned: true }),
+      ],
+      { eligibleMovieIds: ["a", "b", "c"] }
+    );
+
+    expect(preview.eligibleMovieIds).toEqual(["a", "c"]);
   });
 });
 

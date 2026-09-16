@@ -21,7 +21,7 @@ The [Solo Draw redesign](solo-draw-redesign/README.md) supplies the web page's
 violet hero, single-avatar identity, scope chips, poster strip, and result styling.
 The original exports and reference images are retained alongside implementation
 notes. TV is exploratory and needs revision; TV solo draw is not implemented.
-The prototype's theater toggle remains deferred pending solo theater playback.
+On the web, the theater ticket and post-draw playback now match the bowl flow.
 
 ## Product Idea
 

@@ -1,23 +1,46 @@
-import { useMemo, useState } from "react";
+import { useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import useAutosave from "../hooks/useAutosave";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 import useAuth from "../hooks/useAuth";
 import useSoloDrawPool from "../hooks/useSoloDrawPool";
 import useSoloDraw from "../hooks/useSoloDraw";
+import useDrawProviderLinks from "../hooks/useDrawProviderLinks";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import useDeviceDrawSettings from "../hooks/useDeviceDrawSettings";
 import useDrawPoolCount, { DRAW_POOL_STATUS } from "../hooks/useDrawPoolCount";
+import AddMovieModal from "../components/AddMovieModal";
 import DrawAnimationModal from "../components/DrawAnimationModal";
 import HoldToDrawButton from "../components/HoldToDrawButton";
 import BowlIllustration from "../components/BowlIllustration";
 import SoloDrawDialog from "../components/SoloDrawDialog";
 import SoloDrawFilters from "../components/SoloDrawFilters";
 import ConfirmDialog from "../components/ConfirmDialog";
+import TheaterPreroll from "../components/TheaterPreroll";
+import TheaterTicket from "../components/TheaterTicket";
 import { WEB_SURFACE_DEFAULTS } from "../utils/deviceDrawSettings";
-import { buildDrawFiltersFromSettings } from "../utils/drawSettings";
-import { filterSoloPoolByScope, groupSoloCandidatesByTitle, getSoloDrawGroups } from "../utils/soloDrawSelection";
+import { buildDrawFiltersFromSettings, clampTheaterTrailerCount } from "../utils/drawSettings";
+import {
+  buildSoloPreviewPool,
+  filterSoloPoolByScope,
+  groupSoloCandidatesByTitle,
+  getSoloDrawGroups,
+} from "../utils/soloDrawSelection";
+import { buildTrailerQueue, readRecentTrailerKeys, rememberTrailerKeys } from "../utils/theaterQueue";
+import { fetchMovieTrailer, resolveEligiblePreviewIds } from "../lib/theaterPreviews";
+import { getTmdbMovieDetails } from "../lib/tmdbApi";
+import { fetchStreamingProviders } from "../lib/streamingProviders";
+import { fetchMovieFilterMetadata } from "../lib/movieFilterMetadata";
+import { matchUserServices } from "../utils/streamingServices";
+import { getAutoStartMode, getAutoStartSurface, resolvePreferredLaunchTarget } from "../utils/webLaunch";
 import { getPosterUrl } from "../utils/getPosterUrl";
+
+const DRAW_ANIMATION_MINIMUM_MS = 1500;
+const SOLO_FILTER_METADATA_FETCHERS = {
+  fetchMovieDetails: getTmdbMovieDetails,
+  fetchProviders: fetchStreamingProviders,
+  fetchFilterMetadata: fetchMovieFilterMetadata,
+};
 
 function getAvailableGenres(rows) {
   const genres = new Set();
@@ -41,7 +64,12 @@ export default function SoloDrawPage() {
     useSoloDrawPool(userId);
   const { streamingServices, defaultDrawSettings, setDefaultDrawSettings, saveDefaultDrawSettings,
     loading: preferencesLoading, loadError: preferencesError, reloadStreamingServices } = useUserStreamingServices();
-  const { settings, setOverrides: setDeviceOverrides, isPersisted } = useDeviceDrawSettings(userId, defaultDrawSettings, WEB_SURFACE_DEFAULTS);
+  const {
+    settings,
+    setOverride: setDeviceOverride,
+    setOverrides: setDeviceOverrides,
+    isPersisted,
+  } = useDeviceDrawSettings(userId, defaultDrawSettings, WEB_SURFACE_DEFAULTS);
 
   const { status: filterSaveStatus, retry: retryFilters } = useAutosave({
     value: defaultDrawSettings,
@@ -104,6 +132,50 @@ export default function SoloDrawPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [isConfirmingDraw, setIsConfirmingDraw] = useState(false);
+  const [isPreparingReveal, setIsPreparingReveal] = useState(false);
+  const [drawAnimationTitle, setDrawAnimationTitle] = useState("");
+  const [detailMovie, setDetailMovie] = useState(null);
+  const [trailerQueue, setTrailerQueue] = useState([]);
+  const [isTheaterPlaying, setIsTheaterPlaying] = useState(false);
+  const theaterRequestRef = useRef(0);
+
+  // The hook commits before it publishes `result`. Suppress that raw result
+  // while the page holds the minimum animation and prepares the same detail
+  // card the bowl uses; a pre-existing result still renders immediately in
+  // tests and on any future restored in-memory flow.
+  const revealedMovie = detailMovie || (!isPreparingReveal ? result : null);
+  const providerBowlId = revealedMovie?.bowl_id || result?.bowl_id || null;
+  const providerMovie = revealedMovie || result;
+  const { providerLinks, startLookup: startProviderLookup } = useDrawProviderLinks(
+    providerBowlId,
+    providerMovie
+  );
+  const isTheaterModeEnabled = Boolean(settings.theaterModeEnabled);
+  const theaterTrailerCount = clampTheaterTrailerCount(settings.theaterTrailerCount);
+  const revealedMovieMatchingProviders = useMemo(
+    () =>
+      revealedMovie
+        ? matchUserServices(revealedMovie.streamingProviders || [], streamingServices)
+        : [],
+    [revealedMovie, streamingServices]
+  );
+  const preferredWebLaunchCandidate = useMemo(() => {
+    if (!revealedMovie || !settings.enablePreferredWebLaunch) return null;
+    if (revealedMovieMatchingProviders.length === 0) return null;
+
+    return resolvePreferredLaunchTarget({
+      providerLinks,
+      userServices: streamingServices,
+      movieProviders: revealedMovie.streamingProviders || [],
+      title: revealedMovie.title || "",
+    });
+  }, [
+    revealedMovie,
+    settings.enablePreferredWebLaunch,
+    revealedMovieMatchingProviders,
+    providerLinks,
+    streamingServices,
+  ]);
 
   const toggleBowl = (bowlId) => {
     setScopeOverride((previous) => {
@@ -126,7 +198,8 @@ export default function SoloDrawPage() {
     return "";
   })();
   const filteredOut = poolStatus === DRAW_POOL_STATUS.ready && poolCount === 0;
-  const canDraw = !isLoading && !preferencesLoading && !preferencesError && !isDrawing && !canRetrySave && !emptyMessage && !poolErrorMessage && !filteredOut && scopedRows.length > 0;
+  const isDrawInProgress = isDrawing || isPreparingReveal;
+  const canDraw = !isLoading && !preferencesLoading && !preferencesError && !isDrawInProgress && !canRetrySave && !emptyMessage && !poolErrorMessage && !filteredOut && scopedRows.length > 0;
   const allSelected = bowlIds.length > 0 && bowlIds.every((id) => activeBowlIds.includes(id));
   const scopeLabel = activeBowlIds.length === 0 ? "no bowls selected" : allSelected
     ? "across all your bowls" : bowls.filter((bowl) => activeBowlIds.includes(bowl.id)).map((bowl) => bowl.name).join(" · ");
@@ -142,9 +215,164 @@ export default function SoloDrawPage() {
   const hasFilters = filters.prioritizeByServices || settings.selectedRatings.length < MPAA_RATING_OPTIONS.length || !settings.includeUnknownRatings
     || settings.selectedGenres !== null || !settings.includeUnknownGenres || settings.runtimeMinMinutes > 0
     || settings.runtimeMaxMinutes < 500 || !settings.includeUnknownRuntime;
+  const buildDetailMovie = async (movie) => {
+    const tmdbId = Number(movie?.tmdb_id ?? movie?.id);
+    const watchedOn = movie?.watched_on ?? movie?.watchedOn ?? null;
+    const shouldFetchTmdbDetails = Number.isInteger(tmdbId) && tmdbId > 0;
+
+    if (!shouldFetchTmdbDetails) {
+      return {
+        ...movie,
+        watched_on: watchedOn,
+        streamingProviders: movie?.streamingProviders || [],
+        streamingProviderLogos: movie?.streamingProviderLogos || {},
+        streamingRegion: movie?.streamingRegion || "US",
+        streamingFetchedAt: movie?.streamingFetchedAt || null,
+      };
+    }
+
+    const existingProviderData = {
+      providers: movie?.streamingProviders || [],
+      providerLogos: movie?.streamingProviderLogos || {},
+      region: movie?.streamingRegion || "US",
+      fetchedAt: movie?.streamingFetchedAt || null,
+    };
+    const [detailsResult, providersResult] = await Promise.allSettled([
+      getTmdbMovieDetails(tmdbId),
+      fetchStreamingProviders(tmdbId),
+    ]);
+
+    if (detailsResult.status === "rejected") {
+      console.error("[SoloDrawPage] Failed to load TMDB detail enrichment", detailsResult.reason);
+    }
+    if (providersResult.status === "rejected") {
+      console.error("[SoloDrawPage] Failed to load streaming provider enrichment", providersResult.reason);
+    }
+
+    const details = detailsResult.status === "fulfilled" ? detailsResult.value : null;
+    const providerData =
+      providersResult.status === "fulfilled" ? providersResult.value : existingProviderData;
+
+    return {
+      ...(details || {}),
+      ...movie,
+      watched_on: watchedOn,
+      streamingProviders: providerData.providers || [],
+      streamingProviderLogos: providerData.providerLogos || {},
+      streamingRegion: providerData.region || "US",
+      streamingFetchedAt: providerData.fetchedAt || null,
+    };
+  };
+
+  const startTheater = async (drawn, drawPool, drawOptions) => {
+    const requestId = ++theaterRequestRef.current;
+
+    try {
+      const eligibleMovieIds = await resolveEligiblePreviewIds({
+        movies: drawPool,
+        drawOptions,
+        fetchers: SOLO_FILTER_METADATA_FETCHERS,
+      });
+      const previewPool = buildSoloPreviewPool(drawPool, {
+        eligibleMovieIds,
+        excludeMovie: drawn,
+      });
+      const queue = await buildTrailerQueue({
+        movies: previewPool.movies,
+        eligibleMovieIds: previewPool.eligibleMovieIds,
+        excludeMovieId: drawn.id,
+        count: theaterTrailerCount,
+        recentKeys: readRecentTrailerKeys(),
+        fetchTrailer: fetchMovieTrailer,
+      });
+      if (queue.length === 0 || requestId !== theaterRequestRef.current) return;
+
+      rememberTrailerKeys(queue.map((entry) => entry.trailer?.key));
+      setTrailerQueue(queue);
+      setIsTheaterPlaying(true);
+    } catch (error) {
+      console.error("[SoloDrawPage] Failed to start the pre-roll", error);
+    }
+  };
+
+  const endTheater = () => {
+    setIsTheaterPlaying(false);
+    setTrailerQueue([]);
+  };
+
+  const autoStartCandidate =
+    getAutoStartMode({
+      surface: getAutoStartSurface({
+        userAgent: window.navigator?.userAgent,
+        hasFinePointer: Boolean(window.matchMedia?.("(pointer: fine)")?.matches),
+      }),
+      launchCandidate: preferredWebLaunchCandidate,
+    }) === "navigate"
+      ? preferredWebLaunchCandidate
+      : null;
+
+  const completeTheater = () => {
+    if (!autoStartCandidate || document.visibilityState === "hidden") {
+      endTheater();
+      return;
+    }
+
+    window.addEventListener("pageshow", endTheater, { once: true });
+    window.location.assign(autoStartCandidate.url);
+  };
+
+  const closeReveal = () => {
+    theaterRequestRef.current += 1;
+    endTheater();
+    setDetailMovie(null);
+    dismissResult();
+  };
+
+  const revealCommittedDraw = async (drawAction, drawPool, drawOptions) => {
+    setDrawAnimationTitle("");
+    setIsPreparingReveal(true);
+    const minimumAnimation = new Promise((resolve) =>
+      window.setTimeout(resolve, DRAW_ANIMATION_MINIMUM_MS)
+    );
+
+    try {
+      const movie = await drawAction();
+      if (movie?.title) setDrawAnimationTitle(movie.title);
+      if (movie) startProviderLookup(movie);
+
+      const [preparedMovie] = await Promise.all([
+        movie ? buildDetailMovie(movie) : Promise.resolve(null),
+        minimumAnimation,
+      ]);
+      if (!preparedMovie) return;
+
+      setDetailMovie(preparedMovie);
+      if (isTheaterModeEnabled) {
+        startTheater(preparedMovie, drawPool, drawOptions);
+      }
+    } finally {
+      setIsPreparingReveal(false);
+      setDrawAnimationTitle("");
+    }
+  };
+
   const runDraw = () => {
     if (!canDraw) return;
-    draw(scopedRows, filters);
+    setIsConfirmingDraw(false);
+    const drawPool = [...scopedRows];
+    const drawOptions = { ...filters };
+    void revealCommittedDraw(
+      () => draw(drawPool, drawOptions),
+      drawPool,
+      drawOptions
+    );
+  };
+
+  const runSaveRetry = () => {
+    if (!canRetrySave || isDrawInProgress) return;
+    const drawPool = [...scopedRows];
+    const drawOptions = { ...filters };
+    void revealCommittedDraw(retrySave, drawPool, drawOptions);
   };
 
   return (
@@ -171,7 +399,11 @@ export default function SoloDrawPage() {
           </div>
           <div className="relative flex flex-col items-center pt-5 text-center">
             <div className="solo-bowl-stage">
-              <BowlIllustration className="h-full w-full" isDrawing={isDrawing} />
+              <BowlIllustration
+                className="h-full w-full"
+                drawTitle={drawAnimationTitle}
+                isDrawing={isDrawInProgress}
+              />
               <span className="solo-avatar solo-bowl-avatar" aria-hidden="true">{initial}</span>
             </div>
             {isLoading ? <p className="mt-4 text-sm text-slate-400" role="status">Loading your movies…</p> : poolErrorMessage ? (
@@ -190,7 +422,13 @@ export default function SoloDrawPage() {
             <div className="solo-draw-action mt-5 w-full max-w-sm">
               <HoldToDrawButton label="Hold to draw for yourself" ariaLabel="Draw a movie for yourself. Press and hold to draw."
                 onHoldComplete={runDraw} onKeyboardActivate={() => { if (canDraw) setIsConfirmingDraw(true); }}
-                disabled={!canDraw} isLoading={isDrawing} />
+                disabled={!canDraw} isLoading={isDrawInProgress} />
+            </div>
+            <div className="mt-3 flex justify-center">
+              <TheaterTicket
+                enabled={isTheaterModeEnabled}
+                onToggle={(next) => setDeviceOverride("theaterModeEnabled", next)}
+              />
             </div>
             <p className="mt-4 max-w-sm text-[13px] leading-relaxed text-slate-400">Only titles you added. Goes straight to your watch history — your bowls keep their copies.</p>
           </div>
@@ -202,7 +440,7 @@ export default function SoloDrawPage() {
         </div>}
         {drawErrorMessage && <div className="panel-muted status-error flex items-center justify-between gap-3" role="alert">
           <span>{drawErrorMessage}</span>
-          {canRetrySave ? <button type="button" className="btn btn-secondary" onClick={retrySave} disabled={isDrawing}>Retry</button>
+          {canRetrySave ? <button type="button" className="btn btn-secondary" onClick={runSaveRetry} disabled={isDrawInProgress}>Retry</button>
             : <button type="button" className="btn btn-ghost" onClick={clearError}>Dismiss</button>}
         </div>}
 
@@ -236,7 +474,7 @@ export default function SoloDrawPage() {
         <button type="button" className="btn btn-secondary mt-5 w-full" onClick={() => setShowInfo(false)}>Got it</button>
       </SoloDrawDialog>}
 
-      {isDrawing && <DrawAnimationModal />}
+      {isDrawInProgress && <DrawAnimationModal />}
 
       <ConfirmDialog
         isOpen={isConfirmingDraw}
@@ -250,39 +488,25 @@ export default function SoloDrawPage() {
         }}
       />
 
-      {result && <SoloDrawResult initial={initial} movie={result} onClose={dismissResult} />}
+      {isTheaterPlaying && revealedMovie && (
+        <TheaterPreroll
+          queue={trailerQueue}
+          featureTitle={revealedMovie.title || ""}
+          featureServiceName={autoStartCandidate?.serviceName}
+          onFinish={endTheater}
+          onComplete={completeTheater}
+        />
+      )}
+      {revealedMovie && (
+        <AddMovieModal
+          movie={revealedMovie}
+          isObscured={isTheaterPlaying}
+          userStreamingServices={streamingServices}
+          webLaunchCandidate={settings.enablePreferredWebLaunch ? preferredWebLaunchCandidate : null}
+          detailPrimaryActionNote="Saved to your watch history."
+          onClose={closeReveal}
+        />
+      )}
     </div>
-  );
-}
-
-/**
- * The reveal. It carries no accept, redraw or removal controls: the draw is
- * already in your history by the time this renders, which is the same bargain
- * the group draw makes when it shows you a movie.
- */
-function SoloDrawResult({ movie, initial, onClose }) {
-  const posterUrl = getPosterUrl(movie, "w342");
-
-  return (
-    <SoloDrawDialog title={movie.title} onClose={onClose} className="solo-result text-center"
-      badge={<span className="solo-identity"><span className="solo-avatar">{initial}</span>Your pick</span>}>
-        {posterUrl && (
-          <img
-            src={posterUrl}
-            alt=""
-            className="mx-auto mt-4 w-40 rounded-lg shadow-lg"
-            loading="lazy"
-          />
-        )}
-        <p className="status-success mt-4 text-sm">Saved to your watch history.</p>
-        <div className="mt-5 flex justify-center gap-3">
-          <Link to="/watch-list" className="btn btn-secondary">
-            Watch history
-          </Link>
-          <button type="button" className="btn btn-primary solo-primary" onClick={onClose}>
-            Done
-          </button>
-        </div>
-    </SoloDrawDialog>
   );
 }
