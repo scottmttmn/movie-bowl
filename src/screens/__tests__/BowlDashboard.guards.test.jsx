@@ -302,6 +302,45 @@ describe("BowlDashboard guards", () => {
     expect(screen.queryByText(/friend movie/i)).not.toBeInTheDocument();
   });
 
+  // Watching alone draws from exactly the titles this section lists, and the
+  // two buttons above are what people came to press: a third control under
+  // them read as a third way to spend the bowl's turn.
+  it("offers a solo draw from My Movies rather than beside the draw button", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = {
+      remaining: [
+        { id: "m1", title: "My Movie", added_by: "u1", added_at: "2026-03-06T12:00:00.000Z" },
+      ],
+      watched: [],
+    };
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    const myMoviesSection = screen.getByRole("heading", { name: /my movies/i }).closest("section");
+    const soloButton = within(myMoviesSection).getByRole("button", { name: "Draw for myself" });
+    expect(screen.getAllByRole("button", { name: "Draw for myself" })).toHaveLength(1);
+
+    fireEvent.click(soloButton);
+    // The bowl rides along as the starting scope.
+    expect(mocks.state.navigate).toHaveBeenCalledWith("/solo-draw?bowl=bowl-1");
+  });
+
+  it("offers no solo draw when this bowl holds none of your movies", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = {
+      remaining: [
+        { id: "m1", title: "Friend Movie", added_by: "u2", added_at: "2026-03-06T12:00:00.000Z" },
+      ],
+      watched: [],
+    };
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    expect(screen.queryByRole("button", { name: "Draw for myself" })).not.toBeInTheDocument();
+  });
+
   it("shows My Movies above a collapsed Watched strip", async () => {
     mocks.state.memberRows = [{ user_id: "u1" }];
     mocks.state.bowlData = {
