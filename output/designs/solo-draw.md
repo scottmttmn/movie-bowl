@@ -218,6 +218,12 @@ anything:
   from inside a bowl is a statement about context. It is a starting point, not a
   lock — the selector is right there and "all bowls" is one tap away.
 
+  That link lives in the dashboard's **My Movies** header, not under the draw
+  button. Solo draw takes exactly the titles that section lists, and the two
+  buttons above it are what people came to press: a third control beneath them
+  read as a third way to spend the bowl's turn. It is hidden when the section is
+  empty, because there is then nothing of yours to draw.
+
 The selector itself is a multi-select of your bowls with a count of your undrawn
 titles beside each, so the trade between breadth and lookup cost is visible while
 you make it. For the initial release, keep scope changes only while the solo

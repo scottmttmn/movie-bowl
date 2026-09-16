@@ -977,20 +977,6 @@ return (
                   <p className="mt-2 text-center text-sm text-amber-300">{drawGuardMessage}</p>
                 )}
 
-                {/* Watching alone is not the bowl's turn, so it is a link out
-                    rather than another button in the stack above. It carries
-                    this bowl as the starting scope, because arriving from
-                    inside a bowl is a statement about context. */}
-                <div className="mt-3 flex justify-center">
-                  <button
-                    type="button"
-                    className="btn btn-ghost text-sm"
-                    onClick={() => navigate(`/solo-draw?bowl=${bowlId}`)}
-                  >
-                    Draw for myself
-                  </button>
-                </div>
-
                 {addGuardMessage && (
                   <p className="mt-2 text-center text-sm text-amber-300">{addGuardMessage}</p>
                 )}
@@ -1407,6 +1393,20 @@ return (
                   </div>
                   <p className="text-xs text-slate-400">Your undrawn picks in this bowl.</p>
                 </div>
+                {/* Watching alone belongs to this section rather than beside the
+                    draw button: it draws from exactly these titles, and a third
+                    control under the two people came to press reads as a third
+                    way to spend the bowl's turn. The bowl still rides along as
+                    the starting scope. */}
+                {myMovies.length > 0 && (
+                  <button
+                    type="button"
+                    className="btn btn-ghost shrink-0 text-sm"
+                    onClick={() => navigate(`/solo-draw?bowl=${bowlId}`)}
+                  >
+                    Draw for myself
+                  </button>
+                )}
               </div>
 
               <div className="mt-3">
