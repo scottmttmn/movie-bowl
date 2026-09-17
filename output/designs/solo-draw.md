@@ -1,16 +1,16 @@
 # Solo Draw
 
-Status: built, except the deferred setting under "Later: Remove Automatically".
+Status: built, including the setting under "Later: Remove Automatically".
 `/solo-draw` ships the pooled flow described here on top of `record_solo_draw`.
 Product review
 settled the draw lifecycle: revealing a solo draw commits it to personal history,
-with no acceptance or redraw controls on the result. Bowl copies remain available.
-Optional removal lives in personal history. For two hours the entry's delete
-action is labelled as undo; there is no separate undo operation, because with no
-bowl change to reverse, undo and deletion do the same thing. Neither reverses a
-separate bowl removal. A later opt-in setting removes your copies automatically
-at reveal, and only then does undo become a real, server-enforced operation that
-restores them. The pool spans every bowl you belong to by default and can be
+with no acceptance or redraw controls on the result. With automatic removal off,
+which is the default, bowl copies remain available and optional removal lives in
+personal history; for two hours the entry's delete action is labelled as undo,
+and there is no separate undo operation, because with no bowl change to reverse,
+undo and deletion do the same thing. Neither reverses a separate bowl removal.
+With the setting on, the draw removes your copies at reveal and undo becomes a
+real, server-enforced operation that restores them, through `undo_solo_draw`. The pool spans every bowl you belong to by default and can be
 narrowed to a subset. It lives at its own route, `/solo-draw`, uses the same
 filter settings as the dashboard, and keeps the drawn slip's note read-only. The
 persistence contract is under "Persistence Contract".
@@ -358,10 +358,11 @@ needs to change for it; do not build it yet.
 
 ## Later: Remove Automatically
 
-A later opt-in setting, "Remove movies from my bowls when I draw solo," deletes
-your copies at reveal instead of leaving them for the history action. Default
-is off. It never adds acceptance or free redraws. It is deferred, but it changes
-what undo has to mean, so the initial persistence should not preclude it.
+*Built.* The opt-in setting, "Remove movies from my bowls when I draw solo,"
+deletes your copies at reveal instead of leaving them for the history action.
+Default is off. It never adds acceptance or free redraws. What it changes is
+what undo means, which is why the initial persistence was built not to preclude
+it.
 
 - **Which copies.** Every currently accessible, own undrawn copy of the drawn
   title in any of your bowls, not only the bowls in the draw's scope: once you
@@ -381,6 +382,27 @@ what undo has to mean, so the initial persistence should not preclude it.
   restore the rest, and say which were skipped. Undo still deletes the entry.
 - **After the window.** Ordinary history deletion remains available and does not
   restore copies, as elsewhere in this plan.
+
+What shipping it settled, beyond the above:
+
+- The setting is `profiles.remove_from_bowls_on_solo_draw`, its own column
+  rather than a key in `default_draw_settings`: the draw reads it inside its own
+  transaction, and that column is a client-normalized blob a client from an
+  older deploy would rewrite without the key.
+- Removed copies live in `solo_draw_removed_copies`, keyed by the entry and
+  cascading with it, which is what makes ordinary deletion after the window
+  final. The snapshot carries the bowl's name as well as its id, so undo can
+  name a bowl that has since been deleted.
+- A copy is skipped when its bowl is gone, when access to it is gone, or when
+  any active copy of the same title is in that bowl again -- anyone's, because
+  `bowl_active_tmdb_movies` admits one per bowl whoever added it. A pin that has
+  since moved is not a skip: the copy goes back unpinned, because refusing the
+  whole restore over a pin loses more than it protects.
+- `delete_user_watch_event` refuses a solo entry that still has copies to
+  restore inside the window, so a tab from an older deploy cannot turn undo into
+  deletion. After the window it deletes as it always has.
+- Undo lives in watch history only. A solo draw from the television under this
+  setting has to be undone from the web.
 - **Visibility.** Titles leave shared bowls with no event explaining it — the
   same untraced shrink the manual removal already causes, now without a prompt.
   If the bowl ever gains a removal event, this should use it.
@@ -398,9 +420,9 @@ what undo has to mean, so the initial persistence should not preclude it.
    the manual entry's immediate removal offer. Include distinct empty states,
    loading/error states, scope counts and the existing large-pool manual lookup
    affordance in this first release, rather than deferring them as polish.
-3. **Later, optional enhancements.** The automatic-removal setting and its
-   restoring undo, as described under "Later: Remove Automatically". Within-person
-   title weights remain a separate later decision.
+3. **Automatic removal.** *Done* — the setting and its restoring undo, as
+   described under "Later: Remove Automatically". Within-person title weights
+   remain a separate later decision.
 
 Guest night can reuse the pure pool/filter logic. Its cross-user data access
 still needs its own authorization and server-side resolution as described in
@@ -421,7 +443,9 @@ still needs its own authorization and server-side resolution as described in
 - Closing the result does not undo the draw; the result has no acceptance or
   redraw controls and does not open the removal prompt.
 - Personal history labels deleting a solo entry as undo through two hours after
-  commit, and as ordinary removal afterward; both delete only the entry.
+  commit, and as ordinary removal afterward. With automatic removal off both
+  delete only the entry; with it on, the undo also restores the copies the draw
+  removed and says which ones could not go back.
 - A separate removal affects only selected, currently accessible, own undrawn
   copies. Undo or deletion of the watch entry never restores those copies, and
   the removal dialog explains that consequence.

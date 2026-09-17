@@ -2,7 +2,11 @@ import { useCallback, useRef, useState } from "react";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { fetchMovieFilterMetadata } from "../lib/movieFilterMetadata";
-import { createSoloDrawRequestId, recordSoloDraw } from "../lib/soloDraw";
+import {
+  createSoloDrawRequestId,
+  fetchSoloDrawRemovedCopies,
+  recordSoloDraw,
+} from "../lib/soloDraw";
 import { getResolvedDrawPool } from "../utils/drawSelection";
 import { getMovieFromDrawCandidate, hydrateDrawCandidate } from "../utils/selectDrawCandidate";
 import { selectSoloDrawCandidate } from "../utils/soloDrawSelection";
@@ -47,6 +51,10 @@ export default function useSoloDraw({
     }
 
     pendingRef.current = null;
+    // The setting that empties your bowls is the account's, not this screen's,
+    // so the reveal asks the server what it actually removed rather than
+    // predicting it. Nothing removed is the ordinary case and says nothing.
+    const removedCopies = await fetchSoloDrawRemovedCopies(saved.event.id);
     const hydrated = await hydrateDrawCandidate(candidate, fetchProviders);
     const drawn = {
       ...getMovieFromDrawCandidate(hydrated),
@@ -59,6 +67,7 @@ export default function useSoloDraw({
       streamingFetchedAt: hydrated?.fetchedAt || null,
       watchEventId: saved.event.id,
       watchedOn: saved.event.watched_on,
+      removedCopies,
     };
 
     setResult(drawn);

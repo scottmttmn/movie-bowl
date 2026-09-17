@@ -3,6 +3,7 @@ import MovieSearch from "./MovieSearch";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { formatLocalCalendarDate } from "../utils/letterboxdExport";
 import { MAX_MOVIE_NOTE_LENGTH, normalizeMovieNote } from "../utils/movieNote";
+import { isWithinSoloUndoWindow } from "../utils/watchHistory";
 
 function getToday() {
   return formatLocalCalendarDate(new Date());
@@ -13,25 +14,13 @@ function normalizeDateInput(value) {
   return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : "";
 }
 
-// Two hours, matching the group draw's undo window. A solo draw changed no
-// bowl, so there is nothing to put back and undo is the same delete as always
-// -- what the window buys is the word: inside it this reads as undoing tonight's
-// draw, after it as editing your history.
-const SOLO_UNDO_WINDOW_MS = 2 * 60 * 60 * 1000;
-
-function isWithinSoloUndoWindow(entry, now = Date.now()) {
-  if (entry?.source_kind !== "solo_draw" || !entry?.created_at) return false;
-  const committedAt = new Date(entry.created_at).getTime();
-  if (Number.isNaN(committedAt)) return false;
-  return now - committedAt <= SOLO_UNDO_WINDOW_MS;
-}
-
 export default function WatchHistoryEntryModal({
   entry = null,
   onClose,
   onSave,
   onDelete,
   onRemoveFromBowls = null,
+  restorableCopies = [],
   isSaving = false,
   errorMessage = "",
 }) {
@@ -49,6 +38,9 @@ export default function WatchHistoryEntryModal({
   const isDrawnEntry = entry?.source_kind === "bowl_draw" || isSoloDrawEntry;
   const drawnNote = isDrawnEntry ? normalizeMovieNote(entry?.note) : null;
   const canUndoSolo = isWithinSoloUndoWindow(entry);
+  // Only the entries whose draw actually took copies away have something to put
+  // back, so the confirmation promises a restore only when one is coming.
+  const restoreCount = canUndoSolo ? (restorableCopies || []).length : 0;
   const posterUrl = useMemo(
     () => (selectedMovie ? getPosterUrl(selectedMovie, "w200") : null),
     [selectedMovie]
@@ -222,7 +214,15 @@ export default function WatchHistoryEntryModal({
 
             {isEditing && confirmingDelete ? (
               <div className="rounded-xl border border-rose-900/60 bg-rose-950/40 p-3">
-                <p className="text-sm text-rose-100">Remove this watch history entry?</p>
+                <p className="text-sm text-rose-100">
+                  {restoreCount > 0
+                    ? `Undo this draw? ${
+                        restoreCount === 1
+                          ? "The copy it removed goes back to your bowl."
+                          : `The ${restoreCount} copies it removed go back to your bowls.`
+                      }`
+                    : "Remove this watch history entry?"}
+                </p>
                 <div className="mt-3 flex justify-end gap-2">
                   <button
                     type="button"

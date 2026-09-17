@@ -100,6 +100,51 @@ test("watch history can remove the bowl copies of a solo draw", async ({ page, b
     .toBe(0);
 });
 
+// With automatic removal on, the draw empties the bowls and undo is the only
+// way back -- the one flow where the two actions in watch history stop meaning
+// the same thing.
+test("automatic removal empties the bowls at reveal and undo puts them back", async ({ page, backend }) => {
+  await backend.authenticate(page);
+  seedTwoBowls(backend);
+  backend.state.bowl_movies.push({
+    id: "solo-movie-3", bowl_id: "solo-bowl-2", title: "Solo One Pick", tmdb_id: 3300,
+    added_by: "user-smoke", added_at: "2026-09-01T12:00:00.000Z", drawn_at: null,
+    is_pinned: false,
+  });
+  backend.state.bowl_movies.find((movie) => movie.id === "solo-movie-1").tmdb_id = 3300;
+
+  // The Settings toggle that writes this is covered by its own tests; what only
+  // a browser can show is what the draw then does to the bowls.
+  backend.state.profiles[0].remove_from_bowls_on_solo_draw = true;
+
+  await page.goto("/solo-draw?bowl=solo-bowl-1");
+  await page.getByRole("button", { name: /Press and hold to draw/i }).press("Enter");
+  await page.getByRole("button", { name: "Draw", exact: true }).click();
+
+  // Both copies of the title go, including the one in a bowl outside the scope.
+  const reveal = page.getByRole("dialog");
+  await expect(reveal.getByText(/2 copies were removed from your bowls/)).toBeVisible();
+  await reveal.getByRole("button", { name: "Close" }).click();
+
+  await expect
+    .poll(() => backend.state.bowl_movies.filter((movie) => movie.tmdb_id === 3300).length)
+    .toBe(0);
+
+  await page.goto("/watch-list");
+  await page.getByRole("button").filter({ hasText: "Solo One Pick" }).click();
+  await page.getByRole("dialog").getByRole("button", { name: "Edit history" }).click();
+  await page.getByRole("button", { name: "Undo draw" }).click();
+  await expect(
+    page.getByText("Undo this draw? The 2 copies it removed go back to your bowls.")
+  ).toBeVisible();
+  await page.getByRole("button", { name: "Undo draw" }).click();
+
+  await expect
+    .poll(() => backend.state.bowl_movies.filter((movie) => movie.tmdb_id === 3300).length)
+    .toBe(2);
+  expect(backend.state.user_watch_events).toHaveLength(0);
+});
+
 test("solo redesign keeps scope counts, filters and dialog focus usable", async ({ page, backend }) => {
   await backend.authenticate(page);
   seedTwoBowls(backend);
