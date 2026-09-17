@@ -29,9 +29,9 @@ heuristics:
 capture:
   # Signs the browser in and stubs the backend before each capture, so the
   # screens behind RequireAuth are the app rather than four photographs of the
-  # login page. Resolved inside each reproduced commit, so old commits use the
-  # version of this module they shipped with -- and commits older than the file
-  # capture signed out.
+  # login page. A reproduced commit's setup takes precedence; older commits use
+  # this checkout's setup with their own fakeBackend.js. Commits that predate
+  # the fake capture signed out instead of borrowing today's API behavior.
   setupModule: e2e/support/captureSetup.js
   # Not 4173: that is playwright.config.js's webServer port, and it starts with
   # reuseExistingServer:false, so sharing the number means whichever runs second
