@@ -226,6 +226,9 @@ export default function SoloDrawPage() {
         watched_on: watchedOn,
         streamingProviders: movie?.streamingProviders || [],
         streamingProviderLogos: movie?.streamingProviderLogos || {},
+        streamingAvailability: movie?.streamingAvailability || {},
+        streamingWatchUrl: movie?.streamingWatchUrl || null,
+        streamingProviderStatus: movie?.streamingProviderStatus || "unavailable",
         streamingRegion: movie?.streamingRegion || "US",
         streamingFetchedAt: movie?.streamingFetchedAt || null,
       };
@@ -234,6 +237,9 @@ export default function SoloDrawPage() {
     const existingProviderData = {
       providers: movie?.streamingProviders || [],
       providerLogos: movie?.streamingProviderLogos || {},
+      availability: movie?.streamingAvailability || {},
+      watchUrl: movie?.streamingWatchUrl || null,
+      status: movie?.streamingProviderStatus || "unavailable",
       region: movie?.streamingRegion || "US",
       fetchedAt: movie?.streamingFetchedAt || null,
     };
@@ -259,6 +265,9 @@ export default function SoloDrawPage() {
       watched_on: watchedOn,
       streamingProviders: providerData.providers || [],
       streamingProviderLogos: providerData.providerLogos || {},
+      streamingAvailability: providerData.availability || {},
+      streamingWatchUrl: providerData.watchUrl || null,
+      streamingProviderStatus: providerData.status || "ready",
       streamingRegion: providerData.region || "US",
       streamingFetchedAt: providerData.fetchedAt || null,
     };

@@ -1,5 +1,6 @@
 import { getTmdbMovieFilterMetadata } from "./tmdbApi";
 import { primeStreamingProvidersCache } from "./streamingProviders";
+import { createEmptyStreamingProviderData } from "../utils/tmdbWatchProviders";
 
 const FILTER_METADATA_CACHE_TTL_MS = 10 * 60 * 1000;
 const filterMetadataCache = new Map();
@@ -15,9 +16,7 @@ export async function fetchMovieFilterMetadata(tmdbId) {
   if (!Number.isInteger(numericId) || numericId <= 0) {
     return {
       details: {},
-      providers: [],
-      region: "US",
-      fetchedAt: null,
+      ...createEmptyStreamingProviderData("US"),
     };
   }
 
@@ -33,6 +32,10 @@ export async function fetchMovieFilterMetadata(tmdbId) {
       const value = {
         details: metadata?.details || {},
         providers: metadata?.providers || [],
+        providerLogos: metadata?.providerLogos || {},
+        availability: metadata?.availability || {},
+        watchUrl: metadata?.watchUrl || null,
+        status: metadata?.status || "ready",
         region: metadata?.region || "US",
         fetchedAt: metadata?.fetchedAt || null,
       };

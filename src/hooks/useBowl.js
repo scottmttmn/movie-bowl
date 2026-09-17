@@ -399,6 +399,9 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       ...drawn,
       streamingProviders: selected.providers || [],
       streamingProviderLogos: selected.providerLogos || {},
+      streamingAvailability: selected.availability || {},
+      streamingWatchUrl: selected.watchUrl || null,
+      streamingProviderStatus: selected.providerStatus || "ready",
       streamingRegion: selected.region || "US",
       streamingFetchedAt: selected.fetchedAt || null,
     };

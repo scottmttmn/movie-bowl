@@ -30,7 +30,16 @@ describe("streamingProviders", () => {
       region: "US",
       providers: [],
       providerLogos: {},
+      availability: {
+        subscription: [],
+        free: [],
+        ads: [],
+        rent: [],
+        buy: [],
+      },
+      watchUrl: null,
       fetchedAt: null,
+      status: "unavailable",
     });
     expect(mocks.getTmdbMovieProviders).not.toHaveBeenCalled();
   });
@@ -47,6 +56,12 @@ describe("streamingProviders", () => {
             { provider_name: "hbo max", logo_path: "/max-duplicate.jpg" },
             { provider_name: "Tubi" },
           ],
+          free: [
+            { provider_id: 9, provider_name: "Kanopy", logo_path: "/kanopy.jpg" },
+          ],
+          rent: [
+            { provider_id: 2, provider_name: "Apple TV", logo_path: "/apple.jpg" },
+          ],
         },
       },
     });
@@ -55,14 +70,23 @@ describe("streamingProviders", () => {
     const second = await fetchStreamingProviders(101);
 
     expect(first.region).toBe("US");
-    expect(first.providers).toEqual(["Netflix", "Max", "Tubi"]);
+    expect(first.providers).toEqual(["Netflix", "Max", "Kanopy", "Tubi"]);
     // Keyed by the normalized name so a caller holding the existing string
     // list can look one up, and the first spelling of a service wins the way
     // the name list already dedupes. A provider without art simply has none.
     expect(first.providerLogos).toEqual({
       Netflix: "/netflix.jpg",
       Max: "/max.jpg",
+      Kanopy: "/kanopy.jpg",
     });
+    expect(first.availability.free).toEqual([
+      expect.objectContaining({ id: 9, name: "Kanopy" }),
+    ]);
+    expect(first.availability.rent).toEqual([
+      expect.objectContaining({ id: 2, name: "Apple TV" }),
+    ]);
+    expect(first.providers).not.toContain("Apple TV+");
+    expect(first.status).toBe("ready");
     expect(typeof first.fetchedAt).toBe("string");
     expect(second).toEqual(first);
     expect(mocks.getTmdbMovieProviders).toHaveBeenCalledTimes(1);
@@ -77,8 +101,18 @@ describe("streamingProviders", () => {
 
     await expect(fetchStreamingProviders(101)).resolves.toEqual({
       providers: ["Netflix", "Max"],
+      providerLogos: {},
+      availability: {
+        subscription: [],
+        free: [],
+        ads: [],
+        rent: [],
+        buy: [],
+      },
+      watchUrl: null,
       region: "US",
       fetchedAt: "2026-08-27T00:00:00.000Z",
+      status: "ready",
     });
     expect(mocks.getTmdbMovieProviders).not.toHaveBeenCalled();
   });
@@ -154,7 +188,16 @@ describe("streamingProviders", () => {
       region: "CA",
       providers: [],
       providerLogos: {},
+      availability: {
+        subscription: [],
+        free: [],
+        ads: [],
+        rent: [],
+        buy: [],
+      },
+      watchUrl: null,
       fetchedAt: null,
+      status: "failed",
     });
 
     expect(errorSpy).toHaveBeenCalled();

@@ -58,6 +58,10 @@ export async function getStreamingPriorityPool(
       return {
         movie,
         providers,
+        providerLogos: providerData?.providerLogos || {},
+        availability: providerData?.availability || {},
+        watchUrl: providerData?.watchUrl || null,
+        providerStatus: providerData?.status || "ready",
         region: providerData?.region || "US",
         fetchedAt: providerData?.fetchedAt || null,
         matchedServices,
@@ -130,6 +134,10 @@ export async function hydrateDrawCandidate(candidate, fetchProviders) {
   return {
     movie: candidate,
     providers: providerData?.providers || [],
+    providerLogos: providerData?.providerLogos || {},
+    availability: providerData?.availability || {},
+    watchUrl: providerData?.watchUrl || null,
+    providerStatus: providerData?.status || "ready",
     region: providerData?.region || "US",
     fetchedAt: providerData?.fetchedAt || null,
   };

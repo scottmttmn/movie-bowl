@@ -125,6 +125,9 @@ async function enrichDrawnMovie(movie) {
       tmdb_id: movie.tmdb_id,
       streamingProviders: movie.streamingProviders || [],
       streamingProviderLogos: movie.streamingProviderLogos || {},
+      streamingAvailability: movie.streamingAvailability || {},
+      streamingWatchUrl: movie.streamingWatchUrl || null,
+      streamingProviderStatus: movie.streamingProviderStatus || "ready",
       streamingRegion: movie.streamingRegion || "US",
     };
   } catch (error) {

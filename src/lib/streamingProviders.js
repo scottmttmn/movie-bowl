@@ -1,4 +1,8 @@
-import { normalizeStreamingServices } from "../utils/streamingServices";
+import {
+  createEmptyStreamingProviderData,
+  normalizeStoredProviderData,
+  normalizeTmdbWatchProviders,
+} from "../utils/tmdbWatchProviders";
 import { getTmdbMovieProviders } from "./tmdbApi";
 
 const PROVIDER_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -15,15 +19,11 @@ export function clearStreamingProvidersCache() {
 }
 
 export function primeStreamingProvidersCache(tmdbId, providerData, options = {}) {
-  const region = options.region || providerData?.region || "US";
+  const region = String(options.region || providerData?.region || "US").toUpperCase();
   const numericId = Number(tmdbId);
   if (!Number.isInteger(numericId) || numericId <= 0) return null;
 
-  const value = {
-    region,
-    providers: normalizeStreamingServices(providerData?.providers || []),
-    fetchedAt: providerData?.fetchedAt || new Date().toISOString(),
-  };
+  const value = normalizeStoredProviderData(providerData, { region });
   providersCache.set(getCacheKey(numericId, region), {
     value,
     expiresAt: Date.now() + PROVIDER_CACHE_TTL_MS,
@@ -32,11 +32,11 @@ export function primeStreamingProvidersCache(tmdbId, providerData, options = {})
 }
 
 export async function fetchStreamingProviders(tmdbId, options = {}) {
-  const region = options.region || "US";
+  const region = String(options.region || "US").toUpperCase();
   const bypassCache = Boolean(options.bypassCache);
 
   if (!tmdbId) {
-    return { region, providers: [], providerLogos: {}, fetchedAt: null };
+    return createEmptyStreamingProviderData(region);
   }
 
   const cacheKey = getCacheKey(tmdbId, region);
@@ -56,31 +56,11 @@ export async function fetchStreamingProviders(tmdbId, options = {}) {
 
   const requestPromise = (async () => {
     try {
-      const data = await getTmdbMovieProviders(tmdbId);
-      const regionData = data?.results?.[region] || {};
-
-      const regionProviders = [
-        ...(regionData.flatrate || []),
-        ...(regionData.ads || []),
-      ].filter((provider) => provider?.provider_name);
-
-      const providers = normalizeStreamingServices(
-        regionProviders.map((provider) => provider.provider_name)
-      );
-      const logosByService = {};
-      regionProviders.forEach((provider) => {
-        const [name] = normalizeStreamingServices([provider.provider_name]);
-        if (name && provider.logo_path && !logosByService[name]) {
-          logosByService[name] = provider.logo_path;
-        }
-      });
-
-      const result = {
+      const data = await getTmdbMovieProviders(tmdbId, { region });
+      const result = normalizeTmdbWatchProviders(data, {
         region,
-        providers,
-        providerLogos: logosByService,
-        fetchedAt: new Date().toISOString(),
-      };
+        fetchedAt: data?.fetchedAt || new Date().toISOString(),
+      });
 
       if (!bypassCache) {
         providersCache.set(cacheKey, {
@@ -92,7 +72,7 @@ export async function fetchStreamingProviders(tmdbId, options = {}) {
       return result;
     } catch (error) {
       console.error("[streamingProviders] Failed to fetch providers", error);
-      return { region, providers: [], providerLogos: {}, fetchedAt: null };
+      return createEmptyStreamingProviderData(region, { status: "failed" });
     } finally {
       inflightRequests.delete(cacheKey);
     }

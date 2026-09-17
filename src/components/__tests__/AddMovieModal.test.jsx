@@ -59,6 +59,89 @@ describe("AddMovieModal", () => {
     expect(screen.queryByText("No US streaming providers found right now.")).not.toBeInTheDocument();
   });
 
+  it("groups provider types without treating rent and buy as saved-service matches", () => {
+    const movie = {
+      title: "Dune",
+      release_date: "2021-10-22",
+      streamingProviders: ["Netflix", "Kanopy", "Tubi"],
+      streamingProviderLogos: { Netflix: "/netflix.jpg" },
+      streamingAvailability: {
+        subscription: [{ id: 8, name: "Netflix", logoPath: "/netflix.jpg" }],
+        free: [{ id: 9, name: "Kanopy", logoPath: null }],
+        ads: [{ id: 10, name: "Tubi", logoPath: null }],
+        rent: [{ id: 2, name: "Apple TV", logoPath: "/apple.jpg" }],
+        buy: [{ id: 3, name: "Amazon Video", logoPath: null }],
+      },
+      streamingWatchUrl: "https://www.themoviedb.org/movie/438631/watch",
+      streamingProviderStatus: "ready",
+    };
+
+    render(
+      <AddMovieModal
+        movie={movie}
+        onClose={vi.fn()}
+        userStreamingServices={["Netflix", "Apple TV+"]}
+      />
+    );
+
+    expect(screen.getByText("Included with subscription")).toBeInTheDocument();
+    expect(screen.getByText("Free")).toBeInTheDocument();
+    expect(screen.getByText("Free with ads")).toBeInTheDocument();
+    expect(screen.getByText("Rent")).toBeInTheDocument();
+    expect(screen.getByText("Buy")).toBeInTheDocument();
+    expect(screen.getByText("Netflix").closest("li")).toHaveTextContent("(in your services)");
+    expect(screen.getByText("Apple TV").closest("li")).not.toHaveTextContent("(in your services)");
+    expect(screen.getByRole("link", { name: /see all watch options/i })).toHaveAttribute(
+      "href",
+      movie.streamingWatchUrl
+    );
+    expect(screen.getByRole("link", { name: "JustWatch" })).toBeInTheDocument();
+  });
+
+  it("distinguishes a provider failure from confirmed empty availability", () => {
+    render(
+      <AddMovieModal
+        movie={{
+          title: "Dune",
+          streamingProviders: [],
+          streamingProviderStatus: "failed",
+        }}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText(/Availability could not be loaded/i)).toBeInTheDocument();
+    expect(screen.queryByText(/No US streaming providers found/i)).not.toBeInTheDocument();
+  });
+
+  it("shows exceptional status and exact regional release milestones", () => {
+    render(
+      <AddMovieModal
+        movie={{
+          title: "Future Movie",
+          status: "Post Production",
+          release_date: "2099-11-01",
+          release_dates: {
+            results: [{
+              iso_3166_1: "US",
+              release_dates: [
+                { type: 3, release_date: "2099-10-23T00:00:00.000Z" },
+                { type: 4, release_date: "2099-11-18T00:00:00.000Z" },
+              ],
+            }],
+          },
+          streamingProviders: [],
+        }}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.getByText("Post-production")).toBeInTheDocument();
+    expect(screen.getByText(/Theatrical Oct 23, 2099/)).toHaveTextContent(
+      "Digital Nov 18, 2099"
+    );
+  });
+
   it("saves a pin without allowing duplicate requests and reflects the updated movie", async () => {
     let resolvePin;
     const onTogglePin = vi.fn(() => new Promise((resolve) => { resolvePin = resolve; }));

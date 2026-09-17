@@ -68,6 +68,9 @@ async function enrichSoloMovie(movie) {
   const existingProviderData = {
     providers: movie?.streamingProviders || [],
     providerLogos: movie?.streamingProviderLogos || {},
+    availability: movie?.streamingAvailability || {},
+    watchUrl: movie?.streamingWatchUrl || null,
+    status: movie?.streamingProviderStatus || "unavailable",
     region: movie?.streamingRegion || "US",
     fetchedAt: movie?.streamingFetchedAt || null,
   };
@@ -93,6 +96,9 @@ async function enrichSoloMovie(movie) {
     watched_on: watchedOn,
     streamingProviders: providerData.providers || [],
     streamingProviderLogos: providerData.providerLogos || {},
+    streamingAvailability: providerData.availability || {},
+    streamingWatchUrl: providerData.watchUrl || null,
+    streamingProviderStatus: providerData.status || "ready",
     streamingRegion: providerData.region || "US",
     streamingFetchedAt: providerData.fetchedAt || null,
   };

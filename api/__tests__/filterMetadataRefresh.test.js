@@ -97,6 +97,14 @@ describe("filter metadata refresh worker", () => {
     const fetchMetadata = vi.fn(async () => ({
       certification: "R",
       providers: ["Netflix", "Tubi"],
+      availability: {
+        subscription: [{ id: 8, name: "Netflix" }],
+        free: [],
+        ads: [{ id: 10, name: "Tubi" }],
+        rent: [],
+        buy: [],
+      },
+      watchUrl: "https://www.themoviedb.org/movie/10/watch",
       fetchedAt: "2026-08-28T12:00:00.000Z",
     }));
 
@@ -115,6 +123,14 @@ describe("filter metadata refresh worker", () => {
       p_certification: "R",
       p_providers: ["Netflix", "Tubi"],
       p_fetched_at: "2026-08-28T12:00:00.000Z",
+      p_provider_availability: {
+        subscription: [{ id: 8, name: "Netflix" }],
+        free: [],
+        ads: [{ id: 10, name: "Tubi" }],
+        rent: [],
+        buy: [],
+      },
+      p_provider_watch_url: "https://www.themoviedb.org/movie/10/watch",
     });
   });
 

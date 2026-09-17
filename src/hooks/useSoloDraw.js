@@ -51,6 +51,12 @@ export default function useSoloDraw({
     const drawn = {
       ...getMovieFromDrawCandidate(hydrated),
       streamingProviders: hydrated?.providers || [],
+      streamingProviderLogos: hydrated?.providerLogos || {},
+      streamingAvailability: hydrated?.availability || {},
+      streamingWatchUrl: hydrated?.watchUrl || null,
+      streamingProviderStatus: hydrated?.providerStatus || "ready",
+      streamingRegion: hydrated?.region || "US",
+      streamingFetchedAt: hydrated?.fetchedAt || null,
       watchEventId: saved.event.id,
       watchedOn: saved.event.watched_on,
     };
