@@ -14,6 +14,13 @@ import { fileURLToPath, pathToFileURL } from "node:url";
 // repository keeps forever.
 
 export const EVOLUTION_BOWL_ID = "evolution-bowl";
+const SECOND_BOWL_ID = "evolution-bowl-2";
+const SHARED_BOWL_ID = "evolution-bowl-shared";
+
+// A second person, so one bowl is genuinely shared rather than owned. Without
+// them "Shared with you" is permanently empty and the member counts are all 1,
+// which makes a record of the bowls list that never shows sharing at all.
+const FRIEND = { id: "evolution-friend", email: "casey@example.com" };
 
 const POSTER_FIXTURES = path.dirname(fileURLToPath(import.meta.url)) + "/poster-fixtures";
 
@@ -23,6 +30,20 @@ const MOVIES = [
   { id: "evolution-movie-3", tmdb_id: 4013, title: "Local Hero", poster: "evolution-3", runtime: 111, genres: ["Comedy"], release_date: "1983-02-17" },
   { id: "evolution-movie-4", tmdb_id: 4014, title: "The Searchers", poster: "evolution-4", runtime: 119, genres: ["Western"], release_date: "1956-03-13" },
   { id: "evolution-movie-5", tmdb_id: 4015, title: "Moonstruck", poster: "evolution-5", runtime: 102, genres: ["Romance"], release_date: "1987-12-16" },
+];
+
+// One bowl is not a set. With a single bowl every era resolves straight into it,
+// so the bowls list, the bowl picker and the solo draw's scope never have more
+// than one row to show -- and a visual history of a chooser that never chooses
+// records nothing. Three bowls: one full, one nearly empty, one shared.
+const SECOND_BOWL_MOVIES = [
+  { id: "evolution-movie-6", tmdb_id: 4016, title: "The Searchers", poster: "evolution-4", runtime: 119, genres: ["Western"], release_date: "1956-03-13" },
+];
+
+const SHARED_BOWL_MOVIES = [
+  { id: "evolution-movie-7", tmdb_id: 4017, title: "Local Hero", poster: "evolution-3", runtime: 111, genres: ["Comedy"], release_date: "1983-02-17", mine: true },
+  { id: "evolution-movie-8", tmdb_id: 4018, title: "Moonstruck", poster: "evolution-5", runtime: 102, genres: ["Romance"], release_date: "1987-12-16", mine: false },
+  { id: "evolution-movie-9", tmdb_id: 4019, title: "Paris, Texas", poster: "evolution-2", runtime: 145, genres: ["Drama"], release_date: "1984-05-19", mine: false },
 ];
 
 // Fixed, because a capture dated by "now" would differ from itself on every run.
@@ -80,6 +101,67 @@ function seed(backend, defaultUser) {
     created_at: SEEDED_AT,
     updated_at: SEEDED_AT,
   });
+  state.profiles.push({
+    id: FRIEND.id,
+    email: FRIEND.email,
+    streaming_services: [],
+    default_draw_settings: null,
+  });
+  state.bowls.push(
+    {
+      id: SECOND_BOWL_ID,
+      name: "Late Shift",
+      owner_id: defaultUser.id,
+      draw_access_mode: "all_members",
+      draw_method: "person_first",
+      created_at: SEEDED_AT,
+    },
+    {
+      id: SHARED_BOWL_ID,
+      name: "Mom & Dad",
+      owner_id: FRIEND.id,
+      draw_access_mode: "all_members",
+      draw_method: "person_first",
+      created_at: SEEDED_AT,
+    },
+  );
+  state.bowl_members.push(
+    { id: "evolution-member-2", bowl_id: SECOND_BOWL_ID, user_id: defaultUser.id, role: "Owner" },
+    { id: "evolution-member-3", bowl_id: SHARED_BOWL_ID, user_id: FRIEND.id, role: "Owner" },
+    { id: "evolution-member-4", bowl_id: SHARED_BOWL_ID, user_id: defaultUser.id, role: "Member" },
+  );
+  state.bowl_movies.push(
+    ...SECOND_BOWL_MOVIES.map((movie) => ({
+      id: movie.id,
+      bowl_id: SECOND_BOWL_ID,
+      tmdb_id: movie.tmdb_id,
+      title: movie.title,
+      poster_path: `/${movie.poster}.jpg`,
+      release_date: movie.release_date,
+      runtime: movie.runtime,
+      genres: movie.genres,
+      added_by: defaultUser.id,
+      added_at: SEEDED_AT,
+      drawn_at: null,
+      is_pinned: false,
+    })),
+    ...SHARED_BOWL_MOVIES.map((movie) => ({
+      id: movie.id,
+      bowl_id: SHARED_BOWL_ID,
+      tmdb_id: movie.tmdb_id,
+      title: movie.title,
+      poster_path: `/${movie.poster}.jpg`,
+      release_date: movie.release_date,
+      runtime: movie.runtime,
+      genres: movie.genres,
+      // Someone else's titles in the shared bowl, so contributor-aware draw
+      // readouts have more than one contributor to describe.
+      added_by: movie.mine ? defaultUser.id : FRIEND.id,
+      added_at: SEEDED_AT,
+      drawn_at: null,
+      is_pinned: false,
+    })),
+  );
   state.tmdbSearchResults = MOVIES.map((movie) => ({
     id: movie.tmdb_id,
     title: movie.title,
