@@ -119,9 +119,10 @@ describe("InvitesPage", () => {
   });
 
   it("accepts a received invitation and opens the joined bowl", async () => {
-    mocks.state.received = [{ id: "inv-1", bowl_id: "bowl-7", bowl_name: "Film Club", invited_by_email: "alex@example.com" }];
+    mocks.state.received = [{ id: "inv-1", bowl_id: "bowl-7", bowl_name: "Film Club", invited_by_name: "Alex" }];
 
     renderHub();
+    expect(screen.getByText("Invited by Alex")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /accept invitation to Film Club/i }));
 
     await waitFor(() => expect(mocks.state.acceptInvite).toHaveBeenCalled());

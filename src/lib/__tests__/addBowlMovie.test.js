@@ -11,7 +11,7 @@ function harness() {
   });
   const client = {
     auth: { getSession: vi.fn(async () => ({ data: { session: { user: { id: state.user }, access_token: "token" } } })) },
-    rpc: vi.fn(async (name) => ({ data: name === "get_my_bowl_context" ? { bowls: state.bowls } : [{ user_id: "u2", email: "friend@example.com" }], error: null })),
+    rpc: vi.fn(async (name) => ({ data: name === "get_my_bowl_context" ? { bowls: state.bowls } : [{ user_id: "u2", display_name: "Friend" }], error: null })),
     from: vi.fn(() => {
       const filters = {}; let payload;
       const query = {
@@ -52,7 +52,7 @@ describe("shared bowl add service", () => {
   });
   it("preserves duplicate attribution and does not insert", async () => {
     const h = harness(); h.state.rows = [{ id: "row", tmdb_id: 101, bowl_id: "a", added_by: "u2" }];
-    expect(await h.service.add(h.operation())).toMatchObject({ ok: false, code: "duplicate_movie", message: expect.stringContaining("friend added it") });
+    expect(await h.service.add(h.operation())).toMatchObject({ ok: false, code: "duplicate_movie", message: expect.stringContaining("Friend added it") });
     expect(h.insert).not.toHaveBeenCalled();
   });
   it("keeps comment validation and allows separate repeated custom additions", async () => {

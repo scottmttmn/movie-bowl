@@ -119,7 +119,7 @@ VITE_SUPABASE_URL=...
 VITE_SUPABASE_ANON_KEY=...
 TMDB_READ_ACCESS_TOKEN=...
 SUPABASE_URL=...
-SUPABASE_SERVICE_ROLE_KEY=...
+SUPABASE_SECRET_KEY=...
 TV_PAIRING_RATE_LIMIT_SECRET=...
 CRON_SECRET=...
 APP_BASE_URL=https://moviebowl.app
@@ -259,7 +259,7 @@ These are visible in the browser bundle by design.
 
 - `TMDB_READ_ACCESS_TOKEN`
 - `SUPABASE_URL`
-- `SUPABASE_SERVICE_ROLE_KEY`
+- `SUPABASE_SECRET_KEY` (preferred) or `SUPABASE_SERVICE_ROLE_KEY` (legacy compatibility)
 - `TV_PAIRING_RATE_LIMIT_SECRET`
 - `CRON_SECRET`
 - `FILTER_METADATA_DAILY_MAX_TITLES` (optional emergency override; defaults to 300)
@@ -271,8 +271,8 @@ These are visible in the browser bundle by design.
 - `EMAIL_DAILY_WARN_THRESHOLD` (optional; defaults to 80). See
   [Usage counters](#usage-counters).
 
-Do not prefix server-only values with `VITE_`. `SUPABASE_SERVICE_ROLE_KEY`
-bypasses RLS, so every route that uses it must do its own authorization.
+Do not prefix server-only values with `VITE_`. The Supabase secret/service-role
+key bypasses RLS, so every route that uses it must do its own authorization.
 
 `TV_PAIRING_RATE_LIMIT_SECRET` is a random server-only value of at least 32
 characters. It HMAC-pseudonymizes client addresses and user IDs before the
@@ -449,6 +449,18 @@ Tables the app touches:
 - `user_watch_events` — per-participant personal history
 - `bowl_movie_queue` — legacy compatibility table; not written to
 
+`profiles.display_name` is the only shared member identity. It is optional,
+non-unique, and limited to 40 characters; shared app and TV surfaces use a
+neutral `Member XXXX` fallback and never derive a name from an email address.
+Email remains visible only to its owner in Account settings and where an invite
+address is operationally required.
+
+Account deletion is initiated from Settings and completed by the trusted
+`/api/account/delete` route. Owners must transfer or delete every bowl first.
+Cleanup removes suggestions, memberships, preferences, invitation data, and
+personal watch history; completed bowl history remains with its contributor
+anonymized as `Former member` before the Auth user is hard-deleted.
+
 A draw writes one `bowl_draw_events` row plus one `user_watch_events` row per
 participant, which is why personal history survives leaving or deleting a bowl.
 Returning a movie to the bowl sets `returned_at` on the draw event rather than
@@ -468,9 +480,13 @@ they are the atomic and permission-checked path):
 `get_my_invite_sender_directory`, `accept_bowl_invite`, `create_bowl_invites`,
 `revoke_bowl_invite`, `draw_bowl_movie`, `draw_bowl_movie_by_rotation`,
 `return_bowl_draw_to_bowl`, `save_bowl_draw_access`, `save_bowl_draw_method`,
-`delete_owned_bowl`, `set_own_bowl_movie_pin`, `update_own_bowl_movie_note`,
+`transfer_owned_bowl`, `delete_owned_bowl`, `set_own_bowl_movie_pin`, `update_own_bowl_movie_note`,
 `consume_bowl_add_link`, `create_manual_watch_event`, `update_user_watch_event`,
 `delete_user_watch_event`.
+
+`delete_account_data_for_user` is intentionally absent from that client list:
+only the service role may execute it, immediately before the server deletes the
+matching Supabase Auth user.
 
 The interface says **home bowl** where the database says **default**. That drift
 is deliberate — `user_bowl_defaults`, `get_my_bowl_context` and

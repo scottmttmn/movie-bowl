@@ -22,7 +22,7 @@ const mocks = vi.hoisted(() => {
       ],
       watched: [],
     },
-    drawOdds: [{ bucketKey: "user:u1", member: "owner@example.com", movieCount: 4, drawOdds: 1 }],
+    drawOdds: [{ bucketKey: "user:u1", member: "Owner", movieCount: 4, drawOdds: 1 }],
     handleDraw: vi.fn(async () => null),
     openBowlAdd: vi.fn(),
     handleAddMovie: vi.fn(async () => true),
@@ -184,7 +184,7 @@ describe("BowlDashboard guards", () => {
       ],
       watched: [],
     };
-    mocks.state.drawOdds = [{ bucketKey: "user:u1", member: "owner@example.com", movieCount: 4, drawOdds: 1 }];
+    mocks.state.drawOdds = [{ bucketKey: "user:u1", member: "Owner", movieCount: 4, drawOdds: 1 }];
     mocks.state.handleReaddMovie.mockClear();
     mocks.state.handleDeleteMovie.mockClear();
     mocks.state.handleAddMovie.mockClear();
@@ -712,7 +712,7 @@ describe("BowlDashboard guards", () => {
           release_date: "2020-01-01",
           drawn_at: "2026-02-23T00:00:00.000Z",
           added_by: "u1",
-          profiles: { email: "owner@example.com" },
+          profiles: { display_name: "Owner" },
         },
       ],
     };
@@ -735,7 +735,7 @@ describe("BowlDashboard guards", () => {
     await waitFor(() => expect(screen.getByRole("heading", { name: "Movie A", level: 2 })).toBeInTheDocument());
     expect(mocks.getTmdbMovieDetails).toHaveBeenCalledWith(101);
     expect(screen.getByText("Added by")).toBeInTheDocument();
-    expect(screen.getByText("owner")).toBeInTheDocument();
+    expect(screen.getByText("Owner")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /watch trailer/i })).toBeInTheDocument();
     expect(screen.queryByRole("link", { name: /open on web in/i })).not.toBeInTheDocument();
     expect(screen.queryByTitle("Movie A trailer")).not.toBeInTheDocument();

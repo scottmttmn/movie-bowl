@@ -188,14 +188,14 @@ describe("BowlDashboard streaming match count", () => {
           added_by: "u1",
           tmdb_id: 101,
           title: "Movie A",
-          profiles: { email: "alex@example.com" },
+          profiles: { display_name: "Alex" },
         },
         {
           id: "m2",
           added_by: "u2",
           tmdb_id: 102,
           title: "Movie B",
-          profiles: { email: "sam@example.com" },
+          profiles: { display_name: "Sam" },
         },
         {
           id: "m3",
@@ -225,7 +225,7 @@ describe("BowlDashboard streaming match count", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /how this bowl picks — some people are filtered out/i })
     );
-    expect(screen.getByText(/Jo and sam are left out — your filters removed every movie they added\./)).toBeInTheDocument();
+    expect(screen.getByText(/Jo and Sam are left out — your filters removed every movie they added\./)).toBeInTheDocument();
     expect(fetchStreamingProviders).not.toHaveBeenCalledWith(-900);
   });
 

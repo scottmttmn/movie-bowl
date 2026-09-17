@@ -582,7 +582,7 @@ describe("useBowl handleDraw integration", () => {
 
   it("enriches current and historical contributors without profile joins", async () => {
     mocks.profileDirectoryRows = [
-      { user_id: "former-member", email: "former@example.com" },
+      { user_id: "former-member", display_name: "Former Friend" },
     ];
     mocks.remainingQueue.push([
       {
@@ -605,10 +605,10 @@ describe("useBowl handleDraw integration", () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
 
     expect(result.current.bowl.remaining[0].profiles).toEqual({
-      email: "former@example.com",
+      display_name: "Former Friend",
     });
     expect(result.current.bowl.watched[0].profiles).toEqual({
-      email: "former@example.com",
+      display_name: "Former Friend",
     });
     expect(mocks.rpcCalls).toContainEqual({
       name: "get_bowl_profile_directory",
@@ -1329,7 +1329,7 @@ describe("useBowl handleDraw integration", () => {
     };
     mocks.remainingQueue.push([existingRemaining]);
     mocks.watchedQueue.push([]);
-    mocks.profileDirectoryRows = [{ user_id: "user-2", email: "dan@example.com" }];
+    mocks.profileDirectoryRows = [{ user_id: "user-2", display_name: "Dan" }];
 
     const { result } = renderHook(() => useBowl("bowl-1"));
     await waitFor(() => expect(result.current.isLoading).toBe(false));
@@ -1346,7 +1346,7 @@ describe("useBowl handleDraw integration", () => {
     expect(addDuplicateResult).toEqual({
       ok: false,
       code: "duplicate_movie",
-      message: '"Movie A" is already in the bowl — dan added it, so it can come up on their turn.',
+      message: '"Movie A" is already in the bowl — Dan added it, so it can come up on their turn.',
     });
   });
 

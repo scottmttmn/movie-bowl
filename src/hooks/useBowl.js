@@ -79,20 +79,20 @@ function getPinUpdateFailureMessage(error) {
   return "Could not pin this movie. Please try again.";
 }
 
-function createProfileEmailByUserId(profileRows = []) {
+function createProfileByUserId(profileRows = []) {
   return new Map(
     profileRows
-      .filter((profile) => profile?.user_id && profile?.email)
-      .map((profile) => [profile.user_id, profile.email])
+      .filter((profile) => profile?.user_id)
+      .map((profile) => [profile.user_id, { display_name: profile.display_name || null }])
   );
 }
 
-function attachContributorProfile(row, profileEmailByUserId) {
-  const email = profileEmailByUserId.get(row?.added_by);
-  return email
+function attachContributorProfile(row, profileByUserId) {
+  const profile = profileByUserId.get(row?.added_by);
+  return profile
     ? {
       ...row,
-      profiles: { email },
+      profiles: profile,
     }
     : row;
 }
@@ -192,7 +192,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         console.error("[useBowl] Failed to load contributor profiles", profilesError);
       }
 
-      const profileEmailByUserId = createProfileEmailByUserId(profileRows || []);
+      const profileByUserId = createProfileByUserId(profileRows || []);
       if (sequence !== loadSequence.current) return;
       // A read begun before a mutation committed may contain an older snapshot.
       // Preserve confirmed adds, edits, and removals until a subsequent fresh read.
@@ -210,12 +210,12 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
           (movie) => movie?.local_status === "syncing"
         );
         let nextRemaining = (remaining || []).map((movie) =>
-          attachContributorProfile(movie, profileEmailByUserId)
+          attachContributorProfile(movie, profileByUserId)
         );
         for (const { id, movie } of changesDuringRead) {
           nextRemaining = nextRemaining.filter((row) => row.id !== id);
           if (movie && !movie.drawn_at) {
-            nextRemaining.push(attachContributorProfile(movie, profileEmailByUserId));
+            nextRemaining.push(attachContributorProfile(movie, profileByUserId));
           }
         }
 
@@ -232,7 +232,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         const mappedDrawEvents = (drawEvents || []).map((event) => {
           const eventWithProfile = attachContributorProfile(
             event,
-            profileEmailByUserId
+            profileByUserId
           );
           return {
             ...eventWithProfile,

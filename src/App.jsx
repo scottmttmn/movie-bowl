@@ -98,7 +98,6 @@ function AppShell({ children }) {
     !isTvRoute &&
     !isVoiceProbePrivacyRoute &&
     (Boolean(session) || isAboutRoute);
-  const userEmail = session?.user?.email ?? "";
   const { defaultBowlId } = useUserBowls();
   usePrefetchLikelyRoutes(session);
 
@@ -114,7 +113,6 @@ function AppShell({ children }) {
           isWatchListRoute={isWatchListRoute}
           isInvitesRoute={isInvitesRoute}
           onSignOut={signOut}
-          userEmail={userEmail}
           isAuthenticated={Boolean(session)}
           pendingInviteCount={pendingInviteCount}
           homeBowlId={defaultBowlId}

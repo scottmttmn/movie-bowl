@@ -38,14 +38,14 @@ async function loadInviteDetails(invites) {
   }
 
   const bowlNameById = new Map((bowlLookup.data || []).map((row) => [row.id, row.name]));
-  const inviterEmailById = new Map(
-    (inviterLookup.data || []).map((row) => [row.user_id, row.email])
+  const inviterNameById = new Map(
+    (inviterLookup.data || []).map((row) => [row.user_id, row.display_name])
   );
 
   return invites.map((invite) => ({
     ...invite,
     bowl_name: bowlNameById.get(invite.bowl_id) || "Movie Bowl Invite",
-    invited_by_email: inviterEmailById.get(invite.invited_by) || null,
+    invited_by_name: inviterNameById.get(invite.invited_by) || null,
   }));
 }
 

@@ -130,8 +130,13 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
       existingMovie = tmdbId && (remaining || []).find((row) => getPositiveTmdbId(row) === tmdbId);
       if (existingMovie) {
         const { data: profiles } = await client.rpc("get_bowl_profile_directory", { p_bowl_id: bowlId });
-        const email = profiles?.find((row) => row.user_id === existingMovie.added_by)?.email;
-        if (email) existingMovie = { ...existingMovie, profiles: { email } };
+        const profile = profiles?.find((row) => row.user_id === existingMovie.added_by);
+        if (profile) {
+          existingMovie = {
+            ...existingMovie,
+            profiles: { display_name: profile.display_name || null },
+          };
+        }
         return addResult(false, "duplicate_movie", getDuplicateMovieMessage(movie, existingMovie));
       }
       const { data: latestAuth, error: latestAuthError } = await client.auth.getSession();
@@ -150,7 +155,7 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
       optimistic = true;
       publish({ type: "add", phase: "pending", userId: accountId, bowlId, submissionId,
         movie: { ...payload, local_temp_id: submissionId, local_status: "syncing", added_at: now,
-          drawn_at: null, drawn_by: null, profiles: user.email ? { email: user.email } : undefined } });
+          drawn_at: null, drawn_by: null, profiles: { display_name: "You" } } });
       const insert = (row) => client.from("bowl_movies").insert([row]).select(BOWL_MOVIE_FIELDS).single();
       dispatched = true;
       let response = await insert(payload);

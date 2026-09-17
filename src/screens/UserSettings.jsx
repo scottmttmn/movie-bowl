@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { useLocation, useNavigate } from "react-router-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import useAutosave, { valuesAreEqual } from "../hooks/useAutosave";
 import AutosaveStatus from "../components/AutosaveStatus";
@@ -10,6 +10,8 @@ import {
   DEFAULT_DRAW_SETTINGS,
   THEATER_TRAILER_COUNT_OPTIONS,
 } from "../utils/drawSettings";
+import { deleteMyAccount } from "../lib/account";
+import { DISPLAY_NAME_MAX_LENGTH } from "../utils/profileIdentity";
 
 const MAJOR_STREAMING_SERVICES = [
   "Netflix",
@@ -85,9 +87,17 @@ export default function UserSettings() {
   const [searchTerm, setSearchTerm] = useState("");
   const [draggedService, setDraggedService] = useState(null);
   const [dropIndex, setDropIndex] = useState(null);
+  const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
+  const [deleteConfirmation, setDeleteConfirmation] = useState("");
+  const [isDeletingAccount, setIsDeletingAccount] = useState(false);
+  const [deleteAccountError, setDeleteAccountError] = useState(null);
+  const [ownedBowlBlockers, setOwnedBowlBlockers] = useState([]);
   const streamingServicesRef = useRef(null);
   const {
     streamingServices,
+    displayName,
+    accountEmail,
+    setDisplayName,
     setStreamingServices,
     defaultDrawSettings,
     setDefaultDrawSettings,
@@ -100,6 +110,7 @@ export default function UserSettings() {
     removeFromBowlsOnSoloDraw,
     setRemoveFromBowlsOnSoloDraw,
     saveRemoveFromBowlsOnSoloDraw,
+    saveDisplayName,
   } = useUserStreamingServices();
 
   const hasServices = streamingServices.length > 0;
@@ -171,6 +182,7 @@ export default function UserSettings() {
         defaultDrawSettings.theaterTrailerCount === 1 ? "" : "s"
       }`
     : "Theater mode off";
+  const profileTileSummary = displayName?.trim() || "Choose a display name";
 
   useEffect(() => {
     if (location.hash !== "#streaming-services") return;
@@ -179,6 +191,7 @@ export default function UserSettings() {
 
   const settingsSnapshot = useMemo(
     () => ({
+      displayName,
       streamingServices,
       defaultDrawSettings: {
         enablePreferredWebLaunch: defaultDrawSettings.enablePreferredWebLaunch,
@@ -187,13 +200,17 @@ export default function UserSettings() {
       },
       removeFromBowlsOnSoloDraw,
     }),
-    [streamingServices, defaultDrawSettings, removeFromBowlsOnSoloDraw]
+    [displayName, streamingServices, defaultDrawSettings, removeFromBowlsOnSoloDraw]
   );
 
   // Only playback keys are edited here; the dashboard owns the draw filters.
   const persistSettings = useCallback(
     async (next, previous) => {
       const pendingWrites = [];
+
+      if (!valuesAreEqual(next.displayName, previous.displayName)) {
+        pendingWrites.push(saveDisplayName(next.displayName));
+      }
 
       if (!valuesAreEqual(next.streamingServices, previous.streamingServices)) {
         pendingWrites.push(saveStreamingServices(next.streamingServices));
@@ -208,7 +225,7 @@ export default function UserSettings() {
       const results = await Promise.all(pendingWrites);
       return { error: results.find((result) => result?.error)?.error || null };
     },
-    [saveStreamingServices, saveDefaultDrawSettings, saveRemoveFromBowlsOnSoloDraw]
+    [saveDisplayName, saveStreamingServices, saveDefaultDrawSettings, saveRemoveFromBowlsOnSoloDraw]
   );
 
   const { status: saveStatus, error: saveError, retry: retrySave } = useAutosave({
@@ -228,6 +245,32 @@ export default function UserSettings() {
       theaterModeEnabled: DEFAULT_DRAW_SETTINGS.theaterModeEnabled,
       theaterTrailerCount: DEFAULT_DRAW_SETTINGS.theaterTrailerCount,
     });
+  };
+
+  const closeDeleteDialog = () => {
+    if (isDeletingAccount) return;
+    setIsDeleteDialogOpen(false);
+    setDeleteConfirmation("");
+    setDeleteAccountError(null);
+    setOwnedBowlBlockers([]);
+  };
+
+  const handleDeleteAccount = async (event) => {
+    event.preventDefault();
+    if (deleteConfirmation.trim() !== "DELETE") return;
+
+    setIsDeletingAccount(true);
+    setDeleteAccountError(null);
+    setOwnedBowlBlockers([]);
+    const result = await deleteMyAccount();
+    if (!result.ok) {
+      setDeleteAccountError(result.error);
+      setOwnedBowlBlockers(result.bowls || []);
+      setIsDeletingAccount(false);
+      return;
+    }
+
+    navigate("/login", { replace: true, state: { accountDeleted: true } });
   };
 
   // Show loading indicator while fetching data
@@ -274,9 +317,11 @@ export default function UserSettings() {
           <SettingsSectionNav
             className="mt-6"
             items={[
+              { href: "#profile", label: "Profile", value: profileTileSummary },
               { href: "#streaming-services", label: "Streaming", value: streamingTileSummary },
               { href: "#solo-draw", label: "Solo draw", value: soloDrawTileSummary },
               { href: "#tv-playback", label: "TV playback", value: playbackTileSummary },
+              { href: "#account", label: "Account", value: accountEmail || "Signed in" },
             ]}
           />
         </header>
@@ -299,6 +344,38 @@ export default function UserSettings() {
         )}
 
         <div className="space-y-4">
+          <section
+            id="profile"
+            tabIndex={-1}
+            className="panel scroll-mt-24"
+            aria-labelledby="profile-heading"
+          >
+            <h2 id="profile-heading" className="section-title">Profile</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              This is the name people see in shared bowls. Your email stays private.
+            </p>
+            <div className="mt-5 max-w-md">
+              <label htmlFor="display-name" className="mb-1 block text-sm font-medium text-slate-200">
+                Display name
+              </label>
+              <input
+                id="display-name"
+                name="display_name"
+                type="text"
+                required
+                maxLength={DISPLAY_NAME_MAX_LENGTH}
+                autoComplete="name"
+                value={displayName}
+                onChange={(event) => setDisplayName(event.target.value)}
+                placeholder="What should people call you?"
+                className="input-field"
+              />
+              <p className="mt-1 text-xs text-slate-500">
+                Names do not need to be unique. No public profile page is created.
+              </p>
+            </div>
+          </section>
+
           <section
             id="streaming-services"
             tabIndex={-1}
@@ -622,8 +699,107 @@ export default function UserSettings() {
               Reset playback
             </button>
           </div>
+
+          <section
+            id="account"
+            tabIndex={-1}
+            className="panel scroll-mt-24"
+            aria-labelledby="account-heading"
+          >
+            <h2 id="account-heading" className="section-title">Account</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              Your sign-in address is visible only to you and for invitation delivery.
+            </p>
+            <div className="surface-card mt-4 px-3.5 py-3">
+              <p className="text-xs font-semibold uppercase tracking-wider text-slate-500">Email</p>
+              <p className="mt-1 break-all text-sm text-slate-200">{accountEmail || "Unavailable"}</p>
+            </div>
+
+            <div className="mt-6 border-t border-rose-900/60 pt-5">
+              <h3 className="text-base font-semibold text-rose-300">Delete account</h3>
+              <p className="mt-1 text-sm text-slate-400">
+                Permanently removes your profile, preferences, watch history, memberships, invitations, and undrawn suggestions. Completed shared bowl history remains anonymously.
+              </p>
+              <button
+                type="button"
+                className="btn btn-danger mt-3"
+                onClick={() => setIsDeleteDialogOpen(true)}
+              >
+                Delete account
+              </button>
+            </div>
+          </section>
         </div>
       </div>
+
+      {isDeleteDialogOpen && (
+        <div
+          className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm"
+          role="presentation"
+          onMouseDown={(event) => {
+            if (event.target === event.currentTarget) closeDeleteDialog();
+          }}
+        >
+          <div
+            role="dialog"
+            aria-modal="true"
+            aria-labelledby="delete-account-heading"
+            className="w-full max-w-lg rounded-2xl border border-rose-900/70 bg-slate-900 p-5 shadow-2xl"
+          >
+            <h2 id="delete-account-heading" className="text-xl font-semibold text-slate-50">
+              Permanently delete your account?
+            </h2>
+            <p className="mt-2 text-sm text-slate-300">
+              This cannot be undone. If you own a bowl, transfer it to another member or delete the bowl first.
+            </p>
+
+            {deleteAccountError && (
+              <div role="alert" className="status-error mt-4">
+                <p>{deleteAccountError}</p>
+                {ownedBowlBlockers.length > 0 && (
+                  <ul className="mt-2 list-disc space-y-1 pl-5">
+                    {ownedBowlBlockers.map((bowl) => (
+                      <li key={bowl.id}>
+                        <Link className="underline" to={`/bowl/${bowl.id}/settings`} onClick={closeDeleteDialog}>
+                          {bowl.name}
+                        </Link>
+                      </li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            <form onSubmit={handleDeleteAccount} className="mt-5">
+              <label htmlFor="delete-account-confirm" className="block text-sm text-slate-300">
+                Type <strong>DELETE</strong> to confirm
+              </label>
+              <input
+                id="delete-account-confirm"
+                name="delete_account_confirm"
+                type="text"
+                autoComplete="off"
+                value={deleteConfirmation}
+                onChange={(event) => setDeleteConfirmation(event.target.value)}
+                className="input-field mt-1"
+                autoFocus
+              />
+              <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
+                <button type="button" className="btn btn-secondary" disabled={isDeletingAccount} onClick={closeDeleteDialog}>
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  className="btn btn-danger"
+                  disabled={isDeletingAccount || deleteConfirmation.trim() !== "DELETE"}
+                >
+                  {isDeletingAccount ? "Deleting..." : "Delete account permanently"}
+                </button>
+              </div>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

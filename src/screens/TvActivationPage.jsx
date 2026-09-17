@@ -158,7 +158,7 @@ export default function TvActivationPage() {
               className="input-field text-center font-mono text-xl font-bold uppercase tracking-[0.16em]"
             />
             <p className="text-sm text-slate-400">
-              Connecting as <span className="text-slate-200">{session.user.email}</span>
+              Connecting this TV to your signed-in account.
             </p>
             <button
               type="submit"

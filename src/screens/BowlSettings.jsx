@@ -12,6 +12,7 @@ import {
   getDrawMethod,
   normalizeDrawMethod,
 } from "../utils/drawMethods";
+import { getDisplayInitial, getProfileDisplayName } from "../utils/profileIdentity";
 
 const DRAW_ACCESS_MODE_ALL = "all_members";
 const DRAW_ACCESS_MODE_SELECTED = "selected_members";
@@ -52,6 +53,8 @@ export default function BowlSettings() {
   const [isLoading, setIsLoading] = useState(true);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isDeletingBowl, setIsDeletingBowl] = useState(false);
+  const [transferOwnerId, setTransferOwnerId] = useState("");
+  const [isTransferring, setIsTransferring] = useState(false);
   const [actionMessage, setActionMessage] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
 
@@ -318,15 +321,16 @@ export default function BowlSettings() {
         console.error("[BowlSettings] Failed to load member profiles", profilesError);
       }
 
-      const emailByUserId = new Map(
-        (profileRows || []).map((profile) => [profile.user_id, profile.email])
+      const profileByUserId = new Map(
+        (profileRows || []).map((profile) => [profile.user_id, {
+          display_name: profile.display_name || null,
+        }])
       );
       setMembers(
         (memberRows || []).map((member) => {
-          const email = emailByUserId.get(member.user_id);
           return {
             ...member,
-            profiles: email ? { email } : null,
+            profiles: profileByUserId.get(member.user_id) || null,
           };
         })
       );
@@ -485,6 +489,45 @@ export default function BowlSettings() {
     } catch (err) {
       console.error("[BowlSettings] Unexpected error removing member", err);
       setErrorMessage("Unexpected error removing member.");
+    }
+  };
+
+  const handleTransferOwnership = async () => {
+    setActionMessage(null);
+    setErrorMessage(null);
+
+    if (!transferOwnerId) {
+      setErrorMessage("Choose a member to become the new owner.");
+      return;
+    }
+
+    const confirmed = window.confirm(
+      "Transfer this bowl? You will remain a member, but only the new owner can manage it."
+    );
+    if (!confirmed) return;
+
+    setIsTransferring(true);
+    try {
+      const { error } = await supabase.rpc("transfer_owned_bowl", {
+        p_bowl_id: bowlId,
+        p_new_owner_id: transferOwnerId,
+      });
+
+      if (error) {
+        console.error("[BowlSettings] Failed to transfer ownership", error);
+        setErrorMessage("Failed to transfer bowl ownership.");
+        return;
+      }
+
+      notifyBowlChange({ bowlId });
+      setTransferOwnerId("");
+      await loadBowlAndMembers();
+      setActionMessage("Ownership transferred. You are now a member of this bowl.");
+    } catch (error) {
+      console.error("[BowlSettings] Unexpected ownership transfer failure", error);
+      setErrorMessage("Unexpected error transferring bowl ownership.");
+    } finally {
+      setIsTransferring(false);
     }
   };
 
@@ -800,14 +843,14 @@ export default function BowlSettings() {
                           .filter((member) => member?.user_id === ownerId)
                           .map((member) => (
                             <p key={member.user_id} className="text-sm text-slate-400">
-                              {member.profiles?.email || member.user_id}{" "}
+                              {getProfileDisplayName(member.profiles, member.user_id)}{" "}
                               <span className="text-xs">(always allowed)</span>
                             </p>
                           ))}
                         {members
                           .filter((member) => member?.user_id && member.user_id !== ownerId)
                           .map((member) => {
-                            const email = member.profiles?.email || member.user_id;
+                            const displayName = getProfileDisplayName(member.profiles, member.user_id);
                             const checkboxId = `draw-access-member-${member.user_id}`;
                             return (
                               <label
@@ -830,7 +873,7 @@ export default function BowlSettings() {
                                     });
                                   }}
                                 />
-                                <span className="truncate">{email}</span>
+                                <span className="truncate">{displayName}</span>
                               </label>
                             );
                           })}
@@ -859,7 +902,7 @@ export default function BowlSettings() {
                   <p className="surface-card px-3.5 py-3 text-sm text-slate-400">No members found.</p>
                 ) : (
                   members.map((m) => {
-                    const email = m.profiles?.email || m.user_id;
+                    const displayName = getProfileDisplayName(m.profiles, m.user_id);
                     const isOwnerRole = m.role === "Owner";
 
                     return (
@@ -872,10 +915,10 @@ export default function BowlSettings() {
                             aria-hidden="true"
                             className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-slate-700 bg-slate-950/70 text-xs font-semibold uppercase text-slate-400"
                           >
-                            {String(email).slice(0, 1)}
+                            {getDisplayInitial(displayName)}
                           </span>
                           <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-slate-100">{email}</p>
+                            <p className="truncate text-sm font-medium text-slate-100">{displayName}</p>
                             <p className="text-xs text-slate-400">{m.role}</p>
                           </div>
                         </div>
@@ -912,6 +955,40 @@ export default function BowlSettings() {
                         {pendingInviteCount} pending
                       </Link>
                     )}
+                  </div>
+                </div>
+              )}
+
+              {isOwner && members.some((member) => member.user_id !== ownerId) && (
+                <div className="mt-6 border-t border-slate-800 pt-5">
+                  <h3 className="eyebrow">Transfer ownership</h3>
+                  <p className="mt-1 text-sm text-slate-400">
+                    The new owner can manage members and bowl settings. You will remain a member.
+                  </p>
+                  <div className="mt-3 flex flex-col gap-2 sm:flex-row">
+                    <select
+                      aria-label="New bowl owner"
+                      value={transferOwnerId}
+                      onChange={(event) => setTransferOwnerId(event.target.value)}
+                      className="input-field sm:flex-1"
+                    >
+                      <option value="">Choose a member</option>
+                      {members
+                        .filter((member) => member.user_id !== ownerId)
+                        .map((member) => (
+                          <option key={member.user_id} value={member.user_id}>
+                            {getProfileDisplayName(member.profiles, member.user_id)}
+                          </option>
+                        ))}
+                    </select>
+                    <button
+                      type="button"
+                      className="btn btn-secondary shrink-0"
+                      disabled={!transferOwnerId || isTransferring}
+                      onClick={() => { void handleTransferOwnership(); }}
+                    >
+                      {isTransferring ? "Transferring..." : "Transfer bowl"}
+                    </button>
                   </div>
                 </div>
               )}

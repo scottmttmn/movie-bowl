@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => ({
     sessionError: null,
     queryError: null,
     deleteError: null,
+    senderRows: [{ user_id: "owner-1", display_name: "Alex" }],
   },
 }));
 
@@ -19,7 +20,7 @@ vi.mock("../../lib/supabase", () => ({
         error: mocks.state.sessionError,
       })),
     },
-    rpc: vi.fn(async () => ({ data: [], error: null })),
+    rpc: vi.fn(async () => ({ data: mocks.state.senderRows, error: null })),
     from: () => {
       const query = {
         select: () => query,
@@ -74,10 +75,21 @@ describe("usePendingInvites", () => {
       sessionError: null,
       queryError: null,
       deleteError: null,
+      senderRows: [{ user_id: "owner-1", display_name: "Alex" }],
     });
   });
 
   afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+
+  it("adds a display name without exposing the invitation sender email", async () => {
+    const { result } = renderProvider();
+    await waitFor(() => expect(result.current.invites).toHaveLength(1));
+
+    expect(result.current.invites[0]).toMatchObject({
+      invited_by_name: "Alex",
+    });
+    expect(result.current.invites[0]).not.toHaveProperty("invited_by_email");
+  });
 
   it("does not let a read that started earlier resurrect an accepted invite", async () => {
     mocks.state.holdQuery = true;

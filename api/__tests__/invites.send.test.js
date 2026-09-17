@@ -3,7 +3,12 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const getUserMock = vi.fn();
 const inMock = vi.fn();
 const selectMock = vi.fn(() => ({ in: inMock }));
-const fromMock = vi.fn(() => ({ select: selectMock }));
+const profileMaybeSingleMock = vi.fn();
+const profileEqMock = vi.fn(() => ({ maybeSingle: profileMaybeSingleMock }));
+const profileSelectMock = vi.fn(() => ({ eq: profileEqMock }));
+const fromMock = vi.fn((table) => table === "profiles"
+  ? { select: profileSelectMock }
+  : { select: selectMock });
 const rpcMock = vi.fn(async () => ({ data: 1, error: null }));
 
 vi.mock("../_lib/supabaseAdmin.js", () => ({
@@ -65,6 +70,9 @@ describe("api/invites/send", () => {
     getUserMock.mockReset();
     inMock.mockReset();
     selectMock.mockClear();
+    profileSelectMock.mockClear();
+    profileEqMock.mockClear();
+    profileMaybeSingleMock.mockReset();
     fromMock.mockClear();
     rpcMock.mockClear();
     rpcMock.mockResolvedValue({ data: 1, error: null });
@@ -79,6 +87,10 @@ describe("api/invites/send", () => {
     });
     inMock.mockResolvedValue({
       data: [createStoredInvite()],
+      error: null,
+    });
+    profileMaybeSingleMock.mockResolvedValue({
+      data: { display_name: "Owner <One>" },
       error: null,
     });
   });
@@ -222,7 +234,8 @@ describe("api/invites/send", () => {
 
     const resendRequest = JSON.parse(global.fetch.mock.calls[0][1].body);
     expect(resendRequest.to).toEqual(["friend@example.com"]);
-    expect(resendRequest.html).toContain("owner@example.com");
+    expect(resendRequest.html).toContain("Owner &lt;One&gt;");
+    expect(resendRequest.html).not.toContain("owner@example.com");
     expect(resendRequest.html).toContain("Weekend &lt;Bowl&gt;");
     expect(resendRequest.html).not.toContain("<img");
     expect(resendRequest.html).not.toContain("victim@example.com");

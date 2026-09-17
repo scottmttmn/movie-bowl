@@ -83,6 +83,16 @@ describe("LoginPage", () => {
     });
   });
 
+  it("confirms a completed account deletion", () => {
+    mocks.locationState = { accountDeleted: true };
+
+    renderLoginPage();
+
+    expect(screen.getByRole("status")).toHaveTextContent(
+      "Your account was permanently deleted."
+    );
+  });
+
   it("shows returned auth errors", async () => {
     mocks.signIn.mockResolvedValue({ error: { message: "Too many requests" } });
 

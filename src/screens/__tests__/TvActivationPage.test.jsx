@@ -75,7 +75,8 @@ describe("TvActivationPage", () => {
     };
     renderPage(undefined, { withPreviousEntry: true });
 
-    expect(screen.getByText(/connecting as/i)).toHaveTextContent("viewer@example.com");
+    expect(screen.getByText(/connecting this tv to your signed-in account/i)).toBeInTheDocument();
+    expect(screen.queryByText("viewer@example.com")).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /connect this tv/i }));
 
     await waitFor(() => {

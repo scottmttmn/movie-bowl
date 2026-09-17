@@ -42,13 +42,13 @@ function escapeHtml(value) {
   );
 }
 
-function buildInviteEmail({ bowlName, invitedEmail, invitedByEmail, inviteUrl }) {
+function buildInviteEmail({ bowlName, invitedEmail, invitedByName, inviteUrl }) {
   const safeBowlName = escapeHtml(bowlName);
   const safeInvitedEmail = escapeHtml(invitedEmail);
-  const safeInvitedByEmail = invitedByEmail ? escapeHtml(invitedByEmail) : null;
+  const safeInvitedByName = invitedByName ? escapeHtml(invitedByName) : null;
   const safeInviteUrl = escapeHtml(inviteUrl);
-  const inviterLine = invitedByEmail
-    ? `<p style="margin:0 0 16px;">${safeInvitedByEmail} invited you to join <strong>${safeBowlName}</strong> on Movie Bowl.</p>`
+  const inviterLine = invitedByName
+    ? `<p style="margin:0 0 16px;"><strong>${safeInvitedByName}</strong> invited you to join <strong>${safeBowlName}</strong> on Movie Bowl.</p>`
     : `<p style="margin:0 0 16px;">You have been invited to join <strong>${safeBowlName}</strong> on Movie Bowl.</p>`;
 
   return {
@@ -67,8 +67,8 @@ function buildInviteEmail({ bowlName, invitedEmail, invitedByEmail, inviteUrl })
       </div>
     `.trim(),
     text: [
-      invitedByEmail
-        ? `${invitedByEmail} invited you to join "${bowlName}" on Movie Bowl.`
+      invitedByName
+        ? `${invitedByName} invited you to join "${bowlName}" on Movie Bowl.`
         : `You've been invited to join "${bowlName}" on Movie Bowl.`,
       `This invite is for ${invitedEmail}. Sign in with that email to join.`,
       "",
@@ -178,6 +178,22 @@ export default async function handler(req, res) {
     return;
   }
 
+  let inviterName = null;
+  try {
+    const { data: profile, error: profileError } = await supabaseAdmin
+      .from("profiles")
+      .select("display_name")
+      .eq("id", user.id)
+      .maybeSingle();
+    if (profileError) {
+      console.error("[api/invites/send] Failed to load inviter profile", profileError);
+    } else {
+      inviterName = String(profile?.display_name || "").trim() || null;
+    }
+  } catch (error) {
+    console.error("[api/invites/send] Unexpected inviter profile failure", error);
+  }
+
   let storedInvites;
   let invitesError;
   try {
@@ -216,7 +232,7 @@ export default async function handler(req, res) {
       token,
       invitedEmail: invite.invited_email,
       bowlName: bowl.name,
-      invitedByEmail: user.email || null,
+      invitedByName: inviterName,
     };
   });
 
@@ -231,7 +247,7 @@ export default async function handler(req, res) {
       const email = buildInviteEmail({
         bowlName: invite.bowlName,
         invitedEmail: invite.invitedEmail,
-        invitedByEmail: invite.invitedByEmail || null,
+        invitedByName: invite.invitedByName || null,
         inviteUrl,
       });
 

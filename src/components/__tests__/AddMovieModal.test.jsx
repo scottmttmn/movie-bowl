@@ -198,21 +198,22 @@ describe("AddMovieModal", () => {
     expect(onTogglePin).not.toHaveBeenCalled();
   });
 
-  it("falls back to the local-part of profiles.email for member-added movies", () => {
+  it("shows the member display name for member-added movies", () => {
     const movie = {
       title: "Dune",
       release_date: "2021-10-22",
       runtime: 155,
       poster_path: "/abc.jpg",
       streamingProviders: ["Netflix"],
+      added_by: "scott-user-id",
       profiles: {
-        email: "scottmttmn@gmail.com",
+        display_name: "Scott",
       },
     };
 
     render(<AddMovieModal movie={movie} onClose={vi.fn()} userStreamingServices={["Netflix"]} />);
     expect(screen.getByText("Added by")).toBeInTheDocument();
-    expect(screen.getByText("scottmttmn")).toBeInTheDocument();
+    expect(screen.getByText("Scott")).toBeInTheDocument();
   });
 
   it("hides the attribution block when there is no usable adder label", () => {
@@ -222,7 +223,7 @@ describe("AddMovieModal", () => {
       runtime: 155,
       streamingProviders: ["Netflix"],
       profiles: {
-        email: "not-an-email",
+        display_name: "   ",
       },
     };
 

@@ -52,6 +52,12 @@ export default function LoginPage() {
         <p className="eyebrow text-rose-300">Movie Bowl</p>
         <h1 className="mb-5 mt-2 text-3xl font-semibold tracking-tight text-slate-50">Login</h1>
 
+        {location.state?.accountDeleted && (
+          <p className="status-success mb-4 text-left" role="status">
+            Your account was permanently deleted.
+          </p>
+        )}
+
         {sent ? (
           <p className="status-success text-left">Check your email for a magic link.</p>
         ) : (

@@ -405,10 +405,29 @@ const mocks = vi.hoisted(() => {
         return {
           data: state.members.map((member) => ({
             user_id: member.user_id,
-            email: member.email,
+            display_name: member.display_name,
           })),
           error: state.errors.loadProfileDirectory,
         };
+      }
+      if (name === "transfer_owned_bowl") {
+        const newOwner = state.members.find(
+          (member) => member.bowl_id === args?.p_bowl_id && member.user_id === args?.p_new_owner_id
+        );
+        if (!newOwner || state.bowl.owner_id !== state.authUser.id) {
+          return { data: null, error: { code: "42501", message: "Transfer denied" } };
+        }
+        const previousOwnerId = state.bowl.owner_id;
+        state.bowl = { ...state.bowl, owner_id: newOwner.user_id };
+        state.members = state.members.map((member) => ({
+          ...member,
+          role: member.user_id === newOwner.user_id
+            ? "Owner"
+            : member.user_id === previousOwnerId
+              ? "Member"
+              : member.role,
+        }));
+        return { data: newOwner.user_id, error: null };
       }
       if (name === "delete_owned_bowl") {
         if (state.errors.deleteOwnedBowl) {
@@ -586,8 +605,8 @@ describe("BowlSettings integration", () => {
     mocks.state.bowl = { id: "bowl-1", name: "Bowl 1", owner_id: "owner-1" };
     mocks.state.authUser = { id: "owner-1", email: "owner@example.com" };
     mocks.state.members = [
-      { bowl_id: "bowl-1", user_id: "owner-1", role: "Owner", email: "owner@example.com" },
-      { bowl_id: "bowl-1", user_id: "member-1", role: "Member", email: "member@example.com" },
+      { bowl_id: "bowl-1", user_id: "owner-1", role: "Owner", display_name: "Owner One" },
+      { bowl_id: "bowl-1", user_id: "member-1", role: "Member", display_name: "Movie Friend" },
     ];
     mocks.state.addLinks = [];
     mocks.state.drawPermissions = [];
@@ -890,9 +909,9 @@ describe("BowlSettings integration", () => {
       draw_access_mode: "all_members",
     };
     mocks.state.members = [
-      { bowl_id: "bowl-1", user_id: "owner-1", role: "Owner", email: "owner@example.com" },
-      { bowl_id: "bowl-1", user_id: "member-1", role: "Member", email: "member@example.com" },
-      { bowl_id: "bowl-1", user_id: "member-2", role: "Member", email: "member2@example.com" },
+      { bowl_id: "bowl-1", user_id: "owner-1", role: "Owner", display_name: "Owner One" },
+      { bowl_id: "bowl-1", user_id: "member-1", role: "Member", display_name: "Movie Friend" },
+      { bowl_id: "bowl-1", user_id: "member-2", role: "Member", display_name: "Second Friend" },
     ];
 
     renderSettings();
@@ -903,7 +922,7 @@ describe("BowlSettings integration", () => {
 
     vi.useFakeTimers();
     fireEvent.click(screen.getByLabelText(/only selected members/i));
-    fireEvent.click(screen.getByLabelText(/member@example.com/i));
+    fireEvent.click(screen.getByLabelText(/movie friend/i));
     expect(screen.queryByRole("button", { name: /save draw access/i })).not.toBeInTheDocument();
     await settleAutosave();
 
@@ -1083,6 +1102,30 @@ describe("BowlSettings integration", () => {
   });
 
 
+  it("transfers an owned bowl to another current member", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    renderSettings();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/new bowl owner/i)).toBeInTheDocument();
+    });
+    fireEvent.change(screen.getByLabelText(/new bowl owner/i), {
+      target: { value: "member-1" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /transfer bowl/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/ownership transferred/i)).toBeInTheDocument();
+    });
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith("transfer_owned_bowl", {
+      p_bowl_id: "bowl-1",
+      p_new_owner_id: "member-1",
+    });
+    expect(mocks.state.bowl.owner_id).toBe("member-1");
+    expect(screen.getAllByText("Member").length).toBeGreaterThan(0);
+    confirmSpy.mockRestore();
+  });
+
   it("allows owner to remove a member", async () => {
     renderSettings();
 
@@ -1093,7 +1136,7 @@ describe("BowlSettings integration", () => {
     fireEvent.click(screen.getByRole("button", { name: /remove/i }));
 
     await waitFor(() => {
-      expect(screen.queryByText("member@example.com")).not.toBeInTheDocument();
+      expect(screen.queryByText("Movie Friend")).not.toBeInTheDocument();
     });
   });
 
@@ -1192,8 +1235,8 @@ describe("BowlSettings integration", () => {
       draw_method: "rotation",
     };
     mocks.state.members = [
-      { bowl_id: "bowl-1", user_id: "owner-1", role: "Owner", email: "owner@example.com" },
-      { bowl_id: "bowl-1", user_id: "member-1", role: "Member", email: "member@example.com" },
+      { bowl_id: "bowl-1", user_id: "owner-1", role: "Owner", display_name: "Owner One" },
+      { bowl_id: "bowl-1", user_id: "member-1", role: "Member", display_name: "Movie Friend" },
     ];
     mocks.state.drawPermissions = [{ bowl_id: "bowl-1", user_id: "member-1" }];
     mocks.state.invites = [
@@ -1250,8 +1293,8 @@ describe("BowlSettings integration", () => {
       draw_method: "rotation",
     };
     mocks.state.members = [
-      { bowl_id: "bowl-1", user_id: "owner-1", role: "Owner", email: "owner@example.com" },
-      { bowl_id: "bowl-1", user_id: "member-1", role: "Member", email: "member@example.com" },
+      { bowl_id: "bowl-1", user_id: "owner-1", role: "Owner", display_name: "Owner One" },
+      { bowl_id: "bowl-1", user_id: "member-1", role: "Member", display_name: "Movie Friend" },
     ];
     mocks.state.invites = [
       {
