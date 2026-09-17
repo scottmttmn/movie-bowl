@@ -4,7 +4,7 @@ import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { supabase } from "../lib/supabase";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { normalizeMpaaRating } from "../utils/movieRatings";
-import { normalizeStreamingServices } from "../utils/streamingServices";
+import { normalizeStoredProviderData } from "../utils/tmdbWatchProviders";
 
 export const BOWL_FILTER_METADATA_STATUS = {
   idle: "idle",
@@ -42,12 +42,17 @@ function normalizeCacheRows(rows) {
     const tmdbId = Number(row?.tmdb_id);
     if (!Number.isInteger(tmdbId) || tmdbId <= 0 || !row?.fetched_at) return;
     const certification = normalizeMpaaRating(row.certification);
+    const providerData = normalizeStoredProviderData({
+      providers: row.providers || [],
+      availability: row.provider_availability || {},
+      watchUrl: row.provider_watch_url || null,
+      region: row.region || "US",
+      fetchedAt: row.fetched_at,
+    });
     metadataByTmdbId.set(tmdbId, {
       details: createRatingDetails(certification),
       certification,
-      providers: normalizeStreamingServices(row.providers || []),
-      region: row.region || "US",
-      fetchedAt: row.fetched_at,
+      ...providerData,
     });
   });
   return metadataByTmdbId;

@@ -1,24 +1,20 @@
 import { extractUsMovieRating } from "../../src/utils/movieRatings.js";
-import { normalizeStreamingServices } from "../../src/utils/streamingServices.js";
+import { normalizeTmdbWatchProviders } from "../../src/utils/tmdbWatchProviders.js";
 import { tmdbFetch } from "./tmdb.js";
 
 export function normalizeTmdbFilterMetadata(data, { region = "US", fetchedAt } = {}) {
   const normalizedRegion = String(region || "US").toUpperCase();
-  const providerResults = data?.["watch/providers"]?.results || {};
-  const regionData = providerResults[normalizedRegion] || {};
-  const providers = normalizeStreamingServices([
-    ...(regionData.flatrate || []),
-    ...(regionData.ads || []),
-  ].map((provider) => provider?.provider_name).filter(Boolean));
+  const providerData = normalizeTmdbWatchProviders(data, {
+    region: normalizedRegion,
+    fetchedAt,
+  });
   const details = { ...(data || {}) };
   delete details["watch/providers"];
 
   return {
     details,
     certification: extractUsMovieRating(details),
-    providers,
-    region: normalizedRegion,
-    fetchedAt: fetchedAt || new Date().toISOString(),
+    ...providerData,
   };
 }
 

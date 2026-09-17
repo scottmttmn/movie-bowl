@@ -204,10 +204,19 @@ records attempted, successful, and failed title counts, duration, completion
 status, and the remaining stale backlog. Only the service role can read or
 record reports. Recording a run prunes history older than 90 days.
 
+`20260917022736_add_tmdb_provider_availability.sql` extends the cache with
+structured US availability groups (`subscription`, `free`, `ads`, `rent`, and
+`buy`) plus TMDB's regional watch URL. The existing flat provider list remains
+the eligibility list used by bowl filters, so subscription, free, and
+ad-supported services can match while rent and purchase options stay
+informational. Existing cache rows remain compatible and gain the new fields on
+their next refresh.
+
 Rollback is available via:
 
 - `supabase/rollback/20260828120000_remove_tmdb_filter_metadata_cache.sql`
 - `supabase/rollback/20260829010000_remove_filter_metadata_refresh_run_history.sql`
+- `supabase/rollback/20260917022736_remove_tmdb_provider_availability.sql`
 
 ## Provider title-link cache
 

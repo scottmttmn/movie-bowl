@@ -112,6 +112,8 @@ export async function refreshFilterMetadataClaim(
         p_certification: metadata.certification,
         p_providers: metadata.providers,
         p_fetched_at: metadata.fetchedAt,
+        p_provider_availability: metadata.availability || {},
+        p_provider_watch_url: metadata.watchUrl || null,
       }
     );
     if (error) throw error;

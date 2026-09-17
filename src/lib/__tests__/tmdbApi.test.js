@@ -20,7 +20,12 @@ describe("tmdbApi", () => {
   });
 
   it("returns empty search results for blank queries without fetching", async () => {
-    await expect(searchTmdbMovies("   ")).resolves.toEqual({ results: [] });
+    await expect(searchTmdbMovies("   ")).resolves.toEqual({
+      page: 1,
+      totalPages: 0,
+      totalResults: 0,
+      results: [],
+    });
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
@@ -30,11 +35,11 @@ describe("tmdbApi", () => {
       json: async () => ({ results: [{ id: 1, title: "Wall-E" }] }),
     });
 
-    await expect(searchTmdbMovies("Wall-E & Eve")).resolves.toEqual({
+    await expect(searchTmdbMovies("Wall-E & Eve", { page: 2 })).resolves.toEqual({
       results: [{ id: 1, title: "Wall-E" }],
     });
 
-    expect(global.fetch).toHaveBeenCalledWith("/api/tmdb/search?query=Wall-E%20%26%20Eve");
+    expect(global.fetch).toHaveBeenCalledWith("/api/tmdb/search?query=Wall-E%20%26%20Eve&page=2");
   });
 
   it("throws API errors returned by the backend", async () => {
@@ -70,7 +75,7 @@ describe("tmdbApi", () => {
   });
 
   it("returns empty provider results for blank ids without fetching", async () => {
-    await expect(getTmdbMovieProviders("")).resolves.toEqual({ results: {} });
+    await expect(getTmdbMovieProviders("")).resolves.toBeNull();
     expect(global.fetch).not.toHaveBeenCalled();
   });
 
@@ -111,7 +116,7 @@ describe("tmdbApi", () => {
     await expect(getTmdbMovieProviders("77 ")).resolves.toEqual({ results: { US: {} } });
 
     expect(global.fetch).toHaveBeenNthCalledWith(1, "/api/tmdb/movie/details?id=77");
-    expect(global.fetch).toHaveBeenNthCalledWith(2, "/api/tmdb/movie/providers?id=77");
+    expect(global.fetch).toHaveBeenNthCalledWith(2, "/api/tmdb/movie/providers?id=77&region=US");
   });
 
   it("deduplicates and briefly caches repeated movie detail requests", async () => {

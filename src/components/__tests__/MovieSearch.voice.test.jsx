@@ -116,7 +116,7 @@ describe("MovieSearch voice input", () => {
       expect(screen.getByDisplayValue("Jaws")).toBeInTheDocument();
     });
     await waitFor(() => {
-      expect(mocks.searchTmdbMovies).toHaveBeenCalledWith("Jaws");
+      expect(mocks.searchTmdbMovies).toHaveBeenCalledWith("Jaws", { page: 1 });
     });
     expect(screen.getByText('Searching for "Jaws"...')).toBeInTheDocument();
     expect(await screen.findByText("Jaws")).toBeInTheDocument();
@@ -145,7 +145,7 @@ describe("MovieSearch voice input", () => {
       expect(screen.getByDisplayValue("Alien")).toBeInTheDocument();
     });
     await waitFor(() => {
-      expect(mocks.searchTmdbMovies).toHaveBeenCalledWith("Alien");
+      expect(mocks.searchTmdbMovies).toHaveBeenCalledWith("Alien", { page: 1 });
     });
     expect(screen.getByText('Searching for "Alien"...')).toBeInTheDocument();
     expect(await screen.findByText("Alien")).toBeInTheDocument();

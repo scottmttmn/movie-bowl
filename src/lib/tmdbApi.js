@@ -1,4 +1,5 @@
 import { selectBestTrailer } from "../utils/selectTrailer";
+import { getMovieReleaseStatus } from "../utils/movieReleaseStatus";
 import { OFFLINE_MESSAGE, isOfflineError } from "../utils/networkErrors";
 
 const MOVIE_DETAILS_CACHE_TTL_MS = 10 * 60 * 1000;
@@ -66,10 +67,16 @@ async function apiPost(url, body, accessToken) {
   return data;
 }
 
-export async function searchTmdbMovies(query) {
+export async function searchTmdbMovies(query, { page = 1 } = {}) {
   const q = String(query || "").trim();
-  if (!q) return { results: [] };
-  return apiGet(`/api/tmdb/search?query=${encodeURIComponent(q)}`);
+  const normalizedPage = Number(page);
+  if (!q) return { page: 1, totalPages: 0, totalResults: 0, results: [] };
+  if (!Number.isInteger(normalizedPage) || normalizedPage < 1 || normalizedPage > 500) {
+    throw new Error("Invalid search page");
+  }
+  return apiGet(
+    `/api/tmdb/search?query=${encodeURIComponent(q)}&page=${normalizedPage}`
+  );
 }
 
 export async function getTmdbMovieDetails(id) {
@@ -86,6 +93,7 @@ export async function getTmdbMovieDetails(id) {
     .then((data) => {
       const value = {
         ...data,
+        releaseStatus: getMovieReleaseStatus(data),
         trailer: selectBestTrailer(data?.videos?.results, {
           releaseDate: data?.release_date,
           title: data?.title,
@@ -109,10 +117,13 @@ export async function getTmdbMovieDetails(id) {
   return request;
 }
 
-export async function getTmdbMovieProviders(id) {
+export async function getTmdbMovieProviders(id, { region = "US" } = {}) {
   const tmdbId = String(id || "").trim();
-  if (!tmdbId) return { results: {} };
-  return apiGet(`/api/tmdb/movie/providers?id=${encodeURIComponent(tmdbId)}`);
+  const normalizedRegion = String(region || "US").trim().toUpperCase();
+  if (!tmdbId) return null;
+  return apiGet(
+    `/api/tmdb/movie/providers?id=${encodeURIComponent(tmdbId)}&region=${encodeURIComponent(normalizedRegion)}`
+  );
 }
 
 export async function getTmdbMovieFilterMetadata(id) {

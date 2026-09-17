@@ -41,7 +41,7 @@ describe("api/tmdb/movie/filter-metadata", () => {
     expect(mocks.tmdbFetch).not.toHaveBeenCalled();
   });
 
-  it("returns details with normalized US subscription and ad providers", async () => {
+  it("returns details with structured US provider availability", async () => {
     mocks.tmdbFetch.mockResolvedValue({
       id: 77,
       title: "Heat",
@@ -49,8 +49,10 @@ describe("api/tmdb/movie/filter-metadata", () => {
       "watch/providers": {
         results: {
           US: {
+            link: "https://www.themoviedb.org/movie/77/watch",
             flatrate: [{ provider_name: "netflix" }, { provider_name: "HBO Max" }],
             ads: [{ provider_name: "hbo max" }, { provider_name: "Tubi" }],
+            free: [{ provider_id: 9, provider_name: "Kanopy" }],
             rent: [{ provider_name: "Apple TV" }],
           },
         },
@@ -63,7 +65,21 @@ describe("api/tmdb/movie/filter-metadata", () => {
     expect(res.statusCode).toBe(200);
     expect(res.body).toMatchObject({
       details: { id: 77, title: "Heat", release_dates: { results: [] } },
-      providers: ["Netflix", "Max", "Tubi"],
+      providers: ["Netflix", "Max", "Kanopy", "Tubi"],
+      availability: {
+        subscription: [
+          expect.objectContaining({ name: "netflix" }),
+          expect.objectContaining({ name: "HBO Max" }),
+        ],
+        free: [expect.objectContaining({ id: 9, name: "Kanopy" })],
+        ads: [
+          expect.objectContaining({ name: "hbo max" }),
+          expect.objectContaining({ name: "Tubi" }),
+        ],
+        rent: [expect.objectContaining({ name: "Apple TV" })],
+        buy: [],
+      },
+      watchUrl: "https://www.themoviedb.org/movie/77/watch",
       region: "US",
     });
     expect(res.body.details["watch/providers"]).toBeUndefined();

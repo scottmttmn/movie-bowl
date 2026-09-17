@@ -4,15 +4,56 @@ import { getPosterUrl } from "../utils/getPosterUrl";
 import { getProviderLogoUrl } from "../utils/getProviderLogoUrl";
 import { matchUserServices, normalizeStreamingServices } from "../utils/streamingServices";
 import ProviderLinksAttribution from "./ProviderLinksAttribution";
+import AvailabilityAttribution from "./AvailabilityAttribution";
 import MoviePosterPin from "./MoviePosterPin";
 import ServiceLogo from "./ServiceLogo";
 import TrailerEmbed from "./TrailerEmbed";
 import { getMovieAttributionLabel } from "../utils/drawBuckets";
+import { getMovieReleaseStatus } from "../utils/movieReleaseStatus";
 import {
   MAX_MOVIE_NOTE_LENGTH,
   getMovieNoteValidationError,
   normalizeMovieNote,
 } from "../utils/movieNote";
+
+const AVAILABILITY_GROUPS = [
+  { key: "subscription", label: "Included with subscription", eligible: true },
+  { key: "free", label: "Free", eligible: true },
+  { key: "ads", label: "Free with ads", eligible: true },
+  { key: "rent", label: "Rent", eligible: false },
+  { key: "buy", label: "Buy", eligible: false },
+];
+
+function ProviderPills({ providers, providerLogos, userStreamingServices, eligible }) {
+  return (
+    <ul className="flex flex-wrap gap-2">
+      {providers.map((provider) => {
+        const [normalizedName] = normalizeStreamingServices([provider.name]);
+        const isMatch = eligible && matchUserServices(
+          [provider.name],
+          userStreamingServices
+        ).length > 0;
+        const logoUrl = getProviderLogoUrl(
+          provider.logoPath || providerLogos[normalizedName]
+        );
+
+        return (
+          <li
+            key={provider.id ? `${provider.id}:${provider.name}` : provider.name}
+            className={`flex items-center gap-2 rounded-lg border py-1.5 text-sm ${logoUrl ? "pl-1.5 pr-3" : "px-3"} ${isMatch ? "border-emerald-800/60 bg-emerald-950/30 text-emerald-300" : "border-slate-700/70 text-slate-300"}`}
+          >
+            {isMatch && <span aria-hidden="true" className="ml-1">✓</span>}
+            {logoUrl && (
+              <img src={logoUrl} alt="" className="h-7 w-7 rounded-md" loading="lazy" />
+            )}
+            <span>{provider.name}</span>
+            {isMatch && <span className="sr-only"> (in your services)</span>}
+          </li>
+        );
+      })}
+    </ul>
+  );
+}
 
 function formatDisplayDate(value) {
   if (!value) return null;
@@ -146,6 +187,14 @@ export default function AddMovieModal({
   const availableProviders = normalizeStreamingServices(movie.streamingProviders || []);
   const matchingProviders = matchUserServices(availableProviders, userStreamingServices);
   const providerLogos = movie.streamingProviderLogos || {};
+  const availability = movie.streamingAvailability || {};
+  const availabilityGroups = AVAILABILITY_GROUPS.map((group) => ({
+    ...group,
+    providers: Array.isArray(availability[group.key]) ? availability[group.key] : [],
+  })).filter((group) => group.providers.length > 0);
+  const hasStructuredAvailability = availabilityGroups.length > 0;
+  const providerStatus = movie.streamingProviderStatus || "ready";
+  const releaseStatus = movie.releaseStatus || getMovieReleaseStatus(movie);
   const hasTrailer = movie?.trailer?.site === "YouTube" && Boolean(movie?.trailer?.key);
   const trailerRegionId = resolvedMovieId != null
     ? `movie-trailer-${String(resolvedMovieId).replace(/[^a-zA-Z0-9_-]+/g, "-")}`
@@ -261,7 +310,17 @@ export default function AddMovieModal({
                   {year && <span>{year}</span>}
                   {Number(movie.runtime) > 0 && <span>{movie.runtime} min</span>}
                   {isCustomEntry && <span className="text-xs font-medium text-amber-300">Custom</span>}
+                  {releaseStatus.isExceptional && releaseStatus.label && (
+                    <span className={releaseStatus.state === "canceled" ? "text-rose-300" : "text-amber-300"}>
+                      {releaseStatus.label}
+                    </span>
+                  )}
                 </div>
+                {releaseStatus.milestones?.length > 0 && (
+                  <p className="mt-2 text-xs leading-relaxed text-slate-400">
+                    {releaseStatus.milestones.slice(0, 3).map((milestone) => milestone.label).join(" • ")}
+                  </p>
+                )}
                 {addedByLabel && (
                   <p className="mt-3 break-words text-sm text-slate-400">
                     <span>Added by</span>{" "}<span className="text-slate-200">{addedByLabel}</span>
@@ -316,7 +375,27 @@ export default function AddMovieModal({
                 <h3 id="movie-streaming-title" className="text-sm font-semibold text-slate-200">Where to watch</h3>
                 {matchingProviders.length > 0 && <p className="text-xs text-emerald-300">✓ Your services</p>}
               </div>
-              {availableProviders.length > 0 ? (
+              {providerStatus === "failed" ? (
+                <p className="text-sm text-slate-400">
+                  Availability could not be loaded right now. Try again later.
+                </p>
+              ) : hasStructuredAvailability ? (
+                <div className="space-y-4">
+                  {availabilityGroups.map((group) => (
+                    <div key={group.key}>
+                      <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
+                        {group.label}
+                      </h4>
+                      <ProviderPills
+                        providers={group.providers}
+                        providerLogos={providerLogos}
+                        userStreamingServices={userStreamingServices}
+                        eligible={group.eligible}
+                      />
+                    </div>
+                  ))}
+                </div>
+              ) : availableProviders.length > 0 ? (
                 <ul className="flex flex-wrap gap-2" aria-label="Streaming services">
                   {availableProviders.map((provider) => {
                     const isMatch = matchingProviders.includes(provider);
@@ -342,6 +421,20 @@ export default function AddMovieModal({
               )}
               {availableProviders.length > 0 && matchingProviders.length === 0 && (
                 <p className="mt-2 text-xs text-slate-400">None of your saved services match this title.</p>
+              )}
+              {movie.streamingWatchUrl && (
+                <a
+                  href={movie.streamingWatchUrl}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="btn btn-ghost mt-4 w-full text-sm sm:w-auto"
+                >
+                  See all watch options
+                  <span className="sr-only"> (opens in a new tab)</span>
+                </a>
+              )}
+              {(hasStructuredAvailability || movie.streamingWatchUrl) && (
+                <div className="mt-2"><AvailabilityAttribution /></div>
               )}
               {webLaunchCandidate && (
                 <div className="mt-4">

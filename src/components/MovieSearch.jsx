@@ -1,12 +1,42 @@
 // MovieSearch component handles querying TMDB and returning selectable results.
-import { useState, useEffect, useRef, useImperativeHandle } from "react";
-import {getPosterUrl} from "../utils/getPosterUrl"
+import { useState, useEffect, useRef, useImperativeHandle, useCallback } from "react";
+import { getPosterUrl } from "../utils/getPosterUrl";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { matchUserServices } from "../utils/streamingServices";
 import AddMovieModal from "./AddMovieModal";
 import { getTmdbMovieDetails, searchTmdbMovies } from "../lib/tmdbApi";
 import { describeNetworkError } from "../utils/networkErrors";
 import { MAX_MOVIE_NOTE_LENGTH, normalizeMovieNote } from "../utils/movieNote";
+import { getMovieIdentityLabel } from "../utils/movieIdentity";
+import { getSearchReleaseLabel } from "../utils/movieReleaseStatus";
+import { createEmptyStreamingProviderData } from "../utils/tmdbWatchProviders";
+
+const PROVIDER_ENRICHMENT_LIMIT = 8;
+const PROVIDER_ENRICHMENT_CONCURRENCY = 4;
+
+function appendUniqueMovies(current, incoming) {
+    const seen = new Set(current.map((movie) => movie.id));
+    return [...current, ...incoming.filter((movie) => !seen.has(movie.id))];
+}
+
+async function mapWithConcurrency(items, concurrency, mapper) {
+    const results = new Array(items.length);
+    let nextIndex = 0;
+
+    const workers = Array.from(
+        { length: Math.min(concurrency, items.length) },
+        async () => {
+            while (nextIndex < items.length) {
+                const index = nextIndex;
+                nextIndex += 1;
+                results[index] = await mapper(items[index], index);
+            }
+        }
+    );
+
+    await Promise.all(workers);
+    return results;
+}
 
 export default function MovieSearch({
     onAddMovie,
@@ -32,7 +62,12 @@ export default function MovieSearch({
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
     const [isSearching, setIsSearching] = useState(false);
+    const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [searchError, setSearchError] = useState(null);
+    const [loadMoreError, setLoadMoreError] = useState(null);
+    const [searchPage, setSearchPage] = useState(1);
+    const [totalPages, setTotalPages] = useState(0);
+    const [totalResults, setTotalResults] = useState(0);
     const [voiceError, setVoiceError] = useState(null);
     const [isVoiceSupported, setIsVoiceSupported] = useState(false);
     const [isListening, setIsListening] = useState(false);
@@ -80,6 +115,10 @@ export default function MovieSearch({
         overview: null,
         poster_path: null,
         streamingProviders: [],
+        streamingProviderLogos: {},
+        streamingAvailability: createEmptyStreamingProviderData("US").availability,
+        streamingWatchUrl: null,
+        streamingProviderStatus: "unavailable",
         streamingRegion: "US",
         streamingFetchedAt: null,
         isCustomEntry: true,
@@ -91,59 +130,92 @@ export default function MovieSearch({
             : movie;
 
 
-    const handleSearch = async (query) => {
+    const enrichProviders = useCallback(async (movies, requestId) => {
+        const targets = movies.slice(0, PROVIDER_ENRICHMENT_LIMIT);
+        if (targets.length === 0) return;
+
+        setProvidersByMovieId((previous) => {
+            const next = { ...previous };
+            targets.forEach((movie) => {
+                if (!next[movie.id]) next[movie.id] = { status: "loading", data: null };
+            });
+            return next;
+        });
+
+        const entries = await mapWithConcurrency(
+            targets,
+            PROVIDER_ENRICHMENT_CONCURRENCY,
+            async (movie) => {
+                const data = await fetchStreamingProviders(movie.id, { region: "US" });
+                return [movie.id, { status: data.status || "ready", data }];
+            }
+        );
+
+        if (requestId !== latestRequestRef.current) return;
+        setProvidersByMovieId((previous) => {
+            const next = { ...previous };
+            entries.forEach(([movieId, entry]) => {
+                next[movieId] = entry;
+            });
+            return next;
+        });
+    }, []);
+
+    const handleSearch = useCallback(async (query, { page = 1, append = false } = {}) => {
         const trimmedQuery = query.trim();
         if (!trimmedQuery) return;
 
-        const requestId = latestRequestRef.current + 1;
-        latestRequestRef.current = requestId;
-        setSearchError(null);
-        setIsSearching(true);
+        const requestId = append
+            ? latestRequestRef.current
+            : latestRequestRef.current + 1;
+        if (!append) latestRequestRef.current = requestId;
+        setLoadMoreError(null);
+        if (append) {
+            setIsLoadingMore(true);
+        } else {
+            setSearchError(null);
+            setIsSearching(true);
+            setSearchResults([]);
+            setProvidersByMovieId({});
+            setSearchPage(1);
+            setTotalPages(0);
+            setTotalResults(0);
+        }
 
         try {
-            const data = await searchTmdbMovies(trimmedQuery);
+            const data = await searchTmdbMovies(trimmedQuery, { page });
             if (requestId !== latestRequestRef.current) return;
 
             const results = data.results || [];
-            setSearchResults(results);
-            setHighlightedIndex(0);
+            setSearchResults((current) => appendUniqueMovies(append ? current : [], results));
+            if (!append) setHighlightedIndex(0);
+            setSearchPage(Number(data.page) || page);
+            setTotalPages(Number(data.totalPages) || (results.length > 0 ? page : 0));
+            setTotalResults(Number(data.totalResults) || results.length);
             // Titles are on screen now; providers keep filling in behind them.
-            setIsSearching(false);
-
-            const topResults = results.slice(0, 8);
-            const providerEntries = await Promise.all(
-              topResults.map(async (movie) => {
-                const { providers } = await fetchStreamingProviders(movie.id, { region: "US" });
-                return [movie.id, providers];
-              })
-            );
-
-            if (requestId !== latestRequestRef.current) return;
-
-            setProvidersByMovieId((prev) => {
-              const next = { ...prev };
-              providerEntries.forEach(([movieId, providers]) => {
-                next[movieId] = providers;
-              });
-              return next;
-            });
+            if (append) setIsLoadingMore(false);
+            else setIsSearching(false);
+            await enrichProviders(results, requestId);
         } catch (error) {
             if (requestId !== latestRequestRef.current) return;
             console.error("Failed to fetch movies", error);
-            setSearchResults([]);
-            setSearchError(
-              describeNetworkError(
-                error,
-                "Movie service is unavailable right now. Please try again."
-              )
+            const message = describeNetworkError(
+              error,
+              "Movie service is unavailable right now. Please try again."
             );
+            if (append) setLoadMoreError(message);
+            else {
+                setSearchResults([]);
+                setSearchError(message);
+            }
         } finally {
             // A newer search owns the indicator, so only the latest one clears it.
             if (requestId === latestRequestRef.current) {
-                setIsSearching(false);
+                if (append) setIsLoadingMore(false);
+                else setIsSearching(false);
             }
         }
-    };
+    }, [enrichProviders]);
 
     const fetchMovieDetails = async (movieId) => {
         return getTmdbMovieDetails(movieId);
@@ -151,9 +223,9 @@ export default function MovieSearch({
 
     const buildDetailedMovie = async (movie) => {
         const details = await fetchMovieDetails(movie.id);
-        const cachedProviders = providersByMovieId[movie.id];
-        const providerData = Array.isArray(cachedProviders)
-          ? { providers: cachedProviders, region: "US", fetchedAt: null }
+        const cachedProviderEntry = providersByMovieId[movie.id];
+        const providerData = cachedProviderEntry?.status === "ready"
+          ? cachedProviderEntry.data
           : await fetchStreamingProviders(movie.id, { region: "US" });
 
         return {
@@ -161,6 +233,9 @@ export default function MovieSearch({
             ...details,
             streamingProviders: providerData.providers || [],
             streamingProviderLogos: providerData.providerLogos || {},
+            streamingAvailability: providerData.availability || {},
+            streamingWatchUrl: providerData.watchUrl || null,
+            streamingProviderStatus: providerData.status || "ready",
             streamingRegion: providerData.region || "US",
             streamingFetchedAt: providerData.fetchedAt || null,
         };
@@ -193,7 +268,13 @@ export default function MovieSearch({
         latestRequestRef.current += 1;
         setSearchTerm("");
         setSearchResults([]);
+        setProvidersByMovieId({});
         setIsSearching(false);
+        setIsLoadingMore(false);
+        setLoadMoreError(null);
+        setSearchPage(1);
+        setTotalPages(0);
+        setTotalResults(0);
         setHighlightedIndex(0);
         setCommentDraft("");
         setIsCommentOpen(false);
@@ -318,7 +399,7 @@ export default function MovieSearch({
         }, 400);
 
         return () => clearTimeout(timeoutId);
-    }, [searchTerm]);
+    }, [handleSearch, searchTerm]);
 
     useEffect(() => {
         inputRef.current?.focus();
@@ -372,8 +453,13 @@ export default function MovieSearch({
                 suppressNextAutoSearchRef.current = true;
                 setSearchTerm(transcript);
                 setSearchResults([]);
+                setProvidersByMovieId({});
                 setHighlightedIndex(0);
                 setSearchError(null);
+                setLoadMoreError(null);
+                setSearchPage(1);
+                setTotalPages(0);
+                setTotalResults(0);
                 latestRequestRef.current += 1;
             }
         };
@@ -413,7 +499,7 @@ export default function MovieSearch({
             recognition.stop();
             recognitionRef.current = null;
         };
-    }, []);
+    }, [handleSearch]);
 
     const toggleVoiceInput = () => {
         if (!recognitionRef.current) return;
@@ -454,17 +540,21 @@ export default function MovieSearch({
                         onFocus={onSearchFocus}
                         onChange={(e) => {
                             const value = e.target.value;
+                            latestRequestRef.current += 1;
                             setSearchTerm(value);
                             onDraftChange?.();
                             setVoiceError(null);
                             setVoiceStatusMessage("");
-                            if (!value.trim()) {
-                                latestRequestRef.current += 1;
-                                setSearchResults([]);
-                                setIsSearching(false);
-                                setSearchError(null);
-                                setHighlightedIndex(0);
-                            }
+                            setSearchResults([]);
+                            setProvidersByMovieId({});
+                            setIsLoadingMore(false);
+                            setLoadMoreError(null);
+                            setSearchPage(1);
+                            setTotalPages(0);
+                            setTotalResults(0);
+                            setHighlightedIndex(0);
+                            if (!value.trim()) setIsSearching(false);
+                            setSearchError(null);
                         }}
                         onKeyDown={handleKeyDown}
                         aria-activedescendant={
@@ -509,7 +599,10 @@ export default function MovieSearch({
                     </p>
                 ) : searchResults.length > 0 ? (
                     <p className={inlineDetails ? "sr-only" : "mt-2 text-sm text-slate-300"} role="status">
-                        {searchResults.length} {searchResults.length === 1 ? "result" : "results"} below — tap Add to pick one.
+                        {totalResults > searchResults.length
+                            ? `${searchResults.length} of ${totalResults} results below`
+                            : `${searchResults.length} ${searchResults.length === 1 ? "result" : "results"} below`}
+                        {" — tap Add to pick one."}
                     </p>
                 ) : !inlineDetails && isVoiceSupported && !voiceStatusMessage && !voiceError ? (
                     <p className="mt-2 text-sm text-slate-400">Speak a movie title or type to search.</p>
@@ -586,10 +679,10 @@ export default function MovieSearch({
                 aria-label="Search results"
             >
                 {searchResults.map((movie, index) => {
-                    const year = movie.release_date
-                        ? movie.release_date.split("-")[0]
-                        : "—";
-                    const providers = providersByMovieId[movie.id];
+                    const releaseLabel = getSearchReleaseLabel(movie);
+                    const identityLabel = getMovieIdentityLabel(movie);
+                    const providerEntry = providersByMovieId[movie.id];
+                    const providers = providerEntry?.data?.providers || [];
                     const matchingProviders = matchUserServices(providers || [], userStreamingServices);
 
                     return (
@@ -611,11 +704,20 @@ export default function MovieSearch({
 
                                 <div className="min-w-0 text-left">
                                     <div className="font-semibold text-slate-100">{movie.title}</div>
-                                    <div className="text-sm text-slate-400">{year}</div>
+                                    <div className="text-sm text-slate-400">{releaseLabel}</div>
+                                    {identityLabel && (
+                                        <div className="truncate text-xs text-slate-400">{identityLabel}</div>
+                                    )}
                                     <div className="truncate text-xs text-slate-400">
-                                        {Array.isArray(providers) && providers.length > 0
-                                            ? `Available on: ${providers.join(", ")}`
-                                            : "Available on: no US providers found"}
+                                        {!providerEntry
+                                            ? "Availability not checked yet"
+                                            : providerEntry.status === "loading"
+                                              ? "Checking US availability…"
+                                              : providerEntry.status === "failed"
+                                                ? "Availability unavailable right now"
+                                                : providers.length > 0
+                                                  ? `Available on: ${providers.join(", ")}`
+                                                  : "No included or free US providers found"}
                                     </div>
                                     {matchingProviders.length > 0 && (
                                       <div className="truncate text-xs text-emerald-300">
@@ -650,6 +752,27 @@ export default function MovieSearch({
                     );
                 })}
             </ul>
+
+            {searchResults.length > 0 && searchPage < totalPages && (
+                <div className="mt-4 flex flex-col items-center gap-2">
+                    <button
+                        type="button"
+                        className="btn btn-secondary"
+                        disabled={isLoadingMore || isAdding}
+                        onClick={() => handleSearch(searchTerm, {
+                            page: searchPage + 1,
+                            append: true,
+                        })}
+                    >
+                        {isLoadingMore ? "Loading more…" : "Load more movies"}
+                    </button>
+                    {loadMoreError && (
+                        <p className="text-center text-sm text-rose-300" role="alert">
+                            {loadMoreError} Your current results are still here.
+                        </p>
+                    )}
+                </div>
+            )}
             {isSearching && searchResults.length === 0 && (
               <ul className="mt-2 space-y-2" aria-hidden="true">
                 {[0, 1, 2].map((placeholder) => (

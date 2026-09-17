@@ -29,8 +29,18 @@ describe("movieFilterMetadata", () => {
     await expect(fetchMovieFilterMetadata(-1)).resolves.toEqual({
       details: {},
       providers: [],
+      providerLogos: {},
+      availability: {
+        subscription: [],
+        free: [],
+        ads: [],
+        rent: [],
+        buy: [],
+      },
+      watchUrl: null,
       region: "US",
       fetchedAt: null,
+      status: "unavailable",
     });
     expect(mocks.getTmdbMovieFilterMetadata).not.toHaveBeenCalled();
   });

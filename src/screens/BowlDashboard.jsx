@@ -662,12 +662,23 @@ export default function BowlDashboard() {
           ...movie,
           streamingProviders: movie.streamingProviders || [],
           streamingProviderLogos: movie.streamingProviderLogos || {},
+          streamingAvailability: movie.streamingAvailability || {},
+          streamingWatchUrl: movie.streamingWatchUrl || null,
+          streamingProviderStatus: movie.streamingProviderStatus || "unavailable",
           streamingRegion: movie.streamingRegion || "US",
           streamingFetchedAt: movie.streamingFetchedAt || null,
         };
       }
 
-      const emptyProviderData = { providers: [], region: "US", fetchedAt: null };
+      const emptyProviderData = {
+        providers: [],
+        providerLogos: {},
+        availability: {},
+        watchUrl: null,
+        status: "unavailable",
+        region: "US",
+        fetchedAt: null,
+      };
       const loadProviders = () =>
         filterMetadataFetchers?.fetchProviders
           ? filterMetadataFetchers.fetchProviders(tmdbId)
@@ -696,6 +707,9 @@ export default function BowlDashboard() {
         bowlMovieId: movie?.bowlMovieId ?? null,
         streamingProviders: providerData.providers || [],
         streamingProviderLogos: providerData.providerLogos || {},
+        streamingAvailability: providerData.availability || {},
+        streamingWatchUrl: providerData.watchUrl || null,
+        streamingProviderStatus: providerData.status || "ready",
         streamingRegion: providerData.region || "US",
         streamingFetchedAt: providerData.fetchedAt || null,
       };

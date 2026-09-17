@@ -1329,8 +1329,37 @@ html.tv-root {
 }
 
 .tv-reveal-page {
+  position: relative;
   display: flex;
   flex-direction: column;
+  overflow: hidden;
+  isolation: isolate;
+}
+
+.tv-reveal-backdrop {
+  position: absolute;
+  z-index: -1;
+  inset: 0;
+  overflow: hidden;
+  background: var(--tv-bg);
+}
+
+.tv-reveal-backdrop::after {
+  position: absolute;
+  inset: 0;
+  content: "";
+  background:
+    linear-gradient(90deg, rgba(5, 7, 13, 0.97) 0%, rgba(5, 7, 13, 0.79) 42%, rgba(5, 7, 13, 0.7) 100%),
+    linear-gradient(180deg, rgba(5, 7, 13, 0.74) 0%, rgba(5, 7, 13, 0.22) 42%, rgba(5, 7, 13, 0.94) 100%);
+}
+
+.tv-reveal-backdrop img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: center 28%;
+  opacity: 0.76;
+  filter: saturate(0.86) contrast(1.08);
 }
 
 .tv-history-detail-page {
@@ -1432,6 +1461,24 @@ html.tv-root {
   font-weight: 680;
 }
 
+.tv-release-status {
+  width: fit-content;
+  margin: 0.7rem 0 0;
+  padding: 0.35rem 0.65rem;
+  border: 1px solid rgba(251, 191, 36, 0.36);
+  border-radius: 999px;
+  background: rgba(120, 53, 15, 0.36);
+  color: #fde68a;
+  font-size: 0.68rem;
+  font-weight: 760;
+}
+
+.tv-release-status.is-canceled {
+  border-color: rgba(251, 113, 133, 0.38);
+  background: rgba(136, 19, 55, 0.38);
+  color: #fecdd3;
+}
+
 .tv-history-metadata {
   margin: 0.65rem 0 0;
   color: #7dd3fc;
@@ -1517,6 +1564,13 @@ html.tv-root {
   background: rgba(30, 41, 59, 0.78);
   color: #e2e8f0;
   font-size: 0.7rem;
+}
+
+.tv-transactional-availability {
+  margin: 0.55rem 0 0;
+  color: #94a3b8;
+  font-size: 0.68rem;
+  font-weight: 650;
 }
 
 .tv-reveal-actions {
@@ -2003,6 +2057,10 @@ html.tv-root {
   .tv-provider-row,
   .tv-reveal-actions {
     justify-content: center;
+  }
+
+  .tv-release-status {
+    margin-inline: auto;
   }
 
   .tv-history-return-action {

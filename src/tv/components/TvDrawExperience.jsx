@@ -1,8 +1,11 @@
 import BowlIllustration from "../../components/BowlIllustration";
 import ProviderLinksAttribution from "../../components/ProviderLinksAttribution";
+import AvailabilityAttribution from "../../components/AvailabilityAttribution";
 import ServiceLogo from "../../components/ServiceLogo";
+import { getBackdropUrl } from "../../utils/getBackdropUrl";
 import { getPosterUrl } from "../../utils/getPosterUrl";
 import { getProviderLogoUrl } from "../../utils/getProviderLogoUrl";
+import { getMovieReleaseStatus } from "../../utils/movieReleaseStatus";
 import { matchUserServices } from "../../utils/streamingServices";
 import TvBrand from "./TvBrand";
 import TvFullscreenTrailer from "./TvFullscreenTrailer";
@@ -79,6 +82,12 @@ export function TvMovieDetailStage({
       : movie.streamingProviders || [];
   const providerLogos = movie.streamingProviderLogos || {};
   const runtimeLabel = movie.runtime ? `${movie.runtime} min` : null;
+  const releaseStatus = movie.releaseStatus || getMovieReleaseStatus(movie);
+  const availability = movie.streamingAvailability || {};
+  const hasStructuredAvailability = ["subscription", "free", "ads", "rent", "buy"]
+    .some((group) => Array.isArray(availability[group]) && availability[group].length > 0);
+  const hasTransactionalAvailability = ["rent", "buy"]
+    .some((group) => Array.isArray(availability[group]) && availability[group].length > 0);
   const trailer = movie.trailer;
   const canOfferLaunch = showWhereToWatch && Boolean(webLaunchCandidate?.url);
   const canLaunch = canOfferLaunch && !providerLaunchMessage;
@@ -104,6 +113,12 @@ export function TvMovieDetailStage({
         {(runtimeLabel || genres.length > 0) && (
           <p className="tv-movie-facts">
             {[runtimeLabel, ...genres.slice(0, 3)].filter(Boolean).join(" • ")}
+          </p>
+        )}
+
+        {releaseStatus.isExceptional && releaseStatus.label && (
+          <p className={`tv-release-status${releaseStatus.state === "canceled" ? " is-canceled" : ""}`}>
+            {releaseStatus.label}
           </p>
         )}
 
@@ -139,6 +154,10 @@ export function TvMovieDetailStage({
               );
             })}
           </div>
+        )}
+
+        {showWhereToWatch && hasTransactionalAvailability && (
+          <p className="tv-transactional-availability">Rent or buy options available</p>
         )}
 
         <div className="tv-reveal-actions">
@@ -193,6 +212,10 @@ export function TvMovieDetailStage({
           <ProviderLinksAttribution tv />
         )}
 
+        {showWhereToWatch && (hasStructuredAvailability || movie.streamingWatchUrl) && (
+          <AvailabilityAttribution tv />
+        )}
+
         {showWhereToWatch && providerLaunchMessage && (
           <p className="tv-provider-launch-message" role="status">
             {providerLaunchMessage}
@@ -224,6 +247,7 @@ export function TvRevealScreen({
 }) {
   const trailer = movie.trailer;
   const isCoveredByOverlay = isDialogOpen || showTrailer;
+  const backdropUrl = getBackdropUrl(movie);
 
   return (
     <>
@@ -232,6 +256,18 @@ export function TvRevealScreen({
         aria-hidden={isCoveredByOverlay ? "true" : undefined}
         inert={isCoveredByOverlay}
       >
+        {backdropUrl && (
+          <div className="tv-reveal-backdrop" aria-hidden="true">
+            <img
+              src={backdropUrl}
+              alt=""
+              fetchPriority="high"
+              onError={(event) => {
+                event.currentTarget.hidden = true;
+              }}
+            />
+          </div>
+        )}
         <header className="tv-topbar">
           <TvBrand />
           <div className="tv-reveal-bowl-name">{bowlName}</div>
