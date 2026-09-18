@@ -1,6 +1,13 @@
 # Provider Deep Links
 
-Status: **implemented; disabled by default pending configuration and deployment.**
+Status: **implemented and live.** Production runs with
+`PROVIDER_LINKS_ENABLED=true` and a Watchmode key. The route still fails closed
+without them, so a fresh checkout or an unconfigured environment sees no links
+and every surface falls back to the service's search page. Title links were live
+by September 14, 2026, when theater auto-start was verified on hardware for Max
+and Paramount+: `getAutoStartMode` refuses the search fallback, so that check
+cannot pass without a title link. The `.env` sample in `README.md` and the
+`false` under "Slices" below describe that off state, not the deployment.
 
 Implementation verified on August 30, 2026, including a successful live US
 lookup of Arrival with the configured key. The design below remains the

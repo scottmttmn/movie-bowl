@@ -77,8 +77,8 @@ defaults to 500 requests, a TMDB-id lookup costs two credits, and the free plan
 allows about a thousand. Five hundred title lookups a month, shared across every
 user.
 
-It is dormant today because `PROVIDER_LINKS_ENABLED` defaults off. It becomes
-the binding constraint the moment it is switched on with real traffic. The
+It is live in production, so this ceiling is being spent against today rather
+than reserved for later, and it is the binding constraint as traffic grows. The
 saving grace is that this is the best-behaved surface in the app: the budget is
 reserved atomically before any HTTP call, exhaustion degrades to the existing
 search fallback rather than an error, and the whole feature has a working kill
