@@ -17,40 +17,11 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 - Public add-link comment ordering: move the comment field below movie search
   so the flow matches the signed-in Add dialog and manual-history form. Agreed
   as a small near-term follow-up, not part of the Play owner pilot.
-- Theater mode controls break the cinema spell: drop "Next preview" and "Skip to
-  movie" from the pre-roll overlay, keeping Pause. Neither is possible at a
-  cinema, and neither is needed — Back already calls `endTheater`, so the escape
-  survives unadvertised. Keep Pause both for the doorbell case and because it
-  carries `data-tv-autofocus`, without which the overlay has nothing focusable.
-  The "1 of 3 · Title" progress line goes too — the count is announced before
-  the previews start, and on screen it only invites counting down. Pause should
-  not be a button either: bind it to OK and show an indicator only while
-  paused, leaving playback chrome-free. An overlay with no focusable element is
-  safe — the navigation hook no-ops on an empty set, Back is a key handler
-  rather than a focus target, and the reveal beneath is already `aria-hidden`
-  so focus cannot fall through to it. Back during the pre-roll is verified on
-  hardware — it exits from the announcement, mid-trailer, and the Feature
-  Presentation card alike — so it can carry the exit alone. Removing our
-  controls is only half of it — the embed shows YouTube's own, and with
-  `disablekb` unset its keyboard shortcuts are live, so on a TV the D-pad seeks
-  the trailer. The
-  pre-roll wants `controls=0`, `disablekb=1`, `fs=0`, `iv_load_policy=3`; and
-  because focus inside the iframe sends keys to YouTube's document rather than
-  ours, it may swallow Back too. `getAutoplayTrailerUrl` is shared with the
-  explicit "Watch trailer" action, which should keep its scrubber, so this is
-  an option on the builder. On the remote tested, the D-pad never reaches
-  YouTube's controls and left/right do not seek, so the params are hardening
-  for remotes we do not own rather than a prerequisite — that remote has no
-  transport keys, which is the vector that would bypass focus entirely. Ads get
-  no detection — the IFrame API exposes no ad state and the `getDuration()`
-  heuristic misfires. Whether `controls=0` hides the "Skip Ad" button is no
-  longer a blocker: with Back verified, an unskippable ad costs the remaining
-  previews rather than trapping the room, so ship and watch for it. Decided
-  from live use; see the
-  phase 1 revision in `output/designs/tv-theater-mode.md`.
 - Trailer captions during the pre-roll: `cc_load_policy=0` on the embed URL in
   `getAutoplayTrailerUrl` asks YouTube not to show captions, which suits the
-  cinema feel. It is a request, not a guarantee — an account that forces
+  cinema feel. It is the last of that builder's pre-roll options not taken —
+  `controls`, `disablekb`, `fs`, and `iv_load_policy` all ship behind the same
+  `preroll` flag. It is a request, not a guarantee — an account that forces
   captions on still gets them — and it should be a preference defaulting to off
   rather than a hard-coded off, so hard-of-hearing viewers keep the choice.
 - Offline read cache: connectivity is now detected and explained (global banner, honest error copy, draw/add refused up front, reload on reconnect), but nothing is cached, so reloading a bowl with no connection still shows an empty bowl behind the banner rather than the last known movies. Caching the last-loaded bowl read-only would close that, and needs a decision on staleness copy and invalidation before any code.
@@ -68,7 +39,7 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   fired.
 - Once-per-day draw lockout: the mobile design exploration floated "can't draw again until tomorrow" after putting a movie back, to discourage re-rolling. New product behavior with open questions (locked per user or per bowl, timezone, who can override) — needs its own design doc before any code.
 - Watched-outside-the-bowl removals leave no trace: logging a manual watch can now pull your own undrawn slips out of the bowls holding them, but that is a hard delete, so the other members just see the bowl shrink. Everything else in the history model keeps the fact (draw events are immutable, returns set `returned_at`). Worth deciding whether this should be an event the bowl can show instead.
-- Future odds-panel accuracy: before rendering `buildDrawOddsStats`, feed it the resolved eligible pool rather than `bowl.remaining`; otherwise it would show a flat 1/N for contributors the filters or streaming priority cannot reach. Separately decide whether unreachable contributors deserve a fallback that keeps them in play rather than only honest copy.
+- Future odds-panel accuracy: `buildDrawOddsStats` in `src/utils/drawMethods.js` is exported and covered by tests but rendered nowhere — there is no odds panel yet, so this is a constraint on building one rather than a fix to an existing screen. Whatever renders it must be fed the resolved eligible pool rather than `bowl.remaining`, or it shows a flat 1/N for contributors the filters or streaming priority cannot reach. Separately decide whether unreachable contributors deserve a fallback that keeps them in play rather than only honest copy.
 
 - Refused trailers fall back rather than showing YouTube's wall: the player
   reports age-restricted and unembeddable videos as error 150 the moment they
@@ -212,17 +183,15 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Technical Debt / Maintenance
 
-- **Commit a schema baseline so pgTAP can run in CI.** Lint, build, the Vitest
-  suite and the Playwright suite run on every pull request now;
-  `./scripts/pgtap.sh` is the one part of the gate left out, because it builds
-  its disposable database from `supabase db dump` against the linked project.
-  The migration history does not contain the original schema, so there is no way
-  to reconstruct one from this repository — which means automating the suite
-  today would mean keeping a credential for the production database in a public
-  repository's CI. A committed baseline migration fixes both problems at once:
-  the script stops needing the hosted project, and the schema stops living only
-  in a database nobody can read from a checkout. Until then, database changes
-  are verified by hand before `supabase db push`.
+- **Check `supabase/baseline/` against a real dump.** The baseline shipped and
+  the database suites now run in CI on every pull request, so this is no longer
+  a hole in the gate. But the baseline is a reconstruction assembled from the
+  migrations, the tests and the app code — not a dump — and what holds it true
+  is that all 23 suites pass against it unchanged. A column no suite reads could
+  still be wrong. Run the diff recipe in `supabase/README.md` against the linked
+  project once and record the result; until then, treat a pgTAP failure that
+  implicates a baseline-defined table as a suspected baseline error before
+  suspecting the migration.
 
 - **Meter the free tiers — partly done.** `service_usage_counters` now records
   daily per-metric spend through `record_service_usage`, wired at the two
@@ -249,6 +218,14 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   is meant to hold with them known and there are pgTAP tests asserting it, but a
   severity-rated list of unfixed defects in a deployed app is a different thing
   to publish.
+- Unconfirmed Playwright flake at `e2e/tv.e2e.js:552`. The
+  `Put “…” back in the bowl?` dialog missed its 7500ms wait on
+  `desktop-chromium` while `mobile-chromium` passed in the same run, and passed
+  on re-run. No mechanism has been established, so there is nothing to fix yet —
+  the line is here so a second sighting is recognised as a second rather than a
+  first. Note that a sandbox with no outbound image access fails roughly ten
+  specs on console-error assertions that CI passes; CI is the authority.
+
 - Supabase schema/process hygiene: keep migrations and policy snapshots current so dashboard-only DB changes do not drift from the repo.
 - Refresh `src/utils/providerLogos.js` before **March 2027** — it was generated
   2026-09-04, and TMDB's API terms cap caching their content at six months. Run

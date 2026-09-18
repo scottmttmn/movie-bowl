@@ -1,6 +1,9 @@
 # Default Bowl and Global Add
 
-Status: implemented locally on August 31, 2026; not deployed.
+Status: implemented and deployed. Written August 31, 2026; the home bowl,
+Home routing and the shared Add dialog have been live since, and the dashboard
+picker in `dashboard-bowl-picker-and-home-bowl.md` supersedes this document's
+navigation and default-star presentation.
 Product rules come from the August 30 discussion. See the implementation
 record for verification results and remaining release checks. Dimensions and
 interaction details below describe the agreed first version.
@@ -61,7 +64,7 @@ in its existing separate workflow.
 - Accessible name and hover/focus tooltip: `Add a movie`. Mark the two icons
   decorative. Opening the button closes the navigation menu. Prefer the
   filmstrip over a camera, which could suggest recording or uploading a video.
-- Retain the existing bowl logo asset, `src/assets/bowl-illustration-v3.webp`,
+- Retain the existing bowl logo asset, now `src/assets/movie-bowl.webp`,
   beside the Movie Bowl wordmark. Do not redraw, recolor, or replace that bowl
   as part of this work; the filmstrip belongs only to the Add action.
 - The logo points to `/`, labeled `Go to your default bowl`. `/` resolves the

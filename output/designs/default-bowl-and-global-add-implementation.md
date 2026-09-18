@@ -1,8 +1,10 @@
 # Default Bowl and Global Add — Implementation Plan
 
 Status: implemented, committed, and pushed; database migration applied on
-August 31, 2026. An installed-Android dialog repair is implemented locally and
-awaits deployment plus physical-device verification.
+August 31, 2026. The installed-Android dialog repair merged on September 1,
+2026 in `11f1687` and deploys from `main`; only the physical-device recheck is
+still outstanding, and it is tracked in the private issues register rather than
+here.
 The implementation record at the end lists verification results and release
 checks. The plan below preserves the decisions made before implementation;
 the August 31 session-list follow-up supersedes its pre-add comment behavior.

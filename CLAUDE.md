@@ -466,10 +466,12 @@ Vitest + Testing Library, jsdom, setup in `src/test/setup.js`. Tests live in
   implementation per feature and a few strong integration tests over many
   shallow ones.
 - `output/designs/*.md` holds the intent behind features. Several are explicitly
-  **plans, not implementations** (`bowl-draw-methods.md`, later phases of
+  **plans, not implementations** (`deterministic-draw-preview.md` past step 1,
+  `guest-night.md`, `starter-packs.md`, `search-revamp.md`, phase 3 of
   `tv-theater-mode.md`) — check the status line before assuming code exists.
-  `solo-draw.md` is the other way round: it is built on web and TV, and its one
-  remaining section is the deferred automatic-removal setting. `TODO.md` is the
+  `bowl-draw-methods.md` is no longer one of them: all three methods are live.
+  `solo-draw.md` is the other way round: it is built end to end on web and TV,
+  automatic removal included, with nothing deferred. `TODO.md` is the
   live backlog; update it when you land or add an item.
 - Evidence-backed defects, integrity risks, and accepted tradeoffs go in the
   private `scottmttmn/movie-bowl-issues` register — never in a file here. This

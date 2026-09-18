@@ -2,9 +2,11 @@
 
 Status: partly implemented September 4, 2026. The settings layer and every
 boolean toggle are built (`src/utils/deviceDrawSettings.js`,
-`src/hooks/useDeviceDrawSettings.js`, `src/tv/components/TvDrawPreferences.jsx`).
-The settings layer moved out of `src/tv/` when the dashboard came to need it too
-— see `tv-web-seam.md`; the television's behaviour did not change.
+`src/hooks/useDeviceDrawSettings.js`). The settings layer moved out of `src/tv/`
+when the dashboard came to need it too — see `tv-web-seam.md`; the television's
+behaviour did not change. The separate `TvDrawPreferences` panel is gone as
+well: `1b05fed` made the bowl itself the draw control, so the toggles now render
+inline in `src/tv/screens/TvTonightScreen.jsx`.
 Ratings are still to come. Genres and runtime stay phone-only by design — see
 [What is editable on TV](#what-is-editable-on-tv).
 
