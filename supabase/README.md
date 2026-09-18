@@ -12,13 +12,9 @@ supabase login
 supabase link --project-ref YOUR_PROJECT_REF
 ```
 
-3. Pull your current remote schema as a baseline migration:
-
-```bash
-supabase db pull
-```
-
-Commit the generated migration before making new DB changes.
+You do not need step 2 to run the tests. `supabase/baseline/` already carries
+the schema as it stood before the first migration, so the suites build their own
+database from this repository; linking is only for `supabase db push`.
 
 ## Ongoing workflow
 
@@ -37,60 +33,90 @@ supabase db push
 
 4. Commit migration files to git.
 
-## Local pgTAP verification and cleanup
+## Local pgTAP verification
 
 ```bash
 ./scripts/pgtap.sh                            # every suite
 ./scripts/pgtap.sh supabase/tests/20260904120000_*.sql   # one suite
 ```
 
-The script builds a disposable local Supabase project seeded from the linked
-project's schema, applies any migration not yet deployed, runs the suites, and
-removes the project on exit including on failure. It never touches the hosted
-database: pgTAP writes rows.
+The script creates a scratch database on a PostgreSQL you already have, applies
+`baseline/` and then every file in `migrations/` in order, runs the suites and
+drops the database again — on failure too. It never touches the hosted database:
+pgTAP writes rows.
 
-A clean run is **17 suites / 472 assertions, all passing**. If yours is not
-green, that is your change.
+You need pgTAP and `pg_prove` installed beside that server:
 
-### Why the baseline needs a privilege reset
+```bash
+sudo apt-get install pgtap     # Debian/Ubuntu
+brew install postgresql@16 pgtap   # macOS
+```
 
-This is worth understanding before changing the script, because the failure it
-prevents looks exactly like a product defect.
+Set `DATABASE_URL` to a superuser connection if the server is not
+`postgres://postgres@localhost:5432/postgres`. The same script is what
+`.github/workflows/ci.yml` runs, against a PostgreSQL that exists for the length
+of the job.
 
-The repository's migration history does not include the original schema
-baseline, so a local run has to start from a schema-only dump of the linked
-project. But `pg_dump` renders the ACL it wants each object to **end up** with,
-assuming the target starts from Postgres defaults — and a Supabase database does
-not. Supabase grants `anon`, `authenticated` and `service_role` by *default
-privilege*, so every object the restore creates is born with explicit grants,
-and the dump's `REVOKE ALL ... FROM PUBLIC` does not remove them: `PUBLIC` and
-`anon` are different grantees.
+A clean run is **23 suites / 600 assertions, all passing**. If yours is not
+green, that is your change. `npm run test:counts -- pgtap` holds those numbers
+to the sentence in `CLAUDE.md`.
 
-The real migrations revoke `from public, anon, authenticated` by name. That is
-why production is correct and a naive reconstruction is not.
+## The baseline
 
-So the script clears those default privileges before restoring, which makes the
-dump's own grants authoritative; the dump restores the same defaults at its end,
-so objects created afterwards match production again. Without it the suite
-reports about **70 phantom privilege failures** across 16 files and can never go
-green — which is how it sat, unexamined, until September 2026.
+Movie Bowl's first tables were made in the Supabase dashboard, so `migrations/`
+opens in March 2026 on a database that already had `profiles`, `bowls`,
+`bowl_members`, `bowl_movies`, `bowl_invites` and `bowl_draw_permissions`. For a
+long time the only way to get them was `supabase db dump` against the linked
+project, which meant the suites could run only where a production credential
+could go — not in a public repository's CI.
 
-### Writing suites
+`baseline/` closes that gap. `00_platform.sql` is the part of a Supabase
+database that is not this project's to define: the `anon`, `authenticated` and
+`service_role` roles, the `auth` schema with the claim readers PostgREST sets,
+and the default privileges Supabase grants in `public`. `01_schema.sql` is the
+pre-migration schema itself. Baseline plus migrations is the whole schema.
 
-Test client operations under `authenticated` or `anon` through public RPCs;
-private helpers such as `can_draw_from_bowl` must remain inaccessible. Personal
-watch history is readable only by its user. Verify each user's visibility
-under their role, then `reset role` for assertions auditing persisted rows
-across participants. Restore the client role and JWT before further RPC calls.
+It is deliberately **not** in `migrations/`, for the same reason `rollback/` is
+not: `supabase db push` would try to apply it to a database that has had those
+objects since before the ledger existed. Nothing in `baseline/` is ever pushed.
 
-### Docker images
+New schema is a migration. The baseline moves only if the pre-March-2026 schema
+turns out to have been described wrongly.
 
-The script removes its own project and volume. It does **not** remove images,
-deliberately: a fresh disposable project pins its own Postgres image, so
-deleting that image only guarantees a multi-gigabyte re-download on the next
-run. If you are reclaiming space, inspect with `docker system df -v` and remove
-specific superseded image IDs by hand. Never a broad `docker system prune`;
-other local projects may depend on unrelated images or volumes.
+### What holds the baseline honest
+
+It is a reconstruction, not a dump. What keeps it true is the suites: 600
+assertions over policies, grants, RPC behaviour and the tables the baseline
+defines, and they pass against it exactly as they passed against a dump of
+production. A column the suites never read could still be wrong.
+
+To confirm it against the real thing, from a linked checkout:
+
+```bash
+supabase db dump --schema public -f /tmp/deployed.sql
+./scripts/pgtap.sh                                 # leaves nothing behind
+```
+
+and dump the scratch database the same way before it is dropped. Expect
+cosmetic differences — statement order, ownership, the `IF NOT EXISTS` clauses
+the baseline uses — and read the diff for missing columns, constraints and
+policies rather than for equality. Do this when a migration surprises you, not
+routinely.
+
+### Privileges
+
+Supabase grants `anon`, `authenticated` and `service_role` in `public` by
+default privilege, and several migrations revoke those grants by name. The
+baseline sets the same default privileges, so an object created by a migration
+is born with the same grants it is born with in production and a migration's
+`revoke ... from public, anon, authenticated` means the same thing here.
+
+This replaced a much more delicate arrangement. When the suites were seeded from
+`pg_dump`, the dump wrote the ACL it wanted each object to *end up* with,
+assuming a target starting from Postgres defaults — which a Supabase database is
+not. The old script had to clear the default privileges before restoring, or the
+suite reported about 70 phantom privilege failures and could never go green.
+None of that applies to a database built from the repository.
 
 ## Drift rule
 
@@ -113,7 +139,7 @@ blocker list and must transfer or delete those bowls first.
 
 Deletion removes personal and authorization data while retaining anonymized
 completed bowl history. The matching pgTAP suite has 16 assertions and runs on
-the disposable database with:
+the scratch database with:
 
 ```bash
 ./scripts/pgtap.sh supabase/tests/20260917212637_add_private_profiles_and_account_deletion.sql
@@ -140,11 +166,13 @@ selection and explicit changes. Deletion clears the foreign key; the next
 context read repairs the choice outside the delete cascade. RLS allows only
 own-row reads; direct preference writes and helper calls are private.
 
-The matching pgTAP file has 30 assertions. Run the separate-connection race
-checks against the disposable local project:
+The matching pgTAP file has 30 assertions. The separate-connection race checks
+need a database that outlives the run, so keep one and point them at it:
 
 ```sh
-python3 scripts/test-default-bowl-concurrency.py --container supabase_db_movie-bowl-defaults-db.SUFFIX
+PGTAP_KEEP=1 ./scripts/pgtap.sh
+python3 scripts/test-default-bowl-concurrency.py \
+  --database-url postgres://postgres@localhost:5432/movie_bowl_pgtap_NNNN
 ```
 
 Rollback is in `rollback/20260831120000_remove_user_bowl_defaults.sql`: retire
@@ -155,7 +183,7 @@ The August 31 follow-up corrected four older suites' stale expectations about
 guest attribution, private helper access, and personal-history visibility.
 The current regression baseline is 18 SQL suites / 487 assertions against a
 disposable copy of the current schema, and it passes clean — see
-[Local pgTAP verification and cleanup](#local-pgtap-verification-and-cleanup). See the
+[Local pgTAP verification](#local-pgtap-verification). See the
 [implementation record](../output/designs/default-bowl-and-global-add-implementation.md#implementation-record--august-31-2026)
 for the original failures and follow-up coverage. Do not run these fixture
 scripts against the hosted database.

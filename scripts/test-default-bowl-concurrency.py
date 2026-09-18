@@ -1,14 +1,20 @@
-"""Run against a disposable local Supabase Docker container, never a hosted DB."""
+"""Run against a scratch database, never a hosted one: this writes rows.
+
+Build one with `PGTAP_KEEP=1 ./scripts/pgtap.sh`, which prints the name it kept,
+then pass that database's URL here.
+"""
 import argparse
 import subprocess
 import uuid
 
 parser = argparse.ArgumentParser(description=__doc__)
-parser.add_argument("--container", required=True)
+parser.add_argument("--database-url", required=True)
 args = parser.parse_args()
-if not args.container.startswith("supabase_db_movie-bowl-defaults-db."):
-    parser.error("Use a disposable movie-bowl-defaults-db.* project container")
-command = ["docker", "exec", "-i", args.container, "psql", "-XAtq", "-v", "ON_ERROR_STOP=1", "-U", "postgres", "-d", "postgres"]
+# The guard is the point of the flag. A hosted Supabase URL reaches production,
+# and every statement below inserts.
+if "supabase.co" in args.database_url or "supabase.com" in args.database_url:
+    parser.error("Refusing a hosted Supabase URL. Use a scratch database.")
+command = ["psql", args.database_url, "-XAtq", "-v", "ON_ERROR_STOP=1"]
 user, bowl_a, bowl_b = (str(uuid.uuid4()) for _ in range(3))
 
 
