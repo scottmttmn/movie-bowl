@@ -44,6 +44,7 @@ const mocks = vi.hoisted(() => ({
   poolLoading: false,
   poolError: "",
   reload: vi.fn(),
+  removeRows: vi.fn(),
   theaterModeEnabled: false,
   isPersisted: true,
   setOverride: vi.fn(),
@@ -74,6 +75,7 @@ vi.mock("../../hooks/useSoloDrawPool", () => ({
     isLoading: mocks.poolLoading,
     errorMessage: mocks.poolError,
     reload: mocks.reload,
+    removeRows: mocks.removeRows,
   }),
 }));
 
@@ -200,6 +202,7 @@ describe("TV solo draw", () => {
     window.sessionStorage.clear();
     mocks.poolLoading = false;
     mocks.poolError = "";
+    mocks.removeRows.mockClear();
     mocks.theaterModeEnabled = false;
     mocks.isPersisted = true;
     mocks.drawError = "";
@@ -290,6 +293,28 @@ describe("TV solo draw", () => {
     expect(mocks.startProviderLookup).toHaveBeenCalledWith(
       expect.objectContaining({ id: "solo-feature" })
     );
+  });
+
+  // The television reads the pool once, so a draw that empties bowls has to say
+  // so here too -- otherwise the next draw of the night can pick a copy the
+  // server has already taken.
+  it("drops the copies a draw removed from the pool it holds", async () => {
+    mocks.draw.mockResolvedValue({
+      ...mocks.rows[0],
+      removedCopies: [
+        { id: "solo-feature", bowlId: "family", bowlName: "Family Night", title: "Arrival" },
+        { id: "solo-feature-copy", bowlId: "friends", bowlName: "Friday Friends", title: "Arrival" },
+      ],
+    });
+    renderSolo();
+
+    fireEvent.click(screen.getByRole("button", { name: /draw for myself/i }));
+    fireEvent.click(screen.getByRole("button", { name: /reveal one/i }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1800);
+    });
+
+    expect(mocks.removeRows).toHaveBeenCalledWith(["solo-feature", "solo-feature-copy"]);
   });
 
   it("deduplicates previews and excludes every copy of the selected feature", async () => {

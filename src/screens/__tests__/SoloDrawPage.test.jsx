@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => {
   return {
     state,
     reload: vi.fn(),
+    removeRows: vi.fn(),
     draw: vi.fn(),
     retrySave: vi.fn(),
     dismissResult: vi.fn(),
@@ -51,7 +52,7 @@ vi.mock("../../hooks/useAuth", () => ({
   default: () => ({ session: { user: { id: "user-1" } } }),
 }));
 vi.mock("../../hooks/useSoloDrawPool", () => ({
-  default: () => ({ ...mocks.state.pool, reload: mocks.reload }),
+  default: () => ({ ...mocks.state.pool, reload: mocks.reload, removeRows: mocks.removeRows }),
 }));
 vi.mock("../../hooks/useSoloDraw", () => ({
   default: () => ({
@@ -328,6 +329,28 @@ describe("SoloDrawPage", () => {
       "Saved to your watch history, and your 2 copies were removed from your bowls. Undo there within two hours to put them back."
     );
     expect(screen.queryByRole("button", { name: /keep|accept|draw again|redraw|remove/i })).toBeNull();
+  });
+
+  // The pool is read once on mount, so a draw that empties bowls has to say so
+  // to the hook holding it -- otherwise a title the server has already taken is
+  // still offered as a candidate until the screen is mounted again.
+  it("drops the copies a draw removed from the pool it holds", async () => {
+    mocks.draw.mockResolvedValue({
+      id: "m1",
+      bowl_id: "bowl-1",
+      tmdb_id: 100,
+      title: "Movie m1",
+      removedCopies: [
+        { id: "m1", bowlId: "bowl-1", bowlName: "First Bowl", title: "Movie m1" },
+        { id: "m9", bowlId: "bowl-2", bowlName: "Second Bowl", title: "Movie m1" },
+      ],
+    });
+
+    renderPage();
+    fireEvent.click(screen.getByRole("button", { name: /hold to draw/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Draw" }));
+
+    await waitFor(() => expect(mocks.removeRows).toHaveBeenCalledWith(["m1", "m9"]));
   });
 
   it("holds the bowl animation before opening the normal movie detail", async () => {

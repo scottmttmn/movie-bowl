@@ -130,6 +130,14 @@ test("automatic removal empties the bowls at reveal and undo puts them back", as
     .poll(() => backend.state.bowl_movies.filter((movie) => movie.tmdb_id === 3300).length)
     .toBe(0);
 
+  // The pool the draw came from is still on screen behind the reveal, and a
+  // copy the server has already taken must not still be offered as a candidate
+  // until someone refreshes.
+  const pool = page.getByRole("list", { name: "Movies in selected bowls" });
+  await expect(pool.getByText("Solo One Pick")).toHaveCount(0);
+  await expect(pool.getByText("Solo Two Pick")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Solo One,/ })).toHaveCount(0);
+
   await page.goto("/watch-list");
   await page.getByRole("button").filter({ hasText: "Solo One Pick" }).click();
   await page.getByRole("dialog").getByRole("button", { name: "Edit history" }).click();
