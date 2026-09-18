@@ -21,14 +21,22 @@ concurrency:
 permissions:
   contents: read
 
+# The action majors below are the ones that run on Node 24. That is a separate
+# Node from the one .nvmrc installs: an action's major decides the runtime
+# GitHub executes the action's *own* code on, so a v4 action was still a node20
+# action while every step in it ran Node 24. GitHub removes Node 20 from the
+# runners on 23 September 2026, which turns that from a warning into a failure.
+# Bumping one major is not always enough to clear it -- upload-artifact stayed
+# on node20 through v5 -- so check `runs.using` rather than counting majors.
+
 jobs:
   lint:
     name: Lint
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           # .nvmrc rather than a version written here, so the pin has one home.
           node-version-file: .nvmrc
@@ -41,8 +49,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 10
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -58,8 +66,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -74,8 +82,8 @@ jobs:
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
           cache: npm
@@ -91,7 +99,7 @@ jobs:
       # and are worth nothing once the run is understood.
       - name: Keep the failure artifacts
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: playwright-report
           path: |
