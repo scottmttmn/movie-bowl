@@ -56,6 +56,9 @@ const SOLO_FILTER_METADATA_FETCHERS = {
   fetchMovieDetails: getTmdbMovieDetails,
   fetchProviders: fetchStreamingProviders,
   fetchFilterMetadata: fetchMovieFilterMetadata,
+  // Same reason as the group stage: this screen has no opt-in to offer either,
+  // and a pool it declined to count is one the line below simply cannot state.
+  autoRunLookups: true,
 };
 
 async function enrichSoloMovie(movie) {

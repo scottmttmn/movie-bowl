@@ -59,12 +59,20 @@ export default function useDrawPoolCount(
     fetchFilterMetadata = defaultFetchFilterMetadata,
     autoLookupLimit = AUTO_LOOKUP_TITLE_LIMIT,
     hasCompleteMetadataSnapshot = false,
+    // A surface with no way to ask. The television has no opt-in to offer and
+    // nobody standing at it to tap one, so it resolves the count itself rather
+    // than showing a number the filters never touched. It costs what the draw
+    // was about to spend anyway, on a device that is on mains power.
+    autoRunLookups = false,
   } = {}
 ) {
   const [result, setResult] = useState(null);
   const [isCounting, setIsCounting] = useState(false);
   const [lookupProgress, setLookupProgress] = useState(null);
   const [didRequestLookup, setDidRequestLookup] = useState(false);
+  // Keyed rather than a boolean, so a new pool or a new filter is a new
+  // question and gets its own attempt.
+  const [failedCountKey, setFailedCountKey] = useState(null);
   const runTokenRef = useRef(0);
 
   // Held in a ref rather than the effect's deps: a caller that rebuilds this
@@ -117,9 +125,11 @@ export default function useDrawPoolCount(
 
   const shouldCount =
     poolMovies.length > 0 &&
+    failedCountKey !== countKey &&
     (!needsLookups ||
       hasCompleteMetadataSnapshot ||
       lookupEligibleTitleCount <= autoLookupLimit ||
+      autoRunLookups ||
       didRequestLookup);
 
   useEffect(() => {
@@ -226,6 +236,17 @@ export default function useDrawPoolCount(
         total: lookupEligibleTitleCount,
       });
       setIsCounting(false);
+    }).catch((error) => {
+      if (runTokenRef.current !== runToken) return;
+
+      // Settle back to the approximate readout rather than counting forever.
+      // This is the one place autoRunLookups must not retry: nobody is watching
+      // a television to stop it, so a failure that re-armed itself would spend
+      // the whole bowl's lookups again on every render.
+      console.error("[useDrawPoolCount] Failed to resolve the eligible pool", error);
+      setFailedCountKey(countKey);
+      setLookupProgress(null);
+      setIsCounting(false);
     });
 
     return () => {
@@ -236,7 +257,9 @@ export default function useDrawPoolCount(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldCount, poolKey, filtersKey]);
 
+  // An explicit ask clears a previous failure: the tap is the retry.
   const runLookups = useCallback(() => {
+    setFailedCountKey(null);
     setDidRequestLookup(true);
   }, []);
 

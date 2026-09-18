@@ -118,6 +118,7 @@ vi.mock("../../lib/tmdbApi", () => ({
   getTmdbMovieDetails: mocks.getTmdbMovieDetails,
 }));
 
+import { AUTO_LOOKUP_TITLE_LIMIT } from "../../hooks/useDrawPoolCount";
 import TvBowlPicker from "../screens/TvBowlPicker";
 import TvTonightScreen from "../screens/TvTonightScreen";
 
@@ -349,6 +350,37 @@ describe("Movie Bowl TV experience", () => {
     await waitFor(() =>
       expect(getDrawReadout()).toHaveTextContent(/^Drawing from 1 on Netflix$/)
     );
+  });
+
+  // The phone answers a bowl this size with "Preview filter matches"; the
+  // television has nobody to tap it, so it must resolve the count itself
+  // rather than leave the room reading "up to".
+  it("resolves an exact count for a bowl too large for the phone's automatic scan", async () => {
+    const titleCount = AUTO_LOOKUP_TITLE_LIMIT + 1;
+    mocks.providersByTmdbId = {};
+    mocks.bowlData = {
+      ...mocks.bowlData,
+      remaining: Array.from({ length: titleCount }, (unused, index) => {
+        const tmdbId = 2000 + index;
+        // Half are on Netflix, so the resolved pool is a real subset and the
+        // readout has an exact number to state rather than the whole bowl.
+        mocks.providersByTmdbId[tmdbId] = index % 2 === 0 ? ["Netflix"] : ["Hulu"];
+        return {
+          id: `large-${index}`,
+          tmdb_id: tmdbId,
+          title: `Large ${index}`,
+          genres: ["Drama"],
+        };
+      }),
+    };
+
+    renderTonight();
+
+    await waitFor(() =>
+      expect(getDrawReadout()).toHaveTextContent(/^Drawing from 51 on Netflix$/)
+    );
+    expect(getDrawReadout()).not.toHaveTextContent(/up to/);
+    expect(mocks.fetchStreamingProviders).toHaveBeenCalledTimes(titleCount);
   });
 
   // What the remote changes here belongs to this television. Anyone in the room

@@ -522,13 +522,21 @@ export default function TvTonightScreen({ userId }) {
   drawOptionsRef.current = drawOptions;
   const filterMetadataFetchersRef = useRef(filterMetadataFetchers);
   filterMetadataFetchersRef.current = filterMetadataFetchers;
+  // The phone answers a large uncached bowl with a tap; a television has no
+  // such tap to offer, so it resolves the count itself. The draw is about to
+  // spend the same metadata requests moments later, so this brings the cost
+  // forward rather than adding one.
+  const drawPoolOptions = useMemo(
+    () => ({ ...filterMetadataFetchers, autoRunLookups: true }),
+    [filterMetadataFetchers]
+  );
   const {
     status: drawPoolStatus,
     poolCount: drawPoolCount,
     totalCount: drawPoolTotalCount,
     contributorReach: drawPoolContributorReach,
     streamingMatch: drawPoolStreamingMatch,
-  } = useDrawPoolCount(bowl.remaining, drawOptions, filterMetadataFetchers);
+  } = useDrawPoolCount(bowl.remaining, drawOptions, drawPoolOptions);
   const isStreamingPrioritized =
     Boolean(drawOptions.prioritizeByServices) && streamingServices.length > 0;
   const hasResolvedPrioritizedPool =
@@ -572,9 +580,9 @@ export default function TvTonightScreen({ userId }) {
       excludedContributorCount,
     ]
   );
-  // A television cannot offer the opt-in scan the phone does, so a bowl too
-  // large to count on its own never gets an exact number here. "up to" is the
-  // honest version of that rather than a count the filters have not touched.
+  // The television resolves its own count, so this is the brief state while
+  // that runs, plus the one that outlives a failed scan. "up to" is the honest
+  // version of both rather than a count the filters have not touched.
   const isDrawReadoutApproximate =
     drawPoolStatus !== DRAW_POOL_STATUS.ready &&
     drawPoolStatus !== DRAW_POOL_STATUS.unfiltered;

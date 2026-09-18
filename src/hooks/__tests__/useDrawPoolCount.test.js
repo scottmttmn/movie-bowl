@@ -139,6 +139,94 @@ describe("useDrawPoolCount", () => {
     expect(fetchMovieDetails).toHaveBeenCalled();
   });
 
+  // The television's case. It has no opt-in to offer, so a bowl over the limit
+  // must resolve rather than settle for "up to".
+  it("counts a large bowl without a tap when autoRunLookups is set", async () => {
+    const fetchMovieDetails = vi.fn(async () => ({
+      release_dates: { results: [{ iso_3166_1: "US", release_dates: [{ certification: "R" }] }] },
+    }));
+    const movies = Array.from(
+      { length: AUTO_LOOKUP_TITLE_LIMIT + 1 },
+      (unused, index) => movie(`auto-${index + 1}`)
+    );
+
+    const { result } = renderHook(() =>
+      useDrawPoolCount(movies, {
+        ratingFilter: { allowedRatings: ["R"], includeUnknown: false },
+        genreFilter: ALL_GENRES,
+        runtimeFilter: ALL_RUNTIMES,
+      }, { fetchMovieDetails, autoRunLookups: true })
+    );
+
+    await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.unfiltered));
+    expect(result.current.status).not.toBe(DRAW_POOL_STATUS.manual);
+    expect(fetchMovieDetails).toHaveBeenCalledTimes(AUTO_LOOKUP_TITLE_LIMIT + 1);
+  });
+
+  // A failed scan must not re-arm itself: with autoRunLookups there is nobody
+  // watching a television to stop a bowl's worth of lookups running again.
+  it("settles into the manual state once when a count fails, and does not retry", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchProviders = vi.fn(async () => {
+      throw new Error("provider lookup failed");
+    });
+    const movies = Array.from(
+      { length: AUTO_LOOKUP_TITLE_LIMIT + 1 },
+      (unused, index) => movie(`failing-${index + 1}`)
+    );
+
+    const { result, rerender } = renderHook(() =>
+      useDrawPoolCount(movies, {
+        ratingFilter: ALL_RATINGS,
+        genreFilter: ALL_GENRES,
+        runtimeFilter: ALL_RUNTIMES,
+        prioritizeByServices: true,
+        userStreamingServices: ["Max"],
+      }, { fetchProviders, autoRunLookups: true })
+    );
+
+    await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.manual));
+    const callsAfterFailure = fetchProviders.mock.calls.length;
+    expect(callsAfterFailure).toBeGreaterThan(0);
+
+    rerender();
+    await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.manual));
+    expect(fetchProviders.mock.calls.length).toBe(callsAfterFailure);
+
+    consoleError.mockRestore();
+  });
+
+  // The phone's side of the same failure: the button is still the retry.
+  it("retries a failed count when the lookups are asked for explicitly", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    let shouldFail = true;
+    const fetchProviders = vi.fn(async () => {
+      if (shouldFail) throw new Error("provider lookup failed");
+      return { providers: [{ provider_name: "Max" }], region: "US", fetchedAt: null };
+    });
+
+    const { result } = renderHook(() =>
+      useDrawPoolCount([movie("r1"), movie("r2")], {
+        ratingFilter: ALL_RATINGS,
+        genreFilter: ALL_GENRES,
+        runtimeFilter: ALL_RUNTIMES,
+        prioritizeByServices: true,
+        userStreamingServices: ["Max"],
+      }, { fetchProviders })
+    );
+
+    await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.manual));
+
+    shouldFail = false;
+    act(() => {
+      result.current.runLookups();
+    });
+
+    await waitFor(() => expect(result.current.status).not.toBe(DRAW_POOL_STATUS.manual));
+
+    consoleError.mockRestore();
+  });
+
   it("counts a large bowl automatically when every lookup is in the persistent snapshot", async () => {
     const fetchMovieDetails = vi.fn(async () => ({
       release_dates: {
