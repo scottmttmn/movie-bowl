@@ -28,17 +28,14 @@ describe("AboutPage", () => {
     vi.clearAllMocks();
   });
 
-  it("renders the new product story and key sections", () => {
+  it("renders the hero and the origin story that carries the page", () => {
     renderAboutPage();
 
     expect(
       screen.getByRole("heading", { name: /stop searching\. start watching\./i })
     ).toBeInTheDocument();
-    expect(
-      screen.getByRole("heading", { name: /everyone is ready to watch/i })
-    ).toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /where this sits/i })).toBeInTheDocument();
-    expect(screen.getByText(/built for couples, families/i)).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: /why there is a bowl/i })).toBeInTheDocument();
+    expect(screen.getByText(/began because of a problem with my girlfriend/i)).toBeInTheDocument();
     expect(screen.getByText(/chance is not a compromise/i)).toBeInTheDocument();
   });
 
@@ -48,14 +45,36 @@ describe("AboutPage", () => {
     expect(screen.getByRole("button", { name: /draw tonight's movie/i })).toBeInTheDocument();
   });
 
-  it("says each thing once", () => {
+  it("pairs each thing that went wrong with the feature that answers it", () => {
     renderAboutPage();
 
-    // The page carried the collect/filter/draw beats twice, as a timeline and
-    // again as numbered steps. One list now serves both.
-    expect(screen.getAllByText(/collect over time/i)).toHaveLength(1);
-    expect(screen.getAllByText(/filter for tonight/i)).toHaveLength(1);
-    expect(screen.getAllByText(/draw together/i)).toHaveLength(1);
+    expect(
+      screen.getByRole("heading", { name: /then i started noticing things/i })
+    ).toBeInTheDocument();
+    expect(screen.getByText(/one person could dominate the bowl/i)).toBeInTheDocument();
+    expect(screen.getByText(/the draw picks a person first/i)).toBeInTheDocument();
+    expect(screen.getByText(/most importantly, the bowl was in one location/i))
+      .toBeInTheDocument();
+  });
+
+  it("hands a reader the directions for running a bowl on paper", () => {
+    renderAboutPage();
+
+    expect(screen.getByText(/i encourage you to go right ahead/i)).toBeInTheDocument();
+    const directions = screen.getByRole("heading", { name: /how to run a bowl out of paper/i })
+      .parentElement.querySelectorAll("ol > li");
+    expect(directions).toHaveLength(7);
+    expect(screen.getByText(/folded so that the title is hidden/i)).toBeInTheDocument();
+  });
+
+  it("signs the page once, at the end", () => {
+    renderAboutPage();
+
+    // The signature sat under the story while the page kept talking in first
+    // person afterwards, which read as a false ending. One signature, last.
+    const signatures = screen.getAllByText(/^— Scott$/);
+    expect(signatures).toHaveLength(1);
+    expect(screen.getByText("Welcome.")).toBeInTheDocument();
   });
 
   it("renders support and signed-out product actions", () => {
@@ -80,15 +99,14 @@ describe("AboutPage", () => {
     });
   });
 
-  it("explains the product flow and contributor-first fairness", () => {
+  it("leaves first-run guidance to the empty My Bowls screen", () => {
     renderAboutPage();
 
-    expect(screen.getByText(/collect over time/i)).toBeInTheDocument();
-    expect(screen.getByText(/filter for tonight/i)).toBeInTheDocument();
-    expect(screen.getByText(/draw together/i)).toBeInTheDocument();
-    expect(
-      screen.getByText(/the bowl selects a member first, then one of their movies/i)
-    ).toBeInTheDocument();
+    // The real onboarding lives there. This page explains why the app exists,
+    // and a second set of steps here would compete with it.
+    expect(screen.queryByText(/collect over time/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/filter for tonight/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: /where this sits/i })).not.toBeInTheDocument();
   });
 
   it("attributes TMDB and JustWatch data", () => {
