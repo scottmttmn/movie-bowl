@@ -13,7 +13,7 @@ the rest; later phases are not a commitment to build.
 This document is about the television. Bringing the same pre-roll to the phone
 and laptop draw is specified in `tv-web-seam.md` and shares this file's queue
 and player code; the roadmap below does not cover it, except for phase 2.5's
-auto-start, which is planned for both.
+auto-start, which has shipped on both.
 
 ## Product Idea
 
