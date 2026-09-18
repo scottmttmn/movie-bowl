@@ -15,6 +15,7 @@ npm run dev          # Vite dev server, frontend only — /api/* routes will 404
 npm run dev:api      # full local behavior including /api/* serverless routes
 npm run test:run     # run the whole Vitest suite once (the pre-merge gate)
 npm run test:failures # name the tests that failed in the last test:run
+npm run test:counts  # hold CLAUDE.md's counts to the last run of each suite
 npm run test         # Vitest watch mode
 npm run test:coverage
 npm run test:e2e     # Playwright smoke suite, part of the gate; no production credentials
@@ -38,6 +39,20 @@ fully green (148 test files / 1238 tests, 68 Playwright tests with 7 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
+`npm run test:counts` enforces that, reading the sentence above and comparing it
+to what each suite last reported. It exists because a lost test does not turn a
+suite red: the number simply gets smaller and the run stays green, which is the
+one thing a tripwire nobody reads cannot catch.
+
+`.github/workflows/ci.yml` runs lint, build, the Vitest suite and the Playwright
+suite on every pull request and on `main`, each with that count check. It is not
+a substitute for running the gate before you commit — it answers minutes later,
+and the Playwright suite is where a change you can see usually breaks — but it
+is what makes a green checkout a claim rather than a habit. `./scripts/pgtap.sh`
+is deliberately not in it: it seeds its disposable database from a dump of the
+linked Supabase project, and this repository is public, so automating it would
+mean keeping a production credential in CI. Database changes stay a local step
+until the schema baseline lives in the repository.
 
 The Playwright suite is in the gate because leaving it out did not hold. It was
 red on a clean checkout for three separate pieces of shipped work — none of them
@@ -46,8 +61,10 @@ been deliberately replaced — and a suite that is red by default cannot report 
 regression. It takes about two minutes and needs `npx playwright install
 chromium` once.
 
-`test:run` writes the run to `.vitest/last-run.json` (gitignored, overwritten
-each time) and `npm run test:failures` names what failed in it. Reach for that
+`test:run` writes the run to `.vitest/last-run.json` and `test:e2e` writes
+`.playwright/last-run.json` (both gitignored, overwritten each time);
+`npm run test:failures` names what failed in the Vitest one, and
+`npm run test:counts` is what reads both. Reach for that
 rather than grepping the console: the suite prints a lot of expected
 `console.error` from tests that deliberately exercise failure paths, so a real
 failure does not stand out, and a filtered or scrolled-away run loses the one

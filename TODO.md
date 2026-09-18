@@ -212,6 +212,18 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Technical Debt / Maintenance
 
+- **Commit a schema baseline so pgTAP can run in CI.** Lint, build, the Vitest
+  suite and the Playwright suite run on every pull request now;
+  `./scripts/pgtap.sh` is the one part of the gate left out, because it builds
+  its disposable database from `supabase db dump` against the linked project.
+  The migration history does not contain the original schema, so there is no way
+  to reconstruct one from this repository — which means automating the suite
+  today would mean keeping a credential for the production database in a public
+  repository's CI. A committed baseline migration fixes both problems at once:
+  the script stops needing the hosted project, and the schema stops living only
+  in a database nobody can read from a checkout. Until then, database changes
+  are verified by hand before `supabase db push`.
+
 - **Meter the free tiers — partly done.** `service_usage_counters` now records
   daily per-metric spend through `record_service_usage`, wired at the two
   chokepoints that already hold the service role: invite mail (with a warning

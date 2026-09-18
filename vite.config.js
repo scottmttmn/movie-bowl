@@ -68,6 +68,18 @@ export default defineConfig(({ command }) => {
     test: {
       environment: "jsdom",
       maxWorkers: 2,
+      // The Supabase client throws "supabaseUrl is required" at import without
+      // these, which takes five test files down before their tests are ever
+      // collected -- so the run loses fifty tests and still reports every
+      // remaining one as passing. Pinned here rather than left to the
+      // environment so the suite is self-contained on any machine, and so a
+      // real .env can never point a test at a real Supabase: these are the same
+      // unreachable values playwright.config.js and .app-evolution.yml use, and
+      // nothing is expected to answer them.
+      env: {
+        VITE_SUPABASE_URL: "http://127.0.0.1:54321",
+        VITE_SUPABASE_ANON_KEY: "movie-bowl-e2e-anon-key",
+      },
       // Must stay comfortably above the setup file's asyncUtilTimeout. If a
       // waitFor can consume the whole per-test budget, a wait that is merely
       // slow reports as an opaque test timeout instead of naming the assertion

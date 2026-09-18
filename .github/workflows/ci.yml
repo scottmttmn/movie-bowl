@@ -1,0 +1,100 @@
+# The gate CLAUDE.md describes, run by a machine on every pull request.
+#
+# It is the same four commands a person runs by hand -- lint, build, the Vitest
+# suite, the Playwright smoke suite -- and deliberately not `./scripts/pgtap.sh`,
+# which seeds its disposable database from a dump of the linked Supabase project
+# and so cannot run here without giving a public repository's CI a credential
+# for production. Database changes stay a local step until the schema baseline
+# lives in the repo.
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+# A second push answers the question the first run was asking, so let it go.
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  lint:
+    name: Lint
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          # .nvmrc rather than a version written here, so the pin has one home.
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      - run: npm run lint
+
+  build:
+    name: Build
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # Vercel builds every pull request too, but with the project's real
+      # environment. This one builds with none, which is the only way to catch a
+      # build that has quietly come to depend on one -- and it answers in
+      # seconds, before a deploy has started.
+      - run: npm run build
+
+  test:
+    name: Tests
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # No Supabase variables: vite.config.js pins unreachable ones for tests.
+      - run: npm run test:run
+      - name: Check the counts in CLAUDE.md
+        run: npm run test:counts -- vitest
+
+  e2e:
+    name: Playwright
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      - run: npm ci
+      # The browser the installed Playwright actually pins. Getting that right
+      # is most of why this suite is worth running here: a machine with the
+      # matching build reports the app, and one without reports the mismatch.
+      - run: npx playwright install --with-deps chromium
+      - run: npm run test:e2e
+      - name: Check the counts in CLAUDE.md
+        run: npm run test:counts -- playwright
+      # Only on a failure, and only for a week: the trace and video are large
+      # and are worth nothing once the run is understood.
+      - name: Keep the failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
