@@ -11,14 +11,13 @@ values
   ('00000000-0000-0000-0000-000000000002', 'member@example.com'),
   ('00000000-0000-0000-0000-000000000003', 'outsider@example.com');
 
-insert into public.profiles (id, email)
-select id, email
-from auth.users
-where id in (
-  '00000000-0000-0000-0000-000000000001',
-  '00000000-0000-0000-0000-000000000002',
-  '00000000-0000-0000-0000-000000000003'
-);
+-- Display names carry the shared identity the scoped directory returns; the
+-- email stays on the row but is no longer something another member can read.
+insert into public.profiles (id, email, display_name)
+values
+  ('00000000-0000-0000-0000-000000000001', 'owner@example.com', 'Bowl Owner'),
+  ('00000000-0000-0000-0000-000000000002', 'member@example.com', 'Bowl Member'),
+  ('00000000-0000-0000-0000-000000000003', 'outsider@example.com', 'Outsider');
 
 insert into public.bowls (id, name, owner_id)
 values (
@@ -158,19 +157,23 @@ select is(
   'members can update their own profile'
 );
 
+-- Tamper with both halves of someone else's profile, then read back the half a
+-- member can actually see. The scoped directory is that whole channel: a direct
+-- select returns only the caller's own row, which the assertion above pins.
 update public.profiles
-set email = 'tampered@example.com'
+set email = 'tampered@example.com',
+    display_name = 'Tampered Name'
 where id = '00000000-0000-0000-0000-000000000001';
 
 select is(
   (
-    select email
+    select display_name
     from public.get_bowl_profile_directory(
       '10000000-0000-0000-0000-000000000001'
     )
     where user_id = '00000000-0000-0000-0000-000000000001'
   ),
-  'owner@example.com',
+  'Bowl Owner',
   'members cannot update another profile'
 );
 
