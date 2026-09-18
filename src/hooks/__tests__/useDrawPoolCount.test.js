@@ -196,6 +196,35 @@ describe("useDrawPoolCount", () => {
     consoleError.mockRestore();
   });
 
+  // The shape that matters most, because it does not look like a failure:
+  // fetchStreamingProviders resolves rather than rejects when a lookup fails,
+  // so the scan "succeeds" with a title silently missing from the matches.
+  it("keeps the count approximate when a provider lookup resolves as failed", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    const fetchProviders = vi.fn(async (tmdbId) =>
+      Number(tmdbId) === 2
+        ? { providers: [], region: "US", fetchedAt: null, status: "failed" }
+        : { providers: [{ provider_name: "Max" }], region: "US", fetchedAt: null }
+    );
+
+    const { result } = renderHook(() =>
+      useDrawPoolCount([movie("m1"), movie("m2"), movie("m3")], {
+        ratingFilter: ALL_RATINGS,
+        genreFilter: ALL_GENRES,
+        runtimeFilter: ALL_RUNTIMES,
+        prioritizeByServices: true,
+        userStreamingServices: ["Max"],
+      }, { fetchProviders, autoRunLookups: true })
+    );
+
+    // Without this, the readout would state 2 as an exact count while the
+    // draw, re-fetching an uncached failure, can still reach all three.
+    await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.manual));
+    expect(result.current.poolCount).toBeNull();
+
+    consoleError.mockRestore();
+  });
+
   // The phone's side of the same failure: the button is still the retry.
   it("retries a failed count when the lookups are asked for explicitly", async () => {
     const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});

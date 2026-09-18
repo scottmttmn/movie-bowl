@@ -72,6 +72,14 @@ export async function getStreamingPriorityPool(
   const matchedCandidates = candidatesWithProviders.filter(
     (candidate) => candidate.matchedServices.length > 0
   );
+  // A lookup that failed comes back as a title with no providers, which is
+  // indistinguishable from one that genuinely matches nothing -- so the pool is
+  // a floor rather than an answer. The draw picks from it anyway; a readout
+  // that states a number has to know the difference.
+  const failedLookupCount = candidatesWithProviders.reduce(
+    (count, candidate) => count + (candidate.providerStatus === "failed" ? 1 : 0),
+    0
+  );
 
   if (matchedCandidates.length === 0) {
     return {
@@ -79,6 +87,7 @@ export async function getStreamingPriorityPool(
       matchCount: 0,
       topService: null,
       topServiceCount: 0,
+      failedLookupCount,
     };
   }
 
@@ -95,6 +104,7 @@ export async function getStreamingPriorityPool(
     matchCount: matchedCandidates.length,
     topService: normalizedUserServices[topRank] || null,
     topServiceCount: topCandidates.length,
+    failedLookupCount,
   };
 }
 

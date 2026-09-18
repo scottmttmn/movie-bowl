@@ -201,6 +201,7 @@ export default function useDrawPoolCount(
       if (!canPrioritizeStreaming) {
         return {
           candidates: filteredCandidates,
+          failedLookupCount: 0,
           streamingMatch: EMPTY_STREAMING_MATCH,
         };
       }
@@ -212,6 +213,7 @@ export default function useDrawPoolCount(
       });
       return {
         candidates: streamingPool.candidates.map((candidate) => candidate?.movie || candidate),
+        failedLookupCount: streamingPool.failedLookupCount || 0,
         streamingMatch: {
           matchCount: streamingPool.matchCount,
           topService: streamingPool.topService,
@@ -220,8 +222,25 @@ export default function useDrawPoolCount(
       };
     };
 
-    countPool().then(({ candidates, streamingMatch }) => {
+    countPool().then(({ candidates, failedLookupCount, streamingMatch }) => {
       if (runTokenRef.current !== runToken) return;
+
+      // A provider lookup that failed is not an empty result, but it arrives
+      // looking like one, so the pool it produced is a floor rather than a
+      // count. Stating it would be worse than the approximation it replaced:
+      // failures are not cached, so the draw moments later re-fetches and can
+      // legitimately reach a title this scan just left out. Settle for the
+      // approximate readout, which is the honest answer and, on the phone,
+      // puts the retry back under the person's thumb.
+      if (failedLookupCount > 0) {
+        console.error(
+          `[useDrawPoolCount] ${failedLookupCount} provider lookup(s) failed; keeping the count approximate`
+        );
+        setFailedCountKey(countKey);
+        setLookupProgress(null);
+        setIsCounting(false);
+        return;
+      }
 
       setResult({
         countKey,
