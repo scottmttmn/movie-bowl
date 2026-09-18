@@ -165,7 +165,9 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
     const normalized = normalizeDisplayName(value);
     const { error } = await supabase
       .from("profiles")
-      .update({ display_name: normalized })
+      // Null, never "": the column's check constraint rejects an empty string,
+      // and absent is what the neutral fallback reads.
+      .update({ display_name: normalized || null })
       .eq("id", user.id);
 
     return { error };

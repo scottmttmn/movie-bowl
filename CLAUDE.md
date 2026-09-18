@@ -34,7 +34,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (149 test files / 1225 tests, 68 Playwright tests with 7 skipped,
+fully green (149 test files / 1233 tests, 68 Playwright tests with 7 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -242,7 +242,7 @@ back with a fresh timestamp to run). See `supabase/README.md`.
 Run database tests with `./scripts/pgtap.sh`, which builds a disposable local
 Supabase project from a schema-only dump of the linked project, applies whatever
 is not yet deployed, runs the suites and removes the project on exit. Never
-against the hosted database: pgTAP writes rows. A clean run is 23 suites / 598
+against the hosted database: pgTAP writes rows. A clean run is 23 suites / 600
 assertions, all passing.
 
 The script clears Supabase's default privileges before restoring the dump, and

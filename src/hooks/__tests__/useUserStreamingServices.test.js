@@ -281,4 +281,39 @@ describe("useUserStreamingServices", () => {
     expect(result.current.defaultDrawSettings.runtimeMaxMinutes).toBe(180);
     consoleSpy.mockRestore();
   });
+
+  it("stores a display name in normalized form", async () => {
+    const { result } = renderHook(() => useUserStreamingServices());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let response;
+    await act(async () => { response = await result.current.saveDisplayName("  Movie   Friend  "); });
+
+    expect(response.error).toBeFalsy();
+    expect(mocks.state.updatedPayloads).toEqual([{ display_name: "Movie Friend" }]);
+  });
+
+  it("clears a display name to null rather than refusing it", async () => {
+    const { result } = renderHook(() => useUserStreamingServices());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    // The column is nullable and the empty string violates its check
+    // constraint, so clearing has to write absent, not blank.
+    let response;
+    await act(async () => { response = await result.current.saveDisplayName("   "); });
+
+    expect(response.error).toBeFalsy();
+    expect(mocks.state.updatedPayloads).toEqual([{ display_name: null }]);
+  });
+
+  it("refuses a display name past the stored limit", async () => {
+    const { result } = renderHook(() => useUserStreamingServices());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+
+    let response;
+    await act(async () => { response = await result.current.saveDisplayName("x".repeat(41)); });
+
+    expect(response.error.message).toMatch(/40 characters or fewer/);
+    expect(mocks.state.updatedPayloads).toEqual([]);
+  });
 });

@@ -6,7 +6,9 @@ export function normalizeDisplayName(value) {
 
 export function getDisplayNameValidationError(value) {
   const normalized = normalizeDisplayName(value);
-  if (!normalized) return "Enter the name people in your bowls should see.";
+  // Empty is a choice rather than a mistake: it restores the neutral member
+  // label every shared surface falls back to, which is why the column is
+  // nullable. Refusing it would make a name that was set once permanent.
   if (normalized.length > DISPLAY_NAME_MAX_LENGTH) {
     return `Display name must be ${DISPLAY_NAME_MAX_LENGTH} characters or fewer.`;
   }

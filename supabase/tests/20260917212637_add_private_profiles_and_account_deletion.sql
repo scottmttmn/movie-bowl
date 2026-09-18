@@ -30,6 +30,31 @@ select throws_ok(
   'display names must be stored in normalized form'
 );
 
+select throws_ok(
+  $$
+    update public.profiles
+    set display_name = ''
+    where id = '00000000-0000-0000-0000-000000000301'
+  $$,
+  '23514',
+  null,
+  'an empty display name is refused, so clearing one cannot store a blank'
+);
+
+select lives_ok(
+  $$
+    update public.profiles
+    set display_name = null
+    where id = '00000000-0000-0000-0000-000000000301'
+  $$,
+  'a display name can be cleared back to absent'
+);
+
+-- Put the name back: the transfer and directory assertions below read it.
+update public.profiles
+set display_name = 'Owner One'
+where id = '00000000-0000-0000-0000-000000000301';
+
 select ok(
   has_function_privilege(
     'authenticated',

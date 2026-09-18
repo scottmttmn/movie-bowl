@@ -93,6 +93,7 @@ export default function UserSettings() {
   const [deleteAccountError, setDeleteAccountError] = useState(null);
   const [ownedBowlBlockers, setOwnedBowlBlockers] = useState([]);
   const streamingServicesRef = useRef(null);
+  const deleteDialogRef = useRef(null);
   const {
     streamingServices,
     displayName,
@@ -255,6 +256,59 @@ export default function UserSettings() {
     setOwnedBowlBlockers([]);
   };
 
+  // The effect below must not re-run as the dialog's own state changes: its
+  // cleanup restores focus to the page behind, and both of these are fresh
+  // every render.
+  const closeDeleteDialogRef = useRef(closeDeleteDialog);
+  useEffect(() => { closeDeleteDialogRef.current = closeDeleteDialog; });
+
+  useEffect(() => {
+    if (!isDeleteDialogOpen) return undefined;
+    const dialog = deleteDialogRef.current;
+    const previousFocus = document.activeElement;
+    const previousOverflow = document.body.style.overflow;
+    document.body.style.overflow = "hidden";
+    dialog?.querySelector("#delete-account-confirm")?.focus();
+
+    const handleKeyDown = (event) => {
+      if (event.key === "Escape") {
+        event.preventDefault();
+        // Closing already refuses while a deletion is in flight, so Escape
+        // cannot abandon a request that has gone out.
+        closeDeleteDialogRef.current();
+        return;
+      }
+      if (event.key !== "Tab") return;
+      // Read per keystroke rather than once: the owned-bowl links only appear
+      // after a refused attempt, and every control disables itself while a
+      // deletion is in flight.
+      const controls = [...dialog.querySelectorAll("a[href], button:not(:disabled), input:not(:disabled)")];
+      if (controls.length === 0) {
+        // Nothing left to hold focus while the request runs. Without this, Tab
+        // finds no `last` to match against and walks into the page behind.
+        event.preventDefault();
+        dialog.focus();
+        return;
+      }
+      const first = controls[0];
+      const last = controls.at(-1);
+      if (event.shiftKey && (document.activeElement === first || document.activeElement === dialog)) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && document.activeElement === last) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    document.addEventListener("keydown", handleKeyDown);
+    return () => {
+      document.body.style.overflow = previousOverflow;
+      document.removeEventListener("keydown", handleKeyDown);
+      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
+    };
+  }, [isDeleteDialogOpen]);
+
   const handleDeleteAccount = async (event) => {
     event.preventDefault();
     if (deleteConfirmation.trim() !== "DELETE") return;
@@ -362,7 +416,6 @@ export default function UserSettings() {
                 id="display-name"
                 name="display_name"
                 type="text"
-                required
                 maxLength={DISPLAY_NAME_MAX_LENGTH}
                 autoComplete="name"
                 value={displayName}
@@ -371,7 +424,8 @@ export default function UserSettings() {
                 className="input-field"
               />
               <p className="mt-1 text-xs text-slate-500">
-                Names do not need to be unique. No public profile page is created.
+                Names do not need to be unique, and clearing yours shows a neutral label.
+                No public profile page is created.
               </p>
             </div>
           </section>
@@ -734,17 +788,19 @@ export default function UserSettings() {
 
       {isDeleteDialogOpen && (
         <div
-          className="fixed inset-0 z-[70] flex items-center justify-center bg-slate-950/85 p-4 backdrop-blur-sm"
+          className="modal-overlay z-[70]"
           role="presentation"
           onMouseDown={(event) => {
             if (event.target === event.currentTarget) closeDeleteDialog();
           }}
         >
           <div
+            ref={deleteDialogRef}
+            tabIndex={-1}
             role="dialog"
             aria-modal="true"
             aria-labelledby="delete-account-heading"
-            className="w-full max-w-lg rounded-2xl border border-rose-900/70 bg-slate-900 p-5 shadow-2xl"
+            className="modal-surface max-w-lg p-5 sm:p-6"
           >
             <h2 id="delete-account-heading" className="text-xl font-semibold text-slate-50">
               Permanently delete your account?
@@ -782,7 +838,7 @@ export default function UserSettings() {
                 value={deleteConfirmation}
                 onChange={(event) => setDeleteConfirmation(event.target.value)}
                 className="input-field mt-1"
-                autoFocus
+                disabled={isDeletingAccount}
               />
               <div className="mt-5 flex flex-col-reverse gap-2 sm:flex-row sm:justify-end">
                 <button type="button" className="btn btn-secondary" disabled={isDeletingAccount} onClick={closeDeleteDialog}>

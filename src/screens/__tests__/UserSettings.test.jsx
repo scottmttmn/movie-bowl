@@ -437,4 +437,69 @@ describe("UserSettings", () => {
       state: { accountDeleted: true },
     });
   });
+
+  it("opens the delete dialog on its confirmation field and closes it on Escape", () => {
+    renderSettings();
+    const opener = screen.getByRole("button", { name: /^delete account$/i });
+
+    // jsdom's click does not focus its target the way a real one does, and the
+    // restore on close has to have somewhere to go back to.
+    opener.focus();
+    fireEvent.click(opener);
+    expect(screen.getByLabelText(/type delete to confirm/i)).toHaveFocus();
+    expect(document.body.style.overflow).toBe("hidden");
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(document.body.style.overflow).toBe("");
+    expect(opener).toHaveFocus();
+  });
+
+  it("keeps Tab inside the delete dialog", () => {
+    renderSettings();
+    fireEvent.click(screen.getByRole("button", { name: /^delete account$/i }));
+
+    const field = screen.getByLabelText(/type delete to confirm/i);
+    const cancel = screen.getByRole("button", { name: /^cancel$/i });
+    const confirm = screen.getByRole("button", { name: /delete account permanently/i });
+
+    // Forward off the last control wraps to the first, and back off the first
+    // wraps to the last -- the confirm button is disabled until DELETE is typed,
+    // so the cycle has to be read live rather than fixed when the dialog opened.
+    cancel.focus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(field).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(cancel).toHaveFocus();
+
+    fireEvent.change(field, { target: { value: "DELETE" } });
+    expect(confirm).toBeEnabled();
+    confirm.focus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(field).toHaveFocus();
+  });
+
+  it("does not let Escape abandon a deletion already in flight", async () => {
+    let settle;
+    mocks.deleteMyAccount.mockReturnValue(new Promise((resolve) => { settle = resolve; }));
+    renderSettings();
+
+    fireEvent.click(screen.getByRole("button", { name: /^delete account$/i }));
+    fireEvent.change(screen.getByLabelText(/type delete to confirm/i), {
+      target: { value: "DELETE" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /delete account permanently/i }));
+    await waitFor(() => expect(mocks.deleteMyAccount).toHaveBeenCalledOnce());
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    // What holds it open is the in-flight flag, not a dead key: the same press
+    // closes the dialog once the request has landed.
+    await act(async () => { settle({ ok: false, error: "Nope" }); });
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
 });

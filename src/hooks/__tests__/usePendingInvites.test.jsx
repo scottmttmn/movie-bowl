@@ -91,6 +91,22 @@ describe("usePendingInvites", () => {
     expect(result.current.invites[0]).not.toHaveProperty("invited_by_email");
   });
 
+  it("names a sender who has not chosen a display name", async () => {
+    mocks.state.senderRows = [{ user_id: "owner-1", display_name: null }];
+    const { result } = renderProvider();
+    await waitFor(() => expect(result.current.invites).toHaveLength(1));
+
+    expect(result.current.invites[0].invited_by_name).toBe("Member NER1");
+  });
+
+  it("names a sender the directory did not return", async () => {
+    mocks.state.senderRows = [];
+    const { result } = renderProvider();
+    await waitFor(() => expect(result.current.invites).toHaveLength(1));
+
+    expect(result.current.invites[0].invited_by_name).toBe("Member NER1");
+  });
+
   it("does not let a read that started earlier resurrect an accepted invite", async () => {
     mocks.state.holdQuery = true;
     const { result } = renderProvider();
