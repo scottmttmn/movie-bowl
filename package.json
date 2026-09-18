@@ -12,6 +12,7 @@
     "test": "vitest",
     "test:run": "vitest run --reporter=default --reporter=json --outputFile.json=.vitest/last-run.json",
     "test:failures": "node scripts/test-failures.mjs",
+    "test:counts": "node scripts/check-test-counts.mjs",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test"
   },

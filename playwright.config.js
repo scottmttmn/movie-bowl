@@ -15,6 +15,9 @@ export default defineConfig({
   reporter: [
     ["line"],
     ["html", { open: "never", outputFolder: "playwright-report" }],
+    // Read by scripts/check-test-counts.mjs, the same way test:run's JSON
+    // report is. Gitignored and overwritten on every run.
+    ["json", { outputFile: ".playwright/last-run.json" }],
   ],
   outputDir: "test-results",
   use: {
