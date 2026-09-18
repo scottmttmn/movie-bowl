@@ -236,9 +236,9 @@ export default function InvitesPage() {
                         <h3 className="text-base font-semibold text-slate-100">
                           {invite.bowl_name || "Movie Bowl Invite"}
                         </h3>
-                        {invite.invited_by_email && (
+                        {invite.invited_by_name && (
                           <p className="mt-1 truncate text-sm text-slate-400">
-                            Invited by {invite.invited_by_email}
+                            Invited by {invite.invited_by_name}
                           </p>
                         )}
                       </div>

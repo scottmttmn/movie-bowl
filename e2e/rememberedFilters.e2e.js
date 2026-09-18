@@ -45,7 +45,11 @@ test("filters survive reload and settings edits, and reset leaves playback intac
   await filters.getByRole("button", { name: /edit streaming service ranking/i }).click();
   await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Draw filter defaults" })).toHaveCount(0);
-  await expect(page.getByRole("navigation", { name: "Settings sections" }).getByRole("link")).toHaveCount(2);
+  // Named rather than counted: a bare count went stale the moment a section was
+  // added, and the point of the assertion is which sections live here -- the
+  // dashboard owns the draw filters, so none of these may be one.
+  await expect(page.getByRole("navigation", { name: "Settings sections" }).getByRole("link"))
+    .toHaveText([/^Profile/, /^Streaming/, /^Solo draw/, /^TV playback/, /^Account/]);
   await page.getByText("Open the service's website for a drawn movie", { exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "All changes saved" })).toBeVisible();
   expect(profile.default_draw_settings).toMatchObject({

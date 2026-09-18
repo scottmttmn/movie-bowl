@@ -118,7 +118,10 @@ test("automatic removal empties the bowls at reveal and undo puts them back", as
   backend.state.profiles[0].remove_from_bowls_on_solo_draw = true;
 
   await page.goto("/solo-draw?bowl=solo-bowl-1");
-  await page.getByRole("button", { name: /Press and hold to draw/i }).press("Enter");
+  const drawButton = page.getByRole("button", { name: /Press and hold to draw/i });
+  await expect(drawButton).toBeEnabled();
+  await drawButton.press("Enter");
+  await expect(page.getByRole("dialog", { name: "Draw a movie for yourself?" })).toBeVisible();
   await page.getByRole("button", { name: "Draw", exact: true }).click();
 
   // Both copies of the title go, including the one in a bowl outside the scope.

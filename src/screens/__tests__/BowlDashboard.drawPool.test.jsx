@@ -124,7 +124,7 @@ const TWO_CONTRIBUTORS = [
     tmdb_id: 101,
     title: "Action A",
     genres: ["Action"],
-    profiles: { email: "alex@example.com" },
+    profiles: { display_name: "Alex" },
   },
   {
     id: "m2",
@@ -132,7 +132,7 @@ const TWO_CONTRIBUTORS = [
     tmdb_id: 102,
     title: "Action B",
     genres: ["Action"],
-    profiles: { email: "alex@example.com" },
+    profiles: { display_name: "Alex" },
   },
   {
     id: "m3",
@@ -140,7 +140,7 @@ const TWO_CONTRIBUTORS = [
     tmdb_id: 103,
     title: "Comedy A",
     genres: ["Comedy"],
-    profiles: { email: "sam@example.com" },
+    profiles: { display_name: "Sam" },
   },
 ];
 
@@ -236,7 +236,7 @@ describe("BowlDashboard draw pool count", () => {
           tmdb_id: 104,
           title: "Action C",
           genres: ["Action"],
-          profiles: { email: "sam@example.com" },
+          profiles: { display_name: "Sam" },
         },
       ],
       watched: [],
@@ -265,7 +265,7 @@ describe("BowlDashboard draw pool count", () => {
     fireEvent.click(
       screen.getByRole("button", { name: /how this bowl picks — some people are filtered out/i })
     );
-    expect(screen.getByText(/alex is left out — your filters removed every movie they added\./)).toBeInTheDocument();
+    expect(screen.getByText(/Alex is left out — your filters removed every movie they added\./)).toBeInTheDocument();
   });
 
   it("shows the live eligible count in the filters overlay with reset and done", async () => {
@@ -312,6 +312,6 @@ describe("BowlDashboard draw pool count", () => {
     expect(screen.queryByRole("button", { name: /people have a movie in the draw/i })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks$/i }));
-    expect(screen.getByText(/alex is left out — your filters removed every movie they added\./)).toBeInTheDocument();
+    expect(screen.getByText(/Alex is left out — your filters removed every movie they added\./)).toBeInTheDocument();
   });
 });

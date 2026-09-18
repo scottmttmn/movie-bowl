@@ -12,7 +12,7 @@ const mocks = vi.hoisted(() => {
       remaining: [{ id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A", genres: ["Action"], runtime: 120 }],
       watched: [],
     },
-    drawOdds: [{ bucketKey: "user:u1", member: "owner@example.com", movieCount: 1, drawOdds: 1 }],
+    drawOdds: [{ bucketKey: "user:u1", member: "Owner", movieCount: 1, drawOdds: 1 }],
     handleDraw: vi.fn(),
     handleDeleteMovie: vi.fn(async () => true),
     handleReaddMovie: vi.fn(async () => true),
@@ -147,7 +147,7 @@ describe("BowlDashboard draw flow", () => {
       remaining: [{ id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A", genres: ["Action"], runtime: 120 }],
       watched: [],
     };
-    mocks.state.drawOdds = [{ bucketKey: "user:u1", member: "owner@example.com", movieCount: 1, drawOdds: 1 }];
+    mocks.state.drawOdds = [{ bucketKey: "user:u1", member: "Owner", movieCount: 1, drawOdds: 1 }];
     mocks.state.handleDeleteMovie.mockClear();
     mocks.state.handleReaddMovie.mockClear();
     mocks.state.handleDraw.mockReset();
@@ -184,7 +184,8 @@ describe("BowlDashboard draw flow", () => {
       runtime: 120,
       release_date: "2020-01-01",
       streamingProviders: [],
-      profiles: { email: "owner@example.com" },
+      added_by: "u1",
+      profiles: { display_name: "Owner" },
     });
 
     renderDashboard();
@@ -218,7 +219,7 @@ describe("BowlDashboard draw flow", () => {
     expect(screen.queryByText(/drawing a title from the bowl/i)).not.toBeInTheDocument();
     expect(screen.getByRole("heading", { name: "Movie A", level: 2 })).toBeInTheDocument();
     expect(screen.getByText("Added by")).toBeInTheDocument();
-    expect(screen.getByText("owner")).toBeInTheDocument();
+    expect(screen.getByText("Owner")).toBeInTheDocument();
     vi.useRealTimers();
   });
 

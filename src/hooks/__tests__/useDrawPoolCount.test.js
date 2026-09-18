@@ -90,8 +90,8 @@ describe("useDrawPoolCount", () => {
   it("reports which contributors the filtered pool cannot reach", async () => {
     const fetchMovieDetails = vi.fn();
     const movies = [
-      movie("m1", { added_by: "user-1", profiles: { email: "alex@example.com" } }),
-      movie("m2", { added_by: "user-2", profiles: { email: "sam@example.com" }, genres: ["Comedy"] }),
+      movie("m1", { added_by: "user-1", profiles: { display_name: "Alex" } }),
+      movie("m2", { added_by: "user-2", profiles: { display_name: "Sam" }, genres: ["Comedy"] }),
     ];
 
     const { result } = renderHook(() =>
@@ -106,7 +106,7 @@ describe("useDrawPoolCount", () => {
     expect(result.current.contributorReach).toEqual({
       totalCount: 2,
       reachedCount: 1,
-      excludedNames: ["sam"],
+      excludedNames: ["Sam"],
     });
   });
 
@@ -284,11 +284,11 @@ describe("useDrawPoolCount", () => {
       fetchedAt: null,
     }));
     const movies = [
-      movie("m1", { added_by: "user-1", profiles: { email: "alex@example.com" } }),
+      movie("m1", { added_by: "user-1", profiles: { display_name: "Alex" } }),
       movie("manual", {
         tmdb_id: -42,
         added_by: "user-2",
-        profiles: { email: "sam@example.com" },
+        profiles: { display_name: "Sam" },
       }),
     ];
 
@@ -312,7 +312,7 @@ describe("useDrawPoolCount", () => {
     expect(result.current.contributorReach).toEqual({
       totalCount: 2,
       reachedCount: 1,
-      excludedNames: ["sam"],
+      excludedNames: ["Sam"],
     });
     expect(fetchProviders).toHaveBeenCalledTimes(1);
     expect(fetchProviders).not.toHaveBeenCalledWith(-42);

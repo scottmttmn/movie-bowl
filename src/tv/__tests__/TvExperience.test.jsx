@@ -97,6 +97,7 @@ vi.mock("../../lib/providerLinks", () => ({ fetchProviderLinks: mocks.fetchProvi
 vi.mock("../../hooks/useUserStreamingServices", () => ({
   default: () => ({
     streamingServices: mocks.streamingServices,
+    displayName: "Viewer",
     defaultDrawSettings: {
       prioritizeStreaming: mocks.prioritizeStreaming,
       theaterModeEnabled: mocks.theaterModeEnabled,
@@ -129,7 +130,6 @@ function renderPicker({ autoOpenLastBowl = false, path = "/tv/bowls" } = {}) {
           element={
             <TvBowlPicker
               userId="user-1"
-              userEmail="viewer@example.com"
               onSignOut={mocks.signOutThisDevice}
               autoOpenLastBowl={autoOpenLastBowl}
             />
@@ -297,6 +297,8 @@ describe("Movie Bowl TV experience", () => {
   it("offers solo draw as a quiet route choice before the bowls", async () => {
     renderPicker();
 
+    expect(await screen.findByText("Viewer")).toBeInTheDocument();
+    expect(screen.queryByText(/viewer@example\.com/i)).not.toBeInTheDocument();
     const solo = await screen.findByRole("button", { name: /draw from my movies/i });
     expect(solo).toHaveTextContent("One private pick from all of your bowls");
 
@@ -877,10 +879,7 @@ describe("Movie Bowl TV experience", () => {
           <Route
             path="/tv/bowl/:bowlId"
             element={
-              <TvTonightScreen
-                userId="user-1"
-                userEmail="viewer@example.com"
-              />
+              <TvTonightScreen userId="user-1" />
             }
           />
           <Route path="/tv/bowls" element={<div>Bowl picker route</div>} />

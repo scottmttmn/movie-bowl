@@ -10,6 +10,7 @@ import {
 } from "react";
 import { acceptBowlInvite } from "../lib/bowlInvites";
 import { supabase } from "../lib/supabase";
+import { getProfileDisplayName } from "../utils/profileIdentity";
 
 // Pending bowl invites are shared state: the top nav shows a count badge while
 // the invites page and My Bowls both list and act on the same rows. Keeping the
@@ -34,18 +35,23 @@ async function loadInviteDetails(invites) {
     console.error("[usePendingInvites] Failed to load invite bowl names", bowlLookup.error);
   }
   if (inviterLookup.error) {
-    console.error("[usePendingInvites] Failed to load invite sender emails", inviterLookup.error);
+    console.error("[usePendingInvites] Failed to load invite senders", inviterLookup.error);
   }
 
   const bowlNameById = new Map((bowlLookup.data || []).map((row) => [row.id, row.name]));
-  const inviterEmailById = new Map(
-    (inviterLookup.data || []).map((row) => [row.user_id, row.email])
+  const inviterNameById = new Map(
+    (inviterLookup.data || []).map((row) => [row.user_id, row.display_name])
   );
 
   return invites.map((invite) => ({
     ...invite,
     bowl_name: bowlNameById.get(invite.bowl_id) || "Movie Bowl Invite",
-    invited_by_email: inviterEmailById.get(invite.invited_by) || null,
+    // A sender who has not chosen a display name still has an identity every
+    // other shared surface names -- dropping to null here would hide the one
+    // fact the row exists to carry, and the directory read can fail besides.
+    invited_by_name: invite.invited_by
+      ? getProfileDisplayName({ display_name: inviterNameById.get(invite.invited_by) }, invite.invited_by)
+      : null,
   }));
 }
 

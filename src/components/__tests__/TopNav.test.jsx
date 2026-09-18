@@ -42,7 +42,7 @@ describe("TopNav", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /navigation menu/i }));
     expect(screen.getByRole("menu")).toBeInTheDocument();
-    expect(screen.getByLabelText(/signed in as user@example\.com/i)).toBeInTheDocument();
+    expect(screen.queryByText("user@example.com")).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /about/i })).toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /my bowls/i })).not.toBeInTheDocument();
     expect(screen.getByRole("menuitem", { name: /watch history/i })).toBeInTheDocument();

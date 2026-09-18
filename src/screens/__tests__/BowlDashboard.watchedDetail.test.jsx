@@ -123,7 +123,7 @@ async function openWatchedDetail() {
   await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
   fireEvent.click(screen.getByRole("button", { name: "Show" }));
-  fireEvent.click(screen.getByRole("button", { name: "Movie A" }));
+  fireEvent.click(screen.getByRole("button", { name: /^Movie A/ }));
 
   return screen.findByRole("dialog", { name: "Movie A" });
 }

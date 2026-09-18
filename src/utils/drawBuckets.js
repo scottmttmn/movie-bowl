@@ -1,10 +1,4 @@
-function getEmailLocalPart(email) {
-  const normalized = String(email || "").trim();
-  const atIndex = normalized.indexOf("@");
-
-  if (atIndex <= 0) return null;
-  return normalized.slice(0, atIndex);
-}
+import { getProfileDisplayName, normalizeDisplayName } from "./profileIdentity";
 
 const CONTRIBUTOR_ACCENTS = [
   { backgroundColor: "#3f0d28", borderColor: "#fb7185", avatarColor: "#e11d48" },
@@ -32,10 +26,10 @@ export function getContributorBucketKey(movie) {
 }
 
 export function getContributorBucketLabel(movie) {
-  const email = String(movie?.profiles?.email || "").trim();
-  if (email) return email;
+  const displayName = normalizeDisplayName(movie?.profiles?.display_name);
+  if (displayName) return displayName;
 
-  if (movie?.added_by) return String(movie.added_by);
+  if (movie?.added_by) return getProfileDisplayName(null, movie.added_by);
 
   const guestName = String(movie?.added_by_name || "").trim();
   return guestName || "Link Guest";
@@ -45,7 +39,9 @@ export function getMovieAttributionLabel(movie) {
   const guestName = String(movie?.added_by_name || "").trim();
   if (guestName) return guestName;
 
-  return getEmailLocalPart(movie?.profiles?.email);
+  return movie?.added_by
+    ? getProfileDisplayName(movie?.profiles, movie.added_by)
+    : null;
 }
 
 export function getMovieAttributionAccent(movie) {

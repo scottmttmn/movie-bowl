@@ -13,6 +13,10 @@ export const DEFAULT_USER = {
   identities: [],
 };
 
+// The shared member identity is the profile display name, never the email
+// address, so the seeded account carries one the directories can return.
+export const DEFAULT_DISPLAY_NAME = "Smoke Tester";
+
 function createInitialState() {
   return {
     currentUser: { ...DEFAULT_USER },
@@ -20,6 +24,7 @@ function createInitialState() {
       {
         id: DEFAULT_USER.id,
         email: DEFAULT_USER.email,
+        display_name: DEFAULT_DISPLAY_NAME,
         streaming_services: [],
         default_draw_settings: null,
         remove_from_bowls_on_solo_draw: false,
@@ -231,6 +236,7 @@ export class FakeBackend {
       this.state.profiles.push({
         id: user.id,
         email: user.email,
+        display_name: user.display_name ?? null,
         streaming_services: [],
         default_draw_settings: null,
       });
@@ -452,7 +458,7 @@ export class FakeBackend {
       ]);
       const rows = this.state.profiles
         .filter((profile) => userIds.has(profile.id))
-        .map((profile) => ({ user_id: profile.id, email: profile.email }));
+        .map((profile) => ({ user_id: profile.id, display_name: profile.display_name ?? null }));
       await fulfillJson(route, rows);
       return;
     }
@@ -460,7 +466,10 @@ export class FakeBackend {
     if (rpcName === "get_my_invite_sender_directory") {
       await fulfillJson(
         route,
-        this.state.profiles.map((profile) => ({ user_id: profile.id, email: profile.email }))
+        this.state.profiles.map((profile) => ({
+          user_id: profile.id,
+          display_name: profile.display_name ?? null,
+        }))
       );
       return;
     }

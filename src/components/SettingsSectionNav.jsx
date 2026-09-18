@@ -9,6 +9,7 @@ const COLUMN_CLASSES = {
   2: "sm:grid-cols-2",
   3: "sm:grid-cols-3",
   4: "sm:grid-cols-2 lg:grid-cols-4",
+  5: "sm:grid-cols-2 lg:grid-cols-5",
 };
 
 function jumpToSection(event) {

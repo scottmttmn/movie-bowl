@@ -47,7 +47,6 @@ export default function TvApp() {
           element={
             <TvBowlPicker
               userId={session?.user?.id || ""}
-              userEmail={session?.user?.email || ""}
               onSignOut={signOutThisDevice}
               autoOpenLastBowl
             />
@@ -58,7 +57,6 @@ export default function TvApp() {
           element={
             <TvBowlPicker
               userId={session?.user?.id || ""}
-              userEmail={session?.user?.email || ""}
               onSignOut={signOutThisDevice}
             />
           }

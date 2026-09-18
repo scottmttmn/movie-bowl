@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
 import { formatRelativeDateLabel } from "../../utils/formatRelativeDate";
+import useUserStreamingServices from "../../hooks/useUserStreamingServices";
+import { getDisplayInitial, getProfileDisplayName } from "../../utils/profileIdentity";
 import TvBrand from "../components/TvBrand";
 import { useTvBowls } from "../hooks/useTvBowls";
 import useTvSpatialNavigation from "../hooks/useTvSpatialNavigation";
@@ -29,13 +31,14 @@ function rememberLastBowl(userId, bowlId) {
 
 export default function TvBowlPicker({
   userId,
-  userEmail,
   onSignOut,
   autoOpenLastBowl = false,
 }) {
   const navigate = useNavigate();
   const location = useLocation();
   const { bowls, isLoading, errorMessage, reload } = useTvBowls(userId);
+  const { displayName } = useUserStreamingServices();
+  const identityLabel = getProfileDisplayName({ display_name: displayName }, userId);
   const lastBowlId = useMemo(() => getLastBowlId(userId), [userId]);
   const hasRememberedBowl = bowls.some((bowl) => bowl.id === lastBowlId);
   const [showSignOut, setShowSignOut] = useState(false);
@@ -107,7 +110,7 @@ export default function TvBowlPicker({
           <TvBrand context="TV" />
           <div className="tv-account">
             <span className="tv-account-label">Watching as</span>
-            <span className="tv-account-value">{userEmail || "Movie Bowl member"}</span>
+            <span className="tv-account-value">{identityLabel}</span>
             <button
               type="button"
               className="tv-text-button tv-sign-out-button"
@@ -174,7 +177,7 @@ export default function TvBowlPicker({
               onClick={() => navigate("/tv/solo")}
             >
               <span className="tv-solo-entry-mark" aria-hidden="true">
-                {(userEmail || "You").slice(0, 1).toUpperCase()}
+                {getDisplayInitial(identityLabel)}
               </span>
               <span className="tv-solo-entry-copy">
                 <span className="tv-kicker">Watching on your own?</span>

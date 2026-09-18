@@ -5,6 +5,7 @@ test("an authenticated invite recipient joins the intended bowl", async ({ page,
   backend.state.profiles.push({
     id: "owner-invite",
     email: "owner@example.com",
+    display_name: "Bowl Owner",
     streaming_services: [],
     default_draw_settings: null,
   });

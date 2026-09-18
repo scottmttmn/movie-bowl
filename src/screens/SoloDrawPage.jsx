@@ -7,6 +7,7 @@ import useSoloDrawPool from "../hooks/useSoloDrawPool";
 import useSoloDraw from "../hooks/useSoloDraw";
 import useDrawProviderLinks from "../hooks/useDrawProviderLinks";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
+import { getDisplayInitial, getProfileDisplayName } from "../utils/profileIdentity";
 import useDeviceDrawSettings from "../hooks/useDeviceDrawSettings";
 import useDrawPoolCount, { DRAW_POOL_STATUS } from "../hooks/useDrawPoolCount";
 import AddMovieModal from "../components/AddMovieModal";
@@ -74,7 +75,7 @@ export default function SoloDrawPage() {
 
   const { rows, bowls, bowlIds, isLoading, errorMessage: poolErrorMessage, reload, removeRows } =
     useSoloDrawPool(userId);
-  const { streamingServices, defaultDrawSettings, setDefaultDrawSettings, saveDefaultDrawSettings,
+  const { streamingServices, displayName, defaultDrawSettings, setDefaultDrawSettings, saveDefaultDrawSettings,
     loading: preferencesLoading, loadError: preferencesError, reloadStreamingServices } = useUserStreamingServices();
   const {
     settings,
@@ -215,7 +216,7 @@ export default function SoloDrawPage() {
   const allSelected = bowlIds.length > 0 && bowlIds.every((id) => activeBowlIds.includes(id));
   const scopeLabel = activeBowlIds.length === 0 ? "no bowls selected" : allSelected
     ? "across all your bowls" : bowls.filter((bowl) => activeBowlIds.includes(bowl.id)).map((bowl) => bowl.name).join(" · ");
-  const initial = (session?.user?.user_metadata?.display_name || session?.user?.user_metadata?.full_name || session?.user?.email || "You").slice(0, 1).toUpperCase();
+  const initial = getDisplayInitial(getProfileDisplayName({ display_name: displayName }, userId));
   const totalTitles = groupSoloCandidatesByTitle(scopedRows).length;
   const resolvedRows = eligibleMovieIds ? scopedRows.filter((row) => eligibleMovieIds.includes(row.id)) : scopedRows;
   const drawCount = getSoloDrawGroups(resolvedRows).length;

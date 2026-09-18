@@ -10,10 +10,10 @@ import {
 // One contributor with many titles and one with a single title is the case the
 // two methods are supposed to disagree about.
 const LOPSIDED_POOL = [
-  { id: "u1-1", added_by: "user-1", profiles: { email: "owner@example.com" } },
-  { id: "u1-2", added_by: "user-1", profiles: { email: "owner@example.com" } },
-  { id: "u1-3", added_by: "user-1", profiles: { email: "owner@example.com" } },
-  { id: "u2-1", added_by: "user-2", profiles: { email: "friend@example.com" } },
+  { id: "u1-1", added_by: "user-1", profiles: { display_name: "Owner" } },
+  { id: "u1-2", added_by: "user-1", profiles: { display_name: "Owner" } },
+  { id: "u1-3", added_by: "user-1", profiles: { display_name: "Owner" } },
+  { id: "u2-1", added_by: "user-2", profiles: { display_name: "Friend" } },
 ];
 
 function makeSequenceRandom(values) {
@@ -128,13 +128,13 @@ describe("person_first", () => {
     expect(buildDrawOddsStats(LOPSIDED_POOL, "person_first")).toEqual([
       {
         bucketKey: "user:user-2",
-        member: "friend@example.com",
+        member: "Friend",
         movieCount: 1,
         drawOdds: 0.5,
       },
       {
         bucketKey: "user:user-1",
-        member: "owner@example.com",
+        member: "Owner",
         movieCount: 3,
         drawOdds: 0.5,
       },
@@ -157,13 +157,13 @@ describe("title_first", () => {
     expect(buildDrawOddsStats(LOPSIDED_POOL, "title_first")).toEqual([
       {
         bucketKey: "user:user-2",
-        member: "friend@example.com",
+        member: "Friend",
         movieCount: 1,
         drawOdds: 0.25,
       },
       {
         bucketKey: "user:user-1",
-        member: "owner@example.com",
+        member: "Owner",
         movieCount: 3,
         drawOdds: 0.75,
       },

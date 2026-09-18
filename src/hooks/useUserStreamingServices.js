@@ -3,11 +3,14 @@ import { supabase } from "../lib/supabase";
 import { normalizeStreamingServices, normalizeStreamingServicesForProfile } from "../utils/streamingServices";
 import { DEFAULT_DRAW_SETTINGS, normalizeDefaultDrawSettings } from "../utils/drawSettings";
 import { valuesAreEqual } from "./useAutosave";
+import { getDisplayNameValidationError, normalizeDisplayName } from "../utils/profileIdentity";
 
 export default function useUserStreamingServices({ autoLoad = true } = {}) {
   const [streamingServices, setStreamingServicesState] = useState([]);
   const [defaultDrawSettings, setDefaultDrawSettingsState] = useState(DEFAULT_DRAW_SETTINGS);
   const [removeFromBowlsOnSoloDraw, setRemoveFromBowlsOnSoloDrawState] = useState(false);
+  const [displayName, setDisplayName] = useState("");
+  const [accountEmail, setAccountEmail] = useState("");
   const [loading, setLoading] = useState(autoLoad);
   const [loadError, setLoadError] = useState(null);
 
@@ -26,6 +29,7 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
     try {
       const { data: authData, error: authError } = await supabase.auth.getSession();
       const user = authData?.session?.user;
+      setAccountEmail(user?.email || "");
 
       if (authError || !user) {
         setLoadError(authError || new Error("Not authenticated"));
@@ -35,7 +39,7 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("streaming_services, default_draw_settings, remove_from_bowls_on_solo_draw")
+        .select("display_name, streaming_services, default_draw_settings, remove_from_bowls_on_solo_draw")
         .eq("id", user.id)
         .single();
 
@@ -48,6 +52,7 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
 
       const normalized = normalizeStreamingServices(data?.streaming_services || []);
       const normalizedDrawSettings = normalizeDefaultDrawSettings(data?.default_draw_settings);
+      setDisplayName(data?.display_name || "");
       setStreamingServicesState(normalized);
       setDefaultDrawSettingsState(normalizedDrawSettings);
       setRemoveFromBowlsOnSoloDrawState(data?.remove_from_bowls_on_solo_draw === true);
@@ -147,6 +152,27 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
     [loadError]
   );
 
+  const saveDisplayName = useCallback(async (value = displayName) => {
+    const validationError = getDisplayNameValidationError(value);
+    if (validationError) return { error: new Error(validationError) };
+
+    const { data: authData, error: authError } = await supabase.auth.getSession();
+    const user = authData?.session?.user;
+    if (authError || !user) {
+      return { error: authError || new Error("Not authenticated") };
+    }
+
+    const normalized = normalizeDisplayName(value);
+    const { error } = await supabase
+      .from("profiles")
+      // Null, never "": the column's check constraint rejects an empty string,
+      // and absent is what the neutral fallback reads.
+      .update({ display_name: normalized || null })
+      .eq("id", user.id);
+
+    return { error };
+  }, [displayName]);
+
   const toggleService = useCallback((service) => {
     setStreamingServicesState((prev) =>
       prev.includes(service) ? prev.filter((s) => s !== service) : [...prev, service]
@@ -155,6 +181,9 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
 
   return {
     streamingServices,
+    displayName,
+    accountEmail,
+    setDisplayName,
     setStreamingServices,
     defaultDrawSettings,
     setDefaultDrawSettings,
@@ -167,5 +196,6 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
     saveStreamingServices,
     saveDefaultDrawSettings,
     saveRemoveFromBowlsOnSoloDraw,
+    saveDisplayName,
   };
 }

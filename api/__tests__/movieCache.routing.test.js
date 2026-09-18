@@ -24,12 +24,16 @@ function rewrittenRequest(path, method) {
 }
 
 describe("movie cache public routing", () => {
-  for (const path of ["/api/provider-links/lookup", "/api/tmdb/movie/warm-filter-metadata"]) {
+  for (const [path, authenticationError] of [
+    ["/api/account/delete", "Authentication required."],
+    ["/api/provider-links/lookup", "Unauthorized"],
+    ["/api/tmdb/movie/warm-filter-metadata", "Unauthorized"],
+  ]) {
     it(`keeps ${path} authenticated after rewriting`, async () => {
       const res = response();
       await handler(rewrittenRequest(path, "POST"), res);
       expect(res.statusCode).toBe(401);
-      expect(res.body).toEqual({ error: "Unauthorized" });
+      expect(res.body).toEqual({ error: authenticationError });
     });
 
     it(`keeps ${path} restricted to POST`, async () => {
@@ -39,7 +43,7 @@ describe("movie cache public routing", () => {
     });
   }
 
-  it.each([["unknown"], [["provider-links", "warm-filter-metadata"]]])("rejects an unknown or ambiguous action", async (action) => {
+  it.each([["unknown"], [["account-delete", "provider-links", "warm-filter-metadata"]]])("rejects an unknown or ambiguous action", async (action) => {
     const res = response();
     await handler({ query: { action } }, res);
     expect(res.statusCode).toBe(404);

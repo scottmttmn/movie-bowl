@@ -101,6 +101,29 @@ Avoid dashboard-only schema/policy changes. If an emergency dashboard edit happe
 `public.bowl_movie_queue` remains for compatibility with older migrations and rows, but active app code no longer writes to it.
 The equal-probability contributor draw migration promotes pending queue rows into `public.bowl_movies`.
 
+## Private profile identity and account deletion
+
+`20260917212637_add_private_profiles_and_account_deletion.sql` adds optional,
+non-unique `profiles.display_name` values and changes the two scoped identity
+directories to return display names instead of email addresses. It also adds
+the authenticated `transfer_owned_bowl` RPC and the service-role-only
+`delete_account_data_for_user` cleanup RPC. The trusted API performs cleanup,
+then hard-deletes the Supabase Auth user; users who still own bowls receive a
+blocker list and must transfer or delete those bowls first.
+
+Deletion removes personal and authorization data while retaining anonymized
+completed bowl history. The matching pgTAP suite has 16 assertions and runs on
+the disposable database with:
+
+```bash
+./scripts/pgtap.sh supabase/tests/20260917212637_add_private_profiles_and_account_deletion.sql
+```
+
+Rollback is in
+`rollback/20260917212637_remove_private_profiles_and_account_deletion.sql`.
+Revert the client and API first; rollback cannot restore data from an account
+deletion that already completed.
+
 ## Personal default bowls
 
 `20260831120000_add_user_bowl_defaults.sql` adds `user_bowl_defaults` and the

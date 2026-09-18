@@ -1,9 +1,9 @@
 import { describe, expect, it } from "vitest";
 import { getDrawablePoolMovies, summarizeContributorReach } from "../drawPool";
 
-const alexA = { id: "a", added_by: "user-1", profiles: { email: "alex@example.com" } };
-const alexB = { id: "b", added_by: "user-1", profiles: { email: "alex@example.com" } };
-const sam = { id: "c", added_by: "user-2", profiles: { email: "sam@example.com" } };
+const alexA = { id: "a", added_by: "user-1", profiles: { display_name: "Alex" } };
+const alexB = { id: "b", added_by: "user-1", profiles: { display_name: "Alex" } };
+const sam = { id: "c", added_by: "user-2", profiles: { display_name: "Sam" } };
 const guest = { id: "d", added_by: null, added_by_name: "Jo" };
 
 describe("getDrawablePoolMovies", () => {
@@ -29,7 +29,7 @@ describe("summarizeContributorReach", () => {
     expect(summarizeContributorReach(pool, [alexA])).toEqual({
       totalCount: 3,
       reachedCount: 1,
-      excludedNames: ["Jo", "sam"],
+      excludedNames: ["Jo", "Sam"],
     });
   });
 
@@ -44,14 +44,14 @@ describe("summarizeContributorReach", () => {
     });
   });
 
-  it("counts contributors it cannot name", () => {
+  it("uses a neutral label for contributors without a display name", () => {
     const unnamed = { id: "e", added_by: "user-3" };
     const pool = [alexA, unnamed];
 
     const reach = summarizeContributorReach(pool, [alexA]);
     expect(reach.totalCount).toBe(2);
     expect(reach.reachedCount).toBe(1);
-    expect(reach.excludedNames).toEqual([]);
+    expect(reach.excludedNames).toEqual(["Member SER3"]);
   });
 
   it("reports everyone as excluded when the pool is empty", () => {
@@ -60,7 +60,7 @@ describe("summarizeContributorReach", () => {
     expect(summarizeContributorReach(pool, [])).toEqual({
       totalCount: 2,
       reachedCount: 0,
-      excludedNames: ["alex", "sam"],
+      excludedNames: ["Alex", "Sam"],
     });
   });
 });

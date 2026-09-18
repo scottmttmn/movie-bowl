@@ -250,7 +250,7 @@ describe("movie strip components", () => {
           title: "Arrival",
           poster_path: "/arrival.jpg",
           added_by: "dan-user-id",
-          profiles: { email: "dan@example.com" },
+          profiles: { display_name: "Dan" },
           drawn_by: "scott-user-id",
         }}
         onClick={onClick}
@@ -259,8 +259,8 @@ describe("movie strip components", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /arrival/i }));
     expect(screen.getByAltText("Arrival")).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Added by dan" })).toHaveAttribute("title", "Added by dan");
-    expect(screen.queryByText("Added by dan")).not.toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Added by Dan" })).toHaveAttribute("title", "Added by Dan");
+    expect(screen.queryByText("Added by Dan")).not.toBeInTheDocument();
     expect(onClick).toHaveBeenCalledWith(expect.objectContaining({ id: "w1" }));
   });
 

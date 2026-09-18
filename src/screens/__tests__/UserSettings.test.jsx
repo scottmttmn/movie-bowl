@@ -1,11 +1,14 @@
-import { act, cleanup, fireEvent, render, screen, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AUTOSAVE_DELAY_MS } from "../../hooks/useAutosave";
 
 const mocks = vi.hoisted(() => ({
   navigate: vi.fn(),
   locationHash: "",
+  deleteMyAccount: vi.fn(),
   hook: {
+    displayName: "Scott",
+    accountEmail: "owner@example.com",
     streamingServices: [],
     defaultDrawSettings: {
       prioritizeStreaming: false,
@@ -25,12 +28,18 @@ const mocks = vi.hoisted(() => ({
     setStreamingServices: vi.fn(),
     setDefaultDrawSettings: vi.fn(),
     setRemoveFromBowlsOnSoloDraw: vi.fn(),
+    setDisplayName: vi.fn(),
     toggleService: vi.fn(),
     loading: false,
     saveStreamingServices: vi.fn(),
     saveDefaultDrawSettings: vi.fn(),
     saveRemoveFromBowlsOnSoloDraw: vi.fn(),
+    saveDisplayName: vi.fn(),
   },
+}));
+
+vi.mock("../../lib/account", () => ({
+  deleteMyAccount: (...args) => mocks.deleteMyAccount(...args),
 }));
 
 vi.mock("../../hooks/useUserStreamingServices", () => ({
@@ -58,6 +67,8 @@ describe("UserSettings", () => {
     mocks.navigate.mockReset();
     mocks.locationHash = "";
     mocks.hook.streamingServices = ["Netflix", "Hulu"];
+    mocks.hook.displayName = "Scott";
+    mocks.hook.accountEmail = "owner@example.com";
     mocks.hook.defaultDrawSettings = {
       prioritizeStreaming: false,
       useStreamingRank: true,
@@ -76,14 +87,18 @@ describe("UserSettings", () => {
     mocks.hook.setStreamingServices.mockReset();
     mocks.hook.setDefaultDrawSettings.mockReset();
     mocks.hook.setRemoveFromBowlsOnSoloDraw.mockReset();
+    mocks.hook.setDisplayName.mockReset();
     mocks.hook.toggleService.mockReset();
     mocks.hook.loading = false;
     mocks.hook.saveStreamingServices.mockReset();
     mocks.hook.saveDefaultDrawSettings.mockReset();
     mocks.hook.saveRemoveFromBowlsOnSoloDraw.mockReset();
+    mocks.hook.saveDisplayName.mockReset();
     mocks.hook.saveStreamingServices.mockImplementation(async () => ({ error: null }));
     mocks.hook.saveDefaultDrawSettings.mockImplementation(async () => ({ error: null }));
     mocks.hook.saveRemoveFromBowlsOnSoloDraw.mockImplementation(async () => ({ error: null }));
+    mocks.hook.saveDisplayName.mockImplementation(async () => ({ error: null }));
+    mocks.deleteMyAccount.mockReset();
   });
 
   afterEach(() => {
@@ -119,6 +134,7 @@ describe("UserSettings", () => {
 
     expect(mocks.hook.saveStreamingServices).not.toHaveBeenCalled();
     expect(mocks.hook.saveDefaultDrawSettings).not.toHaveBeenCalled();
+    expect(mocks.hook.saveDisplayName).not.toHaveBeenCalled();
     expect(screen.getByRole("status")).toHaveTextContent("Changes save automatically");
   });
 
@@ -164,6 +180,23 @@ describe("UserSettings", () => {
 
     expect(mocks.hook.saveRemoveFromBowlsOnSoloDraw).toHaveBeenCalledWith(true);
     expect(mocks.hook.saveDefaultDrawSettings).not.toHaveBeenCalled();
+    expect(mocks.hook.saveStreamingServices).not.toHaveBeenCalled();
+  });
+
+  it("autosaves the private bowl display name", async () => {
+    vi.useFakeTimers();
+    const { rerender } = renderSettings();
+
+    fireEvent.change(screen.getByLabelText(/display name/i), {
+      target: { value: "Casey" },
+    });
+    expect(mocks.hook.setDisplayName).toHaveBeenCalledWith("Casey");
+
+    mocks.hook.displayName = "Casey";
+    rerender(<UserSettings />);
+    await settleAutosave();
+
+    expect(mocks.hook.saveDisplayName).toHaveBeenCalledWith("Casey");
     expect(mocks.hook.saveStreamingServices).not.toHaveBeenCalled();
   });
 
@@ -286,15 +319,19 @@ describe("UserSettings", () => {
     const links = within(sectionNav).getAllByRole("link");
 
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
+      "#profile",
       "#streaming-services",
       "#solo-draw",
       "#tv-playback",
+      "#account",
     ]);
-    expect(links[0]).toHaveTextContent("2 services");
-    expect(links[0]).toHaveTextContent("Netflix first");
-    expect(links[1]).toHaveTextContent("Copies stay in your bowls");
-    expect(links[2]).toHaveTextContent("Theater mode on");
-    expect(links[2]).toHaveTextContent("2 previews");
+    expect(links[0]).toHaveTextContent("Scott");
+    expect(links[1]).toHaveTextContent("2 services");
+    expect(links[1]).toHaveTextContent("Netflix first");
+    expect(links[2]).toHaveTextContent("Copies stay in your bowls");
+    expect(links[3]).toHaveTextContent("Theater mode on");
+    expect(links[3]).toHaveTextContent("2 previews");
+    expect(links[4]).toHaveTextContent("owner@example.com");
     expect(screen.queryByRole("heading", { name: "Draw filter defaults" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/default prioritize streaming services/i)).not.toBeInTheDocument();
   });
@@ -379,5 +416,90 @@ describe("UserSettings", () => {
     });
 
     expect(screen.getByText("No matching services.")).toBeInTheDocument();
+  });
+
+  it("requires an explicit confirmation before deleting the account", async () => {
+    mocks.deleteMyAccount.mockResolvedValue({ ok: true });
+    renderSettings();
+
+    fireEvent.click(screen.getByRole("button", { name: /^delete account$/i }));
+    const confirmButton = screen.getByRole("button", { name: /delete account permanently/i });
+    expect(confirmButton).toBeDisabled();
+
+    fireEvent.change(screen.getByLabelText(/type delete to confirm/i), {
+      target: { value: "DELETE" },
+    });
+    fireEvent.click(confirmButton);
+
+    await waitFor(() => expect(mocks.deleteMyAccount).toHaveBeenCalledOnce());
+    expect(mocks.navigate).toHaveBeenCalledWith("/login", {
+      replace: true,
+      state: { accountDeleted: true },
+    });
+  });
+
+  it("opens the delete dialog on its confirmation field and closes it on Escape", () => {
+    renderSettings();
+    const opener = screen.getByRole("button", { name: /^delete account$/i });
+
+    // jsdom's click does not focus its target the way a real one does, and the
+    // restore on close has to have somewhere to go back to.
+    opener.focus();
+    fireEvent.click(opener);
+    expect(screen.getByLabelText(/type delete to confirm/i)).toHaveFocus();
+    expect(document.body.style.overflow).toBe("hidden");
+
+    fireEvent.keyDown(document, { key: "Escape" });
+
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    expect(document.body.style.overflow).toBe("");
+    expect(opener).toHaveFocus();
+  });
+
+  it("keeps Tab inside the delete dialog", () => {
+    renderSettings();
+    fireEvent.click(screen.getByRole("button", { name: /^delete account$/i }));
+
+    const field = screen.getByLabelText(/type delete to confirm/i);
+    const cancel = screen.getByRole("button", { name: /^cancel$/i });
+    const confirm = screen.getByRole("button", { name: /delete account permanently/i });
+
+    // Forward off the last control wraps to the first, and back off the first
+    // wraps to the last -- the confirm button is disabled until DELETE is typed,
+    // so the cycle has to be read live rather than fixed when the dialog opened.
+    cancel.focus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(field).toHaveFocus();
+
+    fireEvent.keyDown(document, { key: "Tab", shiftKey: true });
+    expect(cancel).toHaveFocus();
+
+    fireEvent.change(field, { target: { value: "DELETE" } });
+    expect(confirm).toBeEnabled();
+    confirm.focus();
+    fireEvent.keyDown(document, { key: "Tab" });
+    expect(field).toHaveFocus();
+  });
+
+  it("does not let Escape abandon a deletion already in flight", async () => {
+    let settle;
+    mocks.deleteMyAccount.mockReturnValue(new Promise((resolve) => { settle = resolve; }));
+    renderSettings();
+
+    fireEvent.click(screen.getByRole("button", { name: /^delete account$/i }));
+    fireEvent.change(screen.getByLabelText(/type delete to confirm/i), {
+      target: { value: "DELETE" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: /delete account permanently/i }));
+    await waitFor(() => expect(mocks.deleteMyAccount).toHaveBeenCalledOnce());
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    // What holds it open is the in-flight flag, not a dead key: the same press
+    // closes the dialog once the request has landed.
+    await act(async () => { settle({ ok: false, error: "Nope" }); });
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
