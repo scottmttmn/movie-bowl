@@ -1,8 +1,13 @@
 # TV Theater Mode
 
 Status: **partly shipped.** Phase 1 (trailer pre-roll) and phase 2 (provider
-title links and the voice card) are implemented, and a validation harness for
-phase 4 lives in `tv-android/`. Phase 3 has no code. The roadmap below sequences
+title links) are implemented, and a validation harness for phase 4 lives in
+`tv-android/`, which has since grown into the shell now in an owner-only Google
+Play internal test. The voice card that shipped with phase 2 has since been
+retired —
+the provider launch hands off to the installed app directly, so the card asked
+the room to say aloud what a button already did; the reasoning is kept in
+`provider-deep-links.md`. Phase 3 has no code. The roadmap below sequences
 the rest; later phases are not a commitment to build.
 
 This document is about the television. Bringing the same pre-roll to the phone
@@ -184,10 +189,12 @@ user preference or a per-TV choice.
 Ships the ritual itself: draw → reveal → trailers → "Feature Presentation" →
 the existing "Open in [service]" action.
 
-Implemented in `src/tv/utils/theaterQueue.js`, `src/tv/components/TvTheaterPreroll.jsx`,
+Implemented in `src/utils/theaterQueue.js`, `src/tv/components/TvTheaterPreroll.jsx`,
 and the theater settings in `src/utils/drawSettings.js`. Decisions taken from
 the principles above: three previews by default (1-4 configurable), pause plus
-skip plus exit on the remote, and a per-user preference set on the phone.
+skip plus exit on the remote, and a per-user preference set on the phone. Skip
+and the on-screen controls were removed by the revision below; the queue helper
+moved out of `src/tv/` when the web pre-roll came to share it.
 
 - Trailer queue state in `TvTonightScreen`, entered only after the pick is kept.
 - Reuse a single `YT.Player` and call `loadVideoById()` between trailers instead
@@ -203,13 +210,21 @@ skip plus exit on the remote, and a per-user preference set on the phone.
   `deterministic-draw-preview.md` for how far this idea can be pushed.
 - Keep a recently-played video-key list per device so trailers do not repeat.
 - Handle pause, skip, and exit through the existing spatial navigation chain.
+  (Superseded by the revision below: pause is bound to OK, skip is gone, and
+  Back alone carries the exit.)
 - One setting to start: theater mode on/off plus trailer count, stored with the
   existing profile draw settings.
 
 Gate: does the group enjoy the pre-roll, or do they want the movie now? If it is
 not fun, stop here — every later phase is handoff work that stands on its own.
 
-#### Revision from live use (August 30, 2026)
+#### Revision from live use (August 30, 2026) — SHIPPED
+
+Everything in this section is implemented. `TvTheaterPreroll` draws no controls,
+binds Select to pause with a `Paused` indicator and nothing else on screen, and
+`getAutoplayTrailerUrl` sets `controls=0`, `disablekb=1`, `fs=0` and
+`iv_load_policy=3` behind its `preroll` option. Captions (`cc_load_policy`)
+remain the one option not taken, and are still a `TODO.md` item.
 
 The pre-roll plays well on a real television, and the controls are the part that
 breaks the spell. "Next preview" and "Skip to movie" should both go: you cannot
@@ -293,7 +308,7 @@ Back during the pre-roll is verified (onn Google TV, Android 14, August 31,
 Feature Presentation card, landing on the reveal with the drawn movie intact.
 It can carry the exit alone, so the buttons can go.
 
-### Phase 2 — Real deep links and the voice card (web only)
+### Phase 2 — Real deep links and the voice card (web only) — SHIPPED, card since retired
 
 Implemented in `provider-deep-links.md`, disabled by default until configured.
 That document covers the vendor, cache, quota enforcement, and current
@@ -305,19 +320,24 @@ free-plan limitations. Summary:
   in Supabase keyed by TMDB ID and region. Public adds do not spend quota.
 - Upgrade the launch candidate to prefer a direct provider title URL, falling
   back to today's search URL when a lookup is missing or the quota is spent.
-- Show the spoken assistant command on the handoff card.
+- ~~Show the spoken assistant command on the handoff card.~~ Built, then
+  removed once the provider launch began handing off to installed apps: the
+  card asked the room to say aloud what a button already did. The argument any
+  future assistant handoff has to beat is kept in `provider-deep-links.md`.
 
 This improves the phone experience too, so it is worth doing even if theater
 mode never ships.
 
-### Phase 2.5 — Auto-start at the end of the pre-roll (planned)
+### Phase 2.5 — Auto-start at the end of the pre-roll — SHIPPED
 
 Open the feature at the end of the pre-roll instead of ending on a focused
 button. In the Google TV app that is the shell's existing provider handoff:
 nothing is popup-blocked there and Movie Bowl survives it. The web pre-roll gets
 the same on desktop browsers, where the tab navigates to the provider's title
 page; phones keep the button. It answers phase 3's gate directly, in the room,
-without a LAN bridge. See `theater-autostart-handoff.md`.
+without a LAN bridge. Verified on hardware September 14, 2026 for Max on the
+television and Paramount+ on a desktop browser; the checks still outstanding are
+marked in `theater-autostart-handoff.md`.
 
 ### Phase 3 — Personal auto-start over the LAN (household only)
 

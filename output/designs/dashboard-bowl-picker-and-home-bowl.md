@@ -1,7 +1,9 @@
 # Dashboard Bowl Picker and Home Bowl
 
-Status: proposed on September 2, 2026; revised the same day after design
-review; not implemented.
+Status: implemented. Proposed on September 2, 2026 and revised the same day
+after design review; `src/components/BowlPicker.jsx` and the home-bowl badge
+landed that day in `d776ecf`. CLAUDE.md's "Routes" section describes the
+shipped behaviour and cites this file for it.
 
 This specification supersedes the dashboard navigation, My Bowls navigation,
 and default-star presentation in

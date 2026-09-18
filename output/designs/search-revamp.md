@@ -1,8 +1,8 @@
 # Search revamp: find movies through titles, people, and themes
 
 Status: proposed, September 15, 2026. Planning only; no application changes.
-Branch: `codex/search-revamp-plan`, based on `main` at `4c10948` for review.
-Initially drafted against `44a4702`; that mobile work has since merged into `main`.
+Drafted on `main` at `4c10948`. The review branch it was written on has since
+been deleted, so read it against `main`.
 
 ## Recommendation
 

@@ -1,7 +1,11 @@
 # Invitations Hub
 
-Status: proposed on September 2, 2026; revised the same day after design
-review; not implemented.
+Status: implemented. Proposed on September 2, 2026 and revised the same day
+after design review. `/invites` now sends, accepts, declines and revokes:
+`src/screens/InvitesPage.jsx` holds both sections, `useSentInvitations` owns the
+sent side, and the owner-side writes go through `create_bowl_invites` and
+`revoke_bowl_invite` as the "Required database work" section asked. Bowl
+Settings keeps the roster and links in with `?bowl=<id>`.
 
 This specification expands the existing `/invites` inbox into a stable,
 global Invitations hub. It complements
