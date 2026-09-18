@@ -1,5 +1,6 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { afterEach, describe, expect, it, vi } from "vitest";
+import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { useEffect, useState } from "react";
 import AddMovieModal from "../AddMovieModal";
 
 describe("AddMovieModal", () => {
@@ -562,6 +563,108 @@ describe("AddMovieModal", () => {
     );
   });
 });
+
+// The pane is painted before React gets to its effects, so there is a real
+// moment in which it is on screen, tappable, and still carrying pending work.
+// That window is where an opened trailer used to close itself again, and no
+// act()-wrapped interaction can reach it -- act flushes the effects first. So
+// these tests open the pane the way the app does, from a state change after a
+// lookup rather than in a first render, and tap it from the very mutation that
+// put it on screen: a MutationObserver callback is a microtask, still ahead of
+// effects React schedules as a task.
+function LatePane(props) {
+  const [isShown, setIsShown] = useState(false);
+
+  useEffect(() => {
+    const timer = setTimeout(() => setIsShown(true), 0);
+    return () => clearTimeout(timer);
+  }, []);
+
+  return isShown ? <AddMovieModal {...props} /> : null;
+}
+
+describe("AddMovieModal in the instant it first appears", () => {
+  let wasActEnvironment;
+
+  beforeEach(() => {
+    wasActEnvironment = globalThis.IS_REACT_ACT_ENVIRONMENT;
+    globalThis.IS_REACT_ACT_ENVIRONMENT = false;
+  });
+
+  afterEach(() => {
+    globalThis.IS_REACT_ACT_ENVIRONMENT = wasActEnvironment;
+    cleanup();
+  });
+
+  const tapAsItAppears = (name) =>
+    new Promise((resolve, reject) => {
+      const observer = new MutationObserver(() => {
+        const target = screen.queryByRole("button", { name });
+        if (!target) return;
+        observer.disconnect();
+        target.click();
+        resolve(target);
+      });
+
+      observer.observe(document.body, { childList: true, subtree: true });
+      setTimeout(() => {
+        observer.disconnect();
+        reject(new Error(`The pane never showed a ${name} button.`));
+      }, 2000);
+    });
+
+  const settle = () => new Promise((resolve) => setTimeout(resolve, 50));
+
+  it("keeps a trailer opened before its effects have run", async () => {
+    const tapped = tapAsItAppears(/watch trailer/i);
+
+    render(
+      <LatePane
+        movie={{
+          id: 101,
+          title: "Dune",
+          release_date: "2021-10-22",
+          streamingProviders: [],
+          trailer: {
+            site: "YouTube",
+            key: "abc123",
+            embedUrl: "https://www.youtube.com/embed/abc123",
+          },
+        }}
+        onClose={vi.fn()}
+        userStreamingServices={[]}
+      />
+    );
+
+    await tapped;
+    await settle();
+
+    expect(screen.getByRole("button", { name: /hide trailer/i })).toHaveAttribute(
+      "aria-expanded",
+      "true"
+    );
+    expect(screen.getByTitle("Dune trailer")).toBeInTheDocument();
+  });
+
+  it("keeps a comment begun before its effects have run", async () => {
+    const tapped = tapAsItAppears(/add a comment/i);
+
+    render(
+      <LatePane
+        movie={{ id: 101, title: "Dune", streamingProviders: [] }}
+        onClose={vi.fn()}
+        onEditNote={vi.fn()}
+        userStreamingServices={[]}
+      />
+    );
+
+    await tapped;
+    await settle();
+
+    expect(screen.getByLabelText("Comment (optional)")).toBeInTheDocument();
+  });
+});
+
 
 describe("AddMovieModal when something is stacked over it", () => {
   const movie = { id: "m1", title: "Arrival", tmdb_id: 101 };
