@@ -21,12 +21,15 @@ const mocks = vi.hoisted(() => ({
       runtimeMaxMinutes: 500,
       includeUnknownRuntime: true,
     },
+    removeFromBowlsOnSoloDraw: false,
     setStreamingServices: vi.fn(),
     setDefaultDrawSettings: vi.fn(),
+    setRemoveFromBowlsOnSoloDraw: vi.fn(),
     toggleService: vi.fn(),
     loading: false,
     saveStreamingServices: vi.fn(),
     saveDefaultDrawSettings: vi.fn(),
+    saveRemoveFromBowlsOnSoloDraw: vi.fn(),
   },
 }));
 
@@ -69,14 +72,18 @@ describe("UserSettings", () => {
       runtimeMaxMinutes: 500,
       includeUnknownRuntime: true,
     };
+    mocks.hook.removeFromBowlsOnSoloDraw = false;
     mocks.hook.setStreamingServices.mockReset();
     mocks.hook.setDefaultDrawSettings.mockReset();
+    mocks.hook.setRemoveFromBowlsOnSoloDraw.mockReset();
     mocks.hook.toggleService.mockReset();
     mocks.hook.loading = false;
     mocks.hook.saveStreamingServices.mockReset();
     mocks.hook.saveDefaultDrawSettings.mockReset();
+    mocks.hook.saveRemoveFromBowlsOnSoloDraw.mockReset();
     mocks.hook.saveStreamingServices.mockImplementation(async () => ({ error: null }));
     mocks.hook.saveDefaultDrawSettings.mockImplementation(async () => ({ error: null }));
+    mocks.hook.saveRemoveFromBowlsOnSoloDraw.mockImplementation(async () => ({ error: null }));
   });
 
   afterEach(() => {
@@ -128,6 +135,36 @@ describe("UserSettings", () => {
     // Draw settings are untouched, so they are not rewritten.
     expect(mocks.hook.saveDefaultDrawSettings).not.toHaveBeenCalled();
     expect(screen.getByRole("status")).toHaveTextContent("All changes saved");
+  });
+
+  it("offers automatic removal on solo draws, off, with undo named", () => {
+    renderSettings();
+
+    const toggle = screen.getByLabelText("Remove movies from my bowls when I draw solo");
+    expect(toggle).not.toBeChecked();
+    expect(
+      screen.getByText("Undo in watch history puts them back for two hours.")
+    ).toBeInTheDocument();
+
+    fireEvent.click(toggle);
+
+    expect(mocks.hook.setRemoveFromBowlsOnSoloDraw).toHaveBeenCalledWith(true);
+  });
+
+  // It saves to its own column, so turning it on must not rewrite the draw
+  // settings or the service list beside it.
+  it("autosaves automatic removal on its own", async () => {
+    vi.useFakeTimers();
+
+    const { rerender } = renderSettings();
+
+    mocks.hook.removeFromBowlsOnSoloDraw = true;
+    rerender(<UserSettings />);
+    await settleAutosave();
+
+    expect(mocks.hook.saveRemoveFromBowlsOnSoloDraw).toHaveBeenCalledWith(true);
+    expect(mocks.hook.saveDefaultDrawSettings).not.toHaveBeenCalled();
+    expect(mocks.hook.saveStreamingServices).not.toHaveBeenCalled();
   });
 
   it("flushes a pending autosave when the page unmounts", async () => {
@@ -250,12 +287,14 @@ describe("UserSettings", () => {
 
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       "#streaming-services",
+      "#solo-draw",
       "#tv-playback",
     ]);
     expect(links[0]).toHaveTextContent("2 services");
     expect(links[0]).toHaveTextContent("Netflix first");
-    expect(links[1]).toHaveTextContent("Theater mode on");
-    expect(links[1]).toHaveTextContent("2 previews");
+    expect(links[1]).toHaveTextContent("Copies stay in your bowls");
+    expect(links[2]).toHaveTextContent("Theater mode on");
+    expect(links[2]).toHaveTextContent("2 previews");
     expect(screen.queryByRole("heading", { name: "Draw filter defaults" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/default prioritize streaming services/i)).not.toBeInTheDocument();
   });

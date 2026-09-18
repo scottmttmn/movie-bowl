@@ -136,17 +136,19 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   or redraw controls. Bowl copies stay available. Personal history offers
   deletion (labelled undo for two hours) and a separate optional "Remove from
   my bowls…" action; deletion never restores separately removed copies.
-  Preserve the manual entry's immediate removal offer. A later opt-in setting
-  removes your copies automatically at reveal, off by default; only then does
-  undo become a server-enforced operation that restores them. Each TMDB movie gets one chance;
+  Preserve the manual entry's immediate removal offer. An opt-in setting
+  removes your copies automatically at reveal, off by default; with it on, undo
+  is a server-enforced operation that restores them. Each TMDB movie gets one chance;
   custom titles stay separate without name matching. Eligible pinned titles go
   first after all filters, sampled uniformly without clearing their pins.
   Repeat picks remain possible by design. Own `/solo-draw` route, dashboard
   filter settings, read-only slip note. Persistence: a `solo_draw` watch event
   built server-side by `record_solo_draw`, with source row and retry id.
   Empty states and large-pool lookup controls belong in the initial release.
-  Shipped at `/solo-draw`, except the deferred automatic-removal setting. See
-  `output/designs/solo-draw.md`. Web redesign references and implementation notes
+  Shipped at `/solo-draw`, automatic removal included: Settings carries the
+  opt-in, `undo_solo_draw` restores what a draw took, and watch history is the
+  only surface that offers it -- a TV solo draw under the setting has to be
+  undone from the web. See `output/designs/solo-draw.md`. Web redesign references and implementation notes
   are in `output/designs/solo-draw-redesign/README.md`. Web and TV solo draw now
   share the bowl's theater playback. The TV deliberately replaces the rejected
   dense exploration with one quiet all-bowls stage; see

@@ -4,11 +4,13 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 const mocks = vi.hoisted(() => ({
   recordSoloDraw: vi.fn(),
   createSoloDrawRequestId: vi.fn(),
+  fetchSoloDrawRemovedCopies: vi.fn(async () => []),
 }));
 
 vi.mock("../../lib/soloDraw", () => ({
   recordSoloDraw: mocks.recordSoloDraw,
   createSoloDrawRequestId: mocks.createSoloDrawRequestId,
+  fetchSoloDrawRemovedCopies: mocks.fetchSoloDrawRemovedCopies,
 }));
 
 import useSoloDraw from "../useSoloDraw";
@@ -55,6 +57,7 @@ beforeEach(() => {
     message: "",
     event: { id: "event-1", watched_on: "2026-09-15" },
   }));
+  mocks.fetchSoloDrawRemovedCopies.mockReset().mockResolvedValue([]);
 });
 
 afterEach(() => {
@@ -81,6 +84,24 @@ describe("useSoloDraw", () => {
 
   // Revealing is what commits a solo draw, so a save that fails must not show
   // a pick -- and must not quietly spend another one either.
+  // The setting lives on the account, so the hook reports what the server
+  // actually removed rather than deciding it here.
+  it("carries the copies the draw removed into the result", async () => {
+    mocks.fetchSoloDrawRemovedCopies.mockResolvedValue([
+      { id: "copy-1", bowlId: "bowl-1", bowlName: "First Bowl", title: "Movie m1" },
+    ]);
+    const { result } = renderSoloDraw();
+
+    await act(async () => {
+      await result.current.draw([movie("m1")]);
+    });
+
+    expect(mocks.fetchSoloDrawRemovedCopies).toHaveBeenCalledWith("event-1");
+    expect(result.current.result.removedCopies).toEqual([
+      { id: "copy-1", bowlId: "bowl-1", bowlName: "First Bowl", title: "Movie m1" },
+    ]);
+  });
+
   it("reveals nothing when the save fails, and retries the same draw", async () => {
     mocks.recordSoloDraw.mockResolvedValueOnce({
       ok: false,

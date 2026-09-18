@@ -303,6 +303,33 @@ describe("SoloDrawPage", () => {
     expect(screen.queryByRole("button", { name: /keep|accept|draw again|redraw|remove/i })).toBeNull();
   });
 
+  // With automatic removal on, the copies are gone by the time the pick is on
+  // screen. Saying nothing would leave bowls quietly short a title.
+  it("says what the draw took out of the bowls, and where to put it back", () => {
+    mocks.state.draw = {
+      isDrawing: false,
+      result: {
+        id: "m1",
+        title: "Movie m1",
+        tmdb_id: 100,
+        watchEventId: "event-1",
+        removedCopies: [
+          { id: "copy-1", bowlId: "bowl-1", bowlName: "First Bowl", title: "Movie m1" },
+          { id: "copy-2", bowlId: "bowl-2", bowlName: "Second Bowl", title: "Movie m1" },
+        ],
+      },
+      errorMessage: "",
+      canRetrySave: false,
+    };
+    renderPage();
+
+    const dialog = screen.getByRole("dialog");
+    expect(dialog).toHaveTextContent(
+      "Saved to your watch history, and your 2 copies were removed from your bowls. Undo there within two hours to put them back."
+    );
+    expect(screen.queryByRole("button", { name: /keep|accept|draw again|redraw|remove/i })).toBeNull();
+  });
+
   it("holds the bowl animation before opening the normal movie detail", async () => {
     mocks.draw.mockResolvedValue({
       id: "m1",
