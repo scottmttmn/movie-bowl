@@ -14,7 +14,7 @@ vi.mock("../_lib/supabaseAdmin.js", () => ({
   }),
 }));
 
-import handler from "../account/delete.js";
+import handler from "../_lib/deleteAccount.js";
 
 function createRes() {
   return {

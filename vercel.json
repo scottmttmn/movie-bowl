@@ -22,6 +22,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/account/delete",
+      "destination": "/api/movie-cache?action=account-delete"
+    },
+    {
       "source": "/api/provider-links/lookup",
       "destination": "/api/movie-cache?action=provider-links"
     },

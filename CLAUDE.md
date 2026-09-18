@@ -92,9 +92,10 @@ output/designs/      design specs and roadmaps for shipped + planned features
 ```
 
 Vercel Hobby allows 12 functions per deployment, and this app uses all 12.
-`vercel.json` rewrites provider-link lookups and filter-metadata warmups to
-`api/movie-cache.js`, which dispatches to their authorized handlers in `_lib/`.
-Preserve both public URLs when changing that shared entry point.
+`vercel.json` rewrites account deletion, provider-link lookups, and
+filter-metadata warmups to `api/movie-cache.js`, which dispatches to their
+authorized handlers in `_lib/`. Preserve all three public URLs when changing
+that shared entry point.
 
 ### Layer rules
 

@@ -1,4 +1,4 @@
-import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { getSupabaseAdmin } from "./supabaseAdmin.js";
 
 function getBearerToken(req) {
   const authorization = req.headers?.authorization || req.headers?.Authorization;
@@ -6,7 +6,7 @@ function getBearerToken(req) {
   return authorization.match(/^Bearer\s+(.+)$/i)?.[1]?.trim() || null;
 }
 
-export default async function handler(req, res) {
+export default async function deleteAccount(req, res) {
   if (req.method !== "POST") {
     res.status(405).json({ error: "Method not allowed" });
     return;
