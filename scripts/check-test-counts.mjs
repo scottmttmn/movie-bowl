@@ -11,17 +11,24 @@
 //
 //   node scripts/check-test-counts.mjs vitest       # after npm run test:run
 //   node scripts/check-test-counts.mjs playwright   # after npm run test:e2e
+//   node scripts/check-test-counts.mjs pgtap        # after ./scripts/pgtap.sh
 //   node scripts/check-test-counts.mjs              # whichever reports exist
 import { readFileSync } from "node:fs";
 
 const SOURCE = "CLAUDE.md";
 const VITEST_REPORT = ".vitest/last-run.json";
 const PLAYWRIGHT_REPORT = ".playwright/last-run.json";
+const PGTAP_REPORT = ".pgtap/last-run.json";
 
 // The one sentence in CLAUDE.md that states all four numbers. Matched loosely
 // across whitespace because it is prose and wraps wherever the paragraph does.
 const EXPECTED_PATTERN =
   /(\d+)\s+test files\s*\/\s*(\d+)\s+tests,\s*(\d+)\s+Playwright tests with\s+(\d+)\s+skipped/;
+
+// The database suites are stated in their own sentence, because they are run by
+// their own command and were for a long time the one gate a machine could not
+// run at all.
+const EXPECTED_PGTAP_PATTERN = /(\d+)\s+suites\s*\/\s*(\d+)\s+assertions/;
 
 function readReport(path) {
   try {
@@ -53,8 +60,18 @@ function readExpected() {
     process.exit(2);
   }
 
+  const pgtapMatch = text.match(EXPECTED_PGTAP_PATTERN);
+  if (!pgtapMatch) {
+    console.error(
+      `${SOURCE} no longer states the expected database counts in a form this can read.\n` +
+        "Expected a sentence like: A clean run is 23 suites / 600 assertions"
+    );
+    process.exit(2);
+  }
+
   const [, files, tests, e2e, skipped] = match.map(Number);
-  return { files, tests, e2e, skipped };
+  const [, pgtapFiles, pgtapAssertions] = pgtapMatch.map(Number);
+  return { files, tests, e2e, skipped, pgtapFiles, pgtapAssertions };
 }
 
 function compare(label, differences) {
@@ -74,17 +91,19 @@ function compare(label, differences) {
   return false;
 }
 
+const MODES = ["vitest", "playwright", "pgtap"];
 const mode = process.argv[2];
-if (mode && mode !== "vitest" && mode !== "playwright") {
-  console.error(`Unknown mode "${mode}". Use vitest, playwright, or no argument.`);
+if (mode && !MODES.includes(mode)) {
+  console.error(`Unknown mode "${mode}". Use ${MODES.join(", ")}, or no argument.`);
   process.exit(2);
 }
+const wants = (name) => !mode || mode === name;
 
 const expected = readExpected();
 let checked = 0;
 let ok = true;
 
-if (mode !== "playwright") {
+if (wants("vitest")) {
   const report = readReport(VITEST_REPORT);
   if (!report && mode === "vitest") {
     console.error(`No report at ${VITEST_REPORT}. Run \`npm run test:run\` first.`);
@@ -107,7 +126,7 @@ if (mode !== "playwright") {
   }
 }
 
-if (mode !== "vitest") {
+if (wants("playwright")) {
   const report = readReport(PLAYWRIGHT_REPORT);
   if (!report && mode === "playwright") {
     console.error(`No report at ${PLAYWRIGHT_REPORT}. Run \`npm run test:e2e\` first.`);
@@ -127,8 +146,30 @@ if (mode !== "vitest") {
   }
 }
 
+if (wants("pgtap")) {
+  const report = readReport(PGTAP_REPORT);
+  if (!report && mode === "pgtap") {
+    console.error(`No report at ${PGTAP_REPORT}. Run \`./scripts/pgtap.sh\` first.`);
+    process.exit(2);
+  }
+  if (report) {
+    if (report.success === false) {
+      console.error(`The last \`./scripts/pgtap.sh\` did not succeed, so its counts mean nothing yet.`);
+      process.exit(2);
+    }
+    checked += 1;
+    ok =
+      compare("pgTAP", [
+        { what: "suites", actual: report.files ?? 0, expected: expected.pgtapFiles },
+        { what: "assertions", actual: report.tests ?? 0, expected: expected.pgtapAssertions },
+      ]) && ok;
+  }
+}
+
 if (checked === 0) {
-  console.error("No test reports to check. Run `npm run test:run` or `npm run test:e2e` first.");
+  console.error(
+    "No test reports to check. Run `npm run test:run`, `npm run test:e2e` or `./scripts/pgtap.sh` first."
+  );
   process.exit(2);
 }
 

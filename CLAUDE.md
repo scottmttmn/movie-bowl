@@ -21,7 +21,7 @@ npm run test:coverage
 npm run test:e2e     # Playwright smoke suite, part of the gate; no production credentials
 npm run lint         # ESLint, flat config
 node scripts/refresh-provider-logos.mjs  # regenerate src/utils/providerLogos.js
-./scripts/pgtap.sh   # database tests on a disposable local Supabase, then clean up
+./scripts/pgtap.sh   # database tests on a scratch Postgres built from this repo
 npm run build        # production build — run this for any UI/app change
 ```
 
@@ -44,15 +44,18 @@ to what each suite last reported. It exists because a lost test does not turn a
 suite red: the number simply gets smaller and the run stays green, which is the
 one thing a tripwire nobody reads cannot catch.
 
-`.github/workflows/ci.yml` runs lint, build, the Vitest suite and the Playwright
-suite on every pull request and on `main`, each with that count check. It is not
-a substitute for running the gate before you commit — it answers minutes later,
-and the Playwright suite is where a change you can see usually breaks — but it
-is what makes a green checkout a claim rather than a habit. `./scripts/pgtap.sh`
-is deliberately not in it: it seeds its disposable database from a dump of the
-linked Supabase project, and this repository is public, so automating it would
-mean keeping a production credential in CI. Database changes stay a local step
-until the schema baseline lives in the repository.
+`.github/workflows/ci.yml` runs lint, build, the Vitest suite, the Playwright
+suite and the pgTAP database suites on every pull request and on `main`, each
+with that count check. It is not a substitute for running the gate before you
+commit — it answers minutes later, and the Playwright suite is where a change
+you can see usually breaks — but it is what makes a green checkout a claim
+rather than a habit.
+
+The database suites were the last thing left out of it, because seeding them
+meant dumping the linked Supabase project and this repository is public. That is
+no longer how they run. `supabase/baseline/` states the schema as it stood
+before the first migration, so baseline plus migrations is the whole schema and
+a bare PostgreSQL can be built into it. Nothing in the gate reaches production.
 
 The Playwright suite is in the gate because leaving it out did not hold. It was
 red on a clean checkout for three separate pieces of shipped work — none of them
@@ -98,6 +101,7 @@ src/
 api/                 Vercel serverless functions (Node, not bundled by Vite)
   _lib/              server-only helpers (supabaseAdmin, tmdb)
 supabase/
+  baseline/          pre-migration schema, applied before migrations/, not by push
   migrations/        source of truth for schema, RLS, functions
   tests/             pgTAP tests for security-sensitive migrations
   rollback/          staged reverts, kept out of migrations/ on purpose
@@ -259,19 +263,27 @@ changes, add a pgTAP test in `supabase/tests/` and a revert in
 `supabase/rollback/` (rollbacks live outside `migrations/` and must be moved
 back with a fresh timestamp to run). See `supabase/README.md`.
 
-Run database tests with `./scripts/pgtap.sh`, which builds a disposable local
-Supabase project from a schema-only dump of the linked project, applies whatever
-is not yet deployed, runs the suites and removes the project on exit. Never
-against the hosted database: pgTAP writes rows. A clean run is 23 suites / 600
-assertions, all passing.
+Run database tests with `./scripts/pgtap.sh`, which creates a scratch database
+on a PostgreSQL you already have, applies `supabase/baseline/` and then every
+migration in order, runs the suites and drops it again. It needs pgTAP and
+`pg_prove` beside that server (`apt-get install pgtap`, or `brew install pgtap`)
+and `DATABASE_URL` if the server is not the local default. Never against the
+hosted database: pgTAP writes rows. A clean run is 23 suites / 600 assertions,
+all passing, and `npm run test:counts -- pgtap` holds that sentence to the run.
 
-The script clears Supabase's default privileges before restoring the dump, and
-that step is load-bearing rather than incidental. `pg_dump` writes the ACL it
-wants each object to end up with, assuming Postgres defaults; Supabase grants
-`anon` and `authenticated` by default privilege, so restored objects keep grants
-the dump never asked for and `REVOKE ... FROM PUBLIC` cannot remove. Without the
-reset the suite reports about 70 phantom privilege failures and can never go
-green. `supabase/README.md` has the full explanation.
+`supabase/baseline/` is the pre-migration schema, not a migration. Movie Bowl's
+first tables were made in the dashboard, so `supabase/migrations/` opens in
+March 2026 on a database that already had them; until the baseline existed the
+only way to get that schema was a dump of production, which is why these suites
+could not run in CI. It lives outside `migrations/` deliberately, the same way
+`rollback/` does — `supabase db push` must not try to apply it to a database
+that has had those objects for a year.
+
+Two things follow. New schema is a migration and never an edit to the baseline;
+the baseline moves only when the pre-March-2026 schema turns out to have been
+described wrongly. And the baseline is a reconstruction held true by the suites
+rather than by a dump, so if a suite starts failing in a way that implicates a
+table the baseline defines, suspect the baseline before the migration.
 
 ## The draw
 

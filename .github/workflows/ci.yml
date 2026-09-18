@@ -1,11 +1,11 @@
 # The gate CLAUDE.md describes, run by a machine on every pull request.
 #
-# It is the same four commands a person runs by hand -- lint, build, the Vitest
-# suite, the Playwright smoke suite -- and deliberately not `./scripts/pgtap.sh`,
-# which seeds its disposable database from a dump of the linked Supabase project
-# and so cannot run here without giving a public repository's CI a credential
-# for production. Database changes stay a local step until the schema baseline
-# lives in the repo.
+# It is the same commands a person runs by hand: lint, build, the Vitest suite,
+# the Playwright smoke suite and the pgTAP database suites. The database ones
+# used to be missing, because seeding them meant dumping the linked Supabase
+# project and a public repository's CI cannot hold a credential for production.
+# `supabase/baseline/` removed that reason: the schema is now the repository's
+# to state, so a plain PostgreSQL can be built into it and tested.
 name: CI
 
 on:
@@ -106,3 +106,34 @@ jobs:
             playwright-report/
             test-results/
           retention-days: 7
+
+  database:
+    name: Database
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          # No `npm ci` in this job: the count check is a dependency-free script
+          # and the suites are SQL. Node is here only to run it.
+          node-version-file: .nvmrc
+      # The unversioned metapackage, so this keeps working when the runner image
+      # moves to a new default PostgreSQL. It pulls the extension for whichever
+      # version is installed, plus pg_prove.
+      - name: Install pgTAP
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends pgtap
+      # A local cluster that exists for the length of this job, reachable only
+      # from the runner. The password is a connection detail, not a secret.
+      - name: Start PostgreSQL
+        run: |
+          sudo systemctl start postgresql
+          until pg_isready --quiet; do sleep 1; done
+          sudo -u postgres psql -c "alter role postgres password 'postgres'"
+      - run: ./scripts/pgtap.sh
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      - name: Check the counts in CLAUDE.md
+        run: npm run test:counts -- pgtap
