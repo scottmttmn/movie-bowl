@@ -55,6 +55,15 @@ function ProviderPills({ providers, providerLogos, userStreamingServices, eligib
   );
 }
 
+// The same contract as an effect dependency array, read during render instead
+// of after the commit. See the resets it guards for why that matters.
+function useChangedDeps(deps) {
+  const [seen, setSeen] = useState(deps);
+  const changed = deps.some((value, index) => !Object.is(value, seen[index]));
+  if (changed) setSeen(deps);
+  return changed;
+}
+
 function formatDisplayDate(value) {
   if (!value) return null;
 
@@ -116,21 +125,30 @@ export default function AddMovieModal({
     };
   }, [onClose, inline, isObscured]);
 
-  useEffect(() => {
+  // These resets belong to the movie, not to the mount. As effects they ran
+  // after the pane was already on screen and tappable, so a trailer opened --
+  // or a comment begun -- in that first instant was undone a moment later by a
+  // reset meant only for a movie that had changed. Adjusting during render puts
+  // them back in front of the first paint, where nothing can be lost to them.
+  const noteChanged = useChangedDeps([movie?.id, movie?.note]);
+  const pinStateChanged = useChangedDeps([movie?.id, movie?.is_pinned]);
+  const trailerSubjectChanged = useChangedDeps([movie?.id, movie?.tmdb_id]);
+
+  if (noteChanged) {
     setDisplayedNote(normalizeMovieNote(movie?.note));
     setNoteDraft(movie?.note || "");
     setIsEditingNote(false);
     setIsSavingNote(false);
     setNoteEditError("");
-  }, [movie?.id, movie?.note]);
+  }
 
-  useEffect(() => {
+  if (pinStateChanged) {
     setPinError("");
-  }, [movie?.id, movie?.is_pinned]);
+  }
 
-  useEffect(() => {
+  if (trailerSubjectChanged) {
     setIsTrailerVisible(false);
-  }, [movie?.id, movie?.tmdb_id]);
+  }
 
   // This modal is used in two contexts:
   // 1) "Add movie" flow (movie is undefined): show search UI.
