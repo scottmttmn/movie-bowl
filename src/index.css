@@ -411,72 +411,6 @@
     0 34px 80px -52px rgba(0, 0, 0, 0.98);
 }
 
-/* The rail needs three readable labels side by side, so it is a wide-viewport
-   device only; narrow layouts carry the same labels above each entry. */
-.about-spectrum-rail {
-  display: none;
-  position: relative;
-  grid-template-columns: repeat(3, 1fr);
-  align-items: end;
-  gap: 1rem;
-  padding-bottom: 18px;
-}
-
-@media (min-width: 640px) {
-  .about-spectrum-rail {
-    display: grid;
-  }
-}
-
-.about-spectrum-rail::after {
-  content: "";
-  position: absolute;
-  left: 13%;
-  right: 13%;
-  bottom: 5px;
-  height: 1px;
-  background: linear-gradient(90deg, rgba(71, 85, 105, 0.2), rgba(244, 63, 94, 0.65), rgba(71, 85, 105, 0.2));
-}
-
-.about-spectrum-stop {
-  position: relative;
-  text-align: center;
-}
-
-.about-spectrum-stop span {
-  color: #94a3b8;
-  font-size: 0.7rem;
-  font-weight: 700;
-  letter-spacing: 0.14em;
-  text-transform: uppercase;
-}
-
-.about-spectrum-stop i {
-  position: absolute;
-  left: 50%;
-  bottom: -17px;
-  z-index: 1;
-  display: block;
-  width: 9px;
-  height: 9px;
-  border: 2px solid #475569;
-  border-radius: 999px;
-  background: #0f172a;
-  transform: translateX(-50%);
-}
-
-.about-spectrum-stop:nth-child(2) span {
-  color: #fda4af;
-}
-
-.about-spectrum-stop:nth-child(2) i {
-  width: 11px;
-  height: 11px;
-  border-color: #fb7185;
-  background: #be123c;
-  box-shadow: 0 0 0 5px rgba(225, 29, 72, 0.12);
-}
-
 .about-paper-ticket {
   position: relative;
   padding: 1rem 1.2rem;
@@ -511,7 +445,23 @@
   right: -7px;
 }
 
-.about-tonight {
+/* The paper directions are the one thing on this page that is not the product,
+   so they are the one surface that is not dark. Same paper as the draw ticket
+   above them, at a size someone could actually follow, and off true by half a
+   degree so it reads as an object rather than another panel. */
+.about-paper-card {
+  position: relative;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 10px;
+  background: linear-gradient(175deg, #fffef9, #eee9df);
+  box-shadow:
+    0 24px 44px -26px rgba(2, 6, 23, 0.85),
+    inset 0 1px 0 rgba(255, 255, 255, 0.9);
+  list-style: decimal;
+  transform: rotate(-0.5deg);
+}
+
+.about-story {
   position: relative;
   background:
     radial-gradient(circle at 100% 0%, rgba(225, 29, 72, 0.13), transparent 22rem),
@@ -521,14 +471,14 @@
     0 30px 70px -48px rgba(0, 0, 0, 0.95);
 }
 
-.about-moment-list {
+.about-marked-list {
   position: relative;
   display: grid;
   gap: 0;
   padding: 0.4rem 0;
 }
 
-.about-moment-list::before {
+.about-marked-list::before {
   content: "";
   position: absolute;
   left: 7px;
@@ -538,7 +488,7 @@
   background: linear-gradient(180deg, #475569, #e11d48);
 }
 
-.about-moment-list li {
+.about-marked-list li {
   position: relative;
   display: grid;
   grid-template-columns: 1rem 1fr;
@@ -546,7 +496,7 @@
   padding: 1rem 0;
 }
 
-.about-moment-list li > span {
+.about-marked-list li > span {
   position: relative;
   z-index: 1;
   display: block;
@@ -559,7 +509,7 @@
   box-shadow: 0 0 0 1px #475569;
 }
 
-.about-moment-list li:last-child > span {
+.about-marked-list li:last-child > span {
   background: #e11d48;
   box-shadow: 0 0 0 1px #fb7185, 0 0 0 5px rgba(225, 29, 72, 0.11);
 }
