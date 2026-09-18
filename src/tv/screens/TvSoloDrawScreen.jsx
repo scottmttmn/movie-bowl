@@ -116,6 +116,7 @@ export default function TvSoloDrawScreen({ userId }) {
     isLoading: isPoolLoading,
     errorMessage: poolErrorMessage,
     reload,
+    removeRows,
   } = useSoloDrawPool(userId);
   const {
     streamingServices,
@@ -381,6 +382,9 @@ export default function TvSoloDrawScreen({ userId }) {
 
     try {
       const movie = await drawAction();
+      // The pool is read once and held, so copies the draw removed would sit in
+      // it as candidates until this screen is mounted again.
+      if (movie) removeRows((movie.removedCopies || []).map((copy) => copy.id));
       if (movie?.title) setDrawAnimationTitle(movie.title);
       if (movie) startProviderLookup(movie);
 

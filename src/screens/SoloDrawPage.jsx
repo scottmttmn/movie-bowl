@@ -72,7 +72,7 @@ export default function SoloDrawPage() {
   const [searchParams] = useSearchParams();
   const requestedBowlId = searchParams.get("bowl");
 
-  const { rows, bowls, bowlIds, isLoading, errorMessage: poolErrorMessage, reload } =
+  const { rows, bowls, bowlIds, isLoading, errorMessage: poolErrorMessage, reload, removeRows } =
     useSoloDrawPool(userId);
   const { streamingServices, defaultDrawSettings, setDefaultDrawSettings, saveDefaultDrawSettings,
     loading: preferencesLoading, loadError: preferencesError, reloadStreamingServices } = useUserStreamingServices();
@@ -358,6 +358,10 @@ export default function SoloDrawPage() {
 
     try {
       const movie = await drawAction();
+      // The pool is read once and held, so copies the draw removed would sit in
+      // it as candidates until the screen is mounted again -- drawable, and
+      // counted in the readout, after the server has already taken them.
+      if (movie) removeRows((movie.removedCopies || []).map((copy) => copy.id));
       if (movie?.title) setDrawAnimationTitle(movie.title);
       if (movie) startProviderLookup(movie);
 
