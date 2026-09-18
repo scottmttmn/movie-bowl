@@ -228,7 +228,10 @@ after a timeout replays the batch instead of creating a second live invitation.
 
 Custom (non-TMDB) movies carry a **negative synthetic `tmdb_id`** so that
 NOT NULL deployments still accept them. Any code that hits TMDB must filter for
-`Number(tmdb_id) > 0` first.
+`Number(tmdb_id) > 0` first. They therefore carry no poster, no rating and no
+trailer, and that is the intended behavior rather than a gap to close: a custom
+slip is often a wish rather than a film — "something with Adam Sandler" — so
+there is nothing to look up.
 
 ### Supabase changes
 
@@ -330,8 +333,10 @@ then a generic 500. They run in Node and are excluded from coverage; they are
 
 - `api/tmdb/*` proxies TMDB so `TMDB_READ_ACCESS_TOKEN` stays server-side.
 - `api/provider-links/lookup` verifies the bearer token and bowl/title access
-  before a Watchmode lookup. It defaults off unless `PROVIDER_LINKS_ENABLED=true`
-  and `WATCHMODE_API_KEY` is set. `PROVIDER_LINKS_MONTHLY_BUDGET` is enforced
+  before a Watchmode lookup. It fails closed unless `PROVIDER_LINKS_ENABLED=true`
+  and `WATCHMODE_API_KEY` are set — which production has and a fresh checkout does
+  not, so locally the links are absent rather than broken and every surface falls
+  back to the service's search page. `PROVIDER_LINKS_MONTHLY_BUDGET` is enforced
   atomically in Supabase (default 500 HTTP requests, currently 1,000 Watchmode
   credits). Add and draw events warm the private cache; public adds do not.
 - `api/cron/refresh-filter-metadata` maintains the private daily certification

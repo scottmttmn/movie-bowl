@@ -101,8 +101,9 @@ count, or to a rotation that gives the next turn to whoever has waited longest.
 
 ## Local Setup
 
-Provider title links are optional and disabled by default. See
-[Provider title links](#provider-title-links) for activation and cache maintenance.
+Provider title links are optional and off until configured; production has them
+enabled. See [Provider title links](#provider-title-links) for activation and
+cache maintenance.
 
 1. Use Node 24 LTS and install dependencies (with nvm):
 
@@ -267,7 +268,8 @@ These are visible in the browser bundle by design.
 - `RESEND_API_KEY`
 - `INVITE_EMAIL_FROM`
 - `WATCHMODE_API_KEY`, `PROVIDER_LINKS_ENABLED`, `PROVIDER_LINKS_MONTHLY_BUDGET`
-  — optional, and off unless set. See [Provider title links](#provider-title-links).
+  — optional, and off unless set; production sets them. See
+  [Provider title links](#provider-title-links).
 - `EMAIL_DAILY_WARN_THRESHOLD` (optional; defaults to 80). See
   [Usage counters](#usage-counters).
 
@@ -583,7 +585,8 @@ unchanged. Only subscription/free sources launch; rental and purchase links
 are cached but never selected. TV also displays a spoken assistant command.
 A title link does not guarantee automatic playback or bypass a subscription.
 
-To activate:
+To activate. Production is already activated, so these steps are for a new
+environment, such as a local `.env` or a fresh Vercel project:
 
 1. Apply `supabase/migrations/20260830120000_add_title_provider_links.sql` before
    deploying the server code. The new tables and maintenance RPCs are private
