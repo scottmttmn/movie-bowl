@@ -35,6 +35,34 @@ The demo itself was promoted rather than trimmed: it is the only part of the
 page that lets someone feel the product, so it now sits in the hero beside the
 headline, visible without scrolling.
 
+## 0.1 Revision two — the page is signed
+
+The page was still written by a brand about a product. It staged a scene the
+author had actually lived ("Tonight, 8:13 p.m.") and argued its position with a
+three-across chart, while the real account sat unwritten. It is now first
+person, signed once at the bottom, and it ends by teaching a reader how to run a
+bowl out of paper instead.
+
+| Removed | Why | Replacement |
+| --- | --- | --- |
+| "Tonight, 8:13 p.m." and its merged timeline | An invented scene standing in for a real one, and the three beats were onboarding the empty My Bowls screen already does | "Why there is a bowl" — the origin story, first person |
+| `AboutComparison`, "Where this sits" | The story states the same tradeoff by living through it | "Then I started noticing things" — five things that went wrong with the paper bowl, each paired with the feature that answers it |
+| "A little structure. One good surprise." | A closing line in a voice the rest of the page no longer uses | The directions for a paper bowl, then "Welcome." and the signature |
+
+Three rules came out of the revision and are worth keeping:
+
+- **The feature list is a history or it is nothing.** Each feature is stated as
+  an answer to a specific thing that went wrong, in the order it went wrong. A
+  feature stated on its own belongs in the product, not here.
+- **One signature, at the very bottom.** It sat under the story first, while the
+  page kept talking in first person afterwards, which read as a false ending.
+- **The paper directions carry no visible heading.** The paragraph above them
+  already issues the invitation; a heading over them issued it twice. The
+  heading is there for screen readers only.
+
+The author's words, as written, are the source for this copy. Edit them for
+length and for obvious slips, never into marketing copy.
+
 ## 1. Product Story
 
 Movie Bowl sits between two common ways of choosing what to watch:
@@ -89,20 +117,26 @@ of it is required to decode the product.
 - Use "draw," "bowl," "your picks," "significant other," "family," and "the people you watch with."
 - Avoid "content," "optimization," "engagement," and claims about finding a "perfect" movie.
 - Say each thing once. A sentence that appears in two sections belongs in one.
+- The middle and foot of the page are first person, in the author's own voice.
+  Plain, specific, and occasionally funny about himself; never polished into
+  copy. "Ours was a bowl" is the register.
+- Leave first-run guidance to the empty My Bowls screen. This page explains why
+  the app exists; a second set of steps here competes with the real onboarding.
 
 ## 5. Page Architecture
 
 1. Public top navigation
 2. Hero — headline and the live sample draw, side by side
 3. The thesis, set alone
-4. Use-case story with the merged moment/step timeline
-5. Where this sits — static comparison
-6. Closing call to action and support
-7. TMDB attribution
+4. Why there is a bowl — the origin story
+5. Then I started noticing things — the marked list of problems and answers
+6. The paper directions, on paper
+7. Welcome, the signature, and the closing actions
+8. TMDB attribution
 
-Five content blocks, and the three-across grid appears exactly once, at the
-bottom, in the quietest type on the page. The maximum content width remains the
-page container, with narrower measures inside sections.
+Six content blocks, no grid of cards anywhere, and one measure — `max-w-2xl` —
+holding every block of prose from the story down, so the second half reads as
+one continuous letter rather than a stack of sections.
 
 ## 6. Desktop Wireframe
 
@@ -128,22 +162,39 @@ page container, with narrower measures inside sections.
 │        chance is not a compromise. It is a clean way to commit.              │
 │                                                                              │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ TONIGHT, 8:13 P.M.                        ○ OVER THE MONTH                   │
-│                                           │ Collect over time                │
-│ Everyone is ready to watch.               │                                  │
-│ Nobody wants to browse.                   ○ TONIGHT                          │
-│                                           │ Filter for tonight               │
-│ Movie Bowl does not need to guess …       │                                  │
-│                                           ● ONE DRAW LATER                   │
-│                                             Draw together                    │
+│        HOW THIS STARTED                                                      │
+│        Why there is a bowl                                                   │
+│                                                                              │
+│        Movie Bowl began because of a problem with my girlfriend.             │
+│        We watched movies instead of TV because she didn't like TV …          │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│ WHERE THIS SITS                                                              │
-│   YOU CHOOSE EVERYTHING     YOU CHOOSE THE POOL      A SYSTEM CHOOSES        │
-│   ──────────○────────────────────●────────────────────────○─────────────      │
-│   Browse everything         Draw from the bowl       Take a recommendation    │
-│   Every movie is still …    You decide what is …     A confident answer …     │
+│        Then I started noticing things                                        │
+│                                                                              │
+│        ○ One person could dominate the bowl …                                │
+│        │    So the draw picks a person first, then one of their movies.      │
+│        ○ There might be slips … we would rent for $3.99 on Amazon.           │
+│        │    So you can narrow the bowl to what you already pay for.          │
+│        ○ I wanted a record of the movies we watched …                        │
+│        │    So a drawn movie moves itself to a watched list.                 │
+│        ○ One evening a friend's two-year-old …                               │
+│        │    Nothing here dissolves.                                          │
+│        ● Most importantly, the bowl was in one location …                    │
+│             So the bowl is wherever you are.                                 │
+│                                                                              │
+│        There are quite a few other features that have come along …           │
 ├──────────────────────────────────────────────────────────────────────────────┤
-│         A little structure. One good surprise. No endless scroll.            │
+│        It wasn't an easy decision … Here is how we did it.                   │
+│        ┌──────────────────────────────────────────────┐  (paper, −0.5°)      │
+│        │ 1. Find a bowl and keep it somewhere safe.   │                      │
+│        │ 2. Keep paper and a pen next to the bowl …   │                      │
+│        │ …                                            │                      │
+│        │ 7. … keep the drawn slips in a separate      │                      │
+│        │    container.                                │                      │
+│        └──────────────────────────────────────────────┘                      │
+├──────────────────────────────────────────────────────────────────────────────┤
+│           If it starts to fray the way ours did, this is here.               │
+│                             Welcome.                                         │
+│                             — Scott                                          │
 │                  [ Start a bowl ]  [ Contact support ]                       │
 └──────────────────────────────────────────────────────────────────────────────┘
 ```
@@ -172,20 +223,33 @@ roughly one short scroll from the top rather than a section away.
 │ When every option … is a │
 │ clean way to commit.     │
 ├──────────────────────────┤
-│ TONIGHT, 8:13 P.M.       │
-│ [story and timeline]     │
+│ HOW THIS STARTED         │
+│ Why there is a bowl      │
+│ [five paragraphs]        │
 ├──────────────────────────┤
-│ WHERE THIS SITS          │
-│ [three stacked entries]  │
+│ Then I started noticing  │
+│ things                   │
+│ ○ problem / answer × 5   │
+│ [other features line]    │
 ├──────────────────────────┤
+│ It wasn't an easy …      │
+│ ┌──────────────────────┐ │
+│ │ 1. Find a bowl …     │ │
+│ │ …  (paper)           │ │
+│ └──────────────────────┘ │
+├──────────────────────────┤
+│ … this is here.          │
+│ Welcome.                 │
+│ — Scott                  │
 │ [ Start a bowl ]         │
 │ [ Contact support ]      │
 └──────────────────────────┘
 ```
 
-The comparison rail is a wide-viewport device — three labels cannot sit side by
-side legibly below 640 px — so each narrow-layout entry carries its own label
-above the title instead.
+Every band below the hero is a single column at every width, so the narrow
+layout is the wide one with less room rather than a different page. The paper
+card keeps its rotation on a phone; half a degree costs a few pixels, which the
+page gutter absorbs.
 
 ## 8. Section Specifications
 
@@ -267,55 +331,98 @@ This is the page's only silent beat, and it is what the three philosophy cards
 were trying to say. Do not surround it with supporting copy; the emphasis comes
 from the space.
 
-### 8.4 Use-Case Story
+### 8.4 Why There Is a Bowl
 
 **Eyebrow**
 
-> Tonight, 8:13 p.m.
+> How this started
 
 **Heading**
 
-> Everyone is ready to watch. Nobody wants to browse.
+> Why there is a bowl
 
-**Story**
+Five paragraphs of the author's account, on the `.about-story` surface (the
+former `.about-tonight` gradient, renamed when the invented scene left). The
+copy lives in a `STORY` constant in `AboutPage.jsx` the way this screen's copy
+always has.
 
-> Movie Bowl does not need to guess what everyone might enjoy. Every title in the bowl was added by someone who wants to watch it, so the only question left is which one — and that is the question the bowl answers.
+The paragraphs, in order: the problem with his girlfriend; why they watched
+movies rather than TV; browsing HBO Max and the trailers that never helped; the
+bright idea; the year it worked. It ends there on purpose — what went wrong is
+the next section's job.
 
-**Timeline** — each entry carries the moment *and* the product step, which is
-what lets this one list replace the former "How it works" section:
+Trim for length and fix a slip. Do not smooth the voice.
 
-| Moment | Step | Body |
-| --- | --- | --- |
-| Over the month | Collect over time | Bowl members add movies whenever someone says, "We should watch that." |
-| Tonight | Filter for tonight | Narrow the bowl to what fits: under two hours, on your services, maybe something funny. |
-| One draw later | Draw together | The bowl selects a member first, then one of their movies. The search is over. |
-
-On mobile the moments stack under the story with their connecting line.
-
-### 8.5 Where This Sits (`AboutComparison`)
-
-Static. No buttons, no simulated results, no invented match percentages.
-
-**Section heading** — small, slate, uppercase, deliberately quieter than the
-headings above it:
-
-> Where this sits
-
-| Position | Title | Body |
-| --- | --- | --- |
-| You choose everything | Browse everything | Every movie is still possible. Apparently, so is another half hour of browsing. |
-| You choose the pool | Draw from the bowl | You decide what is eligible. A draw you can explain decides the rest. |
-| A system chooses | Take a recommendation | A confident answer in a second, as long as you are comfortable letting a system set the shortlist. |
-
-- The rail keeps its three stops with the center one accented; columns are even.
-- Only the center title takes the rose accent. The outer two are slate-neutral — a comparison, not a morality chart.
-- Resist making these interactive again. Animating the alternatives spends the page's attention on someone else's product.
-
-### 8.6 Closing Call to Action
+### 8.5 Then I Started Noticing Things
 
 **Heading**
 
-> A little structure. One good surprise. No endless scroll.
+> Then I started noticing things
+
+The marked list (`.about-marked-list`, the former `.about-moment-list`) carries
+five entries. Each pairs a thing that actually went wrong with the feature that
+answers it, problem in `text-slate-200`, answer in rose beneath it.
+
+| What went wrong | What answers it |
+| --- | --- |
+| One person could dominate the bowl, and a less enthusiastic slip writer might seldom get their movies chosen. | So the draw picks a person first, then one of their movies. Adding more titles gives you more ways to be chosen, not a better chance of being the one chosen. |
+| There might be slips in the bowl for movies on one of our streaming services, but they were just as likely to come up as the ones we would rent for $3.99 on Amazon. | So you can narrow the bowl to what you already pay for before you draw. |
+| I wanted a record of the movies we watched, and two bowls of slips was deemed too confusing. | So a drawn movie moves itself to a watched list. Still one bowl. |
+| One evening a friend's two-year-old found the slips and put some of them into a glass of water. | Nothing here dissolves. |
+| Most importantly, the bowl was in one location. I would hear about an appealing movie out and about, and I would have to remember to write it down and then make sure that piece of paper made it into the bowl. | So the bowl is wherever you are. Add a movie the moment you hear about it. |
+
+The rail's accent falls on the last dot, so the emphasis the author put on the
+last entry is the one the eye lands on. Keep that entry last.
+
+Closing line, quiet, below the list:
+
+> There are quite a few other features that have come along, and I hope more yet to come in time.
+
+It sits here rather than at the foot of the page. After five concrete features
+"quite a few others" refers to something; at the foot it was a vague promise
+between the paper directions and the sign-off.
+
+### 8.6 The Paper Directions
+
+**Heading** — screen readers only (`sr-only`):
+
+> How to run a bowl out of paper
+
+**Lead paragraph**, on the dark page above the card:
+
+> It wasn't an easy decision to make this app, because the bowl with slips of paper is charming. If you, dear reader, like that idea, I encourage you to go right ahead. Here is how we did it.
+
+**The card** (`.about-paper-card`) is an ordered list of seven directions:
+
+1. Find a bowl and keep it somewhere safe.
+2. Keep paper and a pen next to the bowl. Cut or tear off a little piece of paper.
+3. Write a movie you want to watch on the piece of paper. Optionally include the date.
+4. Put the slip of paper in the bowl, folded so that the title is hidden.
+5. When it is time to watch, draw one slip.
+6. Watch the movie.
+7. If you want a record of what you watched, keep the drawn slips in a separate container.
+
+These are directions, not persuasion. They contain no rule the author did not
+use, and nothing here argues for the app — step 3 already carries the only rule
+that matters, that a slip is a movie you want to watch, so do not restate it in
+the lead.
+
+The card is the only light surface on the page, sharing the draw ticket's paper,
+rotated half a degree. Its type is raw slate-800 rather than the app's tokens,
+which is deliberate: it is not a product surface. Do not restyle it into a
+panel — once it matches the page it reads as another feature section, and the
+joke, which is that this page will teach you how to not need it, is gone.
+
+### 8.7 Closing
+
+> If it starts to fray the way ours did, this is here.
+
+> Welcome.
+
+> — Scott
+
+One signature, and it is the last text before the buttons. The page is a letter;
+signing it in the middle read as a false ending.
 
 **Primary action**
 
@@ -327,8 +434,7 @@ headings above it:
 > Contact support
 
 Retain the existing support mail link and TMDB attribution. This section has no
-eyebrow — the closing heading is the last voice on the page and does not need
-one more label above it.
+eyebrow and no heading — the signature is the last voice on the page.
 
 ## 9. Interaction State Table
 
@@ -337,7 +443,7 @@ one more label above it.
 | Draw demo | Idle | Bowl, contributor chips, idle line, and draw button visible |
 | Draw demo | Drawing | Button disabled; bowl animation and polite live status run |
 | Draw demo | Revealed | Paper ticket, contributor explanation, draw-again action |
-| Comparison | Any | Static; no state |
+| Paper directions | Any | Static; no state |
 
 ## 10. Motion
 
@@ -353,8 +459,8 @@ one more label above it.
 ### Color
 
 - Canvas and surfaces: existing slate/near-black tokens.
-- Primary emphasis: existing rose tokens, and spend them sparingly — the hero eyebrow, the demo, the thesis clause, the story eyebrow, the center rail stop. A rose eyebrow over every section is what flattened the old page.
-- Demo paper: warm off-white used only inside the bowl result.
+- Primary emphasis: existing rose tokens, and spend them sparingly — the hero eyebrow, the demo, the thesis clause, the story eyebrow, the last dot on the marked list, the answers beneath each problem. A rose eyebrow over every section is what flattened the old page.
+- Demo paper: warm off-white, used in the bowl result and again, larger, for the paper directions. Those two are the page's only light surfaces and they use the same paper.
 - Do not introduce a separate "AI blue" or "scrolling warning amber."
 
 ### Type
@@ -363,7 +469,7 @@ one more label above it.
 - Hero heading: `text-4xl` mobile, `text-6xl` desktop, tight tracking.
 - Section heading: `text-3xl` mobile, `text-4xl` desktop.
 - The thesis sits between them in weight: large, but `font-medium`, not `font-semibold`.
-- The comparison heading is deliberately the smallest heading on the page.
+- The paper card sets its own type: slate-800 on paper, rose-800 markers.
 - Body measure: 58–68 characters.
 
 ### Shape and depth
@@ -377,9 +483,9 @@ one more label above it.
 
 | Viewport | Layout |
 | --- | --- |
-| 320–639 px | Single column; comparison entries stack, each with its own rail label |
-| 640–1023 px | Single-column hero; comparison is three columns under the rail |
-| 1024 px and above | Hero is text + demo side by side |
+| 320–639 px | Single column throughout; the paper card keeps its rotation |
+| 640–1023 px | Single-column hero; prose blocks hold their `max-w-2xl` measure |
+| 1024 px and above | Hero is text + demo side by side; everything below stays one column |
 
 - Primary buttons become full width below 480 px.
 - No horizontal scrolling is required.
@@ -394,7 +500,9 @@ one more label above it.
 - Drawing uses a polite live region:
   - `Drawing from the sample bowl.`
   - `Arrival was drawn from your significant other's picks.`
-- The comparison rail is decorative (`aria-hidden`); its labels are repeated in readable text for narrow layouts.
+- The paper directions are a section without a visible heading, so they carry an `sr-only` one. A section a sighted reader can see the shape of still needs a name in the outline.
+- The marked list's dots are decorative (`aria-hidden`); the list itself is an `ol` with an accessible name.
+- The paper card is the one place on the page with dark text on light, so check its contrast against the app's dark surfaces rather than assuming the token pairs apply.
 - Rose/slate combinations must meet WCAG AA contrast for their text sizes.
 - Reduced-motion behavior is required, not optional polish.
 
@@ -411,21 +519,24 @@ one more label above it.
 ## 15. Component Structure
 
 ```text
-src/screens/AboutPage.jsx              hero, thesis, story, closing, attribution
+src/screens/AboutPage.jsx              hero, thesis, story, problems, paper, closing
 src/components/about/AboutDrawDemo.jsx the stateful sample draw
-src/components/about/AboutComparison.jsx the static three-way comparison
 ```
 
-The story timeline and the closing call to action are markup, not components;
-they hold no state and are used once.
+The demo is the only component here, because it is the only part with state.
+Everything else is markup used once, with its copy in constants at the top of
+the screen. `AboutComparison` was deleted with the section it drew.
 
 ## 16. Test Coverage
 
 ### Page tests (`src/screens/__tests__/AboutPage.test.jsx`)
 
-- Renders the hero, the thesis, the story, and the comparison.
+- Renders the hero, the thesis, and the origin story.
 - Puts a working draw in the hero.
-- Asserts the collect/filter/draw beats appear exactly once — this is the guard against the duplication the page was cut for.
+- Pairs each thing that went wrong with the feature that answers it.
+- Renders all seven paper directions under their `sr-only` heading.
+- Asserts one signature, and that it is the last of the page's voice — the guard against putting it back under the story.
+- Asserts the collect/filter/draw beats and "Where this sits" are gone — the guard against reintroducing onboarding the empty My Bowls screen already does.
 - Keeps the support mail link and TMDB attribution.
 - Uses the correct signed-in or signed-out action.
 
@@ -435,11 +546,6 @@ they hold no state and are used once.
 - A draw selects a contributor first and then one of their titles.
 - A revealed result offers another draw and replaces the idle line.
 - Drawing status and result are exposed through a live region.
-
-### Comparison tests (`src/components/about/__tests__/AboutComparison.test.jsx`)
-
-- Places the bowl between the two alternatives without a straw man.
-- Asserts the section stays static — no buttons, no tabs.
 
 ### Visual QA
 
@@ -453,8 +559,9 @@ they hold no state and are used once.
 The concept is successful when:
 
 - A first-time visitor can explain Movie Bowl as "we choose the list; it chooses one" from the hero alone.
+- A reader who prefers paper leaves with working directions and no hard feelings.
 - Every section earns its scroll — remove any one of them and something is lost.
-- The comparison feels honest rather than like a sales chart.
+- The page sounds like the person who made it, and the case for each feature is a thing that actually went wrong.
 - The contributor-first method reads as fairness, not probability homework.
 - The page creates a clear path into the product for both signed-in and signed-out visitors.
 

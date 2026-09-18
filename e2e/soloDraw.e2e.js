@@ -118,7 +118,10 @@ test("automatic removal empties the bowls at reveal and undo puts them back", as
   backend.state.profiles[0].remove_from_bowls_on_solo_draw = true;
 
   await page.goto("/solo-draw?bowl=solo-bowl-1");
-  await page.getByRole("button", { name: /Press and hold to draw/i }).press("Enter");
+  const drawButton = page.getByRole("button", { name: /Press and hold to draw/i });
+  await expect(drawButton).toBeEnabled();
+  await drawButton.press("Enter");
+  await expect(page.getByRole("dialog", { name: "Draw a movie for yourself?" })).toBeVisible();
   await page.getByRole("button", { name: "Draw", exact: true }).click();
 
   // Both copies of the title go, including the one in a bowl outside the scope.
@@ -129,6 +132,14 @@ test("automatic removal empties the bowls at reveal and undo puts them back", as
   await expect
     .poll(() => backend.state.bowl_movies.filter((movie) => movie.tmdb_id === 3300).length)
     .toBe(0);
+
+  // The pool the draw came from is still on screen behind the reveal, and a
+  // copy the server has already taken must not still be offered as a candidate
+  // until someone refreshes.
+  const pool = page.getByRole("list", { name: "Movies in selected bowls" });
+  await expect(pool.getByText("Solo One Pick")).toHaveCount(0);
+  await expect(pool.getByText("Solo Two Pick")).toBeVisible();
+  await expect(page.getByRole("button", { name: /^Solo One,/ })).toHaveCount(0);
 
   await page.goto("/watch-list");
   await page.getByRole("button").filter({ hasText: "Solo One Pick" }).click();

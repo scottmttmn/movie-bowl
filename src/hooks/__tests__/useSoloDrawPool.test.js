@@ -1,4 +1,4 @@
-import { cleanup, renderHook, waitFor } from "@testing-library/react";
+import { act, cleanup, renderHook, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
@@ -157,6 +157,61 @@ describe("useSoloDrawPool", () => {
 
     await waitFor(() => expect(result.current.rows).toHaveLength(2));
     expect(mocks.state.movieQueries).toHaveLength(2);
+  });
+
+  // A solo draw under "remove my copies" deletes these rows on the server, so
+  // the pool it was drawn from has to lose them without a second read.
+  it("drops removed copies and keeps the scope counts honest", async () => {
+    mocks.state.movieRows = [row("m1", "bowl-1"), row("m2", "bowl-1"), row("m3", "bowl-2")];
+    mocks.state.bowlRows = [
+      { id: "bowl-1", name: "First Bowl" },
+      { id: "bowl-2", name: "Second Bowl" },
+    ];
+
+    const { result } = renderHook(() => useSoloDrawPool("user-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => result.current.removeRows(["m1"]));
+
+    expect(result.current.rows.map((entry) => entry.id)).toEqual(["m2", "m3"]);
+    expect(result.current.bowls).toEqual([
+      { id: "bowl-1", name: "First Bowl", titleCount: 1 },
+      { id: "bowl-2", name: "Second Bowl", titleCount: 1 },
+    ]);
+    // Nothing was read again: the ids are the whole of what changed.
+    expect(mocks.state.movieQueries).toHaveLength(1);
+  });
+
+  it("drops a bowl the removal emptied, as a reload would", async () => {
+    mocks.state.movieRows = [row("m1", "bowl-1"), row("m2", "bowl-2")];
+    mocks.state.bowlRows = [
+      { id: "bowl-1", name: "First Bowl" },
+      { id: "bowl-2", name: "Second Bowl" },
+    ];
+
+    const { result } = renderHook(() => useSoloDrawPool("user-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    act(() => result.current.removeRows(["m2"]));
+
+    expect(result.current.bowls).toEqual([
+      { id: "bowl-1", name: "First Bowl", titleCount: 1 },
+    ]);
+    expect(result.current.bowlIds).toEqual(["bowl-1"]);
+  });
+
+  it("leaves the pool alone when a draw removed nothing", async () => {
+    mocks.state.movieRows = [row("m1", "bowl-1")];
+    mocks.state.bowlRows = [{ id: "bowl-1", name: "First Bowl" }];
+
+    const { result } = renderHook(() => useSoloDrawPool("user-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    const before = result.current.rows;
+
+    act(() => result.current.removeRows([]));
+    act(() => result.current.removeRows(["not-in-the-pool"]));
+
+    expect(result.current.rows).toBe(before);
   });
 
   it("reads nothing until there is a signed-in user", async () => {

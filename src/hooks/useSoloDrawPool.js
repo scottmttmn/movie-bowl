@@ -96,6 +96,35 @@ export default function useSoloDrawPool(userId, { enabled = true } = {}) {
     load();
   }, [load]);
 
+  /**
+   * Drops copies the server has already removed, without reading again.
+   *
+   * A solo draw under "remove my copies" deletes exactly these rows, and it
+   * reports their ids, so the pool can be brought back in step from what the
+   * draw already knows. Refetching would do the same work over the network and,
+   * if that read blinked, would replace a correct pool with an error.
+   */
+  const removeRows = useCallback((movieIds) => {
+    const removed = new Set((movieIds || []).filter(Boolean));
+    if (removed.size === 0) return;
+
+    setState((previous) => {
+      const rows = previous.rows.filter((row) => !removed.has(row.id));
+      if (rows.length === previous.rows.length) return previous;
+
+      // A bowl you have no undrawn titles left in never appears in a freshly
+      // loaded pool, so it leaves the scope selector here too.
+      const counts = getSoloScopeCounts(rows);
+      return {
+        ...previous,
+        rows,
+        bowls: previous.bowls
+          .filter((bowl) => counts.has(bowl.id))
+          .map((bowl) => ({ ...bowl, titleCount: counts.get(bowl.id) })),
+      };
+    });
+  }, []);
+
   const bowlIds = useMemo(() => state.bowls.map((bowl) => bowl.id), [state.bowls]);
 
   return {
@@ -105,5 +134,6 @@ export default function useSoloDrawPool(userId, { enabled = true } = {}) {
     isLoading: state.isLoading,
     errorMessage: state.errorMessage,
     reload: load,
+    removeRows,
   };
 }
