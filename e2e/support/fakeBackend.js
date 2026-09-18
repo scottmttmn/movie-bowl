@@ -22,6 +22,7 @@ function createInitialState() {
         email: DEFAULT_USER.email,
         streaming_services: [],
         default_draw_settings: null,
+        remove_from_bowls_on_solo_draw: false,
       },
     ],
     bowls: [],
@@ -29,6 +30,7 @@ function createInitialState() {
     bowl_movies: [],
     bowl_draw_events: [],
     user_watch_events: [],
+    solo_draw_removed_copies: [],
     bowl_invites: [],
     bowl_add_links: [],
     bowl_draw_permissions: [],
@@ -566,7 +568,145 @@ export class FakeBackend {
         updated_at: now,
       };
       this.state.user_watch_events.push(event);
+
+      // Opt-in: the same transaction takes the caller's own undrawn copies of
+      // the title out of every bowl they can reach, keeping what it removed so
+      // undo can put it back.
+      const profile = this.state.profiles.find((row) => row.id === this.state.currentUser.id);
+      if (profile?.remove_from_bowls_on_solo_draw) {
+        const reachableBowlIds = this.state.bowls
+          .filter(
+            (row) =>
+              row.owner_id === this.state.currentUser.id ||
+              this.state.bowl_members.some(
+                (member) =>
+                  member.bowl_id === row.id && member.user_id === this.state.currentUser.id
+              )
+          )
+          .map((row) => row.id);
+        const doomed = this.state.bowl_movies.filter(
+          (row) =>
+            row.added_by === this.state.currentUser.id &&
+            !row.added_by_name &&
+            !row.added_via_link_id &&
+            !row.drawn_at &&
+            reachableBowlIds.includes(row.bowl_id) &&
+            (row.id === movie.id || (Number(movie.tmdb_id) > 0 && row.tmdb_id === movie.tmdb_id))
+        );
+
+        for (const copy of doomed) {
+          this.state.solo_draw_removed_copies.push({
+            watch_event_id: event.id,
+            bowl_movie_id: copy.id,
+            user_id: this.state.currentUser.id,
+            bowl_id: copy.bowl_id,
+            bowl_name: this.state.bowls.find((row) => row.id === copy.bowl_id)?.name || "Movie Bowl",
+            tmdb_id: copy.tmdb_id,
+            title: copy.title,
+            poster_path: copy.poster_path || null,
+            release_date: copy.release_date || null,
+            runtime: copy.runtime || null,
+            genres: copy.genres || [],
+            overview: copy.overview || null,
+            note: copy.note || null,
+            is_pinned: copy.is_pinned === true,
+            added_at: copy.added_at || now,
+            snapshot_at: copy.snapshot_at || null,
+            removed_at: now,
+          });
+        }
+
+        this.state.bowl_movies = this.state.bowl_movies.filter(
+          (row) => !doomed.some((copy) => copy.id === row.id)
+        );
+      }
+
       await fulfillJson(route, event);
+      return;
+    }
+
+    if (rpcName === "undo_solo_draw") {
+      const event = this.state.user_watch_events.find(
+        (row) =>
+          row.id === args.p_event_id &&
+          row.user_id === this.state.currentUser.id &&
+          row.source_kind === "solo_draw"
+      );
+      if (!event) {
+        await fulfillJson(
+          route,
+          { message: "This solo draw is no longer available to undo.", code: "P0001" },
+          400
+        );
+        return;
+      }
+
+      if (Date.now() - new Date(event.created_at).getTime() > 2 * 60 * 60 * 1000) {
+        await fulfillJson(
+          route,
+          { message: "This draw can no longer be undone.", code: "P0001" },
+          400
+        );
+        return;
+      }
+
+      const snapshots = this.state.solo_draw_removed_copies.filter(
+        (row) => row.watch_event_id === event.id
+      );
+      const skipped = [];
+      let restored = 0;
+
+      for (const snapshot of snapshots) {
+        const bowlIsGone = !this.state.bowls.some((row) => row.id === snapshot.bowl_id);
+        const placeIsTaken = this.state.bowl_movies.some(
+          (row) =>
+            row.id === snapshot.bowl_movie_id ||
+            (row.bowl_id === snapshot.bowl_id &&
+              !row.drawn_at &&
+              Number(snapshot.tmdb_id) > 0 &&
+              row.tmdb_id === snapshot.tmdb_id)
+        );
+
+        if (bowlIsGone || placeIsTaken) {
+          skipped.push({
+            bowl_name: snapshot.bowl_name,
+            title: snapshot.title,
+            reason: bowlIsGone ? "bowl_gone" : "already_added",
+          });
+          continue;
+        }
+
+        this.state.bowl_movies.push({
+          id: snapshot.bowl_movie_id,
+          bowl_id: snapshot.bowl_id,
+          added_by: this.state.currentUser.id,
+          added_by_name: null,
+          added_via_link_id: null,
+          tmdb_id: snapshot.tmdb_id,
+          title: snapshot.title,
+          poster_path: snapshot.poster_path,
+          release_date: snapshot.release_date,
+          runtime: snapshot.runtime,
+          genres: snapshot.genres,
+          overview: snapshot.overview,
+          note: snapshot.note,
+          is_pinned: snapshot.is_pinned,
+          added_at: snapshot.added_at,
+          snapshot_at: snapshot.snapshot_at,
+          drawn_at: null,
+          drawn_by: null,
+        });
+        restored += 1;
+      }
+
+      this.state.solo_draw_removed_copies = this.state.solo_draw_removed_copies.filter(
+        (row) => row.watch_event_id !== event.id
+      );
+      this.state.user_watch_events = this.state.user_watch_events.filter(
+        (row) => row.id !== event.id
+      );
+
+      await fulfillJson(route, { restored, skipped });
       return;
     }
 

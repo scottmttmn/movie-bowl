@@ -8,6 +8,7 @@ const mocks = vi.hoisted(() => {
     authUser: { id: "user-1" },
     profileStreamingServices: [" hbo max ", "Netflix", "netflix"],
     profileDefaultDrawSettings: { prioritizeStreaming: true, runtimeMaxMinutes: 180 },
+    profileRemoveFromBowlsOnSoloDraw: true,
     updateError: null,
     loadError: null,
     updateWait: null,
@@ -43,6 +44,7 @@ const mocks = vi.hoisted(() => {
               data: {
                 streaming_services: state.profileStreamingServices,
                 default_draw_settings: state.profileDefaultDrawSettings,
+                remove_from_bowls_on_solo_draw: state.profileRemoveFromBowlsOnSoloDraw,
               },
               error: state.loadError,
             };
@@ -73,6 +75,7 @@ describe("useUserStreamingServices", () => {
     mocks.state.authUser = { id: "user-1" };
     mocks.state.profileStreamingServices = [" hbo max ", "Netflix", "netflix"];
     mocks.state.profileDefaultDrawSettings = { prioritizeStreaming: true, runtimeMaxMinutes: 180 };
+    mocks.state.profileRemoveFromBowlsOnSoloDraw = true;
     mocks.state.updateError = null;
     mocks.state.loadError = null;
     mocks.state.updateWait = null;
@@ -178,6 +181,44 @@ describe("useUserStreamingServices", () => {
       { default_draw_settings: nextSettings },
     ]);
     expect(result.current.defaultDrawSettings).toEqual(nextSettings);
+  });
+
+  it("loads whether solo draws take your copies out of your bowls", async () => {
+    const { result } = renderHook(() => useUserStreamingServices());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+      expect(result.current.removeFromBowlsOnSoloDraw).toBe(true);
+    });
+  });
+
+  // A profile written before the column existed reads as off, which is the
+  // default the setting ships with rather than a missing answer.
+  it("treats an absent automatic-removal setting as off", async () => {
+    mocks.state.profileRemoveFromBowlsOnSoloDraw = undefined;
+    const { result } = renderHook(() => useUserStreamingServices());
+
+    await waitFor(() => {
+      expect(result.current.loading).toBe(false);
+      expect(result.current.removeFromBowlsOnSoloDraw).toBe(false);
+    });
+  });
+
+  // Its own column, so saving it never rewrites the draw-settings blob beside
+  // it -- and a client that has never heard of it cannot drop it.
+  it("saves automatic removal on its own column", async () => {
+    const { result } = renderHook(() => useUserStreamingServices({ autoLoad: false }));
+
+    let response;
+    await act(async () => {
+      response = await result.current.saveRemoveFromBowlsOnSoloDraw(true);
+    });
+
+    expect(response).toEqual({ error: null });
+    expect(mocks.state.updatedPayloads).toEqual([
+      { remove_from_bowls_on_solo_draw: true },
+    ]);
+    expect(result.current.removeFromBowlsOnSoloDraw).toBe(true);
   });
 
   it("can reload services on demand", async () => {

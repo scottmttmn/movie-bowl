@@ -6,6 +6,12 @@ import WatchHistoryEntryModal from "../components/WatchHistoryEntryModal";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { notifyBowlChange } from "../lib/bowlChanges";
 import { findOwnUndrawnBowlCopies, removeOwnBowlCopies } from "../lib/ownBowlCopies";
+import {
+  describeSkippedRestores,
+  fetchSoloDrawRemovedCopies,
+  undoSoloDraw,
+} from "../lib/soloDraw";
+import { isWithinSoloUndoWindow } from "../utils/watchHistory";
 import { supabase } from "../lib/supabase";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { getMovieNoteValidationError, normalizeMovieNote } from "../utils/movieNote";
@@ -53,6 +59,8 @@ export default function WatchListPage() {
   const [bowlRemoval, setBowlRemoval] = useState(null);
   const [bowlRemovalError, setBowlRemovalError] = useState("");
   const [isRemovingFromBowls, setIsRemovingFromBowls] = useState(false);
+  const [restorableCopies, setRestorableCopies] = useState([]);
+  const [restoreNotice, setRestoreNotice] = useState("");
 
   const loadWatchList = useCallback(async () => {
     setIsLoading(true);
@@ -365,6 +373,24 @@ export default function WatchListPage() {
     }
   };
 
+  // Read when the editor opens rather than with the list: only this one entry
+  // needs it, and only while it is young enough for undo to mean a restore.
+  useEffect(() => {
+    if (!isEntryEditorOpen || !isWithinSoloUndoWindow(editingEntry)) {
+      setRestorableCopies([]);
+      return;
+    }
+
+    let active = true;
+    fetchSoloDrawRemovedCopies(editingEntry.id).then((copies) => {
+      if (active) setRestorableCopies(copies);
+    });
+
+    return () => {
+      active = false;
+    };
+  }, [isEntryEditorOpen, editingEntry]);
+
   const handleKeepInBowls = () => {
     if (isRemovingFromBowls) return;
 
@@ -377,8 +403,30 @@ export default function WatchListPage() {
 
     setIsSavingEntry(true);
     setEntryEditorError("");
+    setRestoreNotice("");
 
     try {
+      // Inside the window a solo entry undoes rather than deletes. With the
+      // automatic-removal setting off the two do the same thing; with it on,
+      // only undo puts the copies back, and the server refuses the plain
+      // deletion for exactly that reason.
+      if (isWithinSoloUndoWindow(entry)) {
+        const undo = await undoSoloDraw(entry.id);
+
+        if (!undo.ok) {
+          setEntryEditorError(undo.message);
+          return;
+        }
+
+        setIsEntryEditorOpen(false);
+        setEditingEntry(null);
+        setSelectedDetailMovie(null);
+        setRestoreNotice(describeSkippedRestores(undo.skipped));
+        if (undo.restored > 0) notifyBowlChange({});
+        await loadWatchList();
+        return;
+      }
+
       const { error } = await supabase.rpc("delete_user_watch_event", {
         p_event_id: entry.id,
       });
@@ -453,6 +501,15 @@ export default function WatchListPage() {
             )}
           </div>
         </div>
+
+        {restoreNotice && (
+          <div className="status-warning mb-4 flex flex-wrap items-center justify-between gap-3" role="status">
+            <p>{restoreNotice}</p>
+            <button type="button" className="btn btn-ghost" onClick={() => setRestoreNotice("")}>
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {isLoading ? (
           <p className="text-sm text-slate-400">Loading your watch history…</p>
@@ -624,6 +681,7 @@ export default function WatchListPage() {
           onRemoveFromBowls={
             editingEntry?.source_kind === "solo_draw" ? handleOfferBowlRemoval : null
           }
+          restorableCopies={restorableCopies}
           isSaving={isSavingEntry}
           errorMessage={entryEditorError}
         />

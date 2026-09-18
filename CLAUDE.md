@@ -34,7 +34,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (143 test files / 1185 tests, 66 Playwright tests with 7 skipped,
+fully green (145 test files / 1210 tests, 68 Playwright tests with 7 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -176,7 +176,7 @@ directory marks the home bowl the same way and offers no control to move it; see
 
 Tables the app touches: `profiles`, `bowls`, `bowl_members`, `bowl_movies`,
 `bowl_invites`, `bowl_draw_permissions`, `bowl_add_links`, `bowl_draw_events`,
-`user_watch_events`, `user_bowl_defaults`. `bowl_movie_queue` is legacy and is not written to.
+`user_watch_events`, `user_bowl_defaults`, `solo_draw_removed_copies`. `bowl_movie_queue` is legacy and is not written to.
 
 The interface says **home bowl**; the database says **default**. That drift is
 deliberate — do not rename deployed database objects to match the UI term:
@@ -211,7 +211,7 @@ because they are the atomic/permission-checked path:
 `draw_bowl_movie_by_rotation`, `return_bowl_draw_to_bowl`,
 `save_bowl_draw_access`, `save_bowl_draw_method`, `delete_owned_bowl`,
 `set_own_bowl_movie_pin`, `consume_bowl_add_link`, `create_manual_watch_event`,
-`record_solo_draw`,
+`record_solo_draw`, `undo_solo_draw`,
 `update_user_watch_event`, `delete_user_watch_event`.
 
 Invitations live at `/invites`, the one surface that sends, accepts, declines,
@@ -241,7 +241,7 @@ back with a fresh timestamp to run). See `supabase/README.md`.
 Run database tests with `./scripts/pgtap.sh`, which builds a disposable local
 Supabase project from a schema-only dump of the linked project, applies whatever
 is not yet deployed, runs the suites and removes the project on exit. Never
-against the hosted database: pgTAP writes rows. A clean run is 20 suites / 526
+against the hosted database: pgTAP writes rows. A clean run is 22 suites / 582
 assertions, all passing.
 
 The script clears Supabase's default privileges before restoring the dump, and

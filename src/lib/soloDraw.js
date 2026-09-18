@@ -62,3 +62,99 @@ export async function recordSoloDraw(bowlMovieId, requestId) {
     return { ok: false, code: "unexpected", message: SAVE_ERROR, event: null };
   }
 }
+
+const UNDO_ERROR = "Could not undo this draw. Please try again.";
+
+/**
+ * The copies a solo draw took out of your bowls, if the setting was on.
+ *
+ * Read rather than returned by the draw: `record_solo_draw` returns the watch
+ * entry, and the snapshot rows are the server's own record of what it removed.
+ * A failed read degrades to saying nothing about removals rather than blocking
+ * a draw that has already committed.
+ */
+export async function fetchSoloDrawRemovedCopies(eventId) {
+  if (!eventId) return [];
+
+  try {
+    const { data, error } = await supabase
+      .from("solo_draw_removed_copies")
+      .select("bowl_movie_id, bowl_id, bowl_name, title")
+      .eq("watch_event_id", eventId)
+      .order("bowl_name", { ascending: true });
+
+    if (error) {
+      console.error("[soloDraw] Failed to read the copies a draw removed", error);
+      return [];
+    }
+
+    return (data || []).map((row) => ({
+      id: row.bowl_movie_id,
+      bowlId: row.bowl_id,
+      bowlName: row.bowl_name,
+      title: row.title,
+    }));
+  } catch (error) {
+    console.error("[soloDraw] Unexpected error reading removed copies", error);
+    return [];
+  }
+}
+
+/**
+ * Undoes a solo draw: deletes the entry and restores the copies it removed.
+ *
+ * The two-hour window and the ownership of every copy are the server's to
+ * enforce, so this reports what came back rather than deciding it. `skipped`
+ * names the copies that could not go back -- their bowl is gone, access to it
+ * is gone, or another copy of the title has taken the place.
+ */
+export async function undoSoloDraw(eventId) {
+  if (!eventId) {
+    return { ok: false, code: "invalid", message: UNDO_ERROR, restored: 0, skipped: [] };
+  }
+
+  try {
+    const { data, error } = await supabase.rpc("undo_solo_draw", {
+      p_event_id: eventId,
+    });
+
+    if (error) {
+      console.error("[soloDraw] Failed to undo a solo draw", error);
+      const message = error.code === "P0001" && error.message ? error.message : UNDO_ERROR;
+      return { ok: false, code: error.code || "error", message, restored: 0, skipped: [] };
+    }
+
+    const result = Array.isArray(data) ? data[0] : data;
+    return {
+      ok: true,
+      code: null,
+      message: "",
+      restored: Number(result?.restored) || 0,
+      skipped: Array.isArray(result?.skipped) ? result.skipped : [],
+    };
+  } catch (error) {
+    console.error("[soloDraw] Unexpected error undoing a solo draw", error);
+    return { ok: false, code: "unexpected", message: UNDO_ERROR, restored: 0, skipped: [] };
+  }
+}
+
+/**
+ * The one line that says what an undo did, when it did not simply work.
+ *
+ * Silence is right when everything went back, because the bowls themselves are
+ * the answer. A copy that could not go back has to be said out loud: nothing
+ * else on screen will ever explain the gap.
+ */
+export function describeSkippedRestores(skipped) {
+  const entries = (skipped || []).filter((entry) => entry?.bowl_name);
+  if (entries.length === 0) return "";
+
+  const bowls = [...new Set(entries.map((entry) => entry.bowl_name))];
+  const named = bowls.length > 2
+    ? `${bowls.slice(0, 2).join(", ")} and ${bowls.length - 2} more`
+    : bowls.join(" and ");
+
+  return entries.length === 1
+    ? `The copy in ${named} could not go back, so it stays removed.`
+    : `${entries.length} copies could not go back, in ${named}. They stay removed.`;
+}

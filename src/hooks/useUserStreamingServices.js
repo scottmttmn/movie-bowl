@@ -7,6 +7,7 @@ import { valuesAreEqual } from "./useAutosave";
 export default function useUserStreamingServices({ autoLoad = true } = {}) {
   const [streamingServices, setStreamingServicesState] = useState([]);
   const [defaultDrawSettings, setDefaultDrawSettingsState] = useState(DEFAULT_DRAW_SETTINGS);
+  const [removeFromBowlsOnSoloDraw, setRemoveFromBowlsOnSoloDrawState] = useState(false);
   const [loading, setLoading] = useState(autoLoad);
   const [loadError, setLoadError] = useState(null);
 
@@ -34,7 +35,7 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("streaming_services, default_draw_settings")
+        .select("streaming_services, default_draw_settings, remove_from_bowls_on_solo_draw")
         .eq("id", user.id)
         .single();
 
@@ -49,6 +50,7 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
       const normalizedDrawSettings = normalizeDefaultDrawSettings(data?.default_draw_settings);
       setStreamingServicesState(normalized);
       setDefaultDrawSettingsState(normalizedDrawSettings);
+      setRemoveFromBowlsOnSoloDrawState(data?.remove_from_bowls_on_solo_draw === true);
       return normalized;
     } catch (error) {
       console.error("[useUserStreamingServices] Failed to load profile", error);
@@ -117,6 +119,34 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
     [defaultDrawSettings, loadError]
   );
 
+  // Its own column rather than a key in default_draw_settings, because the
+  // draw reads it on the server and that column is a normalized blob: a client
+  // that has never heard of this key would drop it on its next save.
+  const saveRemoveFromBowlsOnSoloDraw = useCallback(
+    async (enabled) => {
+      if (loadError) return { error: loadError };
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      const user = authData?.session?.user;
+
+      if (authError || !user) {
+        return { error: authError || new Error("Not authenticated") };
+      }
+
+      const next = enabled === true;
+      const { error } = await supabase
+        .from("profiles")
+        .update({ remove_from_bowls_on_solo_draw: next })
+        .eq("id", user.id);
+
+      if (!error) {
+        setRemoveFromBowlsOnSoloDrawState(next);
+      }
+
+      return { error };
+    },
+    [loadError]
+  );
+
   const toggleService = useCallback((service) => {
     setStreamingServicesState((prev) =>
       prev.includes(service) ? prev.filter((s) => s !== service) : [...prev, service]
@@ -128,11 +158,14 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
     setStreamingServices,
     defaultDrawSettings,
     setDefaultDrawSettings,
+    removeFromBowlsOnSoloDraw,
+    setRemoveFromBowlsOnSoloDraw: setRemoveFromBowlsOnSoloDrawState,
     toggleService,
     loading,
     loadError,
     reloadStreamingServices: loadStreamingServices,
     saveStreamingServices,
     saveDefaultDrawSettings,
+    saveRemoveFromBowlsOnSoloDraw,
   };
 }

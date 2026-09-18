@@ -54,6 +54,18 @@ function getAvailableGenres(rows) {
   return [...genres].sort((left, right) => left.localeCompare(right));
 }
 
+// The reveal says where the pick went, and -- when the account asks for copies
+// to be removed -- that they are gone and where undo lives. Saying nothing
+// would leave a title missing from bowls with nothing on screen to explain it.
+function describeSoloReveal(movie) {
+  const removed = (movie?.removedCopies || []).length;
+  if (removed === 0) return "Saved to your watch history.";
+
+  return removed === 1
+    ? "Saved to your watch history, and your copy was removed from its bowl. Undo there within two hours to put it back."
+    : `Saved to your watch history, and your ${removed} copies were removed from your bowls. Undo there within two hours to put them back.`;
+}
+
 export default function SoloDrawPage() {
   const { session } = useAuth();
   const userId = session?.user?.id || null;
@@ -512,7 +524,7 @@ export default function SoloDrawPage() {
           isObscured={isTheaterPlaying}
           userStreamingServices={streamingServices}
           webLaunchCandidate={settings.enablePreferredWebLaunch ? preferredWebLaunchCandidate : null}
-          detailPrimaryActionNote="Saved to your watch history."
+          detailPrimaryActionNote={describeSoloReveal(revealedMovie)}
           onClose={closeReveal}
         />
       )}

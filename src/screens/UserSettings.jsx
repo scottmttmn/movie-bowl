@@ -97,6 +97,9 @@ export default function UserSettings() {
     reloadStreamingServices,
     saveStreamingServices,
     saveDefaultDrawSettings,
+    removeFromBowlsOnSoloDraw,
+    setRemoveFromBowlsOnSoloDraw,
+    saveRemoveFromBowlsOnSoloDraw,
   } = useUserStreamingServices();
 
   const hasServices = streamingServices.length > 0;
@@ -160,6 +163,9 @@ export default function UserSettings() {
   const streamingTileSummary = hasServices
     ? `${streamingServices.length} service${streamingServices.length === 1 ? "" : "s"} • ${streamingServices[0]} first`
     : "No services picked yet";
+  const soloDrawTileSummary = removeFromBowlsOnSoloDraw
+    ? "Copies leave your bowls"
+    : "Copies stay in your bowls";
   const playbackTileSummary = defaultDrawSettings.theaterModeEnabled
     ? `Theater mode on • ${defaultDrawSettings.theaterTrailerCount} preview${
         defaultDrawSettings.theaterTrailerCount === 1 ? "" : "s"
@@ -179,8 +185,9 @@ export default function UserSettings() {
         theaterModeEnabled: defaultDrawSettings.theaterModeEnabled,
         theaterTrailerCount: defaultDrawSettings.theaterTrailerCount,
       },
+      removeFromBowlsOnSoloDraw,
     }),
-    [streamingServices, defaultDrawSettings]
+    [streamingServices, defaultDrawSettings, removeFromBowlsOnSoloDraw]
   );
 
   // Only playback keys are edited here; the dashboard owns the draw filters.
@@ -194,11 +201,14 @@ export default function UserSettings() {
       if (!valuesAreEqual(next.defaultDrawSettings, previous.defaultDrawSettings)) {
         pendingWrites.push(saveDefaultDrawSettings(next.defaultDrawSettings));
       }
+      if (next.removeFromBowlsOnSoloDraw !== previous.removeFromBowlsOnSoloDraw) {
+        pendingWrites.push(saveRemoveFromBowlsOnSoloDraw(next.removeFromBowlsOnSoloDraw));
+      }
 
       const results = await Promise.all(pendingWrites);
       return { error: results.find((result) => result?.error)?.error || null };
     },
-    [saveStreamingServices, saveDefaultDrawSettings]
+    [saveStreamingServices, saveDefaultDrawSettings, saveRemoveFromBowlsOnSoloDraw]
   );
 
   const { status: saveStatus, error: saveError, retry: retrySave } = useAutosave({
@@ -265,6 +275,7 @@ export default function UserSettings() {
             className="mt-6"
             items={[
               { href: "#streaming-services", label: "Streaming", value: streamingTileSummary },
+              { href: "#solo-draw", label: "Solo draw", value: soloDrawTileSummary },
               { href: "#tv-playback", label: "TV playback", value: playbackTileSummary },
             ]}
           />
@@ -529,6 +540,26 @@ export default function UserSettings() {
                   }
                 />
               </div>
+            </div>
+          </section>
+
+          <section id="solo-draw" tabIndex={-1} className="panel scroll-mt-24" aria-labelledby="solo-draw-heading">
+            <h2 id="solo-draw-heading" className="section-title">Solo draw</h2>
+            <p className="mt-1 text-sm text-slate-400">
+              What happens to your copies of a movie when you draw it on your own.
+            </p>
+
+            <div className="mt-5">
+              <SettingToggle
+                id="remove-from-bowls-on-solo-draw"
+                name="remove_from_bowls_on_solo_draw"
+                ariaLabel="Remove movies from my bowls when I draw solo"
+                label="Remove movies from my bowls when I draw solo"
+                description="Takes your own copies of the drawn movie out of every bowl you are in, instead of leaving them for you to remove from watch history."
+                note="Undo in watch history puts them back for two hours."
+                checked={removeFromBowlsOnSoloDraw}
+                onChange={(event) => setRemoveFromBowlsOnSoloDraw(event.target.checked)}
+              />
             </div>
           </section>
 
