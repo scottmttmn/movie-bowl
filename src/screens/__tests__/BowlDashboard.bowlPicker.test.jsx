@@ -63,7 +63,6 @@ vi.mock("../../hooks/useBowlAdd", () => ({ default: () => ({ openBowlAdd: mocks.
 vi.mock("../../hooks/useBowl", () => ({
   default: () => ({
     bowl: { remaining: [], watched: [] },
-    drawOdds: [],
     isLoading: false,
     errorMessage: null,
     handleDraw: vi.fn(async () => null),

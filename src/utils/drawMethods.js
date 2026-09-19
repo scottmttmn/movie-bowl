@@ -1,4 +1,4 @@
-import { getContributorBucketKey, getContributorBucketLabel } from "./drawBuckets";
+import { getContributorBucketKey } from "./drawBuckets";
 
 export const DEFAULT_DRAW_METHOD = "person_first";
 
@@ -23,30 +23,6 @@ function groupByContributor(items) {
   });
 
   return Array.from(buckets.values()).filter((bucket) => bucket.length > 0);
-}
-
-// Odds are reported per contributor whatever the method, so the methods differ
-// only in how they turn the counts into a share.
-function buildContributorCounts(movies) {
-  const buckets = new Map();
-
-  (movies || []).forEach((movie) => {
-    // Optimistic rows are excluded from draws until they persist, so they are
-    // excluded from the odds that describe those draws.
-    if (!movie || movie.local_status === "syncing") return;
-    const key = getContributorBucketKey(movie);
-    if (!buckets.has(key)) {
-      buckets.set(key, {
-        bucketKey: key,
-        member: getContributorBucketLabel(movie),
-        movieCount: 0,
-        drawOdds: 0,
-      });
-    }
-    buckets.get(key).movieCount += 1;
-  });
-
-  return Array.from(buckets.values()).sort((a, b) => a.member.localeCompare(b.member));
 }
 
 const PERSON_FIRST = {
@@ -74,14 +50,6 @@ const PERSON_FIRST = {
     const pinned = bucket.find((item) => getMovieFromItem(item)?.is_pinned);
     return pinned || pickUniform(bucket, randomFn);
   },
-  buildOdds(movies) {
-    const stats = buildContributorCounts(movies);
-    const bucketCount = stats.length;
-    return stats.map((stat) => ({
-      ...stat,
-      drawOdds: bucketCount > 0 ? 1 / bucketCount : 0,
-    }));
-  },
 };
 
 const TITLE_FIRST = {
@@ -101,14 +69,6 @@ const TITLE_FIRST = {
   selectionMode: "client",
   pick(pool, { randomFn = Math.random } = {}) {
     return pickUniform(pool, randomFn);
-  },
-  buildOdds(movies) {
-    const stats = buildContributorCounts(movies);
-    const movieCount = stats.reduce((total, stat) => total + stat.movieCount, 0);
-    return stats.map((stat) => ({
-      ...stat,
-      drawOdds: movieCount > 0 ? stat.movieCount / movieCount : 0,
-    }));
   },
 };
 
@@ -147,9 +107,4 @@ export function normalizeDrawMethod(value) {
 
 export function getDrawMethod(value) {
   return DRAW_METHODS[normalizeDrawMethod(value)];
-}
-
-export function buildDrawOddsStats(movies = [], drawMethod = DEFAULT_DRAW_METHOD) {
-  const method = getDrawMethod(drawMethod);
-  return typeof method.buildOdds === "function" ? method.buildOdds(movies) : [];
 }
