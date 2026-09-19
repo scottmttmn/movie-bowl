@@ -162,13 +162,13 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   nothing stored starts off, which is what keeps `theaterModeEnabled` from
   silently widening from "on the television" for existing accounts. Keep
   `deviceDrawSettings.js`'s storage prefix, which still says `tv`, or every
-  television forgets its overrides. **Shipped September 14, 2026.** What remains
-  is the rest of the design doc's sketch: rewrite the "TV & playback" settings
-  copy now that the section governs two surfaces. This does put a control on the
-  bowl page for everyone, reversing an earlier line in the design doc, and it is
-  paid for deliberately:
-  it is also the only thing that makes the feature discoverable on the web.
-  Specified in `output/designs/tv-web-seam.md`.
+  television forgets its overrides. **Shipped September 14, 2026.** This does put
+  a control on the bowl page for everyone, reversing an earlier line in the
+  design doc, and it is paid for deliberately: it is also the only thing that
+  makes the feature discoverable on the web. The settings copy that still
+  described only the television was rewritten September 19, 2026, along with the
+  preview count, which had been collapsed behind a toggle a web device never
+  touches. Specified in `output/designs/tv-web-seam.md`.
 
 - Web/television seam: the Google TV app is the only supported television, and
   other televisions' browsers are out of scope -- in practice a path almost

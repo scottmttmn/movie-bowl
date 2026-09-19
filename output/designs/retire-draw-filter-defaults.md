@@ -32,7 +32,7 @@ playback. There is no separate Draw filter defaults section.
 | `prioritizeStreaming`, `useStreamingRank` | Dashboard Filters |
 | Rating, genre, and runtime selections, including unknown-value toggles | Dashboard Filters |
 | `enablePreferredWebLaunch` | Settings → Streaming services |
-| `theaterModeEnabled`, `theaterTrailerCount` | Settings → TV & playback |
+| `theaterModeEnabled`, `theaterTrailerCount` | Settings → Previews & playback |
 
 The existing column and normalization shape are unchanged. Each editor sends
 only its own keys. `saveDefaultDrawSettings` merges these into its loaded

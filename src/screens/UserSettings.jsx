@@ -237,7 +237,7 @@ export default function UserSettings() {
 
   const handleResetPlayback = () => {
     const confirmed = window.confirm(
-      "Reset web launch and TV playback? Your service list, ranking, and remembered draw filters are kept."
+      "Reset web launch and previews? Your service list, ranking, and remembered draw filters are kept."
     );
     if (!confirmed) return;
     setDefaultDrawSettings({
@@ -374,7 +374,7 @@ export default function UserSettings() {
               { href: "#profile", label: "Profile", value: profileTileSummary },
               { href: "#streaming-services", label: "Streaming", value: streamingTileSummary },
               { href: "#solo-draw", label: "Solo draw", value: soloDrawTileSummary },
-              { href: "#tv-playback", label: "TV playback", value: playbackTileSummary },
+              { href: "#playback", label: "Previews", value: playbackTileSummary },
               { href: "#account", label: "Account", value: accountEmail || "Signed in" },
             ]}
           />
@@ -694,19 +694,19 @@ export default function UserSettings() {
             </div>
           </section>
 
-          <section id="tv-playback" tabIndex={-1} className="panel scroll-mt-24" aria-labelledby="tv-playback-heading">
-            <h2 id="tv-playback-heading" className="section-title">TV &amp; playback</h2>
+          <section id="playback" tabIndex={-1} className="panel scroll-mt-24" aria-labelledby="playback-heading">
+            <h2 id="playback-heading" className="section-title">Previews &amp; playback</h2>
             <p className="mt-1 text-sm text-slate-400">
-              How the TV app behaves once a movie is drawn.
+              What plays before a drawn movie, on the television and in this app.
             </p>
 
             <div className="mt-5 space-y-4">
               <SettingToggle
                 id="theater-mode-enabled"
                 name="theater_mode_enabled"
-                ariaLabel="Enable TV theater mode"
+                ariaLabel="Enable theater mode"
                 label="Theater mode"
-                description="Play previews from other movies in the bowl before starting the drawn movie."
+                description="Plays previews from other movies in the bowl before the drawn movie. Televisions follow this setting; on a phone or laptop the theater mode switch beside the draw button decides."
                 checked={defaultDrawSettings.theaterModeEnabled}
                 onChange={(event) =>
                   setDefaultDrawSettings({
@@ -716,38 +716,42 @@ export default function UserSettings() {
                 }
               />
 
-              {defaultDrawSettings.theaterModeEnabled && (
-                <div className="flex items-center justify-between gap-3 border-t border-slate-800 pt-4">
-                  <label htmlFor="theater-trailer-count" className="text-sm text-slate-300">
-                    Previews before the movie
-                  </label>
-                  <select
-                    id="theater-trailer-count"
-                    name="theater_trailer_count"
-                    aria-label="Theater mode preview count"
-                    className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-                    value={defaultDrawSettings.theaterTrailerCount}
-                    onChange={(event) =>
-                      setDefaultDrawSettings({
-                        ...defaultDrawSettings,
-                        theaterTrailerCount: Number(event.target.value),
-                      })
-                    }
-                  >
-                    {THEATER_TRAILER_COUNT_OPTIONS.map((option) => (
-                      <option key={option} value={option}>
-                        {option}
-                      </option>
-                    ))}
-                  </select>
-                </div>
-              )}
+              {/* Shown whether or not the toggle above is on: the count is the
+                  only control for it anywhere, and a phone or laptop arms
+                  theater mode from its own switch without touching that
+                  toggle. Collapsing this behind a setting that now governs
+                  televisions alone left those devices playing a number their
+                  owner could not reach. */}
+              <div className="flex items-center justify-between gap-3 border-t border-slate-800 pt-4">
+                <label htmlFor="theater-trailer-count" className="text-sm text-slate-300">
+                  Previews before the movie
+                </label>
+                <select
+                  id="theater-trailer-count"
+                  name="theater_trailer_count"
+                  aria-label="Theater mode preview count"
+                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
+                  value={defaultDrawSettings.theaterTrailerCount}
+                  onChange={(event) =>
+                    setDefaultDrawSettings({
+                      ...defaultDrawSettings,
+                      theaterTrailerCount: Number(event.target.value),
+                    })
+                  }
+                >
+                  {THEATER_TRAILER_COUNT_OPTIONS.map((option) => (
+                    <option key={option} value={option}>
+                      {option}
+                    </option>
+                  ))}
+                </select>
+              </div>
             </div>
           </section>
 
           <div className="panel-muted flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <p className="text-sm text-slate-400">
-              Reset web launch and TV playback. Your service list, ranking, and remembered draw filters are kept.
+              Reset web launch and previews. Your service list, ranking, and remembered draw filters are kept.
             </p>
             <button type="button" className="btn btn-danger sm:shrink-0" onClick={handleResetPlayback}>
               Reset playback
