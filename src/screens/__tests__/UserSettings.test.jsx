@@ -330,31 +330,27 @@ describe("UserSettings", () => {
     expect(links[1]).toHaveTextContent("Netflix first");
     expect(links[2]).toHaveTextContent("Copies stay in your bowls");
     expect(links[3]).toHaveTextContent("Theater mode on");
-    expect(links[3]).toHaveTextContent("2 previews");
     expect(links[4]).toHaveTextContent("owner@example.com");
     expect(screen.queryByRole("heading", { name: "Draw filter defaults" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/default prioritize streaming services/i)).not.toBeInTheDocument();
   });
 
-  it("keeps the preview count reachable while theater mode is off", () => {
-    // The account toggle governs televisions; a phone or laptop arms theater
-    // mode from its own switch and still plays this many previews, so hiding
-    // the count behind the toggle put it out of reach for those devices.
+  // The count moved onto the theater mode ticket, where tonight is decided, and
+  // it is a per-device override now. Leaving a second control here would write
+  // the account value and quietly disagree with every ticket.
+  it("no longer carries a preview count control", () => {
     mocks.hook.defaultDrawSettings = {
       ...mocks.hook.defaultDrawSettings,
-      theaterModeEnabled: false,
+      theaterModeEnabled: true,
       theaterTrailerCount: 3,
     };
 
     renderSettings();
 
-    const count = screen.getByRole("combobox", { name: "Theater mode preview count" });
-    expect(count).toHaveValue("3");
-
-    fireEvent.change(count, { target: { value: "2" } });
-    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
-      expect.objectContaining({ theaterTrailerCount: 2, theaterModeEnabled: false })
-    );
+    expect(screen.getByLabelText(/enable theater mode/i)).toBeInTheDocument();
+    expect(
+      screen.queryByRole("combobox", { name: "Theater mode preview count" })
+    ).not.toBeInTheDocument();
   });
 
   it("prompts for a service before the streaming toggles can be used", () => {

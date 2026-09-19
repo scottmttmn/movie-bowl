@@ -8,7 +8,6 @@ import ServiceLogo from "../components/ServiceLogo";
 import { AVAILABLE_STREAMING_SERVICES } from "../utils/streamingServices";
 import {
   DEFAULT_DRAW_SETTINGS,
-  THEATER_TRAILER_COUNT_OPTIONS,
 } from "../utils/drawSettings";
 import { deleteMyAccount } from "../lib/account";
 import { DISPLAY_NAME_MAX_LENGTH } from "../utils/profileIdentity";
@@ -180,9 +179,7 @@ export default function UserSettings() {
     ? "Copies leave your bowls"
     : "Copies stay in your bowls";
   const playbackTileSummary = defaultDrawSettings.theaterModeEnabled
-    ? `Theater mode on • ${defaultDrawSettings.theaterTrailerCount} preview${
-        defaultDrawSettings.theaterTrailerCount === 1 ? "" : "s"
-      }`
+    ? "Theater mode on"
     : "Theater mode off";
   const profileTileSummary = displayName?.trim() || "Choose a display name";
 
@@ -714,13 +711,13 @@ export default function UserSettings() {
               What plays before a drawn movie, on the television and in this app.
             </p>
 
-            <div className="mt-5 space-y-4">
+            <div className="mt-5">
               <SettingToggle
                 id="theater-mode-enabled"
                 name="theater_mode_enabled"
                 ariaLabel="Enable theater mode"
                 label="Theater mode"
-                description="Plays previews from other movies in the bowl before the drawn movie. It is the default for televisions; a device's own theater mode switch overrides it, and on a phone or laptop that switch is the only thing that turns previews on."
+                description="Plays previews from other movies in the bowl before the drawn movie. It is the default for televisions; every device decides for itself from the theater mode switch beside its draw button, which is also where the number of previews is set."
                 checked={defaultDrawSettings.theaterModeEnabled}
                 onChange={(event) =>
                   setDefaultDrawSettings({
@@ -729,37 +726,6 @@ export default function UserSettings() {
                   })
                 }
               />
-
-              {/* Shown whether or not the toggle above is on: the count is the
-                  only control for it anywhere, and a phone or laptop arms
-                  theater mode from its own switch without touching that
-                  toggle. Collapsing this behind a setting that now governs
-                  televisions alone left those devices playing a number their
-                  owner could not reach. */}
-              <div className="flex items-center justify-between gap-3 border-t border-slate-800 pt-4">
-                <label htmlFor="theater-trailer-count" className="text-sm text-slate-300">
-                  Previews before the movie
-                </label>
-                <select
-                  id="theater-trailer-count"
-                  name="theater_trailer_count"
-                  aria-label="Theater mode preview count"
-                  className="rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-sm text-slate-100"
-                  value={defaultDrawSettings.theaterTrailerCount}
-                  onChange={(event) =>
-                    setDefaultDrawSettings({
-                      ...defaultDrawSettings,
-                      theaterTrailerCount: Number(event.target.value),
-                    })
-                  }
-                >
-                  {THEATER_TRAILER_COUNT_OPTIONS.map((option) => (
-                    <option key={option} value={option}>
-                      {option}
-                    </option>
-                  ))}
-                </select>
-              </div>
             </div>
           </section>
 

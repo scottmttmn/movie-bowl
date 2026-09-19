@@ -1,4 +1,4 @@
-import { normalizeDefaultDrawSettings } from "./drawSettings";
+import { normalizeDefaultDrawSettings, THEATER_TRAILER_COUNT_OPTIONS } from "./drawSettings";
 
 // Still says `tv` because televisions are already storing under it. The module
 // generalised from one surface to every device; the key cannot follow without
@@ -26,9 +26,23 @@ export const DEVICE_OVERRIDABLE_SETTINGS = [
   "prioritizeStreaming",
   "useStreamingRank",
   "theaterModeEnabled",
+  "theaterTrailerCount",
 ];
 
-const OVERRIDABLE = new Set(DEVICE_OVERRIDABLE_SETTINGS);
+// Each name carries what a stored value may be, because the list is no longer
+// all booleans: the preview count moved onto the ticket, so it diverges per
+// device like the switch beside it. A stored value that does not pass is
+// dropped rather than clamped -- hand-edited storage is not a preference.
+const OVERRIDABLE = new Map([
+  ["prioritizeStreaming", (value) => typeof value === "boolean"],
+  ["useStreamingRank", (value) => typeof value === "boolean"],
+  ["theaterModeEnabled", (value) => typeof value === "boolean"],
+  ["theaterTrailerCount", (value) => THEATER_TRAILER_COUNT_OPTIONS.includes(value)],
+]);
+
+function isStorableOverride(name, value) {
+  return OVERRIDABLE.get(name)?.(value) === true;
+}
 
 // Frozen and module-level so a caller passing nothing hands the same object
 // every render, which keeps the merge memoizable.
@@ -71,9 +85,7 @@ export function readDeviceSettingsOverrides(userId) {
     if (!stored || typeof stored !== "object") return {};
 
     return Object.fromEntries(
-      Object.entries(stored).filter(
-        ([name, value]) => OVERRIDABLE.has(name) && typeof value === "boolean"
-      )
+      Object.entries(stored).filter(([name, value]) => isStorableOverride(name, value))
     );
   } catch {
     // Unreadable storage means this device simply has no opinions yet.
@@ -87,9 +99,7 @@ export function writeDeviceSettingsOverrides(userId, overrides) {
   if (!storage || !key) return false;
 
   const clean = Object.fromEntries(
-    Object.entries(overrides || {}).filter(
-      ([name, value]) => OVERRIDABLE.has(name) && typeof value === "boolean"
-    )
+    Object.entries(overrides || {}).filter(([name, value]) => isStorableOverride(name, value))
   );
 
   try {

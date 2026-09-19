@@ -168,7 +168,10 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   makes the feature discoverable on the web. The settings copy that still
   described only the television was rewritten September 19, 2026, along with the
   preview count, which had been collapsed behind a toggle a web device never
-  touches. Specified in `output/designs/tv-web-seam.md`.
+  touches. Later the same day the count left Settings altogether: it is a device
+  override now and the ticket's stub is its only control, pressed to walk 1 to 4
+  on the phone, the laptop and the television alike. Specified in
+  `output/designs/tv-web-seam.md`.
 
 - Web/television seam: the Google TV app is the only supported television, and
   other televisions' browsers are out of scope -- in practice a path almost

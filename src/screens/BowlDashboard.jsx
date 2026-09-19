@@ -983,7 +983,11 @@ return (
                   <div className="mt-3 flex justify-center">
                     <TheaterTicket
                       enabled={isTheaterModeEnabled}
+                      previewCount={theaterTrailerCount}
                       onToggle={(next) => setDeviceDrawSetting("theaterModeEnabled", next)}
+                      onPreviewCountChange={(next) =>
+                        setDeviceDrawSetting("theaterTrailerCount", next)
+                      }
                     />
                   </div>
                 )}

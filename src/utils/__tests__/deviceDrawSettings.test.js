@@ -52,6 +52,26 @@ describe("deviceDrawSettings", () => {
     expect(readDeviceSettingsOverrides("user-1")).toEqual({ prioritizeStreaming: true });
   });
 
+  // The preview count is the one override that is not a boolean, so its stored
+  // shape is checked against the options rather than against a type.
+  it("carries the preview count, and only as one of the offered counts", () => {
+    writeDeviceSettingsOverrides("user-1", { theaterTrailerCount: 2 });
+    expect(readDeviceSettingsOverrides("user-1")).toEqual({ theaterTrailerCount: 2 });
+
+    window.localStorage.setItem(
+      KEY,
+      JSON.stringify({ theaterTrailerCount: 9, theaterModeEnabled: true })
+    );
+    expect(readDeviceSettingsOverrides("user-1")).toEqual({ theaterModeEnabled: true });
+  });
+
+  it("lets a device's count win over the account's", () => {
+    expect(
+      mergeDeviceDrawSettings({ theaterTrailerCount: 4 }, { theaterTrailerCount: 1 })
+        .theaterTrailerCount
+    ).toBe(1);
+  });
+
   it("treats unreadable storage as a device with no opinions yet", () => {
     window.localStorage.setItem(KEY, "{not json");
 

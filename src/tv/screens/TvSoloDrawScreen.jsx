@@ -683,9 +683,14 @@ export default function TvSoloDrawScreen({ userId }) {
             {!isPreferencesLoading && (
               <TvTheaterTicket
                 enabled={isTheaterModeEnabled}
+                previewCount={theaterTrailerCount}
                 isOverridden={Object.prototype.hasOwnProperty.call(
                   overriddenSettings,
                   "theaterModeEnabled"
+                )}
+                isCountOverridden={Object.prototype.hasOwnProperty.call(
+                  overriddenSettings,
+                  "theaterTrailerCount"
                 )}
                 onToggle={setTvSetting}
               />

@@ -453,7 +453,9 @@ export default function SoloDrawPage() {
             <div className="mt-3 flex justify-center">
               <TheaterTicket
                 enabled={isTheaterModeEnabled}
+                previewCount={theaterTrailerCount}
                 onToggle={(next) => setDeviceOverride("theaterModeEnabled", next)}
+                onPreviewCountChange={(next) => setDeviceOverride("theaterTrailerCount", next)}
               />
             </div>
             <p className="mt-4 max-w-sm text-[13px] leading-relaxed text-slate-400">Only titles you added. Goes straight to your watch history — your bowls keep their copies.</p>
