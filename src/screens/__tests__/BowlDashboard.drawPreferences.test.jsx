@@ -15,7 +15,6 @@ const mocks = vi.hoisted(() => {
       remaining: [{ id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A", genres: ["Action"], runtime: 180 }],
       watched: [],
     },
-    drawOdds: [{ bucketKey: "user:u1", member: "owner@example.com", movieCount: 1, drawOdds: 1 }],
     handleDraw: vi.fn(async () => null),
     handleDeleteMovie: vi.fn(async () => true),
     handleReaddMovie: vi.fn(async () => true),
@@ -85,7 +84,6 @@ vi.mock("../../hooks/useBowlAdd", () => ({ default: () => ({ openBowlAdd: vi.fn(
 vi.mock("../../hooks/useBowl", () => ({
   default: () => ({
     bowl: mocks.state.bowlData,
-    drawOdds: mocks.state.drawOdds,
     isLoading: false,
     errorMessage: null,
     handleDraw: mocks.state.handleDraw,
@@ -165,7 +163,6 @@ describe("BowlDashboard draw preferences", () => {
       remaining: [{ id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A", genres: ["Action"], runtime: 180 }],
       watched: [],
     };
-    mocks.state.drawOdds = [{ bucketKey: "user:u1", member: "owner@example.com", movieCount: 1, drawOdds: 1 }];
     mocks.state.handleDraw.mockClear();
     mocks.state.streamingServices = [];
     mocks.state.providerLinks = [];

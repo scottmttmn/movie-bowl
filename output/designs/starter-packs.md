@@ -56,8 +56,9 @@ at once:
   deliberate picks compete with a hundred pack slips. Their own titles
   effectively stop coming up — the exact failure the person-first promise
   exists to prevent, arriving through the back door.
-- **The odds panel lies.** `buildDrawOddsStats` would report one contributor
-  holding a normal share, which is true of the bucket and false of the person.
+- **Any odds readout lies.** It would report one contributor holding a normal
+  share, which is true of the bucket and false of the person. (There is no odds
+  surface today; `buildDrawOddsStats` was removed on 2026-09-19.)
 
 As its own bucket the pack holds exactly `1/N` under person-first, the same as
 any member, and adding more titles to a pack changes what it might play, not how

@@ -1,6 +1,5 @@
 import { describe, expect, it } from "vitest";
 import {
-  buildDrawOddsStats,
   DEFAULT_DRAW_METHOD,
   DRAW_METHOD_OPTIONS,
   getDrawMethod,
@@ -123,23 +122,6 @@ describe("person_first", () => {
       method.pick(wrapped, { randomFn: makeSequenceRandom([0, 0]) }).movie.id
     ).toBe("u1-2");
   });
-
-  it("reports equal odds per contributor with movie counts", () => {
-    expect(buildDrawOddsStats(LOPSIDED_POOL, "person_first")).toEqual([
-      {
-        bucketKey: "user:user-2",
-        member: "Friend",
-        movieCount: 1,
-        drawOdds: 0.5,
-      },
-      {
-        bucketKey: "user:user-1",
-        member: "Owner",
-        movieCount: 3,
-        drawOdds: 0.5,
-      },
-    ]);
-  });
 });
 
 describe("title_first", () => {
@@ -153,23 +135,6 @@ describe("title_first", () => {
     expect(drawn).toEqual(["u1-1", "u1-2", "u1-3", "u2-1"]);
   });
 
-  it("reports odds proportional to how many movies each contributor added", () => {
-    expect(buildDrawOddsStats(LOPSIDED_POOL, "title_first")).toEqual([
-      {
-        bucketKey: "user:user-2",
-        member: "Friend",
-        movieCount: 1,
-        drawOdds: 0.25,
-      },
-      {
-        bucketKey: "user:user-1",
-        member: "Owner",
-        movieCount: 3,
-        drawOdds: 0.75,
-      },
-    ]);
-  });
-
   it("ignores a pin and keeps choosing uniformly across titles", () => {
     const pool = [
       { id: "pinned", added_by: "user-1", is_pinned: true },
@@ -180,20 +145,6 @@ describe("title_first", () => {
       method.pick(pool, { randomFn: makeSequenceRandom([0.75]) }).id
     ).toBe("random-pick");
   });
-});
-
-it("pins do not change reported contributor odds", () => {
-  const pinnedPool = LOPSIDED_POOL.map((movie) => ({
-    ...movie,
-    is_pinned: movie.id === "u1-2" || movie.id === "u2-1",
-  }));
-
-  expect(buildDrawOddsStats(pinnedPool, "person_first")).toEqual(
-    buildDrawOddsStats(LOPSIDED_POOL, "person_first")
-  );
-  expect(buildDrawOddsStats(pinnedPool, "title_first")).toEqual(
-    buildDrawOddsStats(LOPSIDED_POOL, "title_first")
-  );
 });
 
 describe("every method", () => {
@@ -229,32 +180,15 @@ describe("every method", () => {
 
       expect(selected.id).toBe("only");
     });
-
-    it(`${method.id} leaves optimistic rows out of the odds`, () => {
-      const stats = buildDrawOddsStats(
-        [
-          ...LOPSIDED_POOL,
-          { id: "pending", added_by: "user-3", local_status: "syncing" },
-        ],
-        method.id
-      );
-
-      expect(stats.map((stat) => stat.bucketKey)).toEqual(["user:user-2", "user:user-1"]);
-    });
-
-    it(`${method.id} reports no odds for an empty bowl`, () => {
-      expect(buildDrawOddsStats([], method.id)).toEqual([]);
-    });
   });
 });
 
 describe("rotation", () => {
   const method = getDrawMethod("rotation");
 
-  it("declares server selection and contributor reach without fake client odds", () => {
+  it("declares server selection and contributor reach", () => {
     expect(method.selectionMode).toBe("server_rotation");
     expect(method.bucketsByContributor).toBe(true);
     expect(method.pick).toBeUndefined();
-    expect(buildDrawOddsStats(LOPSIDED_POOL, "rotation")).toEqual([]);
   });
 });

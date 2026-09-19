@@ -1,4 +1,4 @@
-import { getProfileDisplayName, normalizeDisplayName } from "./profileIdentity";
+import { getProfileDisplayName } from "./profileIdentity";
 
 const CONTRIBUTOR_ACCENTS = [
   { backgroundColor: "#3f0d28", borderColor: "#fb7185", avatarColor: "#e11d48" },
@@ -23,16 +23,6 @@ export function getContributorBucketKey(movie) {
   if (fallbackName) return `guest:${fallbackName.toLowerCase()}`;
 
   return "guest:Link Guest";
-}
-
-export function getContributorBucketLabel(movie) {
-  const displayName = normalizeDisplayName(movie?.profiles?.display_name);
-  if (displayName) return displayName;
-
-  if (movie?.added_by) return getProfileDisplayName(null, movie.added_by);
-
-  const guestName = String(movie?.added_by_name || "").trim();
-  return guestName || "Link Guest";
 }
 
 export function getMovieAttributionLabel(movie) {

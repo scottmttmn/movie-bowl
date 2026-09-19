@@ -12,7 +12,6 @@ const mocks = vi.hoisted(() => {
       remaining: [{ id: "m1", added_by: "u2", tmdb_id: 101, title: "Movie A", runtime: 180, genres: ["Action"] }],
       watched: [],
     },
-    drawOdds: [{ bucketKey: "user:u2", member: "member@example.com", movieCount: 1, drawOdds: 1 }],
     handleDraw: vi.fn(async () => null),
     handleDeleteMovie: vi.fn(async () => true),
     handleReaddMovie: vi.fn(async () => true),
@@ -64,7 +63,6 @@ vi.mock("../../hooks/useBowlAdd", () => ({ default: () => ({ openBowlAdd: vi.fn(
 vi.mock("../../hooks/useBowl", () => ({
   default: () => ({
     bowl: mocks.state.bowlData,
-    drawOdds: mocks.state.drawOdds,
     isLoading: false,
     errorMessage: null,
     handleDraw: mocks.state.handleDraw,
