@@ -270,15 +270,24 @@ a working agreement, and a forked pre-roll would drift.
 
 ## What Settings Keeps
 
-Both controls stay, and the section around them gets rewritten.
+**Superseded September 19, 2026 for the count; the rest of this section still
+holds.** The toggle stays in Settings as the televisions' default. The count
+does not: it is a device override now and the ticket's stub is its only control,
+on the web and on the television alike. What follows is the argument that kept
+it here, left in place because its second half is still why the toggle stays.
 
-The plain reason is `theaterTrailerCount`. It has no override layer — the count
-is deliberately absent from `DEVICE_OVERRIDABLE_SETTINGS`, because a television
+The plain reason was `theaterTrailerCount`. It had no override layer — the count
+was deliberately absent from `DEVICE_OVERRIDABLE_SETTINGS`, because a television
 cannot act on a number it has no control for, and `TvTheaterTicket`'s comment
-explains why the stub says on or off instead. So the count is account-level on
-both surfaces and Settings is its only home. The section exists either way, and
-a count sitting alone, governing a feature with no visible on or off anywhere
-near it, is stranger than a toggle beside it.
+explained why the stub said on or off instead. So the count was account-level on
+both surfaces and Settings was its only home. That reasoning had the dependency
+backwards: the television has no control for the number because nobody had given
+it one. Once the stub tears off into a second focusable that walks 1 to 4, the
+room can act on it, and the number belongs beside the switch that decides
+tonight rather than in a page nobody opens twice a year. Scott asked for exactly
+that, and for the count to diverge per device like the switch.
+
+The section still exists, now holding the toggle alone.
 
 The supporting reason is a television that cannot write to storage at all.
 `deviceDrawSettings.js` catches an accessor that throws — some Android WebView
@@ -446,18 +455,17 @@ one piece of work; they are the same screen and the same audience.
    account toggle survive the per-device switch?~~ Renaming yes, and the toggle
    stays. See "What Settings Keeps" above. The wording itself is still unwritten,
    which is drafting rather than a design question.
-4. ~~Is `theaterTrailerCount` right for both?~~ Yes — the count stays as it is,
-   one account-level number for every surface. A phone-specific default would
-   mean either a second surface default or a widened override list, and neither
-   is worth carrying before anyone has complained that three is too many. The
-   setting already spans one to four, so someone who finds it long on a laptop
-   has the control. Revisit if cellular data on a phone turns out to be the
-   thing people actually notice.
-5. ~~Does anything else want per-device divergence?~~ Moot: the switch forces the
-   per-device override regardless, because it cannot write the account setting
-   without reaching across to the television. Whether any *other* setting wants
-   to diverge is still unasked, and `DEVICE_OVERRIDABLE_SETTINGS` stays as it is
-   until one does.
+4. ~~Is `theaterTrailerCount` right for both?~~ Answered twice. First: yes, one
+   account-level number for every surface, on the grounds that a per-surface
+   default was not worth carrying before anyone complained. Then somebody did —
+   Scott, the day the Settings copy landed — and the answer is now no. The count
+   is in `DEVICE_OVERRIDABLE_SETTINGS` and lives on the ticket stub, which walks
+   1 to 4 on a press. The account value is what a device inherits before it has
+   an opinion, and nothing writes it any more except Reset playback.
+5. ~~Does anything else want per-device divergence?~~ The count did, and it was
+   the first thing asked. Whether any *other* setting wants to is still unasked;
+   the list grows when a surface gives the setting a control someone in the room
+   can reach, which is what the count was missing.
 6. **What is the install route for a cohort member?** A Play link, an email
    invitation to the test track, or something the web app renders. A
    distribution question rather than a product one.
@@ -490,10 +498,9 @@ one piece of work; they are the same screen and the same audience.
    `/tv` route is untouched.
 3. ~~Settings copy, once the section governs two surfaces.~~ **Done.** The
    section is "Previews & playback", subtitled for both surfaces, and the
-   toggle says it governs televisions. The preview count now renders whether or
-   not that toggle is on: it is account-level for every surface, and a web
-   device arms theater mode without touching the toggle, so collapsing the
-   count behind it put the only control for it out of reach.
+   toggle says it governs televisions. The preview count left Settings entirely
+   a day later and became the ticket's stub, per device — see "What Settings
+   Keeps".
 4. ~~Pairing screen typography, together with the existing `TODO.md` item.~~
    **Done.** The QR code kept its size.
 5. Draft the phase-gated Google TV copy, shipped dark behind one constant.

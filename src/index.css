@@ -319,6 +319,40 @@
     border-right: 2px dashed rgba(148, 163, 184, 0.4);
   }
 
+  /* On, the stub tears off into its own button for the preview count, so the
+     ticket becomes two buttons that read as one: each keeps the perforation on
+     its outer edge, and the tear between them is the dashed line the stub used
+     to carry on its own. Two buttons rather than one, because a switch cannot
+     hold a button inside it. */
+  .theater-ticket-group {
+    @apply inline-flex items-stretch;
+  }
+
+  .theater-ticket-face-stub {
+    @apply rounded-r-none;
+    border-right: 2px dashed rgba(148, 163, 184, 0.4);
+    -webkit-mask: radial-gradient(circle 8px at 0 50%, transparent 99%, #000 100%);
+    mask: radial-gradient(circle 8px at 0 50%, transparent 99%, #000 100%);
+  }
+
+  .theater-ticket-face-body {
+    @apply rounded-l-none;
+    -webkit-mask: radial-gradient(circle 8px at 100% 50%, transparent 99%, #000 100%);
+    mask: radial-gradient(circle 8px at 100% 50%, transparent 99%, #000 100%);
+  }
+
+  .theater-ticket-count {
+    @apply text-slate-500 tabular-nums;
+  }
+
+  .theater-ticket[data-on] .theater-ticket-count {
+    @apply text-rose-300;
+  }
+
+  .theater-ticket[data-on] .theater-ticket-face-stub {
+    border-right-color: rgba(244, 63, 94, 0.5);
+  }
+
   .theater-ticket[data-on] .theater-ticket-face {
     @apply text-rose-100;
     background: rgba(225, 29, 72, 0.22);

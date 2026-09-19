@@ -365,6 +365,51 @@ test("TV sign-out can retry a failure, revokes only this session, and returns to
     .toEqual({ theaterModeEnabled: true });
 });
 
+// The count lives on the ticket's stub and is walked, not typed, because a
+// remote has one gesture. Only a real browser can say the stub is reachable
+// from the switch beside it.
+test("the remote can walk the preview count on the ticket", async ({ page, backend }, testInfo) => {
+  test.skip(testInfo.project.name === "mobile-chromium", "TV smoke coverage uses the desktop viewport.");
+
+  await page.setViewportSize({ width: 1920, height: 1080 });
+  await backend.authenticate(page);
+  backend.state.bowls.push({
+    id: "bowl-tv-count", name: "Count TV", owner_id: "user-smoke",
+    draw_access_mode: "all_members", draw_method: "person_first",
+    created_at: "2026-08-21T12:00:00.000Z",
+  });
+  backend.state.bowl_members.push({
+    id: "member-tv-count", bowl_id: "bowl-tv-count", user_id: "user-smoke", role: "Owner",
+  });
+  backend.state.bowl_movies.push({
+    id: "movie-count", bowl_id: "bowl-tv-count", tmdb_id: -401, title: "Count Feature",
+    added_by: "user-smoke", added_by_name: null, added_at: "2026-08-21T12:00:00.000Z",
+    drawn_at: null, genres: ["Drama"], runtime: 100,
+  });
+
+  await page.goto("/tv/bowl/bowl-tv-count");
+
+  const ticket = page.getByRole("switch", { name: /theater mode/i });
+  await ticket.focus();
+  await ticket.press("Enter");
+
+  const count = page.getByRole("button", { name: "Up to 3 previews, change" });
+  await expect(count).toBeVisible();
+  await count.focus();
+  await count.press("Enter");
+  await expect(page.getByRole("button", { name: "Up to 4 previews, change" })).toBeFocused();
+
+  // The stub is left the way it was reached: the switch is its neighbour, so
+  // the pair never becomes somewhere you can arrow into and not back out of.
+  await page.keyboard.press("ArrowRight");
+  // Armed here rather than inherited, so the switch's own name carries the
+  // divergence the mark beside it shows.
+  await expect(page.getByRole("switch", { name: "Theater mode on, set on this TV" })).toBeFocused();
+
+  expect(await page.evaluate(() => JSON.parse(localStorage.getItem("movie-bowl:tv:draw-settings:user-smoke"))))
+    .toEqual({ theaterModeEnabled: true, theaterTrailerCount: 4 });
+});
+
 // A mask clips everything the element paints, and this app's focus ring is an
 // outer box-shadow -- so masking the ticket itself made it the one control on
 // the screen with no visible focus at all. The mask belongs on a face inside

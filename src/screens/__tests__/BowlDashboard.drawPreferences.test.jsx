@@ -582,6 +582,33 @@ describe("BowlDashboard draw preferences", () => {
       );
     });
 
+    // The count is on the stub now, and it is a device override like the switch
+    // beside it: changing it on a laptop must not reach a television.
+    it("sets the preview count on this device alone", async () => {
+      window.localStorage.setItem(
+        "movie-bowl:tv:draw-settings:u1",
+        JSON.stringify({ theaterModeEnabled: true })
+      );
+      mocks.state.defaultDrawSettings = {
+        ...mocks.state.defaultDrawSettings,
+        theaterTrailerCount: 3,
+      };
+      renderDashboard();
+      await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+      fireEvent.click(screen.getByRole("button", { name: "Up to 3 previews, change" }));
+
+      await waitFor(() =>
+        expect(screen.getByRole("button", { name: "Up to 4 previews, change" })).toBeInTheDocument()
+      );
+      expect(
+        JSON.parse(window.localStorage.getItem("movie-bowl:tv:draw-settings:u1"))
+      ).toEqual({ theaterModeEnabled: true, theaterTrailerCount: 4 });
+      expect(mocks.state.saveDefaultDrawSettings).not.toHaveBeenCalledWith(
+        expect.objectContaining({ theaterTrailerCount: expect.anything() })
+      );
+    });
+
     // Armed, the web behaves as the television does: the pick is revealed and
     // the previews play over it, with no prompt in between. The ticket beside
     // the draw button already answered that question.

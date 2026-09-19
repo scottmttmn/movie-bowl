@@ -1063,6 +1063,47 @@ html.tv-root {
   letter-spacing: 0;
 }
 
+/* On, the stub tears off into its own focusable for the preview count. The two
+   buttons read as one ticket: each keeps the perforation on its outer edge, and
+   the tear between them is the dashed line the stub used to carry alone. They
+   are deliberately not a nav group -- the switch is how you get back out of the
+   count, and a group would hold the pair together at its ends. */
+.tv-ticket-group {
+  display: inline-flex;
+  align-items: stretch;
+}
+
+.tv-ticket-face-stub {
+  border-top-right-radius: 0;
+  border-bottom-right-radius: 0;
+  border-right: 2px dashed rgba(148, 163, 184, 0.45);
+  -webkit-mask: radial-gradient(circle 11px at 0 50%, transparent 99%, #000 100%);
+  mask: radial-gradient(circle 11px at 0 50%, transparent 99%, #000 100%);
+}
+
+.tv-ticket-face-body {
+  border-top-left-radius: 0;
+  border-bottom-left-radius: 0;
+  -webkit-mask: radial-gradient(circle 11px at 100% 50%, transparent 99%, #000 100%);
+  mask: radial-gradient(circle 11px at 100% 50%, transparent 99%, #000 100%);
+}
+
+.tv-ticket-count {
+  color: #cbd5e1;
+  font-size: 0.81rem;
+  font-weight: 850;
+  letter-spacing: 0;
+  font-variant-numeric: tabular-nums;
+}
+
+.tv-ticket[data-on] .tv-ticket-count {
+  color: #fff;
+}
+
+.tv-ticket[data-on] .tv-ticket-face-stub {
+  border-right-color: rgba(255, 228, 230, 0.55);
+}
+
 .tv-ticket[data-on] .tv-ticket-face {
   background: linear-gradient(100deg, rgba(190, 18, 60, 0.85), rgba(225, 29, 72, 0.7));
   color: #ffe4e6;

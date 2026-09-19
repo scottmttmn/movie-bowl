@@ -36,7 +36,7 @@ Draw filters now live only in the dashboard overlay and autosave; see
 | Previews & playback | What plays before a drawn movie, on the television and in the web app? |
 
 - **Hero summary tiles** read back each section's current state ("3 services •
-  Netflix first", "Theater mode on • 2 previews") and double as the jump nav — they are anchors to the two
+  Netflix first", "Theater mode on") and double as the jump nav — they are anchors to the two
   section ids, so the page needs no separate nav and no scroll-spy JS. They
   live in `components/SettingsSectionNav.jsx`, shared with Bowl Settings (see
   `bowl-settings-redesign.md`).
@@ -70,6 +70,9 @@ Draw filters now live only in the dashboard overlay and autosave; see
 
 ## Reset scope
 
-“Reset playback” restores preferred web launch, theater mode, and trailer count.
+“Reset playback” restores preferred web launch, theater mode, and the inherited
+trailer count. The count has no control here any more — it moved to the theater
+mode ticket as a device override — so a reset moves only what a device without
+an opinion of its own inherits.
 It keeps the service list, ranking, and remembered filters. Both the footer copy
 and confirmation say what is reset and what is kept.
