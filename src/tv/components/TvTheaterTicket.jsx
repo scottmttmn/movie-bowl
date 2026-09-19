@@ -27,6 +27,10 @@ export default function TvTheaterTicket({
   isCountOverridden = false,
   onToggle,
 }) {
+  // An aria-label is the whole accessible name, so a divergence mark written as
+  // sr-only text inside the button is never read: it has to be in the label
+  // itself. The mark stays for the eye.
+  const setHere = ", set on this TV";
   const count = clampTheaterTrailerCount(previewCount);
   const nextCount =
     THEATER_TRAILER_COUNT_OPTIONS[
@@ -38,7 +42,7 @@ export default function TvTheaterTicket({
       {enabled && (
         <button
           type="button"
-          aria-label={`Up to ${count} previews, change`}
+          aria-label={`Up to ${count} previews, change${isCountOverridden ? setHere : ""}`}
           className="tv-ticket"
           data-on="true"
           data-tv-focusable
@@ -48,12 +52,7 @@ export default function TvTheaterTicket({
             <span aria-hidden="true" className="tv-ticket-count">
               {count}
             </span>
-            {isCountOverridden && (
-              <>
-                <span aria-hidden="true" className="tv-rail-diverged" />
-                <span className="sr-only">set on this TV</span>
-              </>
-            )}
+            {isCountOverridden && <span aria-hidden="true" className="tv-rail-diverged" />}
           </span>
         </button>
       )}
@@ -61,7 +60,9 @@ export default function TvTheaterTicket({
         type="button"
         role="switch"
         aria-checked={enabled}
-        aria-label={enabled ? "Theater mode on" : "Theater mode"}
+        aria-label={`${enabled ? "Theater mode on" : "Theater mode"}${
+          isOverridden ? setHere : ""
+        }`}
         className="tv-ticket"
         data-on={enabled ? "true" : undefined}
         data-tv-focusable
@@ -81,12 +82,7 @@ export default function TvTheaterTicket({
           <span aria-hidden="true" className="tv-ticket-name">
             Theater mode
           </span>
-          {isOverridden && (
-            <>
-              <span aria-hidden="true" className="tv-rail-diverged" />
-              <span className="sr-only">set on this TV</span>
-            </>
-          )}
+          {isOverridden && <span aria-hidden="true" className="tv-rail-diverged" />}
         </span>
       </button>
     </span>

@@ -535,8 +535,10 @@ describe("Movie Bowl TV experience", () => {
 
     renderTonight();
 
+    // Read back from this television's own store, so the name says so: the
+    // divergence mark is a dot, and a dot inside a labelled button is silent.
     expect(
-      await screen.findByRole("switch", { name: /^theater mode on$/i })
+      await screen.findByRole("switch", { name: /^theater mode on, set on this tv$/i })
     ).toHaveAttribute("aria-checked", "true");
   });
 

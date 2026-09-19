@@ -402,7 +402,9 @@ test("the remote can walk the preview count on the ticket", async ({ page, backe
   // The stub is left the way it was reached: the switch is its neighbour, so
   // the pair never becomes somewhere you can arrow into and not back out of.
   await page.keyboard.press("ArrowRight");
-  await expect(page.getByRole("switch", { name: "Theater mode on" })).toBeFocused();
+  // Armed here rather than inherited, so the switch's own name carries the
+  // divergence the mark beside it shows.
+  await expect(page.getByRole("switch", { name: "Theater mode on, set on this TV" })).toBeFocused();
 
   expect(await page.evaluate(() => JSON.parse(localStorage.getItem("movie-bowl:tv:draw-settings:user-smoke"))))
     .toEqual({ theaterModeEnabled: true, theaterTrailerCount: 4 });

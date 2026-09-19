@@ -41,13 +41,25 @@ describe("TvTheaterTicket", () => {
     expect(onToggle).toHaveBeenLastCalledWith("theaterTrailerCount", 1);
   });
 
-  it("marks a count this television set for itself", () => {
+  // The mark is a dot, and a dot inside a button that carries an aria-label is
+  // silent: the whole accessible name comes from the label, so the divergence
+  // has to be said there or not at all.
+  it("says in the label what the divergence mark shows", () => {
     const { rerender } = render(
       <TvTheaterTicket enabled previewCount={1} onToggle={vi.fn()} />
     );
-    expect(screen.queryByText("set on this TV")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Up to 1 previews, change" })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Theater mode on" })).toBeInTheDocument();
 
-    rerender(<TvTheaterTicket enabled previewCount={1} isCountOverridden onToggle={vi.fn()} />);
-    expect(screen.getByText("set on this TV")).toBeInTheDocument();
+    rerender(
+      <TvTheaterTicket enabled previewCount={1} isOverridden isCountOverridden onToggle={vi.fn()} />
+    );
+    expect(
+      screen.getByRole("button", { name: "Up to 1 previews, change, set on this TV" })
+    ).toBeInTheDocument();
+    expect(
+      screen.getByRole("switch", { name: "Theater mode on, set on this TV" })
+    ).toBeInTheDocument();
+    expect(screen.queryAllByText("set on this TV")).toHaveLength(0);
   });
 });
