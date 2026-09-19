@@ -59,12 +59,20 @@ export default function useDrawPoolCount(
     fetchFilterMetadata = defaultFetchFilterMetadata,
     autoLookupLimit = AUTO_LOOKUP_TITLE_LIMIT,
     hasCompleteMetadataSnapshot = false,
+    // A surface with no way to ask. The television has no opt-in to offer and
+    // nobody standing at it to tap one, so it resolves the count itself rather
+    // than showing a number the filters never touched. It costs what the draw
+    // was about to spend anyway, on a device that is on mains power.
+    autoRunLookups = false,
   } = {}
 ) {
   const [result, setResult] = useState(null);
   const [isCounting, setIsCounting] = useState(false);
   const [lookupProgress, setLookupProgress] = useState(null);
   const [didRequestLookup, setDidRequestLookup] = useState(false);
+  // Keyed rather than a boolean, so a new pool or a new filter is a new
+  // question and gets its own attempt.
+  const [failedCountKey, setFailedCountKey] = useState(null);
   const runTokenRef = useRef(0);
 
   // Held in a ref rather than the effect's deps: a caller that rebuilds this
@@ -117,9 +125,11 @@ export default function useDrawPoolCount(
 
   const shouldCount =
     poolMovies.length > 0 &&
+    failedCountKey !== countKey &&
     (!needsLookups ||
       hasCompleteMetadataSnapshot ||
       lookupEligibleTitleCount <= autoLookupLimit ||
+      autoRunLookups ||
       didRequestLookup);
 
   useEffect(() => {
@@ -191,6 +201,7 @@ export default function useDrawPoolCount(
       if (!canPrioritizeStreaming) {
         return {
           candidates: filteredCandidates,
+          failedLookupCount: 0,
           streamingMatch: EMPTY_STREAMING_MATCH,
         };
       }
@@ -202,6 +213,7 @@ export default function useDrawPoolCount(
       });
       return {
         candidates: streamingPool.candidates.map((candidate) => candidate?.movie || candidate),
+        failedLookupCount: streamingPool.failedLookupCount || 0,
         streamingMatch: {
           matchCount: streamingPool.matchCount,
           topService: streamingPool.topService,
@@ -210,8 +222,25 @@ export default function useDrawPoolCount(
       };
     };
 
-    countPool().then(({ candidates, streamingMatch }) => {
+    countPool().then(({ candidates, failedLookupCount, streamingMatch }) => {
       if (runTokenRef.current !== runToken) return;
+
+      // A provider lookup that failed is not an empty result, but it arrives
+      // looking like one, so the pool it produced is a floor rather than a
+      // count. Stating it would be worse than the approximation it replaced:
+      // failures are not cached, so the draw moments later re-fetches and can
+      // legitimately reach a title this scan just left out. Settle for the
+      // approximate readout, which is the honest answer and, on the phone,
+      // puts the retry back under the person's thumb.
+      if (failedLookupCount > 0) {
+        console.error(
+          `[useDrawPoolCount] ${failedLookupCount} provider lookup(s) failed; keeping the count approximate`
+        );
+        setFailedCountKey(countKey);
+        setLookupProgress(null);
+        setIsCounting(false);
+        return;
+      }
 
       setResult({
         countKey,
@@ -226,6 +255,17 @@ export default function useDrawPoolCount(
         total: lookupEligibleTitleCount,
       });
       setIsCounting(false);
+    }).catch((error) => {
+      if (runTokenRef.current !== runToken) return;
+
+      // Settle back to the approximate readout rather than counting forever.
+      // This is the one place autoRunLookups must not retry: nobody is watching
+      // a television to stop it, so a failure that re-armed itself would spend
+      // the whole bowl's lookups again on every render.
+      console.error("[useDrawPoolCount] Failed to resolve the eligible pool", error);
+      setFailedCountKey(countKey);
+      setLookupProgress(null);
+      setIsCounting(false);
     });
 
     return () => {
@@ -236,7 +276,9 @@ export default function useDrawPoolCount(
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [shouldCount, poolKey, filtersKey]);
 
+  // An explicit ask clears a previous failure: the tap is the retry.
   const runLookups = useCallback(() => {
+    setFailedCountKey(null);
     setDidRequestLookup(true);
   }, []);
 

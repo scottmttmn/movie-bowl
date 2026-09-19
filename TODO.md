@@ -32,11 +32,11 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 - Visual consistency sweep: audit remaining non-core pages and components for raw styling that bypasses shared tokens.
 - Large-bowl draw count UX: bowls over 100 lookup-eligible titles whose metadata
   the daily cron has not fully cached still need an explicit tap on the phone to
-  resolve an exact eligible count. The television has no such control and says
-  `Drawing from up to N` instead. Whether it should simply count is recorded as
-  an accepted tradeoff in the private register rather than here, and the trigger
-  for revisiting it — a television that can change its own filters — has since
-  fired.
+  resolve an exact eligible count. That tap stays, and it is the right shape
+  there: a phone is on battery and someone is holding it. The television no
+  longer waits for one — it has nobody to tap it, so it resolves the count
+  itself. What is left is whether the phone should offer to remember the answer
+  across a session rather than asking again after every filter change.
 - Once-per-day draw lockout: the mobile design exploration floated "can't draw again until tomorrow" after putting a movie back, to discourage re-rolling. New product behavior with open questions (locked per user or per bowl, timezone, who can override) — needs its own design doc before any code.
 - Watched-outside-the-bowl removals leave no trace: logging a manual watch can now pull your own undrawn slips out of the bowls holding them, but that is a hard delete, so the other members just see the bowl shrink. Everything else in the history model keeps the fact (draw events are immutable, returns set `returned_at`). Worth deciding whether this should be an event the bowl can show instead.
 - Future odds-panel accuracy: `buildDrawOddsStats` in `src/utils/drawMethods.js` is exported and covered by tests but rendered nowhere — there is no odds panel yet, so this is a constraint on building one rather than a fix to an existing screen. Whatever renders it must be fed the resolved eligible pool rather than `bowl.remaining`, or it shows a flat 1/N for contributors the filters or streaming priority cannot reach. Separately decide whether unreachable contributors deserve a fallback that keeps them in play rather than only honest copy.
