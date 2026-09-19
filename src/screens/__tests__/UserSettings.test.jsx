@@ -322,7 +322,7 @@ describe("UserSettings", () => {
       "#profile",
       "#streaming-services",
       "#solo-draw",
-      "#tv-playback",
+      "#playback",
       "#account",
     ]);
     expect(links[0]).toHaveTextContent("Scott");
@@ -334,6 +334,27 @@ describe("UserSettings", () => {
     expect(links[4]).toHaveTextContent("owner@example.com");
     expect(screen.queryByRole("heading", { name: "Draw filter defaults" })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/default prioritize streaming services/i)).not.toBeInTheDocument();
+  });
+
+  it("keeps the preview count reachable while theater mode is off", () => {
+    // The account toggle governs televisions; a phone or laptop arms theater
+    // mode from its own switch and still plays this many previews, so hiding
+    // the count behind the toggle put it out of reach for those devices.
+    mocks.hook.defaultDrawSettings = {
+      ...mocks.hook.defaultDrawSettings,
+      theaterModeEnabled: false,
+      theaterTrailerCount: 3,
+    };
+
+    renderSettings();
+
+    const count = screen.getByRole("combobox", { name: "Theater mode preview count" });
+    expect(count).toHaveValue("3");
+
+    fireEvent.change(count, { target: { value: "2" } });
+    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ theaterTrailerCount: 2, theaterModeEnabled: false })
+    );
   });
 
   it("prompts for a service before the streaming toggles can be used", () => {
@@ -356,6 +377,18 @@ describe("UserSettings", () => {
     renderSettings();
 
     expect(scrollIntoView).toHaveBeenCalled();
+  });
+
+  it("still honours the old playback hash after the section was renamed", () => {
+    mocks.locationHash = "#tv-playback";
+    const scrolled = [];
+    Element.prototype.scrollIntoView = function scrollIntoView() {
+      scrolled.push(this);
+    };
+
+    renderSettings();
+
+    expect(scrolled.map((element) => element.id)).toContain("playback");
   });
 
   it("resets only playback and leaves remembered filters and service ranking intact", () => {

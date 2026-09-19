@@ -33,7 +33,7 @@ Draw filters now live only in the dashboard overlay and autosave; see
 | Section | Question it answers |
 | --- | --- |
 | Streaming services | What can I play, in what order, and should a drawn movie offer a web launch? |
-| TV & playback | What happens on the TV once a movie is drawn? |
+| Previews & playback | What plays before a drawn movie, on the television and in the web app? |
 
 - **Hero summary tiles** read back each section's current state ("3 services •
   Netflix first", "Theater mode on • 2 previews") and double as the jump nav — they are anchors to the two

@@ -49,7 +49,7 @@ test("filters survive reload and settings edits, and reset leaves playback intac
   // added, and the point of the assertion is which sections live here -- the
   // dashboard owns the draw filters, so none of these may be one.
   await expect(page.getByRole("navigation", { name: "Settings sections" }).getByRole("link"))
-    .toHaveText([/^Profile/, /^Streaming/, /^Solo draw/, /^TV playback/, /^Account/]);
+    .toHaveText([/^Profile/, /^Streaming/, /^Solo draw/, /^Previews/, /^Account/]);
   await page.getByText("Open the service's website for a drawn movie", { exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "All changes saved" })).toBeVisible();
   expect(profile.default_draw_settings).toMatchObject({

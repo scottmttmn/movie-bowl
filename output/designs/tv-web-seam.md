@@ -7,8 +7,9 @@ revised September 12, 2026 from an earlier offer-shaped proposal. The device
 override layer (`src/utils/deviceDrawSettings.js`), the ticket
 (`src/components/TheaterTicket.jsx`) and the web pre-roll
 (`src/components/TheaterPreroll.jsx`) are all built, the `TopNav` item is gone,
-and the pairing screen's type has been enlarged. Steps 3 and 5 of "Sketch of the
-Work" are not done, and the remaining open questions are genuinely open.
+and the pairing screen's type has been enlarged. Step 3, the Settings copy, is
+done as of September 19, 2026. Step 5 of "Sketch of the Work" is not, and the
+remaining open questions are genuinely open.
 
 ## The Supported Surfaces
 
@@ -298,12 +299,20 @@ theater mode on *and* own a television whose storage is broken. It is a small
 population and a total failure for them, which is enough to keep a control that
 is staying anyway.
 
-What has to change is the copy. The heading "TV & playback" and the subtitle
-"How the TV app behaves once a movie is drawn" both stop being true the moment
-the count governs the dashboard too. The toggle also needs to say what it now
-does — previews on televisions, unless a device has been told otherwise — since
-the dashboard deliberately does not read it. The per-device half of that story
-is told by the ticket, where you meet it, rather than by more words here.
+What had to change was the copy, and it has (September 19, 2026). The heading
+"TV & playback" and the subtitle "How the TV app behaves once a movie is drawn"
+both stopped being true the moment the count governed the dashboard too; they
+are now "Previews & playback" and "What plays before a drawn movie, on the
+television and in this app." The toggle says what it now does — televisions
+follow it, and on a phone or laptop the switch beside the draw button decides —
+since the dashboard deliberately does not read it. The per-device half of that
+story is still told by the ticket, where you meet it, rather than by more words
+there.
+
+One thing this section did not anticipate: the count was rendered only while the
+toggle was on. Once the toggle meant "on the television," a web-only account
+armed theater mode from the ticket, played `theaterTrailerCount` previews, and
+had nowhere to change that number. The count now renders either way.
 
 ## The Preference Trap
 
@@ -479,7 +488,12 @@ one piece of work; they are the same screen and the same audience.
    autoplay, starting on the draw with no confirmation.
 2. ~~Remove the `TopNav` item; update `TopNav.test.jsx`.~~ **Done.** The
    `/tv` route is untouched.
-3. Settings copy, once the section governs two surfaces.
+3. ~~Settings copy, once the section governs two surfaces.~~ **Done.** The
+   section is "Previews & playback", subtitled for both surfaces, and the
+   toggle says it governs televisions. The preview count now renders whether or
+   not that toggle is on: it is account-level for every surface, and a web
+   device arms theater mode without touching the toggle, so collapsing the
+   count behind it put the only control for it out of reach.
 4. ~~Pairing screen typography, together with the existing `TODO.md` item.~~
    **Done.** The QR code kept its size.
 5. Draft the phase-gated Google TV copy, shipped dark behind one constant.
