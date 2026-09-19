@@ -342,7 +342,6 @@ describe("UserSettings", () => {
     mocks.hook.defaultDrawSettings = {
       ...mocks.hook.defaultDrawSettings,
       theaterModeEnabled: true,
-      theaterTrailerCount: 3,
     };
 
     renderSettings();
@@ -387,31 +386,15 @@ describe("UserSettings", () => {
     expect(scrolled.map((element) => element.id)).toContain("playback");
   });
 
-  it("resets only playback and leaves remembered filters and service ranking intact", () => {
-    mocks.hook.defaultDrawSettings = {
-      ...mocks.hook.defaultDrawSettings,
-      prioritizeStreaming: true,
-      useStreamingRank: false,
-      selectedRatings: ["PG"],
-      selectedGenres: ["Comedy"],
-      runtimeMaxMinutes: 120,
-      enablePreferredWebLaunch: true,
-      theaterModeEnabled: true,
-      theaterTrailerCount: 2,
-    };
+  // Reset playback set three account values back to their defaults. Two of them
+  // are checkboxes on this page, and the third no longer exists here, so the
+  // button had nothing left to do that reading the page would not show.
+  it("no longer offers a reset for playback", () => {
     renderSettings();
-    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
-    fireEvent.click(screen.getByRole("button", { name: "Reset playback" }));
-    expect(mocks.hook.setDefaultDrawSettings).not.toHaveBeenCalled();
-    confirmSpy.mockReturnValue(true);
-    fireEvent.click(screen.getByRole("button", { name: "Reset playback" }));
-    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith({
-      ...mocks.hook.defaultDrawSettings,
-      enablePreferredWebLaunch: false,
-      theaterModeEnabled: false,
-      theaterTrailerCount: 3,
-    });
-    expect(mocks.hook.setStreamingServices).not.toHaveBeenCalled();
+
+    expect(screen.queryByRole("button", { name: "Reset playback" })).not.toBeInTheDocument();
+    expect(screen.getByLabelText(/enable theater mode/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/enable preferred web launch/i)).toBeInTheDocument();
   });
 
   it("saves playback edits without sending any draw filter keys", async () => {
@@ -425,14 +408,12 @@ describe("UserSettings", () => {
       ...mocks.hook.defaultDrawSettings,
       enablePreferredWebLaunch: true,
       theaterModeEnabled: true,
-      theaterTrailerCount: 2,
     };
     rerender(<UserSettings />);
     await settleAutosave();
     expect(mocks.hook.saveDefaultDrawSettings).toHaveBeenCalledExactlyOnceWith({
       enablePreferredWebLaunch: true,
       theaterModeEnabled: true,
-      theaterTrailerCount: 2,
     });
     expect(mocks.hook.saveStreamingServices).not.toHaveBeenCalled();
   });

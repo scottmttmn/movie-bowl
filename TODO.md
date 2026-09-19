@@ -170,7 +170,9 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   preview count, which had been collapsed behind a toggle a web device never
   touches. Later the same day the count left Settings altogether: it is a device
   override now and the ticket's stub is its only control, pressed to walk 1 to 4
-  on the phone, the laptop and the television alike. Specified in
+  on the phone, the laptop and the television alike. The account stopped
+  carrying a count with it, and **Reset playback** went too: it restored two
+  checkboxes on the same page and one value that no longer existed. Specified in
   `output/designs/tv-web-seam.md`.
 
 - Web/television seam: the Google TV app is the only supported television, and

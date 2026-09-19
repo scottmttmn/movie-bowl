@@ -70,9 +70,9 @@ Draw filters now live only in the dashboard overlay and autosave; see
 
 ## Reset scope
 
-“Reset playback” restores preferred web launch, theater mode, and the inherited
-trailer count. The count has no control here any more — it moved to the theater
-mode ticket as a device override — so a reset moves only what a device without
-an opinion of its own inherits.
-It keeps the service list, ranking, and remembered filters. Both the footer copy
-and confirmation say what is reset and what is kept.
+There is none. “Reset playback” restored preferred web launch, theater mode and
+the trailer count, and it was removed on September 19, 2026 once the count left
+the account: the other two are checkboxes a few lines above where the button
+stood, so it offered a confirmation dialog to do what unticking them does. A
+reset earns its place when it reaches settings you cannot see from the page you
+are on, and this one no longer did.

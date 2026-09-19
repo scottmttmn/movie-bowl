@@ -446,7 +446,7 @@ describe("BowlDashboard draw preferences", () => {
   });
 
   it("remembers filter edits after leaving the bowl and persists reset without playback keys", async () => {
-    mocks.state.defaultDrawSettings = { ...DEFAULT_DRAW_SETTINGS, theaterModeEnabled: true, theaterTrailerCount: 2, enablePreferredWebLaunch: true };
+    mocks.state.defaultDrawSettings = { ...DEFAULT_DRAW_SETTINGS, theaterModeEnabled: true, enablePreferredWebLaunch: true };
     const { unmount } = renderDashboard();
     await screen.findByText("Bowl 1");
     vi.useFakeTimers();
@@ -468,7 +468,7 @@ describe("BowlDashboard draw preferences", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     await settleAutosave();
     expect(mocks.state.saveDefaultDrawSettings.mock.calls.at(-1)[0]).toEqual({ ...savedFilters, runtimeMaxMinutes: 500 });
-    expect(mocks.state.defaultDrawSettings).toMatchObject({ theaterModeEnabled: true, theaterTrailerCount: 2, enablePreferredWebLaunch: true });
+    expect(mocks.state.defaultDrawSettings).toMatchObject({ theaterModeEnabled: true, enablePreferredWebLaunch: true });
   });
 
   it("keeps failed edits usable and exposes retry even after closing the overlay", async () => {
@@ -589,9 +589,12 @@ describe("BowlDashboard draw preferences", () => {
         "movie-bowl:tv:draw-settings:u1",
         JSON.stringify({ theaterModeEnabled: true })
       );
+      // A number left on the profile from before the count moved onto the
+      // ticket. The device has no opinion yet, so the stub starts at the
+      // default rather than inheriting one nothing can change.
       mocks.state.defaultDrawSettings = {
         ...mocks.state.defaultDrawSettings,
-        theaterTrailerCount: 3,
+        theaterTrailerCount: 1,
       };
       renderDashboard();
       await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());

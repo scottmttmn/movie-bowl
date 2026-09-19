@@ -28,12 +28,17 @@ export const DRAW_GENRE_OPTIONS = [
 export const THEATER_TRAILER_COUNT_OPTIONS = [1, 2, 3, 4];
 export const DEFAULT_THEATER_TRAILER_COUNT = 3;
 
+// The preview count is deliberately absent from the settings below. It is a
+// device setting now -- the ticket beside the draw button is its only control
+// -- so the account carries no value for a device to inherit and every device
+// starts at DEFAULT_THEATER_TRAILER_COUNT until its own ticket says otherwise.
+// `mergeDeviceDrawSettings` is where a device's stored count is applied.
+
 export const DEFAULT_DRAW_SETTINGS = {
   prioritizeStreaming: false,
   useStreamingRank: true,
   enablePreferredWebLaunch: false,
   theaterModeEnabled: false,
-  theaterTrailerCount: DEFAULT_THEATER_TRAILER_COUNT,
   selectedRatings: MPAA_RATING_OPTIONS,
   includeUnknownRatings: true,
   selectedGenres: null,
@@ -107,7 +112,6 @@ export function normalizeDefaultDrawSettings(value) {
         ? DEFAULT_DRAW_SETTINGS.enablePreferredWebLaunch
         : Boolean(source.enablePreferredWebLaunch),
     theaterModeEnabled: Boolean(source.theaterModeEnabled),
-    theaterTrailerCount: clampTheaterTrailerCount(source.theaterTrailerCount),
     selectedRatings: normalizeSelectedRatings(source.selectedRatings),
     includeUnknownRatings:
       source.includeUnknownRatings === undefined

@@ -33,7 +33,7 @@ playback. There is no separate Draw filter defaults section.
 | Rating, genre, and runtime selections, including unknown-value toggles | Dashboard Filters |
 | `enablePreferredWebLaunch` | Settings → Streaming services |
 | `theaterModeEnabled` | Settings → Previews & playback (the televisions' default; every device arms itself from its own theater mode ticket) |
-| `theaterTrailerCount` | The theater mode ticket's stub, per device |
+| `theaterTrailerCount` | Retired from the account entirely on September 19, 2026. The theater mode ticket's stub owns it, per device, and the next profile save drops the stale key |
 
 The existing column and normalization shape are unchanged. Each editor sends
 only its own keys. `saveDefaultDrawSettings` merges these into its loaded
@@ -46,9 +46,11 @@ profile is not an edit. A failed load prevents edits until Retry succeeds;
 writing defaults over unread preferences is unsafe. Pending edits flush when
 leaving the screen, and the existing unload warning protects unsaved requests.
 
-Settings' **Reset playback** resets only web launch, theater mode, and trailer
-count. It preserves the service list, ranking, streaming priority, and all
-remembered draw filters.
+Settings had a **Reset playback** button that restored web launch, theater mode
+and the trailer count. It was removed on September 19, 2026: web launch and
+theater mode are checkboxes on the same page, and the trailer count is no longer
+an account value at all, so the button restored two things a reader could
+already see and one that had stopped existing.
 
 ## Scope and limitations
 

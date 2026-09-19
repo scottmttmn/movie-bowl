@@ -5,6 +5,7 @@ import {
   readDeviceSettingsOverrides,
   writeDeviceSettingsOverrides,
 } from "../deviceDrawSettings";
+import { DEFAULT_THEATER_TRAILER_COUNT } from "../drawSettings";
 
 const KEY = "movie-bowl:tv:draw-settings:user-1";
 
@@ -65,11 +66,21 @@ describe("deviceDrawSettings", () => {
     expect(readDeviceSettingsOverrides("user-1")).toEqual({ theaterModeEnabled: true });
   });
 
-  it("lets a device's count win over the account's", () => {
+  // The count is a device setting with no account layer beneath it any more.
+  // A profile edited before it moved onto the ticket still carries a number,
+  // and a device that inherited it would be running on a value with no control
+  // anywhere to see or change it.
+  it("takes the count from the device, never from a leftover account value", () => {
     expect(
       mergeDeviceDrawSettings({ theaterTrailerCount: 4 }, { theaterTrailerCount: 1 })
         .theaterTrailerCount
     ).toBe(1);
+    expect(
+      mergeDeviceDrawSettings({ theaterTrailerCount: 4 }, {}).theaterTrailerCount
+    ).toBe(DEFAULT_THEATER_TRAILER_COUNT);
+    expect(mergeDeviceDrawSettings({}, {}).theaterTrailerCount).toBe(
+      DEFAULT_THEATER_TRAILER_COUNT
+    );
   });
 
   it("treats unreadable storage as a device with no opinions yet", () => {

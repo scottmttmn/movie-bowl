@@ -321,7 +321,9 @@ there.
 One thing this section did not anticipate: the count was rendered only while the
 toggle was on. Once the toggle meant "on the television," a web-only account
 armed theater mode from the ticket, played `theaterTrailerCount` previews, and
-had nowhere to change that number. The count now renders either way.
+had nowhere to change that number. Showing it either way fixed that for half a
+day; then the count left Settings for the ticket, and the account stopped
+carrying one at all.
 
 ## The Preference Trap
 
@@ -460,8 +462,13 @@ one piece of work; they are the same screen and the same audience.
    default was not worth carrying before anyone complained. Then somebody did —
    Scott, the day the Settings copy landed — and the answer is now no. The count
    is in `DEVICE_OVERRIDABLE_SETTINGS` and lives on the ticket stub, which walks
-   1 to 4 on a press. The account value is what a device inherits before it has
-   an opinion, and nothing writes it any more except Reset playback.
+   1 to 4 on a press. A third answer followed within the hour: there is no
+   account value at all. An account number nothing could display was one a
+   person could neither see nor change, inherited by every new device, so the
+   count left `defaultDrawSettings` and a device with no opinion starts at
+   `DEFAULT_THEATER_TRAILER_COUNT`. `mergeDeviceDrawSettings` resolves it from
+   the device layers alone, which is why it rides outside the account
+   normalizer.
 5. ~~Does anything else want per-device divergence?~~ The count did, and it was
    the first thing asked. Whether any *other* setting wants to is still unasked;
    the list grows when a surface gives the setting a control someone in the room
@@ -499,8 +506,8 @@ one piece of work; they are the same screen and the same audience.
 3. ~~Settings copy, once the section governs two surfaces.~~ **Done.** The
    section is "Previews & playback", subtitled for both surfaces, and the
    toggle says it governs televisions. The preview count left Settings entirely
-   a day later and became the ticket's stub, per device — see "What Settings
-   Keeps".
+   hours later and became the ticket's stub, per device, taking **Reset
+   playback** with it — see "What Settings Keeps".
 4. ~~Pairing screen typography, together with the existing `TODO.md` item.~~
    **Done.** The QR code kept its size.
 5. Draft the phase-gated Google TV copy, shipped dark behind one constant.

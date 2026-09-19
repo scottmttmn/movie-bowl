@@ -87,7 +87,6 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
       prioritizeStreaming: mocks.drawSettings?.prioritizeStreaming ?? false,
       useStreamingRank: mocks.drawSettings?.useStreamingRank ?? true,
       theaterModeEnabled: mocks.theaterModeEnabled,
-      theaterTrailerCount: 2,
       selectedRatings: ["PG", "PG-13", "R"],
       includeUnknownRatings: true,
       selectedGenres: null,
