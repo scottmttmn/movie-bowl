@@ -93,6 +93,7 @@ export default function UserSettings() {
   const [deleteAccountError, setDeleteAccountError] = useState(null);
   const [ownedBowlBlockers, setOwnedBowlBlockers] = useState([]);
   const streamingServicesRef = useRef(null);
+  const playbackRef = useRef(null);
   const deleteDialogRef = useRef(null);
   const {
     streamingServices,
@@ -186,8 +187,15 @@ export default function UserSettings() {
   const profileTileSummary = displayName?.trim() || "Choose a display name";
 
   useEffect(() => {
-    if (location.hash !== "#streaming-services") return;
-    streamingServicesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    if (location.hash === "#streaming-services") {
+      streamingServicesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+      return;
+    }
+    // The playback section answered to #tv-playback until it stopped being the
+    // television's alone. Links to it were copyable, so honour the old one.
+    if (location.hash === "#tv-playback") {
+      playbackRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+    }
   }, [location.hash]);
 
   const settingsSnapshot = useMemo(
@@ -694,7 +702,13 @@ export default function UserSettings() {
             </div>
           </section>
 
-          <section id="playback" tabIndex={-1} className="panel scroll-mt-24" aria-labelledby="playback-heading">
+          <section
+            id="playback"
+            ref={playbackRef}
+            tabIndex={-1}
+            className="panel scroll-mt-24"
+            aria-labelledby="playback-heading"
+          >
             <h2 id="playback-heading" className="section-title">Previews &amp; playback</h2>
             <p className="mt-1 text-sm text-slate-400">
               What plays before a drawn movie, on the television and in this app.
@@ -706,7 +720,7 @@ export default function UserSettings() {
                 name="theater_mode_enabled"
                 ariaLabel="Enable theater mode"
                 label="Theater mode"
-                description="Plays previews from other movies in the bowl before the drawn movie. Televisions follow this setting; on a phone or laptop the theater mode switch beside the draw button decides."
+                description="Plays previews from other movies in the bowl before the drawn movie. It is the default for televisions; a device's own theater mode switch overrides it, and on a phone or laptop that switch is the only thing that turns previews on."
                 checked={defaultDrawSettings.theaterModeEnabled}
                 onChange={(event) =>
                   setDefaultDrawSettings({

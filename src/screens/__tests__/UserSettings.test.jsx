@@ -379,6 +379,18 @@ describe("UserSettings", () => {
     expect(scrollIntoView).toHaveBeenCalled();
   });
 
+  it("still honours the old playback hash after the section was renamed", () => {
+    mocks.locationHash = "#tv-playback";
+    const scrolled = [];
+    Element.prototype.scrollIntoView = function scrollIntoView() {
+      scrolled.push(this);
+    };
+
+    renderSettings();
+
+    expect(scrolled.map((element) => element.id)).toContain("playback");
+  });
+
   it("resets only playback and leaves remembered filters and service ranking intact", () => {
     mocks.hook.defaultDrawSettings = {
       ...mocks.hook.defaultDrawSettings,
