@@ -236,19 +236,24 @@ describe("useUserStreamingServices", () => {
   });
 
   it("merges filter edits without resetting playback, and playback edits without resetting filters", async () => {
+    // The stored theaterTrailerCount is what a profile edited before the count
+    // moved onto the ticket still carries. Nothing reads it any more, and the
+    // next save is what finally takes it off the row -- so every expectation
+    // below is the fixture without it.
     mocks.state.profileDefaultDrawSettings = {
       ...DEFAULT_DRAW_SETTINGS, theaterModeEnabled: true, theaterTrailerCount: 2,
       enablePreferredWebLaunch: true, selectedGenres: ["Comedy"], runtimeMaxMinutes: 180,
     };
+    const { theaterTrailerCount: _retired, ...withoutRetiredCount } = mocks.state.profileDefaultDrawSettings;
     const { result } = renderHook(() => useUserStreamingServices());
     await waitFor(() => expect(result.current.loading).toBe(false));
     await act(async () => result.current.saveDefaultDrawSettings({ runtimeMaxMinutes: 120, selectedRatings: ["PG"] }));
     expect(mocks.state.updatedPayloads.at(-1).default_draw_settings).toEqual({
-      ...mocks.state.profileDefaultDrawSettings, runtimeMaxMinutes: 120, selectedRatings: ["PG"],
+      ...withoutRetiredCount, runtimeMaxMinutes: 120, selectedRatings: ["PG"],
     });
     await act(async () => result.current.saveDefaultDrawSettings({ theaterModeEnabled: false }));
     expect(mocks.state.updatedPayloads.at(-1).default_draw_settings).toEqual({
-      ...mocks.state.profileDefaultDrawSettings, runtimeMaxMinutes: 120, selectedRatings: ["PG"], theaterModeEnabled: false,
+      ...withoutRetiredCount, runtimeMaxMinutes: 120, selectedRatings: ["PG"], theaterModeEnabled: false,
     });
   });
 
@@ -259,9 +264,9 @@ describe("useUserStreamingServices", () => {
     await waitFor(() => expect(result.current.loading).toBe(false));
     let pendingSave;
     act(() => { pendingSave = result.current.saveDefaultDrawSettings({ theaterModeEnabled: true }); });
-    act(() => result.current.setDefaultDrawSettings({ ...result.current.defaultDrawSettings, theaterModeEnabled: true, theaterTrailerCount: 4 }));
+    act(() => result.current.setDefaultDrawSettings({ ...result.current.defaultDrawSettings, theaterModeEnabled: true, enablePreferredWebLaunch: true }));
     await act(async () => { finishSave(); await pendingSave; });
-    expect(result.current.defaultDrawSettings.theaterTrailerCount).toBe(4);
+    expect(result.current.defaultDrawSettings.enablePreferredWebLaunch).toBe(true);
   });
 
   it("refuses to overwrite preferences after a failed load and can retry the load", async () => {

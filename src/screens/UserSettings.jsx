@@ -6,9 +6,6 @@ import AutosaveStatus from "../components/AutosaveStatus";
 import SettingsSectionNav from "../components/SettingsSectionNav";
 import ServiceLogo from "../components/ServiceLogo";
 import { AVAILABLE_STREAMING_SERVICES } from "../utils/streamingServices";
-import {
-  DEFAULT_DRAW_SETTINGS,
-} from "../utils/drawSettings";
 import { deleteMyAccount } from "../lib/account";
 import { DISPLAY_NAME_MAX_LENGTH } from "../utils/profileIdentity";
 
@@ -202,7 +199,6 @@ export default function UserSettings() {
       defaultDrawSettings: {
         enablePreferredWebLaunch: defaultDrawSettings.enablePreferredWebLaunch,
         theaterModeEnabled: defaultDrawSettings.theaterModeEnabled,
-        theaterTrailerCount: defaultDrawSettings.theaterTrailerCount,
       },
       removeFromBowlsOnSoloDraw,
     }),
@@ -239,19 +235,6 @@ export default function UserSettings() {
     save: persistSettings,
     enabled: !loading && !loadError,
   });
-
-  const handleResetPlayback = () => {
-    const confirmed = window.confirm(
-      "Reset web launch and previews? Your service list, ranking, and remembered draw filters are kept."
-    );
-    if (!confirmed) return;
-    setDefaultDrawSettings({
-      ...defaultDrawSettings,
-      enablePreferredWebLaunch: DEFAULT_DRAW_SETTINGS.enablePreferredWebLaunch,
-      theaterModeEnabled: DEFAULT_DRAW_SETTINGS.theaterModeEnabled,
-      theaterTrailerCount: DEFAULT_DRAW_SETTINGS.theaterTrailerCount,
-    });
-  };
 
   const closeDeleteDialog = () => {
     if (isDeletingAccount) return;
@@ -728,15 +711,6 @@ export default function UserSettings() {
               />
             </div>
           </section>
-
-          <div className="panel-muted flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-            <p className="text-sm text-slate-400">
-              Reset web launch and previews. Your service list, ranking, and remembered draw filters are kept.
-            </p>
-            <button type="button" className="btn btn-danger sm:shrink-0" onClick={handleResetPlayback}>
-              Reset playback
-            </button>
-          </div>
 
           <section
             id="account"

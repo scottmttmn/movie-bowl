@@ -34,8 +34,12 @@ test("filters survive reload and settings edits, and reset leaves playback intac
   await expect(filters.getByRole("button", { name: "Done" })).toBeInViewport();
   expect(profile.default_draw_settings).toMatchObject({
     runtimeMaxMinutes: 120, selectedGenres: ["Comedy"], prioritizeStreaming: true,
-    useStreamingRank: false, enablePreferredWebLaunch: true, theaterModeEnabled: true, theaterTrailerCount: 2,
+    useStreamingRank: false, enablePreferredWebLaunch: true, theaterModeEnabled: true,
   });
+  // The fixture is a profile written before the preview count moved onto the
+  // ticket. Nothing reads that number any more, and the first save is what
+  // finally takes it off the row.
+  expect(profile.default_draw_settings).not.toHaveProperty("theaterTrailerCount");
 
   await page.reload();
   await page.getByRole("button", { name: "Filters", exact: true }).click();
@@ -54,7 +58,7 @@ test("filters survive reload and settings edits, and reset leaves playback intac
   await expect(page.getByRole("status").filter({ hasText: "All changes saved" })).toBeVisible();
   expect(profile.default_draw_settings).toMatchObject({
     runtimeMaxMinutes: 120, selectedGenres: ["Comedy"], prioritizeStreaming: true,
-    useStreamingRank: false, enablePreferredWebLaunch: false, theaterModeEnabled: true, theaterTrailerCount: 2,
+    useStreamingRank: false, enablePreferredWebLaunch: false, theaterModeEnabled: true,
   });
 
   await page.getByRole("button", { name: "Back", exact: true }).click();
@@ -63,7 +67,7 @@ test("filters survive reload and settings edits, and reset leaves playback intac
   await filters.getByRole("button", { name: "Reset" }).click();
   await expect(filters.getByRole("status").filter({ hasText: "All changes saved" })).toBeVisible();
   expect(profile.default_draw_settings).toEqual({
-    ...DEFAULT_DRAW_SETTINGS, enablePreferredWebLaunch: false, theaterModeEnabled: true, theaterTrailerCount: 2,
+    ...DEFAULT_DRAW_SETTINGS, enablePreferredWebLaunch: false, theaterModeEnabled: true,
   });
   await page.keyboard.press("Escape");
   await expect(filters).toHaveCount(0);

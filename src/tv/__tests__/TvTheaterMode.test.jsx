@@ -123,6 +123,14 @@ describe("TV theater mode", () => {
   let playerOptions;
   let player;
 
+  // The preview count is a device setting with no account layer, so these cases
+  // put it where the television reads it from rather than on the profile.
+  const setDeviceTrailerCount = (count) =>
+    window.localStorage.setItem(
+      "movie-bowl:tv:draw-settings:user-1",
+      JSON.stringify({ theaterTrailerCount: count })
+    );
+
   beforeEach(() => {
     window.localStorage.clear();
     window.sessionStorage.clear();
@@ -142,8 +150,8 @@ describe("TV theater mode", () => {
       includeUnknownGenres: true,
       includeUnknownRuntime: true,
       theaterModeEnabled: true,
-      theaterTrailerCount: 2,
     };
+    setDeviceTrailerCount(2);
 
     mocks.handleDraw.mockResolvedValue(DRAWN_MOVIE);
     mocks.getTmdbMovieDetails.mockImplementation(async (id) => DETAILS_BY_ID[id] || {});
@@ -226,8 +234,8 @@ describe("TV theater mode", () => {
       ...mocks.drawSettings,
       selectedRatings: ["PG-13"],
       includeUnknownRatings: false,
-      theaterTrailerCount: 1,
     };
+    setDeviceTrailerCount(1);
     mocks.getTmdbMovieDetails.mockImplementation(async (tmdbId) => ({
       ...(DETAILS_BY_ID[tmdbId] || {}),
       ...withUsRating(tmdbId === 303 ? "PG-13" : "R"),

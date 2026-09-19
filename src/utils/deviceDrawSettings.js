@@ -1,4 +1,8 @@
-import { normalizeDefaultDrawSettings, THEATER_TRAILER_COUNT_OPTIONS } from "./drawSettings";
+import {
+  clampTheaterTrailerCount,
+  normalizeDefaultDrawSettings,
+  THEATER_TRAILER_COUNT_OPTIONS,
+} from "./drawSettings";
 
 // Still says `tv` because televisions are already storing under it. The module
 // generalised from one surface to every device; the key cannot follow without
@@ -135,9 +139,22 @@ export function mergeDeviceDrawSettings(
   overrides,
   surfaceDefaults = NO_SURFACE_DEFAULTS
 ) {
-  return normalizeDefaultDrawSettings({
-    ...(accountSettings || {}),
-    ...(surfaceDefaults || {}),
-    ...(overrides || {}),
-  });
+  // The preview count is the one setting with no account layer under it, so it
+  // is resolved from the device side alone and rides outside the account
+  // normalizer, which drops it. A profile edited before the count moved onto
+  // the ticket still carries a number; inheriting it would run a device on a
+  // value with no control anywhere to see or change it. Clamping here keeps
+  // the guarantee the normalizer gives everything else -- nothing stale or
+  // hand-edited reaches the draw -- and a device with no opinion of its own
+  // lands on DEFAULT_THEATER_TRAILER_COUNT.
+  const deviceOnly = { ...(surfaceDefaults || {}), ...(overrides || {}) };
+
+  return {
+    ...normalizeDefaultDrawSettings({
+      ...(accountSettings || {}),
+      ...(surfaceDefaults || {}),
+      ...(overrides || {}),
+    }),
+    theaterTrailerCount: clampTheaterTrailerCount(deviceOnly.theaterTrailerCount),
+  };
 }
