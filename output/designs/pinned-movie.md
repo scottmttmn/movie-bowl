@@ -52,8 +52,9 @@ line is derived from data the screen holds, with no new fetch of any kind.
   single constraint is what keeps the feature from becoming personal ordering.
 - **The pin decides only the within-person step.** It never changes who is
   selected, never re-expands the pool, and never reorders filtering or streaming
-  priority. Per-contributor odds are unchanged, which is why
-  `buildDrawOddsStats` needs no edit.
+  priority. Per-contributor odds are unchanged, which is why the odds helper
+  needed no edit. (That helper, `buildDrawOddsStats`, was itself removed on
+  2026-09-19 — nothing ever rendered it.)
 - **It applies under `person_first` and `rotation`; `title_first` ignores it.**
   Title-first has no per-person step to parameterize, so honoring a pin there
   would move that person's total share of the draw — exactly the cross-person
@@ -380,7 +381,7 @@ commit that adds them.
   `pinNote` are present with the right values on all three methods.
 - `drawMethods`: `buildDrawOddsStats` output is unchanged by any pin. This is
   the regression test that the feature is fairness-neutral, so write it even
-  though no code changed.
+  though no code changed. *(Removed 2026-09-19 with the helper it covered.)*
 - `MyMoviesStrip`: ordering across the pinned × eligible matrix, including
   pinned-and-excluded staying in the excluded group with its poster icon, and syncing
   rows staying last with the control disabled.

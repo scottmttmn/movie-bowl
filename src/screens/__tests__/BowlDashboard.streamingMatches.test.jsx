@@ -9,7 +9,6 @@ const mocks = vi.hoisted(() => {
     bowlRow: { name: "Bowl 1", owner_id: "u1" },
     memberRows: [{ user_id: "u1" }],
     bowlData: { remaining: [], watched: [] },
-    drawOdds: [],
     streamingServices: [],
     providersByTmdbId: {},
     locationHash: "",
@@ -60,7 +59,6 @@ vi.mock("../../hooks/useBowlAdd", () => ({ default: () => ({ openBowlAdd: vi.fn(
 vi.mock("../../hooks/useBowl", () => ({
   default: () => ({
     bowl: mocks.state.bowlData,
-    drawOdds: mocks.state.drawOdds,
     isLoading: false,
     errorMessage: null,
     handleDraw: vi.fn(),
