@@ -194,6 +194,26 @@ an `aria-pressed` toggle, because a home bowl cannot be unset, only moved. The
 directory marks the home bowl the same way and offers no control to move it; see
 `output/designs/dashboard-bowl-picker-and-home-bowl.md`.
 
+Away from a bowl — `/settings`, `/watch-list`, `/invites`, `/solo-draw` — the
+top nav carries that same `BowlPicker` in place of the Movie Bowl wordmark,
+through `NavBowlSwitcher`. Those pages belong to the account rather than to any
+one bowl, so they have no picker of their own and the wordmark was the only way
+back. The trigger names the **home** bowl, which is the one answer that does not
+depend on how you arrived. A bowl route keeps the wordmark because the page
+already has its own picker, `/bowls` keeps it because it is the list, and so
+does a header whose account context has not answered yet — flickering between
+two controls while it loads is worse than the one that always works. Nothing
+there moves the home bowl: `BowlPicker` renders `Make [bowl] home` only for the
+bowl being viewed, and away from a bowl there is none.
+
+`NavBowlSwitcher` portals the picker and the create dialog to the body, and any
+overlay added to the top nav needs the same. The header carries
+`backdrop-blur-xl`, and a backdrop filter makes an element the containing block
+for every fixed-position descendant — so a sheet mounted inside it is laid out
+against a 64px strip and hangs off the bottom of a phone, rendered and
+unclickable. Only the mobile Playwright project catches that; jsdom has no
+layout, so the markup and every query still pass.
+
 ## Data model
 
 Tables the app touches: `profiles`, `bowls`, `bowl_members`, `bowl_movies`,
