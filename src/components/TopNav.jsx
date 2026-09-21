@@ -1,5 +1,6 @@
 import { useEffect, useRef, useState } from "react";
 import { Link } from "react-router-dom";
+import NavBowlSwitcher from "./NavBowlSwitcher";
 import bowlImage from "../assets/movie-bowl.webp";
 
 export default function TopNav({
@@ -9,6 +10,8 @@ export default function TopNav({
   onSignOut,
   onAddMovie,
   homeBowlId = null,
+  homeBowlName = "",
+  showBowlSwitcher = false,
   isAuthenticated = true,
   pendingInviteCount = 0,
 }) {
@@ -53,22 +56,28 @@ export default function TopNav({
 
   return (
     <header className="fixed inset-x-0 top-0 z-50 border-b border-slate-800/80 bg-slate-950/88 shadow-lg shadow-black/10 backdrop-blur-xl">
-      <div className="page-container flex h-16 items-center justify-between">
-        <Link
-          to={homeBowlId ? `/bowl/${homeBowlId}` : "/"}
-          aria-label="Go to your home bowl"
-          className="inline-flex items-center gap-2.5 rounded-xl text-lg min-[360px]:text-xl font-semibold tracking-tight text-slate-100 transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60 sm:text-2xl"
-        >
-          <span className="flex h-9 w-9 items-center justify-center">
-            <img
-              src={bowlImage}
-              alt=""
-              aria-hidden="true"
-              className="h-8 w-8 object-contain"
-            />
-          </span>
-          Movie Bowl
-        </Link>
+      <div className="page-container flex h-16 items-center justify-between gap-2">
+        {/* The wordmark leads home; away from a bowl it hands that job to the
+            switcher, which leads to the same place and names where it goes. */}
+        {showBowlSwitcher && homeBowlName ? (
+          <NavBowlSwitcher homeBowlName={homeBowlName} />
+        ) : (
+          <Link
+            to={homeBowlId ? `/bowl/${homeBowlId}` : "/"}
+            aria-label="Go to your home bowl"
+            className="inline-flex min-w-0 items-center gap-2.5 rounded-xl text-lg min-[360px]:text-xl font-semibold tracking-tight text-slate-100 transition hover:opacity-90 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60 sm:text-2xl"
+          >
+            <span className="flex h-9 w-9 shrink-0 items-center justify-center">
+              <img
+                src={bowlImage}
+                alt=""
+                aria-hidden="true"
+                className="h-8 w-8 object-contain"
+              />
+            </span>
+            Movie Bowl
+          </Link>
+        )}
         <div className="flex shrink-0 items-center gap-2">
           {isAuthenticated && onAddMovie && <button type="button" className="btn btn-secondary h-11 w-16 gap-1.5 px-2"
             aria-label="Add a movie" title="Add a movie" disabled={blockingOverlay}

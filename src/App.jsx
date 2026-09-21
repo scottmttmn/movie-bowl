@@ -91,6 +91,8 @@ function AppShell({ children }) {
   const isWatchListRoute = location.pathname === "/watch-list";
   const isInvitesRoute = location.pathname === "/invites";
   const isPublicAddRoute = location.pathname.startsWith("/add-to-bowl/");
+  const isBowlRoute = location.pathname.startsWith("/bowl/");
+  const isBowlsRoute = location.pathname === "/bowls";
   const isTvRoute = location.pathname === "/tv" || location.pathname.startsWith("/tv/");
   const shouldShowTopNav =
     !isLoginRoute &&
@@ -98,7 +100,11 @@ function AppShell({ children }) {
     !isTvRoute &&
     !isVoiceProbePrivacyRoute &&
     (Boolean(session) || isAboutRoute);
-  const { defaultBowlId } = useUserBowls();
+  const { bowls, defaultBowlId } = useUserBowls();
+  const homeBowlName = bowls.find((bowl) => bowl.id === defaultBowlId)?.name || "";
+  // A bowl dashboard already carries the picker in its own header, and /bowls is
+  // the list itself; everywhere else the header is the only way back to a bowl.
+  const showBowlSwitcher = Boolean(session) && !isBowlRoute && !isBowlsRoute;
   usePrefetchLikelyRoutes(session);
 
   return (
@@ -116,6 +122,8 @@ function AppShell({ children }) {
           isAuthenticated={Boolean(session)}
           pendingInviteCount={pendingInviteCount}
           homeBowlId={defaultBowlId}
+          homeBowlName={homeBowlName}
+          showBowlSwitcher={showBowlSwitcher}
           onAddMovie={bowlAdd.openGlobalAdd}
         />
       )}

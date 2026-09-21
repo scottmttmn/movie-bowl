@@ -22,6 +22,33 @@ test("settings section jumps preserve both page and browser Back navigation", as
   }
 });
 
+// Settings has no bowl of its own, so the header is the only way back to one.
+test("the settings header names the home bowl and switches from it", async ({ page, backend }) => {
+  await backend.authenticate(page);
+  backend.state.bowls.push(...["Friday Night", "Family Movies"].map((name, index) => ({
+    id: `header-bowl-${index}`,
+    name,
+    owner_id: "user-smoke",
+    draw_access_mode: "all_members",
+    draw_method: "person_first",
+  })));
+  backend.state.defaults = { "user-smoke": "header-bowl-0" };
+  await page.goto("/settings");
+
+  const switchBowl = page.getByRole("button", { name: "Switch bowl. Home bowl: Friday Night" });
+  await expect(switchBowl).toBeVisible();
+  await expect(page.getByRole("link", { name: "Go to your home bowl" })).toHaveCount(0);
+
+  await switchBowl.click();
+  // Nothing here is the bowl in view, so the picker offers no way to move Home.
+  await expect(page.getByRole("button", { name: /my home bowl$/ })).toHaveCount(0);
+  await page.getByRole("button", { name: /^Family Movies,/ }).click();
+  await expect(page).toHaveURL(/\/bowl\/header-bowl-1$/);
+
+  // On a bowl the dashboard carries its own picker, so the wordmark returns.
+  await expect(page.getByRole("link", { name: "Go to your home bowl" })).toBeVisible();
+});
+
 test("bowl settings section jumps preserve both page and browser Back navigation", async ({ page, backend }) => {
   await backend.authenticate(page);
   backend.state.bowls.push({
