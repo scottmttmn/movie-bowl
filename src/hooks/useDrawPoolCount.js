@@ -37,10 +37,12 @@ const defaultFetchMovieDetails = (tmdbId) => getTmdbMovieDetails(tmdbId);
 const defaultFetchProviders = (tmdbId) => fetchStreamingProviders(tmdbId);
 const defaultFetchFilterMetadata = (tmdbId) => fetchMovieFilterMetadata(tmdbId);
 
-function countLookupEligibleTitles(movies) {
+function countLookupEligibleTitles(movies, isCached = null) {
   return movies.reduce((count, movie) => {
     const tmdbId = Number(movie?.tmdb_id);
-    return count + (Number.isFinite(tmdbId) && tmdbId > 0 ? 1 : 0);
+    if (!Number.isFinite(tmdbId) || tmdbId <= 0) return count;
+    if (isCached && isCached(tmdbId)) return count;
+    return count + 1;
   }, 0);
 }
 
@@ -58,7 +60,7 @@ export default function useDrawPoolCount(
     fetchProviders = defaultFetchProviders,
     fetchFilterMetadata = defaultFetchFilterMetadata,
     autoLookupLimit = AUTO_LOOKUP_TITLE_LIMIT,
-    hasCompleteMetadataSnapshot = false,
+    isMetadataCached = () => false,
     // A surface with no way to ask. The television has no opt-in to offer and
     // nobody standing at it to tap one, so it resolves the count itself rather
     // than showing a number the filters never touched. It costs what the draw
@@ -114,6 +116,14 @@ export default function useDrawPoolCount(
     [poolMovies, genreFilter, runtimeFilter]
   );
   const lookupEligibleTitleCount = countLookupEligibleTitles(locallyFilteredPoolMovies);
+  // What the count costs is the titles the persistent snapshot cannot answer
+  // for. Pricing it by the whole bowl instead made one added movie -- the one
+  // title a daily cache has never seen -- look like a bowl's worth of requests,
+  // so a bowl that had been counting itself fell back to asking.
+  const uncachedLookupTitleCount = countLookupEligibleTitles(
+    locallyFilteredPoolMovies,
+    isMetadataCached
+  );
   const needsLookups =
     lookupEligibleTitleCount > 0 &&
     (Boolean(ratingFilterForCount) || canPrioritizeStreaming);
@@ -127,8 +137,7 @@ export default function useDrawPoolCount(
     poolMovies.length > 0 &&
     failedCountKey !== countKey &&
     (!needsLookups ||
-      hasCompleteMetadataSnapshot ||
-      lookupEligibleTitleCount <= autoLookupLimit ||
+      uncachedLookupTitleCount <= autoLookupLimit ||
       autoRunLookups ||
       didRequestLookup);
 

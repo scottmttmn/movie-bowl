@@ -50,7 +50,8 @@ describe("useBowlFilterMetadata", () => {
     }));
 
     await waitFor(() => expect(result.current.status).toBe(BOWL_FILTER_METADATA_STATUS.ready));
-    expect(result.current.hasCompleteMetadataSnapshot).toBe(true);
+    expect(result.current.isMetadataCached(10)).toBe(true);
+    expect(result.current.isMetadataCached(20)).toBe(true);
     let details;
     let providers;
     let combined;
@@ -92,7 +93,7 @@ describe("useBowlFilterMetadata", () => {
     }));
 
     await waitFor(() => expect(result.current.status).toBe(BOWL_FILTER_METADATA_STATUS.ready));
-    expect(result.current.hasCompleteMetadataSnapshot).toBe(false);
+    expect(result.current.isMetadataCached(10)).toBe(false);
     await act(async () => {
       await expect(result.current.fetchMovieDetails(10)).resolves.toEqual({ id: 10 });
       await expect(result.current.fetchProviders(10)).resolves.toMatchObject({ providers: ["Tubi"] });
@@ -100,6 +101,57 @@ describe("useBowlFilterMetadata", () => {
 
     expect(fetchMovieDetailsFallback).toHaveBeenCalledTimes(1);
     expect(fetchProvidersFallback).toHaveBeenCalledTimes(1);
+  });
+
+  // Adding a movie re-reads the cache for a pool that now has one more title.
+  // What the cache already holds for the other titles has not changed, and the
+  // readouts that price themselves on it must not see them go dark meanwhile.
+  it("keeps answering for the titles it already cached while a reload is in flight", async () => {
+    let resolveSecondRead;
+    mocks.rpc
+      .mockResolvedValueOnce({
+        data: [{
+          tmdb_id: 10,
+          region: "US",
+          certification: "PG-13",
+          providers: [],
+          fetched_at: "2026-08-28T08:00:00.000Z",
+        }],
+        error: null,
+      })
+      .mockReturnValueOnce(new Promise((resolve) => {
+        resolveSecondRead = resolve;
+      }));
+
+    const { result, rerender } = renderHook(
+      ({ movies }) => useBowlFilterMetadata("bowl-1", movies),
+      { initialProps: { movies: [MOVIES[0]] } }
+    );
+
+    await waitFor(() => expect(result.current.isMetadataCached(10)).toBe(true));
+
+    rerender({ movies: MOVIES });
+
+    expect(result.current.status).toBe(BOWL_FILTER_METADATA_STATUS.loading);
+    expect(result.current.isMetadataCached(10)).toBe(true);
+    expect(result.current.isMetadataCached(20)).toBe(false);
+
+    await act(async () => {
+      resolveSecondRead({
+        data: [{
+          tmdb_id: 10,
+          region: "US",
+          certification: "PG-13",
+          providers: [],
+          fetched_at: "2026-08-28T08:00:00.000Z",
+        }],
+        error: null,
+      });
+    });
+
+    await waitFor(() => expect(result.current.status).toBe(BOWL_FILTER_METADATA_STATUS.ready));
+    expect(result.current.isMetadataCached(10)).toBe(true);
+    expect(result.current.isMetadataCached(20)).toBe(false);
   });
 
   it("falls back safely when the cache migration is unavailable", async () => {
@@ -115,5 +167,38 @@ describe("useBowlFilterMetadata", () => {
       await expect(result.current.fetchMovieDetails(10)).resolves.toEqual({ id: 10 });
     });
     expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  // Holding the last good ids through a reload must not outlive a reload that
+  // failed: those fetchers serve nothing, so every title goes to the network
+  // and none of them may be priced as free.
+  it("stops calling titles cached once a reload of them fails", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.rpc
+      .mockResolvedValueOnce({
+        data: [{
+          tmdb_id: 10,
+          region: "US",
+          certification: "PG-13",
+          providers: [],
+          fetched_at: "2026-08-28T08:00:00.000Z",
+        }],
+        error: null,
+      })
+      .mockRejectedValueOnce(new TypeError("Failed to fetch"));
+
+    const { result, rerender } = renderHook(
+      ({ movies }) => useBowlFilterMetadata("bowl-1", movies),
+      { initialProps: { movies: [MOVIES[0]] } }
+    );
+
+    await waitFor(() => expect(result.current.isMetadataCached(10)).toBe(true));
+
+    rerender({ movies: MOVIES });
+
+    await waitFor(() => expect(result.current.status).toBe(BOWL_FILTER_METADATA_STATUS.fallback));
+    expect(result.current.isMetadataCached(10)).toBe(false);
+    errorSpy.mockRestore();
   });
 });

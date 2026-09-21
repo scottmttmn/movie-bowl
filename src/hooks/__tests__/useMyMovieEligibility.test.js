@@ -107,7 +107,7 @@ describe("useMyMovieEligibility", () => {
     expect(fetchMovieDetails).toHaveBeenCalledTimes(3);
   });
 
-  it("does not require authorization when the persistent snapshot is complete", async () => {
+  it("does not require authorization when the persistent snapshot covers the list", async () => {
     const movies = [movie("cached-1"), movie("cached-2"), movie("cached-3")];
     const fetchMovieDetails = vi.fn(async () => pgDetails());
     const { result } = renderHook(() => useMyMovieEligibility(
@@ -118,12 +118,37 @@ describe("useMyMovieEligibility", () => {
         enabled: true,
         fetchMovieDetails,
         autoLookupLimit: 2,
-        hasCompleteMetadataSnapshot: true,
+        isMetadataCached: () => true,
       }
     ));
 
     await waitFor(() => expect(result.current.status).toBe(MY_MOVIE_ELIGIBILITY_STATUS.ready));
     expect(result.current.eligibleMovieIds).toHaveLength(3);
+  });
+
+  // One title the daily cache has never seen is one lookup, not a fresh bill
+  // for the whole list, so adding a movie must not put the opt-in back.
+  it("keeps resolving when one added title is outside the snapshot", async () => {
+    const cached = [movie("cached-11"), movie("cached-12"), movie("cached-13")];
+    const added = movie("added-14");
+    const fetchMovieDetails = vi.fn(async () => pgDetails());
+    const isMetadataCached = (tmdbId) => tmdbId !== Number(added.tmdb_id);
+    const { result, rerender } = renderHook(
+      ({ list }) => useMyMovieEligibility(list, list, filters, {
+        enabled: true,
+        fetchMovieDetails,
+        autoLookupLimit: 2,
+        isMetadataCached,
+      }),
+      { initialProps: { list: cached } }
+    );
+
+    await waitFor(() => expect(result.current.status).toBe(MY_MOVIE_ELIGIBILITY_STATUS.ready));
+
+    rerender({ list: [...cached, added] });
+
+    await waitFor(() => expect(result.current.eligibleMovieIds).toHaveLength(4));
+    expect(result.current.status).toBe(MY_MOVIE_ELIGIBILITY_STATUS.ready);
   });
 
   it("resets explicit lookup authorization when filters change", async () => {

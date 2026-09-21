@@ -30,13 +30,15 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 - Streaming rank on touch: the reordering rows in User Settings still use HTML5 drag events, which do not fire on touch, so phones fall back to the ↑/↓ buttons. The redesign (`output/designs/user-settings-redesign.md`) kept that as-is; a pointer-event drag or an explicit "move to position" affordance would close it.
 - Add-link delete for non-owners: Bowl Settings shows every member the Delete button on add links they did not create, and the click is refused by RLS with an error banner. Hiding or disabling it for links whose `created_by` is someone else would turn a dead-end into a readable rule — the existing test pins the current behavior, so decide the rule before changing it.
 - Visual consistency sweep: audit remaining non-core pages and components for raw styling that bypasses shared tokens.
-- Large-bowl draw count UX: bowls over 100 lookup-eligible titles whose metadata
-  the daily cron has not fully cached still need an explicit tap on the phone to
-  resolve an exact eligible count. That tap stays, and it is the right shape
-  there: a phone is on battery and someone is holding it. The television no
-  longer waits for one — it has nobody to tap it, so it resolves the count
-  itself. What is left is whether the phone should offer to remember the answer
-  across a session rather than asking again after every filter change.
+- Large-bowl draw count UX: bowls with over 100 titles the daily cron has not
+  cached still need an explicit tap on the phone to resolve an exact eligible
+  count. That tap stays, and it is the right shape there: a phone is on battery
+  and someone is holding it. The television no longer waits for one — it has
+  nobody to tap it, so it resolves the count itself. The tap is now priced by
+  the titles the cache cannot answer for rather than by the whole bowl, so
+  adding a movie no longer puts it back. What is left is whether the phone
+  should offer to remember the answer across a session rather than asking again
+  after every filter change.
 - Once-per-day draw lockout: the mobile design exploration floated "can't draw again until tomorrow" after putting a movie back, to discourage re-rolling. New product behavior with open questions (locked per user or per bowl, timezone, who can override) — needs its own design doc before any code.
 - Watched-outside-the-bowl removals leave no trace: logging a manual watch can now pull your own undrawn slips out of the bowls holding them, but that is a hard delete, so the other members just see the bowl shrink. Everything else in the history model keeps the fact (draw events are immutable, returns set `returned_at`). Worth deciding whether this should be an event the bowl can show instead.
 - Odds panel: decided against on 2026-09-19 and the unrendered `buildDrawOddsStats` removed with it. The method copy already tells people whether their picks have a real chance, and a table of shares mostly invites gaming the bowl. If one is ever built, two problems come back with it: it must be fed the resolved eligible pool rather than `bowl.remaining`, or it reports a flat 1/N for contributors the filters or streaming priority cannot reach; and rotation cannot be described honestly without the current history as well.
