@@ -22,7 +22,6 @@ const mocks = vi.hoisted(() => {
       ],
       watched: [],
     },
-    drawOdds: [{ bucketKey: "user:u1", member: "Owner", movieCount: 4, drawOdds: 1 }],
     handleDraw: vi.fn(async () => null),
     openBowlAdd: vi.fn(),
     handleAddMovie: vi.fn(async () => true),
@@ -107,7 +106,6 @@ vi.mock("../../hooks/useBowl", () => ({
     mocks.state.useBowlOptions = options;
     return {
       bowl: mocks.state.bowlData,
-      drawOdds: mocks.state.drawOdds,
       isLoading: false,
       errorMessage: null,
       handleDraw: mocks.state.handleDraw,
@@ -184,7 +182,6 @@ describe("BowlDashboard guards", () => {
       ],
       watched: [],
     };
-    mocks.state.drawOdds = [{ bucketKey: "user:u1", member: "Owner", movieCount: 4, drawOdds: 1 }];
     mocks.state.handleReaddMovie.mockClear();
     mocks.state.handleDeleteMovie.mockClear();
     mocks.state.handleAddMovie.mockClear();

@@ -160,8 +160,9 @@ an ordinary draw from a rotation bowl rather than silently use the wrong method.
 
 Rotation does not add an odds UI. The unused `useBowl.drawOdds` export was
 removed because it cannot describe rotation honestly without both the resolved
-pool and current history. `buildDrawOddsStats` remains available for the two
-methods it currently supports. A
+pool and current history. `buildDrawOddsStats` stayed behind it, serving the two
+client methods and rendered nowhere, and was removed in turn on 2026-09-19: the
+method copy is what tells people whether their picks have a real chance. A
 future odds surface must solve the eligible-pool TODO for every method first.
 
 ## Data Model

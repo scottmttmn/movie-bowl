@@ -12,7 +12,6 @@ const mocks = vi.hoisted(() => {
       remaining: [{ id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A", genres: ["Action"], runtime: 120 }],
       watched: [],
     },
-    drawOdds: [{ bucketKey: "user:u1", member: "Owner", movieCount: 1, drawOdds: 1 }],
     handleDraw: vi.fn(),
     handleDeleteMovie: vi.fn(async () => true),
     handleReaddMovie: vi.fn(async () => true),
@@ -80,7 +79,6 @@ vi.mock("../../hooks/useBowlAdd", () => ({ default: () => ({ openBowlAdd: vi.fn(
 vi.mock("../../hooks/useBowl", () => ({
   default: () => ({
     bowl: mocks.state.bowlData,
-    drawOdds: mocks.state.drawOdds,
     isLoading: false,
     errorMessage: null,
     handleDraw: mocks.state.handleDraw,
@@ -147,7 +145,6 @@ describe("BowlDashboard draw flow", () => {
       remaining: [{ id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A", genres: ["Action"], runtime: 120 }],
       watched: [],
     };
-    mocks.state.drawOdds = [{ bucketKey: "user:u1", member: "Owner", movieCount: 1, drawOdds: 1 }];
     mocks.state.handleDeleteMovie.mockClear();
     mocks.state.handleReaddMovie.mockClear();
     mocks.state.handleDraw.mockReset();
