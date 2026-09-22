@@ -31,6 +31,7 @@ import AddMovieModal from "../components/AddMovieModal";
 import DrawAnimationModal from "../components/DrawAnimationModal";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { supabase } from "../lib/supabase";
+import { startRead } from "../utils/startRead";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { MAX_BOWLS_PER_USER, MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
@@ -540,6 +541,26 @@ export default function BowlDashboard() {
         }
         if (!cancelled) setCurrentUserId(userId);
 
+        // Every read below needs only the bowl id and the user, so they are
+        // sent together rather than each waiting on the last. The access
+        // decision is still made in the original order from their results; a
+        // non-member's roster and permission reads come back empty under RLS
+        // and are never looked at.
+        const membershipRequest = startRead(supabase
+          .from("bowl_members")
+          .select("user_id")
+          .eq("bowl_id", bowlId)
+          .eq("user_id", userId)
+          .maybeSingle());
+        const membersRequest = startRead(supabase
+          .from("bowl_members")
+          .select("user_id")
+          .eq("bowl_id", bowlId));
+        const drawPermissionsRequest = startRead(supabase
+          .from("bowl_draw_permissions")
+          .select("user_id")
+          .eq("bowl_id", bowlId));
+
         // Frontend can reach users before the migration is applied, so each
         // optional column is dropped one at a time. Falling back past
         // draw_access_mode for a missing draw_method would quietly widen who
@@ -579,12 +600,7 @@ export default function BowlDashboard() {
 
         const isOwner = data.owner_id === userId;
         if (!isOwner) {
-          const { data: memberRow, error: memberError } = await supabase
-            .from("bowl_members")
-            .select("user_id")
-            .eq("bowl_id", bowlId)
-            .eq("user_id", userId)
-            .maybeSingle();
+          const { data: memberRow, error: memberError } = await membershipRequest;
 
           if (memberError) { failAccessRead(); return; }
           if (!memberRow) {
@@ -593,10 +609,7 @@ export default function BowlDashboard() {
           }
         }
 
-        const { data: memberRows, error: membersError } = await supabase
-          .from("bowl_members")
-          .select("user_id")
-          .eq("bowl_id", bowlId);
+        const { data: memberRows, error: membersError } = await membersRequest;
 
         if (membersError) {
           if (!cancelled) {
@@ -606,10 +619,7 @@ export default function BowlDashboard() {
           setMemberIds((memberRows || []).map((row) => row.user_id).filter(Boolean));
         }
 
-        const { data: drawPermissionRows, error: drawPermissionsError } = await supabase
-          .from("bowl_draw_permissions")
-          .select("user_id")
-          .eq("bowl_id", bowlId);
+        const { data: drawPermissionRows, error: drawPermissionsError } = await drawPermissionsRequest;
 
         if (drawPermissionsError) {
           if (!isMissingDrawPermissionsTable(drawPermissionsError)) {

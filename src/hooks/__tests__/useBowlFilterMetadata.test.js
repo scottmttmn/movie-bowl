@@ -154,6 +154,42 @@ describe("useBowlFilterMetadata", () => {
     expect(result.current.isMetadataCached(20)).toBe(false);
   });
 
+  // Opening a bowl sends the cache read beside the movie list instead of after
+  // it, so the pool readouts are not held back a round trip.
+  it("sends the cache read before the movie list arrives and serves that list from it", async () => {
+    mocks.rpc.mockResolvedValue({
+      data: [{
+        tmdb_id: 10,
+        region: "US",
+        certification: "PG-13",
+        providers: [],
+        fetched_at: "2026-08-28T08:00:00.000Z",
+      }],
+      error: null,
+    });
+
+    const { result, rerender } = renderHook(
+      ({ movies }) => useBowlFilterMetadata("bowl-1", movies),
+      { initialProps: { movies: [] } }
+    );
+
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+    expect(mocks.rpc).toHaveBeenCalledWith("get_bowl_filter_metadata", {
+      p_bowl_id: "bowl-1",
+      p_region: "US",
+    });
+
+    rerender({ movies: [MOVIES[0]] });
+
+    await waitFor(() => expect(result.current.status).toBe(BOWL_FILTER_METADATA_STATUS.ready));
+    expect(result.current.isMetadataCached(10)).toBe(true);
+    expect(mocks.rpc).toHaveBeenCalledTimes(1);
+
+    // A later list is a changed bowl, which the opening read cannot speak for.
+    rerender({ movies: MOVIES });
+    await waitFor(() => expect(mocks.rpc).toHaveBeenCalledTimes(2));
+  });
+
   it("falls back safely when the cache migration is unavailable", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     mocks.rpc.mockRejectedValue(new TypeError("Failed to fetch"));

@@ -31,6 +31,8 @@ export default function WatchedMovieCard({ movie, onClick }) {
             <img
               src={posterUrl}
               alt={movie.title}
+              loading="lazy"
+              decoding="async"
               className="h-40 w-28 rounded-xl border-2 object-cover shadow-lg shadow-black/30 transition group-hover:shadow-xl group-hover:shadow-black/40"
               style={{ borderColor: contributorAccent?.borderColor || "transparent" }}
             />

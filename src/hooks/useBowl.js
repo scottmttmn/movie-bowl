@@ -142,8 +142,10 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
 
       loadedUserId.current = user.id;
 
-      // Remaining movies
-      const { data: remaining, error: remainingError } = await supabase
+      // The three reads are independent, so they go out together: one round
+      // trip rather than three before the bowl can render. Their results are
+      // still handled in the original order, so the error that wins is the same.
+      const remainingRequest = supabase
         .from("bowl_movies")
         .select(
           "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, is_pinned, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at"
@@ -151,6 +153,28 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         .eq("bowl_id", bowlId)
         .is("drawn_at", null)
         .order("added_at", { ascending: true });
+
+      // Draw events are separate from current bowl slips so a return to the
+      // bowl never erases the fact that the bowl made a draw.
+      const drawEventsRequest = supabase
+        .from("bowl_draw_events")
+        .select(
+          "id, bowl_id, source_bowl_movie_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, added_by, added_by_name, drawn_at, drawn_by, snapshot_at, returned_at, returned_by"
+        )
+        .eq("bowl_id", bowlId)
+        .is("returned_at", null)
+        .order("drawn_at", { ascending: false });
+
+      const profilesRequest = supabase.rpc(
+        "get_bowl_profile_directory",
+        { p_bowl_id: bowlId }
+      );
+
+      const [
+        { data: remaining, error: remainingError },
+        { data: drawEvents, error: watchedError },
+        { data: profileRows, error: profilesError },
+      ] = await Promise.all([remainingRequest, drawEventsRequest, profilesRequest]);
 
       if (remainingError) {
         console.error("[useBowl] Failed to load remaining movies", remainingError);
@@ -160,21 +184,6 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         );
       }
 
-      // Draw events are separate from current bowl slips so a return to the
-      // bowl never erases the fact that the bowl made a draw.
-      let drawEventsQuery = supabase
-        .from("bowl_draw_events")
-        .select(
-          "id, bowl_id, source_bowl_movie_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, added_by, added_by_name, drawn_at, drawn_by, snapshot_at, returned_at, returned_by"
-        )
-        .eq("bowl_id", bowlId)
-        .is("returned_at", null);
-
-      const { data: drawEvents, error: watchedError } = await drawEventsQuery.order(
-        "drawn_at",
-        { ascending: false }
-      );
-
       if (watchedError) {
         console.error("[useBowl] Failed to load watched movies", watchedError);
         failedWhileOfflineRef.current ||= isOfflineError(watchedError);
@@ -182,11 +191,6 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
           describeNetworkError(watchedError, "Failed to load watched movies.")
         );
       }
-
-      const { data: profileRows, error: profilesError } = await supabase.rpc(
-        "get_bowl_profile_directory",
-        { p_bowl_id: bowlId }
-      );
 
       if (profilesError) {
         console.error("[useBowl] Failed to load contributor profiles", profilesError);

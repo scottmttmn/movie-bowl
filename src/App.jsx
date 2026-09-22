@@ -105,7 +105,7 @@ function AppShell({ children }) {
   // A bowl dashboard already carries the picker in its own header, and /bowls is
   // the list itself; everywhere else the header is the only way back to a bowl.
   const showBowlSwitcher = Boolean(session) && !isBowlRoute && !isBowlsRoute;
-  usePrefetchLikelyRoutes(session);
+  usePrefetchLikelyRoutes(session, location.pathname);
 
   return (
     <div className={`app-shell ${isTvRoute ? "app-shell-tv" : ""}`}>
@@ -243,7 +243,16 @@ function AcceptInvite() {
 // warmed once the app has settled rather than at the moment someone taps. This
 // is the difference between a navigation that waits for a download and one that
 // does not, and it costs an idle callback.
-function usePrefetchLikelyRoutes(session) {
+function usePrefetchLikelyRoutes(session, pathname) {
+  // Home exists only to hand over to a bowl, so the dashboard is not a likely
+  // next screen there but the certain one. Fetching it beside the home bowl
+  // lookup, instead of once that lookup has answered, takes a download off
+  // the path of every launch.
+  const isHomeRoute = pathname === "/";
+  useEffect(() => {
+    if (session && isHomeRoute) BowlDashboard.preload?.();
+  }, [session, isHomeRoute]);
+
   useEffect(() => {
     if (!session) return undefined;
     const schedule = window.requestIdleCallback
