@@ -5,6 +5,7 @@ import CopyButton from "../components/CopyButton";
 import SettingsSectionNav from "../components/SettingsSectionNav";
 import useAutosave, { valuesAreEqual } from "../hooks/useAutosave";
 import { supabase } from "../lib/supabase";
+import { startRead } from "../utils/startRead";
 import { notifyBowlChange } from "../lib/bowlChanges";
 import {
   DEFAULT_DRAW_METHOD,
@@ -251,6 +252,36 @@ export default function BowlSettings() {
       setCurrentUserId(authData?.session?.user?.id ?? null);
       setCurrentUserEmail((authData?.session?.user?.email || "").toLowerCase());
 
+      // Everything below is keyed by the bowl alone, so it is all sent now
+      // rather than one read after another. Results are still applied in the
+      // original order, and a failure that stops the load leaves the rest unread.
+      const membersRequest = startRead(supabase
+        .from("bowl_members")
+        .select("user_id, role")
+        .eq("bowl_id", bowlId)
+        .order("role", { ascending: false }));
+      const profilesRequest = startRead(supabase.rpc(
+        "get_bowl_profile_directory",
+        { p_bowl_id: bowlId }
+      ));
+      const permissionsRequest = startRead(supabase
+        .from("bowl_draw_permissions")
+        .select("user_id")
+        .eq("bowl_id", bowlId));
+      // Only the count, and only to label the link into the Invitations hub.
+      // Sending and revoking live there; this screen keeps the roster.
+      const invitesRequest = startRead(supabase
+        .from("bowl_invites")
+        .select("id")
+        .eq("bowl_id", bowlId)
+        .is("accepted_at", null)
+        .order("created_at", { ascending: false }));
+      const addLinksRequest = startRead(supabase
+        .from("bowl_add_links")
+        .select("id, token, max_adds, adds_used, revoked_at, created_at, created_by, default_contributor_name")
+        .eq("bowl_id", bowlId)
+        .order("created_at", { ascending: false }));
+
       // Load bowl basics (name + owner).
       // Each optional column is dropped on its own so a deploy that lands
       // ahead of the migration degrades one feature instead of all of them.
@@ -298,11 +329,7 @@ export default function BowlSettings() {
       setOwnerId(bowl?.owner_id ?? null);
 
       // Load membership rows separately from the bowl-scoped email directory.
-      const { data: memberRows, error: membersError } = await supabase
-        .from("bowl_members")
-        .select("user_id, role")
-        .eq("bowl_id", bowlId)
-        .order("role", { ascending: false });
+      const { data: memberRows, error: membersError } = await membersRequest;
 
       if (membersError) {
         console.error("[BowlSettings] Failed to load members", membersError);
@@ -312,10 +339,7 @@ export default function BowlSettings() {
         return;
       }
 
-      const { data: profileRows, error: profilesError } = await supabase.rpc(
-        "get_bowl_profile_directory",
-        { p_bowl_id: bowlId }
-      );
+      const { data: profileRows, error: profilesError } = await profilesRequest;
 
       if (profilesError) {
         console.error("[BowlSettings] Failed to load member profiles", profilesError);
@@ -335,10 +359,7 @@ export default function BowlSettings() {
         })
       );
 
-      const { data: permissionRows, error: permissionsError } = await supabase
-        .from("bowl_draw_permissions")
-        .select("user_id")
-        .eq("bowl_id", bowlId);
+      const { data: permissionRows, error: permissionsError } = await permissionsRequest;
 
       if (permissionsError) {
         if (!isMissingDrawPermissionsTable(permissionsError)) {
@@ -349,14 +370,7 @@ export default function BowlSettings() {
         setDrawAllowedUserIds((permissionRows || []).map((row) => row.user_id).filter(Boolean));
       }
 
-      // Only the count, and only to label the link into the Invitations hub.
-      // Sending and revoking live there; this screen keeps the roster.
-      const { data: invites, error: invitesError } = await supabase
-        .from("bowl_invites")
-        .select("id")
-        .eq("bowl_id", bowlId)
-        .is("accepted_at", null)
-        .order("created_at", { ascending: false });
+      const { data: invites, error: invitesError } = await invitesRequest;
 
       if (invitesError) {
         console.error("[BowlSettings] Failed to count pending invites", invitesError);
@@ -365,11 +379,7 @@ export default function BowlSettings() {
         setPendingInviteCount((invites || []).length);
       }
 
-      const { data: addLinkRows, error: addLinksError } = await supabase
-        .from("bowl_add_links")
-        .select("id, token, max_adds, adds_used, revoked_at, created_at, created_by, default_contributor_name")
-        .eq("bowl_id", bowlId)
-        .order("created_at", { ascending: false });
+      const { data: addLinkRows, error: addLinksError } = await addLinksRequest;
 
       if (addLinksError) {
         if (!isMissingAddLinksTable(addLinksError)) {

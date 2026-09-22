@@ -260,6 +260,24 @@ describe("useBowl handleDraw integration", () => {
     expect(result.current.bowl.remaining).toEqual(action === "remove" ? [] : [expect.objectContaining({ id: "m1", note: "Updated" })]);
   });
 
+  // Opening a bowl is one round trip, not three: the slips, the draw history
+  // and the contributor names are all asked for before any of them answers.
+  it("sends the bowl's reads together rather than one after another", async () => {
+    let finishRemaining;
+    mocks.remainingQueue.push(new Promise((resolve) => { finishRemaining = resolve; }));
+    const { result } = renderHook(() => useBowl("bowl-1"));
+
+    await waitFor(() => {
+      expect(mocks.selectCalls.map((call) => call.table)).toEqual(
+        expect.arrayContaining(["bowl_movies", "bowl_draw_events"])
+      );
+      expect(mocks.rpcCalls.map((call) => call.name)).toContain("get_bowl_profile_directory");
+    });
+    expect(result.current.isLoading).toBe(true);
+
+    await act(async () => { finishRemaining([]); });
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+  });
   it("returns an add failure if the session lookup throws before dispatch", async () => {
     const { result } = renderHook(() => useBowl("bowl-1"));
     await waitFor(() => expect(result.current.isLoading).toBe(false));

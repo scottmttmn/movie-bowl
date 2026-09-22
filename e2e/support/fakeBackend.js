@@ -504,6 +504,14 @@ export class FakeBackend {
       return;
     }
 
+    // The dashboard asks for this as soon as a bowl opens, before its titles
+    // are known. The fake holds no nightly metadata cache, so every bowl
+    // answers the way a freshly seeded one would: nothing cached yet.
+    if (rpcName === "get_bowl_filter_metadata") {
+      await fulfillJson(route, []);
+      return;
+    }
+
     if (rpcName === "get_my_invite_sender_directory") {
       await fulfillJson(
         route,

@@ -1,5 +1,5 @@
 import { execSync } from 'node:child_process'
-import { defineConfig } from 'vite'
+import { defineConfig, loadEnv } from 'vite'
 import react from '@vitejs/plugin-react'
 
 // Stamps every build with an id so a tab that is already open can tell it is no
@@ -54,14 +54,71 @@ function buildVersionManifest(buildId) {
   }
 }
 
+// Opens the connections the first screen is about to need while the bundle is
+// still downloading, rather than after it has run: Supabase answers every read
+// a screen makes, and TMDB serves every poster. The Supabase origin comes from
+// the build's own environment and is left out when it is not a real URL, so a
+// checkout without one builds the same page it always did.
+function preconnectOrigins(env) {
+  return {
+    name: 'movie-bowl-preconnect',
+    apply: 'build',
+    transformIndexHtml() {
+      const tags = []
+      try {
+        const { origin } = new URL(env.VITE_SUPABASE_URL)
+        // crossorigin, because supabase-js reads over CORS and a connection
+        // opened without it cannot be reused for those requests.
+        tags.push({
+          tag: 'link',
+          attrs: { rel: 'preconnect', href: origin, crossorigin: true },
+          injectTo: 'head-prepend',
+        })
+      } catch {
+        // No usable Supabase URL at build time; the page connects on demand.
+      }
+      tags.push({
+        tag: 'link',
+        attrs: { rel: 'preconnect', href: 'https://image.tmdb.org' },
+        injectTo: 'head-prepend',
+      })
+      return tags
+    },
+  }
+}
+
+// Libraries change far less often than the app, so they get chunks of their
+// own. A deploy then replaces only the app's code, and a returning visitor --
+// which after every deploy is everyone, since open tabs reload onto it -- keeps
+// React and the Supabase client from the cache instead of downloading them again.
+function vendorChunk(id) {
+  if (!id.includes('/node_modules/')) return undefined
+  if (/\/node_modules\/(react|react-dom|react-router|react-router-dom|scheduler)\//.test(id)) {
+    return 'vendor-react'
+  }
+  if (/\/node_modules\/(@supabase|tslib|iceberg-js)\//.test(id)) {
+    return 'vendor-supabase'
+  }
+  return undefined
+}
+
 // https://vite.dev/config/
-export default defineConfig(({ command }) => {
+export default defineConfig(({ command, mode }) => {
   // Only a build ships an id anywhere; dev and tests never compare one, so they
   // skip the git calls entirely.
   const buildId = command === 'build' ? resolveBuildId() : 'development'
 
   return {
-    plugins: [react(), buildVersionManifest(buildId)],
+    plugins: [
+      react(),
+      buildVersionManifest(buildId),
+      preconnectOrigins(loadEnv(mode, process.cwd(), 'VITE_')),
+    ],
+    build: {
+      rollupOptions: {
+        output: { manualChunks: vendorChunk },
+      },
+    },
     define: {
       __APP_BUILD_ID__: JSON.stringify(buildId),
     },

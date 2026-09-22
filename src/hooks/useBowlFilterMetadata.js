@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { fetchMovieFilterMetadata } from "../lib/movieFilterMetadata";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { supabase } from "../lib/supabase";
@@ -60,31 +60,55 @@ function normalizeCacheRows(rows) {
   return metadataByTmdbId;
 }
 
+// How long the read sent on opening a bowl may stand in for the movie list that
+// arrives after it. It went out beside that list, so it describes the same
+// bowl; past this it may predate an add, and a fresh read is cheaper to reason
+// about than a stale one.
+const OPENING_READ_MAX_AGE_MS = 15000;
+
+function readBowlMetadata(supabaseClient, bowlId) {
+  return supabaseClient
+    .rpc("get_bowl_filter_metadata", {
+      p_bowl_id: bowlId,
+      p_region: "US",
+    })
+    .then(({ data, error }) => ({
+      metadataByTmdbId: error ? new Map() : normalizeCacheRows(data),
+      total: error ? 0 : (data || []).length,
+      error: error || null,
+    }))
+    .catch((error) => ({
+      metadataByTmdbId: new Map(),
+      total: 0,
+      error,
+    }));
+}
+
+// The opening read serves the first movie list its bowl loads and nothing
+// after: a later list means the bowl changed, which is what a re-read is for.
+function claimOpeningRead(opening, bowlId, cacheKey) {
+  if (!opening || opening.bowlId !== bowlId) return null;
+  if (opening.servedKey !== null && opening.servedKey !== cacheKey) return null;
+  if (Date.now() - opening.startedAt > OPENING_READ_MAX_AGE_MS) return null;
+  opening.servedKey = cacheKey;
+  return opening.promise;
+}
+
 function createBowlMetadataLoader(supabaseClient, bowlId, cacheKey) {
   let promise;
   return {
     cacheKey,
+    // Takes over a read already in flight instead of sending its own. Only
+    // before the first load: after that the loader has its answer.
+    adopt(openingRead) {
+      const adopted = claimOpeningRead(openingRead, bowlId, cacheKey);
+      if (!promise && adopted) promise = adopted;
+    },
     load() {
       if (!bowlId) {
         return Promise.resolve({ metadataByTmdbId: new Map(), total: 0, error: null });
       }
-      if (!promise) {
-        promise = supabaseClient
-          .rpc("get_bowl_filter_metadata", {
-            p_bowl_id: bowlId,
-            p_region: "US",
-          })
-          .then(({ data, error }) => ({
-            metadataByTmdbId: error ? new Map() : normalizeCacheRows(data),
-            total: error ? 0 : (data || []).length,
-            error: error || null,
-          }))
-          .catch((error) => ({
-            metadataByTmdbId: new Map(),
-            total: 0,
-            error,
-          }));
-      }
+      if (!promise) promise = readBowlMetadata(supabaseClient, bowlId);
       return promise;
     },
   };
@@ -117,14 +141,32 @@ export default function useBowlFilterMetadata(
     [movies]
   );
   const loaderKey = `${bowlId || ""}:${tmdbIdsKey}`;
+  // The cache read needs only the bowl id, so a bowl opened before its movies
+  // have loaded sends it now rather than a round trip later, once the list it
+  // is keyed on arrives. Every readout that prices the pool waits on it.
+  const openingReadRef = useRef(null);
   const loader = useMemo(
     () => createBowlMetadataLoader(supabaseClient, bowlId, tmdbIdsKey),
     [supabaseClient, bowlId, tmdbIdsKey]
   );
 
   useEffect(() => {
+    // Only while the list is still unknown. Movies already in hand mean the
+    // keyed read below is about to go out anyway.
+    if (!bowlId || tmdbIdsKey) return;
+    if (openingReadRef.current?.bowlId === bowlId) return;
+    openingReadRef.current = {
+      bowlId,
+      promise: readBowlMetadata(supabaseClient, bowlId),
+      startedAt: Date.now(),
+      servedKey: null,
+    };
+  }, [supabaseClient, bowlId, tmdbIdsKey]);
+
+  useEffect(() => {
     let active = true;
     if (!bowlId || !tmdbIdsKey) return undefined;
+    loader.adopt(openingReadRef.current);
     loader.load().then(({ metadataByTmdbId, total, error }) => {
       if (!active) return;
       if (error) {
@@ -151,6 +193,7 @@ export default function useBowlFilterMetadata(
     async (tmdbId) => {
       const numericId = Number(tmdbId);
       if (!Number.isInteger(numericId) || numericId <= 0) return null;
+      loader.adopt(openingReadRef.current);
       const { metadataByTmdbId } = await loader.load();
       return metadataByTmdbId.get(numericId) || null;
     },
