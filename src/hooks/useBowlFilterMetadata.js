@@ -13,6 +13,8 @@ export const BOWL_FILTER_METADATA_STATUS = {
   fallback: "fallback",
 };
 
+const EMPTY_TMDB_IDS = new Set();
+
 const defaultFetchMovieDetails = (tmdbId) => getTmdbMovieDetails(tmdbId);
 const defaultFetchProviders = (tmdbId) => fetchStreamingProviders(tmdbId, { region: "US" });
 const defaultFetchFilterMetadata = (tmdbId) => fetchMovieFilterMetadata(tmdbId);
@@ -104,6 +106,10 @@ export default function useBowlFilterMetadata(
     cachedCount: 0,
     totalCount: 0,
   });
+  // Which titles the cache can answer for is a fact about tmdb ids, not about
+  // the pool that asked, so it is held apart from the keyed snapshot and
+  // outlives the reload that adding a movie triggers.
+  const [cachedTmdbIds, setCachedTmdbIds] = useState({ bowlId: null, ids: EMPTY_TMDB_IDS });
   const tmdbIdsKey = useMemo(
     () => Array.from(new Set((movies || []).map(getPositiveTmdbId).filter(Boolean)))
       .sort((a, b) => a - b)
@@ -111,7 +117,6 @@ export default function useBowlFilterMetadata(
     [movies]
   );
   const loaderKey = `${bowlId || ""}:${tmdbIdsKey}`;
-  const expectedTmdbCount = tmdbIdsKey ? tmdbIdsKey.split(",").length : 0;
   const loader = useMemo(
     () => createBowlMetadataLoader(supabaseClient, bowlId, tmdbIdsKey),
     [supabaseClient, bowlId, tmdbIdsKey]
@@ -133,6 +138,9 @@ export default function useBowlFilterMetadata(
         cachedCount: metadataByTmdbId.size,
         totalCount: total,
       });
+      // A failed read is not evidence that nothing is cached, so it leaves the
+      // ids it could not refresh alone.
+      if (!error) setCachedTmdbIds({ bowlId, ids: new Set(metadataByTmdbId.keys()) });
     });
     return () => {
       active = false;
@@ -176,15 +184,28 @@ export default function useBowlFilterMetadata(
         totalCount: 0,
       };
 
-  const hasCompleteMetadataSnapshot =
-    currentSnapshot.status === BOWL_FILTER_METADATA_STATUS.ready &&
-    currentSnapshot.cachedCount === expectedTmdbCount;
+  // A read that is still in flight keeps the ids the last one resolved, so a
+  // reload does not blank the answer. A read that failed does not: the loader
+  // now behind these fetchers holds no rows, and every title it was asked for
+  // goes to the network after all.
+  const knownCachedTmdbIds =
+    cachedTmdbIds.bowlId === bowlId &&
+    currentSnapshot.status !== BOWL_FILTER_METADATA_STATUS.fallback
+      ? cachedTmdbIds.ids
+      : EMPTY_TMDB_IDS;
+  // Answers for one title rather than for the whole bowl: the callers price a
+  // count by the lookups it would actually send, and a title the cache already
+  // holds sends none.
+  const isMetadataCached = useCallback(
+    (tmdbId) => knownCachedTmdbIds.has(Number(tmdbId)),
+    [knownCachedTmdbIds]
+  );
 
   return useMemo(() => ({
     status: currentSnapshot.status,
     cachedCount: currentSnapshot.cachedCount,
     totalCount: currentSnapshot.totalCount,
-    hasCompleteMetadataSnapshot,
+    isMetadataCached,
     fetchMovieDetails,
     fetchProviders,
     fetchFilterMetadata,
@@ -192,7 +213,7 @@ export default function useBowlFilterMetadata(
     currentSnapshot.status,
     currentSnapshot.cachedCount,
     currentSnapshot.totalCount,
-    hasCompleteMetadataSnapshot,
+    isMetadataCached,
     fetchMovieDetails,
     fetchProviders,
     fetchFilterMetadata,

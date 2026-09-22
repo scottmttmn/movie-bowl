@@ -38,7 +38,7 @@ export default function useMyMovieEligibility(
     autoLookupLimit = AUTO_MY_MOVIE_ELIGIBILITY_LIMIT,
     sharedEligibleMovieIds = null,
     isSharedEligibilityPending = false,
-    hasCompleteMetadataSnapshot = false,
+    isMetadataCached = () => false,
   } = {}
 ) {
   const [result, setResult] = useState(null);
@@ -88,6 +88,14 @@ export default function useMyMovieEligibility(
     (count, movie) => count + (getPositiveTmdbId(movie) ? 1 : 0),
     0
   );
+  // Only the titles the persistent snapshot has never seen cost a request, so
+  // they are what the opt-in is priced against -- otherwise adding one movie
+  // reads as the whole list needing lookups again.
+  const uncachedLookupTitleCount = locallyEligibleMyMovies.reduce((count, movie) => {
+    const tmdbId = getPositiveTmdbId(movie);
+    if (!tmdbId || isMetadataCached(tmdbId)) return count;
+    return count + 1;
+  }, 0);
   const needsLookups =
     ownLookupTitleCount > 0 && (needsRatingLookups || needsStreamingLookups);
 
@@ -110,8 +118,7 @@ export default function useMyMovieEligibility(
     !hasSharedEligibility &&
     !isSharedEligibilityPending &&
     (!needsLookups ||
-      hasCompleteMetadataSnapshot ||
-      ownLookupTitleCount <= autoLookupLimit ||
+      uncachedLookupTitleCount <= autoLookupLimit ||
       didRequestLookup);
 
   useEffect(() => {

@@ -273,11 +273,73 @@ describe("useDrawPoolCount", () => {
       runtimeFilter: ALL_RUNTIMES,
     }, {
       fetchMovieDetails,
-      hasCompleteMetadataSnapshot: true,
+      isMetadataCached: () => true,
     }));
 
     await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.unfiltered));
     expect(fetchMovieDetails).toHaveBeenCalledTimes(AUTO_LOOKUP_TITLE_LIMIT + 1);
+  });
+
+  // Adding a movie used to cost the bowl its readout: the daily snapshot no
+  // longer covered every title, so a bowl that had been counting itself went
+  // back to "Preview filter matches" until someone tapped it. One new title is
+  // one lookup, and one lookup is not the limit this opt-in exists to guard.
+  it("keeps counting a snapshotted bowl after a movie is added", async () => {
+    const fetchMovieDetails = vi.fn(async () => ({
+      release_dates: {
+        results: [{ iso_3166_1: "US", release_dates: [{ certification: "R" }] }],
+      },
+    }));
+    const movies = Array.from(
+      { length: AUTO_LOOKUP_TITLE_LIMIT + 1 },
+      (unused, index) => movie(`cached-${index + 1}`)
+    );
+    const added = movie(`added-${AUTO_LOOKUP_TITLE_LIMIT + 2}`);
+    const cachedTmdbIds = new Set(movies.map((entry) => Number(entry.tmdb_id)));
+    const filters = {
+      ratingFilter: { allowedRatings: ["R"], includeUnknown: false },
+      genreFilter: ALL_GENRES,
+      runtimeFilter: ALL_RUNTIMES,
+    };
+
+    const { result, rerender } = renderHook(
+      ({ pool }) => useDrawPoolCount(pool, filters, {
+        fetchMovieDetails,
+        isMetadataCached: (tmdbId) => cachedTmdbIds.has(Number(tmdbId)),
+      }),
+      { initialProps: { pool: movies } }
+    );
+
+    await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.unfiltered));
+
+    rerender({ pool: [...movies, added] });
+
+    await waitFor(() => expect(result.current.totalCount).toBe(AUTO_LOOKUP_TITLE_LIMIT + 2));
+    expect(result.current.status).not.toBe(DRAW_POOL_STATUS.manual);
+    await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.unfiltered));
+  });
+
+  // The opt-in still has to hold when the snapshot is the thing that is
+  // missing, or a bowl this size would fire a lookup per title unasked.
+  it("still asks before counting a large bowl the snapshot does not cover", async () => {
+    const fetchMovieDetails = vi.fn(async () => ({
+      release_dates: {
+        results: [{ iso_3166_1: "US", release_dates: [{ certification: "R" }] }],
+      },
+    }));
+    const movies = Array.from(
+      { length: AUTO_LOOKUP_TITLE_LIMIT + 1 },
+      (unused, index) => movie(`uncached-${index + 1}`)
+    );
+
+    const { result } = renderHook(() => useDrawPoolCount(movies, {
+      ratingFilter: { allowedRatings: ["R"], includeUnknown: false },
+      genreFilter: ALL_GENRES,
+      runtimeFilter: ALL_RUNTIMES,
+    }, { fetchMovieDetails }));
+
+    await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.manual));
+    expect(fetchMovieDetails).not.toHaveBeenCalled();
   });
 
   it("counts automatically when the bowl is small enough to look up", async () => {
