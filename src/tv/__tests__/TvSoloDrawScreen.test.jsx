@@ -51,6 +51,7 @@ const mocks = vi.hoisted(() => ({
   setOverrides: vi.fn(),
   poolStatus: "unfiltered",
   eligibleMovieIds: null,
+  removeFromBowlsOnSoloDraw: false,
   streamingServices: ["Netflix"],
   streamingMatch: { matchCount: 0, topService: null, topServiceCount: 0 },
   drawSettings: null,
@@ -95,6 +96,7 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
       runtimeMaxMinutes: 500,
       includeUnknownRuntime: true,
     },
+    removeFromBowlsOnSoloDraw: mocks.removeFromBowlsOnSoloDraw,
     loading: false,
   }),
 }));
@@ -220,6 +222,8 @@ describe("TV solo draw", () => {
     mocks.setOverrides.mockReset();
     mocks.poolStatus = "unfiltered";
     mocks.eligibleMovieIds = null;
+    mocks.removeFromBowlsOnSoloDraw = false;
+    mocks.rows.forEach((row) => { delete row.is_pinned; });
     mocks.streamingServices = ["Netflix"];
     mocks.streamingMatch = { matchCount: 0, topService: null, topServiceCount: 0 };
     mocks.drawSettings = null;
@@ -419,6 +423,34 @@ describe("TV solo draw", () => {
         Boolean(element?.classList?.contains("tv-solo-pool-summary"))
       )
     ).toHaveTextContent("1 of 2 titles across 2 bowls");
+  });
+
+  // Pins do not weight the solo draw, they replace the pool with the pins, so
+  // the television has to say so for the same reason the phone does: the two
+  // run the same selector, and a room reading one number while a pocket reads
+  // another cannot both be right.
+  it("counts an eligible pin as the pool it narrows to", () => {
+    mocks.rows[0].is_pinned = true;
+    renderSolo();
+
+    expect(
+      screen.getByText((_content, element) =>
+        Boolean(element?.classList?.contains("tv-solo-pool-summary"))
+      )
+    ).toHaveTextContent("1 of 2 titles across 2 bowls");
+  });
+
+  // The stage promised shared bowls kept their copies while the account was
+  // set to empty them.
+  it("promises the bowls keep their copies only while they do", () => {
+    renderSolo();
+    expect(screen.getByText(/shared bowls keep their copies/i)).toBeInTheDocument();
+
+    cleanup();
+    mocks.removeFromBowlsOnSoloDraw = true;
+    renderSolo();
+    expect(screen.queryByText(/keep their copies/i)).toBeNull();
+    expect(screen.getByText(/your copies leave those bowls/i)).toBeInTheDocument();
   });
 
   it("keeps the plain count while the filters are still being checked", () => {

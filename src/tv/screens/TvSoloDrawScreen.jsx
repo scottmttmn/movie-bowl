@@ -18,6 +18,7 @@ import { getStreamingMode, getStreamingModeSettings } from "../utils/streamingMo
 import {
   buildSoloPreviewPool,
   filterSoloPoolByScope,
+  getSoloDrawGroups,
   groupSoloCandidatesByTitle,
 } from "../../utils/soloDrawSelection";
 import {
@@ -124,6 +125,7 @@ export default function TvSoloDrawScreen({ userId }) {
   const {
     streamingServices,
     defaultDrawSettings: accountDrawSettings,
+    removeFromBowlsOnSoloDraw,
     loading: isPreferencesLoading,
   } = useUserStreamingServices();
   const {
@@ -196,19 +198,21 @@ export default function TvSoloDrawScreen({ userId }) {
   );
   // Counted the same way as the pool it describes: the filters answer in rows,
   // and a row is not a title -- a movie sitting in three bowls survives them
-  // three times but still has one chance. Null until the lookups land, because
-  // a filtered count that guesses is worse than one that waits.
-  const eligibleTitleCount = useMemo(() => {
-    if (!Array.isArray(eligibleMovieIds)) return null;
+  // three times but still has one chance. Through the selector's own helper,
+  // so an eligible pin shrinks this to the pins the way it shrinks the draw --
+  // the phone reads the same number, and the two cannot disagree about a draw
+  // they run with identical code.
+  const drawableTitleCount = useMemo(() => {
+    if (!Array.isArray(eligibleMovieIds)) return getSoloDrawGroups(scopedRows).length;
     const eligible = new Set(eligibleMovieIds.map((id) => String(id)));
-    return groupSoloCandidatesByTitle(
-      scopedRows.filter((row) => eligible.has(String(row.id)))
-    ).length;
+    return getSoloDrawGroups(scopedRows.filter((row) => eligible.has(String(row.id)))).length;
   }, [eligibleMovieIds, scopedRows]);
+  // Mid-count the filters have not answered yet, so the pool is not this
+  // screen's to describe: one number that waits beats two that guess.
   const isFilteredCountReady =
-    drawPoolStatus === DRAW_POOL_STATUS.ready &&
-    eligibleTitleCount !== null &&
-    eligibleTitleCount < distinctTitleCount;
+    (drawPoolStatus === DRAW_POOL_STATUS.ready ||
+      drawPoolStatus === DRAW_POOL_STATUS.unfiltered) &&
+    drawableTitleCount < distinctTitleCount;
   const streamingMode = getStreamingMode(settings);
   // The service the resolved pool actually landed on, not the account's rank 1.
   // They differ whenever nothing on the top service survives the filters: the
@@ -564,8 +568,10 @@ export default function TvSoloDrawScreen({ userId }) {
             <p className="tv-kicker">Solo draw</p>
             <h1 id="tv-solo-title">Pick one of yours.</h1>
             <p>
-              One private pick from your movies across every bowl. Shared bowls
-              keep their copies.
+              One private pick from your movies across every bowl.{" "}
+              {removeFromBowlsOnSoloDraw
+                ? "Your copies leave those bowls."
+                : "Shared bowls keep their copies."}
             </p>
           </div>
 
@@ -601,7 +607,7 @@ export default function TvSoloDrawScreen({ userId }) {
                 <span>
                   {isFilteredCountReady ? (
                     <>
-                      <strong>{eligibleTitleCount}</strong> of{" "}
+                      <strong>{drawableTitleCount}</strong> of{" "}
                       <strong>{distinctTitleCount}</strong>{" "}
                       {pluralize(distinctTitleCount, "title")}
                     </>
