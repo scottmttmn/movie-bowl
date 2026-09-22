@@ -1,7 +1,32 @@
 import { expect, test as base } from "@playwright/test";
 
 export const E2E_SUPABASE_ORIGIN = "http://127.0.0.1:54321";
+// The Vite server playwright.config.js starts. Requests to it are the app
+// serving itself and are the only ones that leave this fake untouched.
+export const E2E_APP_ORIGIN = "http://127.0.0.1:4173";
+// Posters are the one external asset the app fetches directly, rather than
+// through /api/*, so they are the one external origin this fake has to answer
+// for by name.
+export const TMDB_IMAGE_ORIGIN = "https://image.tmdb.org";
 const AUTH_STORAGE_KEY = "sb-127-auth-token";
+
+// Nothing asserts a poster's pixels, only that one arrived, so a neutral slug
+// of the right shape is the whole requirement. Seeded artwork is a different
+// job and belongs to captureSetup, which serves its own fixtures.
+const PLACEHOLDER_POSTER = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 2 3"><rect width="2" height="3" fill="#1e293b"/></svg>`;
+
+/**
+ * Where one request belongs. Split out from the route handler so the boundary
+ * policy can be read and tested without a browser.
+ */
+export function classifyRequest(url) {
+  if (url.protocol !== "http:" && url.protocol !== "https:") return "internal";
+  if (url.origin === E2E_SUPABASE_ORIGIN) return "supabase";
+  if (url.pathname.startsWith("/api/")) return "appApi";
+  if (url.origin === TMDB_IMAGE_ORIGIN) return "posterImage";
+  if (url.origin === E2E_APP_ORIGIN) return "internal";
+  return "external";
+}
 
 export const DEFAULT_USER = {
   id: "user-smoke",
@@ -217,15 +242,31 @@ export class FakeBackend {
 
     await page.route("**/*", async (route) => {
       const url = new URL(route.request().url());
-      if (url.origin === E2E_SUPABASE_ORIGIN) {
-        await this.handleSupabase(route);
-        return;
+      switch (classifyRequest(url)) {
+        case "supabase":
+          await this.handleSupabase(route);
+          return;
+        case "appApi":
+          await this.handleAppApi(route);
+          return;
+        case "posterImage":
+          await route.fulfill({
+            status: 200,
+            contentType: "image/svg+xml",
+            body: PLACEHOLDER_POSTER,
+          });
+          return;
+        case "internal":
+          await route.continue();
+          return;
+        default:
+          // Letting these through reached the real host: fine on a machine with
+          // open egress, a console full of refused requests anywhere else, and
+          // in both cases an external call this fake is here to stand in for.
+          // The fixture already asserts none gets through -- until now that
+          // assertion could not see one, because continue() never recorded it.
+          await this.unhandled(route, `Unhandled external request ${url.origin}${url.pathname}`);
       }
-      if (url.pathname.startsWith("/api/")) {
-        await this.handleAppApi(route);
-        return;
-      }
-      await route.continue();
     });
   }
 
