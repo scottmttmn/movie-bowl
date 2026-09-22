@@ -11,6 +11,7 @@ import {
 import { acceptBowlInvite } from "../lib/bowlInvites";
 import { supabase } from "../lib/supabase";
 import { getProfileDisplayName } from "../utils/profileIdentity";
+import { isPageUnloading } from "../utils/pageLifecycle";
 
 // Pending bowl invites are shared state: the top nav shows a count badge while
 // the invites page and My Bowls both list and act on the same rows. Keeping the
@@ -95,6 +96,7 @@ export function PendingInvitesProvider({ children }) {
         .order("created_at", { ascending: false });
 
       if (inviteError) {
+        if (isPageUnloading()) return;
         console.error("[usePendingInvites] Failed to load pending invites", inviteError);
         // Keep the last good rows and the badge that goes with them. Reporting
         // zero here would tell someone an invitation had vanished, and the

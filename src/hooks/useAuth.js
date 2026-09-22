@@ -1,5 +1,6 @@
 import { createContext, createElement, useContext, useEffect, useMemo, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { isPageUnloading } from "../utils/pageLifecycle";
 
 // Custom hook to manage Supabase authentication state
 // Handles session retrieval, auth state changes, and login/logout helpers
@@ -30,7 +31,7 @@ export function AuthProvider({ children }) {
         { onConflict: "id" }
       );
 
-    if (error) {
+    if (error && !isPageUnloading()) {
       console.error("[useAuth.ensureProfile] Failed to upsert profile", error);
     }
   };
@@ -45,7 +46,7 @@ export function AuthProvider({ children }) {
       try {
         const { data, error } = await supabase.auth.getSession();
 
-        if (error) {
+        if (error && !isPageUnloading()) {
           console.error("[useAuth] Failed to get session", error);
         }
 
@@ -53,10 +54,10 @@ export function AuthProvider({ children }) {
 
         // Fire-and-forget profile upsert; do not block the UI on this.
         ensureProfile(data?.session?.user).catch((err) => {
-          console.error("[useAuth.ensureProfile] Unexpected error", err);
+          if (!isPageUnloading()) console.error("[useAuth.ensureProfile] Unexpected error", err);
         });
       } catch (err) {
-        console.error("[useAuth] Unexpected error while getting session", err);
+        if (!isPageUnloading()) console.error("[useAuth] Unexpected error while getting session", err);
         setSession(null);
       } finally {
         setLoading(false);
