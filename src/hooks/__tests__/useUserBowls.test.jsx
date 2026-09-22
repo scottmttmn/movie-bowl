@@ -4,16 +4,18 @@ const mocks = vi.hoisted(() => ({ rpc: vi.fn() }));
 vi.mock("../../lib/supabase", () => ({ supabase: { rpc: mocks.rpc } }));
 import useUserBowls, { UserBowlsProvider } from "../useUserBowls";
 import { notifyBowlChange } from "../../lib/bowlChanges";
+import { resetPageLifecycleForTests } from "../../utils/pageLifecycle";
 const context = (id = "a") => ({ data: { default_bowl_id: id, bowls: [
   { id: "a", name: "A", owner_id: "u1", remaining_count: 4 },
   { id: "b", name: "B", owner_id: "u2", remaining_count: 9 },
 ] }, error: null });
 const wrapper = ({ children }) => <UserBowlsProvider userId="u1">{children}</UserBowlsProvider>;
 beforeEach(() => {
+  resetPageLifecycleForTests();
   mocks.rpc.mockReset().mockResolvedValue(context());
   vi.spyOn(console, "error").mockImplementation(() => {});
 });
-afterEach(() => { cleanup(); vi.restoreAllMocks(); });
+afterEach(() => { cleanup(); vi.restoreAllMocks(); resetPageLifecycleForTests(); });
 async function loaded() {
   const view = renderHook(() => useUserBowls(), { wrapper });
   await waitFor(() => expect(view.result.current.loading).toBe(false));
@@ -31,6 +33,29 @@ describe("shared account bowl context", () => {
     expect(result.current.defaultBowlId).toBe("a"); expect(result.current.bowls).toHaveLength(2);
     expect(result.current.error).toMatch(/could not load/i);
   });
+  // A read the browser abandoned because the page is going away did not fail.
+  // Reporting it writes an error nobody is left to read, and -- before this --
+  // turned any navigation that outran a load into a red test.
+  it("says nothing when a read is abandoned by a page that is leaving", async () => {
+    const { result } = await loaded();
+    mocks.rpc.mockRejectedValue(new TypeError("Failed to fetch"));
+    window.dispatchEvent(new Event("pagehide"));
+    await act(async () => { await result.current.refresh(); });
+    expect(console.error).not.toHaveBeenCalled();
+    expect(result.current.error).toBeNull();
+  });
+
+  // The same read on a document that came back is one somebody can see.
+  it("reports a read that fails after the page is restored", async () => {
+    const { result } = await loaded();
+    mocks.rpc.mockResolvedValue({ error: { message: "Offline" } });
+    window.dispatchEvent(new Event("pagehide"));
+    window.dispatchEvent(new Event("pageshow"));
+    await act(async () => { await result.current.refresh(); });
+    expect(console.error).toHaveBeenCalled();
+    expect(result.current.error).toMatch(/could not load/i);
+  });
+
   it("does not let an older refresh overwrite a successful star change", async () => {
     const { result } = await loaded(); let finishRead; let read;
     mocks.rpc.mockImplementation((name) => name === "get_my_bowl_context"

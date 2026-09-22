@@ -2,6 +2,7 @@ import { createContext, createElement, useCallback, useContext, useEffect, useMe
 import { supabase } from "../lib/supabase";
 import { subscribeBowlChanges } from "../lib/bowlChanges";
 import { orderBowlChoices } from "../utils/bowlOrdering";
+import { isPageUnloading } from "../utils/pageLifecycle";
 
 const UserBowlsContext = createContext(null);
 const LOAD_ERROR = "Could not load your bowls. Please try again.";
@@ -52,7 +53,7 @@ export function UserBowlsProvider({ children, userId, enabled = true }) {
         setState({ ...context, loading: false, error: null });
         return context;
       } catch (error) {
-        if (mounted.current && request === generation.current) {
+        if (mounted.current && request === generation.current && !isPageUnloading()) {
           console.error("[useUserBowls] Failed to load bowls", error);
           setState((previous) => ({ ...previous, loading: false, error: LOAD_ERROR }));
         }
