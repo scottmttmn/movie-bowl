@@ -76,7 +76,8 @@ export default function SoloDrawPage() {
   const { rows, bowls, bowlIds, isLoading, errorMessage: poolErrorMessage, reload, removeRows } =
     useSoloDrawPool(userId);
   const { streamingServices, displayName, defaultDrawSettings, setDefaultDrawSettings, saveDefaultDrawSettings,
-    loading: preferencesLoading, loadError: preferencesError, reloadStreamingServices } = useUserStreamingServices();
+    removeFromBowlsOnSoloDraw, loading: preferencesLoading, loadError: preferencesError,
+    reloadStreamingServices } = useUserStreamingServices();
   const {
     settings,
     setOverride: setDeviceOverride,
@@ -458,7 +459,7 @@ export default function SoloDrawPage() {
                 onPreviewCountChange={(next) => setDeviceOverride("theaterTrailerCount", next)}
               />
             </div>
-            <p className="mt-4 max-w-sm text-[13px] leading-relaxed text-slate-400">Only titles you added. Goes straight to your watch history — your bowls keep their copies.</p>
+            <p className="mt-4 max-w-sm text-[13px] leading-relaxed text-slate-400">Only titles you added. Goes straight to your watch history{removeFromBowlsOnSoloDraw ? " — and your copies leave your bowls." : " — your bowls keep their copies."}</p>
           </div>
         </section>
 
@@ -498,7 +499,7 @@ export default function SoloDrawPage() {
         saveStatus={filterSaveStatus} onRetry={retryFilters} disabled={Boolean(preferencesLoading || preferencesError)} readout={readout} onClose={() => setShowFilters(false)} />}
       {showInfo && <SoloDrawDialog title="How solo draw picks" onClose={() => setShowInfo(false)}>
         <p className="mt-3 text-sm leading-relaxed text-slate-300">Only your undrawn titles in the selected bowls take part. Your pinned movies go first when they match your filters. Each eligible pinned title has an equal chance; without pins, each eligible title has an equal chance.</p>
-        <p className="mt-3 text-sm leading-relaxed text-slate-400">Copies of the same movie get one chance across bowls. Custom titles stay separate. Your bowls keep their copies and pins, so repeat picks are possible.</p>
+        <p className="mt-3 text-sm leading-relaxed text-slate-400">Copies of the same movie get one chance across bowls. Custom titles stay separate. {removeFromBowlsOnSoloDraw ? "Your copies leave your bowls when you draw, so a pick cannot come up again." : "Your bowls keep their copies and pins, so repeat picks are possible."}</p>
         <button type="button" className="btn btn-secondary mt-5 w-full" onClick={() => setShowInfo(false)}>Got it</button>
       </SoloDrawDialog>}
 
@@ -507,7 +508,9 @@ export default function SoloDrawPage() {
       <ConfirmDialog
         isOpen={isConfirmingDraw}
         title="Draw a movie for yourself?"
-        body="It goes straight to your watch history. Your bowls keep their copies."
+        body={removeFromBowlsOnSoloDraw
+          ? "It goes straight to your watch history, and your copies leave your bowls. Undo there within two hours to put them back."
+          : "It goes straight to your watch history. Your bowls keep their copies."}
         confirmLabel="Draw"
         onKeep={() => setIsConfirmingDraw(false)}
         onConfirm={() => {

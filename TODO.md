@@ -85,7 +85,12 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   hand a web link to an installed app. Web-only change, no new Android build;
   fires only with a title link, and never after an exit. **Shipped; verified
   September 14, 2026 for Max on the onn Google TV box and Paramount+ on a
-  desktop browser.** The checks not yet run are marked in the design.
+  desktop browser.** A solo draw under automatic copy removal never reached it:
+  the removed slip was the thing authorizing the provider-link lookup, so the
+  reveal only ever held a search link and the handoff declined to fire. Fixed
+  September 22, 2026 -- the copy the removal already keeps for undo carries the
+  same claim, and authorization reads it too. The checks not yet run are marked
+  in the design.
   Actual playback (rewriting a Netflix detail URL to `/watch/<id>`) is a later,
   per-service step that needs a real Watchmode URL and a check. See
   `output/designs/theater-autostart-handoff.md`.

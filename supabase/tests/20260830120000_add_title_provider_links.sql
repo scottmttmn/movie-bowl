@@ -71,6 +71,28 @@ update public.title_provider_links set fetched_at = now() - interval '29 days' w
 select public.prune_title_provider_links();
 select is((select count(*)::integer from public.title_provider_links where tmdb_id = 9102), 0, 'the daily job deletes old vendor data without a vendor call');
 
+-- A solo draw under "remove my copies" deletes the very slip this check reads,
+-- and the reveal it produces is exactly when the lookup runs. The copy the
+-- removal keeps for undo carries the same claim, so the title link survives.
+insert into public.bowl_movies (id, bowl_id, added_by, tmdb_id, title) values
+  ('20000000-0000-4000-8000-000000000093', '10000000-0000-4000-8000-000000000091', '00000000-0000-4000-8000-000000000092', 9103, 'Solo Movie');
+insert into public.title_provider_links (tmdb_id, region, links, fetched_at)
+values (9103, 'US', '[{"service":"Max","type":"sub","webUrl":"https://play.max.com/movie/abc"}]', now());
+update public.profiles set remove_from_bowls_on_solo_draw = true where id = '00000000-0000-4000-8000-000000000092';
+
+set local role authenticated;
+select set_config('request.jwt.claims',
+  '{"sub":"00000000-0000-4000-8000-000000000092","email":"links-member@example.com","role":"authenticated"}', true);
+select set_config('request.jwt.claim.sub', '00000000-0000-4000-8000-000000000092', true);
+select public.record_solo_draw('20000000-0000-4000-8000-000000000093', 'UTC', '30000000-0000-4000-8000-000000000093');
+reset role;
+
+select is((select count(*)::integer from public.bowl_movies where tmdb_id = 9103), 0, 'the solo draw removed the slip the lookup reads');
+select is(jsonb_array_length(public.begin_title_provider_link_fetch(9103, 'US', '10000000-0000-4000-8000-000000000091', '00000000-0000-4000-8000-000000000092', 0)->'links'), 1, 'a removed solo copy keeps its title link');
+select is((select request_count from public.title_provider_link_usage where region = 'US' and usage_month = date_trunc('month', now() at time zone 'UTC')::date), 2, 'the removed copy still reads the cache without spending');
+select throws_ok($$select public.begin_title_provider_link_fetch(9103, 'US', '10000000-0000-4000-8000-000000000091', '00000000-0000-4000-8000-000000000091', 2)$$, '42501', 'Provider lookup not allowed', 'a removal authorizes only the person whose copy it was');
+select throws_ok($$select public.begin_title_provider_link_fetch(9103, 'US', '10000000-0000-4000-8000-000000000091', '00000000-0000-4000-8000-000000000093', 2)$$, '42501', 'Provider lookup not allowed', 'an outsider is no closer for someone else removal');
+
 set local role authenticated;
 select throws_ok('select * from public.title_provider_links', '42501', 'permission denied for table title_provider_links', 'authenticated direct reads are denied');
 select throws_ok($$select public.begin_title_provider_link_fetch(9101, 'US', '10000000-0000-4000-8000-000000000091', '00000000-0000-4000-8000-000000000091', 2)$$, '42501', 'permission denied for function begin_title_provider_link_fetch', 'clients cannot spoof the RPC user argument');

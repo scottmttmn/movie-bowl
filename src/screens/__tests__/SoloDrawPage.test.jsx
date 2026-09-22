@@ -19,6 +19,7 @@ const mocks = vi.hoisted(() => {
     },
     streamingServices: [],
     defaultDrawSettings: {},
+    removeFromBowlsOnSoloDraw: false,
     providerLinks: [],
   };
 
@@ -69,6 +70,7 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
     defaultDrawSettings: mocks.state.defaultDrawSettings,
     setDefaultDrawSettings: vi.fn(),
     saveDefaultDrawSettings: mocks.saveDefaultDrawSettings,
+    removeFromBowlsOnSoloDraw: mocks.state.removeFromBowlsOnSoloDraw,
   }),
 }));
 vi.mock("../../hooks/useDrawProviderLinks", () => ({
@@ -130,6 +132,7 @@ beforeEach(() => {
   mocks.state.draw = { isDrawing: false, result: null, errorMessage: "", canRetrySave: false };
   mocks.state.streamingServices = [];
   mocks.state.defaultDrawSettings = {};
+  mocks.state.removeFromBowlsOnSoloDraw = false;
   mocks.state.providerLinks = [];
   mocks.poolStatus.current = "unfiltered";
   mocks.poolStatus.poolCount = 0;
@@ -329,6 +332,28 @@ describe("SoloDrawPage", () => {
       "Saved to your watch history, and your 2 copies were removed from your bowls. Undo there within two hours to put them back."
     );
     expect(screen.queryByRole("button", { name: /keep|accept|draw again|redraw|remove/i })).toBeNull();
+  });
+
+  // The promise the screen makes before the draw has to match what the draw
+  // does. Under automatic removal the old copy told people their bowls were
+  // safe, and then took the title out of every one of them.
+  it("promises the bowls keep their copies only while they do", async () => {
+    renderPage();
+    expect(
+      screen.getByText(/your bowls keep their copies/i)
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /hold to draw/i }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("Your bowls keep their copies.");
+
+    cleanup();
+    mocks.state.removeFromBowlsOnSoloDraw = true;
+    renderPage();
+    expect(screen.queryByText(/keep their copies/i)).toBeNull();
+    expect(
+      screen.getByText(/your copies leave your bowls/i)
+    ).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: /hold to draw/i }));
+    expect(screen.getByRole("dialog")).toHaveTextContent("your copies leave your bowls");
   });
 
   // The pool is read once on mount, so a draw that empties bowls has to say so
