@@ -133,17 +133,31 @@ describe("buildSoloPreviewPool", () => {
     expect(preview.eligibleMovieIds).toEqual(["a"]);
   });
 
-  it("ranks only eligible pinned titles when pins narrow the solo draw", () => {
+  // Previews follow the filters and streaming priority, as a bowl draw's do.
+  // Narrowing them to pins left a lone pinned feature with nothing to rank.
+  it("ranks every eligible title whether or not it is pinned", () => {
     const preview = buildSoloPreviewPool(
       [
         row("a", { tmdb_id: 100, is_pinned: true }),
         row("b", { tmdb_id: 200 }),
         row("c", { tmdb_id: 300, is_pinned: true }),
+        row("d", { tmdb_id: 400 }),
       ],
       { eligibleMovieIds: ["a", "b", "c"] }
     );
 
-    expect(preview.eligibleMovieIds).toEqual(["a", "c"]);
+    expect(preview.eligibleMovieIds).toEqual(["a", "b", "c"]);
+  });
+
+  it("still ranks the streaming pool after drawing the only pinned title", () => {
+    const feature = row("pinned", { tmdb_id: 100, is_pinned: true });
+    const preview = buildSoloPreviewPool(
+      [feature, row("on-service", { tmdb_id: 200 }), row("elsewhere", { tmdb_id: 300 })],
+      { eligibleMovieIds: ["pinned", "on-service"], excludeMovie: feature }
+    );
+
+    expect(preview.movies.map((movie) => movie.id)).toEqual(["on-service", "elsewhere"]);
+    expect(preview.eligibleMovieIds).toEqual(["on-service"]);
   });
 });
 
