@@ -501,6 +501,16 @@ Vitest + Testing Library, jsdom, setup in `src/test/setup.js`. Tests live in
   where a check is missing, is not the same thing. If you find something that
   belongs in the register and cannot reach it, say so rather than writing it
   down here.
+- Branch from the remote, not from whatever `main` this checkout last saw:
+  `git fetch origin && git switch -c <branch> origin/main`. The count sentence
+  above makes this sharper than it looks -- every change that adds or removes a
+  test edits that one line, so two branches cut from different bases collide
+  there almost by construction. A stale base also costs more than a rebase: a
+  pull request GitHub cannot merge has no merge ref to build, so its
+  `pull_request` workflows never run at all. That reads as a slow queue rather
+  than a conflict, because a gate that never started looks exactly like a gate
+  that has not finished. Zero checks on a pull request means conflicts until
+  proven otherwise; `gh pr view --json mergeable` answers it in one line.
 - Commit subjects are imperative and sentence-case, no prefixes or emoji
   ("Land returning users in their last opened bowl"). Bodies explain the
   reasoning when the change is not obvious.
