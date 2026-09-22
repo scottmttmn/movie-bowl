@@ -64,3 +64,9 @@ android-mobile/**/*.keystore
 # wildcard covers renamed or scratch stores too -- a bare .app-evolution/
 # rule once let a moved-aside copy slip into a commit.
 .app-evolution*/
+
+# Per-checkout Claude Code settings -- hooks and paths belonging to one machine
+# rather than to the project. The shared .claude/settings.json beside it stays
+# tracked; this is the file that ends up carrying somebody's local path, and
+# this repository is public.
+.claude/settings.local.json
