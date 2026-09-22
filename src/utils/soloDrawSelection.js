@@ -91,11 +91,15 @@ export function getSoloDrawGroups(candidates) {
  * Adapts the cross-bowl solo pool to the bowl theater queue.
  *
  * The queue ranks row ids, while solo selection works with distinct title
- * groups and lets eligible pins narrow the final choice. Translate those
- * title-level rules back to one stable representative row per title so the
- * shared queue can keep doing its ordinary ranking. The feature is excluded by
- * title identity, not just by source row, because another bowl may hold a copy
- * of the same movie.
+ * groups. Translate those back to one stable representative row per title so
+ * the shared queue can keep doing its ordinary ranking. The feature is excluded
+ * by title identity, not just by source row, because another bowl may hold a
+ * copy of the same movie.
+ *
+ * Pins are left out on purpose, as they are in a bowl draw's previews. A pin
+ * decides the pick, not what is worth previewing, and by the time previews play
+ * it has been spent: narrowing to it here left a lone pinned feature with
+ * nothing ranked at all, so the filters and streaming priority went unused.
  */
 export function buildSoloPreviewPool(
   movies,
@@ -117,7 +121,7 @@ export function buildSoloPreviewPool(
 
   const eligibleIds = new Set(eligibleMovieIds.map(String));
   const eligibleRows = rows.filter((movie) => eligibleIds.has(String(movie?.id)));
-  const drawableKeys = new Set(getSoloDrawGroups(eligibleRows).map((group) => group.key));
+  const drawableKeys = new Set(groupSoloCandidatesByTitle(eligibleRows).map((group) => group.key));
 
   return {
     movies: previewGroups.map((group) => group.movie),
