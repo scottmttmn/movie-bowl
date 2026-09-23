@@ -79,10 +79,13 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   nice to have, not scheduled.
 - Decided against on 2026-09-23, so these are not coming back as proposals:
   - **Once-per-day draw lockout.** Floated to stop re-rolling after a put-back.
-    The two-hour undo already bounds that: past it a pick cannot go back, and
-    inside it putting back is the honest "we did not watch this." A lockout would
-    add timezone, per-person-or-bowl and override questions to solve a problem
-    the window already solves.
+    The two-hour undo does not prevent that -- each new draw gets its own
+    window, so a room can put picks back as often as it likes. That is accepted
+    rather than solved: a re-roll happens in the room, in front of everyone, and
+    each put-back truthfully says "we did not watch this." What the window does
+    guarantee is that a pick which stood cannot be quietly undone later. A
+    lockout would add timezone, per-person-or-bowl and override questions to
+    police a choice the group is already making together.
   - **Personal movie ordering** and **within-person title weights.** Both let a
     contributor steer which of their own titles comes up. The pinned movie
     already answers the real want -- "this one next" -- with one boolean, and a

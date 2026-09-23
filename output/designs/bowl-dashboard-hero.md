@@ -69,4 +69,4 @@ turn amber, and the modal names who is excluded.
   put-back only via the Watched strip) — close to current behavior; revisit
   separately.
 - Once-per-day draw lockout after a put-back — decided against on September 23,
-  2026: the two-hour undo already bounds re-rolling (see TODO.md).
+  2026: re-rolling in the room is accepted rather than policed (see TODO.md).
