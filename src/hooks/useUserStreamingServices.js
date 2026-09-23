@@ -4,6 +4,7 @@ import { normalizeStreamingServices, normalizeStreamingServicesForProfile } from
 import { DEFAULT_DRAW_SETTINGS, normalizeDefaultDrawSettings } from "../utils/drawSettings";
 import { valuesAreEqual } from "./useAutosave";
 import { getDisplayNameValidationError, normalizeDisplayName } from "../utils/profileIdentity";
+import { isPageUnloading } from "../utils/pageLifecycle";
 
 export default function useUserStreamingServices({ autoLoad = true } = {}) {
   const [streamingServices, setStreamingServicesState] = useState([]);
@@ -44,6 +45,8 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
         .single();
 
       if (error) {
+        // A read the page abandoned on its way out did not fail; see pageLifecycle.
+        if (isPageUnloading()) return [];
         console.error("[useUserStreamingServices] Failed to load profile", error);
         setLoadError(error);
         setStreamingServicesState([]);
@@ -58,6 +61,7 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
       setRemoveFromBowlsOnSoloDrawState(data?.remove_from_bowls_on_solo_draw === true);
       return normalized;
     } catch (error) {
+      if (isPageUnloading()) return [];
       console.error("[useUserStreamingServices] Failed to load profile", error);
       setLoadError(error);
       return [];

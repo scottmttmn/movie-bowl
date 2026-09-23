@@ -2,6 +2,7 @@ import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import useUserStreamingServices from "../useUserStreamingServices";
 import { DEFAULT_DRAW_SETTINGS } from "../../utils/drawSettings";
+import { resetPageLifecycleForTests } from "../../utils/pageLifecycle";
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -119,6 +120,44 @@ describe("useUserStreamingServices", () => {
       result.current.toggleService("Max");
     });
     expect(result.current.streamingServices).toEqual(["Netflix", "Hulu"]);
+  });
+
+  it("does not report a profile read the page abandoned on its way out", async () => {
+    resetPageLifecycleForTests();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.state.loadError = { message: "TypeError: Failed to fetch" };
+    window.dispatchEvent(new Event("pagehide"));
+    try {
+      const { result } = renderHook(() => useUserStreamingServices());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(consoleError).not.toHaveBeenCalled();
+      expect(result.current.loadError).toBeNull();
+    } finally {
+      consoleError.mockRestore();
+      resetPageLifecycleForTests();
+    }
+  });
+
+  it("still reports a failed profile read while the page is staying", async () => {
+    resetPageLifecycleForTests();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.state.loadError = { message: "TypeError: Failed to fetch" };
+    window.dispatchEvent(new Event("pagehide"));
+    window.dispatchEvent(new Event("pageshow"));
+    try {
+      const { result } = renderHook(() => useUserStreamingServices());
+      await waitFor(() => expect(result.current.loading).toBe(false));
+
+      expect(consoleError).toHaveBeenCalledWith(
+        "[useUserStreamingServices] Failed to load profile",
+        mocks.state.loadError
+      );
+      expect(result.current.loadError).toEqual(mocks.state.loadError);
+    } finally {
+      consoleError.mockRestore();
+      resetPageLifecycleForTests();
+    }
   });
 
   it("returns empty services when unauthenticated", async () => {
