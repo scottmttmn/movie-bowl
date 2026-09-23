@@ -4,16 +4,6 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## UX / UI Polish
 
-- Let a bowl owner delete entries from the bowl's watched history. Returning a
-  movie is a two-hour undo, so a draw nobody watched but nobody caught in time
-  now stays in the bowl's list with no way to correct it. That correction is a
-  different job from putting a title back in the bowl -- it should not require
-  the movie to return, since by then it may have been drawn again or removed.
-  Personal entries already have this through `delete_user_watch_event`; the
-  bowl-side equivalent is owner-scoped and wants a pgTAP permission test.
-  Reintroducing late returns is not the answer here -- see
-  `output/designs/tv-watch-history-details-and-safe-return.md`.
-
 - Offline read cache: connectivity is now detected and explained (global banner, honest error copy, draw/add refused up front, reload on reconnect), but nothing is cached, so reloading a bowl with no connection still shows an empty bowl behind the banner rather than the last known movies. Caching the last-loaded bowl read-only would close that, and needs a decision on staleness copy and invalidation before any code.
 - Invite inbox polish: state handling for accepted, declined, and stale invites. Visibility is covered by the top nav badge and `/invites` page.
 - Draw filter UX follow-up: keep evaluating whether runtime, genre, and rating controls still feel too dense after recent cleanup.

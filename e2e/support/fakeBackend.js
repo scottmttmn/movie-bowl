@@ -810,6 +810,36 @@ export class FakeBackend {
       return;
     }
 
+    if (rpcName === "remove_bowl_draw_from_history") {
+      const drawEvent = this.state.bowl_draw_events.find(
+        (row) => row.id === args.p_draw_event_id
+      );
+      if (!drawEvent) {
+        await fulfillJson(
+          route,
+          { message: "This draw is no longer in the bowl's watched history.", code: "P0001" },
+          400
+        );
+        return;
+      }
+      const bowl = this.state.bowls.find((row) => row.id === drawEvent.bowl_id);
+      if (!bowl || bowl.owner_id !== this.state.currentUser.id) {
+        await fulfillJson(
+          route,
+          { message: "Only the bowl owner can remove a movie from its watched history.", code: "42501" },
+          403
+        );
+        return;
+      }
+      // Personal history is left alone on purpose, as the database does.
+      if (!drawEvent.removed_at) {
+        drawEvent.removed_at = new Date().toISOString();
+        drawEvent.removed_by = this.state.currentUser.id;
+      }
+      await fulfillJson(route, null);
+      return;
+    }
+
     if (rpcName === "return_bowl_draw_to_bowl") {
       const drawEvent = this.state.bowl_draw_events.find(
         (row) => row.id === args.p_draw_event_id

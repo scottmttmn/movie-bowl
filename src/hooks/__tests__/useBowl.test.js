@@ -365,6 +365,8 @@ describe("useBowl handleDraw integration", () => {
     );
     expect(drawEventsCall?.columns).toContain("returned_at");
     expect(drawEventsCall?.isFilters).toContainEqual(["returned_at", null]);
+    // A draw the owner removed from the watched history is excluded the same way.
+    expect(drawEventsCall?.isFilters).toContainEqual(["removed_at", null]);
   });
 
   it("prioritizes titles matching user streaming services", async () => {
@@ -1237,6 +1239,60 @@ describe("useBowl handleDraw integration", () => {
       expect(result.current.bowl.remaining).toHaveLength(1);
       expect(result.current.bowl.watched).toHaveLength(0);
     });
+  });
+
+  it("removes a watched draw through the owner RPC without putting it back", async () => {
+    const watchedMovie = {
+      id: "w1",
+      tmdb_id: 101,
+      title: "Movie A",
+      drawn_at: "2026-02-23T00:00:00.000Z",
+      drawn_by: "user-2",
+    };
+
+    mocks.remainingQueue.push([], []);
+    mocks.watchedQueue.push([watchedMovie], []);
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.bowl.watched).toHaveLength(1);
+
+    let removal;
+    await act(async () => {
+      removal = await result.current.handleRemoveFromWatched("w1");
+    });
+
+    expect(removal).toMatchObject({ ok: true });
+    expect(mocks.rpcCalls).toContainEqual({
+      name: "remove_bowl_draw_from_history",
+      params: { p_draw_event_id: "w1" },
+    });
+    expect(mocks.rpcCalls.map(({ name }) => name)).not.toContain("return_bowl_draw_to_bowl");
+    expect(mocks.insertPayloads).toHaveLength(0);
+    await waitFor(() => expect(result.current.bowl.watched).toHaveLength(0));
+    expect(result.current.bowl.remaining).toHaveLength(0);
+  });
+
+  it("explains a refused removal as the owner rule", async () => {
+    mocks.remainingQueue.push([]);
+    mocks.watchedQueue.push([{ id: "w1", title: "Movie A", drawn_at: "2026-02-23T00:00:00.000Z" }]);
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    mocks.rpcResponses.push({ data: null, error: { code: "42501", message: "permission denied" } });
+    let removal;
+    await act(async () => {
+      removal = await result.current.handleRemoveFromWatched("w1");
+    });
+
+    expect(removal).toMatchObject({
+      ok: false,
+      message: "Only the bowl owner can remove a movie from its watched history.",
+    });
+    expect(result.current.bowl.watched).toHaveLength(1);
+    errorSpy.mockRestore();
   });
 
   it("rejects re-adding a watched TMDB movie when an active copy exists", async () => {

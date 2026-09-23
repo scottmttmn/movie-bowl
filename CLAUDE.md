@@ -35,7 +35,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (153 test files / 1302 tests, 74 Playwright tests with 8 skipped,
+fully green (153 test files / 1308 tests, 76 Playwright tests with 8 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -242,6 +242,15 @@ reintroduce a returned-inclusive collection: a returned draw inserts a fresh
 `bowl_movies` row with no link back to the event, so nothing can tell whether
 that copy is still in the bowl, and a surface that tries ends up asserting it is.
 
+Past the window, the bowl owner corrects the record with
+`remove_bowl_draw_from_history`, which sets `removed_at` and is filtered out
+beside `returned_at` everywhere a watched list is read. It hides the draw rather
+than deleting it, so rotation still counts the turn, and it never touches
+anyone's personal history: each participant removes their own entry. It is
+offered on the web only. A television is shared by whoever holds the remote
+but is usually signed in as the owner, so the database cannot tell them apart,
+and the TV has no control for it.
+
 RPCs used by the client — prefer these over multi-statement client writes,
 because they are the atomic/permission-checked path:
 
@@ -251,6 +260,7 @@ because they are the atomic/permission-checked path:
 `get_my_invite_sender_directory`, `accept_bowl_invite`,
 `create_bowl_invites`, `revoke_bowl_invite`, `draw_bowl_movie`,
 `draw_bowl_movie_by_rotation`, `return_bowl_draw_to_bowl`,
+`remove_bowl_draw_from_history`,
 `save_bowl_draw_access`, `save_bowl_draw_method`, `delete_owned_bowl`,
 `set_own_bowl_movie_pin`, `consume_bowl_add_link`, `create_manual_watch_event`,
 `record_solo_draw`, `undo_solo_draw`,
@@ -288,7 +298,7 @@ on a PostgreSQL you already have, applies `supabase/baseline/` and then every
 migration in order, runs the suites and drops it again. It needs pgTAP and
 `pg_prove` beside that server (`apt-get install pgtap`, or `brew install pgtap`)
 and `DATABASE_URL` if the server is not the local default. Never against the
-hosted database: pgTAP writes rows. A clean run is 23 suites / 605 assertions,
+hosted database: pgTAP writes rows. A clean run is 24 suites / 622 assertions,
 all passing, and `npm run test:counts -- pgtap` holds that sentence to the run.
 
 `supabase/baseline/` is the pre-migration schema, not a migration. Movie Bowl's

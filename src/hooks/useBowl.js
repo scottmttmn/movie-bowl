@@ -155,7 +155,9 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         .order("added_at", { ascending: true });
 
       // Draw events are separate from current bowl slips so a return to the
-      // bowl never erases the fact that the bowl made a draw.
+      // bowl never erases the fact that the bowl made a draw. A draw the owner
+      // removed from the watched history is kept for the same reason, and is
+      // filtered out here just like a returned one.
       const drawEventsRequest = supabase
         .from("bowl_draw_events")
         .select(
@@ -163,6 +165,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         )
         .eq("bowl_id", bowlId)
         .is("returned_at", null)
+        .is("removed_at", null)
         .order("drawn_at", { ascending: false });
 
       const profilesRequest = supabase.rpc(
@@ -608,6 +611,37 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
     [bowlId, bowl.remaining, loadBowlMovies]
   );
 
+  // Owner-only, and enforced by the database; the screen decides whether to
+  // offer it at all. Nothing comes back into the bowl and nobody's personal
+  // history changes -- this only corrects what the bowl says it watched.
+  const handleRemoveFromWatched = useCallback(
+    async (drawEventId) => {
+      if (!bowlId || !drawEventId) {
+        return addResult(false, "invalid_movie", "Choose a watched movie to remove.");
+      }
+
+      const { error } = await supabase.rpc("remove_bowl_draw_from_history", {
+        p_draw_event_id: drawEventId,
+      });
+
+      if (error) {
+        console.error("[useBowl] Failed to remove watched movie", error);
+        return addResult(
+          false,
+          "remove_failed",
+          error.code === "42501"
+            ? "Only the bowl owner can remove a movie from its watched history."
+            : describeNetworkError(error, "Could not remove this movie from the watched history. Please try again.")
+        );
+      }
+
+      notifyBowlChange({ type: "context", bowlId });
+      await loadBowlMovies();
+      return addResult(true);
+    },
+    [bowlId, loadBowlMovies]
+  );
+
   return {
     bowl,
     isLoading,
@@ -619,6 +653,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
     handleSetMoviePin,
     handleDeleteMovie,
     handleReaddMovie,
+    handleRemoveFromWatched,
     filterMetadataFetchers,
   };
 }

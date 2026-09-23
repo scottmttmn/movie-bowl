@@ -49,6 +49,7 @@ const mocks = vi.hoisted(() => ({
   bowlLoading: false,
   handleDraw: vi.fn(),
   handleReaddMovie: vi.fn(),
+  handleRemoveFromWatched: vi.fn(),
   getTmdbMovieDetails: vi.fn(),
   fetchStreamingProviders: vi.fn(),
   fetchProviderLinks: vi.fn(),
@@ -86,6 +87,7 @@ vi.mock("../../hooks/useBowl", () => ({
     errorMessage: mocks.bowlError,
     handleDraw: mocks.handleDraw,
     handleReaddMovie: mocks.handleReaddMovie,
+    handleRemoveFromWatched: mocks.handleRemoveFromWatched,
   }),
 }));
 
@@ -195,6 +197,7 @@ describe("Movie Bowl TV experience", () => {
     window.sessionStorage.clear();
     mocks.handleDraw.mockReset();
     mocks.handleReaddMovie.mockReset();
+    mocks.handleRemoveFromWatched.mockReset();
     mocks.getTmdbMovieDetails.mockReset();
     mocks.fetchStreamingProviders.mockReset();
     mocks.fetchStreamingProviders.mockImplementation(async (tmdbId) => ({
@@ -1147,6 +1150,11 @@ describe("Movie Bowl TV experience", () => {
       screen.queryByRole("button", { name: /^put movie back in bowl$/i })
     ).not.toBeInTheDocument();
     expect(mocks.handleReaddMovie).not.toHaveBeenCalled();
+    // Past the window is when an owner would want to remove it, and the
+    // television still does not offer that: whoever holds the remote is not
+    // necessarily the owner. Removal lives on the phone and the web.
+    expect(screen.queryByRole("button", { name: /remove/i })).not.toBeInTheDocument();
+    expect(mocks.handleRemoveFromWatched).not.toHaveBeenCalled();
   });
 
   it("uses remote Back to close Watch History details and restore strip focus", async () => {

@@ -89,6 +89,8 @@ export default function AddMovieModal({
   webLaunchCandidate = null,
   onEditNote = null,
   onDeleteMovie = null,
+  deleteActionLabel = "Delete",
+  deleteActionAriaLabel = null,
   noteHeading = null,
   onTogglePin = null,
   pinDisabledReason = "",
@@ -532,10 +534,10 @@ export default function AddMovieModal({
                   <button
                     type="button"
                     onClick={() => onDeleteMovie(movie)}
-                    aria-label={`Delete "${movie.title}" from this bowl`}
+                    aria-label={deleteActionAriaLabel || `Delete "${movie.title}" from this bowl`}
                     className="btn btn-danger w-full sm:mr-auto sm:w-auto"
                   >
-                    Delete
+                    {deleteActionLabel}
                   </button>
                 )}
                 {onDetailPrimaryAction && detailPrimaryActionLabel && (
