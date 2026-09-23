@@ -1,9 +1,10 @@
-import { useCallback, useEffect, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { normalizeStreamingServices, normalizeStreamingServicesForProfile } from "../utils/streamingServices";
 import { DEFAULT_DRAW_SETTINGS, normalizeDefaultDrawSettings } from "../utils/drawSettings";
 import { valuesAreEqual } from "./useAutosave";
 import { getDisplayNameValidationError, normalizeDisplayName } from "../utils/profileIdentity";
+import { isPageUnloading } from "../utils/pageLifecycle";
 
 export default function useUserStreamingServices({ autoLoad = true } = {}) {
   const [streamingServices, setStreamingServicesState] = useState([]);
@@ -13,6 +14,10 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
   const [accountEmail, setAccountEmail] = useState("");
   const [loading, setLoading] = useState(autoLoad);
   const [loadError, setLoadError] = useState(null);
+  // Set when the page unloaded under a profile read. The error is still kept --
+  // it is what stops a save writing defaults over preferences that never
+  // loaded -- but it is not reported, and a bfcache restore reads again.
+  const abandonedLoadRef = useRef(false);
 
   const setStreamingServices = useCallback((services) => {
     setStreamingServicesState(normalizeStreamingServices(services || []));
@@ -44,7 +49,9 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
         .single();
 
       if (error) {
-        console.error("[useUserStreamingServices] Failed to load profile", error);
+        // A read the page abandoned on its way out did not fail; see pageLifecycle.
+        if (isPageUnloading()) abandonedLoadRef.current = true;
+        else console.error("[useUserStreamingServices] Failed to load profile", error);
         setLoadError(error);
         setStreamingServicesState([]);
         return [];
@@ -58,7 +65,8 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
       setRemoveFromBowlsOnSoloDrawState(data?.remove_from_bowls_on_solo_draw === true);
       return normalized;
     } catch (error) {
-      console.error("[useUserStreamingServices] Failed to load profile", error);
+      if (isPageUnloading()) abandonedLoadRef.current = true;
+      else console.error("[useUserStreamingServices] Failed to load profile", error);
       setLoadError(error);
       return [];
     } finally {
@@ -70,6 +78,16 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
     if (!autoLoad) return;
     loadStreamingServices();
   }, [autoLoad, loadStreamingServices]);
+
+  useEffect(() => {
+    const reloadAfterRestore = (event) => {
+      if (!event.persisted || !abandonedLoadRef.current) return;
+      abandonedLoadRef.current = false;
+      loadStreamingServices();
+    };
+    window.addEventListener("pageshow", reloadAfterRestore);
+    return () => window.removeEventListener("pageshow", reloadAfterRestore);
+  }, [loadStreamingServices]);
 
   const saveStreamingServices = useCallback(
     async (services = streamingServices) => {
