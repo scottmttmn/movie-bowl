@@ -32,6 +32,7 @@ import TvBrand from "../components/TvBrand";
 import {
   TvDrawingScreen,
   TvMovieDetailStage,
+  TvRevealBackdrop,
   TvRevealScreen,
 } from "../components/TvDrawExperience";
 import TvStreamingRail from "../components/TvStreamingRail";
@@ -318,6 +319,7 @@ function TvHistoryDetailScreen({
         aria-hidden={isCoveredByOverlay ? "true" : undefined}
         inert={isCoveredByOverlay}
       >
+        <TvRevealBackdrop movie={movie} />
         <header className="tv-topbar">
           <TvBrand context="Watch History" />
           <div className="tv-history-detail-header-actions">

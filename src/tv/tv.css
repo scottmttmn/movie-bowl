@@ -1407,6 +1407,12 @@ html.tv-root {
   overflow-y: auto;
 }
 
+/* This page scrolls, and an absolute backdrop would scroll away with the first
+   screenful and leave the rest on the bare background. */
+.tv-history-detail-page .tv-reveal-backdrop {
+  position: fixed;
+}
+
 .tv-history-detail-header-actions {
   display: flex;
   gap: 1.5rem;
