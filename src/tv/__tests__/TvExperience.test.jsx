@@ -1129,6 +1129,45 @@ describe("Movie Bowl TV experience", () => {
 
 
 
+  it("shows the same backdrop as the reveal on Watch History details", async () => {
+    mocks.getTmdbMovieDetails.mockResolvedValue({
+      title: "Arrival",
+      backdrop_path: "/arrival-still.jpg",
+    });
+
+    renderTonight();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /view details for arrival in watch history/i,
+      })
+    );
+
+    // The still arrives with the details fetch the page already makes.
+    await waitFor(() => {
+      expect(
+        document.querySelector(".tv-history-detail-page .tv-reveal-backdrop img")
+      ).toHaveAttribute("src", "https://image.tmdb.org/t/p/w1280/arrival-still.jpg");
+    });
+    expect(
+      document.querySelector(".tv-history-detail-page .tv-reveal-backdrop")
+    ).toHaveAttribute("aria-hidden", "true");
+  });
+
+  it("keeps Watch History details plain when TMDB has no still", async () => {
+    mocks.getTmdbMovieDetails.mockResolvedValue({ title: "Arrival" });
+
+    renderTonight();
+    fireEvent.click(
+      screen.getByRole("button", {
+        name: /view details for arrival in watch history/i,
+      })
+    );
+
+    await waitFor(() => expect(mocks.getTmdbMovieDetails).toHaveBeenCalledWith(101));
+    expect(screen.getByRole("heading", { name: /arrival/i })).toBeInTheDocument();
+    expect(document.querySelector(".tv-reveal-backdrop")).toBeNull();
+  });
+
   it("withholds the return once the undo window has closed", async () => {
     mocks.bowlData.watched[0].drawn_at = new Date(
       Date.now() - 3 * 60 * 60 * 1000

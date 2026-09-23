@@ -228,6 +228,26 @@ export function TvMovieDetailStage({
   );
 }
 
+// Decorative, so a title without a still (custom slips, or TMDB never had one)
+// simply keeps the plain page, and one that fails to load hides itself.
+export function TvRevealBackdrop({ movie }) {
+  const backdropUrl = getBackdropUrl(movie);
+  if (!backdropUrl) return null;
+
+  return (
+    <div className="tv-reveal-backdrop" aria-hidden="true">
+      <img
+        src={backdropUrl}
+        alt=""
+        fetchPriority="high"
+        onError={(event) => {
+          event.currentTarget.hidden = true;
+        }}
+      />
+    </div>
+  );
+}
+
 export function TvRevealScreen({
   bowlName,
   movie,
@@ -247,7 +267,6 @@ export function TvRevealScreen({
 }) {
   const trailer = movie.trailer;
   const isCoveredByOverlay = isDialogOpen || showTrailer;
-  const backdropUrl = getBackdropUrl(movie);
 
   return (
     <>
@@ -256,18 +275,7 @@ export function TvRevealScreen({
         aria-hidden={isCoveredByOverlay ? "true" : undefined}
         inert={isCoveredByOverlay}
       >
-        {backdropUrl && (
-          <div className="tv-reveal-backdrop" aria-hidden="true">
-            <img
-              src={backdropUrl}
-              alt=""
-              fetchPriority="high"
-              onError={(event) => {
-                event.currentTarget.hidden = true;
-              }}
-            />
-          </div>
-        )}
+        <TvRevealBackdrop movie={movie} />
         <header className="tv-topbar">
           <TvBrand />
           <div className="tv-reveal-bowl-name">{bowlName}</div>
