@@ -12,16 +12,19 @@ describe("normalizePersonMovieCredits", () => {
     expect(acting.map((movie) => movie.title)).toEqual(["Lead Role", "Small Part"]);
   });
 
-  it("drops uncredited, adult and direct-to-video credits", () => {
-    const { acting } = normalizePersonMovieCredits({
+  it("drops uncredited, adult, direct-to-video and TV movie credits", () => {
+    const { acting, directing } = normalizePersonMovieCredits({
       cast: [
-        { id: 1, title: "Kept", character: "Herself", popularity: 5 },
+        { id: 1, title: "Kept", character: "Herself", popularity: 5, genre_ids: [18] },
         { id: 2, title: "Cameo", character: "Himself (uncredited)", popularity: 50 },
         { id: 3, title: "Adult", character: "X", adult: true, popularity: 50 },
         { id: 4, title: "Video", character: "Y", video: true, popularity: 50 },
+        { id: 5, title: "TV Movie", character: "Z", popularity: 50, genre_ids: [10770, 18] },
       ],
+      crew: [{ id: 6, title: "Directed for TV", job: "Director", popularity: 50, genre_ids: [10770] }],
     });
     expect(acting.map((movie) => movie.title)).toEqual(["Kept"]);
+    expect(directing).toEqual([]);
   });
 
   it("merges two characters in one movie into one row", () => {
