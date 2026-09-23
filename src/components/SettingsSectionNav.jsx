@@ -42,10 +42,13 @@ export default function SettingsSectionNav({
           key={item.href}
           href={item.href}
           onClick={jumpToSection}
-          className="surface-card block px-3.5 py-3 transition hover:border-slate-600 hover:bg-slate-900/60"
+          className="surface-card block min-w-0 px-3.5 py-3 transition hover:border-slate-600 hover:bg-slate-900/60"
         >
           <span className="eyebrow block text-[0.65rem]">{item.label}</span>
-          <span className="mt-1.5 block text-sm text-slate-200">{item.value}</span>
+          {/* A value can be one unbroken word -- the Account tile's is an email
+              address -- and a grid item will not shrink below that on its own,
+              so it breaks where it has to rather than running past the card. */}
+          <span className="mt-1.5 block text-sm text-slate-200 [overflow-wrap:anywhere]">{item.value}</span>
         </a>
       ))}
     </nav>

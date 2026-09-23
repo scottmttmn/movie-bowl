@@ -85,3 +85,16 @@ test("bowl settings section jumps preserve both page and browser Back navigation
     ).toBeVisible();
   }
 });
+
+// Only a real layout can tell: jsdom measures nothing, so a tile that runs past
+// its card passes every unit test. The Account tile carries the address itself.
+test("a long account email stays inside its settings tile", async ({ page, backend }) => {
+  const email = "someone.with.a.rather.long.address977@example.com";
+  await backend.authenticate(page, { ...backend.state.currentUser, email });
+  await page.goto("/settings");
+
+  const tile = page.getByRole("navigation", { name: "Settings sections" }).getByRole("link", { name: /^Account/ });
+  await expect(tile).toContainText(email);
+  const overflow = await tile.evaluate((element) => element.scrollWidth - element.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+});
