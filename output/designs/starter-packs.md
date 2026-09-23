@@ -285,15 +285,18 @@ holds only what is ours, and TMDB is asked at run time.
   pack is our own list matched title by title the way someone typing it into
   search would. What a bowl keeps is the same rows
   an owner adding those movies by hand would leave, and a bowl assembled by
-  hand is plainly ordinary use. Movie Bowl is also non-commercial. So packs
-  ship without asking TMDB first; the rules above -- nothing curated stored,
-  every title resolved live -- are what the decision rests on, and a change
-  that stores a resolved pack reopens it. **TMDB confirmed it the same day**:
-  asked on its forum with the mechanics above, TMDB staff answered that this
-  "would not count as derivative", on the one condition that TMDB is
-  attributed as the source of the data. The About page already carries that
-  notice; the pack surfaces in Bowl Settings should name TMDB as where the
-  titles come from too.
+  hand is plainly ordinary use. Movie Bowl is also non-commercial.
+
+  **TMDB confirmed it the same day.** Asked on its forum with the mechanics
+  above -- rules only, candidates resolved live, up to 15 sampled, nothing
+  about the pack stored, saved titles refreshed or cleared within six months --
+  Travis Bell (TMDB staff) answered that it "would not count as derivative", on
+  the one condition that TMDB is attributed as the source of the data
+  ([thread](https://www.themoviedb.org/talk/6ab4235b84936b9228c59b1c?page=1#6ab427cd2be204ec24044fe7)).
+  The ruling covers those mechanics and no others, so a change that stores a
+  resolved pack reopens it. Attribution is already on the About page; the pack
+  surfaces in Bowl Settings should also name TMDB as where the titles come
+  from.
 
 Custom-title rules do not apply: pack titles are real TMDB ids, so the
 `Number(tmdb_id) > 0` guard passes and the negative synthetic id convention is
