@@ -84,7 +84,7 @@ describe("MovieSearch voice input", () => {
     fireEvent.click(screen.getByRole("button", { name: /start voice input/i }));
 
     expect(startSpy).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(/listening for a movie title/i)).toBeInTheDocument();
+    expect(screen.getByText(/say a movie title — pause to search/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /stop voice input/i }));
 
@@ -151,6 +151,89 @@ describe("MovieSearch voice input", () => {
     expect(await screen.findByText("Alien")).toBeInTheDocument();
   });
 
+  it("asks the recognizer for words as they are heard", () => {
+    window.SpeechRecognition = MockSpeechRecognition;
+    render(<MovieSearch onAddMovie={vi.fn()} userStreamingServices={[]} />);
+
+    expect(recognitionInstance.interimResults).toBe(true);
+  });
+
+  it("shows words in the field while listening without searching until it ends", async () => {
+    window.SpeechRecognition = MockSpeechRecognition;
+    mocks.searchTmdbMovies.mockResolvedValue({
+      results: [{ id: 103, title: "Cast Away", release_date: "2000-12-22", poster_path: "/cast.jpg" }],
+    });
+
+    render(<MovieSearch onAddMovie={vi.fn()} userStreamingServices={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: /start voice input/i }));
+
+    const field = screen.getByRole("combobox");
+    expect(field).toHaveAttribute("readonly");
+    expect(field).toHaveAttribute("placeholder", "Listening…");
+    expect(screen.getByText(/pause to search/i)).toBeInTheDocument();
+
+    recognitionInstance.onresult?.({ results: [{ 0: { transcript: "cast" }, isFinal: false }] });
+    await waitFor(() => expect(field).toHaveValue("cast"));
+    recognitionInstance.onresult?.({ results: [{ 0: { transcript: "cast away" }, isFinal: false }] });
+    await waitFor(() => expect(field).toHaveValue("cast away"));
+
+    // Well past the typing debounce: interim words are never a query.
+    await new Promise((resolve) => setTimeout(resolve, 500));
+    expect(mocks.searchTmdbMovies).not.toHaveBeenCalled();
+
+    recognitionInstance.onresult?.({ results: [{ 0: { transcript: "Cast Away" }, isFinal: true }] });
+    recognitionInstance.onend?.();
+
+    await waitFor(() => expect(mocks.searchTmdbMovies).toHaveBeenCalledWith("Cast Away", { page: 1 }));
+    expect(mocks.searchTmdbMovies).toHaveBeenCalledTimes(1);
+    expect(field).not.toHaveAttribute("readonly");
+    expect(field).toHaveValue("Cast Away");
+  });
+
+  it("searches what it heard when recognition ends before anything is final", async () => {
+    window.SpeechRecognition = MockSpeechRecognition;
+    mocks.searchTmdbMovies.mockResolvedValue({ results: [] });
+
+    render(<MovieSearch onAddMovie={vi.fn()} userStreamingServices={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: /start voice input/i }));
+
+    recognitionInstance.onresult?.({ results: [{ 0: { transcript: "shutter island" }, isFinal: false }] });
+    fireEvent.click(screen.getByRole("button", { name: /stop voice input/i }));
+
+    await waitFor(() => expect(mocks.searchTmdbMovies).toHaveBeenCalledWith("shutter island", { page: 1 }));
+    expect(screen.getByRole("combobox")).toHaveValue("shutter island");
+  });
+
+  it("keeps interim words that follow the final ones when recognition ends", async () => {
+    window.SpeechRecognition = MockSpeechRecognition;
+    mocks.searchTmdbMovies.mockResolvedValue({ results: [] });
+
+    render(<MovieSearch onAddMovie={vi.fn()} userStreamingServices={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: /start voice input/i }));
+
+    recognitionInstance.onresult?.({
+      results: [
+        { 0: { transcript: "Star" }, isFinal: true },
+        { 0: { transcript: "Wars" }, isFinal: false },
+      ],
+    });
+    recognitionInstance.onend?.();
+
+    await waitFor(() => expect(mocks.searchTmdbMovies).toHaveBeenCalledWith("Star Wars", { page: 1 }));
+  });
+
+  it("does nothing when listening ends having heard nothing", async () => {
+    window.SpeechRecognition = MockSpeechRecognition;
+
+    render(<MovieSearch onAddMovie={vi.fn()} userStreamingServices={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: /start voice input/i }));
+    fireEvent.click(screen.getByRole("button", { name: /stop voice input/i }));
+
+    await waitFor(() => expect(screen.getByRole("combobox")).not.toHaveAttribute("readonly"));
+    expect(screen.getByRole("combobox")).toHaveValue("");
+    expect(mocks.searchTmdbMovies).not.toHaveBeenCalled();
+  });
+
   it("shows an inline error when recognition fails", async () => {
     window.SpeechRecognition = MockSpeechRecognition;
 
@@ -162,7 +245,9 @@ describe("MovieSearch voice input", () => {
     await waitFor(() => {
       expect(screen.getByText(/microphone access was blocked/i)).toBeInTheDocument();
     });
-    expect(screen.getByPlaceholderText("Search movies...")).toBeInTheDocument();
+    // The field is read-only while listening; an error hands it back even if
+    // the browser never follows up with onend.
+    expect(screen.getByPlaceholderText("Search movies...")).not.toHaveAttribute("readonly");
   });
 
   it("stops recognition when the component unmounts", () => {
