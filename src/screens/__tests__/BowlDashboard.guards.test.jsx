@@ -10,6 +10,9 @@ const mocks = vi.hoisted(() => {
     // Flipped off to stand in for a deploy that reaches users before the
     // draw_method migration is applied.
     hasDrawMethodColumn: true,
+    // Set to a pending promise to hold the bowl read open mid-load.
+    heldBowlRow: null,
+    bowlIsLoading: false,
     useBowlOptions: null,
     memberRows: [{ user_id: "u1" }, { user_id: "u2" }],
     drawPermissionRows: [],
@@ -56,6 +59,7 @@ const mocks = vi.hoisted(() => {
         maybeSingle: vi.fn(async () => ({ data: { user_id: state.authUserId }, error: null })),
         single: vi.fn(async () => {
           if (table === "bowls") {
+            if (state.heldBowlRow) return state.heldBowlRow;
             if (!state.hasDrawMethodColumn && selectedColumns.includes("draw_method")) {
               return {
                 data: null,
@@ -106,7 +110,7 @@ vi.mock("../../hooks/useBowl", () => ({
     mocks.state.useBowlOptions = options;
     return {
       bowl: mocks.state.bowlData,
-      isLoading: false,
+      isLoading: mocks.state.bowlIsLoading,
       errorMessage: null,
       handleDraw: mocks.state.handleDraw,
       handleAddMovie: mocks.state.handleAddMovie,
@@ -159,6 +163,7 @@ vi.mock("react-router-dom", async () => {
 
 import BowlDashboard from "../BowlDashboard";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../../utils/appLimits";
+import { readRememberedReadout, rememberReadout } from "../../utils/rememberedReadouts";
 
 function renderDashboard() {
   return render(<BowlDashboard />);
@@ -170,6 +175,8 @@ describe("BowlDashboard guards", () => {
     mocks.state.authUserId = "u1";
     mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", draw_access_mode: "all_members" };
     mocks.state.hasDrawMethodColumn = true;
+    mocks.state.heldBowlRow = null;
+    mocks.state.bowlIsLoading = false;
     mocks.state.useBowlOptions = null;
     mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
     mocks.state.drawPermissionRows = [];
@@ -194,6 +201,69 @@ describe("BowlDashboard guards", () => {
 
   afterEach(() => {
     cleanup();
+    window.localStorage.clear();
+  });
+
+  // The access read is the slowest part of opening a bowl. Until it answers,
+  // nobody is known to be unable to draw, so the owner must not be told so.
+  it("claims no permission problem and keeps the ticket's place before access answers", async () => {
+    let answerBowlRow;
+    mocks.state.heldBowlRow = new Promise((resolve) => { answerBowlRow = resolve; });
+    renderDashboard();
+
+    await waitFor(() => expect(mocks.supabase.from).toHaveBeenCalledWith("bowls"));
+    expect(screen.queryByText(/permission to draw/i)).not.toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: /theater mode/i })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /nothing is eligible/i })).not.toBeInTheDocument();
+
+    answerBowlRow({ data: mocks.state.bowlRow, error: null });
+    await waitFor(() => expect(screen.getByRole("button", { name: /drawing from 4 titles/i })).toBeInTheDocument());
+    expect(screen.queryByText(/permission to draw/i)).not.toBeInTheDocument();
+  });
+
+  // A refresh opens on what the bowl said last time rather than walking
+  // through every interim answer, then settles on the live one.
+  it("opens on the remembered readout and replaces it with the settled one", async () => {
+    rememberReadout("bowl:bowl-1", "u1", {
+      statLine: { pool: { kind: "count", count: 7, service: null, tone: "idle" }, reach: null },
+      myMovieCount: 7,
+      watchedCount: 2,
+      canDraw: true,
+    });
+    let answerBowlRow;
+    mocks.state.heldBowlRow = new Promise((resolve) => { answerBowlRow = resolve; });
+    mocks.state.bowlIsLoading = true;
+    renderDashboard();
+
+    expect(screen.getByRole("button", { name: /drawing from 7 titles/i })).toBeInTheDocument();
+    expect(screen.getByText("7 movies")).toBeInTheDocument();
+    expect(screen.getByText("2 watched")).toBeInTheDocument();
+
+    mocks.state.bowlIsLoading = false;
+    answerBowlRow({ data: mocks.state.bowlRow, error: null });
+    await waitFor(() => expect(screen.getByRole("button", { name: /drawing from 4 titles/i })).toBeInTheDocument());
+    expect(screen.getByText("4 movies")).toBeInTheDocument();
+    await waitFor(() =>
+      expect(readRememberedReadout("bowl:bowl-1").value).toMatchObject({
+        statLine: { pool: { count: 4 } },
+        myMovieCount: 4,
+        watchedCount: 0,
+      })
+    );
+  });
+
+  it("does not open one account's bowl on another account's remembered numbers", async () => {
+    rememberReadout("bowl:bowl-1", "someone-else", {
+      statLine: { pool: { kind: "count", count: 7, service: null, tone: "idle" }, reach: null },
+      myMovieCount: 7,
+      watchedCount: 2,
+      canDraw: true,
+    });
+    mocks.state.heldBowlRow = new Promise(() => {});
+    renderDashboard();
+
+    await waitFor(() => expect(mocks.supabase.from).toHaveBeenCalledWith("bowls"));
+    expect(screen.queryByRole("button", { name: /drawing from 7 titles/i })).not.toBeInTheDocument();
   });
 
   it("keeps Add Movie enabled and explains the current person-first draw method", async () => {

@@ -36,6 +36,8 @@ import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { MAX_BOWLS_PER_USER, MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { canReturnDrawToBowl } from "../utils/watchHistory";
+import { describeStatLine } from "../utils/drawReadout";
+import { getRememberedValueFor, readRememberedReadout, rememberReadout } from "../utils/rememberedReadouts";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 import { matchUserServices } from "../utils/streamingServices";
 import { getAutoStartMode, getAutoStartSurface, resolvePreferredLaunchTarget } from "../utils/webLaunch";
@@ -98,6 +100,11 @@ export default function BowlDashboard() {
     const [drawAccessMode, setDrawAccessMode] = useState(DRAW_ACCESS_MODE_ALL);
     const [drawAllowedUserIds, setDrawAllowedUserIds] = useState([]);
     const [currentUserId, setCurrentUserId] = useState(null);
+    // Which bowl the access read last answered for. Until it has, nobody is
+    // known to be unable to draw -- saying so anyway flashed a permission error
+    // at the owner on every refresh.
+    const [accessLoadedBowlId, setAccessLoadedBowlId] = useState(null);
+    const isAccessKnown = accessLoadedBowlId === bowlId;
     const [memberIds, setMemberIds] = useState([]);
     const [addGuardMessage, setAddGuardMessage] = useState(null);
     const [myMoviesErrorMessage, setMyMoviesErrorMessage] = useState(null);
@@ -245,12 +252,12 @@ export default function BowlDashboard() {
       return true;
     }, [currentUserId, isCurrentUserOwner, isCurrentUserMember, drawAccessMode, drawAllowedUserIds]);
     const drawGuardMessage = useMemo(() => {
-      if (!currentUserId || canCurrentUserDraw) return null;
+      if (!isAccessKnown || !currentUserId || canCurrentUserDraw) return null;
       if (drawAccessMode === DRAW_ACCESS_MODE_SELECTED) {
         return "Only selected members can draw in this bowl. Ask the owner to update draw access.";
       }
       return "You do not have permission to draw from this bowl.";
-    }, [currentUserId, canCurrentUserDraw, drawAccessMode]);
+    }, [isAccessKnown, currentUserId, canCurrentUserDraw, drawAccessMode]);
     const myRemainingAdds = useMemo(
       () => (bowl.remaining || []).filter((movie) => movie.added_by === currentUserId),
       [bowl.remaining, currentUserId]
@@ -448,6 +455,86 @@ export default function BowlDashboard() {
       setUseStreamingRank(true);
     };
     const drawMethodBucketsByContributor = getDrawMethod(drawMethod).bucketsByContributor;
+
+    // A reload after an add or a draw keeps the rows it had, so only the first
+    // read of a bowl has nothing worth showing. Adjusted during render, as with
+    // any state derived from props, so the frame that finishes loading is also
+    // the first one that stops holding placeholders.
+    const [loadedBowlId, setLoadedBowlId] = useState(null);
+    if (!isLoading && loadedBowlId !== bowlId) setLoadedBowlId(bowlId);
+    const isFirstLoad = loadedBowlId !== bowlId;
+
+    const statLineInputs = {
+      poolStatus: drawPoolStatus,
+      poolCount: drawPoolCount,
+      poolTotalCount: drawPoolTotalCount,
+      contributorReach: drawPoolContributorReach,
+      showContributorReach: drawMethodBucketsByContributor,
+      streamingStatus: displayedStreamingStatus,
+      streamingMatchCount: displayedStreamingMatch.matchCount,
+      streamingTopService: displayedStreamingMatch.topService,
+      streamingTopServiceCount: displayedStreamingMatch.topServiceCount,
+      isPrioritized: isDrawFilteredByServices,
+      useServiceRank: useStreamingRank,
+    };
+    // Settled means every input the readout depends on has answered: the
+    // movies, the saved filters (or the failure to load them, which leaves the
+    // defaults in force), the bowl's draw method and access, and the count.
+    const isBowlViewSettled =
+      !isLoading &&
+      isAccessKnown &&
+      (didApplyDefaultDrawSettings || Boolean(preferencesLoadError)) &&
+      drawPoolStatus !== DRAW_POOL_STATUS.counting;
+    const settledBowlView = isBowlViewSettled
+      ? {
+          statLine: describeStatLine(statLineInputs),
+          myMovieCount: myMovies.length,
+          watchedCount: bowl.watched.length,
+          canDraw: canCurrentUserDraw,
+        }
+      : null;
+    const settledBowlViewKey = settledBowlView ? JSON.stringify(settledBowlView) : null;
+
+    // What the page shows while it is not settled: this visit's last settled
+    // answer, else the one this device remembered from the previous visit.
+    const [lastSettledBowlView, setLastSettledBowlView] = useState(null);
+    if (settledBowlView && (lastSettledBowlView?.bowlId !== bowlId || lastSettledBowlView.key !== settledBowlViewKey)) {
+      setLastSettledBowlView({ bowlId, key: settledBowlViewKey, value: settledBowlView });
+    }
+    const rememberedBowlViewEntry = useMemo(() => readRememberedReadout(`bowl:${bowlId}`), [bowlId]);
+    const heldBowlView = lastSettledBowlView?.bowlId === bowlId
+      ? lastSettledBowlView.value
+      : getRememberedValueFor(rememberedBowlViewEntry, currentUserId);
+
+    useEffect(() => {
+      if (!settledBowlViewKey || !currentUserId) return;
+      rememberReadout(`bowl:${bowlId}`, currentUserId, JSON.parse(settledBowlViewKey));
+    }, [bowlId, currentUserId, settledBowlViewKey]);
+
+    // Counts under the section titles follow the same rule on a first load:
+    // the number from last time, or nothing, but never a zero that is only
+    // "not loaded yet".
+    const myMovieCountLabel = (() => {
+      const count = isFirstLoad ? heldBowlView?.myMovieCount : myMovies.length;
+      if (typeof count !== "number") return "";
+      return count === 1 ? "1 movie" : `${count} movies`;
+    })();
+    const showsMyMovies = isFirstLoad ? (heldBowlView?.myMovieCount ?? 1) > 0 : myMovies.length > 0;
+    // The cards come in once, already in their final order. Shown before the
+    // filter check answered, they re-sorted under the reader's eyes -- eligible
+    // titles first, the rest dimmed -- with a status line opening above them
+    // and closing again. Only the first time: a later filter change is someone
+    // at work, and watching the strip respond is the point.
+    const [myMoviesShownBowlId, setMyMoviesShownBowlId] = useState(null);
+    const isMyMoviesSettled =
+      !isFirstLoad &&
+      (didApplyDefaultDrawSettings || Boolean(preferencesLoadError)) &&
+      myMovieEligibilityStatus !== MY_MOVIE_ELIGIBILITY_STATUS.checking;
+    if (isMyMoviesSettled && myMoviesShownBowlId !== bowlId) setMyMoviesShownBowlId(bowlId);
+    const isHoldingMyMovies = myMoviesShownBowlId !== bowlId && !isMyMoviesSettled;
+    // Optimistic until the access read answers: most people in a bowl can
+    // draw, and the ticket arriving late pushed everything under it down.
+    const showsTheaterTicket = isAccessKnown ? canCurrentUserDraw : heldBowlView?.canDraw ?? true;
     // Only theaterModeEnabled comes from the device layer. prioritizeStreaming
     // and useStreamingRank are overridable too, but on this screen they are
     // local state that the filter panel saves back to the account -- a device
@@ -630,6 +717,7 @@ export default function BowlDashboard() {
           setDrawAllowedUserIds((drawPermissionRows || []).map((row) => row.user_id).filter(Boolean));
         }
 
+        setAccessLoadedBowlId(bowlId);
         setBowlName(data?.name || "");
         setBowlOwnerId(data?.owner_id || null);
         setDrawAccessMode(
@@ -945,18 +1033,10 @@ return (
                 </div>
 
                 <BowlStatLine
-                  poolStatus={drawPoolStatus}
-                  poolCount={drawPoolCount}
-                  poolTotalCount={drawPoolTotalCount}
-                  contributorReach={drawPoolContributorReach}
-                  showContributorReach={drawMethodBucketsByContributor}
+                  {...statLineInputs}
+                  isPending={!isBowlViewSettled}
+                  remembered={heldBowlView?.statLine || null}
                   onRunPoolLookups={runDrawPoolLookups}
-                  streamingStatus={displayedStreamingStatus}
-                  streamingMatchCount={displayedStreamingMatch.matchCount}
-                  streamingTopService={displayedStreamingMatch.topService}
-                  streamingTopServiceCount={displayedStreamingMatch.topServiceCount}
-                  isPrioritized={isDrawFilteredByServices}
-                  useServiceRank={useStreamingRank}
                   onOpenFilters={() => setShowDrawFilters(true)}
                   onOpenMethodInfo={() => setShowMethodInfo(true)}
                 />
@@ -969,7 +1049,7 @@ return (
                       setShowDrawConfirm(true);
                     }}
                     isLoading={isDrawing}
-                    disabled={!canCurrentUserDraw || bowl.remaining.length === 0}
+                    disabled={isFirstLoad || !canCurrentUserDraw || bowl.remaining.length === 0}
                   />
                   <AddMovieButton
                     variant="secondary"
@@ -989,7 +1069,7 @@ return (
                     cannot draw, with drawGuardMessage beside it, while a greyed
                     ticket explains nothing and advertises a ceremony they can
                     never start. */}
-                {canCurrentUserDraw && (
+                {showsTheaterTicket && (
                   <div className="mt-3 flex justify-center">
                     <TheaterTicket
                       enabled={isTheaterModeEnabled}
@@ -1416,7 +1496,7 @@ return (
                   <div className="flex items-baseline gap-2">
                     <h3 className="section-title text-base">My Movies</h3>
                     <span className="text-xs font-semibold text-slate-400">
-                      {myMovies.length === 1 ? "1 movie" : `${myMovies.length} movies`}
+                      {myMovieCountLabel}
                     </span>
                   </div>
                   <p className="text-xs text-slate-400">Your undrawn picks in this bowl.</p>
@@ -1426,7 +1506,7 @@ return (
                     control under the two people came to press reads as a third
                     way to spend the bowl's turn. The bowl still rides along as
                     the starting scope. */}
-                {myMovies.length > 0 && (
+                {showsMyMovies && (
                   <button
                     type="button"
                     className="btn btn-ghost shrink-0 text-sm"
@@ -1438,9 +1518,13 @@ return (
               </div>
 
               <div className="mt-3">
-                {isLoading ? (
-                  <MovieStripSkeleton label="Loading your movies…" />
-                ) : myMovies.length === 0 ? (
+                {isHoldingMyMovies && showsMyMovies ? (
+                  // Padded as the strip's own row is, so the cards replace it
+                  // without the panel changing height.
+                  <div className="mt-1 pb-3 pt-1">
+                    <MovieStripSkeleton label="Loading your movies…" />
+                  </div>
+                ) : isFirstLoad || myMovies.length === 0 ? (
                   <p className="text-sm text-slate-400">You have no movies in this section.</p>
                 ) : (
                   <MyMoviesStrip
@@ -1470,7 +1554,8 @@ return (
                 <WatchedMoviesStrip
                   movies={bowl.watched}
                   isExpanded={showWatched}
-                  isLoading={isLoading}
+                  isLoading={isFirstLoad}
+                  heldCount={isFirstLoad ? heldBowlView?.watchedCount ?? null : null}
                   onToggleExpanded={() => setShowWatched((prev) => !prev)}
                   onSelectMovie={async (movie) => {
                     setSelectedDetailContext("watched");

@@ -7,10 +7,15 @@ export default function WatchedMoviesStrip({
   onSelectMovie,
   isExpanded = true,
   isLoading = false,
+  // What the count read last time, shown while loading instead of a zero that
+  // only means "not loaded yet". Null shows no count until the rows arrive.
+  heldCount = null,
   onToggleExpanded,
 }) {
-  const watchedCount = movies.length;
-  const watchedCountLabel = watchedCount === 1 ? "1 watched" : `${watchedCount} watched`;
+  const watchedCount = isLoading ? heldCount : movies.length;
+  const watchedCountLabel = typeof watchedCount !== "number"
+    ? ""
+    : watchedCount === 1 ? "1 watched" : `${watchedCount} watched`;
   const listId = useId();
   const isCollapsible = typeof onToggleExpanded === "function";
 

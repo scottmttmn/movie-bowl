@@ -56,3 +56,54 @@ export function getDrawReadout({
 
   return { count, service, fellBack, tone };
 }
+
+// The pool statuses this module reads, repeated here rather than imported so
+// utils stays free of hooks. They must match DRAW_POOL_STATUS.
+const POOL_STATUS_MANUAL = "manual";
+const POOL_STATUS_READY = "ready";
+
+/**
+ * Everything the bowl's stat line says, as data rather than markup.
+ *
+ * Plain values only, because the dashboard stores the settled answer and opens
+ * the next visit on it: `pool` is either `{ kind: "manual" }` -- the count waits
+ * to be asked for -- or the readout above, and `reach` is present only when some
+ * people have nothing left in the draw.
+ */
+export function describeStatLine({
+  poolStatus,
+  poolCount = 0,
+  poolTotalCount = 0,
+  contributorReach = null,
+  showContributorReach = false,
+  streamingStatus,
+  streamingMatchCount = 0,
+  streamingTopService = null,
+  streamingTopServiceCount = 0,
+  isPrioritized = false,
+  useServiceRank = true,
+} = {}) {
+  const excludedCount = contributorReach
+    ? contributorReach.totalCount - contributorReach.reachedCount
+    : 0;
+  const hasExcludedContributors = showContributorReach && excludedCount > 0;
+  const reach = hasExcludedContributors
+    ? { reachedCount: contributorReach.reachedCount, totalCount: contributorReach.totalCount }
+    : null;
+
+  if (poolStatus === POOL_STATUS_MANUAL) return { pool: { kind: "manual" }, reach };
+
+  const { count, service, tone } = getDrawReadout({
+    isFiltered: poolStatus === POOL_STATUS_READY,
+    poolCount,
+    poolTotalCount,
+    streamingStatus,
+    streamingMatchCount,
+    streamingTopService,
+    streamingTopServiceCount,
+    isPrioritized,
+    useServiceRank,
+    hasExcludedContributors,
+  });
+  return { pool: { kind: "count", count, service, tone }, reach };
+}

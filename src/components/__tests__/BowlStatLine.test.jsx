@@ -156,6 +156,29 @@ describe("BowlStatLine", () => {
 
 
 
+  // A bowl whose movies have not arrived has a total of zero, which is also
+  // what an empty bowl looks like. Pending must not say "Nothing to draw".
+  it("claims no count while the answer is pending and nothing is remembered", () => {
+    renderLine({ isPending: true, poolTotalCount: 0 });
+
+    expect(screen.queryByRole("button", { name: /drawing from|nothing is eligible/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /how this bowl picks/i })).toBeInTheDocument();
+  });
+
+  it("holds the remembered answer while pending instead of the interim inputs", () => {
+    renderLine({
+      isPending: true,
+      poolTotalCount: 5,
+      remembered: {
+        pool: { kind: "count", count: 2, service: "Netflix", tone: "active" },
+        reach: { reachedCount: 1, totalCount: 2 },
+      },
+    });
+
+    expect(pool()).toHaveTextContent("Drawing from 2 on Netflix");
+    expect(screen.getByRole("button", { name: /only 1 of 2 people/i })).toHaveTextContent("1/2");
+  });
+
   it("always offers the explanation", () => {
     const { onOpenMethodInfo } = renderLine();
 
