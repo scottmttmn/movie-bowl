@@ -899,6 +899,29 @@
   }
 }
 
+/* Voice search: bars that move while the field is listening, so it reads as
+   hearing you before a single word has arrived. */
+.voice-wave-bar {
+  width: 3px;
+  height: 16px;
+  border-radius: 2px;
+  background: #fb7185;
+  transform-origin: center;
+  animation: voice-wave 0.9s ease-in-out infinite;
+}
+
+@keyframes voice-wave {
+  0%, 100% { transform: scaleY(0.35); }
+  50% { transform: scaleY(1); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .voice-wave-bar {
+    animation: none;
+    transform: scaleY(0.6);
+  }
+}
+
 /* Navigation is a transition, so the previous screen stays put while the next
    screen's code downloads. Without this the tap has no visible answer at all. */
 .route-progress {

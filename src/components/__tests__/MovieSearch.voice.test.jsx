@@ -222,6 +222,19 @@ describe("MovieSearch voice input", () => {
     await waitFor(() => expect(mocks.searchTmdbMovies).toHaveBeenCalledWith("Star Wars", { page: 1 }));
   });
 
+  it("shows sound bars in place of the search icon only while listening", async () => {
+    window.SpeechRecognition = MockSpeechRecognition;
+
+    render(<MovieSearch onAddMovie={vi.fn()} userStreamingServices={[]} />);
+    expect(screen.queryByTestId("voice-wave")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /start voice input/i }));
+    expect(screen.getByTestId("voice-wave")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /stop voice input/i }));
+    await waitFor(() => expect(screen.queryByTestId("voice-wave")).not.toBeInTheDocument());
+  });
+
   it("does nothing when listening ends having heard nothing", async () => {
     window.SpeechRecognition = MockSpeechRecognition;
 

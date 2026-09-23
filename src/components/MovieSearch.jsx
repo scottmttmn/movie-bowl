@@ -550,6 +550,22 @@ export default function MovieSearch({
             <div className="sticky top-0 z-10 -mx-1 bg-slate-900/95 px-1 pb-3 backdrop-blur">
                 {searchHeader}
                 <div className="relative">
+                    {/* The leading icon is the field's state: a magnifier to search,
+                        sound bars while it is listening. */}
+                    <span className="pointer-events-none absolute left-3.5 top-1/2 flex h-5 w-5 -translate-y-1/2 items-center justify-center" aria-hidden="true">
+                        {isListening ? (
+                            <span className="flex h-5 items-center gap-[3px]" data-testid="voice-wave">
+                                {[0, 1, 2, 3].map((bar) => (
+                                    <span key={bar} className="voice-wave-bar" style={{ animationDelay: `${bar * 0.12}s` }} />
+                                ))}
+                            </span>
+                        ) : (
+                            <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] text-slate-500" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+                                <circle cx="11" cy="11" r="7" />
+                                <path d="M20 20l-3.5-3.5" />
+                            </svg>
+                        )}
+                    </span>
                     <input
                         ref={inputRef}
                         disabled={disabled}
@@ -560,7 +576,7 @@ export default function MovieSearch({
                         value={isListening ? voiceTranscript : searchTerm}
                         readOnly={isListening}
                         placeholder={isListening ? "Listening…" : "Search movies..."}
-                        className={`input-field w-full ${isVoiceSupported ? "pr-[5.5rem]" : ""} ${isListening ? "border-rose-500 bg-rose-950/30 ring-2 ring-rose-500/20" : ""}`}
+                        className={`input-field w-full pl-10 ${isVoiceSupported ? "pr-[5.5rem]" : ""} ${isListening ? "border-rose-500 bg-rose-950/30 ring-2 ring-rose-500/20" : ""}`}
                         onFocus={onSearchFocus}
                         onChange={(e) => {
                             const value = e.target.value;
@@ -598,7 +614,7 @@ export default function MovieSearch({
                             type="button"
                             disabled={disabled}
                             onClick={toggleVoiceInput}
-                            className={`absolute right-1 top-1/2 flex h-9 min-w-9 -translate-y-1/2 items-center justify-center rounded-lg px-2 text-sm font-semibold transition ${isListening ? "bg-rose-500/25 text-rose-100 hover:bg-rose-500/35" : "text-slate-300 hover:bg-slate-700/60"}`}
+                            className={`absolute right-1 top-1/2 flex h-9 min-w-9 -translate-y-1/2 items-center justify-center rounded-lg px-2 text-sm font-semibold transition ${isListening ? "bg-rose-500/25 text-rose-100 hover:bg-rose-500/35" : "border border-slate-700/70 bg-slate-700/50 text-slate-200 hover:bg-slate-700/80"}`}
                             aria-label={isListening ? "Stop voice input" : "Start voice input"}
                             aria-pressed={isListening}
                         >
