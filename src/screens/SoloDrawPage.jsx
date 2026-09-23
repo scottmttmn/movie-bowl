@@ -1,4 +1,4 @@
-import { useMemo, useRef, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { Link, useSearchParams } from "react-router-dom";
 import useAutosave from "../hooks/useAutosave";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
@@ -35,6 +35,7 @@ import { fetchMovieFilterMetadata } from "../lib/movieFilterMetadata";
 import { matchUserServices } from "../utils/streamingServices";
 import { getAutoStartMode, getAutoStartSurface, resolvePreferredLaunchTarget } from "../utils/webLaunch";
 import { getPosterUrl } from "../utils/getPosterUrl";
+import { getRememberedValueFor, readRememberedReadout, rememberReadout } from "../utils/rememberedReadouts";
 
 const DRAW_ANIMATION_MINIMUM_MS = 1500;
 const SOLO_FILTER_METADATA_FETCHERS = {
@@ -226,6 +227,36 @@ export default function SoloDrawPage() {
     : poolStatus === DRAW_POOL_STATUS.counting
       ? "Checking which titles match your filters…"
       : `Drawing from ${filteredOut ? 0 : drawCount} of ${totalTitles} of your titles`;
+  // The readout, the scope and the avatar each wait on something different --
+  // the pool, the count, the profile -- and showing each one's interim answer
+  // ran the header through "no bowls selected", a wrong initial and "Checking
+  // which titles match…" before it settled. Until they have answered, each
+  // shows what it said last time on this device, or holds its place empty.
+  const soloViewKey = `solo:${requestedBowlId || "all"}`;
+  const isSoloViewSettled = !isLoading && !preferencesLoading && !poolErrorMessage &&
+    poolStatus !== DRAW_POOL_STATUS.counting;
+  const soloStatusText = emptyMessage || (filteredOut ? "No titles match your filters. Adjust your filters to draw." : readout);
+  const soloStatusAction = poolStatus === DRAW_POOL_STATUS.manual && !emptyMessage
+    ? "check"
+    : filteredOut ? "adjust" : null;
+  const settledSoloView = isSoloViewSettled
+    ? { statusText: soloStatusText, statusAction: soloStatusAction, scopeLabel, initial }
+    : null;
+  const settledSoloViewKey = settledSoloView ? JSON.stringify(settledSoloView) : null;
+  const [lastSettledSoloView, setLastSettledSoloView] = useState(null);
+  if (settledSoloView && (lastSettledSoloView?.viewKey !== soloViewKey || lastSettledSoloView.key !== settledSoloViewKey)) {
+    setLastSettledSoloView({ viewKey: soloViewKey, key: settledSoloViewKey, value: settledSoloView });
+  }
+  const rememberedSoloViewEntry = useMemo(() => readRememberedReadout(soloViewKey), [soloViewKey]);
+  const heldSoloView = lastSettledSoloView?.viewKey === soloViewKey
+    ? lastSettledSoloView.value
+    : getRememberedValueFor(rememberedSoloViewEntry, userId);
+  useEffect(() => {
+    if (!settledSoloViewKey || !userId) return;
+    rememberReadout(soloViewKey, userId, JSON.parse(settledSoloViewKey));
+  }, [soloViewKey, userId, settledSoloViewKey]);
+  const shownScopeLabel = isLoading ? heldSoloView?.scopeLabel ?? "" : scopeLabel;
+  const shownInitial = preferencesLoading ? heldSoloView?.initial ?? "" : initial;
   const hasFilters = filters.prioritizeByServices || settings.selectedRatings.length < MPAA_RATING_OPTIONS.length || !settings.includeUnknownRatings
     || settings.selectedGenres !== null || !settings.includeUnknownGenres || settings.runtimeMinMinutes > 0
     || settings.runtimeMaxMinutes < 500 || !settings.includeUnknownRuntime;
@@ -408,7 +439,7 @@ export default function SoloDrawPage() {
         <header className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
             <h1 className="text-[26px] font-bold tracking-tight text-slate-50">Solo Draw</h1>
-            <span className="text-sm text-slate-400">{scopeLabel}</span>
+            <span className="text-sm text-slate-400">{shownScopeLabel}</span>
           </div>
           <div className="flex shrink-0 gap-2">
             <button type="button" className="icon-btn relative" aria-label="Filters" aria-haspopup="dialog" onClick={() => setShowFilters(true)}>
@@ -422,7 +453,7 @@ export default function SoloDrawPage() {
         <section className="solo-draw-hero" aria-label="Draw for yourself">
           <div className="relative flex items-center justify-between gap-3">
             <p className="solo-eyebrow">Solo draw</p>
-            <span className="solo-identity"><span className="solo-avatar">{initial}</span>Just you</span>
+            <span className="solo-identity"><span className="solo-avatar">{shownInitial}</span>Just you</span>
           </div>
           <div className="relative flex flex-col items-center pt-5 text-center">
             <div className="solo-bowl-stage">
@@ -431,19 +462,33 @@ export default function SoloDrawPage() {
                 drawTitle={drawAnimationTitle}
                 isDrawing={isDrawInProgress}
               />
-              <span className="solo-avatar solo-bowl-avatar" aria-hidden="true">{initial}</span>
+              <span className="solo-avatar solo-bowl-avatar" aria-hidden="true">{shownInitial}</span>
             </div>
-            {isLoading ? <p className="mt-4 text-sm text-slate-400" role="status">Loading your movies…</p> : poolErrorMessage ? (
+            {poolErrorMessage ? (
               <div className="panel-muted status-error mt-4" role="alert">
                 <p>{poolErrorMessage}</p><button type="button" className="btn btn-secondary mt-3" onClick={reload}>Retry</button>
               </div>
-            ) : (
+            ) : isSoloViewSettled ? (
               <div className="mt-4 text-sm text-slate-300">
-                <p role="status">{emptyMessage || (filteredOut ? "No titles match your filters. Adjust your filters to draw." : readout)}
+                <p role="status">{soloStatusText}
                   <button type="button" className="solo-info-button" aria-label="How solo draw picks" onClick={() => setShowInfo(true)}>i</button>
                 </p>
-                {poolStatus === DRAW_POOL_STATUS.manual && !emptyMessage && <button type="button" className="btn btn-secondary mt-3" onClick={runLookups}>Check filter matches</button>}
-                {filteredOut && <button type="button" className="btn btn-secondary mt-3" onClick={() => setShowFilters(true)}>Adjust filters</button>}
+                {soloStatusAction === "check" && <button type="button" className="btn btn-secondary mt-3" onClick={runLookups}>Check filter matches</button>}
+                {soloStatusAction === "adjust" && <button type="button" className="btn btn-secondary mt-3" onClick={() => setShowFilters(true)}>Adjust filters</button>}
+              </div>
+            ) : (
+              // The same shape as the settled readout, so nothing under it
+              // moves when the answer replaces it.
+              <div className="mt-4 text-sm text-slate-300" aria-busy="true">
+                <p role="status">
+                  <span className="sr-only">{isLoading ? "Loading your movies…" : "Checking which titles match your filters…"}</span>
+                  {heldSoloView?.statusText
+                    ? <span aria-hidden="true">{heldSoloView.statusText}</span>
+                    : <span className="skeleton-block inline-block h-4 w-56 max-w-full rounded align-middle" aria-hidden="true" />}
+                  <button type="button" className="solo-info-button" aria-label="How solo draw picks" onClick={() => setShowInfo(true)}>i</button>
+                </p>
+                {heldSoloView?.statusAction === "check" && <button type="button" className="btn btn-secondary mt-3" disabled>Check filter matches</button>}
+                {heldSoloView?.statusAction === "adjust" && <button type="button" className="btn btn-secondary mt-3" disabled>Adjust filters</button>}
               </div>
             )}
             <div className="solo-draw-action mt-5 w-full max-w-sm">

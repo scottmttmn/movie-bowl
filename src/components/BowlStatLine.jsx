@@ -1,6 +1,5 @@
 import { Fragment } from "react";
-import { DRAW_POOL_STATUS } from "../hooks/useDrawPoolCount";
-import { getDrawReadout } from "../utils/drawReadout";
+import { describeStatLine } from "../utils/drawReadout";
 
 // One quiet sentence under the bowl instead of a row of chips. Each segment is
 // still a readout of what the draw is about to do, so the chip tone vocabulary
@@ -91,47 +90,37 @@ function ReachSegment({ reachedCount, totalCount, onOpenMethodInfo }) {
 }
 
 export default function BowlStatLine({
-  poolStatus,
-  poolCount,
-  poolTotalCount,
-  contributorReach = null,
-  showContributorReach = false,
+  isPending = false,
+  remembered = null,
   onRunPoolLookups,
-  streamingStatus,
-  streamingMatchCount,
-  streamingTopService,
-  streamingTopServiceCount,
-  isPrioritized = false,
-  useServiceRank = true,
   onOpenFilters,
   onOpenMethodInfo,
+  ...readoutInputs
 }) {
-  const excludedCount = contributorReach
-    ? contributorReach.totalCount - contributorReach.reachedCount
-    : 0;
-  const hasExcludedContributors = showContributorReach && excludedCount > 0;
+  // While the answer is still being worked out, the line shows what it said
+  // last time rather than each step on the way to the new one. With nothing
+  // remembered it holds its place with a placeholder of the same height, so
+  // the buttons under it do not move when the count arrives.
+  const description = isPending ? remembered : describeStatLine(readoutInputs);
+  const reach = description?.reach || null;
+  const hasExcludedContributors = Boolean(reach);
 
   const segments = [];
 
-  if (poolStatus === DRAW_POOL_STATUS.manual) {
+  if (!description) {
+    segments.push(
+      <span key="pool" className="inline-flex items-center" aria-hidden="true">
+        <span className="skeleton-block inline-block h-4 w-32 rounded" />
+      </span>
+    );
+  } else if (description.pool.kind === "manual") {
     segments.push(
       <Segment key="pool" as="button" tone="active" onClick={onRunPoolLookups}>
         Preview filter matches
       </Segment>
     );
   } else {
-    const { count, service, tone } = getDrawReadout({
-      isFiltered: poolStatus === DRAW_POOL_STATUS.ready,
-      poolCount,
-      poolTotalCount,
-      streamingStatus,
-      streamingMatchCount,
-      streamingTopService,
-      streamingTopServiceCount,
-      isPrioritized,
-      useServiceRank,
-      hasExcludedContributors,
-    });
+    const { count, service, tone } = description.pool;
     segments.push(
       <PoolSegment key="pool" count={count} service={service} tone={tone} onOpenFilters={onOpenFilters} />
     );
@@ -141,8 +130,8 @@ export default function BowlStatLine({
     segments.push(
       <ReachSegment
         key="reach"
-        reachedCount={contributorReach.reachedCount}
-        totalCount={contributorReach.totalCount}
+        reachedCount={reach.reachedCount}
+        totalCount={reach.totalCount}
         onOpenMethodInfo={onOpenMethodInfo}
       />
     );
@@ -150,7 +139,10 @@ export default function BowlStatLine({
 
 
   return (
-    <p className="mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-sm font-medium text-slate-400">
+    <p
+      className="mt-2 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-sm font-medium text-slate-400"
+      aria-busy={isPending || undefined}
+    >
       {segments.map((segment, index) => (
         <Fragment key={segment.key}>
           {index > 0 && <span aria-hidden="true">·</span>}

@@ -221,6 +221,32 @@ describe("SoloDrawPage", () => {
     );
   });
 
+  // A refresh walked the header through "no bowls selected" and "Checking
+  // which titles match…" before settling. It now opens on last visit's answer.
+  it("opens on the remembered readout and scope while the pool is still loading", () => {
+    renderPage();
+    const settledReadout = "Drawing from 1 of 1 of your titles";
+    expect(screen.getByText(settledReadout)).toBeInTheDocument();
+    cleanup();
+
+    mocks.state.pool = { ...mocks.state.pool, rows: [], bowls: [], bowlIds: [], isLoading: true };
+    renderPage();
+
+    expect(screen.getByText(settledReadout)).toBeInTheDocument();
+    expect(screen.getByText("across all your bowls")).toBeInTheDocument();
+    expect(screen.queryByText("no bowls selected")).not.toBeInTheDocument();
+  });
+
+  it("holds its place without an interim answer on a first visit", () => {
+    mocks.state.pool = { rows: [], bowls: [], bowlIds: [], isLoading: true, errorMessage: "" };
+    mocks.poolStatus.current = "counting";
+    renderPage();
+
+    expect(screen.queryByText(/drawing from \d/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("no bowls selected")).not.toBeInTheDocument();
+    expect(screen.getByRole("status", { name: "" })).toHaveTextContent("Loading your movies…");
+  });
+
   it("draws from the selected scope only", () => {
     renderPage();
 
