@@ -107,6 +107,20 @@ describe("useMyMovieEligibility", () => {
     expect(fetchMovieDetails).toHaveBeenCalledTimes(3);
   });
 
+  it("keeps checking rather than asking while the cache has not answered", async () => {
+    const movies = [movie("m1"), movie("m2"), movie("m3")];
+    const fetchMovieDetails = vi.fn(async () => pgDetails());
+    const { result } = renderHook(() => useMyMovieEligibility(
+      movies,
+      movies,
+      filters,
+      { enabled: true, fetchMovieDetails, autoLookupLimit: 2, isMetadataPending: true }
+    ));
+
+    expect(result.current.status).toBe(MY_MOVIE_ELIGIBILITY_STATUS.checking);
+    expect(fetchMovieDetails).not.toHaveBeenCalled();
+  });
+
   it("does not require authorization when the persistent snapshot covers the list", async () => {
     const movies = [movie("cached-1"), movie("cached-2"), movie("cached-3")];
     const fetchMovieDetails = vi.fn(async () => pgDetails());

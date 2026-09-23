@@ -342,6 +342,41 @@ describe("useDrawPoolCount", () => {
     expect(fetchMovieDetails).not.toHaveBeenCalled();
   });
 
+  // Before the cache answers, nothing is known to be cached, so a large bowl
+  // looks like a lookup per title. Asking then flashed "Preview filter matches"
+  // on every large bowl until the cache arrived and made the question moot.
+  it("keeps counting rather than asking while the cache has not answered", async () => {
+    const fetchMovieDetails = vi.fn(async () => ({
+      release_dates: {
+        results: [{ iso_3166_1: "US", release_dates: [{ certification: "R" }] }],
+      },
+    }));
+    const movies = Array.from(
+      { length: AUTO_LOOKUP_TITLE_LIMIT + 1 },
+      (unused, index) => movie(`pending-${index + 1}`)
+    );
+    const filters = {
+      ratingFilter: { allowedRatings: ["R"], includeUnknown: false },
+      genreFilter: ALL_GENRES,
+      runtimeFilter: ALL_RUNTIMES,
+    };
+
+    const { result, rerender } = renderHook(
+      ({ cache }) => useDrawPoolCount(movies, filters, { fetchMovieDetails, ...cache }),
+      { initialProps: { cache: { isMetadataPending: true, isMetadataCached: () => false } } }
+    );
+
+    expect(result.current.status).toBe(DRAW_POOL_STATUS.counting);
+    expect(fetchMovieDetails).not.toHaveBeenCalled();
+
+    rerender({ cache: { isMetadataPending: false, isMetadataCached: () => true } });
+    await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.unfiltered));
+
+    // A cache that answered without covering the bowl still gets the question.
+    rerender({ cache: { isMetadataPending: false, isMetadataCached: () => false } });
+    await waitFor(() => expect(result.current.status).toBe(DRAW_POOL_STATUS.manual));
+  });
+
   it("counts automatically when the bowl is small enough to look up", async () => {
     const fetchMovieDetails = vi.fn(async (tmdbId) => ({
       release_dates: {

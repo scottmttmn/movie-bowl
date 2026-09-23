@@ -1522,7 +1522,11 @@ return (
                   // Padded as the strip's own row is, so the cards replace it
                   // without the panel changing height.
                   <div className="mt-1 pb-3 pt-1">
-                    <MovieStripSkeleton label="Loading your movies…" />
+                    <MovieStripSkeleton
+                      label="Loading your movies…"
+                      count={Math.min(Math.max(heldBowlView?.myMovieCount || 4, 1), 12)}
+                      scrollable
+                    />
                   </div>
                 ) : isFirstLoad || myMovies.length === 0 ? (
                   <p className="text-sm text-slate-400">You have no movies in this section.</p>

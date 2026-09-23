@@ -61,6 +61,11 @@ export default function useDrawPoolCount(
     fetchFilterMetadata = defaultFetchFilterMetadata,
     autoLookupLimit = AUTO_LOOKUP_TITLE_LIMIT,
     isMetadataCached = () => false,
+    // The cache that isMetadataCached answers from has not loaded yet. The
+    // count waits for it instead of asking: a bowl the cache fully covers
+    // counts itself, and asking first flashed "Preview filter matches" on
+    // every large bowl before the cache arrived and made it unnecessary.
+    isMetadataPending = false,
     // A surface with no way to ask. The television has no opt-in to offer and
     // nobody standing at it to tap one, so it resolves the count itself rather
     // than showing a number the filters never touched. It costs what the draw
@@ -305,7 +310,9 @@ export default function useDrawPoolCount(
 
   const status = (() => {
     if (totalCount === 0) return DRAW_POOL_STATUS.unfiltered;
-    if (!shouldCount) return DRAW_POOL_STATUS.manual;
+    if (!shouldCount) {
+      return isMetadataPending && needsLookups ? DRAW_POOL_STATUS.counting : DRAW_POOL_STATUS.manual;
+    }
     if (isCounting || poolCount === null) return DRAW_POOL_STATUS.counting;
     // Nothing was removed, so there is no second number worth showing.
     if (poolCount === totalCount) return DRAW_POOL_STATUS.unfiltered;
