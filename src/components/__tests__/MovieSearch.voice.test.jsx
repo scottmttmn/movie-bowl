@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../lib/tmdbApi", () => ({
+  searchTmdbPeople: vi.fn(async () => ({ people: [] })),
   searchTmdbMovies: mocks.searchTmdbMovies,
   getTmdbMovieDetails: mocks.getTmdbMovieDetails,
 }));
@@ -67,7 +68,7 @@ describe("MovieSearch voice input", () => {
     render(<MovieSearch onAddMovie={vi.fn()} userStreamingServices={[]} />);
 
     expect(screen.getByRole("button", { name: /start voice input/i })).toBeInTheDocument();
-    expect(screen.getByText(/speak a movie title or type to search/i)).toBeInTheDocument();
+    expect(screen.getByText(/say a title or someone in it, or type to search/i)).toBeInTheDocument();
   });
 
   it("hides the mic when speech recognition is unsupported", () => {
@@ -84,7 +85,7 @@ describe("MovieSearch voice input", () => {
     fireEvent.click(screen.getByRole("button", { name: /start voice input/i }));
 
     expect(startSpy).toHaveBeenCalledTimes(1);
-    expect(screen.getByText(/say a movie title — pause to search/i)).toBeInTheDocument();
+    expect(screen.getByText(/say a title or someone in it — pause to search/i)).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /stop voice input/i }));
 
@@ -121,7 +122,7 @@ describe("MovieSearch voice input", () => {
     expect(screen.getByText('Searching for "Jaws"...')).toBeInTheDocument();
     expect(await screen.findByText("Jaws")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add Jaws" }));
-    await waitFor(() => expect(screen.getByPlaceholderText("Search movies...")).toHaveValue(""));
+    await waitFor(() => expect(screen.getByPlaceholderText("Movie title or person")).toHaveValue(""));
     expect(screen.queryByText('Searching for "Jaws"...')).not.toBeInTheDocument();
   });
 
@@ -260,7 +261,7 @@ describe("MovieSearch voice input", () => {
     });
     // The field is read-only while listening; an error hands it back even if
     // the browser never follows up with onend.
-    expect(screen.getByPlaceholderText("Search movies...")).not.toHaveAttribute("readonly");
+    expect(screen.getByPlaceholderText("Movie title or person")).not.toHaveAttribute("readonly");
   });
 
   it("stops recognition when the component unmounts", () => {

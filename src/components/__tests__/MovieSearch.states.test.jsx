@@ -10,6 +10,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../lib/tmdbApi", () => ({
+  searchTmdbPeople: vi.fn(async () => ({ people: [] })),
   searchTmdbMovies: mocks.searchTmdbMovies,
   getTmdbMovieDetails: mocks.getTmdbMovieDetails,
 }));
@@ -19,7 +20,7 @@ vi.mock("../../lib/streamingProviders", () => ({
 }));
 
 function type(term) {
-  fireEvent.change(screen.getByPlaceholderText("Search movies..."), { target: { value: term } });
+  fireEvent.change(screen.getByPlaceholderText("Movie title or person"), { target: { value: term } });
 }
 
 describe("MovieSearch loading, empty and error states", () => {
@@ -57,7 +58,7 @@ describe("MovieSearch loading, empty and error states", () => {
     render(<MovieSearch onAddMovie={onAddMovie} />);
     type("something with Adam Sandler");
 
-    expect(await screen.findByText(/no movie matches/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no movie or person matches/i)).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: 'Add "something with Adam Sandler"' }));
@@ -91,7 +92,7 @@ describe("MovieSearch loading, empty and error states", () => {
 
     await screen.findByRole("button", { name: "Details for Cast Away" });
     expect(screen.getByRole("button", { name: 'Add "cast"' })).toHaveTextContent(/not here\?/i);
-    expect(screen.queryByText(/no movie matches/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/no movie or person matches/i)).not.toBeInTheDocument();
   });
 
   it("says a failed search failed, offers Try again, and retries the same search", async () => {
@@ -104,8 +105,8 @@ describe("MovieSearch loading, empty and error states", () => {
     const alert = await screen.findByRole("alert");
     expect(alert).toHaveTextContent("Couldn't search right now");
     expect(alert).toHaveTextContent("Your search is still here.");
-    expect(screen.queryByText(/no movie matches/i)).not.toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Search movies...")).toHaveValue("cast away");
+    expect(screen.queryByText(/no movie or person matches/i)).not.toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Movie title or person")).toHaveValue("cast away");
 
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByRole("button", { name: "Details for Cast Away" })).toBeInTheDocument();

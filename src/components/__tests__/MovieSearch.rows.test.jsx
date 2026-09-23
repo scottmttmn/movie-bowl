@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../lib/tmdbApi", () => ({
+  searchTmdbPeople: vi.fn(async () => ({ people: [] })),
   searchTmdbMovies: mocks.searchTmdbMovies,
   getTmdbMovieDetails: mocks.getTmdbMovieDetails,
 }));
@@ -29,7 +30,7 @@ const providerResult = (providers, status = "ready") => ({
 async function search(term, results, { userStreamingServices = [], onAddMovie = vi.fn() } = {}) {
   mocks.searchTmdbMovies.mockResolvedValue({ page: 1, totalPages: 1, totalResults: results.length, results });
   render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={userStreamingServices} />);
-  fireEvent.change(screen.getByPlaceholderText("Search movies..."), { target: { value: term } });
+  fireEvent.change(screen.getByPlaceholderText("Movie title or person"), { target: { value: term } });
   await screen.findByRole("button", { name: `Details for ${results[0].title}` });
   return { onAddMovie };
 }

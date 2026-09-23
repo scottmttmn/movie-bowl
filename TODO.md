@@ -30,6 +30,14 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   it behaves as tested). The films with no second trailer in TMDB at all still
   end on YouTube's message on the web and "Trailer unavailable" on the TV.
 
+- People search match rule: the People row's rule (`src/utils/peopleMatch.js`)
+  shipped on its starting values -- three characters, every word a prefix of a
+  name word, a popularity floor of 1.5 -- without the evaluation set
+  `output/designs/search-revamp.md` asks for, because that needs authenticated
+  TMDB answers. Record which queries should and should not show people (an
+  exact title, a title that is also a name, same-name people, a lesser-known
+  director, a large filmography) and tune the floor against them.
+
 ## Future Product Concepts
 
 - Assistant voice capture: **failed feasibility gate, closed September 4,

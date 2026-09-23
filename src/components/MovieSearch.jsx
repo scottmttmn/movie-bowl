@@ -10,9 +10,18 @@ import { MAX_MOVIE_NOTE_LENGTH, normalizeMovieNote } from "../utils/movieNote";
 import { getMovieIdentityLabel } from "../utils/movieIdentity";
 import { getSearchReleaseLabel } from "../utils/movieReleaseStatus";
 import { createEmptyStreamingProviderData } from "../utils/tmdbWatchProviders";
+import usePersonDiscovery from "../hooks/usePersonDiscovery";
 
 const PROVIDER_ENRICHMENT_LIMIT = 8;
 const PROVIDER_ENRICHMENT_CONCURRENCY = 4;
+
+function possessive(name) {
+    return `${name}\u2019s`;
+}
+
+function getProfileUrl(person) {
+    return person?.profilePath ? `https://image.tmdb.org/t/p/w185${person.profilePath}` : null;
+}
 
 function appendUniqueMovies(current, incoming) {
     const seen = new Set(current.map((movie) => movie.id));
@@ -123,6 +132,30 @@ export default function MovieSearch({
     const heardTranscriptRef = useRef("");
     const [focusRequest, setFocusRequest] = useState(0);
     const handledFocusRequest = useRef(0);
+    // The query whose movie rows are on screen, so a late People row is held
+    // back instead of pushing them down.
+    const moviesShownRef = useRef(null);
+    const discovery = usePersonDiscovery({ moviesShownRef });
+    const {
+        searchPeople,
+        clearPeople,
+        openPerson,
+        closePerson,
+        reset: resetDiscovery,
+    } = discovery;
+    // Which person chip the arrow keys are on; null means the highlight is in
+    // the movies, where a bare Enter has always added the first one.
+    const [highlightedPerson, setHighlightedPerson] = useState(null);
+    const searchScrollRef = useRef(null);
+    const gridRef = useRef(null);
+    const providersRef = useRef({});
+    providersRef.current = providersByMovieId;
+    const personView = discovery.person;
+    const visiblePeople = !personView && discovery.peopleResult.query === searchTerm.trim()
+        ? discovery.peopleResult.people
+        : [];
+    // The movies on screen: a chosen person's, or the title results.
+    const listMovies = personView ? discovery.visibleMovies : searchResults;
 
     useEffect(() => {
         if (focusRequest === handledFocusRequest.current || isAdding || detailMovie) return;
@@ -214,6 +247,12 @@ export default function MovieSearch({
             setSearchPage(1);
             setTotalPages(0);
             setTotalResults(0);
+            setHighlightedPerson(null);
+            moviesShownRef.current = null;
+            closePerson();
+            // Fired beside the title search, never before it: title search
+            // does not wait for people, and people cannot delay it.
+            searchPeople(trimmedQuery);
         }
 
         try {
@@ -221,6 +260,7 @@ export default function MovieSearch({
             if (requestId !== latestRequestRef.current) return;
 
             const results = data.results || [];
+            if (!append) moviesShownRef.current = results.length > 0 ? trimmedQuery : null;
             setSearchResults((current) => appendUniqueMovies(append ? current : [], results));
             if (!append) setHighlightedIndex(0);
             setSearchPage(Number(data.page) || page);
@@ -249,7 +289,17 @@ export default function MovieSearch({
                 else setIsSearching(false);
             }
         }
-    }, [enrichProviders]);
+    }, [closePerson, enrichProviders, searchPeople]);
+
+    // A person's movies get availability the way title results do: only the
+    // rows on screen, a bounded batch at a time, and never the whole
+    // filmography up front.
+    const personMovies = discovery.visibleMovies;
+    useEffect(() => {
+        if (!discovery.person || personMovies.length === 0) return;
+        const unchecked = personMovies.filter((movie) => !providersRef.current[movie.id]);
+        if (unchecked.length > 0) enrichProviders(unchecked, latestRequestRef.current);
+    }, [discovery.person, enrichProviders, personMovies]);
 
     const fetchMovieDetails = async (movieId) => {
         return getTmdbMovieDetails(movieId);
@@ -303,6 +353,9 @@ export default function MovieSearch({
         setDetailMovie(null);
         onDetailChange?.(false);
         latestRequestRef.current += 1;
+        moviesShownRef.current = null;
+        resetDiscovery();
+        setHighlightedPerson(null);
         setSearchTerm("");
         setSearchResults([]);
         setProvidersByMovieId({});
@@ -315,6 +368,53 @@ export default function MovieSearch({
         setHighlightedIndex(0);
         setCommentDraft("");
         setFocusRequest((request) => request + 1);
+    };
+
+    // Someone adding from a person's movies is often adding several, so a
+    // successful add keeps the person, role and position and clears only the
+    // add itself. Title results reset exactly as they always have.
+    const finishSuccessfulAdd = () => {
+        if (!discovery.person) {
+            resetAfterSuccessfulAdd();
+            return;
+        }
+        setSearchError(null);
+        setDetailActionError("");
+        setDetailMovie(null);
+        onDetailChange?.(false);
+        setCommentDraft("");
+        setFocusRequest((request) => request + 1);
+    };
+
+    const showPerson = (person) => {
+        searchScrollRef.current = {
+            outer: scrollRef.current?.scrollTop || 0,
+            grid: gridRef.current?.scrollTop || 0,
+            highlightedIndex,
+        };
+        setHighlightedPerson(null);
+        setHighlightedIndex(0);
+        setSearchError(null);
+        openPerson(person);
+        if (scrollRef.current) scrollRef.current.scrollTop = 0;
+        if (gridRef.current) gridRef.current.scrollTop = 0;
+    };
+
+    // Change person returns to the search as it was left: the query, the
+    // results, and where the list was scrolled.
+    const leavePerson = () => {
+        const saved = searchScrollRef.current;
+        searchScrollRef.current = null;
+        closePerson();
+        setSearchError(null);
+        setHighlightedIndex(saved?.highlightedIndex || 0);
+        setFocusRequest((request) => request + 1);
+        if (saved) {
+            requestAnimationFrame(() => {
+                if (scrollRef.current) scrollRef.current.scrollTop = saved.outer;
+                if (gridRef.current) gridRef.current.scrollTop = saved.grid;
+            });
+        }
     };
 
     useImperativeHandle(controllerRef, () => ({
@@ -343,7 +443,7 @@ export default function MovieSearch({
                 if (!onSubmitMovie) setSearchError(result.message);
                 return;
             }
-            resetAfterSuccessfulAdd();
+            finishSuccessfulAdd();
         } catch (error) {
             console.error("Failed to fetch movie details", error);
             setSearchError(
@@ -397,25 +497,44 @@ export default function MovieSearch({
     };
 
     // Handle keyboard navigation and selection
+    // People and then movies are one sequence for the arrow keys. The
+    // highlight starts on the first movie, so a bare Enter adds it exactly as
+    // it did before people existed; a person is only ever reached on purpose.
     const handleKeyDown = async (e) => {
         if (e.key === "ArrowDown") {
             e.preventDefault();
-            if (searchResults.length > 0) {
+            if (highlightedPerson !== null) {
+                if (highlightedPerson < visiblePeople.length - 1) {
+                    setHighlightedPerson(highlightedPerson + 1);
+                } else if (listMovies.length > 0) {
+                    setHighlightedPerson(null);
+                    setHighlightedIndex(0);
+                }
+            } else if (listMovies.length > 0) {
                 setHighlightedIndex((prev) =>
-                    prev < searchResults.length - 1 ? prev + 1 : prev
+                    prev < listMovies.length - 1 ? prev + 1 : prev
                 );
+            } else if (visiblePeople.length > 0) {
+                setHighlightedPerson(0);
             }
         } else if (e.key === "ArrowUp") {
             e.preventDefault();
-            if (searchResults.length > 0) {
-                setHighlightedIndex((prev) => (prev > 0 ? prev - 1 : prev));
+            if (highlightedPerson !== null) {
+                if (highlightedPerson > 0) setHighlightedPerson(highlightedPerson - 1);
+            } else if (listMovies.length > 0 && highlightedIndex > 0) {
+                setHighlightedIndex(highlightedIndex - 1);
+            } else if (visiblePeople.length > 0) {
+                setHighlightedPerson(visiblePeople.length - 1);
             }
         } else if (e.key === "Enter") {
             if (isAdding) return;
-            if (searchResults.length > 0) {
-                const selectedMovie = searchResults[highlightedIndex];
+            if (highlightedPerson !== null && visiblePeople[highlightedPerson]) {
+                e.preventDefault();
+                showPerson(visiblePeople[highlightedPerson]);
+            } else if (listMovies.length > 0) {
+                const selectedMovie = listMovies[highlightedIndex] || listMovies[0];
                 await addMovie(selectedMovie);
-            } else {
+            } else if (!discovery.person) {
                 handleSearch(searchTerm);
             }
         }
@@ -470,7 +589,7 @@ export default function MovieSearch({
             if (!isMountedRef.current) return;
             setVoiceError(null);
             setIsListening(true);
-            setVoiceStatusMessage("Say a movie title — pause to search.");
+            setVoiceStatusMessage("Say a title or someone in it — pause to search.");
             finalTranscriptRef.current = "";
             heardTranscriptRef.current = "";
             setVoiceTranscript("");
@@ -531,6 +650,7 @@ export default function MovieSearch({
                 setSearchResults([]);
                 setProvidersByMovieId({});
                 setHighlightedIndex(0);
+                setHighlightedPerson(null);
                 setSearchError(null);
                 setSearchFailure(null);
                 setLoadMoreError(null);
@@ -608,7 +728,7 @@ export default function MovieSearch({
                         type="text"
                         value={isListening ? voiceTranscript : searchTerm}
                         readOnly={isListening}
-                        placeholder={isListening ? "Listening…" : "Search movies..."}
+                        placeholder={isListening ? "Listening…" : "Movie title or person"}
                         className={`input-field w-full pl-10 ${isVoiceSupported ? "pr-[5.5rem]" : "pr-10"} ${isListening ? "border-rose-500 bg-rose-950/30 ring-2 ring-rose-500/20" : ""}`}
                         onFocus={onSearchFocus}
                         onChange={(e) => {
@@ -626,18 +746,24 @@ export default function MovieSearch({
                             setTotalPages(0);
                             setTotalResults(0);
                             setHighlightedIndex(0);
+                            setHighlightedPerson(null);
+                            moviesShownRef.current = null;
+                            clearPeople();
+                            closePerson();
                             if (!value.trim()) setIsSearching(false);
                             setSearchError(null);
                             setSearchFailure(null);
                         }}
                         onKeyDown={handleKeyDown}
                         aria-activedescendant={
-                            searchResults.length > 0
-                                ? `movie-option-${searchResults[highlightedIndex].id}`
-                                : undefined
+                            highlightedPerson !== null && visiblePeople[highlightedPerson]
+                                ? `person-option-${visiblePeople[highlightedPerson].id}`
+                                : listMovies[highlightedIndex]
+                                    ? `movie-option-${listMovies[highlightedIndex].id}`
+                                    : undefined
                         }
                         role="combobox"
-                        aria-expanded={searchResults.length > 0}
+                        aria-expanded={listMovies.length > 0 || visiblePeople.length > 0}
                         aria-haspopup="grid"
                         aria-controls="movie-search-listbox"
                     />
@@ -683,15 +809,25 @@ export default function MovieSearch({
                     // The spinner is in the field, so this line is for screen
                     // readers only: a visible one pushed the results down.
                     <p className="sr-only" role="status">Searching movies…</p>
-                ) : searchResults.length > 0 ? (
+                ) : personView ? (
                     <p className="sr-only" role="status">
+                        {discovery.credits.status === "loading"
+                            ? `Loading ${possessive(personView.name)} movies…`
+                            : discovery.credits.status === "ready"
+                                ? `${possessive(personView.name)} movies: ${listMovies.length} of ${discovery.totalMovies} below — tap a movie for details, or + to add it.`
+                                : ""}
+                    </p>
+                ) : searchResults.length > 0 || visiblePeople.length > 0 ? (
+                    <p className="sr-only" role="status">
+                        {visiblePeople.length > 0 &&
+                            `${visiblePeople.length} ${visiblePeople.length === 1 ? "person" : "people"} and `}
                         {totalResults > searchResults.length
                             ? `${searchResults.length} of ${totalResults} results below`
                             : `${searchResults.length} ${searchResults.length === 1 ? "result" : "results"} below`}
                         {" — tap a movie for details, or + to add it."}
                     </p>
                 ) : !inlineDetails && isVoiceSupported && !voiceStatusMessage && !voiceError ? (
-                    <p className="mt-2 text-sm text-slate-400">Speak a movie title or type to search.</p>
+                    <p className="mt-2 text-sm text-slate-400">Say a title or someone in it, or type to search.</p>
                 ) : null}
                 {!isListening && !isSearching && voiceStatusMessage && !voiceError && (
                     <p className="mt-2 text-sm text-slate-300">{voiceStatusMessage}</p>
@@ -709,16 +845,105 @@ export default function MovieSearch({
                 opens Details and + adds -- and a listbox option cannot hold
                 two independently focusable buttons. The arrow keys still move
                 a highlight from the field, and Enter still adds it. */}
+            {personView && (
+                <div className="mt-2 flex flex-col gap-2.5">
+                    <div className="flex items-center justify-between gap-3">
+                        <div className="min-w-0">
+                            <p className="truncate font-semibold text-slate-100">
+                                {possessive(personView.name)} movies
+                            </p>
+                            <p className="text-xs text-slate-500">Popular first</p>
+                        </div>
+                        <button
+                            type="button"
+                            className="btn btn-ghost flex-shrink-0 px-2 text-sm"
+                            onClick={leavePerson}
+                        >
+                            Change person
+                        </button>
+                    </div>
+                    {discovery.roles.length > 1 && (
+                        // Only a person with feature credits in both roles gets
+                        // the switch; one role needs no choice.
+                        <div role="tablist" aria-label="Role" className="flex gap-1.5">
+                            {discovery.roles.map((roleName) => (
+                                <button
+                                    key={roleName}
+                                    type="button"
+                                    role="tab"
+                                    aria-selected={discovery.role === roleName}
+                                    aria-controls="movie-search-listbox"
+                                    onClick={() => {
+                                        discovery.chooseRole(roleName);
+                                        setHighlightedIndex(0);
+                                        if (gridRef.current) gridRef.current.scrollTop = 0;
+                                    }}
+                                    className={`min-h-9 rounded-full border px-3.5 text-sm font-semibold transition ${discovery.role === roleName ? "border-rose-500/70 bg-rose-600/20 text-rose-100" : "border-slate-700 text-slate-300 hover:border-slate-600"}`}
+                                >
+                                    {roleName === "acting" ? "Acting" : "Directing"}
+                                </button>
+                            ))}
+                        </div>
+                    )}
+                </div>
+            )}
             <div
+                ref={gridRef}
                 id="movie-search-listbox"
                 role="grid"
                 className="mt-2 space-y-1.5 sm:max-h-[60vh] sm:overflow-y-auto sm:pr-1"
-                aria-label="Search results"
+                aria-label={personView ? `${possessive(personView.name)} movies` : "Search results"}
             >
-                {searchResults.map((movie, index) => {
+                {visiblePeople.length > 0 && (
+                    // People are navigation, never slips: a chip opens their
+                    // movies and has no add action of its own.
+                    <div role="row" aria-label="People" className="flex gap-2 overflow-x-auto pb-1 sm:flex-wrap sm:overflow-visible">
+                        {visiblePeople.map((person, index) => {
+                            const profileUrl = getProfileUrl(person);
+                            return (
+                                <div
+                                    key={person.id}
+                                    id={`person-option-${person.id}`}
+                                    role="gridcell"
+                                    aria-selected={highlightedPerson === index}
+                                    className="flex-shrink-0"
+                                >
+                                    <button
+                                        type="button"
+                                        onClick={() => showPerson(person)}
+                                        disabled={isAdding}
+                                        aria-label={`Show ${possessive(person.name)} movies`}
+                                        aria-describedby={person.knownFor?.length ? `person-known-${person.id}` : undefined}
+                                        className={`flex min-h-11 max-w-[16rem] items-center gap-2 rounded-full border py-1 pl-1 pr-3.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/70 ${highlightedPerson === index ? "border-rose-500/70 bg-slate-800/90" : "border-slate-700/70 bg-slate-950/35 hover:bg-slate-800/60"}`}
+                                    >
+                                        {profileUrl ? (
+                                            <img src={profileUrl} alt="" className="h-9 w-9 flex-shrink-0 rounded-full object-cover" />
+                                        ) : (
+                                            <span className="flex h-9 w-9 flex-shrink-0 items-center justify-center rounded-full bg-slate-700 text-sm font-semibold text-slate-200" aria-hidden="true">
+                                                {person.name?.charAt(0) || "?"}
+                                            </span>
+                                        )}
+                                        <span className="flex min-w-0 flex-col">
+                                            <span className="truncate text-sm font-semibold text-slate-100">{person.name}</span>
+                                            {person.knownFor?.length > 0 && (
+                                                <span id={`person-known-${person.id}`} className="truncate text-xs italic text-slate-400">
+                                                    {person.knownFor.join(", ")}
+                                                </span>
+                                            )}
+                                        </span>
+                                    </button>
+                                </div>
+                            );
+                        })}
+                    </div>
+                )}
+                {listMovies.map((movie, index) => {
                     const releaseLabel = getSearchReleaseLabel(movie);
                     const identityLabel = getMovieIdentityLabel(movie);
-                    const metaLabel = [releaseLabel, identityLabel].filter(Boolean).join(" · ");
+                    const characterLabel = personView && discovery.role === "acting" && movie.characters?.length
+                        ? `as ${movie.characters.join(" / ")}`
+                        : null;
+                    const metaLabel = [releaseLabel, identityLabel, characterLabel].filter(Boolean).join(" · ");
                     const availability = describeResultAvailability(
                         providersByMovieId[movie.id],
                         userStreamingServices
@@ -730,9 +955,9 @@ export default function MovieSearch({
                             id={`movie-option-${movie.id}`}
                             key={movie.id}
                             role="row"
-                            aria-selected={index === highlightedIndex}
+                            aria-selected={highlightedPerson === null && index === highlightedIndex}
                             className={`flex items-center gap-2 rounded-2xl border border-slate-700/70 p-2 transition ${
-                                index === highlightedIndex ? "bg-slate-800/90 ring-1 ring-rose-800/40" : "bg-slate-950/35 hover:bg-slate-800/60"
+                                highlightedPerson === null && index === highlightedIndex ? "bg-slate-800/90 ring-1 ring-rose-800/40" : "bg-slate-950/35 hover:bg-slate-800/60"
                             }`}
                         >
                             <div role="gridcell" className="min-w-0 flex-1">
@@ -798,7 +1023,27 @@ export default function MovieSearch({
                 })}
             </div>
 
-            {searchResults.length > 0 && searchPage < totalPages && (
+            {personView && discovery.credits.status === "ready" && listMovies.length < discovery.totalMovies && (
+                <div className="mt-4 flex justify-center">
+                    <button type="button" className="btn btn-secondary" disabled={isAdding} onClick={discovery.showMore}>
+                        Show more movies
+                    </button>
+                </div>
+            )}
+            {personView && discovery.credits.status === "ready" && discovery.totalMovies === 0 && (
+                <p className="mt-2 text-sm text-slate-400">
+                    No feature films found for {personView.name}.
+                </p>
+            )}
+            {personView && discovery.credits.status === "failed" && (
+                <div className="mt-2 flex flex-col gap-2.5 rounded-2xl border border-rose-900/70 bg-rose-950/45 p-3.5" role="alert">
+                    <p className="font-semibold text-rose-100">Couldn&apos;t load {possessive(personView.name)} movies</p>
+                    <button type="button" className="btn btn-secondary self-start px-4 py-2 text-sm" onClick={discovery.retryCredits}>
+                        Try again
+                    </button>
+                </div>
+            )}
+            {!personView && searchResults.length > 0 && searchPage < totalPages && (
                 <div className="mt-4 flex flex-col items-center gap-2">
                     <button
                         type="button"
@@ -818,7 +1063,7 @@ export default function MovieSearch({
                     )}
                 </div>
             )}
-            {isSearching && searchResults.length === 0 && (
+            {((isSearching && searchResults.length === 0 && !personView) || (personView && discovery.credits.status === "loading")) && (
               // The same height as a real row, so nothing moves when results land.
               <div className="mt-2 space-y-1.5" aria-hidden="true" data-testid="search-skeleton">
                 {[0, 1, 2, 3].map((placeholder) => (
@@ -845,7 +1090,7 @@ export default function MovieSearch({
                 {searchError}
               </div>
             )}
-            {searchFailure && !isSearching && (
+            {searchFailure && !isSearching && !personView && (
               <div
                 className="mt-2 flex flex-col gap-2.5 rounded-2xl border border-rose-900/70 bg-rose-950/45 p-3.5"
                 role="alert"
@@ -868,14 +1113,14 @@ export default function MovieSearch({
                 </button>
               </div>
             )}
-            {!searchFailure && !isSearching && searchTerm.trim() && searchResults.length === 0 && (
+            {!personView && !searchFailure && !isSearching && searchTerm.trim() && searchResults.length === 0 && visiblePeople.length === 0 && (
               // Nothing matched, so the custom slip becomes the main action,
               // drawn as the paper it will be in the bowl. It stays beside an
               // add error, which is the only way to retry that add.
               <div className="mt-2 flex flex-col gap-3.5 px-0.5 py-2">
                 <div>
                   <p className="font-semibold text-slate-100">
-                    No movie matches &ldquo;{searchTerm.trim()}&rdquo;
+                    No movie or person matches &ldquo;{searchTerm.trim()}&rdquo;
                   </p>
                   <p className="mt-0.5 text-sm text-slate-400">
                     Check the spelling, or put it in as your own slip &mdash; titles and categories both work.
@@ -895,7 +1140,11 @@ export default function MovieSearch({
                 </button>
               </div>
             )}
-            {searchTerm.trim() && !isSearching && (searchResults.length > 0 || searchFailure) && (
+            {/* A name that matched people and no titles still gets the slip:
+                "something with Tom Hanks" is a slip people really make. It is
+                never offered from a person's movies, so choosing a person can
+                never leave a slip with their name on it. */}
+            {!personView && searchTerm.trim() && !isSearching && (searchResults.length > 0 || searchFailure || visiblePeople.length > 0) && (
               <button
                 type="button"
                 onClick={addCustomMovie}
@@ -917,6 +1166,7 @@ export default function MovieSearch({
             {detailMovie && (
               <AddMovieModal
                 inline={inlineDetails}
+                inlineBackLabel={personView ? `Back to ${possessive(personView.name)} movies` : "Back to search"}
                 movie={detailMovie}
                 userStreamingServices={userStreamingServices}
                 detailPrimaryActionLabel={detailActionLabel}
@@ -959,7 +1209,7 @@ export default function MovieSearch({
                       if (!onSubmitMovie) setDetailActionError(result.message);
                       return;
                     }
-                    resetAfterSuccessfulAdd();
+                    finishSuccessfulAdd();
                   } finally {
                     submittingRef.current = false;
                     setIsAdding(false);

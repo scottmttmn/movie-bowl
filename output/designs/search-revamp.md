@@ -1,7 +1,11 @@
 # Search revamp: find movies through the people in them
 
-Status: proposed September 15, 2026; revised September 23, 2026. Planning
-only; no application changes. The first draft proposed an explicit
+Status: proposed September 15, 2026; revised and built September 23, 2026.
+All three slices below are live: voice, the new rows and states, and people
+(`usePersonDiscovery`, the `person` and `person-movies` actions on
+`api/tmdb/search`). One step of slice 3 is not done: the match rule has not
+been evaluated against real TMDB answers, so the popularity floor is still
+its starting value (see `TODO.md`). The first draft proposed an explicit
 **Title · Actor · Director · Keyword** selector. The revision drops Keyword for
 v1 and replaces the selector with grouped results, which only became workable
 once there were two kinds of result instead of four.

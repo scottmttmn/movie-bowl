@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../lib/tmdbApi", () => ({
+  searchTmdbPeople: vi.fn(async () => ({ people: [] })),
   searchTmdbMovies: mocks.searchTmdbMovies,
   getTmdbMovieDetails: mocks.getTmdbMovieDetails,
 }));
@@ -42,7 +43,7 @@ describe("MovieSearch search feedback", () => {
     );
 
     render(<MovieSearch onAddMovie={vi.fn(async () => ({ ok: true }))} />);
-    fireEvent.change(screen.getByPlaceholderText("Search movies..."), {
+    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
       target: { value: "Movie" },
     });
 
@@ -68,11 +69,11 @@ describe("MovieSearch search feedback", () => {
     mocks.searchTmdbMovies.mockResolvedValue({ results: [] });
 
     render(<MovieSearch onAddMovie={vi.fn(async () => ({ ok: true }))} />);
-    fireEvent.change(screen.getByPlaceholderText("Search movies..."), {
+    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
       target: { value: "Nothing" },
     });
 
-    expect(await screen.findByText(/no movie matches/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no movie or person matches/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /add "nothing"/i })).toBeInTheDocument();
     // Nothing found is not a failure, so it offers no retry.
     expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
@@ -85,7 +86,7 @@ describe("MovieSearch search feedback", () => {
     });
     render(<MovieSearch onAddMovie={vi.fn()} includeComment={false} />);
 
-    fireEvent.change(screen.getByPlaceholderText("Search movies..."), {
+    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
       target: { value: "Movie A" },
     });
     await screen.findByText("Movie A");

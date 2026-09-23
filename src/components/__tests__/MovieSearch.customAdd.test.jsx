@@ -3,6 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import MovieSearch from "../MovieSearch";
 
 vi.mock("../../lib/tmdbApi", () => ({
+  searchTmdbPeople: vi.fn(async () => ({ people: [] })),
   searchTmdbMovies: vi.fn(async () => ({ results: [] })),
   getTmdbMovieDetails: vi.fn(async () => ({})),
 }));
@@ -16,7 +17,7 @@ describe("MovieSearch custom add", () => {
     const onAddMovie = vi.fn(async () => {});
     render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={[]} />);
 
-    const input = screen.getByPlaceholderText("Search movies...");
+    const input = screen.getByPlaceholderText("Movie title or person");
     fireEvent.change(input, { target: { value: "Wildcard" } });
 
     const addCustomButton = await screen.findByRole("button", { name: /add "wildcard"/i });
