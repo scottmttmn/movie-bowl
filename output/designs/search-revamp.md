@@ -143,10 +143,12 @@ September 15, 2026:
   Discover's `with_crew` cannot stand in for the directing check, because it
   does not specify the person's job.
 
-The two searches are one request from the browser: the server runs title and
-people together and returns both groups, so the client still makes a single
-call per settled query. Each group reports its own failure, so a people lookup
-that fails leaves the movie results exactly as they would have been.
+The two searches are two independent requests from the browser, fired
+together for each settled query and both served by the existing search route.
+Title search is the call it is today and never waits for people: a combined
+response could isolate a people failure but not a slow one, and would make
+every title search depend on it. The people call has its own short timeout; a
+people lookup that fails or times out simply leaves no People row.
 
 A person's movies are feature films only, excluding TV, shorts and uncredited
 appearances, and sorted popular first, then release date and movie ID as
@@ -162,17 +164,22 @@ later-page error keep the existing rows and offer retry. Apply one explicit,
 consistent adult-content exclusion, including to credit-derived movies. Keep
 movies with missing dates or posters.
 
-The credits lookup and its feature-film and role rules are the same ones a
-starter-pack filmography uses (`starter-packs.md`). Whichever ships first
-builds them once for both.
+The credits lookup is shared with starter-pack filmographies
+(`starter-packs.md`), but only its base: fetching a person's movie credits,
+deduplicating them by movie, and classifying Directing by `job`. The filters on
+top are each product's own. Search shows every feature credit in the chosen
+role, because the movie someone half-remembers may be a small part. A pack
+also keeps only principal roles above a minimum vote count, because a pack is
+a curated selection and cameos would fill it. Whichever ships first builds the
+base once; neither inherits the other's filters.
 
 ## Engineering boundaries
 
 1. Keep `searchTmdbMovies(query)` backward compatible. Add typed-result helper
    contracts for people and movies; movie results keep the shape used today
    for hydration and adding. People can never reach add handlers.
-2. Extend the existing search handler with validated actions -- combined
-   title-and-people search, and a person's movies -- rather than adding a
+2. Extend the existing search handler with validated actions -- title
+   search, people search, and a person's movies -- rather than adding a
    function: the deployment is at Vercel Hobby's 12-function limit. Validate
    actions, positive IDs, bounded query length and page values; never accept
    an arbitrary upstream URL.
@@ -213,7 +220,7 @@ and identity, not volatile popularity positions.
 
 ### 2. Implement
 
-The combined search, the People row and its match rule, a person's movies with
+The parallel title and people searches, the People row and its match rule, a person's movies with
 the role switch, pagination, the request lifecycle, and preserved discovery
 context. Gate acceptance on correct role membership, on title queries looking
 exactly as they do today, and on unchanged add behavior across every shared
@@ -233,9 +240,9 @@ consumer.
 - Browser checks: phone and desktop, keyboard-only navigation, a narrow
   viewport with the keyboard open, voice input, slow or offline requests, and
   Load more.
-- Request budget: one combined lookup per settled query (two TMDB calls made
-  server-side), one credits request after choosing a person, and bounded
-  visible-row provider enrichment. Title search latency should stay comparable
+- Request budget: two parallel lookups per settled query (title and people),
+  one credits request after choosing a person, and bounded visible-row
+  provider enrichment. Title search latency should stay comparable
   to today's.
 
 Before release, check that people find a known title as quickly as before and
