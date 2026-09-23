@@ -288,9 +288,12 @@ holds only what is ours, and TMDB is asked at run time.
   hand is plainly ordinary use. Movie Bowl is also non-commercial. So packs
   ship without asking TMDB first; the rules above -- nothing curated stored,
   every title resolved live -- are what the decision rests on, and a change
-  that stores a resolved pack reopens it. The question was put to TMDB on its
-  forum anyway, the same day; nothing waits on the reply, but a no from TMDB
-  overrides this decision.
+  that stores a resolved pack reopens it. **TMDB confirmed it the same day**:
+  asked on its forum with the mechanics above, TMDB staff answered that this
+  "would not count as derivative", on the one condition that TMDB is
+  attributed as the source of the data. The About page already carries that
+  notice; the pack surfaces in Bowl Settings should name TMDB as where the
+  titles come from too.
 
 Custom-title rules do not apply: pack titles are real TMDB ids, so the
 `Number(tmdb_id) > 0` guard passes and the negative synthetic id convention is
