@@ -75,7 +75,10 @@ export function getTrailerEmbedUrl(trailer) {
   return url.toString();
 }
 
-export function getAutoplayTrailerUrl(trailer, { preroll = false, inline = false } = {}) {
+export function getAutoplayTrailerUrl(
+  trailer,
+  { preroll = false, inline = false, captions = false } = {}
+) {
   const videoId = getYouTubeVideoId(trailer);
   if (!videoId) return trailer?.embedUrl || "";
 
@@ -101,6 +104,11 @@ export function getAutoplayTrailerUrl(trailer, { preroll = false, inline = false
     url.searchParams.set("disablekb", "1");
     url.searchParams.set("fs", "0");
     url.searchParams.set("iv_load_policy", "3");
+    // Captions off suits the cinema, but it is the viewer's call, not ours:
+    // the setting asks YouTube for them either way. It is a request -- an
+    // account that forces captions on still gets them, and a video with no
+    // track has nothing to show.
+    url.searchParams.set("cc_load_policy", captions ? "1" : "0");
   }
   return url.toString();
 }

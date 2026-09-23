@@ -23,6 +23,7 @@ export default function TvTheaterPreroll({
   queue,
   featureTitle,
   featureServiceName = null,
+  captions = false,
   onFinish,
   onComplete = onFinish,
 }) {
@@ -52,8 +53,8 @@ export default function TvTheaterPreroll({
   // The queue is fixed for the life of the overlay, so the iframe keeps one
   // src for the whole sequence and later previews arrive via loadVideoById.
   const firstTrailerUrl = useMemo(
-    () => getAutoplayTrailerUrl(queue[0]?.trailer, { preroll: true }),
-    [queue]
+    () => getAutoplayTrailerUrl(queue[0]?.trailer, { preroll: true, captions }),
+    [queue, captions]
   );
 
   useEffect(() => {

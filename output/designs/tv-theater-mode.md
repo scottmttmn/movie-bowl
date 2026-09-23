@@ -223,8 +223,11 @@ not fun, stop here — every later phase is handoff work that stands on its own.
 Everything in this section is implemented. `TvTheaterPreroll` draws no controls,
 binds Select to pause with a `Paused` indicator and nothing else on screen, and
 `getAutoplayTrailerUrl` sets `controls=0`, `disablekb=1`, `fs=0` and
-`iv_load_policy=3` behind its `preroll` option. Captions (`cc_load_policy`)
-remain the one option not taken, and are still a `TODO.md` item.
+`iv_load_policy=3` behind its `preroll` option. Captions followed on September
+23, 2026: `cc_load_policy` rides the same option, `0` by default and `1` for an
+account that turns on **Captions on previews** in Settings. It is an account
+setting rather than a device override, because a viewer who needs captions
+needs them on every screen.
 
 The pre-roll plays well on a real television, and the controls are the part that
 breaks the spell. "Next preview" and "Skip to movie" should both go: you cannot

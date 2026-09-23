@@ -526,6 +526,7 @@ export default function TvSoloDrawScreen({ userId }) {
             queue={trailerQueue}
             featureTitle={drawnMovie.title}
             featureServiceName={autoStartCandidate?.serviceName}
+            captions={Boolean(settings.prerollCaptionsEnabled)}
             onFinish={endTheater}
             onComplete={completeTheater}
           />

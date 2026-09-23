@@ -15,6 +15,7 @@ const mocks = vi.hoisted(() => ({
       useStreamingRank: true,
       enablePreferredWebLaunch: false,
       theaterModeEnabled: false,
+      prerollCaptionsEnabled: false,
       theaterTrailerCount: 3,
       selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
       includeUnknownRatings: true,
@@ -74,6 +75,7 @@ describe("UserSettings", () => {
       useStreamingRank: true,
       enablePreferredWebLaunch: false,
       theaterModeEnabled: false,
+      prerollCaptionsEnabled: false,
       theaterTrailerCount: 3,
       selectedRatings: ["G", "PG", "PG-13", "R", "NC-17"],
       includeUnknownRatings: true,
@@ -414,8 +416,32 @@ describe("UserSettings", () => {
     expect(mocks.hook.saveDefaultDrawSettings).toHaveBeenCalledExactlyOnceWith({
       enablePreferredWebLaunch: true,
       theaterModeEnabled: true,
+      prerollCaptionsEnabled: false,
     });
     expect(mocks.hook.saveStreamingServices).not.toHaveBeenCalled();
+  });
+
+  it("offers captions on previews, off, and saves the choice", async () => {
+    vi.useFakeTimers();
+    const { rerender } = renderSettings();
+    const toggle = screen.getByLabelText(/show captions on previews/i);
+    expect(toggle).not.toBeChecked();
+
+    fireEvent.click(toggle);
+    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ prerollCaptionsEnabled: true })
+    );
+    mocks.hook.defaultDrawSettings = {
+      ...mocks.hook.defaultDrawSettings,
+      prerollCaptionsEnabled: true,
+    };
+    rerender(<UserSettings />);
+    await settleAutosave();
+    expect(mocks.hook.saveDefaultDrawSettings).toHaveBeenCalledExactlyOnceWith({
+      enablePreferredWebLaunch: false,
+      theaterModeEnabled: false,
+      prerollCaptionsEnabled: true,
+    });
   });
 
   it("shows an empty state when search finds no services", () => {

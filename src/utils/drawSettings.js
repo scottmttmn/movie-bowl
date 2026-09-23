@@ -39,6 +39,7 @@ export const DEFAULT_DRAW_SETTINGS = {
   useStreamingRank: true,
   enablePreferredWebLaunch: false,
   theaterModeEnabled: false,
+  prerollCaptionsEnabled: false,
   selectedRatings: MPAA_RATING_OPTIONS,
   includeUnknownRatings: true,
   selectedGenres: null,
@@ -112,6 +113,7 @@ export function normalizeDefaultDrawSettings(value) {
         ? DEFAULT_DRAW_SETTINGS.enablePreferredWebLaunch
         : Boolean(source.enablePreferredWebLaunch),
     theaterModeEnabled: Boolean(source.theaterModeEnabled),
+    prerollCaptionsEnabled: Boolean(source.prerollCaptionsEnabled),
     selectedRatings: normalizeSelectedRatings(source.selectedRatings),
     includeUnknownRatings:
       source.includeUnknownRatings === undefined

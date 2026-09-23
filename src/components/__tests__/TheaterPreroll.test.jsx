@@ -72,6 +72,19 @@ describe("TheaterPreroll", () => {
     expect(src).toContain("disablekb=1");
   });
 
+  it("asks YouTube to hide captions unless the viewer wants them", async () => {
+    await renderPreroll();
+    expect(screen.getByTitle("Movie Bowl previews").getAttribute("src")).toContain(
+      "cc_load_policy=0"
+    );
+    cleanup();
+
+    await renderPreroll({ captions: true });
+    expect(screen.getByTitle("Movie Bowl previews").getAttribute("src")).toContain(
+      "cc_load_policy=1"
+    );
+  });
+
   it("moves to the next preview when one ends", async () => {
     await renderPreroll();
     ready();
