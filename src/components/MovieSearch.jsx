@@ -72,6 +72,10 @@ export default function MovieSearch({
     const [isVoiceSupported, setIsVoiceSupported] = useState(false);
     const [isListening, setIsListening] = useState(false);
     const [voiceStatusMessage, setVoiceStatusMessage] = useState("");
+    // What the recognizer has heard so far, shown in the field while listening.
+    // It stays out of searchTerm until listening ends, so the words appearing
+    // never start a search of their own.
+    const [voiceTranscript, setVoiceTranscript] = useState("");
     const [highlightedIndex, setHighlightedIndex] = useState(0);
     const [providersByMovieId, setProvidersByMovieId] = useState({});
     const [detailMovie, setDetailMovie] = useState(null);
@@ -88,6 +92,7 @@ export default function MovieSearch({
     const isMountedRef = useRef(true);
     const suppressNextAutoSearchRef = useRef(false);
     const finalTranscriptRef = useRef("");
+    const heardTranscriptRef = useRef("");
     const [focusRequest, setFocusRequest] = useState(0);
     const handledFocusRequest = useRef(0);
 
@@ -261,6 +266,8 @@ export default function MovieSearch({
         setVoiceError(null);
         setVoiceStatusMessage("");
         finalTranscriptRef.current = "";
+        heardTranscriptRef.current = "";
+        setVoiceTranscript("");
         suppressNextAutoSearchRef.current = false;
         setDetailActionError("");
         setDetailMovie(null);
@@ -421,45 +428,48 @@ export default function MovieSearch({
         setIsVoiceSupported(true);
         const recognition = new SpeechRecognitionCtor();
         recognition.lang = typeof navigator !== "undefined" && navigator.language ? navigator.language : "en-US";
-        recognition.interimResults = false;
+        // Interim results are what let the field fill in as someone speaks.
+        // Without them nothing appears until they stop, and there is no way to
+        // tell whether they were heard at all.
+        recognition.interimResults = true;
         recognition.maxAlternatives = 1;
 
         recognition.onstart = () => {
             if (!isMountedRef.current) return;
             setVoiceError(null);
             setIsListening(true);
-            setVoiceStatusMessage("Listening for a movie title…");
+            setVoiceStatusMessage("Say a movie title — pause to search.");
             finalTranscriptRef.current = "";
+            heardTranscriptRef.current = "";
+            setVoiceTranscript("");
         };
 
         recognition.onresult = (event) => {
             if (!isMountedRef.current) return;
-            const transcript = Array.from(event.results || [])
-                .filter((result) => result?.isFinal)
-                .map((result) => result[0]?.transcript || "")
+            const results = Array.from(event.results || []);
+            const joinTranscripts = (list) => list
+                .map((result) => result?.[0]?.transcript || "")
                 .join(" ")
+                .replace(/\s+/g, " ")
                 .trim();
+            const finalTranscript = joinTranscripts(results.filter((result) => result?.isFinal));
+            const heardTranscript = joinTranscripts(results);
 
-            if (transcript) {
-                finalTranscriptRef.current = transcript;
-                suppressNextAutoSearchRef.current = true;
-                setSearchTerm(transcript);
-                setSearchResults([]);
-                setProvidersByMovieId({});
-                setHighlightedIndex(0);
-                setSearchError(null);
-                setLoadMoreError(null);
-                setSearchPage(1);
-                setTotalPages(0);
-                setTotalResults(0);
-                latestRequestRef.current += 1;
-            }
+            if (finalTranscript) finalTranscriptRef.current = finalTranscript;
+            heardTranscriptRef.current = heardTranscript;
+            setVoiceTranscript(heardTranscript);
         };
 
         recognition.onerror = (event) => {
             if (!isMountedRef.current) return;
             const errorCode = String(event?.error || "");
             if (errorCode === "aborted") return;
+            // Browsers follow an error with onend, but the field is read-only
+            // while listening, so it must not depend on that to be typable again.
+            setIsListening(false);
+            setVoiceTranscript("");
+            finalTranscriptRef.current = "";
+            heardTranscriptRef.current = "";
             if (errorCode === "not-allowed" || errorCode === "service-not-allowed") {
                 setVoiceError("Microphone access was blocked. You can still type your search.");
                 return;
@@ -470,10 +480,25 @@ export default function MovieSearch({
         recognition.onend = () => {
             if (!isMountedRef.current) return;
             setIsListening(false);
-            const transcript = finalTranscriptRef.current.trim();
+            setVoiceTranscript("");
+            // A recognizer that stops mid-word can end without marking anything
+            // final; what it had heard is still what the person said.
+            const transcript = (finalTranscriptRef.current || heardTranscriptRef.current).trim();
+            finalTranscriptRef.current = "";
+            heardTranscriptRef.current = "";
             if (transcript) {
+                suppressNextAutoSearchRef.current = true;
+                latestRequestRef.current += 1;
+                setSearchTerm(transcript);
+                setSearchResults([]);
+                setProvidersByMovieId({});
+                setHighlightedIndex(0);
+                setSearchError(null);
+                setLoadMoreError(null);
+                setSearchPage(1);
+                setTotalPages(0);
+                setTotalResults(0);
                 setVoiceStatusMessage(`Searching for "${transcript}"...`);
-                finalTranscriptRef.current = "";
                 handleSearch(transcript);
             } else {
                 setVoiceStatusMessage("");
@@ -518,7 +543,7 @@ export default function MovieSearch({
           <div className={inlineDetails ? "bowl-add-search-form" : undefined} hidden={inlineDetails && Boolean(detailMovie)}>
             <div className="sticky top-0 z-10 -mx-1 bg-slate-900/95 px-1 pb-3 backdrop-blur">
                 {searchHeader}
-                <div className="flex items-start gap-2">
+                <div className="relative">
                     <input
                         ref={inputRef}
                         disabled={disabled}
@@ -526,9 +551,10 @@ export default function MovieSearch({
                         id="movie-search-input"
                         name="movie_search"
                         type="text"
-                        value={searchTerm}
-                        placeholder="Search movies..."
-                        className="input-field flex-1"
+                        value={isListening ? voiceTranscript : searchTerm}
+                        readOnly={isListening}
+                        placeholder={isListening ? "Listening…" : "Search movies..."}
+                        className={`input-field w-full ${isVoiceSupported ? "pr-[5.5rem]" : ""} ${isListening ? "border-rose-500 bg-rose-950/30 ring-2 ring-rose-500/20" : ""}`}
                         onFocus={onSearchFocus}
                         onChange={(e) => {
                             const value = e.target.value;
@@ -560,27 +586,32 @@ export default function MovieSearch({
                         aria-owns="movie-search-listbox"
                     />
                     {isVoiceSupported && (
+                        // Inside the field, so listening changes the field itself
+                        // rather than adding a second control beside it.
                         <button
                             type="button"
                             disabled={disabled}
                             onClick={toggleVoiceInput}
-                            className={`icon-btn h-11 w-11 flex-shrink-0 ${isListening ? "animate-pulse border-rose-500 bg-rose-950/50 text-rose-200 shadow-lg shadow-rose-950/30" : ""}`}
+                            className={`absolute right-1 top-1/2 flex h-9 min-w-9 -translate-y-1/2 items-center justify-center rounded-lg px-2 text-sm font-semibold transition ${isListening ? "bg-rose-500/25 text-rose-100 hover:bg-rose-500/35" : "text-slate-300 hover:bg-slate-700/60"}`}
                             aria-label={isListening ? "Stop voice input" : "Start voice input"}
                             aria-pressed={isListening}
                         >
-                            <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                                <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 1 1-6 0V6a3 3 0 0 1 3-3Z" />
-                                <path d="M19 11a7 7 0 0 1-14 0" />
-                                <path d="M12 18v3" />
-                            </svg>
+                            {isListening ? (
+                                <span aria-hidden="true">Done</span>
+                            ) : (
+                                <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" aria-hidden="true">
+                                    <path d="M12 3a3 3 0 0 1 3 3v6a3 3 0 1 1-6 0V6a3 3 0 0 1 3-3Z" />
+                                    <path d="M19 11a7 7 0 0 1-14 0" />
+                                    <path d="M12 18v3" />
+                                </svg>
+                            )}
                         </button>
                     )}
                 </div>
                 {isListening ? (
-                    <div className="mt-2 flex items-center gap-2 text-sm text-rose-300">
-                        <span className="h-2.5 w-2.5 rounded-full bg-rose-400 animate-ping" aria-hidden="true" />
-                        <span>{voiceStatusMessage || "Listening… tap the mic again to stop."}</span>
-                    </div>
+                    <p className="mt-2 text-sm text-rose-300" role="status">
+                        {voiceStatusMessage || "Listening… tap Done to stop."}
+                    </p>
                 ) : isSearching ? (
                     <p className="mt-2 flex items-center gap-2 text-sm text-slate-300" role="status">
                         <span
