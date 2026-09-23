@@ -752,7 +752,7 @@ describe("BowlSettings integration", () => {
     });
   });
 
-  it("prevents a member from deleting another member's add link", async () => {
+  it("offers a member Delete only on the add links they created", async () => {
     mocks.state.authUser = { id: "member-1", email: "member@example.com" };
     mocks.state.addLinks = [
       {
@@ -766,6 +766,53 @@ describe("BowlSettings integration", () => {
         created_at: "2026-04-06T00:00:00.000Z",
         created_by: "owner-1",
       },
+      {
+        id: "link-2",
+        bowl_id: "bowl-1",
+        token: "token-2",
+        max_adds: 5,
+        adds_used: 0,
+        default_contributor_name: null,
+        revoked_at: null,
+        created_at: "2026-04-06T00:00:00.000Z",
+        created_by: "member-1",
+      },
+    ];
+
+    renderSettings();
+
+    await waitFor(() => {
+      expect(screen.getByText(/5 of 5 adds remaining/i)).toBeInTheDocument();
+    });
+
+    // The owner's link keeps its copy control but loses the Delete RLS would refuse.
+    expect(screen.getAllByRole("button", { name: /^copy add link$/i })).toHaveLength(2);
+    expect(screen.getAllByRole("button", { name: /^delete$/i })).toHaveLength(1);
+
+    fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
+
+    await waitFor(() => {
+      expect(screen.getByText(/add link deleted\./i)).toBeInTheDocument();
+    });
+
+    expect(mocks.state.addLinks.map((link) => link.id)).toEqual(["link-1"]);
+    expect(screen.getByText(/3 of 3 adds remaining/i)).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^delete$/i })).not.toBeInTheDocument();
+  });
+
+  it("offers the owner Delete on add links a member created", async () => {
+    mocks.state.addLinks = [
+      {
+        id: "link-1",
+        bowl_id: "bowl-1",
+        token: "token-1",
+        max_adds: 3,
+        adds_used: 0,
+        default_contributor_name: null,
+        revoked_at: null,
+        created_at: "2026-04-06T00:00:00.000Z",
+        created_by: "member-1",
+      },
     ];
 
     renderSettings();
@@ -777,10 +824,8 @@ describe("BowlSettings integration", () => {
     fireEvent.click(screen.getByRole("button", { name: /^delete$/i }));
 
     await waitFor(() => {
-      expect(screen.getByText(/failed to delete add link\./i)).toBeInTheDocument();
+      expect(screen.getByText(/no add links yet\./i)).toBeInTheDocument();
     });
-
-    expect(screen.getByText(/3 of 3 adds remaining/i)).toBeInTheDocument();
   });
 
   it("allows deleting an exhausted add link", async () => {
