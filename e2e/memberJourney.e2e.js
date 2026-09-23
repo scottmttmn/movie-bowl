@@ -65,3 +65,75 @@ test("a member can create a bowl, add and draw a title, see history, and return 
   expect(backend.state.bowl_draw_events[0].returned_at).not.toBeNull();
   expect(backend.state.user_watch_events).toHaveLength(0);
 });
+
+test("an owner removes a draw nobody watched from the bowl's history, and personal history keeps it", async ({
+  page,
+  backend,
+}) => {
+  const drawnAt = new Date(Date.now() - 3 * 24 * 60 * 60 * 1000).toISOString();
+  backend.state.bowls.push({
+    id: "bowl-owner-history",
+    name: "Owner History Bowl",
+    owner_id: "user-smoke",
+    draw_access_mode: "all_members",
+    draw_method: "person_first",
+    created_at: "2026-09-01T12:00:00.000Z",
+  });
+  backend.state.bowl_members.push({
+    id: "member-owner-history",
+    bowl_id: "bowl-owner-history",
+    user_id: "user-smoke",
+    role: "Owner",
+  });
+  backend.state.bowl_movies.push({
+    id: "movie-unwatched",
+    bowl_id: "bowl-owner-history",
+    tmdb_id: -301,
+    title: "Nobody Watched This",
+    added_by: "user-smoke",
+    added_at: drawnAt,
+    drawn_at: drawnAt,
+    drawn_by: "user-smoke",
+  });
+  backend.state.bowl_draw_events.push({
+    id: "draw-unwatched",
+    bowl_id: "bowl-owner-history",
+    source_bowl_movie_id: "movie-unwatched",
+    tmdb_id: -301,
+    title: "Nobody Watched This",
+    added_by: "user-smoke",
+    drawn_at: drawnAt,
+    returned_at: null,
+  });
+  backend.state.user_watch_events.push({
+    id: "watch-unwatched",
+    user_id: "user-smoke",
+    source_draw_event_id: "draw-unwatched",
+    source_kind: "bowl_draw",
+    title: "Nobody Watched This",
+    watched_on: drawnAt.slice(0, 10),
+  });
+
+  await backend.authenticate(page);
+  await page.goto("/bowl/bowl-owner-history");
+  await expect(page.getByText("1 watched", { exact: true })).toBeVisible();
+  await page.getByRole("button", { name: "Show", exact: true }).click();
+  await page.getByRole("button", { name: "Nobody Watched This" }).click();
+
+  // Past the undo window, so putting it back is not offered; removing it is.
+  await expect(page.getByRole("button", { name: "Move to Bowl" })).toHaveCount(0);
+  await page
+    .getByRole("button", { name: "Remove \"Nobody Watched This\" from this bowl's watched history" })
+    .click();
+  const confirm = page.getByRole("dialog", { name: "Remove from watched history?" });
+  await expect(confirm).toBeVisible();
+  await confirm.getByRole("button", { name: "Remove from watched" }).click();
+
+  await expect(page.getByText("0 watched", { exact: true })).toBeVisible();
+  expect(backend.state.bowl_draw_events[0].removed_at).not.toBeNull();
+  expect(backend.state.bowl_draw_events[0].returned_at).toBeNull();
+  expect(backend.state.user_watch_events).toHaveLength(1);
+
+  await page.goto("/watch-list");
+  await expect(page.getByRole("heading", { name: "Nobody Watched This" })).toBeVisible();
+});

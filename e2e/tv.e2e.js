@@ -583,6 +583,9 @@ test("TV Watch History opens details and applies the bounded return cleanup", as
     page.getByText(/removes this pick from everyone's Watch History/i)
   ).toBeVisible();
   await expect(page.locator(".tv-history-detail-page .tv-kept-badge")).toHaveCount(0);
+  // Signed in as the bowl's owner, and still no way to erase the bowl's history:
+  // whoever holds the remote is not necessarily the owner.
+  await expect(page.getByRole("button", { name: /remove/i })).toHaveCount(0);
   const detailClose = page.getByRole("button", { name: "Close", exact: true });
   await expect(detailClose).toBeFocused();
   expect(backend.state.bowl_draw_events[0].returned_at).toBeNull();

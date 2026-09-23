@@ -66,6 +66,7 @@ export default function BowlDashboard() {
       handleSetMoviePin,
       handleDeleteMovie,
       handleReaddMovie,
+      handleRemoveFromWatched,
       filterMetadataFetchers,
     } = useBowl(bowlId, { drawMethod });
 
@@ -110,6 +111,8 @@ export default function BowlDashboard() {
     const [myMoviesErrorMessage, setMyMoviesErrorMessage] = useState(null);
     const [readdErrorMessage, setReaddErrorMessage] = useState(null);
     const [pendingReaddMovie, setPendingReaddMovie] = useState(null);
+    const [pendingRemoveWatchedMovie, setPendingRemoveWatchedMovie] = useState(null);
+    const [isRemovingWatched, setIsRemovingWatched] = useState(false);
     const [isReadding, setIsReadding] = useState(false);
     const [didApplyDefaultDrawSettings, setDidApplyDefaultDrawSettings] = useState(false);
     const {
@@ -1641,7 +1644,22 @@ return (
                 userStreamingServices={userStreamingServices}
                 showWhereToWatch={selectedDetailContext !== "watched"}
                 onDeleteMovie={
-                  selectedDetailContext === "myAdds" ? confirmAndDeleteMovie : null
+                  selectedDetailContext === "myAdds"
+                    ? confirmAndDeleteMovie
+                    : selectedDetailContext === "watched" && isCurrentUserOwner
+                      ? (movie) => {
+                          setReaddErrorMessage(null);
+                          setSelectedDetailMovie(null);
+                          setSelectedDetailContext(null);
+                          setPendingRemoveWatchedMovie(movie);
+                        }
+                      : null
+                }
+                deleteActionLabel={selectedDetailContext === "watched" ? "Remove from watched" : undefined}
+                deleteActionAriaLabel={
+                  selectedDetailContext === "watched"
+                    ? `Remove "${selectedDetailMovie.title}" from this bowl's watched history`
+                    : null
                 }
                 pinDisabledReason={detailPinDisabledReason}
                 onTogglePin={canManageDetailPin
@@ -1750,6 +1768,57 @@ return (
                       disabled={isReadding}
                     >
                       {isReadding ? "Putting movie back..." : "Put movie back in bowl"}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            )}
+            {pendingRemoveWatchedMovie && (
+              <div className="modal-overlay z-[70]" role="presentation">
+                <div className="modal-surface max-w-md p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="remove-watched-confirm-title">
+                  <h3 id="remove-watched-confirm-title" className="text-lg font-semibold text-slate-100">
+                    Remove from watched history?
+                  </h3>
+                  <div className="mt-2 space-y-2 text-sm text-slate-400">
+                    <p>
+                      "{pendingRemoveWatchedMovie.title}" leaves this bowl's watched list for
+                      everyone. It does not go back in the bowl.
+                    </p>
+                    <p>
+                      Each person's own Watch History keeps it. Anyone who didn't watch it can
+                      remove their entry there.
+                    </p>
+                  </div>
+                  <div className="mt-4 flex items-center justify-end gap-2">
+                    <button
+                      type="button"
+                      onClick={() => setPendingRemoveWatchedMovie(null)}
+                      className="btn btn-secondary"
+                      disabled={isRemovingWatched}
+                    >
+                      Close
+                    </button>
+                    <button
+                      type="button"
+                      onClick={async () => {
+                        if (isRemovingWatched) return;
+                        setIsRemovingWatched(true);
+                        const drawEventId =
+                          pendingRemoveWatchedMovie?.drawEventId ?? pendingRemoveWatchedMovie?.id;
+                        const result = await handleRemoveFromWatched(drawEventId);
+                        setIsRemovingWatched(false);
+                        setPendingRemoveWatchedMovie(null);
+                        if (!result?.ok) {
+                          setReaddErrorMessage(
+                            result?.message ||
+                              "Could not remove this movie from the watched history. Please try again."
+                          );
+                        }
+                      }}
+                      className="btn btn-danger"
+                      disabled={isRemovingWatched}
+                    >
+                      {isRemovingWatched ? "Removing..." : "Remove from watched"}
                     </button>
                   </div>
                 </div>

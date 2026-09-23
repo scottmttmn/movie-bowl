@@ -533,3 +533,26 @@ and custom-entry behavior are all untouched.
 - The database migration precedes the frontend rollout.
 
 No remaining product decision blocks implementation.
+
+## Amendment — September 23, 2026: the owner removes a draw nobody watched
+
+The owner-level delete this document deferred now exists. On the web, a bowl
+owner opening a watched movie sees **Remove from watched**, which calls
+`remove_bowl_draw_from_history` after a confirmation. It is the correction for a
+pick nobody watched and nobody put back inside the two hours.
+
+- **Hidden, not deleted.** It sets `removed_at` / `removed_by` on the draw event
+  and every watched list filters it out beside `returned_at`. The draw stays,
+  so rotation still counts the contributor's turn, and a removed draw can no
+  longer be put back.
+- **Personal history is untouched.** The closed decision above still holds:
+  after the window, nobody's history changes on someone else's say-so. Each
+  participant deletes their own entry if they did not watch it either.
+- **Not on the television.** The TV detail stays read-only apart from launch
+  and the in-window return. A television is shared by whoever holds the remote
+  but is usually signed in as the owner, so this is a product rule rather than a
+  permission the database could enforce; owner-only is what the database
+  enforces.
+- **Idempotent.** Removing an already-removed draw succeeds without change, so a
+  retry after a timeout is safe.
+

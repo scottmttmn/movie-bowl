@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => {
     bowlData: { remaining: [], watched: [] },
     streamingServices: [],
     locationHash: "",
+    handleRemoveFromWatched: vi.fn(async () => ({ ok: true })),
   };
 
   const supabase = {
@@ -63,6 +64,7 @@ vi.mock("../../hooks/useBowl", () => ({
     handleDraw: vi.fn(),
     handleDeleteMovie: vi.fn(),
     handleReaddMovie: vi.fn(),
+    handleRemoveFromWatched: mocks.state.handleRemoveFromWatched,
     handleAddMovie: vi.fn(),
   }),
 }));
@@ -129,6 +131,10 @@ async function openWatchedDetail() {
 describe("BowlDashboard watched detail", () => {
   beforeEach(() => {
     mocks.state.navigate.mockReset();
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1" };
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.handleRemoveFromWatched.mockReset();
+    mocks.state.handleRemoveFromWatched.mockResolvedValue({ ok: true });
     mocks.state.streamingServices = ["Netflix"];
     mocks.state.bowlData = {
       remaining: [],
@@ -167,5 +173,67 @@ describe("BowlDashboard watched detail", () => {
 
     expect(getTmdbMovieDetails).toHaveBeenCalledWith(101);
     expect(fetchStreamingProviders).not.toHaveBeenCalled();
+  });
+
+  it("lets the owner remove a watched movie after confirming what it does", async () => {
+    await openWatchedDetail();
+
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: 'Remove "Movie A" from this bowl\'s watched history',
+      })
+    );
+    const confirm = screen.getByRole("dialog", { name: "Remove from watched history?" });
+    expect(confirm).toHaveTextContent("It does not go back in the bowl.");
+    expect(confirm).toHaveTextContent("Each person's own Watch History keeps it.");
+    expect(mocks.state.handleRemoveFromWatched).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove from watched" }));
+
+    await waitFor(() => expect(mocks.state.handleRemoveFromWatched).toHaveBeenCalledWith("d1"));
+    await waitFor(() =>
+      expect(screen.queryByRole("dialog", { name: "Remove from watched history?" })).toBeNull()
+    );
+  });
+
+  it("closes the confirmation without removing anything", async () => {
+    await openWatchedDetail();
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: 'Remove "Movie A" from this bowl\'s watched history',
+      })
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+
+    expect(screen.queryByRole("dialog", { name: "Remove from watched history?" })).toBeNull();
+    expect(mocks.state.handleRemoveFromWatched).not.toHaveBeenCalled();
+  });
+
+  it("shows why a removal failed beside the watched list", async () => {
+    mocks.state.handleRemoveFromWatched.mockResolvedValue({
+      ok: false,
+      message: "Only the bowl owner can remove a movie from its watched history.",
+    });
+    await openWatchedDetail();
+    fireEvent.click(
+      await screen.findByRole("button", {
+        name: 'Remove "Movie A" from this bowl\'s watched history',
+      })
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Remove from watched" }));
+
+    expect(
+      await screen.findByText("Only the bowl owner can remove a movie from its watched history.")
+    ).toBeInTheDocument();
+  });
+
+  it("offers a member no way to remove a watched movie", async () => {
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u2" };
+    mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
+    await openWatchedDetail();
+
+    expect(screen.getByRole("heading", { name: "Movie A", level: 2 })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /remove/i })).toBeNull();
+    expect(screen.queryByRole("button", { name: /^delete$/i })).toBeNull();
   });
 });
