@@ -72,8 +72,11 @@ describe("MovieSearch search feedback", () => {
       target: { value: "Nothing" },
     });
 
-    expect(await screen.findByText(/no matching movies found/i)).toBeInTheDocument();
+    expect(await screen.findByText(/no movie matches/i)).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /add "nothing"/i })).toBeInTheDocument();
+    // Nothing found is not a failure, so it offers no retry.
+    expect(screen.queryByRole("button", { name: "Try again" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("leaves the comment out of a movie's details when the host form opts out", async () => {
