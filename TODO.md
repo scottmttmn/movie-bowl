@@ -138,17 +138,15 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   Plan, not implementation: `output/designs/guest-night.md`.
 
 - Starter packs: let an owner pour a named curated list into a bowl so a new
-  bowl can reach its first draw without six people running six searches. The
-  pack enters as its own contributor -- `added_by_name` already makes a non-user
-  bucket a first-class contributor -- so it holds one share of the odds no
-  matter how many titles it carries; attributing it to the installing member
-  would drown `title_first` bowls and eat that member's rotation turn. Install a
-  sample of 8-10 rather than the whole list, and skip the provider/metadata warm
-  the way public add links already do: the Watchmode budget default sits exactly
-  at the free plan's ceiling, and the daily cron's 300-title allowance is spent
-  on distinct titles globally. Needs a `SECURITY DEFINER` install/remove pair
-  with pgTAP coverage, and an answer on whether a pack takes a turn in rotation.
-  Plan, not implementation: `output/designs/starter-packs.md`.
+  bowl can reach its first draw without six people running six searches.
+  **Design settled September 23, 2026; not built.** The pack's titles are
+  shared slips in every person's pile, so it never takes a turn, behaves like
+  any title under `title_first`, and fades as people add their own. One pack
+  per bowl, at most 15 undrawn titles from it, owner-only install and removal.
+  Adding a pack title claims it -- which is also how you pin one -- and rotation
+  records whose turn a pack draw spent. First packs: filmographies by decade and
+  Best Picture winners by decade. Installs skip the provider/metadata warm the
+  way public add links do. See `output/designs/starter-packs.md`.
 
 - Theater mode on the web draw: the trailer pre-roll runs only on `/tv`, but the
   toggle for it lives in the web app's "TV & playback" settings section -- so a
