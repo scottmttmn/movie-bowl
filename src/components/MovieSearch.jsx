@@ -81,10 +81,8 @@ export default function MovieSearch({
     const isSubmitting = locallyAdding || submissionPending;
     const submittingRef = useRef(false);
     const [commentDraft, setCommentDraft] = useState("");
-    const [isCommentOpen, setIsCommentOpen] = useState(false);
     const inputRef = useRef(null);
     const scrollRef = useRef(null);
-    const commentInputRef = useRef(null);
     const latestRequestRef = useRef(0);
     const recognitionRef = useRef(null);
     const isMountedRef = useRef(true);
@@ -124,6 +122,8 @@ export default function MovieSearch({
         isCustomEntry: true,
     });
 
+    // The comment belongs to one movie, so it is written in that movie's details
+    // and attached only from there. Quick add and custom titles carry none.
     const attachCurrentComment = (movie) =>
         includeComment
             ? { ...movie, note: normalizeMovieNote(commentDraft) }
@@ -277,7 +277,6 @@ export default function MovieSearch({
         setTotalResults(0);
         setHighlightedIndex(0);
         setCommentDraft("");
-        setIsCommentOpen(false);
         setFocusRequest((request) => request + 1);
     };
 
@@ -285,11 +284,10 @@ export default function MovieSearch({
         focusSearch: () => inputRef.current?.focus(),
         blurSearch: () => inputRef.current?.blur(),
         reset: resetAfterSuccessfulAdd,
-        back: () => { setDetailMovie(null); setDetailActionError(""); onDetailChange?.(false); setFocusRequest((request) => request + 1); },
+        back: () => { setDetailMovie(null); setDetailActionError(""); setCommentDraft(""); onDetailChange?.(false); setFocusRequest((request) => request + 1); },
     }));
 
-    const submitDraft = async (movie, detailed = false) => {
-        const draft = attachCurrentComment(movie);
+    const submitDraft = async (draft, detailed = false) => {
         if (onSubmitMovie) return onSubmitMovie({ ...draft, detailsLoaded: detailed });
         const hydrated = detailed || draft.isCustomEntry ? draft : await buildDetailedMovie(draft);
         return onAddMovie({ ...hydrated, note: draft.note });
@@ -404,12 +402,6 @@ export default function MovieSearch({
     useEffect(() => {
         inputRef.current?.focus();
     }, []);
-
-    useEffect(() => {
-        if (isCommentOpen) {
-            commentInputRef.current?.focus();
-        }
-    }, [isCommentOpen]);
 
     useEffect(() => {
         isMountedRef.current = true;
@@ -619,59 +611,6 @@ export default function MovieSearch({
             </div>
 
             <div ref={scrollRef} className={inlineDetails ? "bowl-add-scroll" : undefined} hidden={hideResults || Boolean(alternateBody)}>
-            {includeComment && (
-                <div className="mt-3 rounded-xl border border-slate-700/80 bg-slate-950/35 text-left">
-                    <button
-                        type="button"
-                        className="flex w-full items-center justify-between gap-3 px-3 py-2.5 text-left"
-                        onClick={() => setIsCommentOpen((prev) => !prev)}
-                        aria-expanded={isCommentOpen}
-                        aria-controls="movie-comment-panel"
-                    >
-                        <span className="min-w-0">
-                            <span className="block text-sm font-medium text-slate-100">Comment (optional)</span>
-                            {!isCommentOpen && (
-                                <span className="mt-0.5 block truncate text-xs text-slate-400">
-                                    {commentDraft.trim()
-                                        ? commentDraft.trim()
-                                        : "Add a reminder of why this movie belongs in the bowl."}
-                                </span>
-                            )}
-                        </span>
-                        <span className="flex-shrink-0 text-sm font-medium text-rose-300">
-                            {isCommentOpen ? "Hide" : commentDraft.trim() ? "Edit" : "Add"}
-                        </span>
-                    </button>
-                    {isCommentOpen && (
-                        <div id="movie-comment-panel" className="px-3 pb-3">
-                            <label className="sr-only" htmlFor="movie-comment-input">
-                                Comment (optional)
-                            </label>
-                            <textarea
-                                disabled={isAdding}
-                                ref={commentInputRef}
-                                id="movie-comment-input"
-                                name="movie_comment"
-                                className="input-field min-h-20 resize-y"
-                                value={commentDraft}
-                                maxLength={MAX_MOVIE_NOTE_LENGTH}
-                                placeholder="Recommended by Tim at dinner…"
-                                onChange={(event) => setCommentDraft(event.target.value)}
-                            />
-                            <span className="mt-1 flex items-start justify-between gap-3 text-xs text-slate-400">
-                                <span>Applies to the next movie you add.</span>
-                                <span
-                                    className="shrink-0"
-                                    aria-label={`${commentDraft.length} of ${MAX_MOVIE_NOTE_LENGTH} characters`}
-                                >
-                                    {commentDraft.length}/{MAX_MOVIE_NOTE_LENGTH}
-                                </span>
-                            </span>
-                        </div>
-                    )}
-                </div>
-            )}
-
             <ul
                 id="movie-search-listbox"
                 role="listbox"
@@ -831,6 +770,29 @@ export default function MovieSearch({
                 userStreamingServices={userStreamingServices}
                 detailPrimaryActionLabel={detailActionLabel}
                 detailPrimaryActionError={detailActionError}
+                detailPrimaryActionFields={includeComment ? (
+                  <label className="block text-sm font-medium text-slate-200">
+                    Comment (optional)
+                    <textarea
+                      disabled={isAdding}
+                      name="movie_comment"
+                      className="input-field mt-1.5 min-h-20 resize-y"
+                      value={commentDraft}
+                      maxLength={MAX_MOVIE_NOTE_LENGTH}
+                      placeholder="Recommended by Tim at dinner…"
+                      onChange={(event) => setCommentDraft(event.target.value)}
+                    />
+                    <span className="mt-1 flex items-start justify-between gap-3 text-xs font-normal text-slate-400">
+                      <span>Why this movie belongs in the bowl.</span>
+                      <span
+                        className="shrink-0"
+                        aria-label={`${commentDraft.length} of ${MAX_MOVIE_NOTE_LENGTH} characters`}
+                      >
+                        {commentDraft.length}/{MAX_MOVIE_NOTE_LENGTH}
+                      </span>
+                    </span>
+                  </label>
+                ) : null}
                 isDetailPrimaryActionLoading={isSubmitting}
                 isDetailPrimaryActionDisabled={disabled}
                 onDetailPrimaryAction={async (selectedMovie) => {
@@ -840,7 +802,7 @@ export default function MovieSearch({
                   setDetailActionError("");
                   try {
                     const result = normalizeAddResult(
-                      await submitDraft(selectedMovie, true)
+                      await submitDraft(attachCurrentComment(selectedMovie), true)
                     );
                     if (!result.ok) {
                       if (!onSubmitMovie) setDetailActionError(result.message);
@@ -854,6 +816,7 @@ export default function MovieSearch({
                 }}
                 onClose={() => {
                   setDetailActionError("");
+                  setCommentDraft("");
                   setDetailMovie(null);
                   onDetailChange?.(false);
                   setFocusRequest((request) => request + 1);

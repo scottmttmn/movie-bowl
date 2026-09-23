@@ -1076,6 +1076,9 @@ export default function BowlSettings() {
                         Number(link.max_adds || 0) - Number(link.adds_used || 0)
                       );
                       const linkUrl = buildAddLinkUrl(link.token);
+                      // Mirrors the delete policy: the owner or the link's creator.
+                      // Anyone else would only be refused by RLS after the click.
+                      const canDeleteLink = isOwner || link.created_by === currentUserId;
                       const status = link.revoked_at
                         ? { label: "Revoked", tone: "border-rose-800/70 bg-rose-950/40 text-rose-300" }
                         : remainingAdds === 0
@@ -1104,15 +1107,17 @@ export default function BowlSettings() {
                                 ariaLabel="Copy add link"
                                 onCopied={() => setActionMessage("Add link copied.")}
                               />
-                              <button
-                                type="button"
-                                onClick={() => {
-                                  void handleDeleteAddLink(link.id);
-                                }}
-                                className="btn btn-danger px-3 py-1.5 text-sm"
-                              >
-                                Delete
-                              </button>
+                              {canDeleteLink && (
+                                <button
+                                  type="button"
+                                  onClick={() => {
+                                    void handleDeleteAddLink(link.id);
+                                  }}
+                                  className="btn btn-danger px-3 py-1.5 text-sm"
+                                >
+                                  Delete
+                                </button>
+                              )}
                             </div>
                           </div>
                           <label
