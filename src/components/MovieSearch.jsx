@@ -481,9 +481,15 @@ export default function MovieSearch({
             if (!isMountedRef.current) return;
             setIsListening(false);
             setVoiceTranscript("");
-            // A recognizer that stops mid-word can end without marking anything
-            // final; what it had heard is still what the person said.
-            const transcript = (finalTranscriptRef.current || heardTranscriptRef.current).trim();
+            // A recognizer that stops mid-word can end without marking its last
+            // words final -- "Star" final, "Wars" still interim. What it had
+            // heard is still what the person said, so it wins whenever it
+            // carries the final words forward rather than contradicting them.
+            const finalTranscript = finalTranscriptRef.current.trim();
+            const heardTranscript = heardTranscriptRef.current.trim();
+            const transcript = heardTranscript.startsWith(finalTranscript)
+                ? heardTranscript
+                : finalTranscript || heardTranscript;
             finalTranscriptRef.current = "";
             heardTranscriptRef.current = "";
             if (transcript) {

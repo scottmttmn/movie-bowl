@@ -204,6 +204,24 @@ describe("MovieSearch voice input", () => {
     expect(screen.getByRole("combobox")).toHaveValue("shutter island");
   });
 
+  it("keeps interim words that follow the final ones when recognition ends", async () => {
+    window.SpeechRecognition = MockSpeechRecognition;
+    mocks.searchTmdbMovies.mockResolvedValue({ results: [] });
+
+    render(<MovieSearch onAddMovie={vi.fn()} userStreamingServices={[]} />);
+    fireEvent.click(screen.getByRole("button", { name: /start voice input/i }));
+
+    recognitionInstance.onresult?.({
+      results: [
+        { 0: { transcript: "Star" }, isFinal: true },
+        { 0: { transcript: "Wars" }, isFinal: false },
+      ],
+    });
+    recognitionInstance.onend?.();
+
+    await waitFor(() => expect(mocks.searchTmdbMovies).toHaveBeenCalledWith("Star Wars", { page: 1 }));
+  });
+
   it("does nothing when listening ends having heard nothing", async () => {
     window.SpeechRecognition = MockSpeechRecognition;
 
