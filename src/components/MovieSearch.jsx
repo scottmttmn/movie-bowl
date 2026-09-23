@@ -868,9 +868,10 @@ export default function MovieSearch({
                 </button>
               </div>
             )}
-            {!searchFailure && !searchError && !isSearching && searchTerm.trim() && searchResults.length === 0 && (
+            {!searchFailure && !isSearching && searchTerm.trim() && searchResults.length === 0 && (
               // Nothing matched, so the custom slip becomes the main action,
-              // drawn as the paper it will be in the bowl.
+              // drawn as the paper it will be in the bowl. It stays beside an
+              // add error, which is the only way to retry that add.
               <div className="mt-2 flex flex-col gap-3.5 px-0.5 py-2">
                 <div>
                   <p className="font-semibold text-slate-100">

@@ -67,6 +67,21 @@ describe("MovieSearch loading, empty and error states", () => {
     );
   });
 
+  it("keeps the custom slip after its add fails, so it can be tried again", async () => {
+    mocks.searchTmdbMovies.mockResolvedValue({ results: [] });
+    const onAddMovie = vi.fn()
+      .mockResolvedValueOnce({ ok: false, message: "This add link has expired." })
+      .mockResolvedValueOnce({ ok: true });
+    render(<MovieSearch onAddMovie={onAddMovie} />);
+    type("something with Adam Sandler");
+
+    fireEvent.click(await screen.findByRole("button", { name: 'Add "something with Adam Sandler"' }));
+    expect(await screen.findByText("This add link has expired.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: 'Add "something with Adam Sandler"' }));
+    await waitFor(() => expect(onAddMovie).toHaveBeenCalledTimes(2));
+  });
+
   it("keeps a quieter custom slip below real results", async () => {
     mocks.searchTmdbMovies.mockResolvedValue({
       results: [{ id: 1, title: "Cast Away", release_date: "2000-12-22" }],
