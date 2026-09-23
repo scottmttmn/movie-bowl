@@ -6,12 +6,18 @@ only; no application changes. The first draft proposed an explicit
 v1 and replaces the selector with grouped results, which only became workable
 once there were two kinds of result instead of four.
 
+Phone and desktop mockups exist as of September 23, 2026 (see
+"Mockups" below). They confirm the People row and a person's movies as
+described here, and they add a polish pass on search itself -- rows,
+availability, loading, empty and error states, and voice -- which is now part
+of the plan as its own slices, ahead of people.
+
 ## Recommendation
 
 Keep the one search field. Behind it, run the existing title search and a
 people search together and show the answers in separate groups: a compact
-**People** row above the movie cards when the query strongly matches a person,
-and the movie cards exactly as today. Choosing a person opens their movies,
+**People** row above the movie results when the query strongly matches a
+person, and the movie results in title search's own order. Choosing a person opens their movies,
 with the role -- acting or directing -- chosen there rather than before
 searching.
 
@@ -39,7 +45,7 @@ The first draft chose explicit modes for two reasons, and both have gone:
   after them.
 
 Grouping also keeps the case that works today exactly as it is. Someone who
-types a title gets the same movie cards in the same order, with nothing added
+types a title gets the same movie results in the same order, with nothing added
 unless the query is plainly a name.
 
 ## What works today
@@ -56,12 +62,65 @@ unless the query is plainly a name.
 - Existing tests cover voice, offline behavior, feedback, custom additions,
   details, and add failures. Extend these rather than replacing their contracts.
 
+## Mockups
+
+`Search Revamp.dc.html` and `Search Phone.dc.html` in the Movie Bowl
+claude.ai/design project: a live phone prototype, twelve phone states (idle,
+title query, name query, a name that is also a title, keyboard highlight, a
+person in both roles and in one, Details from a person, loading, nothing
+found, offline, voice) and a 640px desktop dialog. Sample data only.
+
+What they settle for the People row and a person's movies matches the
+sections below: above the movies, at most three, no Add, the three-part match
+rule (the prototype shows "tom han" matching, "big" not, and an obscure
+namesake held back by the popularity floor), Change person, the role switch
+only for both roles, opening on the role a person is known for, staying on
+their list after an add, and Back from Details naming where it returns to. On
+desktop the chips wrap instead of scrolling.
+
+What they add, beyond this design as first written:
+
+1. **Rows, not cards.** The row opens Details and one **+** adds, replacing
+   the stacked Add/Details pair; a result drops from about 104px to 84px.
+2. **Availability on one line.** The viewer's services lead in green ("On
+   your Netflix · +1 more"). Loading is a shimmer bar, and a failed check says
+   "Couldn't check availability" -- never "none". This is the four-state
+   contract under "Engineering boundaries", made visible.
+3. **Loading moves nothing.** The spinner sits inside the field and the
+   skeletons are the height of real rows. Today the status lines under the
+   field push results down.
+4. **Empty and error differ.** Nothing found makes the custom slip the main
+   action, drawn as the paper it becomes; an error says "Can't reach the movie
+   service" and offers Try again.
+5. **Voice inside the field.** The mic moves into the field and the field
+   becomes the listening state, showing words as they are heard, stopping on a
+   pause or Done, and searching at once. The prompt changes from "a movie
+   title" to "Say a title or someone in it". Today `interimResults` is false,
+   so nothing appears until you stop and you cannot tell whether you were
+   heard.
+
+Three things in the mockups are corrected here rather than built as drawn:
+
+- **Enter with nothing highlighted keeps today's meaning.** Today it adds the
+  first movie. In the mockup it opens the first person whenever a People row
+  shows, so "washington" + Enter would stop adding the movie. People are
+  reached by arrowing to them; a bare Enter never opens one.
+- **A people-only result still offers a custom slip.** When a name matches
+  people and no titles, the mockup offers no custom action at all. The
+  explicit custom action stays available there ("something with Tom Hanks" is
+  a slip people really make), under the rule in "Custom entries".
+- **Rows are not listbox options.** Each mockup `role="option"` still holds
+  two buttons, the row and the **+**, which is the nesting the redesign set
+  out to remove. Rows with two actions are a plain list with two buttons each
+  (or a grid), not a listbox. The Acting · Directing tabs need
+  `aria-selected`.
+
 ## Proposed experience
 
 ### The People row
 
 When the query strongly matches a person, up to three people appear above the
-movie cards, each with a photo (or placeholder), name, and two or three
+movie results, each with a photo (or placeholder), name, and two or three
 identifying credits: "Tom Hanks · *Cast Away*, *Big*". Those credits identify
 the person; they must not read as a complete filmography.
 
@@ -77,7 +136,7 @@ tune against real queries in the spike. The starting rule:
 
 When nothing clears it, the row does not render and the page is today's page.
 Movie results never wait for the people lookup, and the people row never
-shifts movie cards that are already on screen: if people arrive after movies
+shifts movie rows that are already on screen: if people arrive after movies
 have rendered, the row may appear only while the list is still settling.
 
 A person row has no Add action. People are navigation, never slips.
@@ -86,7 +145,7 @@ A person row has no Add action. People are navigation, never slips.
 
 Choosing a person opens their movies under a small context header -- "Tom
 Hanks's movies" -- with **Change person** returning to the search, query and
-position intact. The movie cards are the ordinary ones, with Add and Details;
+position intact. The movie rows are the ordinary ones, with Add and Details;
 actor results may also show the character name.
 
 An **Acting · Directing** switch appears only when the person has feature
@@ -114,16 +173,16 @@ distinguishable from a search that found nothing.
 ### Mobile, keyboard, and voice
 
 - The People row is one compact line of touch-sized chips on a phone and does
-  not push the first movie card below the fold with the keyboard open.
+  not push the first movie row below the fold with the keyboard open.
 - Arrow keys move through people and then movies as one sequence. Enter on a
   person opens their movies; Enter on a movie keeps today's behavior, and only
   for settled results. Editing the query invalidates any earlier selection.
-- Voice fills the query as today. There is no spoken command parser.
+- Voice fills the query, live, inside the field (see "Mockups"). There is no
+  spoken command parser.
 - Announce loading, result counts (people and movies separately), the selected
-  person, and errors. Review the current listbox's nested Add/Details buttons
-  during implementation and use semantics that support both keyboard selection
-  and independently focusable actions. Escape must not unexpectedly close the
-  outer add flow.
+  person, and errors. Rows carry two actions, so they are a list of buttons
+  rather than listbox options (see "Mockups"). Escape must not unexpectedly
+  close the outer add flow.
 
 ## Retrieval and ordering
 
@@ -204,13 +263,35 @@ base once; neither inherits the other's filters.
 
 ## Delivery sequence and review gates
 
-### 1. Validate the interaction and the match rule
+Three slices, each its own pull request, in this order. The first two change
+search as it exists today and are useful without people; the third is the
+discovery work and builds on the new rows.
 
-Create phone and desktop mockups: a title query with no People row, a name
-query with one, a query that is both ("Jordan"), a person's movies with and
-without the role switch, empty states, and returning from Details. Exercise
-authenticated TMDB requests to check credits, language behavior and
-large-filmography payloads.
+### Slice 1 -- Voice
+
+Live transcription (`interimResults` on), the mic inside the field, the field
+as the listening state, stop on a pause or Done and search at once, and the
+new prompt. Small, self-contained, and it fixes something that feels broken
+now.
+
+### Slice 2 -- Rows, availability, loading, empty and error
+
+Mockup items 1-4 on today's title search, with no people yet: rows with one
+**+**, one-line availability with its four states, an in-field spinner and
+row-height skeletons, and distinct empty and error states. Rows move off
+listbox semantics here, and bare Enter keeps adding the first movie. Every
+shared consumer -- the bowl add dialog, public add links, the standalone
+modal, watch-history entry -- keeps its add, retry and destination contracts.
+
+### Slice 3 -- People
+
+Everything else in this document, in the steps below.
+
+#### 1. Validate the match rule and the data
+
+The mockups cover the interaction. What is left is the data: exercise
+authenticated TMDB requests to check people search, credits, language
+behavior and large-filmography payloads.
 
 The match rule gets its own evaluation set, recording which queries should and
 should not show people: exact title, partial title, a title that is also a
@@ -218,21 +299,21 @@ name, same-name people, a person who both acts and directs, a lesser-known
 director, missing images, and a large filmography. Record expected membership
 and identity, not volatile popularity positions.
 
-### 2. Implement
+#### 2. Implement
 
 The parallel title and people searches, the People row and its match rule, a person's movies with
 the role switch, pagination, the request lifecycle, and preserved discovery
 context. Gate acceptance on correct role membership, on title queries looking
-exactly as they do today, and on unchanged add behavior across every shared
-consumer.
+exactly as they do after slice 2, and on unchanged add behavior across every
+shared consumer.
 
-### 3. Verify and release
+#### 3. Verify and release
 
 - Unit/API fixtures: validation, the match rule, role filtering, duplicate
   credits, content exclusion, pagination, a people lookup failing on its own,
   upstream failures, and backward-compatible title calls.
 - Interaction tests: stale responses during debounce; choosing a person cannot
-  add; the People row does not move rendered movie cards; Details/Back restores
+  add; the People row does not move rendered movie rows; Details/Back restores
   context; repeated adds keep the person; failed adds keep drafts; explicit
   reset clears context.
 - Regression checks: existing search suites plus bowl destination and retry
