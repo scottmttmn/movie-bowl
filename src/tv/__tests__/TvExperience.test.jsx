@@ -352,6 +352,39 @@ describe("Movie Bowl TV experience", () => {
     );
   });
 
+  // The count this television runs itself used to show as "up to" first. Until
+  // it answers the line is held: invisible on a first visit, and last visit's
+  // answer after that, so a refresh opens on the number it settles on.
+  it("holds the readout while the count runs instead of showing an interim one", async () => {
+    let answerProviders;
+    const heldProviders = new Promise((resolve) => { answerProviders = resolve; });
+    const liveProviders = mocks.fetchStreamingProviders.getMockImplementation();
+    mocks.fetchStreamingProviders.mockImplementation(async (...args) => {
+      await heldProviders;
+      return liveProviders(...args);
+    });
+    renderTonight();
+
+    await waitFor(() => expect(getDrawReadout()).toHaveStyle({ visibility: "hidden" }));
+    expect(getDrawReadout()).toHaveAttribute("aria-hidden", "true");
+
+    answerProviders();
+    await waitFor(() =>
+      expect(getDrawReadout()).toHaveTextContent(/^Drawing from 1 on Netflix$/)
+    );
+    expect(getDrawReadout()).not.toHaveStyle({ visibility: "hidden" });
+    cleanup();
+
+    // The next visit opens on that answer while its own count is still running.
+    mocks.fetchStreamingProviders.mockImplementation(() => new Promise(() => {}));
+    renderTonight();
+
+    await waitFor(() =>
+      expect(getDrawReadout()).toHaveTextContent(/^Drawing from 1 on Netflix$/)
+    );
+    expect(getDrawReadout()).not.toHaveTextContent(/up to/);
+  });
+
   // The phone answers a bowl this size with "Preview filter matches"; the
   // television has nobody to tap it, so it must resolve the count itself
   // rather than leave the room reading "up to".

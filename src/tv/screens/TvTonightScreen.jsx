@@ -57,6 +57,11 @@ import {
   buildTvDrawOptions,
   getAvailableDrawGenres,
 } from "../utils/drawOptions";
+import {
+  getRememberedValueFor,
+  readRememberedReadout,
+  rememberReadout,
+} from "../../utils/rememberedReadouts";
 
 const MIN_DRAW_ANIMATION_MS = 1800;
 
@@ -586,6 +591,51 @@ export default function TvTonightScreen({ userId }) {
   const isDrawReadoutApproximate =
     drawPoolStatus !== DRAW_POOL_STATUS.ready &&
     drawPoolStatus !== DRAW_POOL_STATUS.unfiltered;
+  // The screen appears once access and the movies are in, but the readout
+  // still waits on the saved filters and the count this television runs
+  // itself -- and showing those steps read "up to 5" and then "2 on Netflix".
+  // Until both answer it shows what it settled on last time in this room, or
+  // keeps its line. A count that failed is settled: "up to" is its answer.
+  const isDrawReadoutPending =
+    isPreferencesLoading || drawPoolStatus === DRAW_POOL_STATUS.counting;
+  const drawReadoutViewKey = `tv:bowl:${bowlId}`;
+  const settledDrawReadout = !isDrawReadoutPending && !isBowlLoading
+    ? {
+        readout: { count: drawReadout.count, service: drawReadout.service, tone: drawReadout.tone },
+        isApproximate: isDrawReadoutApproximate,
+        reach: excludedContributorCount > 0
+          ? {
+              reachedCount: drawPoolContributorReach.reachedCount,
+              totalCount: drawPoolContributorReach.totalCount,
+            }
+          : null,
+      }
+    : null;
+  const settledDrawReadoutKey = settledDrawReadout ? JSON.stringify(settledDrawReadout) : null;
+  const [lastSettledDrawReadout, setLastSettledDrawReadout] = useState(null);
+  if (
+    settledDrawReadout &&
+    (lastSettledDrawReadout?.viewKey !== drawReadoutViewKey ||
+      lastSettledDrawReadout.key !== settledDrawReadoutKey)
+  ) {
+    setLastSettledDrawReadout({
+      viewKey: drawReadoutViewKey,
+      key: settledDrawReadoutKey,
+      value: settledDrawReadout,
+    });
+  }
+  const rememberedDrawReadoutEntry = useMemo(
+    () => readRememberedReadout(drawReadoutViewKey),
+    [drawReadoutViewKey]
+  );
+  const heldDrawReadout = lastSettledDrawReadout?.viewKey === drawReadoutViewKey
+    ? lastSettledDrawReadout.value
+    : getRememberedValueFor(rememberedDrawReadoutEntry, userId);
+  useEffect(() => {
+    if (!settledDrawReadoutKey || !userId) return;
+    rememberReadout(drawReadoutViewKey, userId, JSON.parse(settledDrawReadoutKey));
+  }, [drawReadoutViewKey, userId, settledDrawReadoutKey]);
+  const shownDrawReadout = settledDrawReadout || heldDrawReadout;
   const preferredWebLaunchCandidate = useMemo(() => {
     if (!drawnMovie) return null;
 
@@ -1045,14 +1095,24 @@ export default function TvTonightScreen({ userId }) {
                 <BowlIllustration className="tv-draw-bowl" />
                 <span>Draw a movie</span>
               </button>
-              {remainingCount > 0 && (
+              {remainingCount > 0 && (shownDrawReadout ? (
                 <TvDrawReadout
-                  readout={drawReadout}
-                  isApproximate={isDrawReadoutApproximate}
-                  contributorReach={drawPoolContributorReach}
-                  excludedContributorCount={excludedContributorCount}
+                  readout={shownDrawReadout.readout}
+                  isApproximate={shownDrawReadout.isApproximate}
+                  contributorReach={shownDrawReadout.reach}
+                  excludedContributorCount={
+                    shownDrawReadout.reach
+                      ? shownDrawReadout.reach.totalCount - shownDrawReadout.reach.reachedCount
+                      : 0
+                  }
                 />
-              )}
+              ) : (
+                // Invisible rather than absent, so the line is already the
+                // size the count will need and nothing under it moves.
+                <p className="tv-draw-readout" style={{ visibility: "hidden" }} aria-hidden="true">
+                  <span>Drawing from <strong>0</strong></span>
+                </p>
+              ))}
               {!bowlMeta.canDraw && (
                 <p className="tv-draw-guard">
                   This user does not have permission to draw from this bowl.

@@ -35,7 +35,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (153 test files / 1293 tests, 72 Playwright tests with 8 skipped,
+fully green (153 test files / 1294 tests, 72 Playwright tests with 8 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -446,7 +446,7 @@ then a generic 500. They run in Node and are excluded from coverage; they are
 - Browser storage is always wrapped in try/catch with a comment saying the
   feature degrades rather than breaks.
 - A readout that settles late never renders its interim answers. The bowl
-  dashboard and solo draw wait for every input -- movies, saved filters, access,
+  dashboard, solo draw and the TV's draw readout wait for every input -- movies, saved filters, access,
   the count -- and until then show what they settled on last time
   (`utils/rememberedReadouts.js`), or a placeholder of the same size. A refresh
   should move nothing unless the answer changed; a zero that only means "not
