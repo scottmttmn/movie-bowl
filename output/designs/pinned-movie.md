@@ -564,6 +564,9 @@ already achieves — nothing more is needed.
 
 This supersedes nothing and unblocks two things.
 
+Both of the ideas below were decided against on September 23, 2026: the pin is
+where this line of features stops.
+
 **Within-person title weights** (`bowl-draw-methods.md`) is the same idea with a
 dial instead of a switch. A pin is the degenerate case: one title at weight
 infinity, the rest equal. If weights are ever wanted, they generalize this

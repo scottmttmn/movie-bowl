@@ -233,6 +233,10 @@ win twice in a night"), veto tokens (N per season, public when spent, and using
 one costs your next turn), personal ordering, within-person weights, the
 once-per-day re-roll lockout already sitting in `TODO.md`.
 
+(Personal ordering, within-person weights and the once-per-day lockout were
+decided against on September 23, 2026. They stay here only as examples of the
+kind of rule this layer would hold; the layer itself is still brainstorm only.)
+
 **Why it fits.** Look at the backlog: personal movie ordering, within-person
 weights, once-per-day lockout, solo draw. Those are four one-off settings today
 and four rules under this model. `normalizeDrawMethod` already falls back safely

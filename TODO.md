@@ -18,7 +18,6 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   adding a movie no longer puts it back. What is left is whether the phone
   should offer to remember the answer across a session rather than asking again
   after every filter change.
-- Once-per-day draw lockout: the mobile design exploration floated "can't draw again until tomorrow" after putting a movie back, to discourage re-rolling. New product behavior with open questions (locked per user or per bowl, timezone, who can override) — needs its own design doc before any code.
 - Watched-outside-the-bowl removals leave no trace: logging a manual watch can now pull your own undrawn slips out of the bowls holding them, but that is a hard delete, so the other members just see the bowl shrink. Everything else in the history model keeps the fact (draw events are immutable, returns set `returned_at`). Worth deciding whether this should be an event the bowl can show instead.
 - Odds panel: decided against on 2026-09-19 and the unrendered `buildDrawOddsStats` removed with it. The method copy already tells people whether their picks have a real chance, and a table of shares mostly invites gaming the bowl. If one is ever built, two problems come back with it: it must be fed the resolved eligible pool rather than `bowl.remaining`, or it reports a flat 1/N for contributors the filters or streaming priority cannot reach; and rotation cannot be described honestly without the current history as well.
 
@@ -73,12 +72,26 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   Actual playback (rewriting a Netflix detail URL to `/watch/<id>`) is a later,
   per-service step that needs a real Watchmode URL and a check. See
   `output/designs/theater-autostart-handoff.md`.
-- Deterministic draw preview, steps 2 and 3: give rotation bowls a real contributor lookahead (the order is already derivable from `bowl_draw_events`, so it needs no new state), and only after living with that decide whether a committed schedule ships as a fourth draw method. A bowl-wide committed queue is blocked on filters being per-user today. Plan, not implementation: `output/designs/deterministic-draw-preview.md`.
-- Personal movie ordering: let contributors rank their own undrawn titles, independently of contributor rotation. Needs a separate design for method scope, link-guest ownership, accessible reordering, and where new or returned movies land. The pinned movie shipped as the one-title version; full ordering remains a separate feature.
-- Within-person title weights: let a contributor set relative odds among their own
-  titles without changing anyone else's odds. Recorded in
-  `output/designs/bowl-draw-methods.md`. The shipped pinned movie is its
-  degenerate case and answers most of the same want with one boolean.
+- Rotation lookahead (optional): let a rotation bowl say who is up next --
+  "Coming up: Anna, then Ben" -- as a read-only readout. The order is already
+  derivable from `bowl_draw_events`, so it needs no new state, and it names
+  contributors, never titles. Step 2 of `output/designs/deterministic-draw-preview.md`;
+  nice to have, not scheduled.
+- Decided against on 2026-09-23, so these are not coming back as proposals:
+  - **Once-per-day draw lockout.** Floated to stop re-rolling after a put-back.
+    The two-hour undo already bounds that: past it a pick cannot go back, and
+    inside it putting back is the honest "we did not watch this." A lockout would
+    add timezone, per-person-or-bowl and override questions to solve a problem
+    the window already solves.
+  - **Personal movie ordering** and **within-person title weights.** Both let a
+    contributor steer which of their own titles comes up. The pinned movie
+    already answers the real want -- "this one next" -- with one boolean, and a
+    full rank or a dial per title mostly invites tuning odds, the same reason
+    the odds panel was turned down.
+  - **A committed draw schedule** (step 3 of the draw-preview plan, a fourth
+    draw method). It turns the draw from a reveal into a countdown, and it was
+    blocked on bowl-level filters that do not exist. Rotation's lookahead above
+    covers "what's coming" without committing to titles.
 - One slip per person for the same title: duplicate prevention is currently per
   `(bowl_id, tmdb_id)`, so a member who wants a title someone else already added
   cannot add it and therefore cannot pin it. Letting each contributor hold their
