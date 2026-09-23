@@ -55,7 +55,9 @@ jobs:
         run: |
           markdown_only=false
           if [ "$EVENT_NAME" = "pull_request" ]; then
-            files="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"
+            # --no-renames lists both sides of a rename, so app.js -> notes.md
+            # reads as the code change it is rather than as a new note.
+            files="$(git diff --name-only --no-renames "$BASE_SHA...$HEAD_SHA")"
             if [ -n "$files" ]; then
               markdown_only=true
               while IFS= read -r file; do
@@ -121,7 +123,9 @@ jobs:
   e2e:
     name: Playwright
     needs: changes
-    if: needs.changes.outputs.markdown_only != 'true'
+    # !cancelled() lifts the implicit success() guard: if classifying the
+    # change fails, the suite runs rather than being skipped as passed.
+    if: ${{ !cancelled() && needs.changes.outputs.markdown_only != 'true' }}
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
