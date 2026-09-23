@@ -39,6 +39,9 @@ export default function useMyMovieEligibility(
     sharedEligibleMovieIds = null,
     isSharedEligibilityPending = false,
     isMetadataCached = () => false,
+    // As in useDrawPoolCount: wait for the cache before deciding the check is
+    // too large to run unasked.
+    isMetadataPending = false,
   } = {}
 ) {
   const [result, setResult] = useState(null);
@@ -174,7 +177,11 @@ export default function useMyMovieEligibility(
     if (!enabled) return MY_MOVIE_ELIGIBILITY_STATUS.idle;
     if (hasSharedEligibility) return MY_MOVIE_ELIGIBILITY_STATUS.ready;
     if (isSharedEligibilityPending) return MY_MOVIE_ELIGIBILITY_STATUS.checking;
-    if (!shouldResolve) return MY_MOVIE_ELIGIBILITY_STATUS.manual;
+    if (!shouldResolve) {
+      return isMetadataPending && needsLookups
+        ? MY_MOVIE_ELIGIBILITY_STATUS.checking
+        : MY_MOVIE_ELIGIBILITY_STATUS.manual;
+    }
     if (isChecking) return MY_MOVIE_ELIGIBILITY_STATUS.checking;
     if (currentResult) return MY_MOVIE_ELIGIBILITY_STATUS.ready;
     return MY_MOVIE_ELIGIBILITY_STATUS.idle;

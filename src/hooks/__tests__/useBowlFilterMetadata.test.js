@@ -180,8 +180,11 @@ describe("useBowlFilterMetadata", () => {
     });
 
     rerender({ movies: [MOVIES[0]] });
+    // Counts wait on this rather than pricing the bowl as uncached.
+    expect(result.current.isMetadataPending).toBe(true);
 
     await waitFor(() => expect(result.current.status).toBe(BOWL_FILTER_METADATA_STATUS.ready));
+    expect(result.current.isMetadataPending).toBe(false);
     expect(result.current.isMetadataCached(10)).toBe(true);
     expect(mocks.rpc).toHaveBeenCalledTimes(1);
 

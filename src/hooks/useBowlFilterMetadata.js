@@ -246,6 +246,10 @@ export default function useBowlFilterMetadata(
 
   return useMemo(() => ({
     status: currentSnapshot.status,
+    // Until the cache read answers, nothing is known to be cached, so every
+    // title looks like a lookup. Counts read this to wait for it rather than
+    // pricing the bowl as uncached and asking to be tapped.
+    isMetadataPending: currentSnapshot.status === BOWL_FILTER_METADATA_STATUS.loading,
     cachedCount: currentSnapshot.cachedCount,
     totalCount: currentSnapshot.totalCount,
     isMetadataCached,
