@@ -298,7 +298,7 @@ on a PostgreSQL you already have, applies `supabase/baseline/` and then every
 migration in order, runs the suites and drops it again. It needs pgTAP and
 `pg_prove` beside that server (`apt-get install pgtap`, or `brew install pgtap`)
 and `DATABASE_URL` if the server is not the local default. Never against the
-hosted database: pgTAP writes rows. A clean run is 25 suites / 642 assertions,
+hosted database: pgTAP writes rows. A clean run is 25 suites / 647 assertions,
 all passing, and `npm run test:counts -- pgtap` holds that sentence to the run.
 
 `supabase/baseline/` is the pre-migration schema, not a migration. Movie Bowl's

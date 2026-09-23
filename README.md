@@ -412,7 +412,9 @@ column turns one typo into a phantom metric that reads as zero usage forever.
   refreshed at 150 days by a pass of at most 100 titles, in whatever time the
   filter refresh leaves. Anything not refreshed by six months loses its poster,
   overview, runtime and genres and keeps its title. A personal history entry
-  never has its title or date overwritten, because a person can edit those.
+  never has its title or date overwritten, because a person can edit those, and
+  its freshness is counted from the slip its details were copied from, not from
+  the day it was drawn.
 - Adding a signed-in user's TMDB movie also starts a non-blocking single-title
   warmup through `POST /api/tmdb/movie/warm-filter-metadata`.
 

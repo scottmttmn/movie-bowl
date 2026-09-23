@@ -22,17 +22,95 @@
 
 begin;
 
--- History rows had no freshness stamp. Their details were copied when the row
--- was written, so that is the honest backfill.
+-- History rows had no freshness stamp. A drawn entry's details were copied
+-- from the slip, so they are as old as the slip's snapshot, not the draw: a
+-- year-old slip drawn yesterday carries year-old details. The stamp is
+-- therefore taken from the source -- the draw event, then the slip, then the
+-- removed solo copy -- and only a manual entry, whose details were fetched when
+-- it was logged, counts from its own creation. When the age cannot be
+-- recovered the stamp stays null, which every reader treats as oldest: the
+-- title is refreshed first rather than trusted.
 alter table public.user_watch_events
   add column snapshot_at timestamptz;
 
-update public.user_watch_events
-set snapshot_at = created_at
-where snapshot_at is null;
+create or replace function public.derive_user_watch_event_snapshot_at(
+  p_id uuid,
+  p_source_kind text,
+  p_source_draw_event_id uuid,
+  p_source_bowl_movie_id uuid,
+  p_created_at timestamptz
+)
+returns timestamptz
+language plpgsql
+stable
+security definer
+set search_path = ''
+as $$
+declare
+  v_snapshot_at timestamptz;
+begin
+  if p_source_draw_event_id is not null then
+    select event.snapshot_at into v_snapshot_at
+    from public.bowl_draw_events event
+    where event.id = p_source_draw_event_id;
+  end if;
 
-alter table public.user_watch_events
-  alter column snapshot_at set default now();
+  if v_snapshot_at is null and p_source_bowl_movie_id is not null then
+    select movie.snapshot_at into v_snapshot_at
+    from public.bowl_movies movie
+    where movie.id = p_source_bowl_movie_id;
+  end if;
+
+  if v_snapshot_at is null and p_id is not null then
+    select min(copy.snapshot_at) into v_snapshot_at
+    from public.solo_draw_removed_copies copy
+    where copy.watch_event_id = p_id;
+  end if;
+
+  if v_snapshot_at is null and p_source_kind = 'manual' then
+    v_snapshot_at := p_created_at;
+  end if;
+
+  -- Details can be no newer than the row that holds them.
+  return case when v_snapshot_at is null then null
+    else least(v_snapshot_at, coalesce(p_created_at, v_snapshot_at)) end;
+end;
+$$;
+
+revoke all on function public.derive_user_watch_event_snapshot_at(uuid, text, uuid, uuid, timestamptz)
+  from public, anon, authenticated;
+
+update public.user_watch_events history
+set snapshot_at = public.derive_user_watch_event_snapshot_at(
+  history.id, history.source_kind, history.source_draw_event_id,
+  history.source_bowl_movie_id, history.created_at
+)
+where history.snapshot_at is null;
+
+-- Every path that writes a history row -- draws, rotation, solo draws, manual
+-- entries -- goes through this, so none of them has to remember to stamp it.
+create or replace function public.stamp_user_watch_event_snapshot()
+returns trigger
+language plpgsql
+security definer
+set search_path = ''
+as $$
+begin
+  if new.snapshot_at is null then
+    new.snapshot_at := public.derive_user_watch_event_snapshot_at(
+      new.id, new.source_kind, new.source_draw_event_id,
+      new.source_bowl_movie_id, coalesce(new.created_at, now())
+    );
+  end if;
+  return new;
+end;
+$$;
+
+revoke all on function public.stamp_user_watch_event_snapshot() from public, anon, authenticated;
+
+create trigger stamp_user_watch_event_snapshot
+  before insert on public.user_watch_events
+  for each row execute function public.stamp_user_watch_event_snapshot();
 
 create index if not exists bowl_draw_events_tmdb_id_idx
   on public.bowl_draw_events (tmdb_id);

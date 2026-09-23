@@ -50,15 +50,51 @@ values ('40000000-0000-0000-0000-000000000399', '00000000-0000-0000-0000-0000000
 
 select ok(
   (select snapshot_at > now() - interval '1 minute' from public.user_watch_events where id = '40000000-0000-0000-0000-000000000399'),
-  'a history row inserted without a stamp is stamped now'
+  'a manual entry is stamped when it is logged, because its details were fetched then'
 );
 
-select is(
-  (select column_default is not null from information_schema.columns
-   where table_schema = 'public' and table_name = 'user_watch_events' and column_name = 'snapshot_at'),
-  true,
-  'new history rows are stamped by default, so every insert path is covered'
+-- A drawn entry's details are as old as its source, not as old as the row.
+insert into public.bowl_draw_events (id, bowl_id, bowl_name, tmdb_id, title, snapshot_at, drawn_at)
+values
+  ('30000000-0000-0000-0000-000000000311', '10000000-0000-0000-0000-000000000301', 'Snapshot Bowl',
+   30311, 'Old Slip Drawn Today', now() - interval '100 days', now()),
+  ('30000000-0000-0000-0000-000000000312', '10000000-0000-0000-0000-000000000301', 'Snapshot Bowl',
+   30312, 'Unknown Age', null, now());
+insert into public.bowl_movies (id, bowl_id, added_by, tmdb_id, title, snapshot_at)
+values ('20000000-0000-0000-0000-000000000313', '10000000-0000-0000-0000-000000000301',
+        '00000000-0000-0000-0000-000000000301', 30313, 'Solo Source', now() - interval '90 days');
+
+insert into public.user_watch_events (id, user_id, source_draw_event_id, source_kind, tmdb_id, title, watched_on)
+values
+  ('40000000-0000-0000-0000-000000000311', '00000000-0000-0000-0000-000000000301',
+   '30000000-0000-0000-0000-000000000311', 'bowl_draw', 30311, 'Old Slip Drawn Today', current_date),
+  ('40000000-0000-0000-0000-000000000312', '00000000-0000-0000-0000-000000000301',
+   '30000000-0000-0000-0000-000000000312', 'bowl_draw', 30312, 'Unknown Age', current_date);
+insert into public.user_watch_events (id, user_id, source_kind, source_bowl_movie_id, source_bowl_id, request_id, tmdb_id, title, watched_on)
+values ('40000000-0000-0000-0000-000000000313', '00000000-0000-0000-0000-000000000301', 'solo_draw',
+        '20000000-0000-0000-0000-000000000313', '10000000-0000-0000-0000-000000000301', gen_random_uuid(),
+        30313, 'Solo Source', current_date);
+
+select ok(
+  (select abs(extract(epoch from (snapshot_at - (now() - interval '100 days')))) < 1
+   from public.user_watch_events where id = '40000000-0000-0000-0000-000000000311'),
+  'a drawn entry takes its draw event''s snapshot age, not the draw time'
 );
+select ok(
+  (select abs(extract(epoch from (snapshot_at - (now() - interval '90 days')))) < 1
+   from public.user_watch_events where id = '40000000-0000-0000-0000-000000000313'),
+  'a solo-drawn entry takes its source slip''s snapshot age'
+);
+select ok(
+  (select snapshot_at is null from public.user_watch_events where id = '40000000-0000-0000-0000-000000000312'),
+  'an entry whose source age is unknown stays unstamped, so it is refreshed first'
+);
+delete from public.user_watch_events where id in (
+  '40000000-0000-0000-0000-000000000311', '40000000-0000-0000-0000-000000000312',
+  '40000000-0000-0000-0000-000000000313');
+delete from public.bowl_draw_events where id in (
+  '30000000-0000-0000-0000-000000000311', '30000000-0000-0000-0000-000000000312');
+delete from public.bowl_movies where id = '20000000-0000-0000-0000-000000000313';
 
 -- Only the service role may run either function.
 set local role authenticated;
@@ -180,6 +216,37 @@ select ok(
   (select poster_path = '/fresher.jpg' and runtime = 101 and drawn_at is null
    from public.bowl_movies where id = '20000000-0000-0000-0000-000000000301'),
   'a refreshed slip stays undrawn and in the bowl'
+);
+
+-- The real draw path: a slip whose details are a year old, drawn today. Its
+-- history copies must not be treated as fresh.
+insert into public.bowl_movies (id, bowl_id, added_by, tmdb_id, title, poster_path, overview, snapshot_at)
+values ('20000000-0000-0000-0000-000000000305', '10000000-0000-0000-0000-000000000301',
+        '00000000-0000-0000-0000-000000000301', 30305, 'Year-Old Slip', '/old.jpg', 'Old.',
+        now() - interval '1 year');
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000301","email":"snapshot-owner@example.com","role":"authenticated"}', true);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000301', true);
+select public.draw_bowl_movie('20000000-0000-0000-0000-000000000305', 'UTC');
+reset role;
+
+select ok(
+  (select snapshot_at < now() - interval '11 months'
+   from public.user_watch_events where tmdb_id = 30305),
+  'a history row written by a draw carries the slip''s year-old stamp'
+);
+
+select is(
+  (select tmdb_id from public.select_tmdb_title_snapshot_refreshes(1, now() - interval '150 days')),
+  30305::bigint,
+  'so the year-old title is the first one refreshed'
+);
+
+select ok(
+  (select poster_path is null and overview is null and title = 'Year-Old Slip'
+   from public.user_watch_events where tmdb_id = 30305),
+  'and its expired details are cleared rather than kept for another six months'
 );
 
 select * from finish();
