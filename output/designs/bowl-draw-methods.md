@@ -386,10 +386,11 @@ double turn.
 
 ## Recorded Idea: Within-Person Title Weights
 
-Status: idea, not part of the phases above. A smaller first step — pinning one
-title rather than weighting all of them — shipped first and is documented in
-`output/designs/pinned-movie.md`. The open questions below stay open; the pin
-answers only "this one."
+Status: **decided against, September 23, 2026.** The pinned movie
+(`output/designs/pinned-movie.md`) shipped as the smaller first step and answers
+the real want -- "this one next" -- with one boolean. A dial per title mostly
+invites tuning odds, the reason the odds panel was also turned down. Personal
+movie ordering was closed with it. The reasoning below is kept for the record.
 
 Let a contributor control the relative odds **among their own titles** while
 every person stays equally likely to be selected. You have been meaning to watch

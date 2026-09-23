@@ -68,5 +68,5 @@ turn amber, and the modal names who is excluded.
 - Reveal simplification (title, meta, provider buttons, quiet "Done";
   put-back only via the Watched strip) — close to current behavior; revisit
   separately.
-- Once-per-day draw lockout after a put-back — new product behavior, needs
-  its own design doc (see TODO.md).
+- Once-per-day draw lockout after a put-back — decided against on September 23,
+  2026: re-rolling in the room is accepted rather than policed (see TODO.md).

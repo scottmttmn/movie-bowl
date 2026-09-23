@@ -1,7 +1,8 @@
 # Deterministic Draw Preview
 
-Status: step 1 shipped; steps 2 and 3 are a plan, not an implementation. Nothing
-below step 1 exists in code.
+Status: step 1 shipped. Step 2 is an optional idea, not scheduled. Step 3 was
+decided against on September 23, 2026 and is kept below only as the reasoning.
+Nothing below step 1 exists in code.
 
 ## The Question
 
@@ -107,7 +108,13 @@ This is the best value-per-risk of the three steps for a bowl already on
 rotation, and it strengthens the method's product story rather than adding a
 parallel one.
 
-## Step 3 — A scheduled draw method
+## Step 3 — A scheduled draw method (decided against)
+
+**Decided against, September 23, 2026.** A published schedule turns the draw into
+a countdown, which is the trade described below, and generation was blocked on
+bowl-level filters that do not exist. Step 2 answers "what is coming" at the
+contributor level without committing to titles. The design is kept so the
+question does not have to be re-derived if it is ever asked again.
 
 Only if steps 1 and 2 have been lived with and title-level determinism is still
 wanted. It ships as a fourth entry in the `utils/drawMethods.js` registry, not
