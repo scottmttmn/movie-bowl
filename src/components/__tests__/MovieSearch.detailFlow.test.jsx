@@ -59,7 +59,7 @@ describe("MovieSearch detail flow", () => {
     fireEvent.change(screen.getByPlaceholderText("Search movies..."), { target: { value: "Movie A" } });
 
     await screen.findByText("Movie A");
-    fireEvent.click(screen.getByRole("button", { name: /details/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Details for Movie A" }));
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Movie A", level: 2 })).toBeInTheDocument();
@@ -75,7 +75,7 @@ describe("MovieSearch detail flow", () => {
     fireEvent.click(screen.getByRole("button", { name: /watch trailer/i }));
     expect(await screen.findByTitle("Movie A trailer")).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /add movie/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Movie", exact: true }));
 
     await waitFor(() => {
       expect(onAddMovie).toHaveBeenCalledWith(
@@ -117,14 +117,14 @@ describe("MovieSearch detail flow", () => {
 
     // A comment written for one movie is dropped when its details close, so it
     // can never ride along on the next add.
-    fireEvent.click(screen.getByRole("button", { name: /details/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Details for Movie A" }));
     await screen.findByRole("heading", { name: "Movie A", level: 2 });
     expect(getCommentField()).toHaveAttribute("maxlength", "500");
     fireEvent.change(getCommentField(), { target: { value: "Meant for another movie" } });
     fireEvent.click(screen.getByRole("button", { name: /close/i }));
     await waitFor(() => expect(screen.queryByLabelText(/comment \(optional\)/i)).toBeNull());
 
-    fireEvent.click(screen.getByRole("button", { name: /^add$/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Movie A" }));
 
     await waitFor(() => expect(onAddMovie).toHaveBeenCalledTimes(1));
     expect(onAddMovie.mock.calls[0][0].note).toBeUndefined();
@@ -148,10 +148,10 @@ describe("MovieSearch detail flow", () => {
     });
 
     await screen.findByText("Movie A");
-    fireEvent.click(screen.getByRole("button", { name: /details/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Details for Movie A" }));
     await screen.findByRole("heading", { name: "Movie A", level: 2 });
     fireEvent.change(getCommentField(), { target: { value: "   \n  " } });
-    fireEvent.click(screen.getByRole("button", { name: /add movie/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Movie", exact: true }));
 
     await waitFor(() => {
       expect(onAddMovie).toHaveBeenCalledWith(expect.objectContaining({ note: null }));
@@ -186,7 +186,7 @@ describe("MovieSearch detail flow", () => {
     fireEvent.change(screen.getByPlaceholderText("Search movies..."), { target: { value: "Movie A" } });
 
     await screen.findByText("Movie A");
-    const addButton = screen.getByRole("button", { name: /^add$/i });
+    const addButton = screen.getByRole("button", { name: "Add Movie A" });
 
     fireEvent.click(addButton);
     fireEvent.click(addButton);
@@ -195,7 +195,8 @@ describe("MovieSearch detail flow", () => {
       expect(onAddMovie).toHaveBeenCalledTimes(1);
     });
     expect(addButton).toBeDisabled();
-    expect(addButton).toHaveTextContent("Adding...");
+    // The + becomes a spinner; only its name says what is happening.
+    expect(addButton).toHaveAccessibleName("Adding Movie A");
 
     resolveAdd();
 
@@ -231,10 +232,10 @@ describe("MovieSearch detail flow", () => {
     });
 
     await screen.findByText("Movie A");
-    fireEvent.click(screen.getByRole("button", { name: /details/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Details for Movie A" }));
     await screen.findByRole("heading", { name: "Movie A", level: 2 });
     fireEvent.change(getCommentField(), { target: { value: "Keep this draft" } });
-    fireEvent.click(screen.getByRole("button", { name: /add movie/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Movie", exact: true }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "This movie is already in the bowl."
@@ -269,7 +270,7 @@ describe("MovieSearch detail flow", () => {
     fireEvent.change(searchInput, { target: { value: "Movie A" } });
 
     await screen.findByText("Movie A");
-    fireEvent.click(screen.getByRole("button", { name: /^add$/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Movie A" }));
 
     expect(await screen.findByText("This movie is already in the bowl.")).toBeInTheDocument();
     expect(searchInput).toHaveValue("Movie A");

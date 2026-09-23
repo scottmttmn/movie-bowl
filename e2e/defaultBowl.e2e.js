@@ -87,7 +87,7 @@ test("movie details preserve search on Back, and comments are added after the mo
   await page.getByRole("button", { name: "Add a movie", exact: true }).click();
   await page.getByPlaceholder("Search movies...").fill("Feature");
   await expect(page.getByRole("button", { name: "Comment (optional)" })).toHaveCount(0);
-  await page.getByRole("button", { name: "Details", exact: true }).click();
+  await page.getByRole("button", { name: "Details for The Feature", exact: true }).click();
   await expect(page.getByRole("button", { name: "Add to Friday Night", exact: true })).toBeVisible();
   await expect(page.getByRole("button", { name: "Back to search" })).toBeFocused();
   await expect(page.getByRole("dialog")).toHaveCount(1);
@@ -95,7 +95,7 @@ test("movie details preserve search on Back, and comments are added after the mo
   await page.keyboard.press("Escape");
   await expect(page.getByPlaceholder("Search movies...")).toHaveValue("Feature");
   await expect(page.getByPlaceholder("Search movies...")).toBeFocused();
-  await page.getByRole("button", { name: "Details", exact: true }).click();
+  await page.getByRole("button", { name: "Details for The Feature", exact: true }).click();
   await page.getByRole("button", { name: "Add to Friday Night", exact: true }).click();
   await expect(page.getByPlaceholder("Search movies...")).toHaveValue("");
   await expect(page.getByPlaceholder("Search movies...")).toBeFocused();
@@ -298,10 +298,10 @@ test("short keyboard-height view prioritizes results and keeps session history c
   await page.goto("/bowls");
   await page.getByRole("button", { name: "Add a movie", exact: true }).click();
   await page.getByPlaceholder("Search movies...").fill("Match");
-  const firstResult = page.getByRole("option", { name: /First Match/ });
+  const firstResult = page.getByRole("row", { name: /First Match/ });
   await expect(firstResult).toBeInViewport({ ratio: 1 });
   await expect(page.getByRole("status").filter({ hasText: "3 results below" })).toHaveClass(/sr-only/);
-  await firstResult.getByRole("button", { name: "Add", exact: true }).click();
+  await firstResult.getByRole("button", { name: "Add First Match", exact: true }).click();
   await expect(page.getByRole("status").filter({ hasText: "Added First Match to Friday Night" })).toBeVisible();
   const sessionButton = page.getByRole("button", { name: /Added this session 1/ });
   await expect(sessionButton).toBeInViewport({ ratio: 1 });
