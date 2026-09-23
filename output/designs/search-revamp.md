@@ -130,8 +130,9 @@ tune against real queries in the spike. The starting rule:
 
 - the query is at least three characters;
 - the person's name matches the query closely -- every query word matches the
-  start of a name word, so "tom han" matches and "big" does not match someone
-  merely credited as "Big";
+  start of a name word, so "tom han" matches Tom Hanks and "anks" matches no
+  one. A title can still start a name ("big" starts "Bigg"), which the next
+  rule is for;
 - the person clears a popularity floor, so a lone obscure name-match does not
   outrank a title someone was actually typing.
 
@@ -210,8 +211,11 @@ response could isolate a people failure but not a slow one, and would make
 every title search depend on it. The people call has its own short timeout; a
 people lookup that fails or times out simply leaves no People row.
 
-A person's movies are feature films only, excluding TV, shorts and uncredited
-appearances, and sorted popular first, then release date and movie ID as
+A person's movies are feature films only, excluding TV movies,
+direct-to-video releases and uncredited appearances. Shorts are the one
+exception: movie credits carry no marker for them, only each title's runtime
+would, and a details request per credit is not worth it, so a short can
+appear. They are sorted popular first, then release date and movie ID as
 deterministic tie breakers, labelled "Popular first". Defer sort controls
 until that default has been lived with. Keep title relevance unchanged. Never
 promote or hide movies by streaming availability: provider data arrives later

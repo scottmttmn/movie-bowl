@@ -22,7 +22,7 @@ function createRes() {
 }
 
 describe("api/tmdb/search", () => {
-  beforeEach(() => mocks.tmdbFetch.mockReset());
+  beforeEach(() => { mocks.tmdbFetch.mockReset(); });
 
   it("validates the query and page", async () => {
     const queryRes = createRes();
@@ -59,5 +59,122 @@ describe("api/tmdb/search", () => {
     expect(mocks.tmdbFetch).toHaveBeenCalledWith(
       "/search/movie?query=Alien%20%26%20Ripley&page=2&language=en-US&region=US&include_adult=false"
     );
+  });
+});
+
+describe("api/tmdb/search people actions", () => {
+  beforeEach(() => { mocks.tmdbFetch.mockReset(); });
+
+  it("rejects an unknown type without calling TMDB", async () => {
+    const res = createRes();
+    await handler({ method: "GET", query: { type: "keyword", query: "heist" } }, res);
+    expect(res.statusCode).toBe(400);
+    expect(mocks.tmdbFetch).not.toHaveBeenCalled();
+  });
+
+  it("returns only strong people matches, with what identifies them", async () => {
+    mocks.tmdbFetch.mockResolvedValue({
+      results: [
+        {
+          id: 31,
+          name: "Tom Hanks",
+          popularity: 60,
+          profile_path: "/hanks.jpg",
+          known_for_department: "Acting",
+          known_for: [
+            { media_type: "movie", title: "Cast Away" },
+            { media_type: "tv", name: "Band of Brothers" },
+            { media_type: "movie", title: "Big" },
+          ],
+        },
+        { id: 99, name: "Tom Hankinson", popularity: 0.3, known_for: [] },
+      ],
+    });
+
+    const res = createRes();
+    await handler({ method: "GET", query: { type: "person", query: "tom han" } }, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({
+      people: [
+        {
+          id: 31,
+          name: "Tom Hanks",
+          profilePath: "/hanks.jpg",
+          knownForDepartment: "Acting",
+          knownFor: ["Cast Away", "Big"],
+        },
+      ],
+    });
+    expect(mocks.tmdbFetch).toHaveBeenCalledWith(
+      "/search/person?query=tom%20han&page=1&language=en-US&include_adult=false"
+    );
+  });
+
+  it("answers a query too long to be a name with no people rather than an error", async () => {
+    const res = createRes();
+    await handler({ method: "GET", query: { type: "person", query: "x".repeat(101) } }, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ people: [] });
+    expect(mocks.tmdbFetch).not.toHaveBeenCalled();
+  });
+
+  it("does not cap the length of an ordinary title search", async () => {
+    mocks.tmdbFetch.mockResolvedValue({ results: [] });
+    const res = createRes();
+    await handler({ method: "GET", query: { query: "something with ".repeat(10) } }, res);
+    expect(res.statusCode).toBe(200);
+  });
+
+  it("validates the person id before fetching credits", async () => {
+    for (const personId of [undefined, "0", "-4", "abc", "1.5"]) {
+      const res = createRes();
+      await handler({ method: "GET", query: { type: "person-movies", personId } }, res);
+      expect(res.statusCode).toBe(400);
+    }
+    expect(mocks.tmdbFetch).not.toHaveBeenCalled();
+  });
+
+  it("returns a person's movies split by role", async () => {
+    mocks.tmdbFetch.mockResolvedValue({
+      cast: [{ id: 1, title: "Cast Away", character: "Chuck Noland", popularity: 30, release_date: "2000-12-22" }],
+      crew: [
+        { id: 2, title: "That Thing You Do!", job: "Director", popularity: 10 },
+        { id: 3, title: "Larry Crowne", job: "Producer", popularity: 8 },
+      ],
+    });
+
+    const res = createRes();
+    await handler({ method: "GET", query: { type: "person-movies", personId: "31" } }, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.personId).toBe(31);
+    expect(res.body.acting.map((movie) => movie.title)).toEqual(["Cast Away"]);
+    expect(res.body.acting[0].characters).toEqual(["Chuck Noland"]);
+    expect(res.body.directing.map((movie) => movie.title)).toEqual(["That Thing You Do!"]);
+    expect(mocks.tmdbFetch).toHaveBeenCalledWith("/person/31/movie_credits?language=en-US");
+  });
+
+  it("reports a person TMDB does not have as not found", async () => {
+    mocks.tmdbFetch.mockImplementation(async () => {
+      throw Object.assign(new Error("TMDB request failed"), { statusCode: 404 });
+    });
+    const res = createRes();
+    await handler({ method: "GET", query: { type: "person-movies", personId: "31" } }, res);
+    expect(res.statusCode).toBe(404);
+    expect(res.body).toEqual({ error: "Person not found" });
+  });
+
+  it("hides any other credits failure behind a generic bad gateway", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.tmdbFetch.mockImplementation(async () => {
+      throw Object.assign(new Error("TMDB request failed"), { statusCode: 500 });
+    });
+    const res = createRes();
+    await handler({ method: "GET", query: { type: "person-movies", personId: "31" } }, res);
+    expect(res.statusCode).toBe(502);
+    expect(res.body).toEqual({ error: "Failed to fetch TMDB credits" });
+    expect(consoleError).toHaveBeenCalledWith("[api/tmdb/search] Failed to fetch person credits", expect.any(Error));
+    consoleError.mockRestore();
   });
 });

@@ -1,6 +1,9 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import {
   clearTmdbMovieDetailsCache,
+  clearTmdbPersonMoviesCache,
+  getTmdbPersonMovies,
+  searchTmdbPeople,
   getTmdbMovieDetails,
   getTmdbMovieFilterMetadata,
   getTmdbMovieProviders,
@@ -12,10 +15,12 @@ import { OFFLINE_MESSAGE } from "../../utils/networkErrors";
 describe("tmdbApi", () => {
   beforeEach(() => {
     clearTmdbMovieDetailsCache();
+    clearTmdbPersonMoviesCache();
     global.fetch = vi.fn();
   });
 
   afterEach(() => {
+    vi.useRealTimers();
     vi.restoreAllMocks();
   });
 
@@ -235,5 +240,79 @@ describe("tmdbApi", () => {
     });
 
     await expect(searchTmdbMovies("Alien")).rejects.toThrow("TMDB is down");
+  });
+
+  it("searches people through the search route and finds no one for a blank query", async () => {
+    await expect(searchTmdbPeople("  ")).resolves.toEqual({ people: [] });
+    expect(global.fetch).not.toHaveBeenCalled();
+
+    global.fetch.mockResolvedValue({ ok: true, json: async () => ({ people: [{ id: 31, name: "Tom Hanks" }] }) });
+    await expect(searchTmdbPeople("tom han")).resolves.toEqual({ people: [{ id: 31, name: "Tom Hanks" }] });
+    expect(global.fetch).toHaveBeenCalledWith(
+      "/api/tmdb/search?type=person&query=tom%20han",
+      { signal: expect.any(AbortSignal) }
+    );
+  });
+
+  it("gives up on a slow people search instead of holding up title search", async () => {
+    vi.useFakeTimers();
+    let requestSignal;
+    global.fetch.mockImplementation((url, { signal }) => {
+      requestSignal = signal;
+      return new Promise((resolve, reject) => {
+        signal.addEventListener("abort", () => reject(new DOMException("Aborted", "AbortError")));
+      });
+    });
+
+    const request = searchTmdbPeople("tom han", { timeoutMs: 100 });
+    const outcome = expect(request).rejects.toThrow("Aborted");
+    await vi.advanceTimersByTimeAsync(100);
+    await outcome;
+    expect(requestSignal.aborted).toBe(true);
+  });
+
+  it("cancels a people search when the caller does, even before it starts", async () => {
+    global.fetch.mockImplementation((url, { signal }) => (
+      signal.aborted
+        ? Promise.reject(new DOMException("Aborted", "AbortError"))
+        : new Promise(() => {})
+    ));
+    const caller = new AbortController();
+    caller.abort();
+
+    await expect(searchTmdbPeople("tom han", { signal: caller.signal })).rejects.toThrow("Aborted");
+  });
+
+  it("fetches a person's movies once and serves them again from the cache", async () => {
+    global.fetch.mockResolvedValue({
+      ok: true,
+      json: async () => ({ personId: 31, acting: [{ id: 1, title: "Cast Away" }], directing: [] }),
+    });
+
+    const first = await getTmdbPersonMovies("31");
+    const second = await getTmdbPersonMovies(31);
+
+    expect(first).toEqual({ acting: [{ id: 1, title: "Cast Away" }], directing: [] });
+    expect(second).toEqual(first);
+    expect(global.fetch).toHaveBeenCalledTimes(1);
+    expect(global.fetch).toHaveBeenCalledWith("/api/tmdb/search?type=person-movies&personId=31");
+  });
+
+  it("does not keep a failed person's movies in the cache", async () => {
+    global.fetch
+      .mockResolvedValueOnce({ ok: false, status: 502, json: async () => ({ error: "Failed to fetch TMDB credits" }) })
+      .mockResolvedValueOnce({ ok: true, json: async () => ({ acting: [], directing: [{ id: 2, title: "That Thing You Do!" }] }) });
+
+    await expect(getTmdbPersonMovies(31)).rejects.toThrow("Failed to fetch TMDB credits");
+    await expect(getTmdbPersonMovies(31)).resolves.toEqual({
+      acting: [],
+      directing: [{ id: 2, title: "That Thing You Do!" }],
+    });
+    expect(global.fetch).toHaveBeenCalledTimes(2);
+  });
+
+  it("refuses a person id that is not a TMDB id without fetching", async () => {
+    await expect(getTmdbPersonMovies("-3")).rejects.toThrow("Invalid person");
+    expect(global.fetch).not.toHaveBeenCalled();
   });
 });
