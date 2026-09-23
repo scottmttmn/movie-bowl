@@ -13,10 +13,10 @@ export function clearTmdbMovieDetailsCache() {
   movieDetailsInflight.clear();
 }
 
-async function apiGet(url) {
+async function apiGet(url, { signal } = {}) {
   let response;
   try {
-    response = await fetch(url);
+    response = signal ? await fetch(url, { signal }) : await fetch(url);
   } catch (error) {
     // Re-throw with copy callers can show verbatim. Without this the caller
     // only sees a bare TypeError and blames the movie service.
@@ -77,6 +77,61 @@ export async function searchTmdbMovies(query, { page = 1 } = {}) {
   return apiGet(
     `/api/tmdb/search?query=${encodeURIComponent(q)}&page=${normalizedPage}`
   );
+}
+
+// People search runs beside title search and must never hold it up, so it has
+// a short budget of its own; a people lookup that is slow simply finds no one.
+export const PEOPLE_SEARCH_TIMEOUT_MS = 2500;
+
+export async function searchTmdbPeople(query, { signal, timeoutMs = PEOPLE_SEARCH_TIMEOUT_MS } = {}) {
+  const q = String(query || "").trim();
+  if (!q) return { people: [] };
+  const controller = new AbortController();
+  const abort = () => controller.abort();
+  if (signal?.aborted) abort();
+  signal?.addEventListener?.("abort", abort, { once: true });
+  const timer = setTimeout(abort, timeoutMs);
+  try {
+    const data = await apiGet(
+      `/api/tmdb/search?type=person&query=${encodeURIComponent(q)}`,
+      { signal: controller.signal }
+    );
+    return { people: Array.isArray(data?.people) ? data.people : [] };
+  } finally {
+    clearTimeout(timer);
+    signal?.removeEventListener?.("abort", abort);
+  }
+}
+
+const PERSON_MOVIES_CACHE_TTL_MS = 5 * 60 * 1000;
+const PERSON_MOVIES_CACHE_MAX = 50;
+const personMoviesCache = new Map();
+
+export function clearTmdbPersonMoviesCache() {
+  personMoviesCache.clear();
+}
+
+// A person's movies are fetched once per person, as Acting and Directing, and
+// kept briefly so Change person and back does not refetch them.
+export async function getTmdbPersonMovies(personId) {
+  const id = Number(personId);
+  if (!Number.isInteger(id) || id <= 0) throw new Error("Invalid person");
+  const cached = personMoviesCache.get(id);
+  if (cached?.expiresAt > Date.now()) return cached.value;
+
+  const request = apiGet(`/api/tmdb/search?type=person-movies&personId=${id}`).then((data) => ({
+    acting: Array.isArray(data?.acting) ? data.acting : [],
+    directing: Array.isArray(data?.directing) ? data.directing : [],
+  }));
+  personMoviesCache.set(id, { value: request, expiresAt: Date.now() + PERSON_MOVIES_CACHE_TTL_MS });
+  if (personMoviesCache.size > PERSON_MOVIES_CACHE_MAX) {
+    personMoviesCache.delete(personMoviesCache.keys().next().value);
+  }
+  // A failed fetch must not be served from the cache for five minutes.
+  request.catch(() => {
+    if (personMoviesCache.get(id)?.value === request) personMoviesCache.delete(id);
+  });
+  return request;
 }
 
 export async function getTmdbMovieDetails(id) {

@@ -130,8 +130,9 @@ tune against real queries in the spike. The starting rule:
 
 - the query is at least three characters;
 - the person's name matches the query closely -- every query word matches the
-  start of a name word, so "tom han" matches and "big" does not match someone
-  merely credited as "Big";
+  start of a name word, so "tom han" matches Tom Hanks and "anks" matches no
+  one. A title can still start a name ("big" starts "Bigg"), which the next
+  rule is for;
 - the person clears a popularity floor, so a lone obscure name-match does not
   outrank a title someone was actually typing.
 
