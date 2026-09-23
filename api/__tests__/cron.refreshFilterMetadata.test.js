@@ -5,6 +5,7 @@ const mocks = vi.hoisted(() => ({
   recordFilterMetadataRefreshRun: vi.fn(),
   getSupabaseAdmin: vi.fn(() => ({ name: "admin" })),
   pruneProviderLinks: vi.fn(),
+  runTitleSnapshotRefresh: vi.fn(),
 }));
 
 vi.mock("../_lib/filterMetadataRefresh.js", () => ({
@@ -15,6 +16,10 @@ vi.mock("../_lib/supabaseAdmin.js", () => ({
   getSupabaseAdmin: mocks.getSupabaseAdmin,
 }));
 vi.mock("../_lib/providerLinks.js", () => ({ pruneProviderLinks: mocks.pruneProviderLinks }));
+vi.mock("../_lib/titleSnapshotRefresh.js", () => ({
+  TITLE_SNAPSHOT_DAILY_BUDGET_MS: 10_000,
+  runTitleSnapshotRefresh: mocks.runTitleSnapshotRefresh,
+}));
 
 import handler from "../cron/refresh-filter-metadata.js";
 
@@ -40,6 +45,14 @@ describe("api/cron/refresh-filter-metadata", () => {
     delete process.env.FILTER_METADATA_DAILY_MAX_TITLES;
     mocks.runDailyFilterMetadataRefresh.mockReset();
     mocks.recordFilterMetadataRefreshRun.mockReset();
+    mocks.runTitleSnapshotRefresh.mockReset().mockResolvedValue({
+      selected: 3,
+      refreshed: 3,
+      missing: 0,
+      failed: 0,
+      exhausted: true,
+      elapsedMs: 5,
+    });
     mocks.runDailyFilterMetadataRefresh.mockResolvedValue({
       claimed: 2,
       succeeded: 2,
@@ -112,6 +125,40 @@ describe("api/cron/refresh-filter-metadata", () => {
       })
     );
     expect(infoSpy).toHaveBeenCalled();
+  });
+
+  it("refreshes title snapshots in the time the filter refresh leaves", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const res = createRes();
+
+    await handler({ method: "GET", headers: { authorization: "Bearer daily-secret" } }, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(mocks.runTitleSnapshotRefresh).toHaveBeenCalledWith(
+      { name: "admin" },
+      { budgetMs: expect.any(Number) }
+    );
+    const { budgetMs } = mocks.runTitleSnapshotRefresh.mock.calls[0][1];
+    expect(budgetMs).toBeGreaterThan(0);
+    expect(budgetMs).toBeLessThanOrEqual(10_000);
+    expect(res.body.titleSnapshots).toMatchObject({ refreshed: 3, exhausted: true });
+  });
+
+  it("keeps a good filter run when the snapshot pass fails", async () => {
+    vi.spyOn(console, "info").mockImplementation(() => {});
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.runTitleSnapshotRefresh.mockRejectedValue(new Error("function does not exist"));
+    const res = createRes();
+
+    await handler({ method: "GET", headers: { authorization: "Bearer daily-secret" } }, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toMatchObject({ succeeded: 2, titleSnapshots: { error: true } });
+    expect(mocks.recordFilterMetadataRefreshRun).toHaveBeenCalledWith(
+      { name: "admin" },
+      expect.objectContaining({ status: "completed" })
+    );
+    expect(errorSpy).toHaveBeenCalled();
   });
 
   it("records a failed cron execution when the worker throws", async () => {

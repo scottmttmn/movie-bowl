@@ -35,7 +35,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (153 test files / 1308 tests, 76 Playwright tests with 8 skipped,
+fully green (154 test files / 1320 tests, 76 Playwright tests with 8 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -298,7 +298,7 @@ on a PostgreSQL you already have, applies `supabase/baseline/` and then every
 migration in order, runs the suites and drops it again. It needs pgTAP and
 `pg_prove` beside that server (`apt-get install pgtap`, or `brew install pgtap`)
 and `DATABASE_URL` if the server is not the local default. Never against the
-hosted database: pgTAP writes rows. A clean run is 24 suites / 622 assertions,
+hosted database: pgTAP writes rows. A clean run is 25 suites / 642 assertions,
 all passing, and `npm run test:counts -- pgtap` holds that sentence to the run.
 
 `supabase/baseline/` is the pre-migration schema, not a migration. Movie Bowl's
@@ -401,6 +401,11 @@ then a generic 500. They run in Node and are excluded from coverage; they are
 - `api/cron/refresh-filter-metadata` maintains the private daily certification
   and provider cache. It requires `CRON_SECRET`, uses the service role, and must
   remain compatible with Vercel Hobby's once-daily schedule and 60-second cap.
+  In the time left it keeps the TMDB details saved on `bowl_movies`,
+  `bowl_draw_events`, `user_watch_events` and `solo_draw_removed_copies`
+  inside TMDB's six-month cache limit, through the service-role
+  `select_tmdb_title_snapshot_refreshes` and `apply_tmdb_title_snapshot`; a
+  history entry's title and date are the person's and are never overwritten.
   It also deletes provider-link rows at 29 days, even with lookups disabled,
   to satisfy the free vendor plan's 30-day retention limit. This spends no
   Watchmode quota. Apply the provider-link migration before deploying this call.

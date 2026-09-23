@@ -1,5 +1,6 @@
 import { fetchTmdbFilterMetadata } from "./tmdbFilterMetadata.js";
 import { recordServiceUsage } from "./usageCounters.js";
+import { applyTitleSnapshot } from "./titleSnapshotRefresh.js";
 
 export const FILTER_METADATA_REGION = "US";
 export const FILTER_METADATA_STALE_MS = 24 * 60 * 60 * 1000;
@@ -117,6 +118,19 @@ export async function refreshFilterMetadataClaim(
       }
     );
     if (error) throw error;
+    if (data !== false) {
+      // The same response carries the title's details, so the slips and history
+      // copies holding it are refreshed without a second TMDB request. A failure
+      // here costs only that: the snapshot pass will pick the title up later.
+      try {
+        await applyTitleSnapshot(supabaseAdmin, claim.tmdb_id, metadata.details);
+      } catch (snapshotError) {
+        console.error("[filterMetadataRefresh] Failed to refresh title snapshots", {
+          tmdbId: claim.tmdb_id,
+          error: snapshotError,
+        });
+      }
+    }
     return { ok: data !== false, tmdbId: claim.tmdb_id };
   } catch (error) {
     console.error("[filterMetadataRefresh] Failed to refresh TMDB metadata", {
