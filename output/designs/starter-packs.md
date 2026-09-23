@@ -278,10 +278,12 @@ holds only what is ours, and TMDB is asked at run time.
 - **Not a derivative, decided September 23, 2026.** §1.C also forbids
   derivatives of TMDB Content without defining them, and a named selection
   looked closer to that edge than a search. On inspection it is not: a
-  filmography pack is a fixed query -- one person, a role, a date range, a
-  minimum vote count -- which is the filtering TMDB's own discover endpoint
-  offers, and a Best Picture pack is our own list matched title by title the
-  way someone typing it into search would. What a bowl keeps is the same rows
+  filmography pack is one person's movie credits, narrowed by role, decade and
+  a minimum vote count -- the same read of the same endpoint the person search
+  planned in `search-revamp.md` makes, and not something Discover can do
+  alone, since its `with_crew` does not check the job -- and a Best Picture
+  pack is our own list matched title by title the way someone typing it into
+  search would. What a bowl keeps is the same rows
   an owner adding those movies by hand would leave, and a bowl assembled by
   hand is plainly ordinary use. Movie Bowl is also non-commercial. So packs
   ship without asking TMDB first; the rules above -- nothing curated stored,
