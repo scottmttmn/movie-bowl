@@ -94,8 +94,9 @@ What they add, beyond this design as first written:
    service" and offers Try again.
 5. **Voice inside the field.** The mic moves into the field and the field
    becomes the listening state, showing words as they are heard, stopping on a
-   pause or Done, and searching at once. The prompt changes from "a movie
-   title" to "Say a title or someone in it". Today `interimResults` is false,
+   pause or Done, and searching at once. The mockup's prompt, "Say a title or
+   someone in it", waits for slice 3: until people are searchable it would
+   send names into a title-only search. Today `interimResults` is false,
    so nothing appears until you stop and you cannot tell whether you were
    heard.
 
@@ -270,9 +271,9 @@ discovery work and builds on the new rows.
 ### Slice 1 -- Voice
 
 Live transcription (`interimResults` on), the mic inside the field, the field
-as the listening state, stop on a pause or Done and search at once, and the
-new prompt. Small, self-contained, and it fixes something that feels broken
-now.
+as the listening state, and stop on a pause or Done and search at once. The
+prompt still asks for a movie title. Small, self-contained, and it fixes
+something that feels broken now.
 
 ### Slice 2 -- Rows, availability, loading, empty and error
 
@@ -285,7 +286,9 @@ modal, watch-history entry -- keeps its add, retry and destination contracts.
 
 ### Slice 3 -- People
 
-Everything else in this document, in the steps below.
+Everything else in this document, in the steps below. This is also where the
+voice prompt becomes "Say a title or someone in it", and the placeholder
+"Movie title or person", because only now is either true.
 
 #### 1. Validate the match rule and the data
 
