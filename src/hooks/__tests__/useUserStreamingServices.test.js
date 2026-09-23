@@ -132,7 +132,34 @@ describe("useUserStreamingServices", () => {
       await waitFor(() => expect(result.current.loading).toBe(false));
 
       expect(consoleError).not.toHaveBeenCalled();
-      expect(result.current.loadError).toBeNull();
+      // Still recorded: it is what keeps a save from writing defaults over
+      // preferences that never loaded.
+      expect(result.current.loadError).toEqual(mocks.state.loadError);
+    } finally {
+      consoleError.mockRestore();
+      resetPageLifecycleForTests();
+    }
+  });
+
+  it("reads the profile again when an abandoned page is restored from the bfcache", async () => {
+    resetPageLifecycleForTests();
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.state.loadError = { message: "TypeError: Failed to fetch" };
+    window.dispatchEvent(new Event("pagehide"));
+    try {
+      const { result } = renderHook(() => useUserStreamingServices());
+      await waitFor(() => expect(result.current.loadError).not.toBeNull());
+
+      mocks.state.loadError = null;
+      const restore = new Event("pageshow");
+      Object.defineProperty(restore, "persisted", { value: true });
+      await act(async () => {
+        window.dispatchEvent(restore);
+      });
+
+      await waitFor(() => expect(result.current.loadError).toBeNull());
+      expect(result.current.streamingServices).toEqual(["Max", "Netflix"]);
+      expect(consoleError).not.toHaveBeenCalled();
     } finally {
       consoleError.mockRestore();
       resetPageLifecycleForTests();
