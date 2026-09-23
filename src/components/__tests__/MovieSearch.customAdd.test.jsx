@@ -11,11 +11,6 @@ vi.mock("../../lib/streamingProviders", () => ({
   fetchStreamingProviders: vi.fn(async () => ({ providers: [], region: "US", fetchedAt: null })),
 }));
 
-function openCommentField() {
-  fireEvent.click(screen.getByRole("button", { name: /comment \(optional\)/i }));
-  return screen.getByLabelText(/comment \(optional\)/i);
-}
-
 describe("MovieSearch custom add", () => {
   it("adds a custom entry when user clicks add custom", async () => {
     const onAddMovie = vi.fn(async () => {});
@@ -23,9 +18,6 @@ describe("MovieSearch custom add", () => {
 
     const input = screen.getByPlaceholderText("Search movies...");
     fireEvent.change(input, { target: { value: "Wildcard" } });
-    fireEvent.change(openCommentField(), {
-      target: { value: "  Perfect for a double feature.  " },
-    });
 
     const addCustomButton = await screen.findByRole("button", { name: /add "wildcard"/i });
     fireEvent.click(addCustomButton);
@@ -36,11 +28,10 @@ describe("MovieSearch custom add", () => {
           id: null,
           title: "Wildcard",
           isCustomEntry: true,
-          note: "Perfect for a double feature.",
         })
       );
     });
-    await waitFor(() => expect(screen.queryByLabelText(/comment \(optional\)/i)).toBeNull());
-    expect(openCommentField()).toHaveValue("");
+    // A custom title has no details step, so it has nowhere to take a comment.
+    expect(onAddMovie.mock.calls[0][0].note).toBeUndefined();
   });
 });

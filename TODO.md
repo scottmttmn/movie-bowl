@@ -14,9 +14,6 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   Reintroducing late returns is not the answer here -- see
   `output/designs/tv-watch-history-details-and-safe-return.md`.
 
-- Public add-link comment ordering: move the comment field below movie search
-  so the flow matches the signed-in Add dialog and manual-history form. Agreed
-  as a small near-term follow-up, not part of the Play owner pilot.
 - Trailer captions during the pre-roll: `cc_load_policy=0` on the embed URL in
   `getAutoplayTrailerUrl` asks YouTube not to show captions, which suits the
   cinema feel. It is the last of that builder's pre-roll options not taken —
@@ -28,7 +25,6 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 - Invite inbox polish: state handling for accepted, declined, and stale invites. Visibility is covered by the top nav badge and `/invites` page.
 - Draw filter UX follow-up: keep evaluating whether runtime, genre, and rating controls still feel too dense after recent cleanup.
 - Streaming rank on touch: the reordering rows in User Settings still use HTML5 drag events, which do not fire on touch, so phones fall back to the ↑/↓ buttons. The redesign (`output/designs/user-settings-redesign.md`) kept that as-is; a pointer-event drag or an explicit "move to position" affordance would close it.
-- Add-link delete for non-owners: Bowl Settings shows every member the Delete button on add links they did not create, and the click is refused by RLS with an error banner. Hiding or disabling it for links whose `created_by` is someone else would turn a dead-end into a readable rule — the existing test pins the current behavior, so decide the rule before changing it.
 - Visual consistency sweep: audit remaining non-core pages and components for raw styling that bypasses shared tokens.
 - Large-bowl draw count UX: bowls with over 100 titles the daily cron has not
   cached still need an explicit tap on the phone to resolve an exact eligible

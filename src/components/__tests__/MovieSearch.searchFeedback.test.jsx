@@ -76,28 +76,19 @@ describe("MovieSearch search feedback", () => {
     expect(screen.getByRole("button", { name: /add "nothing"/i })).toBeInTheDocument();
   });
 
-  it("keeps the comment field collapsed until it is asked for", async () => {
-    mocks.searchTmdbMovies.mockResolvedValue({ results: [] });
-    render(<MovieSearch onAddMovie={vi.fn(async () => ({ ok: true }))} />);
-
-    expect(screen.queryByLabelText(/comment \(optional\)/i)).toBeNull();
-
-    const toggle = screen.getByRole("button", { name: /comment \(optional\)/i });
-    fireEvent.click(toggle);
-
-    const comment = screen.getByLabelText(/comment \(optional\)/i);
-    expect(comment).toHaveFocus();
-    fireEvent.change(comment, { target: { value: "Tim swears by it" } });
-
-    fireEvent.click(screen.getByRole("button", { name: /comment \(optional\)/i }));
-    expect(screen.queryByLabelText(/comment \(optional\)/i)).toBeNull();
-    // Collapsed, the draft is still visible so it is never silently attached.
-    expect(screen.getByText("Tim swears by it")).toBeInTheDocument();
-  });
-
-  it("hides the comment field entirely when the host form opts out", () => {
+  it("leaves the comment out of a movie's details when the host form opts out", async () => {
+    mocks.searchTmdbMovies.mockResolvedValue({
+      results: [{ id: 101, title: "Movie A", release_date: "2020-01-01" }],
+    });
     render(<MovieSearch onAddMovie={vi.fn()} includeComment={false} />);
 
-    expect(screen.queryByRole("button", { name: /comment \(optional\)/i })).toBeNull();
+    fireEvent.change(screen.getByPlaceholderText("Search movies..."), {
+      target: { value: "Movie A" },
+    });
+    await screen.findByText("Movie A");
+    fireEvent.click(screen.getByRole("button", { name: /details/i }));
+    await screen.findByRole("heading", { name: "Movie A", level: 2 });
+
+    expect(screen.queryByLabelText(/comment \(optional\)/i)).toBeNull();
   });
 });

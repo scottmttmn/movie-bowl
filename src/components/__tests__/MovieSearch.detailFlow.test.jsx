@@ -17,8 +17,7 @@ vi.mock("../../lib/streamingProviders", () => ({
   fetchStreamingProviders: mocks.fetchStreamingProviders,
 }));
 
-function openCommentField() {
-  fireEvent.click(screen.getByRole("button", { name: /comment \(optional\)/i }));
+function getCommentField() {
   return screen.getByLabelText(/comment \(optional\)/i);
 }
 
@@ -58,15 +57,15 @@ describe("MovieSearch detail flow", () => {
     render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={["Netflix"]} />);
 
     fireEvent.change(screen.getByPlaceholderText("Search movies..."), { target: { value: "Movie A" } });
-    fireEvent.change(openCommentField(), {
-      target: { value: "  Recommended after dinner.\nBring tissues.  " },
-    });
 
     await screen.findByText("Movie A");
     fireEvent.click(screen.getByRole("button", { name: /details/i }));
 
     await waitFor(() => {
       expect(screen.getByRole("heading", { name: "Movie A", level: 2 })).toBeInTheDocument();
+    });
+    fireEvent.change(getCommentField(), {
+      target: { value: "  Recommended after dinner.\nBring tissues.  " },
     });
     expect(screen.getByText("123 min")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /watch trailer/i })).toBeInTheDocument();
@@ -92,10 +91,10 @@ describe("MovieSearch detail flow", () => {
         })
       );
     });
-    expect(openCommentField()).toHaveValue("");
+    expect(screen.queryByLabelText(/comment \(optional\)/i)).toBeNull();
   });
 
-  it("passes a normalized blank comment through quick add and enforces the limit", async () => {
+  it("offers the comment only in a movie's details, and quick add carries none", async () => {
     mocks.searchTmdbMovies.mockResolvedValue({
       results: [{ id: 101, title: "Movie A", release_date: "2020-01-01" }],
     });
@@ -108,15 +107,51 @@ describe("MovieSearch detail flow", () => {
     const onAddMovie = vi.fn(async () => ({ ok: true }));
 
     render(<MovieSearch onAddMovie={onAddMovie} />);
-    const comment = openCommentField();
-    expect(comment).toHaveAttribute("maxlength", "500");
-    fireEvent.change(comment, { target: { value: "   \n  " } });
     fireEvent.change(screen.getByPlaceholderText("Search movies..."), {
       target: { value: "Movie A" },
     });
 
     await screen.findByText("Movie A");
+    expect(screen.queryByLabelText(/comment \(optional\)/i)).toBeNull();
+    expect(screen.queryByRole("button", { name: /comment \(optional\)/i })).toBeNull();
+
+    // A comment written for one movie is dropped when its details close, so it
+    // can never ride along on the next add.
+    fireEvent.click(screen.getByRole("button", { name: /details/i }));
+    await screen.findByRole("heading", { name: "Movie A", level: 2 });
+    expect(getCommentField()).toHaveAttribute("maxlength", "500");
+    fireEvent.change(getCommentField(), { target: { value: "Meant for another movie" } });
+    fireEvent.click(screen.getByRole("button", { name: /close/i }));
+    await waitFor(() => expect(screen.queryByLabelText(/comment \(optional\)/i)).toBeNull());
+
     fireEvent.click(screen.getByRole("button", { name: /^add$/i }));
+
+    await waitFor(() => expect(onAddMovie).toHaveBeenCalledTimes(1));
+    expect(onAddMovie.mock.calls[0][0].note).toBeUndefined();
+  });
+
+  it("sends a blank details comment as no comment", async () => {
+    mocks.searchTmdbMovies.mockResolvedValue({
+      results: [{ id: 101, title: "Movie A", release_date: "2020-01-01" }],
+    });
+    mocks.getTmdbMovieDetails.mockResolvedValue({ runtime: 123, genres: [] });
+    mocks.fetchStreamingProviders.mockResolvedValue({
+      providers: [],
+      region: "US",
+      fetchedAt: null,
+    });
+    const onAddMovie = vi.fn(async () => ({ ok: true }));
+
+    render(<MovieSearch onAddMovie={onAddMovie} />);
+    fireEvent.change(screen.getByPlaceholderText("Search movies..."), {
+      target: { value: "Movie A" },
+    });
+
+    await screen.findByText("Movie A");
+    fireEvent.click(screen.getByRole("button", { name: /details/i }));
+    await screen.findByRole("heading", { name: "Movie A", level: 2 });
+    fireEvent.change(getCommentField(), { target: { value: "   \n  " } });
+    fireEvent.click(screen.getByRole("button", { name: /add movie/i }));
 
     await waitFor(() => {
       expect(onAddMovie).toHaveBeenCalledWith(expect.objectContaining({ note: null }));
@@ -198,12 +233,14 @@ describe("MovieSearch detail flow", () => {
     await screen.findByText("Movie A");
     fireEvent.click(screen.getByRole("button", { name: /details/i }));
     await screen.findByRole("heading", { name: "Movie A", level: 2 });
+    fireEvent.change(getCommentField(), { target: { value: "Keep this draft" } });
     fireEvent.click(screen.getByRole("button", { name: /add movie/i }));
 
     expect(await screen.findByRole("alert")).toHaveTextContent(
       "This movie is already in the bowl."
     );
     expect(screen.getByRole("heading", { name: "Movie A", level: 2 })).toBeInTheDocument();
+    expect(getCommentField()).toHaveValue("Keep this draft");
   });
 
   it("keeps search results open after a duplicate add is rejected", async () => {
@@ -229,8 +266,6 @@ describe("MovieSearch detail flow", () => {
 
     render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={["Netflix"]} />);
     const searchInput = screen.getByPlaceholderText("Search movies...");
-    const comment = openCommentField();
-    fireEvent.change(comment, { target: { value: "Keep this draft" } });
     fireEvent.change(searchInput, { target: { value: "Movie A" } });
 
     await screen.findByText("Movie A");
@@ -238,7 +273,6 @@ describe("MovieSearch detail flow", () => {
 
     expect(await screen.findByText("This movie is already in the bowl.")).toBeInTheDocument();
     expect(searchInput).toHaveValue("Movie A");
-    expect(comment).toHaveValue("Keep this draft");
     expect(screen.getByText("Movie A")).toBeInTheDocument();
   });
 });
