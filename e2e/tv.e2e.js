@@ -594,6 +594,10 @@ test("TV Watch History opens details and applies the bounded return cleanup", as
   await detailClose.press("Enter");
   await expect(recentCard).toBeFocused();
   await recentCard.press("Enter");
+  // Wait for the page's own autofocus, as on the first visit. It lands on Close
+  // from a timer, and press() focuses then types in two steps, so on a slow
+  // runner the timer can take focus in between and the Enter closes the page.
+  await expect(page.getByRole("button", { name: "Close", exact: true })).toBeFocused();
   await page.getByRole("button", { name: "Put movie back in bowl" }).press("Enter");
   await expect(
     page.getByRole("dialog", { name: "Put “Recent History Feature” back in the bowl?" })
