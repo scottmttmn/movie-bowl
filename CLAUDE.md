@@ -46,7 +46,9 @@ one thing a tripwire nobody reads cannot catch.
 
 `.github/workflows/ci.yml` runs lint, build, the Vitest suite, the Playwright
 suite and the pgTAP database suites on every pull request and on `main`, each
-with that count check. It is not a substitute for running the gate before you
+with that count check. The one exception is Playwright on a pull request that
+changes only Markdown, which it skips; `CLAUDE.md` does not count as Markdown
+there, because it carries the Playwright number. It is not a substitute for running the gate before you
 commit — it answers minutes later, and the Playwright suite is where a change
 you can see usually breaks — but it is what makes a green checkout a claim
 rather than a habit.
