@@ -1,25 +1,46 @@
-# Search revamp: find movies through titles, people, and themes
+# Search revamp: find movies through the people in them
 
-Status: proposed, September 15, 2026. Planning only; no application changes.
-Drafted on `main` at `4c10948`. The review branch it was written on has since
-been deleted, so read it against `main`.
+Status: proposed September 15, 2026; revised September 23, 2026. Planning
+only; no application changes. The first draft proposed an explicit
+**Title · Actor · Director · Keyword** selector. The revision drops Keyword for
+v1 and replaces the selector with grouped results, which only became workable
+once there were two kinds of result instead of four.
 
 ## Recommendation
 
-Keep the familiar search field and movie cards. Add a compact selector above
-the field: **Title · Actor · Director · Keyword**, with Title selected when a
-new search session opens. People and keywords become paths to the same movie
-results and Add/Details actions already in use.
+Keep the one search field. Behind it, run the existing title search and a
+people search together and show the answers in separate groups: a compact
+**People** row above the movie cards when the query strongly matches a person,
+and the movie cards exactly as today. Choosing a person opens their movies,
+with the role -- acting or directing -- chosen there rather than before
+searching.
 
-This makes intent explicit with one tap. Someone searching “Jordan” can choose
-whether they mean a title or a person; someone searching “heist” can choose
-titles containing that word or movies about it. Avoid silently guessing intent
-or mixing people, topics, and movies into one relevance ranking in the first
-release. A unified search can follow if real usage shows the selector creates
-friction.
+Title search already works; this is about **discovery**, and about the case
+where someone cannot remember a title but remembers who was in it. "That Tom
+Hanks one on the island" starts from a person, so a person is what search
+should offer back.
 
 The scope is catalog discovery wherever the shared search is used. Searching
-movies already in a bowl or watch history is a separate feature.
+movies already in a bowl or in watch history is a separate feature, not part
+of this one.
+
+## Why grouped, not modes
+
+The first draft chose explicit modes for two reasons, and both have gone:
+
+- **Four result types would not share a ranking.** Movies, people and themes
+  in one list means deciding whether Michael B. Jordan outranks the movie
+  *Jordan* outranks a tag. With Keyword gone there are two types, and grouping
+  them means they never compete: people sit in their row, movies keep title
+  search's own order.
+- **Actor and Director made you name the role before finding the person.**
+  People do not think "I am searching for a director"; they think of the
+  person. The role is a property of that person's credits, so it is picked
+  after them.
+
+Grouping also keeps the case that works today exactly as it is. Someone who
+types a title gets the same movie cards in the same order, with nothing added
+unless the query is plainly a name.
 
 ## What works today
 
@@ -37,196 +58,205 @@ movies already in a bowl or watch history is a separate feature.
 
 ## Proposed experience
 
-| Mode | What the user types | First results | After selection |
-| --- | --- | --- | --- |
-| Title | A movie title | Existing movie cards | Add or open Details |
-| Actor | A person's name | People with photo, name, and recognizable credits | Movies featuring that person |
-| Director | A person's name | People with identifying context | Movies they directed |
-| Keyword | A theme, such as “time travel” | Named keyword suggestions | Movies tagged with the selected keyword |
+### The People row
 
-Actor and Director should have distinct labels even though they use the same
-person lookup. A person can work in both roles. Do not exclude a candidate just
-because their primary department is different; verify the selected role from
-their movie credits. If that role has no movies, explain this and let the user
-switch roles or choose another person.
+When the query strongly matches a person, up to three people appear above the
+movie cards, each with a photo (or placeholder), name, and two or three
+identifying credits: "Tom Hanks · *Cast Away*, *Big*". Those credits identify
+the person; they must not read as a complete filmography.
 
-### People and topics are navigation
+"Strong match" is what keeps title search clean, and it is the one rule to
+tune against real queries in the spike. The starting rule:
 
-Selecting a person or keyword opens movie results with a small context header:
-“Movies directed by Sofia Coppola” or “Movies about time travel.” Include
-**Change person** or **Change keyword**, returning to the original suggestions
-with the query and scroll position intact. Person and keyword rows never have
-an Add action. Show missing-photo placeholders and avoid implying that the
-small set of identifying credits is the complete filmography.
+- the query is at least three characters;
+- the person's name matches the query closely -- every query word matches the
+  start of a name word, so "tom han" matches and "big" does not match someone
+  merely credited as "Big";
+- the person clears a popularity floor, so a lone obscure name-match does not
+  outrank a title someone was actually typing.
 
-Movie cards remain familiar. The context header explains why the movies match;
-actor results may also show the character name when available. Details → Back
-restores mode, selection, result position, and loaded pages. The outer modal's
-close action remains distinct from returning to suggestions.
+When nothing clears it, the row does not render and the page is today's page.
+Movie results never wait for the people lookup, and the people row never
+shifts movie cards that are already on screen: if people arrive after movies
+have rendered, the row may appear only while the list is still settling.
 
-After a successful add, preserve a selected person/keyword and movie list so
-someone can add several films from the same discovery session. Clear any
-submitted comment and retain existing duplicate/pending protections. Preserve
-Title mode's current reset behavior. An explicit controller reset/new session
-clears all search context; separate that from successful-add handling.
+A person row has no Add action. People are navigation, never slips.
 
-### Keywords need an honest promise
+### A person's movies
 
-Use “Search themes, e.g. heist or time travel” as supporting copy. In the first
-release, keyword means a catalog topic, not arbitrary plot-description or mood
-search. Show the actual matching keyword labels before showing their movies.
-Do not automatically combine loosely related tags or silently substitute one.
-If no keyword matches, suggest a shorter theme or a switch to Title. Treat
-synonyms, genres, and natural-language queries as later research questions.
+Choosing a person opens their movies under a small context header -- "Tom
+Hanks's movies" -- with **Change person** returning to the search, query and
+position intact. The movie cards are the ordinary ones, with Add and Details;
+actor results may also show the character name.
 
-### Preserve flexible custom entries
+An **Acting · Directing** switch appears only when the person has feature
+credits in both roles, and opens on the one they are known for. Directing is
+crew entries whose `job` is exactly `Director`; primary department is not
+evidence that a person directed a particular movie. A person with no feature
+credits in a role simply has no such tab.
 
-Keep the current custom-title/category path in Title mode. In other modes offer
-an explicit “Add a custom title or category” action that opens an editable
-field; do not automatically turn the person or keyword query into an addable
-movie. This retains flexible draws while preventing accidental “Tom Hanks”
-entries. Network failure must remain distinguishable from a successful empty
-search.
+Details → Back restores the person, role, list position, and loaded pages. The
+outer modal's close action stays distinct from returning to the search.
+
+After a successful add, stay on the person's movies so someone can add several
+from one filmography. Clear any submitted comment and keep the existing
+duplicate and pending protections. Plain title results keep their current
+reset behavior. An explicit reset or new session clears everything.
+
+### Custom entries
+
+Keep the custom-title path as it is. A query that produced a People row still
+offers "Add *Tom Hanks* as a custom title" only through the existing explicit
+custom action, never as a side effect of choosing a person, so no one ends up
+with an accidental "Tom Hanks" slip. Network failure must remain
+distinguishable from a search that found nothing.
 
 ### Mobile, keyboard, and voice
 
-- Keep the selector on one compact row with readable labels and usable touch
-  targets; validate at narrow widths with the keyboard open.
-- Use an accessible labeled single-choice control for mode selection. Update
-  the input's accessible name and helper text for its mode.
-- Arrow keys navigate the active result type. Enter chooses a person/keyword
-  or retains existing movie-add behavior only for current, settled movie
-  results. Editing or changing mode immediately invalidates old selections.
-- Voice fills the current mode's query, with mode-specific prompts. Continue
-  to use the existing transcription behavior; no spoken command parser yet.
-- Announce loading, result counts, selected context, and errors. Review the
-  current listbox's nested Add/Details buttons during implementation and use
-  semantics that support both keyboard selection and independently focusable
-  actions. Escape must not unexpectedly close the outer add flow.
+- The People row is one compact line of touch-sized chips on a phone and does
+  not push the first movie card below the fold with the keyboard open.
+- Arrow keys move through people and then movies as one sequence. Enter on a
+  person opens their movies; Enter on a movie keeps today's behavior, and only
+  for settled results. Editing the query invalidates any earlier selection.
+- Voice fills the query as today. There is no spoken command parser.
+- Announce loading, result counts (people and movies separately), the selected
+  person, and errors. Review the current listbox's nested Add/Details buttons
+  during implementation and use semantics that support both keyboard selection
+  and independently focusable actions. Escape must not unexpectedly close the
+  outer add flow.
 
 ## Retrieval and ordering
 
-TMDB supports separate searches for movies, people, and keywords. Use server
-proxy calls with the existing credentials remaining server-side. Official
-references checked September 15, 2026:
+TMDB supports separate searches for movies and people. Both run through the
+server proxy so the credentials stay server-side. Official references checked
+September 15, 2026:
 
 - Title: preserve [movie search](https://developer.themoviedb.org/reference/search-movie)
   ordering, and return page metadata so users can load further results.
-- Person resolution: [people search](https://developer.themoviedb.org/reference/search-person).
-  Preserve upstream relevance initially; names plus identifying credits help
-  disambiguate. Do not fetch every candidate's filmography while typing.
-- Selected person: fetch [movie credits](https://developer.themoviedb.org/reference/person-movie-credits)
-  once. Proposed normalization uses cast for Actor, and crew entries whose
-  `job` is exactly `Director` for Director. Deduplicate by movie ID, retaining
-  useful character information. Confirm these response fields with fixtures
-  in the implementation spike. Primary department is insufficient evidence
-  that a particular movie was directed by that person.
-- Keyword resolution: [keyword search](https://developer.themoviedb.org/reference/search-keyword),
-  followed by [movie discovery](https://developer.themoviedb.org/reference/discover-movie)
-  using the selected keyword ID in `with_keywords`. The older
-  [keyword movies endpoint](https://developer.themoviedb.org/reference/keyword-movies)
-  is deprecated. Discovery's `with_crew` should not stand in for a director-role
-  check because the filter does not specify the person's job.
+- People: [people search](https://developer.themoviedb.org/reference/search-person).
+  Its `known_for` supplies the identifying credits, so the row needs no
+  per-person fetch. Do not fetch any candidate's filmography while typing.
+- A chosen person: fetch [movie credits](https://developer.themoviedb.org/reference/person-movie-credits)
+  once. Cast entries are Acting; crew entries whose `job` is exactly `Director`
+  are Directing. Deduplicate by movie ID, keeping character information.
+  Confirm these fields with fixtures in the implementation spike.
+  Discover's `with_crew` cannot stand in for the directing check, because it
+  does not specify the person's job.
 
-For person filmographies, start with popularity descending, then release date
-and movie ID as deterministic tie breakers. For keyword discovery, request
-popularity descending. Label both “Popular first”; defer sort controls until
-the default has been evaluated. Keep title relevance unchanged. Do not promote
-or hide movies based on streaming availability: provider data arrives later
+The two searches are one request from the browser: the server runs title and
+people together and returns both groups, so the client still makes a single
+call per settled query. Each group reports its own failure, so a people lookup
+that fails leaves the movie results exactly as they would have been.
+
+A person's movies are feature films only, excluding TV, shorts and uncredited
+appearances, and sorted popular first, then release date and movie ID as
+deterministic tie breakers, labelled "Popular first". Defer sort controls
+until that default has been lived with. Keep title relevance unchanged. Never
+promote or hide movies by streaming availability: provider data arrives later
 and must not reorder a list underneath someone.
 
-Show 20 movies initially with **Load more**. Person credits can be normalized
-once and revealed in local batches; upstream title, people, keyword, and
-discovery pagination must preserve access beyond the first page. Use distinct
-loaded counts and totals; on a later-page error preserve existing rows and
-offer retry. Apply an explicit consistent adult-content exclusion, including
-credit-derived movies. Keep missing dates/posters and voice performances;
-documentary/self credits remain included initially. Confirm actual response
-coverage before promising a complete filmography.
+Show 20 movies initially with **Load more**. Person credits are normalized
+once and revealed in local batches; title search pagination must preserve
+access beyond the first page. Use distinct loaded counts and totals; on a
+later-page error keep the existing rows and offer retry. Apply one explicit,
+consistent adult-content exclusion, including to credit-derived movies. Keep
+movies with missing dates or posters.
+
+The credits lookup and its feature-film and role rules are the same ones a
+starter-pack filmography uses (`starter-packs.md`). Whichever ships first
+builds them once for both.
 
 ## Engineering boundaries
 
 1. Keep `searchTmdbMovies(query)` backward compatible. Add typed-result helper
-   contracts for suggestions and movies; movie results retain the existing
-   shape used for hydration and addition. Suggestions cannot reach add handlers.
-2. Extend the existing search handler with validated actions for title search,
-   people search, keywords, person movies, and keyword movies. Validate allowed
-   modes, positive IDs, bounded query length, and page values; never accept an
-   arbitrary upstream URL. Confirm route conventions before implementation.
+   contracts for people and movies; movie results keep the shape used today
+   for hydration and adding. People can never reach add handlers.
+2. Extend the existing search handler with validated actions -- combined
+   title-and-people search, and a person's movies -- rather than adding a
+   function: the deployment is at Vercel Hobby's 12-function limit. Validate
+   actions, positive IDs, bounded query length and page values; never accept
+   an arbitrary upstream URL.
 3. Extract retrieval state into a focused hook, e.g. `useMovieDiscovery`,
    rather than adding more independent effects to the large search component.
-   Track mode, query, selected entity, phase, page, and request identity
+   Track query, selected person, role, phase, page, and request identity
    explicitly. Keep submission ownership in the existing add flow.
-4. Invalidate requests on input change, mode change, selection change, reset,
-   and unmount. Add abort support where practical and retain generation checks.
+4. Invalidate requests on input change, selection change, role change, reset,
+   and unmount. Add abort support where practical and keep generation checks.
    The current generation increments when a request starts, so the debounce
-   interval needs special care: old results must not become actionable then.
-5. Cache bounded search/credit results briefly by all relevant parameters;
-   deduplicate in-flight requests. Start with a five-minute session cache and
-   a maximum of 50 entries, measuring whether tuning is needed. No database
-   migration or new search service is expected for this scope.
+   interval needs care: old results must not become actionable during it.
+5. Cache bounded search and credit results briefly by all relevant
+   parameters and deduplicate in-flight requests. Start with a five-minute
+   session cache of at most 50 entries and measure before tuning. No database
+   migration or new search service is expected.
 6. Keep search independent of provider enrichment. Load providers only for
-   visible movie rows with bounded concurrency and the existing cache, never
-   for person/keyword suggestions or a whole filmography. Distinguish unchecked,
-   loading, failed, and confirmed-empty availability; today's empty-array
-   fallback cannot reliably express these states and needs a small contract
-   extension that preserves other callers.
+   visible movie rows, with bounded concurrency and the existing cache, never
+   for people or a whole filmography. Distinguish unchecked, loading, failed,
+   and confirmed-empty availability; today's empty-array fallback cannot
+   express these, and needs a small contract extension that preserves other
+   callers.
 
 ## Delivery sequence and review gates
 
-### 1. Validate the interaction and data
+### 1. Validate the interaction and the match rule
 
-Create phone and desktop mockups for all four modes, including person
-disambiguation, selected context, empty states, and returning from Details.
-Exercise authenticated TMDB requests during the spike to verify credits,
-keyword usefulness, language behavior, and large-filmography payloads; this
-planning pass checked documentation and code, not live result quality.
+Create phone and desktop mockups: a title query with no People row, a name
+query with one, a query that is both ("Jordan"), a person's movies with and
+without the role switch, empty states, and returning from Details. Exercise
+authenticated TMDB requests to check credits, language behavior and
+large-filmography payloads.
 
-Use a small evaluation set: exact title, partial title, same-name people, a
-person who both acts and directs, a lesser-known director, a multiword theme,
-no-match keyword, missing images, and a large filmography. Record expected
-membership and identity, not volatile live popularity positions.
+The match rule gets its own evaluation set, recording which queries should and
+should not show people: exact title, partial title, a title that is also a
+name, same-name people, a person who both acts and directs, a lesser-known
+director, missing images, and a large filmography. Record expected membership
+and identity, not volatile popularity positions.
 
-### 2. Implement Title + Actor + Director
+### 2. Implement
 
-Add the selector, suggestion navigation, normalized credits, pagination,
-request lifecycle, and preserved discovery context. Gate acceptance on correct
-role membership and unchanged add behavior across all shared consumers.
+The combined search, the People row and its match rule, a person's movies with
+the role switch, pagination, the request lifecycle, and preserved discovery
+context. Gate acceptance on correct role membership, on title queries looking
+exactly as they do today, and on unchanged add behavior across every shared
+consumer.
 
-### 3. Implement Keyword and finish shared behavior
+### 3. Verify and release
 
-Add keyword suggestions/discovery, custom-entry separation, availability
-states, accessibility, voice copy, and page retries. All four modes are required
-for the planned revamp; phases are implementation slices, not a reduced scope.
+- Unit/API fixtures: validation, the match rule, role filtering, duplicate
+  credits, content exclusion, pagination, a people lookup failing on its own,
+  upstream failures, and backward-compatible title calls.
+- Interaction tests: stale responses during debounce; choosing a person cannot
+  add; the People row does not move rendered movie cards; Details/Back restores
+  context; repeated adds keep the person; failed adds keep drafts; explicit
+  reset clears context.
+- Regression checks: existing search suites plus bowl destination and retry
+  flows, public add, the standalone modal, and watch-history selection.
+- Browser checks: phone and desktop, keyboard-only navigation, a narrow
+  viewport with the keyboard open, voice input, slow or offline requests, and
+  Load more.
+- Request budget: one combined lookup per settled query (two TMDB calls made
+  server-side), one credits request after choosing a person, and bounded
+  visible-row provider enrichment. Title search latency should stay comparable
+  to today's.
 
-### 4. Verify and release
+Before release, check that people find a known title as quickly as before and
+can add a movie through a person. If measurement is added, prefer aggregate
+people-row, latency, empty/error and search-to-add events, without raw queries
+or names.
 
-- Unit/API fixtures: validation, role filtering, duplicate credits, content
-  exclusion, pagination, upstream failures, and backward-compatible title calls.
-- Interaction tests: stale responses during debounce/mode switches; suggestion
-  selection cannot add; Details/Back restores context; repeated adds retain a
-  discovery session; failed adds retain drafts; explicit reset clears context.
-- Regression checks: existing search suites plus bowl destination/retry flows,
-  public add, standalone modal, and watch-history selection.
-- Browser checks: phone and desktop, keyboard-only navigation, narrow viewport
-  with keyboard, supported voice input, slow/offline requests, and Load more.
-- Request budget: one lookup per settled query, one credits/discovery request
-  after entity selection, and bounded visible-row provider enrichment. Title
-  search latency should remain comparable to today's baseline.
+## Decided against for v1
 
-Before release, review whether people can find a known movie as quickly as
-before and successfully add a movie via each new mode. If measurement is added,
-prefer aggregate mode, latency, empty/error, and search-to-add events without
-raw queries or names. Keep the title path available throughout rollout.
+- **Keyword / theme search** ("heist", "time travel"). TMDB's keyword tags are
+  uneven -- applied inconsistently across the catalog -- so results would
+  promise more than they deliver, and a third result type would bring back the
+  ranking problem grouping avoids. Revisit only with evidence that people want
+  it and a way to make the tags trustworthy.
+- **An explicit mode selector.** Replaced by grouped results. It returns only if
+  the People row proves too noisy to tune.
 
-## Decisions to revisit after the first prototype
+## Still open, not in this design
 
-- Does explicit mode selection feel natural, or should an eventual All mode
-  surface grouped matches? Default recommendation: keep modes for v1.
-- Do keyword suggestions match how people describe movies well enough?
-  Default: catalog themes first; evaluate a small alias vocabulary afterward.
-- Do filmographies need newest-first sorting or filters for self appearances?
-  Default: popular first with complete accessible results.
-- Should people and themes combine, e.g. actor + heist? Default: one selected
-  entity at a time; retain a state model that can evolve without exposing a
-  complex filter builder now.
+- **Describing a plot or scene** when neither title nor person is remembered.
+  TMDB has no such search, so it would need something beyond it.
+- **Searching movies already in a bowl or in watch history.**
+- **Newest-first sorting, or hiding self and documentary appearances,** in a
+  person's movies. Default: popular first, complete and accessible.
