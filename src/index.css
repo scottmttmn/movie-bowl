@@ -899,6 +899,24 @@
   }
 }
 
+/* Search found nothing: the custom slip is offered as the paper it becomes,
+   the same paper and hand as the slips the draw pulls out of the bowl. */
+.search-custom-slip {
+  display: inline-block;
+  max-width: 100%;
+  padding: 0.85rem 1.35rem;
+  border: 1px solid rgba(255, 255, 255, 0.72);
+  border-radius: 7px;
+  background: linear-gradient(175deg, #fffef9, #eee9df);
+  box-shadow: 0 18px 30px -18px rgba(2, 6, 23, 0.78);
+  color: rgba(15, 23, 42, 0.9);
+  font-family: "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive;
+  font-size: 1.05rem;
+  font-weight: 700;
+  overflow-wrap: anywhere;
+  transform: rotate(-1deg);
+}
+
 /* Voice search: bars that move while the field is listening, so it reads as
    hearing you before a single word has arrived. */
 .voice-wave-bar {

@@ -86,6 +86,10 @@ export default function MovieSearch({
     const [isSearching, setIsSearching] = useState(false);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [searchError, setSearchError] = useState(null);
+    // A search that could not run, kept apart from searchError, which also
+    // carries failed adds: only a failed search gets "Try again", and it must
+    // never read as a search that found nothing.
+    const [searchFailure, setSearchFailure] = useState(null);
     const [loadMoreError, setLoadMoreError] = useState(null);
     const [searchPage, setSearchPage] = useState(1);
     const [totalPages, setTotalPages] = useState(0);
@@ -203,6 +207,7 @@ export default function MovieSearch({
             setIsLoadingMore(true);
         } else {
             setSearchError(null);
+            setSearchFailure(null);
             setIsSearching(true);
             setSearchResults([]);
             setProvidersByMovieId({});
@@ -235,7 +240,7 @@ export default function MovieSearch({
             if (append) setLoadMoreError(message);
             else {
                 setSearchResults([]);
-                setSearchError(message);
+                setSearchFailure(message);
             }
         } finally {
             // A newer search owns the indicator, so only the latest one clears it.
@@ -287,6 +292,7 @@ export default function MovieSearch({
     const resetAfterSuccessfulAdd = () => {
         if (scrollRef.current) scrollRef.current.scrollTop = 0;
         setSearchError(null);
+        setSearchFailure(null);
         setVoiceError(null);
         setVoiceStatusMessage("");
         finalTranscriptRef.current = "";
@@ -526,6 +532,7 @@ export default function MovieSearch({
                 setProvidersByMovieId({});
                 setHighlightedIndex(0);
                 setSearchError(null);
+                setSearchFailure(null);
                 setLoadMoreError(null);
                 setSearchPage(1);
                 setTotalPages(0);
@@ -602,7 +609,7 @@ export default function MovieSearch({
                         value={isListening ? voiceTranscript : searchTerm}
                         readOnly={isListening}
                         placeholder={isListening ? "Listening…" : "Search movies..."}
-                        className={`input-field w-full pl-10 ${isVoiceSupported ? "pr-[5.5rem]" : ""} ${isListening ? "border-rose-500 bg-rose-950/30 ring-2 ring-rose-500/20" : ""}`}
+                        className={`input-field w-full pl-10 ${isVoiceSupported ? "pr-[5.5rem]" : "pr-10"} ${isListening ? "border-rose-500 bg-rose-950/30 ring-2 ring-rose-500/20" : ""}`}
                         onFocus={onSearchFocus}
                         onChange={(e) => {
                             const value = e.target.value;
@@ -621,6 +628,7 @@ export default function MovieSearch({
                             setHighlightedIndex(0);
                             if (!value.trim()) setIsSearching(false);
                             setSearchError(null);
+                            setSearchFailure(null);
                         }}
                         onKeyDown={handleKeyDown}
                         aria-activedescendant={
@@ -633,6 +641,17 @@ export default function MovieSearch({
                         aria-haspopup="grid"
                         aria-controls="movie-search-listbox"
                     />
+                    {isSearching && !isListening && (
+                        // The wrapper centres it: animate-spin sets its own
+                        // transform, which would cancel a translate on the same box.
+                        <span
+                            className={`pointer-events-none absolute top-1/2 flex h-4 w-4 -translate-y-1/2 ${isVoiceSupported ? "right-12" : "right-3.5"}`}
+                            aria-hidden="true"
+                            data-testid="search-spinner"
+                        >
+                            <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-600 border-t-rose-400" />
+                        </span>
+                    )}
                     {isVoiceSupported && (
                         // Inside the field, so listening changes the field itself
                         // rather than adding a second control beside it.
@@ -661,15 +680,11 @@ export default function MovieSearch({
                         {voiceStatusMessage || "Listening… tap Done to stop."}
                     </p>
                 ) : isSearching ? (
-                    <p className="mt-2 flex items-center gap-2 text-sm text-slate-300" role="status">
-                        <span
-                            className="h-3.5 w-3.5 flex-shrink-0 animate-spin rounded-full border-2 border-slate-600 border-t-rose-400"
-                            aria-hidden="true"
-                        />
-                        <span>Searching movies…</span>
-                    </p>
+                    // The spinner is in the field, so this line is for screen
+                    // readers only: a visible one pushed the results down.
+                    <p className="sr-only" role="status">Searching movies…</p>
                 ) : searchResults.length > 0 ? (
-                    <p className={inlineDetails ? "sr-only" : "mt-2 text-sm text-slate-300"} role="status">
+                    <p className="sr-only" role="status">
                         {totalResults > searchResults.length
                             ? `${searchResults.length} of ${totalResults} results below`
                             : `${searchResults.length} ${searchResults.length === 1 ? "result" : "results"} below`}
@@ -804,21 +819,23 @@ export default function MovieSearch({
                 </div>
             )}
             {isSearching && searchResults.length === 0 && (
-              <ul className="mt-2 space-y-2" aria-hidden="true">
-                {[0, 1, 2].map((placeholder) => (
-                  <li
+              // The same height as a real row, so nothing moves when results land.
+              <div className="mt-2 space-y-1.5" aria-hidden="true" data-testid="search-skeleton">
+                {[0, 1, 2, 3].map((placeholder) => (
+                  <div
                     key={placeholder}
-                    className="flex items-center gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/35 p-3"
+                    className="flex items-center gap-3 rounded-2xl border border-slate-800/80 bg-slate-950/35 p-2"
                   >
-                    <div className="h-20 w-14 flex-shrink-0 animate-pulse rounded-lg bg-slate-800/80" />
+                    <div className="skeleton-block h-[66px] w-11 flex-shrink-0 rounded-lg" />
                     <div className="flex-1 space-y-2">
-                      <div className="h-4 w-2/3 animate-pulse rounded bg-slate-800/80" />
-                      <div className="h-3 w-1/4 animate-pulse rounded bg-slate-800/60" />
-                      <div className="h-3 w-1/2 animate-pulse rounded bg-slate-800/60" />
+                      <div className="skeleton-block h-3 w-3/5 rounded" />
+                      <div className="skeleton-block h-2.5 w-1/5 rounded" />
+                      <div className="skeleton-block h-2.5 w-2/5 rounded" />
                     </div>
-                  </li>
+                    <div className="h-11 w-11 flex-shrink-0 rounded-xl bg-slate-800/70" />
+                  </div>
                 ))}
-              </ul>
+              </div>
             )}
             {searchError && (
               <div
@@ -828,26 +845,68 @@ export default function MovieSearch({
                 {searchError}
               </div>
             )}
-            {!searchError && !isSearching && searchTerm.trim() && searchResults.length === 0 && (
-              <div className="mt-2 text-sm text-slate-400">No matching movies found.</div>
+            {searchFailure && !isSearching && (
+              <div
+                className="mt-2 flex flex-col gap-2.5 rounded-2xl border border-rose-900/70 bg-rose-950/45 p-3.5"
+                role="alert"
+              >
+                <div>
+                  {/* The line below says whether it is the connection or the
+                      service; the heading must not blame either. */}
+                  <p className="font-semibold text-rose-100">Couldn&apos;t search right now</p>
+                  <p className="mt-0.5 text-sm text-rose-300">
+                    <span>{searchFailure}</span> <span>Your search is still here.</span>
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  className="btn btn-secondary self-start px-4 py-2 text-sm"
+                  onClick={() => handleSearch(searchTerm)}
+                  disabled={isAdding}
+                >
+                  Try again
+                </button>
+              </div>
             )}
-            {searchTerm.trim() && !isSearching && (
-              <div className="mt-3 rounded-xl border border-slate-700 bg-slate-900 px-3 py-3">
-                <p className="text-sm font-medium text-slate-100">
-                  Can&apos;t find it?
-                </p>
-                <p className="mb-2 text-xs text-slate-400">
-                  Add a custom title or category for flexible draws.
-                </p>
+            {!searchFailure && !searchError && !isSearching && searchTerm.trim() && searchResults.length === 0 && (
+              // Nothing matched, so the custom slip becomes the main action,
+              // drawn as the paper it will be in the bowl.
+              <div className="mt-2 flex flex-col gap-3.5 px-0.5 py-2">
+                <div>
+                  <p className="font-semibold text-slate-100">
+                    No movie matches &ldquo;{searchTerm.trim()}&rdquo;
+                  </p>
+                  <p className="mt-0.5 text-sm text-slate-400">
+                    Check the spelling, or put it in as your own slip &mdash; titles and categories both work.
+                  </p>
+                </div>
                 <button
                   type="button"
                   onClick={addCustomMovie}
-                  className="btn btn-secondary px-3 py-2 text-sm sm:py-1.5 sm:text-xs"
+                  className="flex max-w-full flex-col items-start gap-1.5 self-start rounded-lg text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/70"
                   disabled={isAdding}
+                  aria-label={isSubmitting ? "Adding…" : `Add "${searchTerm.trim()}"`}
                 >
-                  {isSubmitting ? "Adding..." : `Add "${searchTerm.trim()}"`}
+                  <span className="search-custom-slip" aria-hidden="true">{searchTerm.trim()}</span>
+                  <span className="pl-0.5 text-sm font-bold text-rose-300" aria-hidden="true">
+                    {isSubmitting ? "Adding…" : "Add it as a custom slip"}
+                  </span>
                 </button>
               </div>
+            )}
+            {searchTerm.trim() && !isSearching && (searchResults.length > 0 || searchFailure) && (
+              <button
+                type="button"
+                onClick={addCustomMovie}
+                className="mt-3 flex min-h-11 w-full items-center justify-between gap-3 rounded-xl border border-dashed border-slate-700 px-3.5 text-left text-sm text-slate-400 transition hover:border-slate-600 hover:text-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/70 disabled:opacity-45"
+                disabled={isAdding}
+                aria-label={isSubmitting ? "Adding…" : `Add "${searchTerm.trim()}"`}
+              >
+                <span aria-hidden="true">
+                  {isSubmitting ? "Adding…" : <>Not here? Add &ldquo;{searchTerm.trim()}&rdquo; as a custom slip</>}
+                </span>
+                <span className="font-bold text-rose-300" aria-hidden="true">+</span>
+              </button>
             )}
 
             {searchFooter}
