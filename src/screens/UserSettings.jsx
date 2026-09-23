@@ -199,6 +199,7 @@ export default function UserSettings() {
       defaultDrawSettings: {
         enablePreferredWebLaunch: defaultDrawSettings.enablePreferredWebLaunch,
         theaterModeEnabled: defaultDrawSettings.theaterModeEnabled,
+        prerollCaptionsEnabled: defaultDrawSettings.prerollCaptionsEnabled,
       },
       removeFromBowlsOnSoloDraw,
     }),
@@ -706,6 +707,22 @@ export default function UserSettings() {
                   setDefaultDrawSettings({
                     ...defaultDrawSettings,
                     theaterModeEnabled: event.target.checked,
+                  })
+                }
+              />
+            </div>
+            <div className="mt-5 border-t border-slate-800 pt-5">
+              <SettingToggle
+                id="preroll-captions-enabled"
+                name="preroll_captions_enabled"
+                ariaLabel="Show captions on previews"
+                label="Captions on previews"
+                description="Asks YouTube to show captions on the previews before the movie, on every device. Off keeps the screen clear; a YouTube account set to always show captions still gets them."
+                checked={defaultDrawSettings.prerollCaptionsEnabled}
+                onChange={(event) =>
+                  setDefaultDrawSettings({
+                    ...defaultDrawSettings,
+                    prerollCaptionsEnabled: event.target.checked,
                   })
                 }
               />

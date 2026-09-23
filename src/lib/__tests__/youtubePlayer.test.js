@@ -1,6 +1,11 @@
 import { afterEach, describe, expect, it } from "vitest";
 
-import { getPlayerZoomStyle, getTrailerEmbedUrl, getTrailerSequence } from "../youtubePlayer";
+import {
+  getAutoplayTrailerUrl,
+  getPlayerZoomStyle,
+  getTrailerEmbedUrl,
+  getTrailerSequence,
+} from "../youtubePlayer";
 
 describe("getTrailerSequence", () => {
   it("lists the trailer and then its fallbacks, once each", () => {
@@ -59,5 +64,22 @@ describe("getTrailerEmbedUrl", () => {
     expect(url.searchParams.get("enablejsapi")).toBe("1");
     expect(url.searchParams.get("origin")).toBe(window.location.origin);
     expect(url.searchParams.has("autoplay")).toBe(false);
+  });
+});
+
+describe("getAutoplayTrailerUrl", () => {
+  const captionPolicy = (options) =>
+    new URL(getAutoplayTrailerUrl({ key: "abc" }, options)).searchParams.get("cc_load_policy");
+
+  it("asks the pre-roll for captions only when the viewer wants them", () => {
+    expect(captionPolicy({ preroll: true })).toBe("0");
+    expect(captionPolicy({ preroll: true, captions: true })).toBe("1");
+  });
+
+  // Someone who chose "Watch trailer" gets YouTube's own caption button and
+  // their own YouTube preference, so the reveal's player asks for nothing.
+  it("leaves captions to YouTube outside the pre-roll", () => {
+    expect(captionPolicy({})).toBeNull();
+    expect(captionPolicy({ captions: true })).toBeNull();
   });
 });

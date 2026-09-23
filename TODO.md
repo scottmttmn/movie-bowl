@@ -14,13 +14,6 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   Reintroducing late returns is not the answer here -- see
   `output/designs/tv-watch-history-details-and-safe-return.md`.
 
-- Trailer captions during the pre-roll: `cc_load_policy=0` on the embed URL in
-  `getAutoplayTrailerUrl` asks YouTube not to show captions, which suits the
-  cinema feel. It is the last of that builder's pre-roll options not taken —
-  `controls`, `disablekb`, `fs`, and `iv_load_policy` all ship behind the same
-  `preroll` flag. It is a request, not a guarantee — an account that forces
-  captions on still gets them — and it should be a preference defaulting to off
-  rather than a hard-coded off, so hard-of-hearing viewers keep the choice.
 - Offline read cache: connectivity is now detected and explained (global banner, honest error copy, draw/add refused up front, reload on reconnect), but nothing is cached, so reloading a bowl with no connection still shows an empty bowl behind the banner rather than the last known movies. Caching the last-loaded bowl read-only would close that, and needs a decision on staleness copy and invalidation before any code.
 - Invite inbox polish: state handling for accepted, declined, and stale invites. Visibility is covered by the top nav badge and `/invites` page.
 - Draw filter UX follow-up: keep evaluating whether runtime, genre, and rating controls still feel too dense after recent cleanup.

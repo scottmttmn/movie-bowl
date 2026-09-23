@@ -430,6 +430,16 @@ describe("TV theater mode", () => {
     const src = screen.getByTitle(/movie bowl previews/i).getAttribute("src");
     expect(src).toContain("controls=0");
     expect(src).toContain("disablekb=1");
+    expect(src).toContain("cc_load_policy=0");
+  });
+
+  it("asks for captions on the previews when the account wants them", async () => {
+    mocks.drawSettings = { ...mocks.drawSettings, prerollCaptionsEnabled: true };
+    await drawWithTheaterMode();
+    await screen.findByRole("dialog", { name: /previews before arrival/i });
+
+    const src = screen.getByTitle(/movie bowl previews/i).getAttribute("src");
+    expect(src).toContain("cc_load_policy=1");
   });
 
   it("exits the previews on the remote back button", async () => {

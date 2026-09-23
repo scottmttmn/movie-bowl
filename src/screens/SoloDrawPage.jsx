@@ -569,6 +569,7 @@ export default function SoloDrawPage() {
           queue={trailerQueue}
           featureTitle={revealedMovie.title || ""}
           featureServiceName={autoStartCandidate?.serviceName}
+          captions={Boolean(settings.prerollCaptionsEnabled)}
           onFinish={endTheater}
           onComplete={completeTheater}
         />

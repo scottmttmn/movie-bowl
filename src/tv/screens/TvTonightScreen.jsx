@@ -1001,6 +1001,7 @@ export default function TvTonightScreen({ userId }) {
             queue={trailerQueue}
             featureTitle={drawnMovie.title}
             featureServiceName={autoStartCandidate?.serviceName}
+            captions={Boolean(defaultDrawSettings.prerollCaptionsEnabled)}
             onFinish={endTheater}
             onComplete={completeTheater}
           />

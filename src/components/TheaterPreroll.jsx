@@ -36,6 +36,7 @@ export default function TheaterPreroll({
   queue,
   featureTitle,
   featureServiceName = null,
+  captions = false,
   onFinish,
   // Only the feature card running its course. Escape and Exit stay on onFinish,
   // because the natural end may leave for the provider and an exit never should.
@@ -65,8 +66,8 @@ export default function TheaterPreroll({
   // The queue is fixed for the life of the overlay, so the iframe keeps one src
   // for the whole sequence and later previews arrive via loadVideoById.
   const firstTrailerUrl = useMemo(
-    () => getAutoplayTrailerUrl(queue[0]?.trailer, { preroll: true, inline: true }),
-    [queue]
+    () => getAutoplayTrailerUrl(queue[0]?.trailer, { preroll: true, inline: true, captions }),
+    [queue, captions]
   );
 
   useEffect(() => {
