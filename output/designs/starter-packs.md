@@ -32,6 +32,14 @@ either table's history logic. `note`
 `update_own_bowl_movie_note` already refuses rows with no `added_by` -- which
 is the behavior a pack wants, since nobody should be editing the pack's notes.
 
+It also has nowhere to say which pack a bowl has installed. Slips cannot answer
+that: removal keeps drawn ones and claiming converts undrawn ones, so a
+marker on the rows is either stale after removal or gone once the last slip is
+drawn. The installation is therefore its own state, on the bowl: nullable
+`bowls.starter_pack` (the slug) and `starter_pack_installed_at`, set by install
+and cleared by removal. The one-pack rule, "pull more", and "this pack has
+nothing left" all read it.
+
 What it does not give us is a way to tell a pack row from a link guest's. Both
 have `added_by` null and a name in `added_by_name`, and
 `getContributorBucketKey` (`src/utils/drawBuckets.js`) would put either into a
@@ -58,9 +66,15 @@ first draft's open question about rotation turns does not arise.
 has *P* eligible titles, draws a pack title on their turn with probability
 `P / (k + P)`. With the cap below at 15, someone with 5 of their own is 75% pack
 and someone with 30 is a third; every add moves it, and nothing deletes behind
-anyone's back. When nobody has contributed yet the only thing in any pile is
-the pack, so the first night simply draws from it -- which is the moment the
-feature is for.
+anyone's back.
+
+**When nobody has an eligible title, the pack is the draw.** Buckets come from
+the people who own titles in the eligible pool, so a bowl holding only its pack
+-- or one whose members' titles the filters have all excluded -- has no pile for
+the pack to join. That case is defined, not left to fall out: the draw is a flat
+pick over the eligible pack titles, under every method, and in rotation it
+spends nobody's turn (`turn_bucket_key` stays null). The first night therefore
+draws from the pack, which is the moment the feature is for.
 
 The trade is explicit: a light contributor's own title is diluted on their own
 turn. That is accepted because the pinned movie already answers it -- a pinned
@@ -248,6 +262,13 @@ shape of `scripts/refresh-provider-logos.mjs`.
   six-month content-caching cap -- the constraint that puts a refresh date on
   `providerLogos.js`. Worth confirming against the current terms before
   committing a file with titles in it.
+- **The database needs the catalogue too, as ids only.** The JSON is
+  application data PostgreSQL cannot see, and the install function must be able
+  to refuse an id that is not in the pack. A `starter_pack_titles (pack_slug,
+  tmdb_id)` table, seeded by migration from the same script, holds membership
+  and nothing else -- no titles or posters, so it carries no TMDB content to
+  refresh. Changing a pack is a new migration, which suits a list that changes
+  once a year.
 
 Custom-title rules do not apply: pack titles are real TMDB ids, so the
 `Number(tmdb_id) > 0` guard passes and the negative synthetic id convention is
@@ -262,24 +283,31 @@ precisely the row shape a pack needs to violate. Public adds get around it
 through `consume_bowl_add_link`, a `SECURITY DEFINER` function, and packs take
 the same route.
 
-`install_bowl_starter_pack(p_bowl_id, p_pack_slug, p_tmdb_ids)` in one
-transaction:
+`install_bowl_starter_pack(p_bowl_id, p_pack_slug, p_movies)` takes the movie
+snapshots to insert, the way `consume_bowl_add_link` takes `p_movie`:
+`bowl_movies.title` is not null and the database holds no titles, so the client
+resolves each sampled id through the normal `/api/tmdb` details path first. In
+one transaction it:
 
 1. verifies the caller owns the bowl;
-2. refuses if a different pack is already installed (one pack at a time);
-3. rejects ids already active in the bowl -- a clean skip rather than a failed
+2. refuses if `bowls.starter_pack` names a different pack (one pack at a time),
+   and sets it when it is empty;
+3. refuses any snapshot whose `tmdb_id` is not in `starter_pack_titles` for that
+   pack, so a pack cannot be used to insert arbitrary rows;
+4. skips ids already active in the bowl -- a clean skip rather than a failed
    batch -- and inserts only up to 15 undrawn pack rows in total, and within
    `MAX_UNDRAWN_MOVIES_PER_BOWL`, counted against the *resulting* totals;
-4. inserts the rows with `added_by` null, the pack's name in `added_by_name`
+5. inserts the rows with `added_by` null, the pack's name in `added_by_name`
    and its slug in `starter_pack`;
-5. returns what it inserted and what it skipped, so the client can say "added
+6. returns what it inserted and what it skipped, so the client can say "added
    13 of 15 -- two were already in the bowl."
 
 "Pull more" is the same function called again for the installed pack. The
 client samples which ids to offer; the database enforces every limit.
 
-`remove_bowl_starter_pack(p_bowl_id)` deletes the pack's *undrawn* rows only,
-owner-only. Drawn ones are history, and claimed ones are no longer the pack's.
+`remove_bowl_starter_pack(p_bowl_id)` deletes the pack's *undrawn* rows and
+clears `bowls.starter_pack`, owner-only. Drawn ones are history, and claimed ones
+are no longer the pack's; neither keeps a pack installed.
 
 **Claiming** goes through the add path, server-side: when a member adds a title
 that is an undrawn pack slip in that bowl, the slip is converted in place --
@@ -292,7 +320,10 @@ own, because the client cannot update a row it did not create.
 Per `CLAUDE.md`, all of this is permission-sensitive and needs pgTAP coverage in
 `supabase/tests/` plus a revert in `supabase/rollback/`: owner vs member vs
 outsider vs anonymous; a second pack refused; the 15 cap and the bowl limit;
-duplicate collision; removal leaving drawn and claimed rows intact; a claim
+duplicate collision; an id outside the pack refused; removal leaving drawn
+and claimed rows intact and clearing the installation, so a second pack can then
+be installed; a bowl whose last pack slip was drawn still reporting its pack;
+a pack-only bowl drawing without spending anyone's turn; a claim
 converting the slip without a second copy; and the rotation turn cases above.
 
 ## Surfaces
@@ -337,8 +368,9 @@ converting the slip without a second copy; and the rotation turn cases above.
 
 1. `scripts/build-starter-packs.mjs` and a checked-in pack file. Cheap, and it
    settles sourcing before any product code exists.
-2. The `starter_pack` and `turn_bucket_key` columns, the install / remove /
-   claim functions, the rotation change, and their pgTAP suites and rollbacks.
+2. `starter_pack_titles`, the `bowls.starter_pack` installation state, the
+   `starter_pack` and `turn_bucket_key` columns, the install / remove / claim
+   functions, the rotation change, and their pgTAP suites and rollbacks.
 3. The client draw: pack rows join every bucket in person-first, the pin still
    leads its owner's pile, and eligibility readouts count them the same way
    through `getStreamingPriorityPool`.
