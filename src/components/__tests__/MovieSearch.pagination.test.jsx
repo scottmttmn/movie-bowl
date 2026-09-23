@@ -123,7 +123,7 @@ describe("MovieSearch pagination and identity", () => {
       target: { value: "Movie" },
     });
 
-    expect(await screen.findByText("Availability unavailable right now")).toBeInTheDocument();
-    expect(screen.queryByText(/no included or free/i)).not.toBeInTheDocument();
+    expect(await screen.findByText("Couldn\u2019t check availability")).toBeInTheDocument();
+    expect(screen.queryByText(/not on free or included/i)).not.toBeInTheDocument();
   });
 });

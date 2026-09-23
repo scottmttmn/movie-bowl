@@ -120,7 +120,7 @@ describe("MovieSearch voice input", () => {
     });
     expect(screen.getByText('Searching for "Jaws"...')).toBeInTheDocument();
     expect(await screen.findByText("Jaws")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Add", exact: true }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Jaws" }));
     await waitFor(() => expect(screen.getByPlaceholderText("Search movies...")).toHaveValue(""));
     expect(screen.queryByText('Searching for "Jaws"...')).not.toBeInTheDocument();
   });

@@ -38,6 +38,28 @@ async function mapWithConcurrency(items, concurrency, mapper) {
     return results;
 }
 
+// One line of availability per result. It says what is known and nothing
+// more: a check still running is a shimmer, a failed check says so, and a row
+// that was never checked says nothing rather than implying there is nothing.
+function describeResultAvailability(providerEntry, userStreamingServices) {
+    if (!providerEntry) return null;
+    if (providerEntry.status === "loading") return { tone: "loading" };
+    if (providerEntry.status === "failed") {
+        return { tone: "quiet", text: "Couldn\u2019t check availability" };
+    }
+    const providers = providerEntry.data?.providers || [];
+    const mine = matchUserServices(providers, userStreamingServices);
+    if (mine.length > 0) {
+        const others = providers.length - mine.length;
+        return {
+            tone: "mine",
+            text: `On your ${mine.join(", ")}${others > 0 ? ` \u00b7 +${others} more` : ""}`,
+        };
+    }
+    if (providers.length > 0) return { tone: "quiet", text: providers.join(", ") };
+    return { tone: "quiet", text: "Not on free or included US services" };
+}
+
 export default function MovieSearch({
     onAddMovie,
     onSubmitMovie,
@@ -77,6 +99,8 @@ export default function MovieSearch({
     // never start a search of their own.
     const [voiceTranscript, setVoiceTranscript] = useState("");
     const [highlightedIndex, setHighlightedIndex] = useState(0);
+    // Which row's + is in flight, so only that row shows it; the rest disable.
+    const [addingMovieId, setAddingMovieId] = useState(null);
     const [providersByMovieId, setProvidersByMovieId] = useState({});
     const [detailMovie, setDetailMovie] = useState(null);
     const [detailActionError, setDetailActionError] = useState("");
@@ -306,6 +330,7 @@ export default function MovieSearch({
         if (isAdding || submittingRef.current) return;
         submittingRef.current = true;
         setIsAdding(true);
+        setAddingMovieId(movie?.id ?? null);
         try {
             const result = normalizeAddResult(await submitDraft(movie));
             if (!result.ok) {
@@ -321,6 +346,7 @@ export default function MovieSearch({
         } finally {
             submittingRef.current = false;
             setIsAdding(false);
+            setAddingMovieId(null);
         }
     };
 
@@ -604,8 +630,8 @@ export default function MovieSearch({
                         }
                         role="combobox"
                         aria-expanded={searchResults.length > 0}
-                        aria-haspopup="listbox"
-                        aria-owns="movie-search-listbox"
+                        aria-haspopup="grid"
+                        aria-controls="movie-search-listbox"
                     />
                     {isVoiceSupported && (
                         // Inside the field, so listening changes the field itself
@@ -647,7 +673,7 @@ export default function MovieSearch({
                         {totalResults > searchResults.length
                             ? `${searchResults.length} of ${totalResults} results below`
                             : `${searchResults.length} ${searchResults.length === 1 ? "result" : "results"} below`}
-                        {" — tap Add to pick one."}
+                        {" — tap a movie for details, or + to add it."}
                     </p>
                 ) : !inlineDetails && isVoiceSupported && !voiceStatusMessage && !voiceError ? (
                     <p className="mt-2 text-sm text-slate-400">Speak a movie title or type to search.</p>
@@ -664,86 +690,98 @@ export default function MovieSearch({
             </div>
 
             <div ref={scrollRef} className={inlineDetails ? "bowl-add-scroll" : undefined} hidden={hideResults || Boolean(alternateBody)}>
-            <ul
+            {/* A grid, not a listbox: each result has two actions -- the row
+                opens Details and + adds -- and a listbox option cannot hold
+                two independently focusable buttons. The arrow keys still move
+                a highlight from the field, and Enter still adds it. */}
+            <div
                 id="movie-search-listbox"
-                role="listbox"
-                className="mt-2 space-y-2 sm:max-h-[60vh] sm:overflow-y-auto sm:pr-1"
+                role="grid"
+                className="mt-2 space-y-1.5 sm:max-h-[60vh] sm:overflow-y-auto sm:pr-1"
                 aria-label="Search results"
             >
                 {searchResults.map((movie, index) => {
                     const releaseLabel = getSearchReleaseLabel(movie);
                     const identityLabel = getMovieIdentityLabel(movie);
-                    const providerEntry = providersByMovieId[movie.id];
-                    const providers = providerEntry?.data?.providers || [];
-                    const matchingProviders = matchUserServices(providers || [], userStreamingServices);
+                    const metaLabel = [releaseLabel, identityLabel].filter(Boolean).join(" · ");
+                    const availability = describeResultAvailability(
+                        providersByMovieId[movie.id],
+                        userStreamingServices
+                    );
+                    const isAddingThis = isSubmitting && addingMovieId === movie.id;
 
                     return (
-                        <li
+                        <div
                             id={`movie-option-${movie.id}`}
                             key={movie.id}
-                            role="option"
+                            role="row"
                             aria-selected={index === highlightedIndex}
-                            className={`flex items-center justify-between gap-3 rounded-2xl border border-slate-700/80 p-3 transition ${
+                            className={`flex items-center gap-2 rounded-2xl border border-slate-700/70 p-2 transition ${
                                 index === highlightedIndex ? "bg-slate-800/90 ring-1 ring-rose-800/40" : "bg-slate-950/35 hover:bg-slate-800/60"
                             }`}
                         >
-                            <div className="flex min-w-0 items-center gap-3">
-                                <img
-                                    src={getPosterUrl(movie)}
-                                    alt={movie.title}
-                                    className="h-20 w-14 flex-shrink-0 rounded-lg object-cover shadow-md shadow-black/30"
-                                />
-
-                                <div className="min-w-0 text-left">
-                                    <div className="font-semibold text-slate-100">{movie.title}</div>
-                                    <div className="text-sm text-slate-400">{releaseLabel}</div>
-                                    {identityLabel && (
-                                        <div className="truncate text-xs text-slate-400">{identityLabel}</div>
-                                    )}
-                                    <div className="truncate text-xs text-slate-400">
-                                        {!providerEntry
-                                            ? "Availability not checked yet"
-                                            : providerEntry.status === "loading"
-                                              ? "Checking US availability…"
-                                              : providerEntry.status === "failed"
-                                                ? "Availability unavailable right now"
-                                                : providers.length > 0
-                                                  ? `Available on: ${providers.join(", ")}`
-                                                  : "No included or free US providers found"}
-                                    </div>
-                                    {matchingProviders.length > 0 && (
-                                      <div className="truncate text-xs text-emerald-300">
-                                        Your services: {matchingProviders.join(", ")}
-                                      </div>
-                                    )}
-                                </div>
-                            </div>
-                            <div className="flex flex-shrink-0 flex-col gap-2">
+                            <div role="gridcell" className="min-w-0 flex-1">
                                 <button
-                                  type="button"
-                                  onClick={async () => {
-                                    await addMovie(movie);
-                                  }}
-                                  className="btn btn-primary min-w-20 px-3 py-2 text-xs"
-                                  disabled={isAdding}
+                                    type="button"
+                                    onClick={async () => {
+                                        await openDetails(movie);
+                                    }}
+                                    className="flex w-full min-w-0 items-center gap-3 rounded-xl text-left focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/70"
+                                    aria-label={`Details for ${movie.title}`}
+                                    aria-describedby={`movie-meta-${movie.id}`}
+                                    disabled={isAdding}
                                 >
-                                  {isSubmitting ? "Adding..." : "Add"}
-                                </button>
-                                <button
-                                  type="button"
-                                  onClick={async () => {
-                                    await openDetails(movie);
-                                  }}
-                                  className="btn btn-secondary min-w-20 px-3 py-2 text-xs"
-                                  disabled={isAdding}
-                                >
-                                  Details
+                                    <img
+                                        src={getPosterUrl(movie)}
+                                        alt=""
+                                        className="h-[66px] w-11 flex-shrink-0 rounded-lg object-cover shadow-md shadow-black/30"
+                                    />
+                                    <span className="flex min-w-0 flex-col gap-px">
+                                        <span className="font-semibold leading-snug text-slate-100">{movie.title}</span>
+                                        <span id={`movie-meta-${movie.id}`} className="flex min-w-0 flex-col gap-px">
+                                            {metaLabel && (
+                                                <span className="truncate text-sm text-slate-400">{metaLabel}</span>
+                                            )}
+                                            {availability?.tone === "loading" && (
+                                                <span className="mt-1 block">
+                                                    <span className="skeleton-block block h-2.5 w-24 rounded" aria-hidden="true" />
+                                                    <span className="sr-only">Checking availability</span>
+                                                </span>
+                                            )}
+                                            {availability?.tone === "mine" && (
+                                                <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-emerald-300">
+                                                    <span className="h-1.5 w-1.5 flex-shrink-0 rounded-full bg-emerald-400" aria-hidden="true" />
+                                                    <span className="truncate">{availability.text}</span>
+                                                </span>
+                                            )}
+                                            {availability?.tone === "quiet" && (
+                                                <span className="mt-0.5 truncate text-xs text-slate-500">{availability.text}</span>
+                                            )}
+                                        </span>
+                                    </span>
                                 </button>
                             </div>
-                        </li>
+                            <div role="gridcell" className="flex-shrink-0">
+                                <button
+                                    type="button"
+                                    onClick={async () => {
+                                        await addMovie(movie);
+                                    }}
+                                    className="flex h-11 w-11 items-center justify-center rounded-xl border border-rose-500/55 bg-rose-600/15 text-2xl font-medium leading-none text-rose-100 transition hover:bg-rose-600/25 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/70 disabled:opacity-45"
+                                    aria-label={isAddingThis ? `Adding ${movie.title}` : `Add ${movie.title}`}
+                                    disabled={isAdding}
+                                >
+                                    {isAddingThis ? (
+                                        <span className="h-4 w-4 animate-spin rounded-full border-2 border-slate-600 border-t-rose-400" aria-hidden="true" />
+                                    ) : (
+                                        <span aria-hidden="true">+</span>
+                                    )}
+                                </button>
+                            </div>
+                        </div>
                     );
                 })}
-            </ul>
+            </div>
 
             {searchResults.length > 0 && searchPage < totalPages && (
                 <div className="mt-4 flex flex-col items-center gap-2">

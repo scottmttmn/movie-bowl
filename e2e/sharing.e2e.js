@@ -111,10 +111,10 @@ test("a guest writes a comment in the movie's details, after choosing it", async
 
   await page.goto("/add-to-bowl/public-token-comment");
   await page.getByPlaceholder("Search movies...").fill("Feature");
-  await expect(page.getByRole("button", { name: "Details", exact: true })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Details for The Feature", exact: true })).toBeVisible();
   await expect(page.getByLabel("Comment (optional)")).toHaveCount(0);
 
-  await page.getByRole("button", { name: "Details", exact: true }).click();
+  await page.getByRole("button", { name: "Details for The Feature", exact: true }).click();
   const dialog = page.getByRole("dialog");
   await dialog.getByLabel("Comment (optional)").fill("Recommended by Tim at dinner.");
   await dialog.getByRole("button", { name: "Add Movie", exact: true }).click();
