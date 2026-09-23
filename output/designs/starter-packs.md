@@ -1,9 +1,9 @@
 # Starter Packs
 
-Status: idea, recorded for later. Nothing here is implemented and nothing is
-scheduled. The fairness decision in "The Pack Is a Contributor" is settled
-enough to build against; the sizing rule is a strong recommendation with one
-unresolved question; everything under "Open Questions" is genuinely open.
+Status: design settled September 23, 2026; nothing is implemented and nothing
+is scheduled. The behavior below is decided, and the open questions the first
+draft carried are closed except the ones under "Still Open", which are for
+living with the feature rather than for building it.
 
 ## Product Idea
 
@@ -12,102 +12,122 @@ most likely to decide whether a group keeps using the app at all, and right now
 it costs six people six searches before anything can happen.
 
 A **starter pack** is a named, curated list of titles a bowl owner can pour in
-at once — "Under 100 Minutes", "October Horror", "Best Picture Winners". The
-pack enters the bowl as a contributor in its own right, holds one contributor's
-share of the odds no matter how many titles it carries, and can be removed as a
-unit if the group decides it does not want it.
+at once -- "Spielberg: The '80s", "Best Picture Winners: The '90s". The pack's
+titles belong to nobody in particular: they are **shared slips, in every
+person's pile**. They never take a turn of their own, and they thin out as the
+group adds and claims its own picks.
 
 It is a **cold-start feature, not a catalogue feature**. The bowl's value comes
 from people putting titles in it and from the comment revealed when one is
 drawn. A pack has neither. It exists to get a bowl to its first draw, and its
 design should make it easy for the pack to fade as real contributions arrive.
 
-## Why the Schema Already Fits
+## What the Schema Already Gives Us
 
-`getContributorBucketKey` (`src/utils/drawBuckets.js:25`) buckets by `added_by`,
-falling back to `guest:<lowercased added_by_name>` when the row has no
-authenticated contributor. Public add links already use that path: a row with
-`added_by` null and `added_by_name` set is a first-class contributor bucket
-today, with no new column and no change to the draw.
-
-That is the whole feature's foundation. A pack is a row shaped like a link
-guest, named for the list instead of a person.
-
-The history split carries it for free. `bowl_draw_events` and
-`user_watch_events` both store `added_by_name`
+`bowl_draw_events` and `user_watch_events` both store `added_by_name`
 (`20260724123000_add_durable_watch_history.sql:13`, `:163`), so a pack pick is
 attributed correctly in bowl activity and in personal history without touching
-either table. `note` (`20260822120000_add_movie_comments.sql`) is nullable, and
-`update_own_bowl_movie_note` already refuses link-attributed rows — which is the
-behavior a pack wants anyway, since nobody should be editing the pack's notes.
+either table's history logic. `note`
+(`20260822120000_add_movie_comments.sql`) is nullable, and
+`update_own_bowl_movie_note` already refuses rows with no `added_by` -- which
+is the behavior a pack wants, since nobody should be editing the pack's notes.
 
-## The Pack Is a Contributor
+What it does not give us is a way to tell a pack row from a link guest's. Both
+have `added_by` null and a name in `added_by_name`, and
+`getContributorBucketKey` (`src/utils/drawBuckets.js`) would put either into a
+`guest:<name>` bucket. A pack must not be a bucket at all (below), so pack rows
+carry an explicit marker: a nullable `starter_pack` column holding the pack's
+slug on `bowl_movies`, snapshotted onto `bowl_draw_events` like every other
+movie field. The bucket code checks the marker, never the name, so a link
+guest who types a pack's name cannot collide with it.
 
-**Decided: a pack is attributed to itself, never to the member who installed
-it.** This is the single decision the feature stands on.
+## The Pack Is Shared, Not a Contributor
 
-Attribute a hundred pack titles to the installing member and three things break
-at once:
+**Decided: a pack's titles are in every person's pile.** Under person-first the
+draw picks a person uniformly, then a title from that person's own titles plus
+all of the pack's. Rotation picks the person by its usual history rule, then
+the title the same way. `title_first` is one pile containing everything, so the
+same rule makes a pack title behave exactly like any other title there. One
+rule, three methods, no special case.
 
-- **`title_first` bowls become the pack's bowl.** A flat raffle over 106 titles
-  where 100 are the pack means the group's own picks lose six nights out of
-  seven.
-- **Rotation eats the installer's turn.** On their turn, the member's three
-  deliberate picks compete with a hundred pack slips. Their own titles
-  effectively stop coming up — the exact failure the person-first promise
-  exists to prevent, arriving through the back door.
-- **Any odds readout lies.** It would report one contributor holding a normal
-  share, which is true of the bucket and false of the person. (There is no odds
-  surface today; `buildDrawOddsStats` was removed on 2026-09-19.)
+**The pack never takes a turn.** There is no pack bucket, so there is no pack
+night in rotation and no `1/N` share for a non-person under person-first. The
+first draft's open question about rotation turns does not arise.
 
-As its own bucket the pack holds exactly `1/N` under person-first, the same as
-any member, and adding more titles to a pack changes what it might play, not how
-often it plays. That is the stated product promise applied unchanged to a
-non-human contributor, and it means the pack cannot drown the room no matter how
-large the underlying list is.
+**It fades on its own.** A person with *k* eligible titles, in a bowl whose pack
+has *P* eligible titles, draws a pack title on their turn with probability
+`P / (k + P)`. With the cap below at 15, someone with 5 of their own is 75% pack
+and someone with 30 is a third; every add moves it, and nothing deletes behind
+anyone's back. When nobody has contributed yet the only thing in any pile is
+the pack, so the first night simply draws from it -- which is the moment the
+feature is for.
 
-One collision to handle: the bucket key is `guest:<lowercased name>`, so a pack
-named "October Horror" and a link guest who types "october horror" would merge
-into one bucket. Namespacing pack rows (`pack:<slug>` rather than reusing the
-guest prefix) is the clean fix, but it is a change to a function on the draw
-path and wants its own test. Alternatively, reject a pack install whose name
-collides with an existing contributor name in that bowl.
+The trade is explicit: a light contributor's own title is diluted on their own
+turn. That is accepted because the pinned movie already answers it -- a pinned
+title goes first in its owner's pile, ahead of the pack -- and because claiming
+(below) turns a wanted pack title into your own.
 
-## Sample, Don't Dump
+**Never attributed to the member who installed it.** Attributing pack titles to
+the installer would drown that member's own picks on their turn, make rotation
+spend their turn on a list they did not choose, and credit them on the reveal
+for a pick they never made. Pack rows keep `added_by` null and the pack's name in
+`added_by_name`, with `starter_pack` set.
 
-**Recommended: a pack install adds 8–10 titles drawn at random from the list,
-with a "pull more from this pack" action available later.** The pack is a
-*source*; what lands in the bowl is a sample of it.
+### Claiming a pack title
 
-The case against dumping the full list:
+A bowl holds one active copy of a title (`bowl_active_tmdb_movies`), so without
+a rule a member who genuinely wants a pack title would be told it is already in
+the bowl and could never pin it. **Adding a title that is an undrawn pack slip
+claims it**: the slip becomes the member's -- `added_by` set, `starter_pack`
+cleared -- keeping the one active copy. From then on it is an ordinary title of
+theirs, pinnable, and out of the shared pile. The confirmation has to say so,
+because the bowl's count does not move: "Added *Halloween* -- it was in the
+Spielberg: The '80s pack, now it's yours."
 
-- `MAX_UNDRAWN_MOVIES_PER_BOWL` is 500. Two hundred-title packs is 40% of a
-  bowl's capacity, permanently, mostly undrawn.
-- `output/designs/future-ideas.md` §6 — "the 80-movie problem" — describes a
+**Pack titles cannot be pinned directly.** A pin puts one of *your* titles
+first in *your* pile; a shared slip is in every pile and belongs to no one, so
+pinning it would need its own rules for whose pile it leads and what two pins on
+one slip mean. Claiming covers the want: add it, then pin it. The bowl never
+shows the pack's contents, so claiming is always an Add, never a browse.
+
+### Rotation must record whose turn it was
+
+`draw_bowl_movie_by_rotation` decides whose turn is next from the bucket of each
+past draw's movie (`history_by_bucket`). A pack title drawn on Anna's turn has
+no person on it, so Anna would still look never-drawn and be chosen again --
+and the pack could keep winning her pile. The draw event therefore records the
+bucket whose turn it was, in a nullable `turn_bucket_key` column written by the
+rotation RPC, and the history reads `coalesce(turn_bucket_key, <derived key>)`.
+Person-first keeps no history of its own, but a bowl can switch to rotation
+later, so a person-first draw of a pack title records the bucket too, through an
+optional parameter on `draw_bowl_movie`. `title_first` has no turns to record. This is a change to the most
+sensitive function in the repo, so it gets its own pgTAP cases: a pack win on a
+turn still spends that turn, and the next draw goes to the next person.
+
+## Sample, Don't Dump -- and One Pack at a Time
+
+**Decided: a bowl holds at most one installed pack, and at most 15 undrawn
+titles from it, whichever limit binds first.** Installing samples up to 15
+titles at random from the pack's list; "pull more" tops the bowl back up to 15
+from what remains; refill is manual, never on the draw path. A second pack can
+only be installed after the first is removed.
+
+Under the shared rule the pack's pull grows with its size, so the cap is what
+keeps a pack a starter rather than the bowl. It also keeps the costs below
+small:
+
+- `MAX_UNDRAWN_MOVIES_PER_BOWL` is 500; fifteen slips is 3% of it.
+- `output/designs/future-ideas.md` §6 -- "the 80-movie problem" -- describes a
   bowl too big to hold in your head as the cost of *success*. A dumping pack
-  manufactures that problem on day one, before the bowl has earned it.
-- Every pack title is a real TMDB id, so it is lookup-eligible. It seeds
-  `tmdb_filter_metadata` through the trigger on `bowl_active_tmdb_movies`, it
-  enters the daily refresh queue, and it counts toward the large-bowl
-  eligible-count problem already recorded in `TODO.md`.
-- The daily cron's throughput is fixed: `FILTER_METADATA_DAILY_MAX_TITLES = 300`,
-  twelve per batch, inside Vercel Hobby's 60-second cap. It is a *time* budget
-  wearing a count's clothing, and it is spent on **distinct titles globally**,
-  so two hundred new ones lengthen the refresh cycle for every bowl in the
-  system, not just the one that installed the pack. The risk is staleness — a
-  title's certification and service list sitting unrefreshed for longer — not
-  running out of anything.
+  manufactures that problem on day one.
+- Every pack title is a real TMDB id, so it seeds `tmdb_filter_metadata`
+  through the trigger on `bowl_active_tmdb_movies` and enters the daily refresh
+  queue, whose `FILTER_METADATA_DAILY_MAX_TITLES = 300` is spent on distinct
+  titles globally. Fifteen per bowl, from a small fixed catalogue, is the shape
+  that cache handles well (see "Where Packs Actually Help the Caches").
 
-Sampling also makes the pack repeatable rather than final. A bowl that finishes
-its ten pulls another ten, and a pack the group dislikes has cost them ten slips
-rather than a hundred.
-
-The unresolved part is *refill*: whether pulling more is a manual action or
-whether the pack automatically tops itself back up to N as its titles are drawn.
-Automatic refill is the better product — the pack behaves like a contributor who
-keeps showing up — but it needs a rule for what happens when the underlying list
-is exhausted, and it puts an insert on the draw path, which is the most
-sensitive code in the repo. Start manual.
+A pack whose list is used up simply has nothing more to pull; "pull more" says
+so.
 
 ## Two Vendors, Two Quotas
 
@@ -154,8 +174,8 @@ skip it; pack inserts take the same rule. The rows land, the daily cron picks
 them up in the background, and a draw warms what it needs when it needs it —
 which is the only moment provider data actually matters.
 
-Without that rule, a ten-title sample spends 2% of the monthly budget per
-install and a hundred-title dump spends 20%, for titles nobody has chosen to
+Without that rule, a fifteen-title sample spends 3% of the monthly budget per
+install -- and again on every "pull more" -- for titles nobody has chosen to
 watch yet. Provider lookups are currently disabled by default
 (`PROVIDER_LINKS_ENABLED`), so the bill would not arrive until the flag is
 flipped — which makes it a worse bug, not a smaller one.
@@ -191,23 +211,17 @@ recommendations" line in `future-ideas.md`.
 
 ## Which Packs
 
-Pick packs by finish rate, not by prestige.
+**Decided for the first version: filmographies split by decade, and Best
+Picture winners by decade** -- "Spielberg: The '80s", "Best Picture Winners: The
+'90s". A decade of one director's or actor's work is usually 5-15 films, close
+to the cap, and the decade reads naturally in the pack's name and on the reveal.
 
-Best Picture winners, AFI 100, and the NYT list are *homework*: high acclaim,
-low completion, and exactly the titles that sit undrawn for a year and become
-§6's tail. They are the packs to build last, if at all, and they are worth
-offering mainly because some people genuinely enjoy checking a canonical list
-off — a real audience, just not the one the bowl is shaped for.
-
-The packs a group plausibly gets through are constraint-shaped:
-
-- **Under 100 Minutes** — pairs with the runtime filter and answers the most
-  common real objection on a weeknight.
-- **October Horror** / seasonal — episodic, and a natural fit for install-then-
-  remove.
-- **90s Comfort** — high recognition, low resistance.
-- **Everyone's Seen These But You** — the canonical-gap idea without the
-  homework framing.
+The first draft argued for picking packs by finish rate rather than prestige:
+canonical lists are homework, admired more than finished, and the titles most
+likely to sit undrawn. That caveat stands and is the reason the cap and sampling
+matter; it did not outweigh a catalogue people recognise at a glance. Worth
+watching once packs exist: whether Best Picture slips get put back more often
+than filmography ones.
 
 The list is deliberately static. Best Picture changes once a year; nothing here
 needs to be live.
@@ -217,13 +231,21 @@ needs to be live.
 A static JSON of TMDB ids checked into the repo, generated by a script in the
 shape of `scripts/refresh-provider-logos.mjs`.
 
+- **Filmographies** come from TMDB person credits. The script keeps feature
+  films only, where the person is the director or a principal cast member, and
+  drops entries under a minimum vote count -- otherwise cameos, uncredited
+  parts, TV movies, documentaries and shorts fill the pack. It then splits the
+  result by release decade.
+- **Best Picture** has no source in TMDB, which carries no awards data. The
+  winners are a hand-maintained list of title and year in the repo, and the
+  script resolves each to a TMDB id and fails loudly on anything ambiguous.
 - No new serverless function. The deployment is at Vercel Hobby's 12-function
   limit, and the two existing overflow handlers already share
   `api/movie-cache.js`.
 - No runtime TMDB quota, and no dependency on TMDB list availability.
 - The pack file holds ids plus a title for display. Poster and metadata still
   resolve through the normal cached paths, which keeps the repo clear of TMDB's
-  six-month content-caching cap — the constraint that puts a refresh date on
+  six-month content-caching cap -- the constraint that puts a refresh date on
   `providerLogos.js`. Worth confirming against the current terms before
   committing a file with titles in it.
 
@@ -237,81 +259,93 @@ RLS blocks the client from doing this directly. `bowl_movies_insert_own_undrawn`
 requires `added_by = auth.uid()` **and** `added_by_name is null`
 (`20260726153000_tighten_profile_and_bowl_movie_access.sql:53-67`), which is
 precisely the row shape a pack needs to violate. Public adds get around it
-through `consume_bowl_add_link`, a `SECURITY DEFINER` function.
+through `consume_bowl_add_link`, a `SECURITY DEFINER` function, and packs take
+the same route.
 
-A pack install needs the same treatment: one RPC, `install_bowl_starter_pack`,
-that in a single transaction
+`install_bowl_starter_pack(p_bowl_id, p_pack_slug, p_tmdb_ids)` in one
+transaction:
 
-1. verifies the caller owns the bowl,
-2. rejects ids already active in that bowl (`bowl_active_tmdb_movies` is the
-   registry, and the duplicate trigger will reject them anyway — better a clean
-   skip than a failed batch),
-3. enforces `MAX_UNDRAWN_MOVIES_PER_BOWL` against the *resulting* count, not the
-   starting one,
-4. inserts the sampled rows with `added_by` null and the pack's name in
-   `added_by_name`,
-5. returns what it inserted and what it skipped, so the client can say "added 8
-   of 10 — two were already in the bowl."
+1. verifies the caller owns the bowl;
+2. refuses if a different pack is already installed (one pack at a time);
+3. rejects ids already active in the bowl -- a clean skip rather than a failed
+   batch -- and inserts only up to 15 undrawn pack rows in total, and within
+   `MAX_UNDRAWN_MOVIES_PER_BOWL`, counted against the *resulting* totals;
+4. inserts the rows with `added_by` null, the pack's name in `added_by_name`
+   and its slug in `starter_pack`;
+5. returns what it inserted and what it skipped, so the client can say "added
+   13 of 15 -- two were already in the bowl."
 
-Removal is the mirror: `remove_bowl_starter_pack` deletes the pack's *undrawn*
-rows only. Drawn ones are history and are not the pack's to take back.
+"Pull more" is the same function called again for the installed pack. The
+client samples which ids to offer; the database enforces every limit.
 
-Per `CLAUDE.md`, both are permission-sensitive and need pgTAP coverage in
-`supabase/tests/` plus a revert in `supabase/rollback/`: owner vs member,
-authenticated vs anonymous, limit-exhausted, duplicate-collision, and removal
-leaving drawn rows intact.
+`remove_bowl_starter_pack(p_bowl_id)` deletes the pack's *undrawn* rows only,
+owner-only. Drawn ones are history, and claimed ones are no longer the pack's.
+
+**Claiming** goes through the add path, server-side: when a member adds a title
+that is an undrawn pack slip in that bowl, the slip is converted in place --
+`added_by` set to the member, `added_by_name` and `starter_pack` cleared --
+rather than inserting a second copy. This needs a `SECURITY DEFINER` path of its
+own, because the client cannot update a row it did not create.
+
+**Neither install nor claim goes through the warm path** (see "Cost").
+
+Per `CLAUDE.md`, all of this is permission-sensitive and needs pgTAP coverage in
+`supabase/tests/` plus a revert in `supabase/rollback/`: owner vs member vs
+outsider vs anonymous; a second pack refused; the 15 cap and the bowl limit;
+duplicate collision; removal leaving drawn and claimed rows intact; a claim
+converting the slip without a second copy; and the rotation turn cases above.
 
 ## Surfaces
 
-- **Bowl Settings**, owner-only: a Starter Packs section listing available
-  packs, each with install, "pull more", and remove. This is the natural home —
-  it already owns draw access, draw method, and the member roster.
-- **Empty bowl state** on the dashboard: the one place a pack should be
-  *offered* rather than found. A bowl with zero undrawn titles cannot draw, and
-  that is the moment the feature is for.
-- **The reveal.** A pack pick has no person and no comment. It needs its own
-  line — the pack's name where a contributor's name goes — or the reveal reads
-  as broken data. `getMovieAttributionLabel` already returns `added_by_name`
-  first, so the phone strip and `TvTonightScreen` inherit correct behavior; what
-  needs deciding is the copy, not the plumbing.
-- **The odds panel** should name the pack as a contributor without dressing it
-  up as a person.
+- **Bowl Settings**, owner-only: a Starter Packs section listing the available
+  packs, with install when none is installed, and "pull more" and remove for
+  the installed one. This is the natural home -- it already owns draw access,
+  draw method, and the member roster. Members see which pack is installed but no
+  controls.
+- **Empty bowl state** on the dashboard: the one place a pack is *offered*
+  rather than found, and to the owner only.
+- **The reveal.** A pack pick has no person and no comment, so the pack's name
+  goes where a contributor's would: "From the Spielberg: The '80s pack."
+  `getMovieAttributionLabel` already returns `added_by_name` first, so the phone
+  strip and `TvTonightScreen` inherit it; the copy is what needs writing.
+- **Add confirmation** when an add claims a pack slip, as above.
+- **Nothing browses the pack.** Pack titles do not appear in anyone's own list,
+  and the bowl does not show the pack's contents.
 
-## Open Questions
+## Decided September 23, 2026
 
-1. **Does a pack take a turn in rotation?** Treating it as a contributor is
-   consistent, but it means every Nth night is a pack night regardless of what
-   the group added. Excluding packs from rotation while allowing them in
-   person-first and `title_first` is equally defensible and probably kinder to a
-   bowl that has outgrown its starter phase. This needs answering before any
-   code, because rotation is serialized in the database and the answer lives in
-   `draw_bowl_movie_by_rotation`.
-2. **Can a member remove a pack, or only the owner?** Installing is clearly the
-   owner's call. Removal is closer to a group decision, and §6's rule — only the
-   contributor may retire their own titles — has no answer for a contributor who
-   is not a person.
-3. **Does the pack fade?** An option to auto-remove the pack's undrawn titles
-   once the bowl has N real contributions would make "starter" literal. It also
-   deletes things behind people's backs, which the product otherwise never does.
-4. **Refill: manual or automatic** (see "Sample, Don't Dump").
-5. **Bucket namespacing vs. name-collision rejection** (see "The Pack Is a
-   Contributor").
-6. **Is the reveal actually acceptable?** The strongest objection to this whole
-   feature is that a pack pick is a thinner version of the product every time it
-   lands — "here is a movie" instead of "Dave picked this for you." Worth
-   installing one pack in a real bowl and living with a few draws before
-   building the rest.
+1. **Rotation turns:** the pack never takes one; its titles live inside each
+   person's turn, and the draw records whose turn it was.
+2. **Who installs and removes:** the owner only. Anyone can claim a title out
+   of the pack by adding it.
+3. **Fading:** natural -- claims, draws and new adds thin it. Nothing is ever
+   removed automatically.
+4. **Refill:** manual, up to the cap.
+5. **Bucket collision:** moot. Pack rows are marked by `starter_pack`, not by
+   name, and are not a bucket.
+
+## Still Open
+
+- **Is the reveal actually acceptable?** The strongest objection to this whole
+  feature is that a pack pick is a thinner version of the product every time it
+  lands -- "here is a movie" instead of "Dave picked this for you." Worth
+  installing one pack in a real bowl and living with a few draws before
+  building the rest.
+- **TMDB's terms** on checking in a file of titles, as under "Sourcing".
 
 ## Sketch of the Work
 
 1. `scripts/build-starter-packs.mjs` and a checked-in pack file. Cheap, and it
-   settles the sourcing question before any product code exists.
-2. The two RPCs and their pgTAP suites.
-3. The Bowl Settings section and the empty-bowl offer.
-4. Reveal and odds-panel copy.
-5. Rotation behavior, once question 1 is answered.
+   settles sourcing before any product code exists.
+2. The `starter_pack` and `turn_bucket_key` columns, the install / remove /
+   claim functions, the rotation change, and their pgTAP suites and rollbacks.
+3. The client draw: pack rows join every bucket in person-first, the pin still
+   leads its owner's pile, and eligibility readouts count them the same way
+   through `getStreamingPriorityPool`.
+4. The Bowl Settings section, the empty-bowl offer, and the reveal and claim
+   copy.
 
-Steps 1 and 2 are independently useful and testable; nothing before step 3 is
+Steps 1 and 2 are independently useful and testable; nothing before step 4 is
 visible to anyone.
 
 ## Deliberately Not In Scope
