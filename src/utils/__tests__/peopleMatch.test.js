@@ -19,6 +19,13 @@ describe("queryMatchesName", () => {
     expect(queryMatchesName("penelope", "Penélope Cruz")).toBe(true);
     expect(queryMatchesName("o'brien", "Conan O'Brien")).toBe(true);
   });
+
+  it("matches names written in any script", () => {
+    expect(queryMatchesName("周星驰", "周星驰")).toBe(true);
+    expect(queryMatchesName("андрей тар", "Андрей Тарковский")).toBe(true);
+    expect(queryMatchesName("봉준", "봉준호")).toBe(true);
+    expect(queryMatchesName("тарковский", "周星驰")).toBe(false);
+  });
 });
 
 describe("selectStrongPeopleMatches", () => {

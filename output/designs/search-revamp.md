@@ -215,8 +215,11 @@ response could isolate a people failure but not a slow one, and would make
 every title search depend on it. The people call has its own short timeout; a
 people lookup that fails or times out simply leaves no People row.
 
-A person's movies are feature films only, excluding TV, shorts and uncredited
-appearances, and sorted popular first, then release date and movie ID as
+A person's movies are feature films only, excluding TV movies,
+direct-to-video releases and uncredited appearances. Shorts are the one
+exception: movie credits carry no marker for them, only each title's runtime
+would, and a details request per credit is not worth it, so a short can
+appear. They are sorted popular first, then release date and movie ID as
 deterministic tie breakers, labelled "Popular first". Defer sort controls
 until that default has been lived with. Keep title relevance unchanged. Never
 promote or hide movies by streaming availability: provider data arrives later

@@ -5,12 +5,18 @@
 // because the half-remembered movie may be a small part; a pack keeps only
 // principal roles above a vote floor.
 
+const TV_MOVIE_GENRE_ID = 10770;
+
 function isListableCredit(credit) {
   if (!credit || !Number.isInteger(Number(credit.id)) || Number(credit.id) <= 0) return false;
   if (credit.adult === true) return false;
   // TMDB marks direct-to-video releases; they are not what someone means by
   // "that movie".
   if (credit.video === true) return false;
+  // A TV movie is a movie credit with this genre. Shorts carry no such marker
+  // here -- only a runtime from each title's details would tell, and a
+  // request per credit is not what a filmography is worth.
+  if (Array.isArray(credit.genre_ids) && credit.genre_ids.includes(TV_MOVIE_GENRE_ID)) return false;
   return true;
 }
 

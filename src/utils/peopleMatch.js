@@ -11,12 +11,14 @@ export const PEOPLE_MAX_RESULTS = 3;
 // queries rather than trusted.
 export const PEOPLE_POPULARITY_FLOOR = 1.5;
 
+// Letters and digits in any script: an ASCII-only class would erase a name
+// written in Chinese or Cyrillic entirely, so it could never match itself.
 function words(value) {
   return String(value || "")
     .normalize("NFD")
-    .replace(/[\u0300-\u036f]/g, "")
+    .replace(/\p{M}/gu, "")
     .toLowerCase()
-    .replace(/[^a-z0-9\s]/g, " ")
+    .replace(/[^\p{L}\p{N}\s]/gu, " ")
     .split(/\s+/)
     .filter(Boolean);
 }
