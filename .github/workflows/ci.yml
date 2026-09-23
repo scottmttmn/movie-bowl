@@ -30,6 +30,47 @@ permissions:
 # on node20 through v5 -- so check `runs.using` rather than counting majors.
 
 jobs:
+  # Playwright is most of a run's wall time and has nothing to say about a
+  # change that is only prose, so a pull request touching nothing but Markdown
+  # skips it. A skipped job reports as passing, which keeps it usable as a
+  # required check where a workflow-level path filter would leave it pending
+  # forever. CLAUDE.md is not prose for this purpose: it carries the Playwright
+  # count, and this suite is the only job that holds that number to a run.
+  # Everything else still runs on every change, and main always runs it all.
+  changes:
+    name: Changes
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    outputs:
+      markdown_only: ${{ steps.classify.outputs.markdown_only }}
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+      - id: classify
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          markdown_only=false
+          if [ "$EVENT_NAME" = "pull_request" ]; then
+            files="$(git diff --name-only "$BASE_SHA...$HEAD_SHA")"
+            if [ -n "$files" ]; then
+              markdown_only=true
+              while IFS= read -r file; do
+                case "$file" in
+                  CLAUDE.md) markdown_only=false ;;
+                  *.md) ;;
+                  *) markdown_only=false ;;
+                esac
+              done <<< "$files"
+            fi
+            printf 'Changed files:\n%s\n' "$files"
+          fi
+          echo "markdown_only=$markdown_only"
+          echo "markdown_only=$markdown_only" >> "$GITHUB_OUTPUT"
+
   lint:
     name: Lint
     runs-on: ubuntu-latest
@@ -79,6 +120,8 @@ jobs:
 
   e2e:
     name: Playwright
+    needs: changes
+    if: needs.changes.outputs.markdown_only != 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 20
     steps:
