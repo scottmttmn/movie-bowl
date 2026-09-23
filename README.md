@@ -406,6 +406,15 @@ column turns one typo into a phantom metric that reads as zero usage forever.
   editor under `tmdb_filter_metadata_refresh_runs`.
 - Inactive cache rows are removed, and no TMDB-derived snapshot is retained
   beyond TMDB's six-month cache limit.
+- The same run keeps the TMDB details saved beside slips, draws and watch
+  history inside that limit. A title still in a bowl is refreshed from the
+  filter fetch above at no extra cost; one that survives only in history is
+  refreshed at 150 days by a pass of at most 100 titles, in whatever time the
+  filter refresh leaves. Anything not refreshed by six months loses its poster,
+  overview, runtime and genres and keeps its title. A personal history entry
+  never has its title or date overwritten, because a person can edit those, and
+  its freshness is counted from the slip its details were copied from, not from
+  the day it was drawn.
 - Adding a signed-in user's TMDB movie also starts a non-blocking single-title
   warmup through `POST /api/tmdb/movie/warm-filter-metadata`.
 
@@ -425,7 +434,8 @@ Two consequences worth knowing before changing anything here:
   availability is the nominative case; restyling it is not, and every brand
   guideline forbids it anyway.
 - **TMDB content may not be cached beyond six months.** `src/lib/streamingProviders.js`
-  caches for minutes, so it is unaffected. `src/utils/providerLogos.js` is the
+  caches for minutes, so it is unaffected. The details copied onto saved rows
+  are refreshed or cleared by the daily run (see "Filter metadata refresh"). `src/utils/providerLogos.js` is the
   exception: it is generated, stamped with the day it was made, and has to be
   regenerated with `node scripts/refresh-provider-logos.mjs` before that date
   ages out. A lapse degrades to service names rather than breaking, which is

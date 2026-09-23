@@ -134,6 +134,57 @@ describe("filter metadata refresh worker", () => {
     });
   });
 
+  it("refreshes the title's saved copies from the same TMDB response", async () => {
+    rpc.mockResolvedValue({ data: true, error: null });
+    const fetchMetadata = vi.fn(async () => ({
+      details: { title: "Heat", poster_path: "/heat.jpg", runtime: 170, genres: [{ name: "Crime" }] },
+      certification: "R",
+      providers: [],
+      fetchedAt: "2026-09-23T12:00:00.000Z",
+    }));
+
+    await expect(refreshFilterMetadataClaim(supabaseAdmin, claim(10), {
+      fetchMetadata,
+    })).resolves.toEqual({ ok: true, tmdbId: 10 });
+
+    expect(fetchMetadata).toHaveBeenCalledTimes(1);
+    expect(rpc).toHaveBeenCalledWith("apply_tmdb_title_snapshot", expect.objectContaining({
+      p_tmdb_id: 10,
+      p_found: true,
+      p_title: "Heat",
+      p_poster_path: "/heat.jpg",
+      p_runtime: 170,
+      p_genres: ["Crime"],
+    }));
+  });
+
+  it("keeps a good filter refresh when saving the title's copies fails", async () => {
+    const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
+    rpc.mockImplementation(async (name) => (
+      name === "apply_tmdb_title_snapshot"
+        ? { data: null, error: new Error("function does not exist") }
+        : { data: true, error: null }
+    ));
+    const fetchMetadata = vi.fn(async () => ({ details: { title: "Heat" }, providers: [] }));
+
+    await expect(refreshFilterMetadataClaim(supabaseAdmin, claim(10), {
+      fetchMetadata,
+    })).resolves.toEqual({ ok: true, tmdbId: 10 });
+    expect(rpc).not.toHaveBeenCalledWith("fail_tmdb_filter_metadata_refresh", expect.anything());
+    expect(errorSpy).toHaveBeenCalled();
+    errorSpy.mockRestore();
+  });
+
+  it("does not touch saved copies when the refresh claim was superseded", async () => {
+    rpc.mockResolvedValue({ data: false, error: null });
+    const fetchMetadata = vi.fn(async () => ({ details: { title: "Heat" }, providers: [] }));
+
+    await expect(refreshFilterMetadataClaim(supabaseAdmin, claim(10), {
+      fetchMetadata,
+    })).resolves.toEqual({ ok: false, tmdbId: 10 });
+    expect(rpc).not.toHaveBeenCalledWith("apply_tmdb_title_snapshot", expect.anything());
+  });
+
   it("records a retry without discarding the last good snapshot", async () => {
     const errorSpy = vi.spyOn(console, "error").mockImplementation(() => {});
     rpc.mockResolvedValue({ data: true, error: null });

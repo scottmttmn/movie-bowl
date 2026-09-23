@@ -4,8 +4,32 @@ import {
 } from "../_lib/filterMetadataRefresh.js";
 import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { pruneProviderLinks } from "../_lib/providerLinks.js";
+import {
+  TITLE_SNAPSHOT_DAILY_BUDGET_MS,
+  runTitleSnapshotRefresh,
+} from "../_lib/titleSnapshotRefresh.js";
 
 export const config = { maxDuration: 60 };
+
+// The snapshot pass takes whatever the filter refresh leaves, up to its own
+// budget, and must finish before the platform's 60-second cap.
+const RUN_DEADLINE_MS = 52 * 1000;
+
+// Separate from the filter refresh on purpose: a failure here -- including the
+// migration not yet being applied -- must not turn a good filter run into a
+// failed one.
+async function refreshTitleSnapshots(supabaseAdmin, startedAt) {
+  const budgetMs = Math.max(
+    0,
+    Math.min(TITLE_SNAPSHOT_DAILY_BUDGET_MS, startedAt.getTime() + RUN_DEADLINE_MS - Date.now())
+  );
+  try {
+    return await runTitleSnapshotRefresh(supabaseAdmin, { budgetMs });
+  } catch (error) {
+    console.error("[api/cron/refresh-filter-metadata] Title snapshot refresh failed", error);
+    return { error: true };
+  }
+}
 
 function getBearerToken(req) {
   const authorization = String(req.headers?.authorization || "");
@@ -61,9 +85,11 @@ export default async function handler(req, res) {
       );
     }
 
-    const result = report
-      ? { ...stats, remainingStale: report.remainingStale }
-      : stats;
+    const titleSnapshots = await refreshTitleSnapshots(supabaseAdmin, startedAt);
+    const result = {
+      ...(report ? { ...stats, remainingStale: report.remainingStale } : stats),
+      titleSnapshots,
+    };
     console.info("[api/cron/refresh-filter-metadata] Refresh complete", result);
     res.status(200).json(result);
   } catch (error) {
