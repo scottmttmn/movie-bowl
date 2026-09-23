@@ -2,8 +2,8 @@
 
 Status: design settled September 23, 2026; nothing is implemented and nothing
 is scheduled. The behavior below is decided, and the open questions the first
-draft carried are closed except the ones under "Still Open": a confirmation
-from TMDB before launch, and whether the reveal holds up in a real bowl.
+draft carried are closed except the one under "Still Open": whether the reveal
+holds up in a real bowl.
 
 ## Product Idea
 
@@ -275,11 +275,22 @@ holds only what is ours, and TMDB is asked at run time.
   `/api/tmdb` details path, and installs those as ordinary bowl rows -- the same
   thing an owner adding fifteen movies by hand would leave behind. There is no
   stored pack catalogue to age out or to count as a derivative list.
-- **What this does not settle.** Filtering TMDB results at request time is what
-  every search already does, so this is ordinary API use on our reading. But
-  §1.C's prohibition on derivatives is not defined in the terms, and a named,
-  curated selection is closer to its edge than a search is. That is listed under
-  "Still Open" to confirm with TMDB before launch, rather than decided here.
+- **Not a derivative, decided September 23, 2026.** §1.C also forbids
+  derivatives of TMDB Content without defining them, and a named selection
+  looked closer to that edge than a search. On inspection it is not: a
+  filmography pack is one person's movie credits, narrowed by role, decade and
+  a minimum vote count -- the same read of the same endpoint the person search
+  planned in `search-revamp.md` makes, and not something Discover can do
+  alone, since its `with_crew` does not check the job -- and a Best Picture
+  pack is our own list matched title by title the way someone typing it into
+  search would. What a bowl keeps is the same rows
+  an owner adding those movies by hand would leave, and a bowl assembled by
+  hand is plainly ordinary use. Movie Bowl is also non-commercial. So packs
+  ship without asking TMDB first; the rules above -- nothing curated stored,
+  every title resolved live -- are what the decision rests on, and a change
+  that stores a resolved pack reopens it. The question was put to TMDB on its
+  forum anyway, the same day; nothing waits on the reply, but a no from TMDB
+  overrides this decision.
 
 Custom-title rules do not apply: pack titles are real TMDB ids, so the
 `Number(tmdb_id) > 0` guard passes and the negative synthetic id convention is
@@ -374,11 +385,6 @@ converting the slip without a second copy; and the rotation turn cases above.
 
 ## Still Open
 
-- **Confirm with TMDB that curated packs are acceptable use.** The terms
-  forbid derivatives of TMDB Content (§1.C) without defining them. Packs are
-  resolved live and nothing curated is stored, but a named selection is closer
-  to that line than a search is. Ask before launch; if the answer is no, packs
-  do not ship.
 - **Is the reveal actually acceptable?** The strongest objection to this whole
   feature is that a pack pick is a thinner version of the product every time it
   lands -- "here is a movie" instead of "Dave picked this for you." Worth
