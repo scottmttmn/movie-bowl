@@ -395,19 +395,24 @@ export default function MovieSearch({
         setFocusRequest((request) => request + 1);
     };
 
-    // There is no way back to the title results but the field: editing the
-    // query leaves the person, and a control for the same thing only crowded
-    // a header that has a phone's width to work with.
     // The arrow keys and Enter live on the field, so a click that leaves focus
     // on a chip or tab -- or on nothing, once the chip it was on is gone --
-    // leaves them doing nothing. With a mouse or trackpad the click hands focus
-    // back. A tap does not: focusing the field on a phone raises the keyboard
-    // over the list that was just opened.
-    const returnFocusToField = () => {
-        if (window.matchMedia?.("(pointer: fine)")?.matches) {
-            setFocusRequest((request) => request + 1);
-        }
+    // leaves them doing nothing. What activated the control decides whether
+    // focus goes back, not what kind of device this is: a tap never does,
+    // because focusing the field raises the on-screen keyboard over the list
+    // that was just opened.
+    const activationPointerRef = useRef(null);
+    const notePointer = (event) => {
+        activationPointerRef.current = event.pointerType || "mouse";
     };
+    const activatedBy = (event) => {
+        const pointer = activationPointerRef.current;
+        activationPointerRef.current = null;
+        // A click with no pointer behind it is Enter or Space.
+        if (!event || event.detail === 0) return "keyboard";
+        return pointer || "mouse";
+    };
+    const returnFocusToField = () => setFocusRequest((request) => request + 1);
 
     const switchRole = (roleName) => {
         discovery.chooseRole(roleName);
@@ -415,8 +420,12 @@ export default function MovieSearch({
         if (gridRef.current) gridRef.current.scrollTop = 0;
     };
 
-    const showPerson = (person) => {
-        returnFocusToField();
+    // There is no way back to the title results but the field: editing the
+    // query leaves the person, and a control for the same thing only crowded
+    // a header that has a phone's width to work with. The chip is gone once
+    // the person opens, so focus goes back to the field unless it was tapped.
+    const showPerson = (person, activation = "keyboard") => {
+        if (activation !== "touch") returnFocusToField();
         setHighlightedPerson(null);
         setHighlightedIndex(0);
         setSearchError(null);
@@ -885,9 +894,14 @@ export default function MovieSearch({
                                     aria-selected={discovery.role === roleName}
                                     aria-controls="movie-search-listbox"
                                     tabIndex={discovery.role === roleName ? 0 : -1}
-                                    onClick={() => {
+                                    onPointerDown={notePointer}
+                                    onClick={(event) => {
+                                        const activation = activatedBy(event);
                                         switchRole(roleName);
-                                        returnFocusToField();
+                                        // A tab chosen from the keyboard keeps focus, so its
+                                        // own arrow keys go on working; a clicked one hands
+                                        // focus back to the field.
+                                        if (activation === "mouse" || activation === "pen") returnFocusToField();
                                     }}
                                     onKeyDown={(event) => {
                                         // Left and right move between the roles, as tabs do;
@@ -938,7 +952,8 @@ export default function MovieSearch({
                                 >
                                     <button
                                         type="button"
-                                        onClick={() => showPerson(person)}
+                                        onPointerDown={notePointer}
+                                        onClick={(event) => showPerson(person, activatedBy(event))}
                                         disabled={isAdding}
                                         aria-label={`Show ${possessive(person.name)} movies`}
                                         aria-describedby={person.knownFor?.length ? `person-known-${person.id}` : undefined}

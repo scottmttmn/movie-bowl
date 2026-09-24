@@ -50,6 +50,16 @@ function deferred() {
   return { promise, resolve };
 }
 
+// What a real click does that fireEvent.click does not: say what pointer it
+// came from, and move focus to what was clicked.
+function pointerClick(element, pointerType) {
+  const down = new Event("pointerdown", { bubbles: true });
+  down.pointerType = pointerType;
+  fireEvent(element, down);
+  element.focus();
+  fireEvent.click(element, { detail: 1 });
+}
+
 function type(term) {
   fireEvent.change(screen.getByPlaceholderText("Movie title or person"), { target: { value: term } });
 }
@@ -164,16 +174,9 @@ describe("MovieSearch people", () => {
     expect(onAddMovie.mock.calls[0][0]).toEqual(expect.objectContaining({ title: "Hanky Panky" }));
   });
 
-  it("keeps the arrow keys working after a person is clicked with a mouse", async () => {
-    const matchMedia = vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
-      matches: query === "(pointer: fine)",
-      media: query,
-    }));
+  it("keeps the arrow keys working after a person or role is clicked with a mouse", async () => {
     await searchWithPeople();
-    // A real click moves focus to what was clicked; fireEvent does not.
-    const person = screen.getByRole("button", { name: "Show Tom Hanks’s movies" });
-    person.focus();
-    fireEvent.click(person);
+    pointerClick(screen.getByRole("button", { name: "Show Tom Hanks’s movies" }), "mouse");
     await screen.findByRole("button", { name: "Details for Cast Away" });
 
     const field = screen.getByRole("combobox");
@@ -182,15 +185,12 @@ describe("MovieSearch people", () => {
     fireEvent.keyDown(field, { key: "ArrowDown" });
     expect(field).toHaveAttribute("aria-activedescendant", "movie-option-2");
 
-    const directing = screen.getByRole("tab", { name: "Directing" });
-    directing.focus();
-    fireEvent.click(directing);
+    pointerClick(screen.getByRole("tab", { name: "Directing" }), "mouse");
     await waitFor(() => expect(field).toHaveFocus());
     expect(field).toHaveAttribute("aria-activedescendant", "movie-option-3");
-    matchMedia.mockRestore();
   });
 
-  it("moves between roles with left and right, and back to the list with up or down", async () => {
+  it("moves between roles with the keyboard without leaving the switch", async () => {
     await searchWithPeople();
     fireEvent.click(screen.getByRole("button", { name: "Show Tom Hanks’s movies" }));
     await screen.findByRole("button", { name: "Details for Cast Away" });
@@ -205,25 +205,31 @@ describe("MovieSearch people", () => {
     expect(directing).toHaveFocus();
     expect(screen.getByRole("button", { name: "Details for That Thing You Do!" })).toBeInTheDocument();
 
-    fireEvent.keyDown(directing, { key: "ArrowDown" });
+    // Space or Enter on a tab is a click with no pointer behind it; the tab
+    // keeps focus so its own arrow keys go on working.
+    acting.focus();
+    fireEvent.click(acting, { detail: 0 });
+    expect(acting).toHaveAttribute("aria-selected", "true");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(acting).toHaveFocus();
+
+    fireEvent.keyDown(acting, { key: "ArrowDown" });
     const field = screen.getByRole("combobox");
     expect(field).toHaveFocus();
-    expect(field).toHaveAttribute("aria-activedescendant", "movie-option-3");
+    expect(field).toHaveAttribute("aria-activedescendant", "movie-option-1");
   });
 
-  it("does not raise a phone's keyboard when a person is tapped", async () => {
-    const matchMedia = vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
-      matches: false,
-      media: query,
-    }));
+  it("does not raise the on-screen keyboard when a person or role is tapped", async () => {
     await searchWithPeople();
-    const person = screen.getByRole("button", { name: "Show Tom Hanks’s movies" });
-    person.focus();
-    fireEvent.click(person);
+    const field = screen.getByRole("combobox");
+    pointerClick(screen.getByRole("button", { name: "Show Tom Hanks’s movies" }), "touch");
     await screen.findByRole("button", { name: "Details for Cast Away" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(field).not.toHaveFocus();
 
-    expect(screen.getByRole("combobox")).not.toHaveFocus();
-    matchMedia.mockRestore();
+    pointerClick(screen.getByRole("tab", { name: "Directing" }), "touch");
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(field).not.toHaveFocus();
   });
 
   it("opens a person on the role they are known for, with a switch only for both roles", async () => {
