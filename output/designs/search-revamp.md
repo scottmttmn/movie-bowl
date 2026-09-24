@@ -359,11 +359,15 @@ no title its words start asks the search route for a suggestion
 (`type=suggest`). "No title" includes a stray one to three that TMDB matched
 some other way -- "scorcese" finds Casino -- and those stay in the list after
 the suggestion's results. More than three is a real answer spelled
-differently ("spiderman" for Spider-Man) and is left alone. The server trims the query's last word back until something
-matches -- a title or a strong person match that the trimmed words start -- and
-bisects the length, so it makes at most a few paired TMDB requests, and only
-for searches that found nothing. "martin scorcese" becomes "martin scor", which
-finds Martin Scorsese.
+differently ("spiderman" for Spider-Man) and is left alone.
+
+The server asks up to five trims of the last word at once -- "scorces" down to
+"scor" -- each limited to titles and strong person matches the trim's words
+start, and suggests the whole word they turn up that is closest to what was
+typed: "scorsese", one letter from "scorcese". It is never simply the longest
+trim that finds something. The first build did that, and "scorc" found
+Scorched. A word more than one letter off (two, for words over five letters)
+is not suggested; no suggestion beats a wrong one.
 
 The results say what they are for ("No matches for … Showing results for …"),
 the field keeps what was typed, and so does the custom slip, which a

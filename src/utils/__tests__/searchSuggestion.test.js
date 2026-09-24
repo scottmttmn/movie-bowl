@@ -1,39 +1,70 @@
 import { describe, expect, it, vi } from "vitest";
-import { suggestTrimmedQuery } from "../searchSuggestion";
+import { editDistance, suggestCorrection } from "../searchSuggestion";
 import { queryMatchesName } from "../peopleMatch";
 
-// Stands in for TMDB: a candidate matches when it starts the words of a name.
-const matchesAny = (...names) => vi.fn(async (candidate) => names.some((name) => queryMatchesName(candidate, name)));
+// Stands in for TMDB: a candidate finds the catalogue entries its words start.
+const catalogue = (...entries) => vi.fn(async (candidate) => entries
+  .map(([text, popularity = 1]) => ({ text, popularity }))
+  .filter((entry) => queryMatchesName(candidate, entry.text)));
 
-describe("suggestTrimmedQuery", () => {
-  it("trims a misspelled last word back to the longest part that matches", async () => {
-    const hasMatches = matchesAny("Martin Scorsese");
-    await expect(suggestTrimmedQuery("martin scorcese", hasMatches)).resolves.toBe("martin scor");
-    // Never the query as typed: that already found nothing.
-    expect(hasMatches).not.toHaveBeenCalledWith("martin scorcese");
+describe("editDistance", () => {
+  it("counts insertions, deletions, substitutions, and a swapped pair as one", () => {
+    expect(editDistance("scorcese", "scorsese")).toBe(1);
+    expect(editDistance("scorcese", "scorched")).toBe(3);
+    expect(editDistance("aronofksy", "aronofsky")).toBe(1);
+    expect(editDistance("heat", "heat")).toBe(0);
+  });
+});
+
+describe("suggestCorrection", () => {
+  it("suggests the word closest to what was typed, not the longest trim that finds anything", async () => {
+    // "scorc" finds Scorched and Scorcher; only "scor" finds Scorsese, and he
+    // is one letter from what was typed.
+    const probe = catalogue(["Scorched", 30], ["The Scorcher", 5], ["Martin Scorsese", 12], ["The Scorpion King", 40]);
+    await expect(suggestCorrection("scorcese", probe)).resolves.toBe("scorsese");
   });
 
-  it("bisects rather than trying every length", async () => {
-    const hasMatches = matchesAny("Arnold Schwarzenegger");
-    await expect(suggestTrimmedQuery("schwarzeneger", hasMatches)).resolves.toBe("schwarzeneg");
-    expect(hasMatches.mock.calls.length).toBeLessThanOrEqual(4);
+  it("keeps the earlier words as typed", async () => {
+    const probe = catalogue(["Martin Scorsese", 12], ["Martin Short", 8]);
+    await expect(suggestCorrection("martin scorcese", probe)).resolves.toBe("martin scorsese");
   });
 
-  it("suggests nothing when no trim of the last word matches", async () => {
-    await expect(suggestTrimmedQuery("scrosese", matchesAny("Martin Scorsese"))).resolves.toBeNull();
+  it("asks every trim at once, and no more than five", async () => {
+    const probe = catalogue(["Arnold Schwarzenegger", 20]);
+    await expect(suggestCorrection("schwarzeneger", probe)).resolves.toBe("schwarzenegger");
+    expect(probe.mock.calls.map(([candidate]) => candidate)).toEqual([
+      "schwarzenege", "schwarzeneg", "schwarzene", "schwarzen", "schwarze",
+    ]);
   });
 
-  it("never trims a word below three letters", async () => {
-    const hasMatches = vi.fn(async () => true);
-    await expect(suggestTrimmedQuery("abcd", hasMatches)).resolves.toBe("abc");
-    expect(hasMatches).toHaveBeenCalledWith("abc");
-    expect(hasMatches).not.toHaveBeenCalledWith("ab");
-    await expect(suggestTrimmedQuery("abc", hasMatches)).resolves.toBeNull();
+  it("suggests nothing when the nearest word is too far from what was typed", async () => {
+    await expect(suggestCorrection("scorcese", catalogue(["Scorched", 30]))).resolves.toBeNull();
+    // A slip in the first letters leaves no trim that finds the name at all.
+    await expect(suggestCorrection("scrosese", catalogue(["Martin Scorsese", 12]))).resolves.toBeNull();
   });
 
-  it("suggests nothing for a blank query", async () => {
-    const hasMatches = vi.fn();
-    await expect(suggestTrimmedQuery("   ", hasMatches)).resolves.toBeNull();
-    expect(hasMatches).not.toHaveBeenCalled();
+  it("keeps an apostrophe or hyphen before the misspelled part", async () => {
+    await expect(suggestCorrection("o'conner", catalogue(["Donald O'Connor", 6]))).resolves.toBe("o'connor");
+    await expect(suggestCorrection("spider-verce", catalogue(["Spider-Man: Into the Spider-Verse", 50])))
+      .resolves.toBe("spider-verse");
+  });
+
+  it("does not shorten a hyphenated title to its first part", async () => {
+    // "ea" is too short to correct; suggesting "wall" would drop the "-E".
+    const probe = catalogue(["WALL·E", 40]);
+    await expect(suggestCorrection("wall-ea", probe)).resolves.toBeNull();
+    expect(probe).not.toHaveBeenCalled();
+  });
+
+  it("prefers the more popular of two equally close words", async () => {
+    const probe = catalogue(["Heath", 3], ["Heats", 20]);
+    await expect(suggestCorrection("heatz", probe)).resolves.toBe("heats");
+  });
+
+  it("never trims a word below three letters, and leaves a blank query alone", async () => {
+    const probe = vi.fn(async () => []);
+    await expect(suggestCorrection("abc", probe)).resolves.toBeNull();
+    expect(probe).not.toHaveBeenCalled();
+    await expect(suggestCorrection("   ", probe)).resolves.toBeNull();
   });
 });

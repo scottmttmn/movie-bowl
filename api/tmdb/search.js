@@ -1,7 +1,7 @@
 import { tmdbFetch } from "../_lib/tmdb.js";
 import { normalizePersonMovieCredits } from "../_lib/personCredits.js";
 import { queryMatchesName, selectStrongPeopleMatches } from "../../src/utils/peopleMatch.js";
-import { suggestTrimmedQuery } from "../../src/utils/searchSuggestion.js";
+import { suggestCorrection } from "../../src/utils/searchSuggestion.js";
 
 const MAX_QUERY_LENGTH = 100;
 
@@ -35,18 +35,22 @@ async function getPersonMovies(personId, res) {
   res.status(200).json({ personId, ...normalizePersonMovieCredits(credits) });
 }
 
-// A trimmed query counts only when what it finds is what was being spelled: a
-// title or a strong person match whose words the query starts. Anything TMDB
-// returns for a fragment otherwise would stop the trim at nonsense.
-async function candidateMatches(candidate) {
+// What a trimmed query finds, limited to titles and strong person matches its
+// words start: anything else TMDB returns for a fragment would offer words
+// nobody was spelling.
+async function probeCandidate(candidate) {
   const encoded = encodeURIComponent(candidate);
   const [movies, people] = await Promise.all([
     tmdbFetch(`/search/movie?query=${encoded}&page=1&language=en-US&region=US&include_adult=false`),
     tmdbFetch(`/search/person?query=${encoded}&page=1&language=en-US&include_adult=false`),
   ]);
-  const titleMatches = (movies?.results || []).some((movie) => movie?.adult !== true
-    && queryMatchesName(candidate, movie?.title || movie?.original_title));
-  return titleMatches || selectStrongPeopleMatches(candidate, people?.results || []).length > 0;
+  const titles = (movies?.results || [])
+    .filter((movie) => movie?.adult !== true)
+    .map((movie) => ({ text: movie?.title || movie?.original_title || "", popularity: movie?.popularity }))
+    .filter((match) => queryMatchesName(candidate, match.text));
+  const names = selectStrongPeopleMatches(candidate, people?.results || [])
+    .map((person) => ({ text: person.name, popularity: person.popularity }));
+  return [...titles, ...names];
 }
 
 export default async function handler(req, res) {
@@ -92,7 +96,7 @@ export default async function handler(req, res) {
       return;
     }
     try {
-      res.status(200).json({ query: await suggestTrimmedQuery(query, candidateMatches) });
+      res.status(200).json({ query: await suggestCorrection(query, probeCandidate) });
     } catch (error) {
       console.error("[api/tmdb/search] Failed to suggest a query", error);
       res.status(502).json({ error: "Failed to suggest a search" });
