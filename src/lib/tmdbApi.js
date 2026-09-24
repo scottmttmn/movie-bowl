@@ -103,6 +103,19 @@ export async function searchTmdbPeople(query, { signal, timeoutMs = PEOPLE_SEARC
   }
 }
 
+// Asked only after a search found no titles and no one. A suggestion is a
+// nicety, so any failure is simply no suggestion.
+export async function suggestTmdbQuery(query) {
+  const q = String(query || "").trim();
+  if (!q) return null;
+  try {
+    const data = await apiGet(`/api/tmdb/search?type=suggest&query=${encodeURIComponent(q)}`);
+    return typeof data?.query === "string" && data.query.trim() ? data.query.trim() : null;
+  } catch {
+    return null;
+  }
+}
+
 const PERSON_MOVIES_CACHE_TTL_MS = 5 * 60 * 1000;
 const PERSON_MOVIES_CACHE_MAX = 50;
 const personMoviesCache = new Map();

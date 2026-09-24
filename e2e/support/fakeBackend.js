@@ -70,6 +70,8 @@ function createInitialState() {
     // title search keeps looking as it did before people existed.
     tmdbPeople: [],
     tmdbPersonMovies: {},
+    // What a search that found nothing is retried as; null suggests nothing.
+    tmdbSuggestion: null,
   };
 }
 
@@ -904,6 +906,10 @@ export class FakeBackend {
       const type = url.searchParams.get("type");
       if (type === "person") {
         await fulfillJson(route, { people: this.state.tmdbPeople });
+        return;
+      }
+      if (type === "suggest") {
+        await fulfillJson(route, { query: this.state.tmdbSuggestion });
         return;
       }
       if (type === "person-movies") {

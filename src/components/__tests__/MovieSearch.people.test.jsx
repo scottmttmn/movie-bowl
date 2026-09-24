@@ -5,6 +5,7 @@ import MovieSearch from "../MovieSearch";
 const mocks = vi.hoisted(() => ({
   searchTmdbMovies: vi.fn(),
   searchTmdbPeople: vi.fn(),
+  suggestTmdbQuery: vi.fn(),
   getTmdbPersonMovies: vi.fn(),
   getTmdbMovieDetails: vi.fn(),
   fetchStreamingProviders: vi.fn(),
@@ -13,6 +14,7 @@ const mocks = vi.hoisted(() => ({
 vi.mock("../../lib/tmdbApi", () => ({
   searchTmdbMovies: mocks.searchTmdbMovies,
   searchTmdbPeople: mocks.searchTmdbPeople,
+  suggestTmdbQuery: mocks.suggestTmdbQuery,
   getTmdbPersonMovies: mocks.getTmdbPersonMovies,
   getTmdbMovieDetails: mocks.getTmdbMovieDetails,
 }));
@@ -78,6 +80,7 @@ describe("MovieSearch people", () => {
     mocks.searchTmdbMovies.mockResolvedValue({ page: 1, totalPages: 1, totalResults: 2, results: titleResults });
     mocks.searchTmdbPeople.mockResolvedValue({ people: [hanks] });
     mocks.getTmdbPersonMovies.mockResolvedValue(credits);
+    mocks.suggestTmdbQuery.mockResolvedValue(null);
     mocks.fetchStreamingProviders.mockResolvedValue({
       providers: [],
       providerLogos: {},
@@ -119,6 +122,12 @@ describe("MovieSearch people", () => {
   });
 
   it("still shows a person who answers after the movies, every time the name is searched", async () => {
+    // Enough titles that they read as an answer rather than a misspelling's
+    // strays, so they do not wait for the people lookup.
+    mocks.searchTmdbMovies.mockResolvedValue({
+      page: 1, totalPages: 1, totalResults: 4,
+      results: [...titleResults, { id: 103, title: "Hanks Again" }, { id: 104, title: "More Hanks" }],
+    });
     render(<MovieSearch onAddMovie={vi.fn()} />);
 
     for (let round = 0; round < 2; round += 1) {
@@ -356,5 +365,121 @@ describe("MovieSearch people", () => {
     expect(screen.queryByRole("row", { name: "People" })).not.toBeInTheDocument();
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     console.warn.mockRestore();
+  });
+
+  describe("after a misspelling finds nothing", () => {
+    const scorsese = { id: 1032, name: "Martin Scorsese", profilePath: null, knownForDepartment: "Directing", knownFor: ["Goodfellas"] };
+
+    beforeEach(() => {
+      mocks.searchTmdbMovies.mockImplementation(async (query) => ({
+        page: 1,
+        totalPages: query === "martin scor" ? 1 : 0,
+        totalResults: query === "martin scor" ? 1 : 0,
+        results: query === "martin scor" ? [{ id: 700, title: "Martin Scorsese: A Life", release_date: "2020-01-01" }] : [],
+      }));
+      mocks.searchTmdbPeople.mockImplementation(async (query) => ({ people: query === "martin scor" ? [scorsese] : [] }));
+      mocks.suggestTmdbQuery.mockResolvedValue("martin scor");
+    });
+
+    it("searches the suggestion, says so, and keeps what was typed", async () => {
+      const onAddMovie = vi.fn(async () => ({ ok: true }));
+      render(<MovieSearch onAddMovie={onAddMovie} />);
+      type("martin scorcese");
+
+      expect(await screen.findByRole("button", { name: "Show Martin Scorsese’s movies" })).toBeInTheDocument();
+      expect(mocks.suggestTmdbQuery).toHaveBeenCalledWith("martin scorcese");
+      expect(screen.getByText(/No matches for “martin scorcese”\. Showing results for/)).toBeInTheDocument();
+      expect(screen.getByRole("button", { name: "Details for Martin Scorsese: A Life" })).toBeInTheDocument();
+      expect(screen.getByRole("combobox")).toHaveValue("martin scorcese");
+
+      // The custom slip is still the words as typed, not the suggestion.
+      fireEvent.click(screen.getByRole("button", { name: 'Add "martin scorcese"' }));
+      await waitFor(() => expect(onAddMovie).toHaveBeenCalledTimes(1));
+      expect(onAddMovie.mock.calls[0][0]).toEqual(expect.objectContaining({ title: "martin scorcese", isCustomEntry: true }));
+    });
+
+    it("does not ask for a suggestion when the search found a title it spells", async () => {
+      mocks.searchTmdbMovies.mockResolvedValue({
+        page: 1, totalPages: 1, totalResults: 1,
+        results: [{ id: 5, title: "Martin Scorcese Is Not a Real Film" }],
+      });
+      render(<MovieSearch onAddMovie={vi.fn()} />);
+      type("martin scorcese");
+
+      await screen.findByRole("button", { name: "Details for Martin Scorcese Is Not a Real Film" });
+      expect(mocks.suggestTmdbQuery).not.toHaveBeenCalled();
+    });
+
+    it("treats a stray title or two it did not spell as a miss, and keeps them", async () => {
+      const casino = { id: 524, title: "Casino", release_date: "1995-11-22" };
+      mocks.searchTmdbMovies.mockImplementation(async (query) => (query === "scor"
+        ? { page: 1, totalPages: 1, totalResults: 1, results: [{ id: 800, title: "The Scorpion King" }] }
+        : { page: 1, totalPages: 1, totalResults: 1, results: [casino] }));
+      mocks.searchTmdbPeople.mockImplementation(async (query) => ({ people: query === "scor" ? [scorsese] : [] }));
+      mocks.suggestTmdbQuery.mockResolvedValue("scor");
+      render(<MovieSearch onAddMovie={vi.fn()} />);
+      type("scorcese");
+
+      expect(await screen.findByRole("button", { name: "Show Martin Scorsese’s movies" })).toBeInTheDocument();
+      const rows = within(screen.getByRole("grid")).getAllByRole("row").slice(1);
+      expect(rows.map((row) => row.id)).toEqual(["movie-option-800", "movie-option-524"]);
+    });
+
+    it("keeps what the search found when the suggested search fails", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const casino = { id: 524, title: "Casino", release_date: "1995-11-22" };
+      mocks.searchTmdbMovies.mockImplementation(async (query) => {
+        if (query === "scor") throw new Error("Failed to fetch TMDB search results");
+        return { page: 1, totalPages: 1, totalResults: 1, results: [casino] };
+      });
+      mocks.suggestTmdbQuery.mockResolvedValue("scor");
+      render(<MovieSearch onAddMovie={vi.fn()} />);
+      type("scorcese");
+
+      expect(await screen.findByRole("button", { name: "Details for Casino" })).toBeInTheDocument();
+      expect(screen.queryByText(/couldn't search/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Showing results for/)).not.toBeInTheDocument();
+      warn.mockRestore();
+    });
+
+    it("leaves a real answer spelled differently alone", async () => {
+      mocks.searchTmdbMovies.mockResolvedValue({
+        page: 1, totalPages: 3, totalResults: 45,
+        results: Array.from({ length: 5 }, (_, index) => ({ id: 900 + index, title: `Spider-Man ${index + 1}` })),
+      });
+      render(<MovieSearch onAddMovie={vi.fn()} />);
+      type("spiderman");
+
+      await screen.findByRole("button", { name: "Details for Spider-Man 1" });
+      expect(mocks.suggestTmdbQuery).not.toHaveBeenCalled();
+    });
+
+    it("does not ask for a suggestion when the search found someone", async () => {
+      mocks.searchTmdbPeople.mockResolvedValue({ people: [scorsese] });
+      render(<MovieSearch onAddMovie={vi.fn()} />);
+      type("martin scorcese");
+
+      await screen.findByRole("button", { name: "Show Martin Scorsese’s movies" });
+      expect(mocks.suggestTmdbQuery).not.toHaveBeenCalled();
+      expect(screen.queryByText(/Showing results for/)).not.toBeInTheDocument();
+    });
+
+    it("shows the ordinary empty state when there is nothing to suggest", async () => {
+      mocks.suggestTmdbQuery.mockResolvedValue(null);
+      render(<MovieSearch onAddMovie={vi.fn()} />);
+      type("zqxwvut");
+
+      expect(await screen.findByText(/no movie or person matches/i)).toBeInTheDocument();
+      expect(screen.queryByText(/Showing results for/)).not.toBeInTheDocument();
+    });
+
+    it("drops the suggestion as soon as the query is edited", async () => {
+      render(<MovieSearch onAddMovie={vi.fn()} />);
+      type("martin scorcese");
+      await screen.findByText(/Showing results for/);
+
+      type("martin scorsese");
+      expect(screen.queryByText(/Showing results for/)).not.toBeInTheDocument();
+    });
   });
 });

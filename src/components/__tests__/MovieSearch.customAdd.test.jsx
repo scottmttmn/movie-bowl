@@ -3,7 +3,7 @@ import { describe, expect, it, vi } from "vitest";
 import MovieSearch from "../MovieSearch";
 
 vi.mock("../../lib/tmdbApi", () => ({
-  searchTmdbPeople: vi.fn(async () => ({ people: [] })),
+  searchTmdbPeople: vi.fn(async () => ({ people: [] })), suggestTmdbQuery: vi.fn(async () => null),
   searchTmdbMovies: vi.fn(async () => ({ results: [] })),
   getTmdbMovieDetails: vi.fn(async () => ({})),
 }));

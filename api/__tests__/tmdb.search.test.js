@@ -178,3 +178,61 @@ describe("api/tmdb/search people actions", () => {
     consoleError.mockRestore();
   });
 });
+
+describe("api/tmdb/search suggest action", () => {
+  beforeEach(() => { mocks.tmdbFetch.mockReset(); });
+
+  // TMDB as far as these tests need it: a movie or person search answers only
+  // queries that start the words of what it holds.
+  function fakeTmdb({ titles = [], people = [] }) {
+    mocks.tmdbFetch.mockImplementation(async (path) => {
+      const query = decodeURIComponent(path.match(/query=([^&]*)/)[1]);
+      const starts = (name) => query.split(" ").every((word) =>
+        name.toLowerCase().split(" ").some((part) => part.startsWith(word.toLowerCase())));
+      if (path.startsWith("/search/movie")) {
+        return { results: titles.filter(starts).map((title, index) => ({ id: index + 1, title })) };
+      }
+      return {
+        results: people.filter((person) => starts(person.name)).map((person, index) => ({ id: index + 1, ...person })),
+      };
+    });
+  }
+
+  it("suggests the longest trim of a misspelled name that finds its person", async () => {
+    fakeTmdb({ people: [{ name: "Martin Scorsese", popularity: 20 }] });
+    const res = createRes();
+    await handler({ method: "GET", query: { type: "suggest", query: "martin scorcese" } }, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ query: "martin scor" });
+  });
+
+  it("does not stop at a fragment that finds only unrelated results", async () => {
+    // TMDB returns something for the fragment, but nothing it starts.
+    mocks.tmdbFetch.mockImplementation(async (path) => (path.startsWith("/search/movie")
+      ? { results: [{ id: 1, title: "An Unrelated Film" }] }
+      : { results: [] }));
+    const res = createRes();
+    await handler({ method: "GET", query: { type: "suggest", query: "zqxwvut" } }, res);
+
+    expect(res.body).toEqual({ query: null });
+  });
+
+  it("does not suggest for a query too long to be a title", async () => {
+    const res = createRes();
+    await handler({ method: "GET", query: { type: "suggest", query: "x".repeat(101) } }, res);
+    expect(res.body).toEqual({ query: null });
+    expect(mocks.tmdbFetch).not.toHaveBeenCalled();
+  });
+
+  it("reports a failed suggestion as a bad gateway", async () => {
+    const consoleError = vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.tmdbFetch.mockImplementation(async () => {
+      throw new Error("TMDB request failed");
+    });
+    const res = createRes();
+    await handler({ method: "GET", query: { type: "suggest", query: "martin scorcese" } }, res);
+    expect(res.statusCode).toBe(502);
+    consoleError.mockRestore();
+  });
+});

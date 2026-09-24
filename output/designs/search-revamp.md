@@ -351,6 +351,30 @@ can add a movie through a person. If measurement is added, prefer aggregate
 people-row, latency, empty/error and search-to-add events, without raw queries
 or names.
 
+## Misspellings
+
+Added after launch, when "martin scorcese" found no one and no title. TMDB's
+search has no tolerance for a misspelling, so a search that finds no one and
+no title its words start asks the search route for a suggestion
+(`type=suggest`). "No title" includes a stray one to three that TMDB matched
+some other way -- "scorcese" finds Casino -- and those stay in the list after
+the suggestion's results. More than three is a real answer spelled
+differently ("spiderman" for Spider-Man) and is left alone. The server trims the query's last word back until something
+matches -- a title or a strong person match that the trimmed words start -- and
+bisects the length, so it makes at most a few paired TMDB requests, and only
+for searches that found nothing. "martin scorcese" becomes "martin scor", which
+finds Martin Scorsese.
+
+The results say what they are for ("No matches for … Showing results for …"),
+the field keeps what was typed, and so does the custom slip, which a
+misspelling may well have been meant as. Any edit drops the suggestion.
+
+It cannot help a typo in an earlier word or in the first letters of the last
+one ("scrosese"). The fix for those is an index of our own -- popular titles
+and people from TMDB's daily exports under a trigram index in Supabase --
+which needs a migration and a refresh inside TMDB's six-month cache limit. It
+is not built; see `TODO.md`.
+
 ## Decided against for v1
 
 - **Keyword / theme search** ("heist", "time travel"). TMDB's keyword tags are

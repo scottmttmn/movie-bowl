@@ -4,6 +4,7 @@ import {
   clearTmdbPersonMoviesCache,
   getTmdbPersonMovies,
   searchTmdbPeople,
+  suggestTmdbQuery,
   getTmdbMovieDetails,
   getTmdbMovieFilterMetadata,
   getTmdbMovieProviders,
@@ -314,5 +315,17 @@ describe("tmdbApi", () => {
   it("refuses a person id that is not a TMDB id without fetching", async () => {
     await expect(getTmdbPersonMovies("-3")).rejects.toThrow("Invalid person");
     expect(global.fetch).not.toHaveBeenCalled();
+  });
+
+  it("asks the search route for a suggestion, and treats any failure as none", async () => {
+    global.fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ query: "martin scor" }) });
+    await expect(suggestTmdbQuery("martin scorcese")).resolves.toBe("martin scor");
+    expect(global.fetch).toHaveBeenCalledWith("/api/tmdb/search?type=suggest&query=martin%20scorcese");
+
+    global.fetch.mockResolvedValueOnce({ ok: true, json: async () => ({ query: null }) });
+    await expect(suggestTmdbQuery("zqxwvut")).resolves.toBeNull();
+
+    global.fetch.mockResolvedValueOnce({ ok: false, status: 502, json: async () => ({ error: "Failed" }) });
+    await expect(suggestTmdbQuery("martin scorcese")).resolves.toBeNull();
   });
 });
