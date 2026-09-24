@@ -147,7 +147,6 @@ export default function MovieSearch({
     // Which person chip the arrow keys are on; null means the highlight is in
     // the movies, where a bare Enter has always added the first one.
     const [highlightedPerson, setHighlightedPerson] = useState(null);
-    const searchScrollRef = useRef(null);
     const gridRef = useRef(null);
     const keyboardMovedRef = useRef(false);
     const providersRef = useRef({});
@@ -396,35 +395,16 @@ export default function MovieSearch({
         setFocusRequest((request) => request + 1);
     };
 
+    // There is no way back to the title results but the field: editing the
+    // query leaves the person, and a control for the same thing only crowded
+    // a header that has a phone's width to work with.
     const showPerson = (person) => {
-        searchScrollRef.current = {
-            outer: scrollRef.current?.scrollTop || 0,
-            grid: gridRef.current?.scrollTop || 0,
-            highlightedIndex,
-        };
         setHighlightedPerson(null);
         setHighlightedIndex(0);
         setSearchError(null);
         openPerson(person);
         if (scrollRef.current) scrollRef.current.scrollTop = 0;
         if (gridRef.current) gridRef.current.scrollTop = 0;
-    };
-
-    // Change person returns to the search as it was left: the query, the
-    // results, and where the list was scrolled.
-    const leavePerson = () => {
-        const saved = searchScrollRef.current;
-        searchScrollRef.current = null;
-        closePerson();
-        setSearchError(null);
-        setHighlightedIndex(saved?.highlightedIndex || 0);
-        setFocusRequest((request) => request + 1);
-        if (saved) {
-            requestAnimationFrame(() => {
-                if (scrollRef.current) scrollRef.current.scrollTop = saved.outer;
-                if (gridRef.current) gridRef.current.scrollTop = saved.grid;
-            });
-        }
     };
 
     useImperativeHandle(controllerRef, () => ({
@@ -871,26 +851,14 @@ export default function MovieSearch({
                 two independently focusable buttons. The arrow keys still move
                 a highlight from the field, and Enter still adds it. */}
             {personView && (
-                <div className="mt-2 flex flex-col gap-2.5">
-                    <div className="flex items-center justify-between gap-3">
-                        <div className="min-w-0">
-                            <p className="truncate font-semibold text-slate-100">
-                                {possessive(personView.name)} movies
-                            </p>
-                            <p className="text-xs text-slate-500">Popular first</p>
-                        </div>
-                        <button
-                            type="button"
-                            className="btn btn-ghost flex-shrink-0 px-2 text-sm"
-                            onClick={leavePerson}
-                        >
-                            Change person
-                        </button>
-                    </div>
+                // One line: whose movies these are, and -- only for someone
+                // credited in both roles -- which role, as a compact switch.
+                <div className="mt-2 flex min-h-9 items-center justify-between gap-2">
+                    <p className="min-w-0 truncate font-semibold text-slate-100">
+                        {possessive(personView.name)} movies
+                    </p>
                     {discovery.roles.length > 1 && (
-                        // Only a person with feature credits in both roles gets
-                        // the switch; one role needs no choice.
-                        <div role="tablist" aria-label="Role" className="flex gap-1.5">
+                        <div role="tablist" aria-label="Role" className="flex flex-shrink-0 rounded-full border border-slate-700 p-0.5">
                             {discovery.roles.map((roleName) => (
                                 <button
                                     key={roleName}
@@ -903,7 +871,7 @@ export default function MovieSearch({
                                         setHighlightedIndex(0);
                                         if (gridRef.current) gridRef.current.scrollTop = 0;
                                     }}
-                                    className={`min-h-9 rounded-full border px-3.5 text-sm font-semibold transition ${discovery.role === roleName ? "border-rose-500/70 bg-rose-600/20 text-rose-100" : "border-slate-700 text-slate-300 hover:border-slate-600"}`}
+                                    className={`min-h-8 rounded-full px-3 text-xs font-semibold transition ${discovery.role === roleName ? "bg-rose-600/25 text-rose-100" : "text-slate-400 hover:text-slate-200"}`}
                                 >
                                     {roleName === "acting" ? "Acting" : "Directing"}
                                 </button>

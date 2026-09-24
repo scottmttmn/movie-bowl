@@ -155,8 +155,10 @@ describe("MovieSearch people", () => {
     expect(await screen.findByText("Tom Hanks’s movies")).toBeInTheDocument();
     expect(onAddMovie).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("button", { name: "Change person" }));
+    // Editing the query is the way back to titles.
+    type("tom hank");
     await screen.findByRole("button", { name: "Details for Hanky Panky" });
+    expect(screen.queryByText("Tom Hanks’s movies")).not.toBeInTheDocument();
     fireEvent.keyDown(field, { key: "Enter" });
     await waitFor(() => expect(onAddMovie).toHaveBeenCalledTimes(1));
     expect(onAddMovie.mock.calls[0][0]).toEqual(expect.objectContaining({ title: "Hanky Panky" }));
