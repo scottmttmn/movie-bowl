@@ -6,6 +6,7 @@ import { subscribeBowlChanges, notifyBowlChange } from "../lib/bowlChanges";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { getDrawSelection, getResolvedDrawPool } from "../utils/drawSelection";
 import { DEFAULT_DRAW_METHOD, getDrawMethod } from "../utils/drawMethods";
+import { isStarterPackMovie } from "../utils/drawBuckets";
 import {
   getMovieFromDrawCandidate,
   hydrateDrawCandidate,
@@ -148,7 +149,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       const remainingRequest = supabase
         .from("bowl_movies")
         .select(
-          "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, is_pinned, added_by, added_by_name, added_at, drawn_at, drawn_by, snapshot_at"
+          "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, is_pinned, added_by, added_by_name, starter_pack, added_at, drawn_at, drawn_by, snapshot_at"
         )
         .eq("bowl_id", bowlId)
         .is("drawn_at", null)
@@ -378,9 +379,16 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         }
         if (!clientSelected) return null;
 
+        // A pack slip names no one, so the turn it was drawn on is sent with it.
+        // Every other draw keeps the two-argument call its contributor already
+        // answers for.
+        const turnBucketKey = isStarterPackMovie(clientSelected.movie)
+          ? clientSelected.turnBucketKey
+          : null;
         const { error } = await supabase.rpc("draw_bowl_movie", {
           p_bowl_movie_id: clientSelected.movie.id,
           p_watched_timezone: watchedTimeZone,
+          ...(turnBucketKey ? { p_turn_bucket_key: turnBucketKey } : {}),
         });
         if (error) {
           console.error("[useBowl] Failed to draw movie", error);

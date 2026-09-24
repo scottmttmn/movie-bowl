@@ -2,6 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   DEFAULT_DRAW_METHOD,
   DRAW_METHOD_OPTIONS,
+  chooseWithMethod,
   getDrawMethod,
   normalizeDrawMethod,
 } from "../drawMethods";
@@ -124,6 +125,73 @@ describe("person_first", () => {
   });
 });
 
+// Two people and a pack of two. The pack is in both piles and is never a pile.
+const PACK = "nolan-2000s";
+const PACK_POOL = [
+  { id: "u1-1", added_by: "user-1" },
+  { id: "u2-1", added_by: "user-2" },
+  { id: "p-1", added_by: null, added_by_name: "Nolan: The '00s", starter_pack: PACK },
+  { id: "p-2", added_by: null, added_by_name: "Nolan: The '00s", starter_pack: PACK },
+];
+
+describe("person_first with a starter pack", () => {
+  const method = getDrawMethod("person_first");
+
+  it("chooses among people only, never the pack, and reports whose turn it was", () => {
+    // Two buckets, not three: 0.75 is the second person.
+    const { selected, turnBucketKey } = chooseWithMethod(method, PACK_POOL, {
+      randomFn: makeSequenceRandom([0.75, 0]),
+    });
+    expect(turnBucketKey).toBe("user:user-2");
+    expect(selected.id).toBe("u2-1");
+  });
+
+  it("draws a pack title from inside the chosen person's pile", () => {
+    // The first person's pile is their one title plus the pack's two.
+    const drawn = [0, 0.34, 0.67].map((value) =>
+      chooseWithMethod(method, PACK_POOL, { randomFn: makeSequenceRandom([0, value]) })
+    );
+    expect(drawn.map(({ selected }) => selected.id)).toEqual(["u1-1", "p-1", "p-2"]);
+    expect(drawn.every(({ turnBucketKey }) => turnBucketKey === "user:user-1")).toBe(true);
+  });
+
+  it("puts the pin ahead of the pack", () => {
+    const pool = PACK_POOL.map((movie) => ({ ...movie, is_pinned: movie.id === "u1-1" }));
+    const { selected } = chooseWithMethod(method, pool, { randomFn: makeSequenceRandom([0, 0.99]) });
+    expect(selected.id).toBe("u1-1");
+  });
+
+  it("draws flat from the pack, spending no turn, when nobody has an eligible title", () => {
+    const packOnly = PACK_POOL.filter((movie) => movie.starter_pack);
+    const { selected, turnBucketKey } = chooseWithMethod(method, packOnly, {
+      randomFn: makeSequenceRandom([0.5]),
+    });
+    expect(selected.id).toBe("p-2");
+    expect(turnBucketKey).toBeNull();
+  });
+
+  it("treats a link guest who typed the pack's name as a guest, not the pack", () => {
+    const pool = [
+      { id: "guest", added_by: null, added_by_name: "Nolan: The '00s" },
+      { id: "p-1", added_by: null, added_by_name: "Nolan: The '00s", starter_pack: PACK },
+    ];
+    const { selected, turnBucketKey } = chooseWithMethod(method, pool, {
+      randomFn: makeSequenceRandom([0, 0]),
+    });
+    expect(turnBucketKey).toBe("guest:nolan: the '00s");
+    expect(selected.id).toBe("guest");
+  });
+
+  it("handles wrapped streaming candidates", () => {
+    const wrapped = PACK_POOL.map((movie) => ({ movie, providers: [] }));
+    const { selected, turnBucketKey } = chooseWithMethod(method, wrapped, {
+      randomFn: makeSequenceRandom([0, 0.5]),
+    });
+    expect(selected.movie.id).toBe("p-1");
+    expect(turnBucketKey).toBe("user:user-1");
+  });
+});
+
 describe("title_first", () => {
   const method = getDrawMethod("title_first");
 
@@ -190,5 +258,16 @@ describe("rotation", () => {
     expect(method.selectionMode).toBe("server_rotation");
     expect(method.bucketsByContributor).toBe(true);
     expect(method.pick).toBeUndefined();
+  });
+});
+
+describe("title_first with a starter pack", () => {
+  it("treats a pack title like any other title, and has no turns", () => {
+    const method = getDrawMethod("title_first");
+    const drawn = [0, 0.25, 0.5, 0.75].map((value) =>
+      chooseWithMethod(method, PACK_POOL, { randomFn: makeSequenceRandom([value]) })
+    );
+    expect(drawn.map(({ selected }) => selected.id)).toEqual(["u1-1", "u2-1", "p-1", "p-2"]);
+    expect(drawn.every(({ turnBucketKey }) => turnBucketKey === null)).toBe(true);
   });
 });

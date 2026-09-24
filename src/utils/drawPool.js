@@ -23,6 +23,8 @@ export function summarizeContributorReach(poolMovies = [], candidates = []) {
   const labelsByKey = new Map();
   (poolMovies || []).forEach((movie) => {
     const key = getContributorBucketKey(movie);
+    // A starter pack is not a contributor, so it is never reached or excluded.
+    if (key === null) return;
     // First non-empty label wins: a contributor's rows all resolve to the same
     // person, but only some of them may carry a display name.
     if (!labelsByKey.get(key)) labelsByKey.set(key, getMovieAttributionLabel(movie));

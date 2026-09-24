@@ -1,5 +1,5 @@
 import { matchUserServices, normalizeStreamingServices } from "./streamingServices";
-import { DEFAULT_DRAW_METHOD, getDrawMethod } from "./drawMethods";
+import { DEFAULT_DRAW_METHOD, chooseWithMethod, getDrawMethod } from "./drawMethods";
 
 export function getMovieFromDrawCandidate(candidate) {
   return candidate?.movie || candidate;
@@ -168,8 +168,9 @@ export async function selectFromResolvedDrawPool(
     throw new Error(`${method.id} selection requires its atomic draw RPC`);
   }
 
-  const selected = method.pick(candidates, { randomFn });
-  return hydrateDrawCandidate(selected, fetchProviders);
+  const { selected, turnBucketKey } = chooseWithMethod(method, candidates, { randomFn });
+  const hydrated = await hydrateDrawCandidate(selected, fetchProviders);
+  return hydrated && turnBucketKey ? { ...hydrated, turnBucketKey } : hydrated;
 }
 
 export async function selectDrawCandidate(

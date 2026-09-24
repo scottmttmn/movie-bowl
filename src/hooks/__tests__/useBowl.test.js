@@ -406,6 +406,33 @@ describe("useBowl handleDraw integration", () => {
     randomSpy.mockRestore();
   });
 
+  // A pack slip names no one, so the draw says whose turn it was drawn on; an
+  // ordinary slip's contributor already does, and it keeps the two-argument call.
+  it.each([
+    ["a pack slip", 0.9, "m-pack", { p_turn_bucket_key: "user:user-2" }],
+    ["the person's own title", 0, "m-own", {}],
+  ])("draws %s from a person's pile and names the turn only for a pack slip", async (_label, titleRoll, drawnId, turn) => {
+    const own = { id: "m-own", tmdb_id: 9501, title: "Own", added_by: "user-2" };
+    const pack = { id: "m-pack", tmdb_id: 9502, title: "Pack", added_by: null, added_by_name: "Nolan: The '00s", starter_pack: "nolan-2000s" };
+    mocks.remainingQueue.push([own, pack], []);
+    mocks.fetchStreamingProviders.mockResolvedValue({ providers: [], region: "US", fetchedAt: null });
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const rolls = [0, titleRoll];
+    let drawn;
+    await act(async () => {
+      drawn = await result.current.handleDraw({ randomFn: () => rolls.shift() ?? 0 });
+    });
+
+    expect(drawn.id).toBe(drawnId);
+    expect(mocks.rpcCalls).toContainEqual({
+      name: "draw_bowl_movie",
+      params: { p_bowl_movie_id: drawnId, p_watched_timezone: "America/Chicago", ...turn },
+    });
+  });
+
   it("draws from the whole bowl with one combined metadata request per title", async () => {
     const pgMovie = { id: "m-combined-pg", tmdb_id: 9301, title: "PG Netflix" };
     const rMovie = { id: "m-combined-r", tmdb_id: 9302, title: "R Max" };

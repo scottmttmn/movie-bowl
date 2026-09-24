@@ -16,7 +16,17 @@ function getStableStringHash(value) {
   );
 }
 
+// A starter pack slip belongs to nobody: it is in every person's pile rather
+// than a pile of its own (output/designs/starter-packs.md). It is recognized by
+// its marker and never by name, so a link guest who types a pack's name is
+// still a guest.
+export function isStarterPackMovie(movie) {
+  return Boolean(movie?.starter_pack);
+}
+
+// Null for a pack slip: it has no contributor to be bucketed under.
 export function getContributorBucketKey(movie) {
+  if (isStarterPackMovie(movie)) return null;
   if (movie?.added_by) return `user:${movie.added_by}`;
 
   const fallbackName = String(movie?.added_by_name || "").trim();
