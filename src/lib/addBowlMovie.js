@@ -114,26 +114,29 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
 
     const code = response.error?.code || "";
     if (code === "42501") return addResult(false, "access_lost", "You no longer have access to this bowl. Choose another bowl.");
-    // The database said no: someone drew or claimed it first. Settled, and a
-    // fresh add will see whatever is there now.
-    if (code === "P0001") {
-      return addResult(false, "claim_lost", `${movie.title} was just drawn or claimed by someone else. Try adding it again.`);
-    }
-    // Anything else may have committed with its answer lost, so the slip is
-    // read back. Only a claim that shows there is settled: a slip that still
-    // looks untouched proves nothing, because the claim may not have
-    // committed yet. Either way a retry is safe -- a landed claim reads as
-    // this person's own title, not a second copy -- and the bowl is asked to
-    // refresh so an open dashboard does not keep a slip that has changed.
+    // Whatever the error, the slip is read back before anything is settled: a
+    // lost answer may hide a claim that committed, and a refusal can be this
+    // person's own earlier claim landing first. Only a slip that now belongs
+    // to them settles it as theirs.
+    let readBack = false;
     try {
       const { data: row, error } = await client.from("bowl_movies").select(BOWL_MOVIE_FIELDS).eq("id", slip.id).maybeSingle();
       if (!error && row && !row.drawn_at && row.added_by === accountId && !isStarterPackMovie(row)) return claimed(row);
+      readBack = !error;
     } catch {
       // Fall through: the read cannot say either way.
     }
-    publish({ type: "context", bowlId });
+    // The database said no and the slip is not theirs: someone else drew or
+    // claimed it first. Settled, and a fresh add will see whatever is there.
+    if (code === "P0001" && readBack) {
+      return addResult(false, "claim_lost", `${movie.title} was just drawn or claimed by someone else. Try adding it again.`);
+    }
+    // An untouched slip proves nothing -- the claim may not have committed
+    // yet -- so this stays unconfirmed. Adding it again is how to find out: a
+    // claim that landed reads as this person's own title, and one that did
+    // not claims again. Neither makes a second copy.
     return addResult(false, "add_failed", describeNetworkError(response.error,
-      `Could not confirm whether ${movie.title} was added. Check the bowl before trying again.`));
+      `Could not confirm whether ${movie.title} was added. Add it again to check.`));
   }
 
   async function add(operation) {
@@ -205,6 +208,10 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
       // Already this person's -- including a claim whose answer was lost and
       // is being retried -- so there is nothing to add and nothing to wait for.
       if (existingMovie && existingMovie.added_by === accountId) {
+        // Published so an open dashboard that still shows the pack slip -- a
+        // claim whose answer was lost -- catches up to the row as it is.
+        publish({ type: "add", phase: "success", userId: accountId, bowlId, submissionId: existingMovie.id,
+          movie: { ...existingMovie, local_status: null, local_temp_id: null } });
         return addResult(false, "duplicate_movie", `"${movie.title}" is already in the bowl, and it's yours.`);
       }
       if ((remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {

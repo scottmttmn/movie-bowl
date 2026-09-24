@@ -130,6 +130,18 @@ describe("shared bowl add service", () => {
     expect(await h.service.add(h.operation())).toMatchObject({ ok: false, code: "claim_lost" });
     expect(h.insert).not.toHaveBeenCalled();
   });
+  it("reads a refused claim back, and keeps it when its own earlier claim is what landed", async () => {
+    // A retry waited on the first attempt's lock; that attempt committed, so
+    // the retry is refused -- but the slip is this person's now.
+    const h = packHarness((harnessState) => {
+      claimRow(harnessState);
+      return { data: null, error: { code: "P0001", message: "This movie is no longer in the starter pack." } };
+    });
+    expect(await h.service.add(h.operation())).toMatchObject({
+      ok: true, code: "claimed_from_pack", movie: expect.objectContaining({ id: "slip", added_by: "u1" }),
+    });
+    expect(h.publish).toHaveBeenCalledWith(expect.objectContaining({ phase: "success", submissionId: "slip" }));
+  });
 
   it("reads the slip back when a claim's answer is lost, and keeps a claim that committed", async () => {
     const h = packHarness((harnessState) => {
@@ -151,15 +163,19 @@ describe("shared bowl add service", () => {
       throw new Error("connection reset");
     });
     expect(await h.service.add(h.operation())).toMatchObject({
-      ok: false, code: "add_failed", message: "Could not confirm whether Movie was added. Check the bowl before trying again.",
+      ok: false, code: "add_failed", message: "Could not confirm whether Movie was added. Add it again to check.",
     });
-    expect(h.publish).toHaveBeenCalledWith({ type: "context", bowlId: "a" });
+    expect(h.publish).not.toHaveBeenCalled();
 
-    // The claim lands after all; a retry finds the title is already theirs.
+    // The claim lands after all; a retry finds the title is already theirs,
+    // and the open dashboard is handed the row as it now is.
     commitLater();
     expect(await h.service.add(h.operation())).toMatchObject({
       ok: false, code: "duplicate_movie", message: "\"Movie\" is already in the bowl, and it's yours.",
     });
+    expect(h.publish).toHaveBeenCalledWith(expect.objectContaining({
+      type: "add", phase: "success", submissionId: "slip", movie: expect.objectContaining({ added_by: "u1", starter_pack: null }),
+    }));
     expect(h.insert).not.toHaveBeenCalled();
   });
 
