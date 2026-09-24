@@ -107,13 +107,21 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
       if (authError || !user || user.id !== accountId || !current()) {
         return addResult(false, "not_authenticated", "You must be signed in to add a movie.");
       }
-      const { data: context, error: accessError } = await client.rpc("get_my_bowl_context");
+      // The access check and the bowl read are both reads, so they go out
+      // together; access is still decided before anything uses the rows, and
+      // row-level security already limits what the read can return.
+      const [
+        { data: context, error: accessError },
+        { data: remaining, error: readError },
+      ] = await Promise.all([
+        client.rpc("get_my_bowl_context"),
+        client.from("bowl_movies")
+          .select(BOWL_MOVIE_FIELDS).eq("bowl_id", bowlId).is("drawn_at", null).order("added_at", { ascending: true }),
+      ]);
       if (accessError) throw accessError;
       if (!context?.bowls?.some((bowl) => bowl.id === bowlId)) {
         return addResult(false, "access_lost", "You no longer have access to this bowl. Choose another bowl.");
       }
-      const { data: remaining, error: readError } = await client.from("bowl_movies")
-        .select(BOWL_MOVIE_FIELDS).eq("bowl_id", bowlId).is("drawn_at", null).order("added_at", { ascending: true });
       if (readError) throw readError;
       // Ahead of both the limit and the duplicate check: this submission already
       // succeeded, so neither is its problem. Its own late-landed row could be

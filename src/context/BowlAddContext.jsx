@@ -106,8 +106,11 @@ export function BowlAddProvider({ children }) {
     let result;
     try {
       if (!draft.isCustomEntry && !draft.detailsLoaded) {
-        const details = await getTmdbMovieDetails(draft.tmdb_id || draft.id);
-        const providers = await fetchStreamingProviders(draft.tmdb_id || draft.id, { region: "US" });
+        // Independent lookups, so they run together rather than one after the other.
+        const [details, providers] = await Promise.all([
+          getTmdbMovieDetails(draft.tmdb_id || draft.id),
+          fetchStreamingProviders(draft.tmdb_id || draft.id, { region: "US" }),
+        ]);
         operation.movie = { ...draft, ...details, note: draft.note,
           streamingProviders: providers.providers || [],
           streamingProviderLogos: providers.providerLogos || {},

@@ -152,6 +152,27 @@ describe("MovieSearch voice input", () => {
     expect(await screen.findByText("Alien")).toBeInTheDocument();
   });
 
+  it("still searches what is typed after saying what the field already held", async () => {
+    window.SpeechRecognition = MockSpeechRecognition;
+    mocks.searchTmdbMovies.mockResolvedValue({
+      results: [{ id: 101, title: "Jaws", release_date: "1975-06-20" }],
+    });
+    render(<MovieSearch onAddMovie={vi.fn()} userStreamingServices={[]} />);
+    const field = screen.getByPlaceholderText("Movie title or person");
+    fireEvent.change(field, { target: { value: "Jaws" } });
+    await waitFor(() => expect(mocks.searchTmdbMovies).toHaveBeenCalledWith("Jaws", { page: 1 }));
+
+    // Saying the same words leaves the field unchanged, so no change clears
+    // the flag that stops the transcript from searching twice.
+    fireEvent.click(screen.getByRole("button", { name: /start voice input/i }));
+    recognitionInstance.onresult?.({ results: [{ 0: { transcript: "Jaws" }, isFinal: true }] });
+    recognitionInstance.onend?.();
+    await waitFor(() => expect(mocks.searchTmdbMovies).toHaveBeenCalledTimes(2));
+
+    fireEvent.change(field, { target: { value: "Jaws 2" } });
+    await waitFor(() => expect(mocks.searchTmdbMovies).toHaveBeenCalledWith("Jaws 2", { page: 1 }));
+  });
+
   it("asks the recognizer for words as they are heard", () => {
     window.SpeechRecognition = MockSpeechRecognition;
     render(<MovieSearch onAddMovie={vi.fn()} userStreamingServices={[]} />);
