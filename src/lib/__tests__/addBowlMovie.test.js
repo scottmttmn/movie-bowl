@@ -94,16 +94,61 @@ describe("shared bowl add service", () => {
     expect(warmProviders).not.toHaveBeenCalled();
     expect(warmMetadata).not.toHaveBeenCalled();
   });
-  it("reports a lost claim as a failure rather than a duplicate or a second copy", async () => {
+  function packHarness(claim) {
     const h = harness();
     h.state.rows = [{ id: "slip", tmdb_id: 101, bowl_id: "a", added_by: null, added_by_name: "Pack", starter_pack: "nolan-2000s" }];
     const defaultRpc = h.client.rpc.getMockImplementation();
     h.client.rpc.mockImplementation(async (name, params) => (name === "claim_bowl_starter_pack_movie"
-      ? { data: null, error: { code: "P0001", message: "This movie is no longer in the starter pack." } }
-      : defaultRpc(name, params)));
-    expect(await h.service.add(h.operation())).toMatchObject({ ok: false, code: "add_failed" });
+      ? claim(h) : defaultRpc(name, params)));
+    return h;
+  }
+  const claimRow = (h) => {
+    const row = { ...h.state.rows[0], added_by: "u1", added_by_name: null, starter_pack: null };
+    h.state.rows[0] = row;
+    return row;
+  };
+
+  it("claims a pack slip in a full bowl, since the claim adds nothing", async () => {
+    const h = packHarness((harnessState) => ({ data: claimRow(harnessState), error: null }));
+    h.state.rows.push(...Array.from({ length: 499 }, (_, id) => ({ id: `row-${id}`, tmdb_id: 5000 + id, bowl_id: "a", added_by: "u2" })));
+    expect(await h.service.add(h.operation())).toMatchObject({ ok: true, code: "claimed_from_pack" });
+    // An ordinary add into the same full bowl is still refused.
+    expect(await h.service.add(h.operation({ id: 999, title: "Other" }))).toMatchObject({ ok: false, code: "limit_reached" });
+  });
+
+  it("checks the account again right before claiming", async () => {
+    const h = packHarness(() => { throw new Error("should not claim"); });
+    h.client.auth.getSession
+      .mockResolvedValueOnce({ data: { session: { user: { id: "u1" }, access_token: "token" } } })
+      .mockResolvedValueOnce({ data: { session: { user: { id: "u9" }, access_token: "other" } } });
+    expect(await h.service.add(h.operation())).toMatchObject({ ok: false, code: "not_authenticated" });
+    expect(h.client.rpc).not.toHaveBeenCalledWith("claim_bowl_starter_pack_movie", expect.anything());
+  });
+
+  it("reports a claim someone else won as settled, not as a second copy", async () => {
+    const h = packHarness(() => ({ data: null, error: { code: "P0001", message: "This movie is no longer in the starter pack." } }));
+    expect(await h.service.add(h.operation())).toMatchObject({ ok: false, code: "claim_lost" });
     expect(h.insert).not.toHaveBeenCalled();
   });
+
+  it("reads the slip back when a claim's answer is lost, and keeps a claim that committed", async () => {
+    const h = packHarness((harnessState) => {
+      claimRow(harnessState);
+      throw new Error("connection reset");
+    });
+    expect(await h.service.add(h.operation())).toMatchObject({
+      ok: true, code: "claimed_from_pack", movie: expect.objectContaining({ id: "slip", added_by: "u1" }),
+    });
+    expect(h.publish).toHaveBeenCalledWith(expect.objectContaining({ phase: "success", submissionId: "slip" }));
+  });
+
+  it("says a lost claim that never committed can be tried again", async () => {
+    const h = packHarness(() => { throw new Error("connection reset"); });
+    expect(await h.service.add(h.operation())).toMatchObject({
+      ok: false, code: "add_failed", message: "Movie has not been added. Please try again.",
+    });
+  });
+
   it("keeps comment validation and allows separate repeated custom additions", async () => {
     const h = harness();
     expect(await h.service.add(h.operation({ title: "Custom", note: "x".repeat(501) }))).toMatchObject({ code: "comment_too_long" });

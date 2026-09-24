@@ -78,6 +78,62 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
     }
   }
 
+  // No warm on any path here: a pack title was never an ordinary add, and
+  // claiming one must not spend the provider budget installs are kept off.
+  async function claimPackSlip(operation, movie, slip) {
+    const { accountId, bowlId } = operation;
+    const claimed = (row) => {
+      const settled = {
+        ...addResult(true, "claimed_from_pack",
+          `Added ${movie.title} — it was in the ${getMovieAttributionLabel(slip)} pack, now it's yours.`),
+        movie: { ...row, local_status: null, local_temp_id: null },
+      };
+      publish({ type: "add", phase: "success", userId: accountId, bowlId, submissionId: row.id, movie: settled.movie });
+      return settled;
+    };
+    // The claim writes as whoever is signed in now, so it is checked as late
+    // as an insert is: an account switch mid-add must not claim for the wrong
+    // person under the first one's name.
+    const { data: latestAuth, error: latestAuthError } = await client.auth.getSession();
+    if (latestAuthError || latestAuth?.session?.user?.id !== accountId || operation.isCurrent?.() === false) {
+      return addResult(false, "not_authenticated", "You must be signed in to add a movie.");
+    }
+
+    let response;
+    try {
+      response = await client.rpc("claim_bowl_starter_pack_movie", {
+        p_bowl_id: bowlId, p_tmdb_id: getPositiveTmdbId(movie), p_note: normalizeMovieNote(movie.note),
+      });
+    } catch (error) {
+      response = { error };
+    }
+    if (!response.error) {
+      const row = Array.isArray(response.data) ? response.data[0] : response.data;
+      if (row?.id) return claimed(row);
+    }
+
+    const code = response.error?.code || "";
+    if (code === "42501") return addResult(false, "access_lost", "You no longer have access to this bowl. Choose another bowl.");
+    // The database said no: someone drew or claimed it first. Settled, and a
+    // fresh add will see whatever is there now.
+    if (code === "P0001") {
+      return addResult(false, "claim_lost", `${movie.title} was just drawn or claimed by someone else. Try adding it again.`);
+    }
+    // Anything else may have committed with its answer lost, so the slip is
+    // read back rather than guessed at.
+    try {
+      const { data: row, error } = await client.from("bowl_movies").select(BOWL_MOVIE_FIELDS).eq("id", slip.id).maybeSingle();
+      if (!error && row && !row.drawn_at && row.added_by === accountId && !isStarterPackMovie(row)) return claimed(row);
+      if (!error && row && !row.drawn_at && isStarterPackMovie(row)) {
+        return addResult(false, "add_failed", describeNetworkError(response.error, `${movie.title} has not been added. Please try again.`));
+      }
+    } catch {
+      // Fall through: the read cannot say either way.
+    }
+    return addResult(false, "add_failed", describeNetworkError(response.error,
+      `Could not confirm whether ${movie.title} was added. Check the bowl before trying again.`));
+  }
+
   async function add(operation) {
     const { bowlId, accountId, submissionId } = operation;
     const movie = { ...operation.movie, title: String(operation.movie?.title || "").trim() };
@@ -135,28 +191,17 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
         publish({ type: "add", phase: "success", userId: accountId, bowlId, submissionId, movie: result.movie });
         return warm(result);
       }
-      if ((remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
-        return addResult(false, "limit_reached", `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`);
-      }
       existingMovie = tmdbId && (remaining || []).find((row) => getPositiveTmdbId(row) === tmdbId);
       // Adding a title that is sitting in the bowl's starter pack claims it:
       // the slip becomes this person's, in place, so the bowl keeps one copy
-      // and they can pin it. The count does not move, so the message says why.
+      // and they can pin it. Ahead of the limit, because the count does not
+      // move -- which is also why the message says what happened.
       if (existingMovie && isStarterPackMovie(existingMovie)) {
-        const { data: claimedRow, error: claimError } = await client.rpc("claim_bowl_starter_pack_movie", {
-          p_bowl_id: bowlId, p_tmdb_id: tmdbId, p_note: normalizeMovieNote(movie.note),
-        });
-        if (claimError) throw claimError;
-        const claimedMovie = Array.isArray(claimedRow) ? claimedRow[0] : claimedRow;
-        result = {
-          ...addResult(true, "claimed_from_pack",
-            `Added ${movie.title} — it was in the ${getMovieAttributionLabel(existingMovie)} pack, now it's yours.`),
-          movie: { ...claimedMovie, local_status: null, local_temp_id: null },
-        };
-        publish({ type: "add", phase: "success", userId: accountId, bowlId, submissionId: claimedMovie?.id, movie: result.movie });
-        // No warm: a pack title was never an ordinary add, and claiming one
-        // must not spend the provider budget installs are kept off.
+        result = await claimPackSlip(operation, movie, existingMovie);
         return result;
+      }
+      if ((remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
+        return addResult(false, "limit_reached", `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`);
       }
       if (existingMovie) {
         const { data: profiles } = await client.rpc("get_bowl_profile_directory", { p_bowl_id: bowlId });

@@ -30,6 +30,7 @@ import useMyMovieEligibility, { MY_MOVIE_ELIGIBILITY_STATUS } from "../hooks/use
 import AddMovieModal from "../components/AddMovieModal";
 import DrawAnimationModal from "../components/DrawAnimationModal";
 import { Link, useNavigate, useParams } from "react-router-dom";
+import { isStarterPackMovie } from "../utils/drawBuckets";
 import { supabase } from "../lib/supabase";
 import { startRead } from "../utils/startRead";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
@@ -242,7 +243,9 @@ export default function BowlDashboard() {
     };
 
     const isAddBlockedByUndrawnLimit = (bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL;
-    const isAddBlocked = isAddBlockedByUndrawnLimit;
+    // A full bowl can still take a claim: adding a starter pack title turns
+    // its slip into yours without adding one. The add refuses anything else.
+    const isAddBlocked = isAddBlockedByUndrawnLimit && !(bowl.remaining || []).some(isStarterPackMovie);
     const isCurrentUserOwner = Boolean(currentUserId && bowlOwnerId && currentUserId === bowlOwnerId);
     const isCurrentUserMember = Boolean(currentUserId && memberIds.includes(currentUserId));
     const canCurrentUserDraw = useMemo(() => {
