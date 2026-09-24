@@ -160,3 +160,25 @@ export function matchBestPictureWinner(winner, results) {
   if (nearYear.length === 1) return { movie: nearYear[0] };
   return { error: `${winner.title} (${winner.year}) was not found.` };
 }
+
+// What an install or "pull more" offers: up to `count` of the pack's
+// candidates, chosen at random from the ones the bowl has never held --
+// neither in it now nor drawn from it -- so topping up never brings back a
+// title the group has already watched.
+export function sampleStarterPackCandidates(candidates, {
+  excludeTmdbIds = [],
+  count = STARTER_PACK_MAX_SLIPS,
+  randomFn = Math.random,
+} = {}) {
+  const excluded = new Set([...excludeTmdbIds].map(Number));
+  const pool = (Array.isArray(candidates) ? candidates : [])
+    .filter((candidate) => Number(candidate?.id) > 0 && !excluded.has(Number(candidate.id)));
+  // A partial Fisher-Yates: only the first `count` positions are shuffled.
+  const picks = [...pool];
+  const size = Math.min(Math.max(0, count), picks.length);
+  for (let index = 0; index < size; index += 1) {
+    const swap = index + Math.floor(randomFn() * (picks.length - index));
+    [picks[index], picks[swap]] = [picks[swap], picks[index]];
+  }
+  return picks.slice(0, size);
+}

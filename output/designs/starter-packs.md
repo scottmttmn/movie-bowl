@@ -1,15 +1,15 @@
 # Starter Packs
 
-Status: design settled September 23, 2026; in progress. Steps 1 to 3 of
-"Sketch of the Work" are built -- the pack definitions and Best Picture list in
-`src/utils/starterPacks.js`, the live resolver at
-`/api/starter-packs/candidates`, the schema, install / remove / claim
-functions and rotation change in
-`supabase/migrations/20260924120000_add_starter_packs.sql`, and the
-person-first draw in `src/utils/drawMethods.js` -- and nothing a person can
-see exists yet. The behavior below is decided, and the open questions the first
-draft carried are closed except the one under "Still Open": whether the reveal
-holds up in a real bowl.
+Status: built September 24, 2026, all four steps of "Sketch of the Work":
+the pack definitions and Best Picture list in `src/utils/starterPacks.js`, the
+live resolver at `/api/starter-packs/candidates`, the schema, install / remove
+/ claim functions and rotation change in
+`supabase/migrations/20260924120000_add_starter_packs.sql`, the person-first
+draw in `src/utils/drawMethods.js`, the claim on add in
+`src/lib/addBowlMovie.js`, the reveal copy (`getMovieAttributionLine`), and
+the Bowl Settings section (`src/components/StarterPackSection.jsx`) with the
+empty bowl's offer. The one question left is under "Still Open": whether the
+reveal holds up in a real bowl.
 
 ## Product Idea
 

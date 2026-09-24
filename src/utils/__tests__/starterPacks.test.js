@@ -6,6 +6,7 @@ import {
   choosePackPerson,
   getStarterPack,
   matchBestPictureWinner,
+  sampleStarterPackCandidates,
   selectFilmographyCandidates,
 } from "../starterPacks";
 
@@ -110,5 +111,27 @@ describe("matchBestPictureWinner", () => {
     expect(matchBestPictureWinner({ title: "Parasite", year: 2019 }, [
       { id: 8, title: "기생충", original_title: "Parasite", release_date: "2019-05-30" },
     ]).movie.id).toBe(8);
+  });
+});
+
+describe("sampleStarterPackCandidates", () => {
+  const candidates = [1, 2, 3, 4, 5].map((id) => ({ id, title: `Movie ${id}` }));
+
+  it("never offers a title the bowl holds or has drawn", () => {
+    const sample = sampleStarterPackCandidates(candidates, { excludeTmdbIds: [2, "4"], count: 15, randomFn: () => 0 });
+    expect(sample.map((movie) => movie.id).sort()).toEqual([1, 3, 5]);
+  });
+
+  it("offers no more than the room left, chosen at random", () => {
+    // 0.99 always swaps in the last remaining candidate: 5 first, then the 1
+    // that swap moved to the end.
+    const sample = sampleStarterPackCandidates(candidates, { count: 2, randomFn: () => 0.99 });
+    expect(sample.map((movie) => movie.id)).toEqual([5, 1]);
+    expect(sampleStarterPackCandidates(candidates, { count: 0 })).toEqual([]);
+  });
+
+  it("drops candidates without a real TMDB id and survives a missing list", () => {
+    expect(sampleStarterPackCandidates([{ id: -3 }, { id: null }, { id: 7 }], { randomFn: () => 0 })).toEqual([{ id: 7 }]);
+    expect(sampleStarterPackCandidates(undefined)).toEqual([]);
   });
 });
