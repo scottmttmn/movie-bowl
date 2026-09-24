@@ -61,4 +61,16 @@ describe("normalizePersonMovieCredits", () => {
     });
     expect(acting.map((movie) => movie.title)).toEqual(["B", "A", "C"]);
   });
+
+  it("keeps each acting credit's best billing, its votes and its genres", () => {
+    const { acting } = normalizePersonMovieCredits({
+      cast: [
+        { id: 1, title: "Twins", character: "Brother A", order: 4, vote_count: 900, genre_ids: [35] },
+        { id: 1, title: "Twins", character: "Brother B", order: 1, vote_count: 900, genre_ids: [35] },
+        { id: 2, title: "No Order", character: "Someone", vote_count: 10 },
+      ],
+    });
+    expect(acting.find((movie) => movie.id === 1)).toMatchObject({ billing: 1, vote_count: 900, genre_ids: [35] });
+    expect(acting.find((movie) => movie.id === 2).billing).toBeNull();
+  });
 });
