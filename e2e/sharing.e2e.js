@@ -74,7 +74,7 @@ test("a signed-out guest can consume a public add link without production servic
     page.getByRole("heading", { name: "Add movies to Public Smoke Bowl" })
   ).toBeVisible();
   await expect(page.getByLabel("Added by")).toHaveValue("Movie Night Guest");
-  await page.getByPlaceholder("Search movies...").fill("Guest Pick");
+  await page.getByPlaceholder("Movie title or person").fill("Guest Pick");
   await page.getByRole("button", { name: 'Add "Guest Pick"' }).click();
 
   await expect(
@@ -110,7 +110,7 @@ test("a guest writes a comment in the movie's details, after choosing it", async
   backend.state.tmdbSearchResults = [{ id: 42, title: "The Feature", release_date: "2026-01-01" }];
 
   await page.goto("/add-to-bowl/public-token-comment");
-  await page.getByPlaceholder("Search movies...").fill("Feature");
+  await page.getByPlaceholder("Movie title or person").fill("Feature");
   await expect(page.getByRole("button", { name: "Details for The Feature", exact: true })).toBeVisible();
   await expect(page.getByLabel("Comment (optional)")).toHaveCount(0);
 
@@ -127,4 +127,55 @@ test("a guest writes a comment in the movie's details, after choosing it", async
       added_by_name: "Movie Night Guest",
     }),
   ]);
+});
+
+test("a guest finds a movie through the person in it and adds from their list", async ({ page, backend }) => {
+  backend.state.bowls.push({
+    id: "bowl-public",
+    name: "Public Smoke Bowl",
+    owner_id: "owner-public",
+    draw_access_mode: "all_members",
+    draw_method: "person_first",
+  });
+  backend.state.addLinks["public-token-people"] = {
+    status: "active",
+    bowlId: "bowl-public",
+    bowlName: "Public Smoke Bowl",
+    remainingAdds: 2,
+    defaultContributorName: "Movie Night Guest",
+  };
+  backend.state.tmdbSearchResults = [{ id: 42, title: "Hanky Panky", release_date: "1982-06-04" }];
+  backend.state.tmdbPeople = [
+    { id: 31, name: "Tom Hanks", profilePath: null, knownForDepartment: "Acting", knownFor: ["Cast Away", "Big"] },
+  ];
+  backend.state.tmdbPersonMovies = {
+    31: {
+      acting: [
+        { id: 8358, title: "Cast Away", release_date: "2000-12-22", characters: ["Chuck Noland"] },
+        { id: 2280, title: "Big", release_date: "1988-06-03", characters: ["Josh Baskin"] },
+      ],
+      directing: [{ id: 9591, title: "That Thing You Do!", release_date: "1996-10-04" }],
+    },
+  };
+
+  await page.goto("/add-to-bowl/public-token-people");
+  await page.getByPlaceholder("Movie title or person").fill("tom han");
+  const person = page.getByRole("button", { name: "Show Tom Hanks’s movies" });
+  await expect(person).toBeVisible();
+  await expect(page.getByRole("button", { name: "Details for Hanky Panky" })).toBeVisible();
+
+  await person.click();
+  await expect(page.getByText("Tom Hanks’s movies", { exact: true })).toBeVisible();
+  await expect(page.getByRole("tab", { name: "Acting" })).toHaveAttribute("aria-selected", "true");
+  await page.getByRole("button", { name: "Add Cast Away" }).click();
+
+  await expect(page.getByText("Movie added as Movie Night Guest. 1 add remaining.")).toBeVisible();
+  await expect(page.getByText("Tom Hanks’s movies", { exact: true })).toBeVisible();
+  expect(backend.state.bowl_movies).toEqual([
+    expect.objectContaining({ title: "Cast Away", tmdb_id: 8358, added_by_name: "Movie Night Guest" }),
+  ]);
+
+  await page.getByRole("button", { name: "Change person" }).click();
+  await expect(page.getByRole("button", { name: "Details for Hanky Panky" })).toBeVisible();
+  await expect(page.getByPlaceholder("Movie title or person")).toHaveValue("tom han");
 });

@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../lib/tmdbApi", () => ({
+  searchTmdbPeople: vi.fn(async () => ({ people: [] })),
   searchTmdbMovies: mocks.searchTmdbMovies,
   getTmdbMovieDetails: mocks.getTmdbMovieDetails,
 }));
@@ -56,7 +57,7 @@ describe("MovieSearch detail flow", () => {
     const onAddMovie = vi.fn(async () => {});
     render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={["Netflix"]} />);
 
-    fireEvent.change(screen.getByPlaceholderText("Search movies..."), { target: { value: "Movie A" } });
+    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), { target: { value: "Movie A" } });
 
     await screen.findByText("Movie A");
     fireEvent.click(screen.getByRole("button", { name: "Details for Movie A" }));
@@ -107,7 +108,7 @@ describe("MovieSearch detail flow", () => {
     const onAddMovie = vi.fn(async () => ({ ok: true }));
 
     render(<MovieSearch onAddMovie={onAddMovie} />);
-    fireEvent.change(screen.getByPlaceholderText("Search movies..."), {
+    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
       target: { value: "Movie A" },
     });
 
@@ -143,7 +144,7 @@ describe("MovieSearch detail flow", () => {
     const onAddMovie = vi.fn(async () => ({ ok: true }));
 
     render(<MovieSearch onAddMovie={onAddMovie} />);
-    fireEvent.change(screen.getByPlaceholderText("Search movies..."), {
+    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
       target: { value: "Movie A" },
     });
 
@@ -183,7 +184,7 @@ describe("MovieSearch detail flow", () => {
     );
 
     render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={["Netflix"]} />);
-    fireEvent.change(screen.getByPlaceholderText("Search movies..."), { target: { value: "Movie A" } });
+    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), { target: { value: "Movie A" } });
 
     await screen.findByText("Movie A");
     const addButton = screen.getByRole("button", { name: "Add Movie A" });
@@ -227,7 +228,7 @@ describe("MovieSearch detail flow", () => {
     }));
 
     render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={["Netflix"]} />);
-    fireEvent.change(screen.getByPlaceholderText("Search movies..."), {
+    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
       target: { value: "Movie A" },
     });
 
@@ -266,7 +267,7 @@ describe("MovieSearch detail flow", () => {
     }));
 
     render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={["Netflix"]} />);
-    const searchInput = screen.getByPlaceholderText("Search movies...");
+    const searchInput = screen.getByPlaceholderText("Movie title or person");
     fireEvent.change(searchInput, { target: { value: "Movie A" } });
 
     await screen.findByText("Movie A");

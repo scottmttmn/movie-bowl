@@ -66,6 +66,10 @@ function createInitialState() {
     bowl_draw_permissions: [],
     addLinks: {},
     tmdbSearchResults: [],
+    // People search answers nobody unless a test seeds someone, so every
+    // title search keeps looking as it did before people existed.
+    tmdbPeople: [],
+    tmdbPersonMovies: {},
   };
 }
 
@@ -897,6 +901,17 @@ export class FakeBackend {
     }
 
     if (url.pathname === "/api/tmdb/search" && method === "GET") {
+      const type = url.searchParams.get("type");
+      if (type === "person") {
+        await fulfillJson(route, { people: this.state.tmdbPeople });
+        return;
+      }
+      if (type === "person-movies") {
+        const personId = url.searchParams.get("personId");
+        const credits = this.state.tmdbPersonMovies[personId] || { acting: [], directing: [] };
+        await fulfillJson(route, { personId: Number(personId), ...credits });
+        return;
+      }
       await fulfillJson(route, { results: this.state.tmdbSearchResults });
       return;
     }
@@ -907,7 +922,8 @@ export class FakeBackend {
     }
 
     if (url.pathname === "/api/tmdb/movie/details" && method === "GET") {
-      const movie = this.state.tmdbSearchResults.find((row) => String(row.id) === url.searchParams.get("id"));
+      const creditMovies = Object.values(this.state.tmdbPersonMovies).flatMap((credits) => [...credits.acting, ...credits.directing]);
+      const movie = [...this.state.tmdbSearchResults, ...creditMovies].find((row) => String(row.id) === url.searchParams.get("id"));
       await fulfillJson(route, { ...movie, runtime: 110, genres: [{ name: "Drama" }], overview: "A movie for the next gathering." });
       return;
     }
@@ -960,10 +976,13 @@ export class FakeBackend {
       const now = new Date().toISOString();
       const addedByName = String(body?.contributorName || link.defaultContributorName || "Link Guest").trim() || "Link Guest";
       const movie = body?.movie || {};
+      // As api/add-links/consume.js reads it: a search result carries its TMDB
+      // id as `id`.
+      const tmdbId = Number(movie.tmdb_id ?? movie.id);
       this.state.bowl_movies.push({
         id: nextId(this.state, "movie", "bowl_movies"),
         bowl_id: link.bowlId,
-        tmdb_id: Number(movie.tmdb_id) > 0 ? Number(movie.tmdb_id) : -(this.state.bowl_movies.length + 1),
+        tmdb_id: Number.isInteger(tmdbId) && tmdbId > 0 ? tmdbId : -(this.state.bowl_movies.length + 1),
         title: movie.title,
         poster_path: movie.poster_path || null,
         release_date: movie.release_date || null,

@@ -11,7 +11,7 @@ describe("AddMovieModal", () => {
   it("renders add mode with search input", () => {
     render(<AddMovieModal onClose={vi.fn()} onAddMovie={vi.fn()} userStreamingServices={["Netflix"]} />);
     expect(screen.getByText("Search Movies")).toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Search movies...")).toBeInTheDocument();
+    expect(screen.getByPlaceholderText("Movie title or person")).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Movie pin" })).not.toBeInTheDocument();
   });
 

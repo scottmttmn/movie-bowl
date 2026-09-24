@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../lib/tmdbApi", () => ({
+  searchTmdbPeople: vi.fn(async () => ({ people: [] })),
   searchTmdbMovies: mocks.searchTmdbMovies,
   getTmdbMovieDetails: mocks.getTmdbMovieDetails,
 }));
@@ -60,7 +61,7 @@ describe("MovieSearch pagination and identity", () => {
       });
 
     render(<MovieSearch onAddMovie={vi.fn()} />);
-    fireEvent.change(screen.getByPlaceholderText("Search movies..."), {
+    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
       target: { value: "Movie" },
     });
 
@@ -88,7 +89,7 @@ describe("MovieSearch pagination and identity", () => {
       .mockRejectedValueOnce(new Error("Page unavailable"));
 
     render(<MovieSearch onAddMovie={vi.fn()} />);
-    fireEvent.change(screen.getByPlaceholderText("Search movies..."), {
+    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
       target: { value: "Movie" },
     });
 
@@ -119,7 +120,7 @@ describe("MovieSearch pagination and identity", () => {
     });
 
     render(<MovieSearch onAddMovie={vi.fn()} />);
-    fireEvent.change(screen.getByPlaceholderText("Search movies..."), {
+    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
       target: { value: "Movie" },
     });
 

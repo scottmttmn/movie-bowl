@@ -20,7 +20,7 @@ test("a member can create a bowl, add and draw a title, see history, and return 
   await expect(page.getByRole("heading", { name: "Smoke Night", level: 1 })).toBeVisible();
 
   await page.getByRole("button", { name: "Add to this bowl" }).click();
-  await page.getByPlaceholder("Search movies...").fill("Smoke Feature");
+  await page.getByPlaceholder("Movie title or person").fill("Smoke Feature");
   await page.getByRole("button", { name: 'Add "Smoke Feature"' }).click();
 
   await expect(page.getByRole("status").filter({ hasText: "Added Smoke Feature to Smoke Night" })).toBeVisible();

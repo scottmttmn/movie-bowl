@@ -35,7 +35,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (158 test files / 1372 tests, 78 Playwright tests with 8 skipped,
+fully green (159 test files / 1386 tests, 80 Playwright tests with 8 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -511,10 +511,11 @@ Vitest + Testing Library, jsdom, setup in `src/test/setup.js`. Tests live in
   shallow ones.
 - `output/designs/*.md` holds the intent behind features. Several are explicitly
   **plans, not implementations** (`guest-night.md`, `starter-packs.md`,
-  `search-revamp.md`, phase 3 of `tv-theater-mode.md`, and the optional step 2
+  phase 3 of `tv-theater-mode.md`, and the optional step 2
   of `deterministic-draw-preview.md`, whose step 3 was decided against) — check
   the status line before assuming code exists.
-  `bowl-draw-methods.md` is no longer one of them: all three methods are live.
+  `bowl-draw-methods.md` is no longer one of them: all three methods are live,
+  and neither is `search-revamp.md`, whose people search is built.
   `solo-draw.md` is the other way round: it is built end to end on web and TV,
   automatic removal included, with nothing deferred. `TODO.md` is the
   live backlog; update it when you land or add an item.

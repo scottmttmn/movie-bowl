@@ -75,6 +75,7 @@ function formatDisplayDate(value) {
 export default function AddMovieModal({
   movie,
   inline = false,
+  inlineBackLabel = "Back to search",
   onClose,
   onAddMovie,
   userStreamingServices = [],
@@ -284,7 +285,7 @@ export default function AddMovieModal({
       <div className={inline ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "modal-surface flex max-h-[92dvh] max-w-3xl flex-col overflow-clip"} role={inline ? undefined : "dialog"} aria-modal={inline ? undefined : "true"} aria-labelledby="movie-detail-title">
         <div className={inline ? "mb-3 shrink-0" : "flex shrink-0 items-center justify-between gap-4 px-5 py-3 sm:px-7 sm:py-4"}>
           {!inline && <p className="eyebrow">Movie details</p>}
-          <button ref={backButton} type="button" onClick={onClose} className={inline ? "btn btn-ghost whitespace-nowrap px-0 text-sm" : "icon-btn shrink-0"} aria-label={inline ? "Back to search" : "Close"}>{inline ? "← Back to search" : "✕"}</button>
+          <button ref={backButton} type="button" onClick={onClose} className={inline ? "btn btn-ghost whitespace-nowrap px-0 text-sm" : "icon-btn shrink-0"} aria-label={inline ? inlineBackLabel : "Close"}>{inline ? `← ${inlineBackLabel}` : "✕"}</button>
         </div>
 
         <div className={`min-h-0 space-y-6 overflow-y-auto overscroll-contain pb-6 ${inline ? "" : "px-5 sm:px-7 sm:pb-7"}`}>

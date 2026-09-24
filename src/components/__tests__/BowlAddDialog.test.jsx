@@ -8,7 +8,7 @@ vi.mock("../../hooks/useUserBowls", () => ({ default: () => ({ userId: "user", b
 vi.mock("../../hooks/useUserStreamingServices", () => ({ default: () => ({ streamingServices: [] }) }));
 vi.mock("../../lib/addBowlMovie", () => ({ bowlMovieService: { add: mocks.add }, addResult: (ok, code, message) => ({ ok, code, message }), getSubmissionKey: ({ accountId, bowlId, movie }) => `${accountId}:${bowlId}:${Number(movie?.tmdb_id ?? movie?.id) > 0 ? Number(movie?.tmdb_id ?? movie?.id) : String(movie?.title || "").trim().toLowerCase()}`, isUnsettledAddCode: (code) => ["outcome_unknown", "add_not_committed"].includes(code) }));
 vi.mock("../../lib/bowlMovieActions", () => ({ bowlMovieActions: { updateNote: mocks.updateNote, remove: mocks.remove } }));
-vi.mock("../../lib/tmdbApi", () => ({ searchTmdbMovies: vi.fn(async () => ({ results: [] })), getTmdbMovieDetails: vi.fn() }));
+vi.mock("../../lib/tmdbApi", () => ({ searchTmdbPeople: vi.fn(async () => ({ people: [] })), searchTmdbMovies: vi.fn(async () => ({ results: [] })), getTmdbMovieDetails: vi.fn() }));
 vi.mock("../../lib/streamingProviders", () => ({ fetchStreamingProviders: vi.fn() }));
 
 import useBowlAdd, { BowlAddProvider } from "../../hooks/useBowlAdd";
@@ -32,14 +32,14 @@ afterEach(cleanup);
 async function open() {
   render(<MemoryRouter><BowlAddProvider><Harness /></BowlAddProvider></MemoryRouter>);
   fireEvent.click(screen.getByRole("button", { name: "Open add" }));
-  await screen.findByPlaceholderText("Search movies...");
+  await screen.findByPlaceholderText("Movie title or person");
 }
 async function addMovie(title) {
-  fireEvent.change(screen.getByPlaceholderText("Search movies..."), { target: { value: title } });
+  fireEvent.change(screen.getByPlaceholderText("Movie title or person"), { target: { value: title } });
   fireEvent.click(await screen.findByRole("button", { name: `Add "${title}"`, exact: true }));
   await waitFor(() => expect(screen.getAllByRole("status").some((node) =>
     node.textContent.includes(`Added ${title} to`))).toBe(true));
-  await waitFor(() => expect(screen.getByPlaceholderText("Search movies...")).toHaveValue(""));
+  await waitFor(() => expect(screen.getByPlaceholderText("Movie title or person")).toHaveValue(""));
 }
 async function openSession() {
   fireEvent.click(screen.getByRole("button", { name: /Added this session/ }));
@@ -68,7 +68,7 @@ describe("add dialog session list", () => {
     expect(document.documentElement.style.overflow).toBe("");
     expect(document.querySelector(".app-shell").inert).not.toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Open add" }));
-    await screen.findByPlaceholderText("Search movies...");
+    await screen.findByPlaceholderText("Movie title or person");
     fireEvent.click(screen.getByTestId("navigate-away"));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Add a movie" })).not.toBeInTheDocument());
     expect(document.body.style.position).toBe("");
@@ -85,7 +85,7 @@ describe("add dialog session list", () => {
     expect(backButton).toHaveAttribute("aria-pressed", "true");
     expect(backButton).toHaveTextContent(/^Back to search$/);
     expect(screen.getByRole("button", { name: "Add comment for First movie" })).toBeVisible();
-    fireEvent.focus(screen.getByPlaceholderText("Search movies..."));
+    fireEvent.focus(screen.getByPlaceholderText("Movie title or person"));
     expect(screen.queryByRole("list", { name: "Movies added this session" })).not.toBeInTheDocument();
   });
 
@@ -130,13 +130,13 @@ describe("add dialog session list", () => {
     fireEvent.click(within(rows[1]).getByRole("button", { name: "Remove First movie from Friday Night" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove from bowl", exact: true }));
     await waitFor(() => expect(screen.queryByRole("list", { name: "Movies added this session" })).not.toBeInTheDocument());
-    expect(screen.getByPlaceholderText("Search movies...")).toHaveFocus();
+    expect(screen.getByPlaceholderText("Movie title or person")).toHaveFocus();
     const updatedList = await openSession();
     expect(within(updatedList).getAllByRole("listitem")).toHaveLength(1);
     expect(mocks.remove).toHaveBeenCalledWith(expect.objectContaining({ bowlId: "a", accountId: "user" }));
     fireEvent.click(screen.getByRole("button", { name: "Close add movie" }));
     fireEvent.click(screen.getByRole("button", { name: "Open add" }));
-    await screen.findByPlaceholderText("Search movies...");
+    await screen.findByPlaceholderText("Movie title or person");
     expect(screen.queryByRole("list", { name: "Movies added this session" })).not.toBeInTheDocument();
   });
 

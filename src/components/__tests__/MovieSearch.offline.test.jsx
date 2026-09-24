@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
 }));
 
 vi.mock("../../lib/tmdbApi", () => ({
+  searchTmdbPeople: vi.fn(async () => ({ people: [] })),
   searchTmdbMovies: mocks.searchTmdbMovies,
   getTmdbMovieDetails: mocks.getTmdbMovieDetails,
 }));
@@ -26,7 +27,7 @@ afterEach(() => {
 
 function searchFor(term) {
   render(<MovieSearch onAddMovie={vi.fn()} userStreamingServices={[]} />);
-  fireEvent.change(screen.getByPlaceholderText("Search movies..."), {
+  fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
     target: { value: term },
   });
 }
