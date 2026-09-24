@@ -395,10 +395,37 @@ export default function MovieSearch({
         setFocusRequest((request) => request + 1);
     };
 
+    // The arrow keys and Enter live on the field, so a click that leaves focus
+    // on a chip or tab -- or on nothing, once the chip it was on is gone --
+    // leaves them doing nothing. What activated the control decides whether
+    // focus goes back, not what kind of device this is: a tap never does,
+    // because focusing the field raises the on-screen keyboard over the list
+    // that was just opened.
+    const activationPointerRef = useRef(null);
+    const notePointer = (event) => {
+        activationPointerRef.current = event.pointerType || "mouse";
+    };
+    const activatedBy = (event) => {
+        const pointer = activationPointerRef.current;
+        activationPointerRef.current = null;
+        // A click with no pointer behind it is Enter or Space.
+        if (!event || event.detail === 0) return "keyboard";
+        return pointer || "mouse";
+    };
+    const returnFocusToField = () => setFocusRequest((request) => request + 1);
+
+    const switchRole = (roleName) => {
+        discovery.chooseRole(roleName);
+        setHighlightedIndex(0);
+        if (gridRef.current) gridRef.current.scrollTop = 0;
+    };
+
     // There is no way back to the title results but the field: editing the
     // query leaves the person, and a control for the same thing only crowded
-    // a header that has a phone's width to work with.
-    const showPerson = (person) => {
+    // a header that has a phone's width to work with. The chip is gone once
+    // the person opens, so focus goes back to the field unless it was tapped.
+    const showPerson = (person, activation = "keyboard") => {
+        if (activation !== "touch") returnFocusToField();
         setHighlightedPerson(null);
         setHighlightedIndex(0);
         setSearchError(null);
@@ -866,11 +893,33 @@ export default function MovieSearch({
                                     role="tab"
                                     aria-selected={discovery.role === roleName}
                                     aria-controls="movie-search-listbox"
-                                    onClick={() => {
-                                        discovery.chooseRole(roleName);
-                                        setHighlightedIndex(0);
-                                        if (gridRef.current) gridRef.current.scrollTop = 0;
+                                    tabIndex={discovery.role === roleName ? 0 : -1}
+                                    onPointerDown={notePointer}
+                                    onClick={(event) => {
+                                        const activation = activatedBy(event);
+                                        switchRole(roleName);
+                                        // A tab chosen from the keyboard keeps focus, so its
+                                        // own arrow keys go on working; a clicked one hands
+                                        // focus back to the field.
+                                        if (activation === "mouse" || activation === "pen") returnFocusToField();
                                     }}
+                                    onKeyDown={(event) => {
+                                        // Left and right move between the roles, as tabs do;
+                                        // up and down leave the switch for the list, so a
+                                        // D-pad that lands here is never stuck on it.
+                                        if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                                            event.preventDefault();
+                                            const other = discovery.roles.find((name) => name !== roleName);
+                                            if (!other) return;
+                                            switchRole(other);
+                                            event.currentTarget.parentElement
+                                                ?.querySelector(`[data-role="${other}"]`)?.focus();
+                                        } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                                            event.preventDefault();
+                                            inputRef.current?.focus();
+                                        }
+                                    }}
+                                    data-role={roleName}
                                     className={`min-h-8 rounded-full px-3 text-xs font-semibold transition ${discovery.role === roleName ? "bg-rose-600/25 text-rose-100" : "text-slate-400 hover:text-slate-200"}`}
                                 >
                                     {roleName === "acting" ? "Acting" : "Directing"}
@@ -903,7 +952,8 @@ export default function MovieSearch({
                                 >
                                     <button
                                         type="button"
-                                        onClick={() => showPerson(person)}
+                                        onPointerDown={notePointer}
+                                        onClick={(event) => showPerson(person, activatedBy(event))}
                                         disabled={isAdding}
                                         aria-label={`Show ${possessive(person.name)} movies`}
                                         aria-describedby={person.knownFor?.length ? `person-known-${person.id}` : undefined}
