@@ -83,6 +83,15 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
     }
   }
 
+  // Already this person's -- including a claim whose answer was lost and is
+  // being retried -- so there is nothing to add. The row is published so an
+  // open dashboard that still shows it as a pack slip catches up.
+  function alreadyOwn({ accountId, bowlId }, movie, row) {
+    publish({ type: "add", phase: "success", userId: accountId, bowlId, submissionId: row.id,
+      movie: { ...row, profiles: OWN_PROFILE, local_status: null, local_temp_id: null } });
+    return addResult(false, "duplicate_movie", `"${movie.title}" is already in the bowl, and it's yours.`);
+  }
+
   // No warm on any path here: a pack title was never an ordinary add, and
   // claiming one must not spend the provider budget installs are kept off.
   async function claimPackSlip(operation, movie, slip) {
@@ -126,7 +135,13 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
     let readBack = false;
     try {
       const { data: row, error } = await client.from("bowl_movies").select(BOWL_MOVIE_FIELDS).eq("id", slip.id).maybeSingle();
-      if (!error && row && !row.drawn_at && row.added_by === accountId && !isStarterPackMovie(row)) return claimed(row);
+      if (!error && row && !row.drawn_at && row.added_by === accountId && !isStarterPackMovie(row)) {
+        // Theirs, but not necessarily by this attempt: another tab on the
+        // same account may have claimed it with a different comment. Only a
+        // row carrying this submission's comment is this claim landing.
+        if (normalizeMovieNote(row.note) === normalizeMovieNote(movie.note)) return claimed(row);
+        return alreadyOwn(operation, movie, row);
+      }
       readBack = !error;
     } catch {
       // Fall through: the read cannot say either way.
@@ -215,11 +230,7 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
       // Already this person's -- including a claim whose answer was lost and
       // is being retried -- so there is nothing to add and nothing to wait for.
       if (existingMovie && existingMovie.added_by === accountId) {
-        // Published so an open dashboard that still shows the pack slip -- a
-        // claim whose answer was lost -- catches up to the row as it is.
-        publish({ type: "add", phase: "success", userId: accountId, bowlId, submissionId: existingMovie.id,
-          movie: { ...existingMovie, profiles: OWN_PROFILE, local_status: null, local_temp_id: null } });
-        return addResult(false, "duplicate_movie", `"${movie.title}" is already in the bowl, and it's yours.`);
+        return alreadyOwn(operation, movie, existingMovie);
       }
       if ((remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
         return addResult(false, "limit_reached", `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`);

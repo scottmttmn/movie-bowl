@@ -156,6 +156,21 @@ describe("shared bowl add service", () => {
     expect(h.publish).toHaveBeenCalledWith(expect.objectContaining({ phase: "success", submissionId: "slip" }));
   });
 
+  it("does not report another tab's claim as this one's, when the comments differ", async () => {
+    // The other tab claimed it first with its own comment; this attempt is
+    // refused and must not say its comment was saved.
+    const h = packHarness((harnessState) => {
+      harnessState.state.rows[0] = { ...claimRow(harnessState), note: "From the other tab" };
+      return { data: null, error: { code: "P0001", message: "This movie is no longer in the starter pack." } };
+    });
+    expect(await h.service.add(h.operation({ id: 101, title: "Movie", note: "From this tab" }))).toMatchObject({
+      ok: false, code: "duplicate_movie", message: "\"Movie\" is already in the bowl, and it's yours.",
+    });
+    expect(h.publish).toHaveBeenCalledWith(expect.objectContaining({
+      phase: "success", submissionId: "slip", movie: expect.objectContaining({ note: "From the other tab" }),
+    }));
+  });
+
   it("tells an offline adder to add the title again, since nothing retries it for them", async () => {
     const h = packHarness(() => { throw new TypeError("Failed to fetch"); });
     const read = h.client.from.getMockImplementation();
