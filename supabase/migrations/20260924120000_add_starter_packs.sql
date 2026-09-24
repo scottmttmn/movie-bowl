@@ -326,9 +326,8 @@ begin
   end if;
 
   -- Only undrawn pack slips go. Drawn ones are history, and claimed ones are
-  -- somebody's now. Any undrawn pack slip goes, not only the installed pack's:
-  -- a return inside the undo window can bring back a slip after its pack was
-  -- removed, and nothing else would ever clear it.
+  -- somebody's now. The one-pack rule means every undrawn pack slip is the
+  -- installed pack's, so none is singled out by slug.
   delete from public.bowl_movies movie
   where movie.bowl_id = p_bowl_id
     and movie.drawn_at is null
@@ -817,7 +816,11 @@ end;
 $$;
 
 -- A pack slip drawn by mistake goes back as a pack slip, so the undo restores
--- what was there rather than a guest slip wearing the pack's name.
+-- what was there rather than a guest slip wearing the pack's name. If its pack
+-- has since been removed, or replaced, the undo still happens -- the group did
+-- not watch it -- but nothing goes back: restoring the slip would bring a
+-- removed pack back into the bowl, and without its marker it would read as a
+-- guest's. The result is then null.
 create or replace function public.return_bowl_draw_to_bowl(p_draw_event_id uuid)
 returns uuid
 language plpgsql
@@ -829,6 +832,7 @@ declare
   v_new_bowl_movie_id uuid;
   v_active_movie_count integer;
   v_returned_at timestamptz := now();
+  v_restores_slip boolean;
 begin
   if auth.uid() is null then
     raise exception 'You must be signed in to move a movie to a bowl.'
@@ -860,54 +864,65 @@ begin
       using errcode = 'P0001';
   end if;
 
-  select count(*)::integer
-  into v_active_movie_count
-  from public.bowl_movies
-  where bowl_id = v_draw_event.bowl_id
-    and drawn_at is null;
+  -- Locks the bowl as install and removal do, so the pack cannot be removed
+  -- between this check and the insert.
+  select v_draw_event.starter_pack is null
+    or bowl.starter_pack is not distinct from v_draw_event.starter_pack
+  into v_restores_slip
+  from public.bowls bowl
+  where bowl.id = v_draw_event.bowl_id
+  for update;
 
-  if v_active_movie_count >= 500 then
-    raise exception 'Bowl is at the undrawn movie limit (500).'
-      using errcode = 'P0001';
+  if v_restores_slip then
+    select count(*)::integer
+    into v_active_movie_count
+    from public.bowl_movies
+    where bowl_id = v_draw_event.bowl_id
+      and drawn_at is null;
+
+    if v_active_movie_count >= 500 then
+      raise exception 'Bowl is at the undrawn movie limit (500).'
+        using errcode = 'P0001';
+    end if;
+
+    begin
+      insert into public.bowl_movies (
+        bowl_id,
+        added_by,
+        tmdb_id,
+        title,
+        poster_path,
+        release_date,
+        runtime,
+        genres,
+        overview,
+        snapshot_at,
+        added_by_name,
+        starter_pack,
+        note
+      )
+      values (
+        v_draw_event.bowl_id,
+        v_draw_event.added_by,
+        v_draw_event.tmdb_id,
+        v_draw_event.title,
+        v_draw_event.poster_path,
+        v_draw_event.release_date,
+        v_draw_event.runtime,
+        v_draw_event.genres,
+        v_draw_event.overview,
+        coalesce(v_draw_event.snapshot_at, v_returned_at),
+        v_draw_event.added_by_name,
+        v_draw_event.starter_pack,
+        v_draw_event.note
+      )
+      returning id into v_new_bowl_movie_id;
+    exception
+      when unique_violation then
+        raise exception 'This movie is already in the bowl.'
+          using errcode = '23505', constraint = 'bowl_active_tmdb_movies_pkey';
+    end;
   end if;
-
-  begin
-    insert into public.bowl_movies (
-      bowl_id,
-      added_by,
-      tmdb_id,
-      title,
-      poster_path,
-      release_date,
-      runtime,
-      genres,
-      overview,
-      snapshot_at,
-      added_by_name,
-      starter_pack,
-      note
-    )
-    values (
-      v_draw_event.bowl_id,
-      v_draw_event.added_by,
-      v_draw_event.tmdb_id,
-      v_draw_event.title,
-      v_draw_event.poster_path,
-      v_draw_event.release_date,
-      v_draw_event.runtime,
-      v_draw_event.genres,
-      v_draw_event.overview,
-      coalesce(v_draw_event.snapshot_at, v_returned_at),
-      v_draw_event.added_by_name,
-      v_draw_event.starter_pack,
-      v_draw_event.note
-    )
-    returning id into v_new_bowl_movie_id;
-  exception
-    when unique_violation then
-      raise exception 'This movie is already in the bowl.'
-        using errcode = '23505', constraint = 'bowl_active_tmdb_movies_pkey';
-  end;
 
   update public.bowl_draw_events
   set returned_at = v_returned_at,

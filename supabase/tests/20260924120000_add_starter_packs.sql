@@ -626,6 +626,41 @@ select is(
   '[50201]'::jsonb,
   'after removal a different pack can be installed'
 );
+
+-- The Spielberg slip drawn earlier is returned after its pack was replaced.
+select is(
+  public.return_bowl_draw_to_bowl(
+    (select id from public.bowl_draw_events where bowl_id = '10000000-0000-0000-0000-000000000501' and tmdb_id = 50102)
+  ),
+  null,
+  'returning a draw from a removed pack puts nothing back'
+);
+reset role;
+
+select is(
+  (select count(*)::integer from public.bowl_movies where bowl_id = '10000000-0000-0000-0000-000000000501' and tmdb_id = 50102 and drawn_at is null),
+  0,
+  'so the removed pack does not come back into the bowl'
+);
+select ok(
+  (select returned_at is not null from public.bowl_draw_events where bowl_id = '10000000-0000-0000-0000-000000000501' and tmdb_id = 50102),
+  'but the draw is still undone'
+);
+select is(
+  (
+    select count(*)::integer
+    from public.user_watch_events watch
+    join public.bowl_draw_events event on event.id = watch.source_draw_event_id
+    where event.bowl_id = '10000000-0000-0000-0000-000000000501' and event.tmdb_id = 50102
+  ),
+  0,
+  'and its personal history goes with it'
+);
+
+set local role authenticated;
+select set_config('request.jwt.claims', '{"sub":"00000000-0000-0000-0000-000000000501","role":"authenticated"}', true);
+select set_config('request.jwt.claim.sub', '00000000-0000-0000-0000-000000000501', true);
+
 select is(
   public.remove_bowl_starter_pack('10000000-0000-0000-0000-000000000505'),
   0,
