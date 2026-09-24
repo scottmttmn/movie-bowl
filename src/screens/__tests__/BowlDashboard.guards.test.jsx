@@ -694,6 +694,30 @@ describe("BowlDashboard guards", () => {
     expect(screen.getByRole("button", { name: /add to this bowl/i })).toBeEnabled();
   });
 
+  it("offers the owner of an empty bowl a starter pack", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = { remaining: [], watched: [] };
+    renderDashboard();
+    fireEvent.click(await screen.findByRole("button", { name: "Start with a starter pack" }));
+    expect(mocks.state.navigate).toHaveBeenCalledWith(`/bowl/${mocks.state.bowlId}/settings#starter-pack`);
+  });
+
+  it("offers a starter pack to no one else, and not once the bowl has titles", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u2", draw_access_mode: "all_members" };
+    mocks.state.bowlData = { remaining: [], watched: [] };
+    const { unmount } = renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Start with a starter pack" })).not.toBeInTheDocument();
+    unmount();
+
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", draw_access_mode: "all_members" };
+    mocks.state.bowlData = { remaining: [{ id: "m1", title: "Something", added_by: "u1" }], watched: [] };
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Start with a starter pack" })).not.toBeInTheDocument();
+  });
+
   it("disables Add Movie when undrawn movie limit is reached", async () => {
     mocks.state.memberRows = [{ user_id: "u1" }];
     mocks.state.bowlData = {

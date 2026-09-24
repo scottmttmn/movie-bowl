@@ -1067,6 +1067,22 @@ return (
                   />
                 </div>
 
+                {/* The one place a starter pack is offered rather than found:
+                    an empty bowl cannot draw, and the owner is the one who can
+                    install a pack. */}
+                {!isFirstLoad && isCurrentUserOwner && bowl.remaining.length === 0 && (
+                  <p className="mt-3 text-center text-sm text-slate-400">
+                    Nothing to draw yet.{" "}
+                    <button
+                      type="button"
+                      className="font-semibold text-rose-300 underline-offset-2 hover:underline"
+                      onClick={() => navigate(`/bowl/${bowlId}/settings#starter-pack`)}
+                    >
+                      Start with a starter pack
+                    </button>
+                  </p>
+                )}
+
                 {/* Below both actions rather than between them: the two buttons
                     are what you came to press, and a setting wedged between
                     them reads as a third one. Hidden rather than disabled for a
