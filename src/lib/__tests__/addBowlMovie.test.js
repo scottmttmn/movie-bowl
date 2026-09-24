@@ -142,11 +142,25 @@ describe("shared bowl add service", () => {
     expect(h.publish).toHaveBeenCalledWith(expect.objectContaining({ phase: "success", submissionId: "slip" }));
   });
 
-  it("says a lost claim that never committed can be tried again", async () => {
-    const h = packHarness(() => { throw new Error("connection reset"); });
-    expect(await h.service.add(h.operation())).toMatchObject({
-      ok: false, code: "add_failed", message: "Movie has not been added. Please try again.",
+  it("leaves a lost claim unconfirmed while the slip looks untouched, and a retry never makes a second copy", async () => {
+    // The claim's answer is lost and the read-back still sees the slip: it
+    // may yet commit, so nothing is settled either way.
+    let commitLater;
+    const h = packHarness((harnessState) => {
+      commitLater = () => claimRow(harnessState);
+      throw new Error("connection reset");
     });
+    expect(await h.service.add(h.operation())).toMatchObject({
+      ok: false, code: "add_failed", message: "Could not confirm whether Movie was added. Check the bowl before trying again.",
+    });
+    expect(h.publish).toHaveBeenCalledWith({ type: "context", bowlId: "a" });
+
+    // The claim lands after all; a retry finds the title is already theirs.
+    commitLater();
+    expect(await h.service.add(h.operation())).toMatchObject({
+      ok: false, code: "duplicate_movie", message: "\"Movie\" is already in the bowl, and it's yours.",
+    });
+    expect(h.insert).not.toHaveBeenCalled();
   });
 
   it("keeps comment validation and allows separate repeated custom additions", async () => {

@@ -120,16 +120,18 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
       return addResult(false, "claim_lost", `${movie.title} was just drawn or claimed by someone else. Try adding it again.`);
     }
     // Anything else may have committed with its answer lost, so the slip is
-    // read back rather than guessed at.
+    // read back. Only a claim that shows there is settled: a slip that still
+    // looks untouched proves nothing, because the claim may not have
+    // committed yet. Either way a retry is safe -- a landed claim reads as
+    // this person's own title, not a second copy -- and the bowl is asked to
+    // refresh so an open dashboard does not keep a slip that has changed.
     try {
       const { data: row, error } = await client.from("bowl_movies").select(BOWL_MOVIE_FIELDS).eq("id", slip.id).maybeSingle();
       if (!error && row && !row.drawn_at && row.added_by === accountId && !isStarterPackMovie(row)) return claimed(row);
-      if (!error && row && !row.drawn_at && isStarterPackMovie(row)) {
-        return addResult(false, "add_failed", describeNetworkError(response.error, `${movie.title} has not been added. Please try again.`));
-      }
     } catch {
       // Fall through: the read cannot say either way.
     }
+    publish({ type: "context", bowlId });
     return addResult(false, "add_failed", describeNetworkError(response.error,
       `Could not confirm whether ${movie.title} was added. Check the bowl before trying again.`));
   }
@@ -199,6 +201,11 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
       if (existingMovie && isStarterPackMovie(existingMovie)) {
         result = await claimPackSlip(operation, movie, existingMovie);
         return result;
+      }
+      // Already this person's -- including a claim whose answer was lost and
+      // is being retried -- so there is nothing to add and nothing to wait for.
+      if (existingMovie && existingMovie.added_by === accountId) {
+        return addResult(false, "duplicate_movie", `"${movie.title}" is already in the bowl, and it's yours.`);
       }
       if ((remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
         return addResult(false, "limit_reached", `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`);
