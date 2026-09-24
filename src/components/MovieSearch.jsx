@@ -4,19 +4,35 @@ import { getPosterUrl } from "../utils/getPosterUrl";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { matchUserServices } from "../utils/streamingServices";
 import AddMovieModal from "./AddMovieModal";
-import { getTmdbMovieDetails, searchTmdbMovies } from "../lib/tmdbApi";
+import { getTmdbMovieDetails, searchTmdbMovies, suggestTmdbQuery } from "../lib/tmdbApi";
 import { describeNetworkError } from "../utils/networkErrors";
 import { MAX_MOVIE_NOTE_LENGTH, normalizeMovieNote } from "../utils/movieNote";
 import { getMovieIdentityLabel } from "../utils/movieIdentity";
 import { getSearchReleaseLabel } from "../utils/movieReleaseStatus";
 import { createEmptyStreamingProviderData } from "../utils/tmdbWatchProviders";
 import usePersonDiscovery from "../hooks/usePersonDiscovery";
+import { queryMatchesName } from "../utils/peopleMatch";
 
 const PROVIDER_ENRICHMENT_LIMIT = 8;
 // How long title results wait for the people lookup that started with them.
 // Long enough that the People row usually lands with the movies rather than
 // above rows already on screen; short enough that titles never feel held up.
 const PEOPLE_SETTLE_MS = 400;
+// A search this short that finds nothing is still being typed, not misspelled.
+const SUGGESTION_MIN_QUERY_LENGTH = 4;
+// TMDB can answer a misspelling with a stray title or two it matched some other
+// way -- "scorcese" finds Casino, through something other than its title. A
+// handful of results, none of which the typed words start, still reads as a
+// miss. More than that is a real answer spelled differently ("spiderman" for
+// Spider-Man) and is left alone.
+const SUGGESTION_STRAY_RESULT_LIMIT = 3;
+
+function looksLikeAMiss(query, results) {
+    if (results.length === 0) return true;
+    return results.length <= SUGGESTION_STRAY_RESULT_LIMIT
+        && !results.some((movie) => queryMatchesName(query, movie?.title || movie?.original_title));
+}
+const EMPTY_RESULTS_QUERY = { query: "", correctedFrom: null };
 const PROVIDER_ENRICHMENT_CONCURRENCY = 4;
 
 function possessive(name) {
@@ -96,6 +112,10 @@ export default function MovieSearch({
     // Controlled input state for the search field
     const [searchTerm, setSearchTerm] = useState("");
     const [searchResults, setSearchResults] = useState([]);
+    // What the results on screen were searched for. After a misspelling found
+    // nothing, that is the suggestion rather than the words in the field,
+    // which stay as typed.
+    const [resultsQuery, setResultsQuery] = useState(EMPTY_RESULTS_QUERY);
     const [isSearching, setIsSearching] = useState(false);
     const [isLoadingMore, setIsLoadingMore] = useState(false);
     const [searchError, setSearchError] = useState(null);
@@ -152,7 +172,8 @@ export default function MovieSearch({
     const providersRef = useRef({});
     providersRef.current = providersByMovieId;
     const personView = discovery.person;
-    const visiblePeople = !personView && discovery.peopleResult.query === searchTerm.trim()
+    const visiblePeople = !personView && Boolean(resultsQuery.query)
+        && discovery.peopleResult.query === resultsQuery.query
         ? discovery.peopleResult.people
         : [];
     // The movies on screen: a chosen person's, or the title results.
@@ -249,17 +270,40 @@ export default function MovieSearch({
             setTotalPages(0);
             setTotalResults(0);
             setHighlightedPerson(null);
+            setResultsQuery({ query: trimmedQuery, correctedFrom: null });
             closePerson();
         }
         // Fired beside the title search, never before it. A People row that
         // lands after the movies still shows -- whether a name finds its
         // person cannot depend on which request happened to win -- but the
         // titles give it a brief moment first, so it rarely pushes rows down.
-        const peopleSettled = append ? null : searchPeople(trimmedQuery);
+        let peopleSettled = append ? null : searchPeople(trimmedQuery);
 
         try {
-            const data = await searchTmdbMovies(trimmedQuery, { page });
+            let data = await searchTmdbMovies(trimmedQuery, { page });
             if (requestId !== latestRequestRef.current) return;
+
+            // No title the words start and, once it answers, no one is most
+            // often a misspelling. Search what the server suggests instead and
+            // say so; the field keeps what was typed, and so does the custom
+            // slip. Anything the typed words did find stays, after the rest.
+            if (!append && trimmedQuery.length >= SUGGESTION_MIN_QUERY_LENGTH && looksLikeAMiss(trimmedQuery, data.results || [])) {
+                const people = await peopleSettled;
+                if (requestId !== latestRequestRef.current) return;
+                if (people.length === 0) {
+                    const suggestion = await suggestTmdbQuery(trimmedQuery);
+                    if (requestId !== latestRequestRef.current) return;
+                    if (suggestion && suggestion.toLowerCase() !== trimmedQuery.toLowerCase()) {
+                        setResultsQuery({ query: suggestion, correctedFrom: trimmedQuery });
+                        peopleSettled = searchPeople(suggestion);
+                        const strays = data.results || [];
+                        data = await searchTmdbMovies(suggestion, { page: 1 });
+                        if (requestId !== latestRequestRef.current) return;
+                        data = { ...data, results: appendUniqueMovies(data.results || [], strays) };
+                    }
+                }
+            }
+
             if (peopleSettled) {
                 await Promise.race([peopleSettled, new Promise((resolve) => setTimeout(resolve, PEOPLE_SETTLE_MS))]);
                 if (requestId !== latestRequestRef.current) return;
@@ -364,6 +408,7 @@ export default function MovieSearch({
         onDetailChange?.(false);
         latestRequestRef.current += 1;
         resetDiscovery();
+        setResultsQuery(EMPTY_RESULTS_QUERY);
         setHighlightedPerson(null);
         setSearchTerm("");
         setSearchResults([]);
@@ -884,6 +929,12 @@ export default function MovieSearch({
             </div>
 
             <div ref={scrollRef} className={inlineDetails ? "bowl-add-scroll" : undefined} hidden={hideResults || Boolean(alternateBody)}>
+            {!personView && !isSearching && resultsQuery.correctedFrom && resultsQuery.correctedFrom === searchTerm.trim() && (
+                <p className="mt-2 text-sm text-slate-400" role="status">
+                    No matches for &ldquo;{resultsQuery.correctedFrom}&rdquo;. Showing results for{" "}
+                    <span className="font-semibold text-slate-200">&ldquo;{resultsQuery.query}&rdquo;</span>.
+                </p>
+            )}
             {/* A grid, not a listbox: each result has two actions -- the row
                 opens Details and + adds -- and a listbox option cannot hold
                 two independently focusable buttons. The arrow keys still move
@@ -1105,7 +1156,7 @@ export default function MovieSearch({
                         type="button"
                         className="btn btn-secondary"
                         disabled={isLoadingMore || isAdding}
-                        onClick={() => handleSearch(searchTerm, {
+                        onClick={() => handleSearch(resultsQuery.query || searchTerm, {
                             page: searchPage + 1,
                             append: true,
                         })}

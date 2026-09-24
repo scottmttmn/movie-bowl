@@ -1,6 +1,7 @@
 import { tmdbFetch } from "../_lib/tmdb.js";
 import { normalizePersonMovieCredits } from "../_lib/personCredits.js";
-import { selectStrongPeopleMatches } from "../../src/utils/peopleMatch.js";
+import { queryMatchesName, selectStrongPeopleMatches } from "../../src/utils/peopleMatch.js";
+import { suggestTrimmedQuery } from "../../src/utils/searchSuggestion.js";
 
 const MAX_QUERY_LENGTH = 100;
 
@@ -34,16 +35,30 @@ async function getPersonMovies(personId, res) {
   res.status(200).json({ personId, ...normalizePersonMovieCredits(credits) });
 }
 
+// A trimmed query counts only when what it finds is what was being spelled: a
+// title or a strong person match whose words the query starts. Anything TMDB
+// returns for a fragment otherwise would stop the trim at nonsense.
+async function candidateMatches(candidate) {
+  const encoded = encodeURIComponent(candidate);
+  const [movies, people] = await Promise.all([
+    tmdbFetch(`/search/movie?query=${encoded}&page=1&language=en-US&region=US&include_adult=false`),
+    tmdbFetch(`/search/person?query=${encoded}&page=1&language=en-US&include_adult=false`),
+  ]);
+  const titleMatches = (movies?.results || []).some((movie) => movie?.adult !== true
+    && queryMatchesName(candidate, movie?.title || movie?.original_title));
+  return titleMatches || selectStrongPeopleMatches(candidate, people?.results || []).length > 0;
+}
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     res.status(405).json({ error: "Method not allowed" });
     return;
   }
 
-  // One route, three actions, because the deployment is at Vercel Hobby's
+  // One route, four actions, because the deployment is at Vercel Hobby's
   // 12-function limit. A missing type is today's title search.
   const type = String(req.query?.type || "movie");
-  if (!["movie", "person", "person-movies"].includes(type)) {
+  if (!["movie", "person", "person-movies", "suggest"].includes(type)) {
     res.status(400).json({ error: "Invalid query parameter: type" });
     return;
   }
@@ -67,6 +82,21 @@ export default async function handler(req, res) {
   const query = String(req.query?.query || "").trim();
   if (!query) {
     res.status(400).json({ error: "Missing query parameter: query" });
+    return;
+  }
+  if (type === "suggest") {
+    // Only asked after a search found nothing, and never for a long query:
+    // that is someone writing a custom slip, not misspelling a title.
+    if (query.length > MAX_QUERY_LENGTH) {
+      res.status(200).json({ query: null });
+      return;
+    }
+    try {
+      res.status(200).json({ query: await suggestTrimmedQuery(query, candidateMatches) });
+    } catch (error) {
+      console.error("[api/tmdb/search] Failed to suggest a query", error);
+      res.status(502).json({ error: "Failed to suggest a search" });
+    }
     return;
   }
   if (type === "person") {

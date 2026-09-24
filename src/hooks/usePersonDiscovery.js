@@ -19,8 +19,9 @@ function openingRole(person, credits) {
  * People search beside title search (output/designs/search-revamp.md). It owns
  * the people lookup for a query and, once someone picks a person, that
  * person's movies by role. Title search stays in MovieSearch; `searchPeople`
- * resolves once the lookup has settled, so a caller can give it a moment
- * before showing movies, but it never throws and never has to be waited for.
+ * resolves once the lookup has settled -- to the people it found, or none if
+ * it failed or was overtaken -- so a caller can give it a moment before
+ * showing movies, but it never throws and never has to be waited for.
  */
 export default function usePersonDiscovery() {
   const [peopleResult, setPeopleResult] = useState(EMPTY_PEOPLE);
@@ -47,19 +48,21 @@ export default function usePersonDiscovery() {
     const trimmed = String(query || "").trim();
     cancelPeople();
     setPeopleResult(EMPTY_PEOPLE);
-    if (!trimmed) return;
+    if (!trimmed) return [];
     const requestId = peopleRequestRef.current;
     const controller = new AbortController();
     peopleAbortRef.current = controller;
     try {
       const { people } = await searchTmdbPeople(trimmed, { signal: controller.signal });
-      if (requestId !== peopleRequestRef.current) return;
+      if (requestId !== peopleRequestRef.current) return [];
       setPeopleResult({ query: trimmed, people });
+      return people;
     } catch (error) {
       // No People row is the whole failure mode: title search already
       // answered, or will, on its own.
-      if (requestId !== peopleRequestRef.current || error?.name === "AbortError") return;
+      if (requestId !== peopleRequestRef.current || error?.name === "AbortError") return [];
       console.warn("[usePersonDiscovery] People search failed", error);
+      return [];
     }
   }, [cancelPeople]);
 

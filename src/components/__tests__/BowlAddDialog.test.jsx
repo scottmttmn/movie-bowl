@@ -8,7 +8,7 @@ vi.mock("../../hooks/useUserBowls", () => ({ default: () => ({ userId: "user", b
 vi.mock("../../hooks/useUserStreamingServices", () => ({ default: () => ({ streamingServices: [] }) }));
 vi.mock("../../lib/addBowlMovie", () => ({ bowlMovieService: { add: mocks.add }, addResult: (ok, code, message) => ({ ok, code, message }), getSubmissionKey: ({ accountId, bowlId, movie }) => `${accountId}:${bowlId}:${Number(movie?.tmdb_id ?? movie?.id) > 0 ? Number(movie?.tmdb_id ?? movie?.id) : String(movie?.title || "").trim().toLowerCase()}`, isUnsettledAddCode: (code) => ["outcome_unknown", "add_not_committed"].includes(code) }));
 vi.mock("../../lib/bowlMovieActions", () => ({ bowlMovieActions: { updateNote: mocks.updateNote, remove: mocks.remove } }));
-vi.mock("../../lib/tmdbApi", () => ({ searchTmdbPeople: vi.fn(async () => ({ people: [] })), searchTmdbMovies: vi.fn(async () => ({ results: [] })), getTmdbMovieDetails: vi.fn() }));
+vi.mock("../../lib/tmdbApi", () => ({ searchTmdbPeople: vi.fn(async () => ({ people: [] })), suggestTmdbQuery: vi.fn(async () => null), searchTmdbMovies: vi.fn(async () => ({ results: [] })), getTmdbMovieDetails: vi.fn() }));
 vi.mock("../../lib/streamingProviders", () => ({ fetchStreamingProviders: vi.fn() }));
 
 import useBowlAdd, { BowlAddProvider } from "../../hooks/useBowlAdd";

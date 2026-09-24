@@ -38,6 +38,13 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   exact title, a title that is also a name, same-name people, a lesser-known
   director, a large filmography) and tune the floor against them.
 
+- Misspellings anywhere in a search: a search that finds nothing now retries
+  with its last word trimmed back, which catches "scorcese" but not a typo in
+  an earlier word or the first letters ("scrosese"). Catching those needs an
+  index of our own -- popular titles and people from TMDB's daily exports under
+  a `pg_trgm` index, refreshed inside the six-month cache limit -- behind a
+  "Did you mean" (`output/designs/search-revamp.md`, "Misspellings").
+
 ## Future Product Concepts
 
 - Assistant voice capture: **failed feasibility gate, closed September 4,
