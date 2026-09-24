@@ -43,6 +43,19 @@ describe("suggestCorrection", () => {
     await expect(suggestCorrection("scrosese", catalogue(["Martin Scorsese", 12]))).resolves.toBeNull();
   });
 
+  it("keeps an apostrophe or hyphen before the misspelled part", async () => {
+    await expect(suggestCorrection("o'conner", catalogue(["Donald O'Connor", 6]))).resolves.toBe("o'connor");
+    await expect(suggestCorrection("spider-verce", catalogue(["Spider-Man: Into the Spider-Verse", 50])))
+      .resolves.toBe("spider-verse");
+  });
+
+  it("does not shorten a hyphenated title to its first part", async () => {
+    // "ea" is too short to correct; suggesting "wall" would drop the "-E".
+    const probe = catalogue(["WALL·E", 40]);
+    await expect(suggestCorrection("wall-ea", probe)).resolves.toBeNull();
+    expect(probe).not.toHaveBeenCalled();
+  });
+
   it("prefers the more popular of two equally close words", async () => {
     const probe = catalogue(["Heath", 3], ["Heats", 20]);
     await expect(suggestCorrection("heatz", probe)).resolves.toBe("heats");

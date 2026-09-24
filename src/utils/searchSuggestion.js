@@ -51,9 +51,16 @@ export async function suggestCorrection(query, probe, {
 } = {}) {
   const typedWords = String(query || "").trim().split(/\s+/).filter(Boolean);
   if (typedWords.length === 0) return null;
-  const typed = nameWords(typedWords[typedWords.length - 1]).join("");
+  // Only the last run of letters is corrected. Anything before it in the same
+  // token -- the "o'" of "o'conner", the "wall-" of "wall-ea" -- stays as
+  // typed, so the probes still spell it and the suggestion keeps it.
+  const lastToken = typedWords[typedWords.length - 1].replace(/[^\p{L}\p{N}\p{M}]+$/u, "");
+  const split = lastToken.match(/^(.*[^\p{L}\p{N}\p{M}])?([\p{L}\p{N}\p{M}]+)$/u);
+  if (!split) return null;
+  const tokenHead = split[1] || "";
+  const typed = nameWords(split[2]).join("");
   const head = typedWords.slice(0, -1).join(" ");
-  const withLastWord = (word) => [head, word].filter(Boolean).join(" ");
+  const withLastWord = (word) => [head, `${tokenHead}${word}`].filter(Boolean).join(" ");
 
   const lengths = [];
   for (let length = typed.length - 1; length >= minWordLength && lengths.length < maxProbes; length -= 1) {
