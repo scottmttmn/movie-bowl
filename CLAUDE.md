@@ -265,6 +265,8 @@ because they are the atomic/permission-checked path:
 `remove_bowl_draw_from_history`,
 `save_bowl_draw_access`, `save_bowl_draw_method`, `delete_owned_bowl`,
 `set_own_bowl_movie_pin`, `consume_bowl_add_link`, `create_manual_watch_event`,
+`install_bowl_starter_pack`, `remove_bowl_starter_pack`,
+`claim_bowl_starter_pack_movie`,
 `record_solo_draw`, `undo_solo_draw`,
 `update_user_watch_event`, `delete_user_watch_event`.
 
@@ -300,7 +302,7 @@ on a PostgreSQL you already have, applies `supabase/baseline/` and then every
 migration in order, runs the suites and drops it again. It needs pgTAP and
 `pg_prove` beside that server (`apt-get install pgtap`, or `brew install pgtap`)
 and `DATABASE_URL` if the server is not the local default. Never against the
-hosted database: pgTAP writes rows. A clean run is 25 suites / 647 assertions,
+hosted database: pgTAP writes rows. A clean run is 26 suites / 714 assertions,
 all passing, and `npm run test:counts -- pgtap` holds that sentence to the run.
 
 `supabase/baseline/` is the pre-migration schema, not a migration. Movie Bowl's
@@ -354,6 +356,13 @@ title within that contributor's pool. Returned draws still count. The database
 locks the bowl row and owns this choice so concurrent phone/TV draws cannot
 award the same turn twice. The ordinary draw RPC rejects rotation bowls to keep
 older cached clients from silently applying person-first behavior.
+
+**Starter pack** slips are marked by `bowl_movies.starter_pack`, never by
+name, and are not a contributor: they join every person's pile and never take
+a turn. Because a pack slip names no one, a draw records the turn it spent in
+`bowl_draw_events.turn_bucket_key`, and rotation history reads that before the
+slip's own contributor. When nobody owns an eligible title the pack is the
+draw, a flat pick that spends no turn. See `output/designs/starter-packs.md`.
 
 The method replaces only the last step of selection. It runs on whatever pool
 survives filtering and streaming priority, and it never re-expands or reorders

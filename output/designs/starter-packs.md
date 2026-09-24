@@ -1,9 +1,12 @@
 # Starter Packs
 
-Status: design settled September 23, 2026; in progress. Step 1 of "Sketch of
-the Work" is built -- the pack definitions and Best Picture list in
-`src/utils/starterPacks.js` and the live resolver at
-`/api/starter-packs/candidates` -- and nothing a person can see exists yet. The behavior below is decided, and the open questions the first
+Status: design settled September 23, 2026; in progress. Steps 1 and 2 of
+"Sketch of the Work" are built -- the pack definitions and Best Picture list in
+`src/utils/starterPacks.js`, the live resolver at
+`/api/starter-packs/candidates`, and the schema, install / remove / claim
+functions and rotation change in
+`supabase/migrations/20260924120000_add_starter_packs.sql` -- and nothing a
+person can see exists yet. The behavior below is decided, and the open questions the first
 draft carried are closed except the one under "Still Open": whether the reveal
 holds up in a real bowl.
 
@@ -313,8 +316,9 @@ precisely the row shape a pack needs to violate. Public adds get around it
 through `consume_bowl_add_link`, a `SECURITY DEFINER` function, and packs take
 the same route.
 
-`install_bowl_starter_pack(p_bowl_id, p_pack_slug, p_movies)` takes the movie
-snapshots to insert, the way `consume_bowl_add_link` takes `p_movie`:
+`install_bowl_starter_pack(p_bowl_id, p_pack_slug, p_pack_name, p_movies)`
+takes the pack's display name -- the database keeps no pack names either -- and
+the movie snapshots to insert, the way `consume_bowl_add_link` takes `p_movie`:
 `bowl_movies.title` is not null and the database holds no titles, so the client
 resolves each sampled id through the normal `/api/tmdb` details path first. In
 one transaction it:
