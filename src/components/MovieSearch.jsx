@@ -13,6 +13,10 @@ import { createEmptyStreamingProviderData } from "../utils/tmdbWatchProviders";
 import usePersonDiscovery from "../hooks/usePersonDiscovery";
 
 const PROVIDER_ENRICHMENT_LIMIT = 8;
+// How long title results wait for the people lookup that started with them.
+// Long enough that the People row usually lands with the movies rather than
+// above rows already on screen; short enough that titles never feel held up.
+const PEOPLE_SETTLE_MS = 400;
 const PROVIDER_ENRICHMENT_CONCURRENCY = 4;
 
 function possessive(name) {
@@ -62,7 +66,7 @@ function describeResultAvailability(providerEntry, userStreamingServices) {
         const others = providers.length - mine.length;
         return {
             tone: "mine",
-            text: `On your ${mine.join(", ")}${others > 0 ? ` \u00b7 +${others} more` : ""}`,
+            text: `On ${mine.join(", ")}${others > 0 ? ` \u00b7 +${others} more` : ""}`,
         };
     }
     if (providers.length > 0) return { tone: "quiet", text: providers.join(", ") };
@@ -132,10 +136,7 @@ export default function MovieSearch({
     const heardTranscriptRef = useRef("");
     const [focusRequest, setFocusRequest] = useState(0);
     const handledFocusRequest = useRef(0);
-    // The query whose movie rows are on screen, so a late People row is held
-    // back instead of pushing them down.
-    const moviesShownRef = useRef(null);
-    const discovery = usePersonDiscovery({ moviesShownRef });
+    const discovery = usePersonDiscovery();
     const {
         searchPeople,
         clearPeople,
@@ -148,6 +149,7 @@ export default function MovieSearch({
     const [highlightedPerson, setHighlightedPerson] = useState(null);
     const searchScrollRef = useRef(null);
     const gridRef = useRef(null);
+    const keyboardMovedRef = useRef(false);
     const providersRef = useRef({});
     providersRef.current = providersByMovieId;
     const personView = discovery.person;
@@ -248,19 +250,23 @@ export default function MovieSearch({
             setTotalPages(0);
             setTotalResults(0);
             setHighlightedPerson(null);
-            moviesShownRef.current = null;
             closePerson();
-            // Fired beside the title search, never before it: title search
-            // does not wait for people, and people cannot delay it.
-            searchPeople(trimmedQuery);
         }
+        // Fired beside the title search, never before it. A People row that
+        // lands after the movies still shows -- whether a name finds its
+        // person cannot depend on which request happened to win -- but the
+        // titles give it a brief moment first, so it rarely pushes rows down.
+        const peopleSettled = append ? null : searchPeople(trimmedQuery);
 
         try {
             const data = await searchTmdbMovies(trimmedQuery, { page });
             if (requestId !== latestRequestRef.current) return;
+            if (peopleSettled) {
+                await Promise.race([peopleSettled, new Promise((resolve) => setTimeout(resolve, PEOPLE_SETTLE_MS))]);
+                if (requestId !== latestRequestRef.current) return;
+            }
 
             const results = data.results || [];
-            if (!append) moviesShownRef.current = results.length > 0 ? trimmedQuery : null;
             setSearchResults((current) => appendUniqueMovies(append ? current : [], results));
             if (!append) setHighlightedIndex(0);
             setSearchPage(Number(data.page) || page);
@@ -306,11 +312,16 @@ export default function MovieSearch({
     };
 
     const buildDetailedMovie = async (movie) => {
-        const details = await fetchMovieDetails(movie.id);
+        // Details and availability do not depend on each other, so neither
+        // waits for the other: opening a movie or adding one costs one round
+        // trip rather than two.
         const cachedProviderEntry = providersByMovieId[movie.id];
-        const providerData = cachedProviderEntry?.status === "ready"
-          ? cachedProviderEntry.data
-          : await fetchStreamingProviders(movie.id, { region: "US" });
+        const [details, providerData] = await Promise.all([
+            fetchMovieDetails(movie.id),
+            cachedProviderEntry?.status === "ready"
+                ? cachedProviderEntry.data
+                : fetchStreamingProviders(movie.id, { region: "US" }),
+        ]);
 
         return {
             ...movie,
@@ -353,7 +364,6 @@ export default function MovieSearch({
         setDetailMovie(null);
         onDetailChange?.(false);
         latestRequestRef.current += 1;
-        moviesShownRef.current = null;
         resetDiscovery();
         setHighlightedPerson(null);
         setSearchTerm("");
@@ -501,6 +511,7 @@ export default function MovieSearch({
     // highlight starts on the first movie, so a bare Enter adds it exactly as
     // it did before people existed; a person is only ever reached on purpose.
     const handleKeyDown = async (e) => {
+        if (e.key === "ArrowDown" || e.key === "ArrowUp") keyboardMovedRef.current = true;
         if (e.key === "ArrowDown") {
             e.preventDefault();
             if (highlightedPerson !== null) {
@@ -539,6 +550,21 @@ export default function MovieSearch({
             }
         }
     };
+
+    // The highlight lives in the field, so the page does not scroll to it the
+    // way it would to a focused element; without this, arrowing past the rows
+    // in view moves a highlight nobody can see. Only an arrow press scrolls --
+    // results landing must not move the page.
+    const activeOptionId = highlightedPerson !== null && visiblePeople[highlightedPerson]
+        ? `person-option-${visiblePeople[highlightedPerson].id}`
+        : listMovies[highlightedIndex]
+            ? `movie-option-${listMovies[highlightedIndex].id}`
+            : null;
+    useEffect(() => {
+        if (!keyboardMovedRef.current || !activeOptionId) return;
+        keyboardMovedRef.current = false;
+        document.getElementById(activeOptionId)?.scrollIntoView?.({ block: "nearest" });
+    }, [activeOptionId]);
 
     // Debounce search: wait 400ms after user stops typing before calling API
     useEffect(() => {
@@ -747,7 +773,12 @@ export default function MovieSearch({
                             setTotalResults(0);
                             setHighlightedIndex(0);
                             setHighlightedPerson(null);
-                            moviesShownRef.current = null;
+                            // Typing always searches, even if the last voice
+                            // transcript left the auto-search suppressed: that
+                            // flag is only cleared by a change, and a transcript
+                            // matching the field makes none.
+                            suppressNextAutoSearchRef.current = false;
+                            keyboardMovedRef.current = false;
                             clearPeople();
                             closePerson();
                             if (!value.trim()) setIsSearching(false);
@@ -755,13 +786,7 @@ export default function MovieSearch({
                             setSearchFailure(null);
                         }}
                         onKeyDown={handleKeyDown}
-                        aria-activedescendant={
-                            highlightedPerson !== null && visiblePeople[highlightedPerson]
-                                ? `person-option-${visiblePeople[highlightedPerson].id}`
-                                : listMovies[highlightedIndex]
-                                    ? `movie-option-${listMovies[highlightedIndex].id}`
-                                    : undefined
-                        }
+                        aria-activedescendant={activeOptionId || undefined}
                         role="combobox"
                         aria-expanded={listMovies.length > 0 || visiblePeople.length > 0}
                         aria-haspopup="grid"

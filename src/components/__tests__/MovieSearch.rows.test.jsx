@@ -87,13 +87,29 @@ describe("MovieSearch result rows", () => {
     expect(onAddMovie.mock.calls[0][0]).toEqual(expect.objectContaining({ title: "The Cast" }));
   });
 
-  it("leads availability with the viewer's own services", async () => {
+  it("scrolls the highlighted row into view as the arrow keys move it", async () => {
+    const scrollIntoView = vi.fn();
+    Element.prototype.scrollIntoView = scrollIntoView;
+    await search("Cast", [
+      { id: 1, title: "Cast Away", release_date: "2000-12-22" },
+      { id: 2, title: "The Cast", release_date: "2012-01-01" },
+    ]);
+    // Results landing do not move the page on their own.
+    expect(scrollIntoView).not.toHaveBeenCalled();
+
+    fireEvent.keyDown(screen.getByRole("combobox"), { key: "ArrowDown" });
+    await waitFor(() => expect(scrollIntoView).toHaveBeenCalledTimes(1));
+    expect(scrollIntoView.mock.contexts[0]).toHaveAttribute("id", "movie-option-2");
+    delete Element.prototype.scrollIntoView;
+  });
+
+  it("names the service a title is on, leading with the viewer's own", async () => {
     mocks.fetchStreamingProviders.mockResolvedValue(providerResult(["Netflix", "Max", "Hulu"]));
     await search("Cast", [{ id: 1, title: "Cast Away", release_date: "2000-12-22" }], {
       userStreamingServices: ["Netflix"],
     });
 
-    expect(await screen.findByText("On your Netflix · +2 more")).toBeInTheDocument();
+    expect(await screen.findByText("On Netflix · +2 more")).toBeInTheDocument();
   });
 
   it("lists other services quietly when none are the viewer's", async () => {
@@ -103,7 +119,7 @@ describe("MovieSearch result rows", () => {
     });
 
     expect(await screen.findByText("Hulu, Peacock")).toBeInTheDocument();
-    expect(screen.queryByText(/on your/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/^on /i)).not.toBeInTheDocument();
   });
 
   it("says a checked title streams nowhere only when the check succeeded", async () => {

@@ -93,18 +93,39 @@ describe("MovieSearch people", () => {
     expect(screen.getByText("Cast Away, Big")).toBeInTheDocument();
   });
 
-  it("holds back people that answer after the movies are on screen", async () => {
+  it("waits a moment for people, so the row lands with the movies", async () => {
     const people = deferred();
     mocks.searchTmdbPeople.mockReturnValue(people.promise);
     render(<MovieSearch onAddMovie={vi.fn()} />);
     type("tom han");
-    await screen.findByRole("button", { name: "Details for Hanky Panky" });
+    await waitFor(() => expect(mocks.searchTmdbMovies).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    // Titles have answered, but they are held for the people lookup.
+    expect(screen.queryByRole("button", { name: "Details for Hanky Panky" })).not.toBeInTheDocument();
 
     people.resolve({ people: [hanks] });
-    await waitFor(() => expect(mocks.searchTmdbPeople).toHaveBeenCalledTimes(1));
-    await Promise.resolve();
-    expect(screen.queryByRole("button", { name: "Show Tom Hanks’s movies" })).not.toBeInTheDocument();
-    expect(within(screen.getByRole("grid")).getAllByRole("row")[0]).toHaveAttribute("id", "movie-option-101");
+    expect(await screen.findByRole("button", { name: "Details for Hanky Panky" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show Tom Hanks’s movies" })).toBeInTheDocument();
+  });
+
+  it("still shows a person who answers after the movies, every time the name is searched", async () => {
+    render(<MovieSearch onAddMovie={vi.fn()} />);
+
+    for (let round = 0; round < 2; round += 1) {
+      mocks.searchTmdbPeople.mockResolvedValueOnce({ people: [] });
+      type("cast");
+      await screen.findByRole("button", { name: "Details for Hanky Panky" });
+
+      const people = deferred();
+      mocks.searchTmdbPeople.mockReturnValueOnce(people.promise);
+      type("tom han");
+      // The titles stop waiting after a moment and show on their own...
+      await screen.findByRole("button", { name: "Details for Hanky Panky" });
+      expect(screen.queryByRole("button", { name: "Show Tom Hanks’s movies" })).not.toBeInTheDocument();
+      // ...and the person still arrives, on the first search and the retype.
+      people.resolve({ people: [hanks] });
+      expect(await screen.findByRole("button", { name: "Show Tom Hanks’s movies" })).toBeInTheDocument();
+    }
   });
 
   it("drops a people answer for a query that has since changed", async () => {

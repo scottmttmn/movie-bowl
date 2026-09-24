@@ -45,6 +45,18 @@ describe("shared bowl add service", () => {
     expect(await h.service.add(h.operation())).toMatchObject({ ok: false, code: "access_lost" });
     expect(h.insert).not.toHaveBeenCalled();
   });
+  it("asks for access and the bowl's rows together, not one after the other", async () => {
+    const h = harness();
+    let releaseContext;
+    h.client.rpc.mockImplementationOnce(() => new Promise((resolve) => {
+      releaseContext = () => resolve({ data: { bowls: h.state.bowls }, error: null });
+    }));
+    const pending = h.service.add(h.operation());
+    await vi.waitFor(() => expect(h.client.rpc).toHaveBeenCalledWith("get_my_bowl_context"));
+    expect(h.client.from).toHaveBeenCalledWith("bowl_movies");
+    releaseContext();
+    expect(await pending).toMatchObject({ ok: true });
+  });
   it("uses fresh persisted rows for the undrawn limit", async () => {
     const h = harness(); h.state.rows = Array.from({ length: 500 }, (_, id) => ({ id, bowl_id: "a" }));
     expect(await h.service.add(h.operation())).toMatchObject({ ok: false, code: "limit_reached" });

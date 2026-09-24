@@ -141,9 +141,12 @@ tune against real queries in the spike. The starting rule:
   outrank a title someone was actually typing.
 
 When nothing clears it, the row does not render and the page is today's page.
-Movie results never wait for the people lookup, and the people row never
-shifts movie rows that are already on screen: if people arrive after movies
-have rendered, the row may appear only while the list is still settling.
+Movie results wait at most 400ms for the people lookup that started with
+them, so the People row usually lands together with the movies. A People row
+that answers later still appears. The first build dropped it instead, so rows
+on screen would never move, but that made the same name find its person on one
+search and not the next, depending on which request won. Consistency matters
+more than an occasional shift.
 
 A person row has no Add action. People are navigation, never slips.
 
@@ -324,7 +327,7 @@ shared consumer.
   credits, content exclusion, pagination, a people lookup failing on its own,
   upstream failures, and backward-compatible title calls.
 - Interaction tests: stale responses during debounce; choosing a person cannot
-  add; the People row does not move rendered movie rows; Details/Back restores
+  add; a late People row still appears; Details/Back restores
   context; repeated adds keep the person; failed adds keep drafts; explicit
   reset clears context.
 - Regression checks: existing search suites plus bowl destination and retry

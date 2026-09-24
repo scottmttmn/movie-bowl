@@ -18,15 +18,11 @@ function openingRole(person, credits) {
 /**
  * People search beside title search (output/designs/search-revamp.md). It owns
  * the people lookup for a query and, once someone picks a person, that
- * person's movies by role. Title search stays in MovieSearch and never waits
- * for anything here.
- *
- * `moviesShownRef` holds the query whose movie rows are already on screen. A
- * people answer that arrives after them is dropped rather than rendered,
- * because a row appearing above them would move the row someone is reaching
- * for.
+ * person's movies by role. Title search stays in MovieSearch; `searchPeople`
+ * resolves once the lookup has settled, so a caller can give it a moment
+ * before showing movies, but it never throws and never has to be waited for.
  */
-export default function usePersonDiscovery({ moviesShownRef }) {
+export default function usePersonDiscovery() {
   const [peopleResult, setPeopleResult] = useState(EMPTY_PEOPLE);
   const [person, setPerson] = useState(null);
   const [role, setRole] = useState("acting");
@@ -58,7 +54,6 @@ export default function usePersonDiscovery({ moviesShownRef }) {
     try {
       const { people } = await searchTmdbPeople(trimmed, { signal: controller.signal });
       if (requestId !== peopleRequestRef.current) return;
-      if (people.length > 0 && moviesShownRef?.current === trimmed) return;
       setPeopleResult({ query: trimmed, people });
     } catch (error) {
       // No People row is the whole failure mode: title search already
@@ -66,7 +61,7 @@ export default function usePersonDiscovery({ moviesShownRef }) {
       if (requestId !== peopleRequestRef.current || error?.name === "AbortError") return;
       console.warn("[usePersonDiscovery] People search failed", error);
     }
-  }, [cancelPeople, moviesShownRef]);
+  }, [cancelPeople]);
 
   const loadCredits = useCallback(async (chosen) => {
     creditsRequestRef.current += 1;
