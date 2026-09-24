@@ -14,6 +14,15 @@ describe("getDrawablePoolMovies", () => {
 });
 
 describe("summarizeContributorReach", () => {
+  it("never counts a starter pack as a contributor, reached or excluded", () => {
+    const packSlip = { id: "p", added_by: null, added_by_name: "Nolan: The '00s", starter_pack: "nolan-2000s" };
+    expect(summarizeContributorReach([alexA, sam, packSlip], [packSlip])).toEqual({
+      totalCount: 2,
+      reachedCount: 0,
+      excludedNames: ["Alex", "Sam"],
+    });
+  });
+
   it("counts every contributor as reached when nothing is filtered out", () => {
     const pool = [alexA, alexB, sam];
     expect(summarizeContributorReach(pool, pool)).toEqual({

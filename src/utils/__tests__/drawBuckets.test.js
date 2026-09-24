@@ -1,11 +1,24 @@
 import { describe, expect, it } from "vitest";
 import {
   getContributorBucketKey,
+  isStarterPackMovie,
   getMovieAttributionAccent,
   getMovieAttributionLabel,
 } from "../drawBuckets";
 
 describe("drawBuckets", () => {
+  it("gives a starter pack slip no bucket, and knows it by its marker rather than its name", () => {
+    const packSlip = { added_by: null, added_by_name: "Nolan: The '00s", starter_pack: "nolan-2000s" };
+    const namesake = { added_by: null, added_by_name: "Nolan: The '00s" };
+
+    expect(isStarterPackMovie(packSlip)).toBe(true);
+    expect(getContributorBucketKey(packSlip)).toBeNull();
+    expect(isStarterPackMovie(namesake)).toBe(false);
+    expect(getContributorBucketKey(namesake)).toBe("guest:nolan: the '00s");
+    // The reveal names the pack where it would name a person.
+    expect(getMovieAttributionLabel(packSlip)).toBe("Nolan: The '00s");
+  });
+
   it("uses added_by for bucket identity and added_by_name for movie attribution", () => {
     const movie = {
       added_by: "user-1",
