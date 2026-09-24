@@ -87,6 +87,25 @@ describe("MovieSearch result rows", () => {
     expect(onAddMovie.mock.calls[0][0]).toEqual(expect.objectContaining({ title: "The Cast" }));
   });
 
+  it("keeps one highlight between the pointer and the arrow keys", async () => {
+    await search("Cast", [
+      { id: 1, title: "Cast Away", release_date: "2000-12-22" },
+      { id: 2, title: "The Cast", release_date: "2012-01-01" },
+      { id: 3, title: "Cast a Deadly Spell", release_date: "1991-09-07" },
+    ]);
+    const field = screen.getByRole("combobox");
+    const rows = within(screen.getByRole("grid")).getAllByRole("row");
+    const selected = () => rows.filter((row) => row.getAttribute("aria-selected") === "true").map((row) => row.id);
+
+    fireEvent.mouseMove(rows[2]);
+    expect(selected()).toEqual(["movie-option-3"]);
+    expect(field).toHaveAttribute("aria-activedescendant", "movie-option-3");
+
+    // The keys carry on from where the pointer left the highlight.
+    fireEvent.keyDown(field, { key: "ArrowUp" });
+    expect(selected()).toEqual(["movie-option-2"]);
+  });
+
   it("scrolls the highlighted row into view as the arrow keys move it", async () => {
     const scrollIntoView = vi.fn();
     Element.prototype.scrollIntoView = scrollIntoView;
