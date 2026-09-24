@@ -90,7 +90,9 @@ describe("shared bowl add service", () => {
       p_bowl_id: "a", p_tmdb_id: 101, p_note: "Saw it as a kid",
     });
     expect(h.insert).not.toHaveBeenCalled();
-    expect(h.publish).toHaveBeenCalledWith(expect.objectContaining({ type: "add", phase: "success", submissionId: "slip" }));
+    // The row the dashboard is handed names its adder, as an ordinary add's does.
+    expect(h.publish).toHaveBeenCalledWith(expect.objectContaining({ type: "add", phase: "success", submissionId: "slip",
+      movie: expect.objectContaining({ profiles: { display_name: "You" } }) }));
     expect(warmProviders).not.toHaveBeenCalled();
     expect(warmMetadata).not.toHaveBeenCalled();
   });
@@ -152,6 +154,19 @@ describe("shared bowl add service", () => {
       ok: true, code: "claimed_from_pack", movie: expect.objectContaining({ id: "slip", added_by: "u1" }),
     });
     expect(h.publish).toHaveBeenCalledWith(expect.objectContaining({ phase: "success", submissionId: "slip" }));
+  });
+
+  it("tells an offline adder to add the title again, since nothing retries it for them", async () => {
+    const h = packHarness(() => { throw new TypeError("Failed to fetch"); });
+    const read = h.client.from.getMockImplementation();
+    h.client.from.mockImplementation((table) => {
+      const query = read(table);
+      query.maybeSingle = async () => { throw new TypeError("Failed to fetch"); };
+      return query;
+    });
+    expect(await h.service.add(h.operation())).toMatchObject({
+      ok: false, code: "add_failed", message: "Could not confirm whether Movie was added. Reconnect, then add it again to check.",
+    });
   });
 
   it("leaves a lost claim unconfirmed while the slip looks untouched, and a retry never makes a second copy", async () => {

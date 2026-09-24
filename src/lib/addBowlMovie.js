@@ -5,7 +5,7 @@ import { notifyBowlChange } from "./bowlChanges";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { getMovieNoteValidationError, normalizeMovieNote } from "../utils/movieNote";
 import { getMovieAttributionLabel, isStarterPackMovie } from "../utils/drawBuckets";
-import { OFFLINE_MESSAGE, describeNetworkError, isOffline } from "../utils/networkErrors";
+import { OFFLINE_MESSAGE, describeNetworkError, isOffline, isOfflineError } from "../utils/networkErrors";
 
 export const BOWL_MOVIE_FIELDS = "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, is_pinned, added_by, added_by_name, starter_pack, added_at, drawn_at, drawn_by, snapshot_at";
 export const addResult = (ok, code = null, message = null) => ({ ok, code, message });
@@ -38,6 +38,11 @@ export function getDuplicateMovieMessage(movie, existingMovie) {
     ? `"${movie.title.trim()}" is already in the bowl — ${contributor} added it, so it can come up on their turn.`
     : "This movie is already in the bowl.";
 }
+
+// A claimed row comes back without its joined profile, and an ordinary add's
+// pending row is what normally supplies one, so a claim names its adder the
+// same way that row does.
+const OWN_PROFILE = { display_name: "You" };
 
 export function createBowlMovieService({ client = supabase, offline = isOffline,
   publish = notifyBowlChange, warmProviders = fetchProviderLinks,
@@ -86,7 +91,7 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
       const settled = {
         ...addResult(true, "claimed_from_pack",
           `Added ${movie.title} — it was in the ${getMovieAttributionLabel(slip)} pack, now it's yours.`),
-        movie: { ...row, local_status: null, local_temp_id: null },
+        movie: { ...row, profiles: OWN_PROFILE, local_status: null, local_temp_id: null },
       };
       publish({ type: "add", phase: "success", userId: accountId, bowlId, submissionId: row.id, movie: settled.movie });
       return settled;
@@ -135,8 +140,10 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
     // yet -- so this stays unconfirmed. Adding it again is how to find out: a
     // claim that landed reads as this person's own title, and one that did
     // not claims again. Neither makes a second copy.
-    return addResult(false, "add_failed", describeNetworkError(response.error,
-      `Could not confirm whether ${movie.title} was added. Add it again to check.`));
+    // Said in full even offline: nothing retries this on reconnect, so the
+    // usual "this will pick up where it left off" would promise too much.
+    return addResult(false, "add_failed", `Could not confirm whether ${movie.title} was added. `
+      + (isOfflineError(response.error) ? "Reconnect, then add it again to check." : "Add it again to check."));
   }
 
   async function add(operation) {
@@ -211,7 +218,7 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
         // Published so an open dashboard that still shows the pack slip -- a
         // claim whose answer was lost -- catches up to the row as it is.
         publish({ type: "add", phase: "success", userId: accountId, bowlId, submissionId: existingMovie.id,
-          movie: { ...existingMovie, local_status: null, local_temp_id: null } });
+          movie: { ...existingMovie, profiles: OWN_PROFILE, local_status: null, local_temp_id: null } });
         return addResult(false, "duplicate_movie", `"${movie.title}" is already in the bowl, and it's yours.`);
       }
       if ((remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
