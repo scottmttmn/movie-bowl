@@ -142,7 +142,7 @@ export default function BowlAddDialog() {
     <span className="sr-only" role="status">{announcement}</span>
   </div>;
   const feedback = <>
-    {result?.ok && <p className="mt-2 text-sm text-emerald-300" role="status">Added {add.operation.movie.title} to {add.operation.bowlName}</p>}
+    {result?.ok && <p className="mt-2 text-sm text-emerald-300" role="status">{result.message || `Added ${add.operation.movie.title} to ${add.operation.bowlName}`}</p>}
     {result?.ok === false && <div className="status-error mt-2" role="alert">{result.message}</div>}
     {add.unresolved.map((entry) => {
       const retryable = entry.result.code === "add_not_committed";

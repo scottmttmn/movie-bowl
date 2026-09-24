@@ -11,7 +11,7 @@ import useBowl from "../../hooks/useBowl";
 import useUserStreamingServices from "../../hooks/useUserStreamingServices";
 import { getTmdbMovieDetails } from "../../lib/tmdbApi";
 import { fetchMovieTrailer, resolveEligiblePreviewIds } from "../../lib/theaterPreviews";
-import { getMovieAttributionLabel } from "../../utils/drawBuckets";
+import { getMovieAttributionLine } from "../../utils/drawBuckets";
 import { getDrawReadout } from "../../utils/drawReadout";
 import { clampTheaterTrailerCount } from "../../utils/drawSettings";
 import { getPosterUrl } from "../../utils/getPosterUrl";
@@ -305,10 +305,9 @@ function TvHistoryDetailScreen({
 }) {
   const trailer = movie.trailer;
   const pickedDate = formatPickedDate(movie.drawn_at || movie.drawnAt);
-  const addedBy = getMovieAttributionLabel(movie);
   const historyMetadata = [
     pickedDate ? `Picked ${pickedDate}` : null,
-    addedBy ? `Added by ${addedBy}` : null,
+    getMovieAttributionLine(movie),
   ].filter(Boolean);
   const isCoveredByOverlay = isDialogOpen || showTrailer;
 

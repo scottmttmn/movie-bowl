@@ -680,6 +680,20 @@ describe("BowlDashboard guards", () => {
     expect(screen.getByRole("button", { name: /add to this bowl/i })).toBeEnabled();
   });
 
+  it("keeps Add Movie open at the limit while a starter pack title can still be claimed", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = {
+      remaining: [
+        ...Array.from({ length: MAX_UNDRAWN_MOVIES_PER_BOWL - 1 }, (_, index) => ({ id: `m-${index + 1}`, added_by: "u2" })),
+        { id: "slip", added_by: null, added_by_name: "Nolan: The '00s", starter_pack: "nolan-2000s" },
+      ],
+      watched: [],
+    };
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: /add to this bowl/i })).toBeEnabled();
+  });
+
   it("disables Add Movie when undrawn movie limit is reached", async () => {
     mocks.state.memberRows = [{ user_id: "u1" }];
     mocks.state.bowlData = {

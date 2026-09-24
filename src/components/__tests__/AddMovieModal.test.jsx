@@ -217,6 +217,20 @@ describe("AddMovieModal", () => {
     expect(screen.getByText("Scott")).toBeInTheDocument();
   });
 
+  it("names a starter pack where it would name a person", () => {
+    const movie = {
+      title: "Raiders of the Lost Ark",
+      release_date: "1981-06-12",
+      added_by: null,
+      added_by_name: "Spielberg: The '80s",
+      starter_pack: "spielberg-1980s",
+    };
+
+    const { container } = render(<AddMovieModal movie={movie} onClose={vi.fn()} userStreamingServices={[]} />);
+    expect(screen.queryByText("Added by")).not.toBeInTheDocument();
+    expect(container.textContent).toContain("From the Spielberg: The '80s pack");
+  });
+
   it("hides the attribution block when there is no usable adder label", () => {
     const movie = {
       title: "Dune",

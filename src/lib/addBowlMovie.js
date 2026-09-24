@@ -4,8 +4,8 @@ import { warmTmdbMovieFilterMetadata } from "./tmdbApi";
 import { notifyBowlChange } from "./bowlChanges";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { getMovieNoteValidationError, normalizeMovieNote } from "../utils/movieNote";
-import { getMovieAttributionLabel } from "../utils/drawBuckets";
-import { OFFLINE_MESSAGE, describeNetworkError, isOffline } from "../utils/networkErrors";
+import { getMovieAttributionLabel, isStarterPackMovie } from "../utils/drawBuckets";
+import { OFFLINE_MESSAGE, describeNetworkError, isOffline, isOfflineError } from "../utils/networkErrors";
 
 export const BOWL_MOVIE_FIELDS = "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, is_pinned, added_by, added_by_name, starter_pack, added_at, drawn_at, drawn_by, snapshot_at";
 export const addResult = (ok, code = null, message = null) => ({ ok, code, message });
@@ -31,10 +31,18 @@ export function isDuplicateMovieError(error) {
 }
 export function getDuplicateMovieMessage(movie, existingMovie) {
   const contributor = getMovieAttributionLabel(existingMovie);
+  if (movie?.title && contributor && isStarterPackMovie(existingMovie)) {
+    return `"${movie.title.trim()}" is already in the bowl, in the ${contributor} pack, so it can come up on anyone's turn.`;
+  }
   return movie?.title && contributor
     ? `"${movie.title.trim()}" is already in the bowl — ${contributor} added it, so it can come up on their turn.`
     : "This movie is already in the bowl.";
 }
+
+// A claimed row comes back without its joined profile, and an ordinary add's
+// pending row is what normally supplies one, so a claim names its adder the
+// same way that row does.
+const OWN_PROFILE = { display_name: "You" };
 
 export function createBowlMovieService({ client = supabase, offline = isOffline,
   publish = notifyBowlChange, warmProviders = fetchProviderLinks,
@@ -73,6 +81,90 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
       // A failed read cannot establish whether the write committed.
       return unknown(operation);
     }
+  }
+
+  // Already this person's -- including a claim whose answer was lost and is
+  // being retried -- so there is nothing to add. The row is published so an
+  // open dashboard that still shows it as a pack slip catches up.
+  function alreadyOwn({ accountId, bowlId }, movie, row) {
+    publish({ type: "add", phase: "success", userId: accountId, bowlId, submissionId: row.id,
+      movie: { ...row, profiles: OWN_PROFILE, local_status: null, local_temp_id: null } });
+    return addResult(false, "duplicate_movie", `"${movie.title}" is already in the bowl, and it's yours.`);
+  }
+
+  // No warm on any path here: a pack title was never an ordinary add, and
+  // claiming one must not spend the provider budget installs are kept off.
+  async function claimPackSlip(operation, movie, slip) {
+    const { accountId, bowlId } = operation;
+    const claimed = (row) => {
+      const settled = {
+        ...addResult(true, "claimed_from_pack",
+          `Added ${movie.title} — it was in the ${getMovieAttributionLabel(slip)} pack, now it's yours.`),
+        movie: { ...row, profiles: OWN_PROFILE, local_status: null, local_temp_id: null },
+      };
+      publish({ type: "add", phase: "success", userId: accountId, bowlId, submissionId: row.id, movie: settled.movie });
+      return settled;
+    };
+    // The claim writes as whoever is signed in now, so it is checked as late
+    // as an insert is: an account switch mid-add must not claim for the wrong
+    // person under the first one's name.
+    const { data: latestAuth, error: latestAuthError } = await client.auth.getSession();
+    if (latestAuthError || latestAuth?.session?.user?.id !== accountId || operation.isCurrent?.() === false) {
+      return addResult(false, "not_authenticated", "You must be signed in to add a movie.");
+    }
+
+    let response;
+    try {
+      response = await client.rpc("claim_bowl_starter_pack_movie", {
+        p_bowl_id: bowlId, p_tmdb_id: getPositiveTmdbId(movie), p_note: normalizeMovieNote(movie.note),
+      });
+    } catch (error) {
+      response = { error };
+    }
+    if (!response.error) {
+      const row = Array.isArray(response.data) ? response.data[0] : response.data;
+      // The RPC claims as whoever holds the session when it runs, which the
+      // check above cannot pin down: an account switch in between would
+      // claim for the other account. Never report that as this one's add.
+      if (row?.id && row.added_by !== accountId) {
+        return addResult(false, "not_authenticated", "The signed-in account changed while this was being added.");
+      }
+      if (row?.id) return claimed(row);
+    }
+
+    const code = response.error?.code || "";
+    if (code === "42501") return addResult(false, "access_lost", "You no longer have access to this bowl. Choose another bowl.");
+    // Whatever the error, the slip is read back before anything is settled: a
+    // lost answer may hide a claim that committed, and a refusal can be this
+    // person's own earlier claim landing first. Only a slip that now belongs
+    // to them settles it as theirs.
+    let readBack = false;
+    try {
+      const { data: row, error } = await client.from("bowl_movies").select(BOWL_MOVIE_FIELDS).eq("id", slip.id).maybeSingle();
+      if (!error && row && !row.drawn_at && row.added_by === accountId && !isStarterPackMovie(row)) {
+        // Theirs, but not necessarily by this attempt: another tab on the
+        // same account may have claimed it with a different comment. Only a
+        // row carrying this submission's comment is this claim landing.
+        if (normalizeMovieNote(row.note) === normalizeMovieNote(movie.note)) return claimed(row);
+        return alreadyOwn(operation, movie, row);
+      }
+      readBack = !error;
+    } catch {
+      // Fall through: the read cannot say either way.
+    }
+    // The database said no and the slip is not theirs: someone else drew or
+    // claimed it first. Settled, and a fresh add will see whatever is there.
+    if (code === "P0001" && readBack) {
+      return addResult(false, "claim_lost", `${movie.title} was just drawn or claimed by someone else. Try adding it again.`);
+    }
+    // An untouched slip proves nothing -- the claim may not have committed
+    // yet -- so this stays unconfirmed. Adding it again is how to find out: a
+    // claim that landed reads as this person's own title, and one that did
+    // not claims again. Neither makes a second copy.
+    // Said in full even offline: nothing retries this on reconnect, so the
+    // usual "this will pick up where it left off" would promise too much.
+    return addResult(false, "add_failed", `Could not confirm whether ${movie.title} was added. `
+      + (isOfflineError(response.error) ? "Reconnect, then add it again to check." : "Add it again to check."));
   }
 
   async function add(operation) {
@@ -132,10 +224,23 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
         publish({ type: "add", phase: "success", userId: accountId, bowlId, submissionId, movie: result.movie });
         return warm(result);
       }
+      existingMovie = tmdbId && (remaining || []).find((row) => getPositiveTmdbId(row) === tmdbId);
+      // Adding a title that is sitting in the bowl's starter pack claims it:
+      // the slip becomes this person's, in place, so the bowl keeps one copy
+      // and they can pin it. Ahead of the limit, because the count does not
+      // move -- which is also why the message says what happened.
+      if (existingMovie && isStarterPackMovie(existingMovie)) {
+        result = await claimPackSlip(operation, movie, existingMovie);
+        return result;
+      }
+      // Already this person's -- including a claim whose answer was lost and
+      // is being retried -- so there is nothing to add and nothing to wait for.
+      if (existingMovie && existingMovie.added_by === accountId) {
+        return alreadyOwn(operation, movie, existingMovie);
+      }
       if ((remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
         return addResult(false, "limit_reached", `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`);
       }
-      existingMovie = tmdbId && (remaining || []).find((row) => getPositiveTmdbId(row) === tmdbId);
       if (existingMovie) {
         const { data: profiles } = await client.rpc("get_bowl_profile_directory", { p_bowl_id: bowlId });
         const profile = profiles?.find((row) => row.user_id === existingMovie.added_by);

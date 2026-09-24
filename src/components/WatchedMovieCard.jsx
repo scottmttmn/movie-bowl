@@ -1,4 +1,4 @@
-import { getMovieAttributionAccent, getMovieAttributionLabel } from "../utils/drawBuckets";
+import { getMovieAttributionAccent, getMovieAttributionLabel, getMovieAttributionLine } from "../utils/drawBuckets";
 
 export default function WatchedMovieCard({ movie, onClick }) {
   const drawnDate = movie.drawn_at || movie.drawnAt;
@@ -11,6 +11,7 @@ export default function WatchedMovieCard({ movie, onClick }) {
     movie.isCustomEntry || movie.tmdb_id == null || Number(movie.tmdb_id) <= 0
   );
   const addedByLabel = getMovieAttributionLabel(movie);
+  const attributionLine = getMovieAttributionLine(movie);
   const contributorAccent = addedByLabel ? getMovieAttributionAccent(movie) : null;
   const contributorInitial = addedByLabel?.trim().charAt(0).toUpperCase();
 
@@ -48,8 +49,8 @@ export default function WatchedMovieCard({ movie, onClick }) {
           {contributorInitial && (
             <span
               role="img"
-              aria-label={`Added by ${addedByLabel}`}
-              title={`Added by ${addedByLabel}`}
+              aria-label={attributionLine}
+              title={attributionLine}
               className="absolute right-1.5 bottom-1.5 flex h-6 w-6 items-center justify-center rounded-full border border-white/30 text-xs font-bold text-white shadow-md"
               style={{ backgroundColor: contributorAccent.avatarColor }}
             >
