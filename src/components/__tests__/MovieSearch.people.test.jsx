@@ -373,12 +373,12 @@ describe("MovieSearch people", () => {
     beforeEach(() => {
       mocks.searchTmdbMovies.mockImplementation(async (query) => ({
         page: 1,
-        totalPages: query === "martin scor" ? 1 : 0,
-        totalResults: query === "martin scor" ? 1 : 0,
-        results: query === "martin scor" ? [{ id: 700, title: "Martin Scorsese: A Life", release_date: "2020-01-01" }] : [],
+        totalPages: query === "martin scorsese" ? 1 : 0,
+        totalResults: query === "martin scorsese" ? 1 : 0,
+        results: query === "martin scorsese" ? [{ id: 700, title: "Martin Scorsese: A Life", release_date: "2020-01-01" }] : [],
       }));
-      mocks.searchTmdbPeople.mockImplementation(async (query) => ({ people: query === "martin scor" ? [scorsese] : [] }));
-      mocks.suggestTmdbQuery.mockResolvedValue("martin scor");
+      mocks.searchTmdbPeople.mockImplementation(async (query) => ({ people: query === "martin scorsese" ? [scorsese] : [] }));
+      mocks.suggestTmdbQuery.mockResolvedValue("martin scorsese");
     });
 
     it("searches the suggestion, says so, and keeps what was typed", async () => {
@@ -412,11 +412,11 @@ describe("MovieSearch people", () => {
 
     it("treats a stray title or two it did not spell as a miss, and keeps them", async () => {
       const casino = { id: 524, title: "Casino", release_date: "1995-11-22" };
-      mocks.searchTmdbMovies.mockImplementation(async (query) => (query === "scor"
+      mocks.searchTmdbMovies.mockImplementation(async (query) => (query === "scorsese"
         ? { page: 1, totalPages: 1, totalResults: 1, results: [{ id: 800, title: "The Scorpion King" }] }
         : { page: 1, totalPages: 1, totalResults: 1, results: [casino] }));
-      mocks.searchTmdbPeople.mockImplementation(async (query) => ({ people: query === "scor" ? [scorsese] : [] }));
-      mocks.suggestTmdbQuery.mockResolvedValue("scor");
+      mocks.searchTmdbPeople.mockImplementation(async (query) => ({ people: query === "scorsese" ? [scorsese] : [] }));
+      mocks.suggestTmdbQuery.mockResolvedValue("scorsese");
       render(<MovieSearch onAddMovie={vi.fn()} />);
       type("scorcese");
 
@@ -429,10 +429,10 @@ describe("MovieSearch people", () => {
       const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
       const casino = { id: 524, title: "Casino", release_date: "1995-11-22" };
       mocks.searchTmdbMovies.mockImplementation(async (query) => {
-        if (query === "scor") throw new Error("Failed to fetch TMDB search results");
+        if (query === "scorsese") throw new Error("Failed to fetch TMDB search results");
         return { page: 1, totalPages: 1, totalResults: 1, results: [casino] };
       });
-      mocks.suggestTmdbQuery.mockResolvedValue("scor");
+      mocks.suggestTmdbQuery.mockResolvedValue("scorsese");
       render(<MovieSearch onAddMovie={vi.fn()} />);
       type("scorcese");
 

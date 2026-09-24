@@ -13,7 +13,7 @@ export const PEOPLE_POPULARITY_FLOOR = 1.5;
 
 // Letters and digits in any script: an ASCII-only class would erase a name
 // written in Chinese or Cyrillic entirely, so it could never match itself.
-function words(value) {
+export function nameWords(value) {
   return String(value || "")
     .normalize("NFD")
     .replace(/\p{M}/gu, "")
@@ -27,10 +27,10 @@ function words(value) {
 // find Tom Hanks and "anks" finds no one. A title can still start a name --
 // "big" starts "Bigg" -- which is what the popularity floor is for.
 export function queryMatchesName(query, name) {
-  const queryWords = words(query);
-  const nameWords = words(name);
-  if (queryWords.length === 0 || nameWords.length === 0) return false;
-  return queryWords.every((queryWord) => nameWords.some((nameWord) => nameWord.startsWith(queryWord)));
+  const queryWords = nameWords(query);
+  const targetWords = nameWords(name);
+  if (queryWords.length === 0 || targetWords.length === 0) return false;
+  return queryWords.every((queryWord) => targetWords.some((targetWord) => targetWord.startsWith(queryWord)));
 }
 
 export function selectStrongPeopleMatches(query, people, {

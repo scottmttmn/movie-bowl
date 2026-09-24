@@ -198,13 +198,23 @@ describe("api/tmdb/search suggest action", () => {
     });
   }
 
-  it("suggests the longest trim of a misspelled name that finds its person", async () => {
+  it("suggests the name a misspelling was closest to", async () => {
     fakeTmdb({ people: [{ name: "Martin Scorsese", popularity: 20 }] });
     const res = createRes();
     await handler({ method: "GET", query: { type: "suggest", query: "martin scorcese" } }, res);
 
     expect(res.statusCode).toBe(200);
-    expect(res.body).toEqual({ query: "martin scor" });
+    expect(res.body).toEqual({ query: "martin scorsese" });
+  });
+
+  it("does not settle for a word that only shares the misspelling's start", async () => {
+    // "scorc" finds Scorched first; Scorsese is found by "scor", and is the
+    // one a letter away from what was typed.
+    fakeTmdb({ titles: ["Scorched", "The Scorcher"], people: [{ name: "Martin Scorsese", popularity: 20 }] });
+    const res = createRes();
+    await handler({ method: "GET", query: { type: "suggest", query: "scorcese" } }, res);
+
+    expect(res.body).toEqual({ query: "scorsese" });
   });
 
   it("does not stop at a fragment that finds only unrelated results", async () => {

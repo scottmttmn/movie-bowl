@@ -1,40 +1,82 @@
+import { nameWords } from "./peopleMatch.js";
+
 // A search that finds nothing is usually a misspelling, and TMDB's search has
-// no tolerance for one: "martin scorcese" finds no one. Most slips in a name
-// or title come after its first few letters, so the last word is trimmed back
-// until something matches -- "martin scor" finds Martin Scorsese. A typo in an
-// earlier word, or in the first letters of the last one, is not found.
+// no tolerance for one: "scorcese" finds no one. Most slips come after a
+// word's first few letters, so the last word is trimmed back to find what it
+// was meant to be -- but the longest trim that finds anything is not the
+// answer: "scorc" finds Scorched before "scor" finds Scorsese. So every trim is
+// asked at once, and the suggestion is the whole word they turn up that is
+// closest to what was typed. A typo in an earlier word, or in the first
+// letters of the last one ("scrosese"), is not found.
 
 export const SUGGESTION_MIN_WORD_LENGTH = 3;
+// Each probe costs a movie and a person search, all in parallel, and only for
+// searches that found nothing.
+export const SUGGESTION_MAX_PROBES = 5;
 
-/**
- * Finds the longest trim of the query's last word that still matches.
- * `hasMatches(candidate)` resolves true when a candidate finds something real;
- * it is injected so the search itself stays testable. Matches only ever get
- * rarer as the word gets longer, so this bisects rather than trying every
- * length: at most three probes for a word of ten letters.
- *
- * Resolves the suggested query, or null when no trim of the last word matches.
- */
-export async function suggestTrimmedQuery(query, hasMatches, {
-  minWordLength = SUGGESTION_MIN_WORD_LENGTH,
-} = {}) {
-  const words = String(query || "").trim().split(/\s+/).filter(Boolean);
-  if (words.length === 0) return null;
-  const lastWord = words[words.length - 1];
-  const head = words.slice(0, -1).join(" ");
-  const withLastWord = (length) => [head, lastWord.slice(0, length)].filter(Boolean).join(" ");
-
-  let shortest = minWordLength;
-  let longest = lastWord.length - 1;
-  let best = null;
-  while (shortest <= longest) {
-    const length = Math.ceil((shortest + longest) / 2);
-    if (await hasMatches(withLastWord(length))) {
-      best = length;
-      shortest = length + 1;
-    } else {
-      longest = length - 1;
+// Optimal string alignment distance: edits, with a swapped pair counting once.
+export function editDistance(a, b) {
+  const rows = a.length + 1;
+  const cols = b.length + 1;
+  const d = Array.from({ length: rows }, (_, i) => Array.from({ length: cols }, (_, j) => (i === 0 ? j : j === 0 ? i : 0)));
+  for (let i = 1; i < rows; i += 1) {
+    for (let j = 1; j < cols; j += 1) {
+      const cost = a[i - 1] === b[j - 1] ? 0 : 1;
+      d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + cost);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) {
+        d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+      }
     }
   }
-  return best === null ? null : withLastWord(best);
+  return d[a.length][b.length];
+}
+
+// One slip in a short word, two in a longer one. Beyond that the nearest word
+// is a different word, and no suggestion beats a wrong one.
+function allowedDistance(word) {
+  return word.length <= 5 ? 1 : 2;
+}
+
+/**
+ * `probe(candidate)` resolves the titles and names a candidate query finds,
+ * as `{ text, popularity }`, already limited to ones the candidate's words
+ * start. It is injected so the choice stays testable.
+ *
+ * Resolves the query with its last word replaced by the closest word found,
+ * or null when nothing close enough turns up.
+ */
+export async function suggestCorrection(query, probe, {
+  minWordLength = SUGGESTION_MIN_WORD_LENGTH,
+  maxProbes = SUGGESTION_MAX_PROBES,
+} = {}) {
+  const typedWords = String(query || "").trim().split(/\s+/).filter(Boolean);
+  if (typedWords.length === 0) return null;
+  const typed = nameWords(typedWords[typedWords.length - 1]).join("");
+  const head = typedWords.slice(0, -1).join(" ");
+  const withLastWord = (word) => [head, word].filter(Boolean).join(" ");
+
+  const lengths = [];
+  for (let length = typed.length - 1; length >= minWordLength && lengths.length < maxProbes; length -= 1) {
+    lengths.push(length);
+  }
+  if (lengths.length === 0) return null;
+
+  const answers = await Promise.all(lengths.map((length) => probe(withLastWord(typed.slice(0, length)))));
+
+  let best = null;
+  answers.forEach((matches, index) => {
+    const prefix = typed.slice(0, lengths[index]);
+    for (const { text, popularity } of matches || []) {
+      for (const word of nameWords(text)) {
+        if (!word.startsWith(prefix) || word === typed) continue;
+        const distance = editDistance(typed, word);
+        if (distance > allowedDistance(typed)) continue;
+        const score = Number(popularity) || 0;
+        if (!best || distance < best.distance || (distance === best.distance && score > best.popularity)) {
+          best = { word, distance, popularity: score };
+        }
+      }
+    }
+  });
+  return best ? withLastWord(best.word) : null;
 }
