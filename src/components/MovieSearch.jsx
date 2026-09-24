@@ -514,6 +514,17 @@ export default function MovieSearch({
     };
 
     // Handle keyboard navigation and selection
+    // One highlight, whichever moved it last. A hover style of its own made the
+    // row under the pointer and the row the arrow keys reached look selected at
+    // once. Moving the pointer moves the highlight instead -- on mousemove, not
+    // mouseenter, so rows scrolling under a pointer that is standing still do
+    // not take it from the keys.
+    const highlightFromPointer = (personIndex, movieIndex) => {
+        if (personIndex === highlightedPerson && movieIndex === highlightedIndex) return;
+        setHighlightedPerson(personIndex);
+        setHighlightedIndex(movieIndex);
+    };
+
     // People and then movies are one sequence for the arrow keys. The
     // highlight starts on the first movie, so a bare Enter adds it exactly as
     // it did before people existed; a person is only ever reached on purpose.
@@ -948,6 +959,7 @@ export default function MovieSearch({
                                     id={`person-option-${person.id}`}
                                     role="gridcell"
                                     aria-selected={highlightedPerson === index}
+                                    onMouseMove={() => highlightFromPointer(index, highlightedIndex)}
                                     className="flex-shrink-0"
                                 >
                                     <button
@@ -957,7 +969,7 @@ export default function MovieSearch({
                                         disabled={isAdding}
                                         aria-label={`Show ${possessive(person.name)} movies`}
                                         aria-describedby={person.knownFor?.length ? `person-known-${person.id}` : undefined}
-                                        className={`flex min-h-11 max-w-[16rem] items-center gap-2 rounded-full border py-1 pl-1 pr-3.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/70 ${highlightedPerson === index ? "border-rose-500/70 bg-slate-800/90" : "border-slate-700/70 bg-slate-950/35 hover:bg-slate-800/60"}`}
+                                        className={`flex min-h-11 max-w-[16rem] items-center gap-2 rounded-full border py-1 pl-1 pr-3.5 text-left transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/70 ${highlightedPerson === index ? "border-rose-500/70 bg-slate-800/90" : "border-slate-700/70 bg-slate-950/35"}`}
                                     >
                                         {profileUrl ? (
                                             <img src={profileUrl} alt="" className="h-9 w-9 flex-shrink-0 rounded-full object-cover" />
@@ -999,8 +1011,9 @@ export default function MovieSearch({
                             key={movie.id}
                             role="row"
                             aria-selected={highlightedPerson === null && index === highlightedIndex}
+                            onMouseMove={() => highlightFromPointer(null, index)}
                             className={`flex items-center gap-2 rounded-2xl border border-slate-700/70 p-2 transition ${
-                                highlightedPerson === null && index === highlightedIndex ? "bg-slate-800/90 ring-1 ring-rose-800/40" : "bg-slate-950/35 hover:bg-slate-800/60"
+                                highlightedPerson === null && index === highlightedIndex ? "bg-slate-800/90 ring-1 ring-rose-800/40" : "bg-slate-950/35"
                             }`}
                         >
                             <div role="gridcell" className="min-w-0 flex-1">
