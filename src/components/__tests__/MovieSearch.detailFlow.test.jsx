@@ -57,7 +57,7 @@ describe("MovieSearch detail flow", () => {
     const onAddMovie = vi.fn(async () => {});
     render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={["Netflix"]} />);
 
-    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), { target: { value: "Movie A" } });
+    fireEvent.change(screen.getByPlaceholderText("Movie, actor or director"), { target: { value: "Movie A" } });
 
     await screen.findByText("Movie A");
     fireEvent.click(screen.getByRole("button", { name: "Details for Movie A" }));
@@ -108,7 +108,7 @@ describe("MovieSearch detail flow", () => {
     const onAddMovie = vi.fn(async () => ({ ok: true }));
 
     render(<MovieSearch onAddMovie={onAddMovie} />);
-    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
+    fireEvent.change(screen.getByPlaceholderText("Movie, actor or director"), {
       target: { value: "Movie A" },
     });
 
@@ -144,7 +144,7 @@ describe("MovieSearch detail flow", () => {
     const onAddMovie = vi.fn(async () => ({ ok: true }));
 
     render(<MovieSearch onAddMovie={onAddMovie} />);
-    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
+    fireEvent.change(screen.getByPlaceholderText("Movie, actor or director"), {
       target: { value: "Movie A" },
     });
 
@@ -184,7 +184,7 @@ describe("MovieSearch detail flow", () => {
     );
 
     render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={["Netflix"]} />);
-    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), { target: { value: "Movie A" } });
+    fireEvent.change(screen.getByPlaceholderText("Movie, actor or director"), { target: { value: "Movie A" } });
 
     await screen.findByText("Movie A");
     const addButton = screen.getByRole("button", { name: "Add Movie A" });
@@ -228,7 +228,7 @@ describe("MovieSearch detail flow", () => {
     }));
 
     render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={["Netflix"]} />);
-    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
+    fireEvent.change(screen.getByPlaceholderText("Movie, actor or director"), {
       target: { value: "Movie A" },
     });
 
@@ -267,7 +267,7 @@ describe("MovieSearch detail flow", () => {
     }));
 
     render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={["Netflix"]} />);
-    const searchInput = screen.getByPlaceholderText("Movie title or person");
+    const searchInput = screen.getByPlaceholderText("Movie, actor or director");
     fireEvent.change(searchInput, { target: { value: "Movie A" } });
 
     await screen.findByText("Movie A");

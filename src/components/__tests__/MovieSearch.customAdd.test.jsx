@@ -17,7 +17,7 @@ describe("MovieSearch custom add", () => {
     const onAddMovie = vi.fn(async () => {});
     render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={[]} />);
 
-    const input = screen.getByPlaceholderText("Movie title or person");
+    const input = screen.getByPlaceholderText("Movie, actor or director");
     fireEvent.change(input, { target: { value: "Wildcard" } });
 
     const addCustomButton = await screen.findByRole("button", { name: /add "wildcard"/i });

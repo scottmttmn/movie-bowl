@@ -27,7 +27,7 @@ afterEach(() => {
 
 function searchFor(term) {
   render(<MovieSearch onAddMovie={vi.fn()} userStreamingServices={[]} />);
-  fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
+  fireEvent.change(screen.getByPlaceholderText("Movie, actor or director"), {
     target: { value: term },
   });
 }

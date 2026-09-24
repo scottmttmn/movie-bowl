@@ -43,7 +43,7 @@ describe("MovieSearch search feedback", () => {
     );
 
     render(<MovieSearch onAddMovie={vi.fn(async () => ({ ok: true }))} />);
-    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
+    fireEvent.change(screen.getByPlaceholderText("Movie, actor or director"), {
       target: { value: "Movie" },
     });
 
@@ -69,7 +69,7 @@ describe("MovieSearch search feedback", () => {
     mocks.searchTmdbMovies.mockResolvedValue({ results: [] });
 
     render(<MovieSearch onAddMovie={vi.fn(async () => ({ ok: true }))} />);
-    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
+    fireEvent.change(screen.getByPlaceholderText("Movie, actor or director"), {
       target: { value: "Nothing" },
     });
 
@@ -86,7 +86,7 @@ describe("MovieSearch search feedback", () => {
     });
     render(<MovieSearch onAddMovie={vi.fn()} includeComment={false} />);
 
-    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
+    fireEvent.change(screen.getByPlaceholderText("Movie, actor or director"), {
       target: { value: "Movie A" },
     });
     await screen.findByText("Movie A");

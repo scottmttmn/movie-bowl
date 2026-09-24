@@ -772,7 +772,7 @@ export default function MovieSearch({
                         type="text"
                         value={isListening ? voiceTranscript : searchTerm}
                         readOnly={isListening}
-                        placeholder={isListening ? "Listening…" : "Movie title or person"}
+                        placeholder={isListening ? "Listening…" : "Movie, actor or director"}
                         className={`input-field w-full pl-10 ${isVoiceSupported ? "pr-[5.5rem]" : "pr-10"} ${isListening ? "border-rose-500 bg-rose-950/30 ring-2 ring-rose-500/20" : ""}`}
                         onFocus={onSearchFocus}
                         onChange={(e) => {

@@ -20,7 +20,7 @@ vi.mock("../../lib/streamingProviders", () => ({
 }));
 
 function type(term) {
-  fireEvent.change(screen.getByPlaceholderText("Movie title or person"), { target: { value: term } });
+  fireEvent.change(screen.getByPlaceholderText("Movie, actor or director"), { target: { value: term } });
 }
 
 describe("MovieSearch loading, empty and error states", () => {
@@ -106,7 +106,7 @@ describe("MovieSearch loading, empty and error states", () => {
     expect(alert).toHaveTextContent("Couldn't search right now");
     expect(alert).toHaveTextContent("Your search is still here.");
     expect(screen.queryByText(/no movie or person matches/i)).not.toBeInTheDocument();
-    expect(screen.getByPlaceholderText("Movie title or person")).toHaveValue("cast away");
+    expect(screen.getByPlaceholderText("Movie, actor or director")).toHaveValue("cast away");
 
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     expect(await screen.findByRole("button", { name: "Details for Cast Away" })).toBeInTheDocument();

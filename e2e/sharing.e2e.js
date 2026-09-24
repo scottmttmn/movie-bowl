@@ -74,7 +74,7 @@ test("a signed-out guest can consume a public add link without production servic
     page.getByRole("heading", { name: "Add movies to Public Smoke Bowl" })
   ).toBeVisible();
   await expect(page.getByLabel("Added by")).toHaveValue("Movie Night Guest");
-  await page.getByPlaceholder("Movie title or person").fill("Guest Pick");
+  await page.getByPlaceholder("Movie, actor or director").fill("Guest Pick");
   await page.getByRole("button", { name: 'Add "Guest Pick"' }).click();
 
   await expect(
@@ -110,7 +110,7 @@ test("a guest writes a comment in the movie's details, after choosing it", async
   backend.state.tmdbSearchResults = [{ id: 42, title: "The Feature", release_date: "2026-01-01" }];
 
   await page.goto("/add-to-bowl/public-token-comment");
-  await page.getByPlaceholder("Movie title or person").fill("Feature");
+  await page.getByPlaceholder("Movie, actor or director").fill("Feature");
   await expect(page.getByRole("button", { name: "Details for The Feature", exact: true })).toBeVisible();
   await expect(page.getByLabel("Comment (optional)")).toHaveCount(0);
 
@@ -159,7 +159,7 @@ test("a guest finds a movie through the person in it and adds from their list", 
   };
 
   await page.goto("/add-to-bowl/public-token-people");
-  await page.getByPlaceholder("Movie title or person").fill("tom han");
+  await page.getByPlaceholder("Movie, actor or director").fill("tom han");
   const person = page.getByRole("button", { name: "Show Tom Hanks’s movies" });
   await expect(person).toBeVisible();
   await expect(page.getByRole("button", { name: "Details for Hanky Panky" })).toBeVisible();
@@ -170,7 +170,7 @@ test("a guest finds a movie through the person in it and adds from their list", 
   if (!testInfo.project.name.startsWith("mobile")) {
     // A mouse click hands focus back to the field, so the arrow keys keep
     // working -- after choosing the person and after choosing a role.
-    const field = page.getByPlaceholder("Movie title or person");
+    const field = page.getByPlaceholder("Movie, actor or director");
     await expect(field).toBeFocused();
     await page.keyboard.press("ArrowDown");
     await expect(field).toHaveAttribute("aria-activedescendant", "movie-option-2280");
@@ -188,7 +188,7 @@ test("a guest finds a movie through the person in it and adds from their list", 
   ]);
 
   // Editing the query leaves the person for a fresh search.
-  await page.getByPlaceholder("Movie title or person").fill("tom hank");
+  await page.getByPlaceholder("Movie, actor or director").fill("tom hank");
   await expect(page.getByRole("button", { name: "Details for Hanky Panky" })).toBeVisible();
   await expect(page.getByText("Tom Hanks’s movies", { exact: true })).toHaveCount(0);
 });

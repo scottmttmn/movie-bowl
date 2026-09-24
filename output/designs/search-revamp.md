@@ -303,7 +303,9 @@ modal, watch-history entry -- keeps its add, retry and destination contracts.
 
 Everything else in this document, in the steps below. This is also where the
 voice prompt becomes "Say a title or someone in it", and the placeholder
-"Movie title or person", because only now is either true.
+"Movie, actor or director", because only now is either true. (It first
+shipped as "Movie title or person"; naming the two roles a person's movies
+are sorted into says what "person" means.)
 
 #### 1. Validate the match rule and the data
 
