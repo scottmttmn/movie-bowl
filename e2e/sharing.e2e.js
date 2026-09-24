@@ -175,7 +175,8 @@ test("a guest finds a movie through the person in it and adds from their list", 
     expect.objectContaining({ title: "Cast Away", tmdb_id: 8358, added_by_name: "Movie Night Guest" }),
   ]);
 
-  await page.getByRole("button", { name: "Change person" }).click();
+  // Editing the query leaves the person for a fresh search.
+  await page.getByPlaceholder("Movie title or person").fill("tom hank");
   await expect(page.getByRole("button", { name: "Details for Hanky Panky" })).toBeVisible();
-  await expect(page.getByPlaceholder("Movie title or person")).toHaveValue("tom han");
+  await expect(page.getByText("Tom Hanks’s movies", { exact: true })).toHaveCount(0);
 });

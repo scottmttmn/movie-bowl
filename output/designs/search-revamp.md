@@ -77,7 +77,8 @@ found, offline, voice) and a 640px desktop dialog. Sample data only.
 What they settle for the People row and a person's movies matches the
 sections below: above the movies, at most three, no Add, the three-part match
 rule (the prototype shows "tom han" matching, "big" not, and an obscure
-namesake held back by the popularity floor), Change person, the role switch
+namesake held back by the popularity floor), Change person (since removed;
+see "A person's movies"), the role switch
 only for both roles, opening on the role a person is known for, staying on
 their list after an add, and Back from Details naming where it returns to. On
 desktop the chips wrap instead of scrolling.
@@ -152,9 +153,11 @@ A person row has no Add action. People are navigation, never slips.
 
 ### A person's movies
 
-Choosing a person opens their movies under a small context header -- "Tom
-Hanks's movies" -- with **Change person** returning to the search, query and
-position intact. The movie rows are the ordinary ones, with Add and Details;
+Choosing a person opens their movies under a one-line header -- "Tom
+Hanks's movies", with the role switch beside it. There is no Change person
+control: the first build had one, and on a phone it crowded that header for
+what editing the query already does, since any edit leaves the person for a
+fresh search. The movie rows are the ordinary ones, with Add and Details;
 actor results may also show the character name.
 
 An **Acting · Directing** switch appears only when the person has feature
@@ -223,7 +226,8 @@ direct-to-video releases and uncredited appearances. Shorts are the one
 exception: movie credits carry no marker for them, only each title's runtime
 would, and a details request per credit is not worth it, so a short can
 appear. They are sorted popular first, then release date and movie ID as
-deterministic tie breakers, labelled "Popular first". Defer sort controls
+deterministic tie breakers. The first build labelled that order "Popular
+first"; the line went when the header was cut to one row. Defer sort controls
 until that default has been lived with. Keep title relevance unchanged. Never
 promote or hide movies by streaming availability: provider data arrives later
 and must not reorder a list underneath someone.
