@@ -127,6 +127,13 @@ describe("shared bowl add service", () => {
     expect(h.client.rpc).not.toHaveBeenCalledWith("claim_bowl_starter_pack_movie", expect.anything());
   });
 
+  it("never reports a claim made under a different account as this one's", async () => {
+    // The session switched after the last check; the database claimed as u9.
+    const h = packHarness((harnessState) => ({ data: { ...claimRow(harnessState), added_by: "u9" }, error: null }));
+    expect(await h.service.add(h.operation())).toMatchObject({ ok: false, code: "not_authenticated" });
+    expect(h.publish).not.toHaveBeenCalled();
+  });
+
   it("reports a claim someone else won as settled, not as a second copy", async () => {
     const h = packHarness(() => ({ data: null, error: { code: "P0001", message: "This movie is no longer in the starter pack." } }));
     expect(await h.service.add(h.operation())).toMatchObject({ ok: false, code: "claim_lost" });

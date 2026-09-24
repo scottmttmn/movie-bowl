@@ -123,6 +123,12 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
     }
     if (!response.error) {
       const row = Array.isArray(response.data) ? response.data[0] : response.data;
+      // The RPC claims as whoever holds the session when it runs, which the
+      // check above cannot pin down: an account switch in between would
+      // claim for the other account. Never report that as this one's add.
+      if (row?.id && row.added_by !== accountId) {
+        return addResult(false, "not_authenticated", "The signed-in account changed while this was being added.");
+      }
       if (row?.id) return claimed(row);
     }
 
