@@ -425,6 +425,23 @@ describe("MovieSearch people", () => {
       expect(rows.map((row) => row.id)).toEqual(["movie-option-800", "movie-option-524"]);
     });
 
+    it("keeps what the search found when the suggested search fails", async () => {
+      const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
+      const casino = { id: 524, title: "Casino", release_date: "1995-11-22" };
+      mocks.searchTmdbMovies.mockImplementation(async (query) => {
+        if (query === "scor") throw new Error("Failed to fetch TMDB search results");
+        return { page: 1, totalPages: 1, totalResults: 1, results: [casino] };
+      });
+      mocks.suggestTmdbQuery.mockResolvedValue("scor");
+      render(<MovieSearch onAddMovie={vi.fn()} />);
+      type("scorcese");
+
+      expect(await screen.findByRole("button", { name: "Details for Casino" })).toBeInTheDocument();
+      expect(screen.queryByText(/couldn't search/i)).not.toBeInTheDocument();
+      expect(screen.queryByText(/Showing results for/)).not.toBeInTheDocument();
+      warn.mockRestore();
+    });
+
     it("leaves a real answer spelled differently alone", async () => {
       mocks.searchTmdbMovies.mockResolvedValue({
         page: 1, totalPages: 3, totalResults: 45,

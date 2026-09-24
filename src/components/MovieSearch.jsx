@@ -294,12 +294,19 @@ export default function MovieSearch({
                     const suggestion = await suggestTmdbQuery(trimmedQuery);
                     if (requestId !== latestRequestRef.current) return;
                     if (suggestion && suggestion.toLowerCase() !== trimmedQuery.toLowerCase()) {
-                        setResultsQuery({ query: suggestion, correctedFrom: trimmedQuery });
                         peopleSettled = searchPeople(suggestion);
-                        const strays = data.results || [];
-                        data = await searchTmdbMovies(suggestion, { page: 1 });
-                        if (requestId !== latestRequestRef.current) return;
-                        data = { ...data, results: appendUniqueMovies(data.results || [], strays) };
+                        try {
+                            const corrected = await searchTmdbMovies(suggestion, { page: 1 });
+                            if (requestId !== latestRequestRef.current) return;
+                            setResultsQuery({ query: suggestion, correctedFrom: trimmedQuery });
+                            data = { ...corrected, results: appendUniqueMovies(corrected.results || [], data.results || []) };
+                        } catch (error) {
+                            // The search that was asked for did succeed; a
+                            // suggestion that fails is only a suggestion not made.
+                            if (requestId !== latestRequestRef.current) return;
+                            console.warn("[MovieSearch] Suggested search failed", error);
+                            peopleSettled = null;
+                        }
                     }
                 }
             }
