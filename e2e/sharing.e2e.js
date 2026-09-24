@@ -129,7 +129,7 @@ test("a guest writes a comment in the movie's details, after choosing it", async
   ]);
 });
 
-test("a guest finds a movie through the person in it and adds from their list", async ({ page, backend }) => {
+test("a guest finds a movie through the person in it and adds from their list", async ({ page, backend }, testInfo) => {
   backend.state.bowls.push({
     id: "bowl-public",
     name: "Public Smoke Bowl",
@@ -167,6 +167,18 @@ test("a guest finds a movie through the person in it and adds from their list", 
   await person.click();
   await expect(page.getByText("Tom Hanks’s movies", { exact: true })).toBeVisible();
   await expect(page.getByRole("tab", { name: "Acting" })).toHaveAttribute("aria-selected", "true");
+  if (!testInfo.project.name.startsWith("mobile")) {
+    // A mouse click hands focus back to the field, so the arrow keys keep
+    // working -- after choosing the person and after choosing a role.
+    const field = page.getByPlaceholder("Movie title or person");
+    await expect(field).toBeFocused();
+    await page.keyboard.press("ArrowDown");
+    await expect(field).toHaveAttribute("aria-activedescendant", "movie-option-2280");
+    await page.getByRole("tab", { name: "Directing" }).click();
+    await expect(field).toBeFocused();
+    await expect(field).toHaveAttribute("aria-activedescendant", "movie-option-9591");
+    await page.getByRole("tab", { name: "Acting" }).click();
+  }
   await page.getByRole("button", { name: "Add Cast Away" }).click();
 
   await expect(page.getByText("Movie added as Movie Night Guest. 1 add remaining.")).toBeVisible();

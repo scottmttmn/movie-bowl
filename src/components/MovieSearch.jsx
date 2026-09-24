@@ -398,7 +398,25 @@ export default function MovieSearch({
     // There is no way back to the title results but the field: editing the
     // query leaves the person, and a control for the same thing only crowded
     // a header that has a phone's width to work with.
+    // The arrow keys and Enter live on the field, so a click that leaves focus
+    // on a chip or tab -- or on nothing, once the chip it was on is gone --
+    // leaves them doing nothing. With a mouse or trackpad the click hands focus
+    // back. A tap does not: focusing the field on a phone raises the keyboard
+    // over the list that was just opened.
+    const returnFocusToField = () => {
+        if (window.matchMedia?.("(pointer: fine)")?.matches) {
+            setFocusRequest((request) => request + 1);
+        }
+    };
+
+    const switchRole = (roleName) => {
+        discovery.chooseRole(roleName);
+        setHighlightedIndex(0);
+        if (gridRef.current) gridRef.current.scrollTop = 0;
+    };
+
     const showPerson = (person) => {
+        returnFocusToField();
         setHighlightedPerson(null);
         setHighlightedIndex(0);
         setSearchError(null);
@@ -866,11 +884,28 @@ export default function MovieSearch({
                                     role="tab"
                                     aria-selected={discovery.role === roleName}
                                     aria-controls="movie-search-listbox"
+                                    tabIndex={discovery.role === roleName ? 0 : -1}
                                     onClick={() => {
-                                        discovery.chooseRole(roleName);
-                                        setHighlightedIndex(0);
-                                        if (gridRef.current) gridRef.current.scrollTop = 0;
+                                        switchRole(roleName);
+                                        returnFocusToField();
                                     }}
+                                    onKeyDown={(event) => {
+                                        // Left and right move between the roles, as tabs do;
+                                        // up and down leave the switch for the list, so a
+                                        // D-pad that lands here is never stuck on it.
+                                        if (event.key === "ArrowLeft" || event.key === "ArrowRight") {
+                                            event.preventDefault();
+                                            const other = discovery.roles.find((name) => name !== roleName);
+                                            if (!other) return;
+                                            switchRole(other);
+                                            event.currentTarget.parentElement
+                                                ?.querySelector(`[data-role="${other}"]`)?.focus();
+                                        } else if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                                            event.preventDefault();
+                                            inputRef.current?.focus();
+                                        }
+                                    }}
+                                    data-role={roleName}
                                     className={`min-h-8 rounded-full px-3 text-xs font-semibold transition ${discovery.role === roleName ? "bg-rose-600/25 text-rose-100" : "text-slate-400 hover:text-slate-200"}`}
                                 >
                                     {roleName === "acting" ? "Acting" : "Directing"}

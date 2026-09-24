@@ -164,6 +164,68 @@ describe("MovieSearch people", () => {
     expect(onAddMovie.mock.calls[0][0]).toEqual(expect.objectContaining({ title: "Hanky Panky" }));
   });
 
+  it("keeps the arrow keys working after a person is clicked with a mouse", async () => {
+    const matchMedia = vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
+      matches: query === "(pointer: fine)",
+      media: query,
+    }));
+    await searchWithPeople();
+    // A real click moves focus to what was clicked; fireEvent does not.
+    const person = screen.getByRole("button", { name: "Show Tom Hanks’s movies" });
+    person.focus();
+    fireEvent.click(person);
+    await screen.findByRole("button", { name: "Details for Cast Away" });
+
+    const field = screen.getByRole("combobox");
+    await waitFor(() => expect(field).toHaveFocus());
+    expect(field).toHaveAttribute("aria-activedescendant", "movie-option-1");
+    fireEvent.keyDown(field, { key: "ArrowDown" });
+    expect(field).toHaveAttribute("aria-activedescendant", "movie-option-2");
+
+    const directing = screen.getByRole("tab", { name: "Directing" });
+    directing.focus();
+    fireEvent.click(directing);
+    await waitFor(() => expect(field).toHaveFocus());
+    expect(field).toHaveAttribute("aria-activedescendant", "movie-option-3");
+    matchMedia.mockRestore();
+  });
+
+  it("moves between roles with left and right, and back to the list with up or down", async () => {
+    await searchWithPeople();
+    fireEvent.click(screen.getByRole("button", { name: "Show Tom Hanks’s movies" }));
+    await screen.findByRole("button", { name: "Details for Cast Away" });
+    const acting = screen.getByRole("tab", { name: "Acting" });
+    expect(acting).toHaveAttribute("tabindex", "0");
+    expect(screen.getByRole("tab", { name: "Directing" })).toHaveAttribute("tabindex", "-1");
+    acting.focus();
+
+    fireEvent.keyDown(acting, { key: "ArrowRight" });
+    const directing = screen.getByRole("tab", { name: "Directing" });
+    expect(directing).toHaveAttribute("aria-selected", "true");
+    expect(directing).toHaveFocus();
+    expect(screen.getByRole("button", { name: "Details for That Thing You Do!" })).toBeInTheDocument();
+
+    fireEvent.keyDown(directing, { key: "ArrowDown" });
+    const field = screen.getByRole("combobox");
+    expect(field).toHaveFocus();
+    expect(field).toHaveAttribute("aria-activedescendant", "movie-option-3");
+  });
+
+  it("does not raise a phone's keyboard when a person is tapped", async () => {
+    const matchMedia = vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
+      matches: false,
+      media: query,
+    }));
+    await searchWithPeople();
+    const person = screen.getByRole("button", { name: "Show Tom Hanks’s movies" });
+    person.focus();
+    fireEvent.click(person);
+    await screen.findByRole("button", { name: "Details for Cast Away" });
+
+    expect(screen.getByRole("combobox")).not.toHaveFocus();
+    matchMedia.mockRestore();
+  });
+
   it("opens a person on the role they are known for, with a switch only for both roles", async () => {
     await searchWithPeople();
     fireEvent.click(screen.getByRole("button", { name: "Show Tom Hanks’s movies" }));
