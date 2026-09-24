@@ -111,7 +111,7 @@ vi.mock("../../hooks/useBowl", () => ({
     return {
       bowl: mocks.state.bowlData,
       isLoading: mocks.state.bowlIsLoading,
-      errorMessage: null,
+      errorMessage: mocks.state.bowlErrorMessage ?? null,
       handleDraw: mocks.state.handleDraw,
       handleAddMovie: mocks.state.handleAddMovie,
       handleUpdateMovieNote: mocks.state.handleUpdateMovieNote,
@@ -178,6 +178,7 @@ describe("BowlDashboard guards", () => {
     mocks.state.heldBowlRow = null;
     mocks.state.bowlIsLoading = false;
     mocks.state.useBowlOptions = null;
+    mocks.state.bowlErrorMessage = null;
     mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
     mocks.state.drawPermissionRows = [];
     mocks.state.bowlData = {
@@ -700,6 +701,15 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     fireEvent.click(await screen.findByRole("button", { name: "Start with a starter pack" }));
     expect(mocks.state.navigate).toHaveBeenCalledWith(`/bowl/${mocks.state.bowlId}/settings#starter-pack`);
+  });
+
+  it("does not call a bowl empty when its movies failed to load", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = { remaining: [], watched: [] };
+    mocks.state.bowlErrorMessage = "Unexpected error loading bowl movies.";
+    renderDashboard();
+    expect(await screen.findByText("Unexpected error loading bowl movies.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Start with a starter pack" })).not.toBeInTheDocument();
   });
 
   it("offers a starter pack to no one else, and not once the bowl has titles", async () => {

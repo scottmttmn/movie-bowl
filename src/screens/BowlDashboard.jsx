@@ -1069,8 +1069,10 @@ return (
 
                 {/* The one place a starter pack is offered rather than found:
                     an empty bowl cannot draw, and the owner is the one who can
-                    install a pack. */}
-                {!isFirstLoad && isCurrentUserOwner && bowl.remaining.length === 0 && (
+                    install a pack. Only once the bowl has actually loaded --
+                    a failed read also leaves the list empty, and that bowl
+                    is unknown, not empty. */}
+                {!isFirstLoad && !errorMessage && isCurrentUserOwner && bowl.remaining.length === 0 && (
                   <p className="mt-3 text-center text-sm text-slate-400">
                     Nothing to draw yet.{" "}
                     <button
