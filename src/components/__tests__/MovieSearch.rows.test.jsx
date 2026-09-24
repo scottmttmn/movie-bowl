@@ -30,7 +30,7 @@ const providerResult = (providers, status = "ready") => ({
 async function search(term, results, { userStreamingServices = [], onAddMovie = vi.fn() } = {}) {
   mocks.searchTmdbMovies.mockResolvedValue({ page: 1, totalPages: 1, totalResults: results.length, results });
   render(<MovieSearch onAddMovie={onAddMovie} userStreamingServices={userStreamingServices} />);
-  fireEvent.change(screen.getByPlaceholderText("Movie title or person"), { target: { value: term } });
+  fireEvent.change(screen.getByPlaceholderText("Movie, actor or director"), { target: { value: term } });
   await screen.findByRole("button", { name: `Details for ${results[0].title}` });
   return { onAddMovie };
 }

@@ -122,7 +122,7 @@ describe("MovieSearch voice input", () => {
     expect(screen.getByText('Searching for "Jaws"...')).toBeInTheDocument();
     expect(await screen.findByText("Jaws")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add Jaws" }));
-    await waitFor(() => expect(screen.getByPlaceholderText("Movie title or person")).toHaveValue(""));
+    await waitFor(() => expect(screen.getByPlaceholderText("Movie, actor or director")).toHaveValue(""));
     expect(screen.queryByText('Searching for "Jaws"...')).not.toBeInTheDocument();
   });
 
@@ -158,7 +158,7 @@ describe("MovieSearch voice input", () => {
       results: [{ id: 101, title: "Jaws", release_date: "1975-06-20" }],
     });
     render(<MovieSearch onAddMovie={vi.fn()} userStreamingServices={[]} />);
-    const field = screen.getByPlaceholderText("Movie title or person");
+    const field = screen.getByPlaceholderText("Movie, actor or director");
     fireEvent.change(field, { target: { value: "Jaws" } });
     await waitFor(() => expect(mocks.searchTmdbMovies).toHaveBeenCalledWith("Jaws", { page: 1 }));
 
@@ -282,7 +282,7 @@ describe("MovieSearch voice input", () => {
     });
     // The field is read-only while listening; an error hands it back even if
     // the browser never follows up with onend.
-    expect(screen.getByPlaceholderText("Movie title or person")).not.toHaveAttribute("readonly");
+    expect(screen.getByPlaceholderText("Movie, actor or director")).not.toHaveAttribute("readonly");
   });
 
   it("stops recognition when the component unmounts", () => {

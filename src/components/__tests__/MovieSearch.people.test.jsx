@@ -61,7 +61,7 @@ function pointerClick(element, pointerType) {
 }
 
 function type(term) {
-  fireEvent.change(screen.getByPlaceholderText("Movie title or person"), { target: { value: term } });
+  fireEvent.change(screen.getByPlaceholderText("Movie, actor or director"), { target: { value: term } });
 }
 
 async function searchWithPeople({ onAddMovie = vi.fn(async () => ({ ok: true })), props = {} } = {}) {

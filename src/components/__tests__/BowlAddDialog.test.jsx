@@ -32,14 +32,14 @@ afterEach(cleanup);
 async function open() {
   render(<MemoryRouter><BowlAddProvider><Harness /></BowlAddProvider></MemoryRouter>);
   fireEvent.click(screen.getByRole("button", { name: "Open add" }));
-  await screen.findByPlaceholderText("Movie title or person");
+  await screen.findByPlaceholderText("Movie, actor or director");
 }
 async function addMovie(title) {
-  fireEvent.change(screen.getByPlaceholderText("Movie title or person"), { target: { value: title } });
+  fireEvent.change(screen.getByPlaceholderText("Movie, actor or director"), { target: { value: title } });
   fireEvent.click(await screen.findByRole("button", { name: `Add "${title}"`, exact: true }));
   await waitFor(() => expect(screen.getAllByRole("status").some((node) =>
     node.textContent.includes(`Added ${title} to`))).toBe(true));
-  await waitFor(() => expect(screen.getByPlaceholderText("Movie title or person")).toHaveValue(""));
+  await waitFor(() => expect(screen.getByPlaceholderText("Movie, actor or director")).toHaveValue(""));
 }
 async function openSession() {
   fireEvent.click(screen.getByRole("button", { name: /Added this session/ }));
@@ -68,7 +68,7 @@ describe("add dialog session list", () => {
     expect(document.documentElement.style.overflow).toBe("");
     expect(document.querySelector(".app-shell").inert).not.toBe(true);
     fireEvent.click(screen.getByRole("button", { name: "Open add" }));
-    await screen.findByPlaceholderText("Movie title or person");
+    await screen.findByPlaceholderText("Movie, actor or director");
     fireEvent.click(screen.getByTestId("navigate-away"));
     await waitFor(() => expect(screen.queryByRole("dialog", { name: "Add a movie" })).not.toBeInTheDocument());
     expect(document.body.style.position).toBe("");
@@ -85,7 +85,7 @@ describe("add dialog session list", () => {
     expect(backButton).toHaveAttribute("aria-pressed", "true");
     expect(backButton).toHaveTextContent(/^Back to search$/);
     expect(screen.getByRole("button", { name: "Add comment for First movie" })).toBeVisible();
-    fireEvent.focus(screen.getByPlaceholderText("Movie title or person"));
+    fireEvent.focus(screen.getByPlaceholderText("Movie, actor or director"));
     expect(screen.queryByRole("list", { name: "Movies added this session" })).not.toBeInTheDocument();
   });
 
@@ -130,13 +130,13 @@ describe("add dialog session list", () => {
     fireEvent.click(within(rows[1]).getByRole("button", { name: "Remove First movie from Friday Night" }));
     fireEvent.click(screen.getByRole("button", { name: "Remove from bowl", exact: true }));
     await waitFor(() => expect(screen.queryByRole("list", { name: "Movies added this session" })).not.toBeInTheDocument());
-    expect(screen.getByPlaceholderText("Movie title or person")).toHaveFocus();
+    expect(screen.getByPlaceholderText("Movie, actor or director")).toHaveFocus();
     const updatedList = await openSession();
     expect(within(updatedList).getAllByRole("listitem")).toHaveLength(1);
     expect(mocks.remove).toHaveBeenCalledWith(expect.objectContaining({ bowlId: "a", accountId: "user" }));
     fireEvent.click(screen.getByRole("button", { name: "Close add movie" }));
     fireEvent.click(screen.getByRole("button", { name: "Open add" }));
-    await screen.findByPlaceholderText("Movie title or person");
+    await screen.findByPlaceholderText("Movie, actor or director");
     expect(screen.queryByRole("list", { name: "Movies added this session" })).not.toBeInTheDocument();
   });
 

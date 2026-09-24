@@ -61,7 +61,7 @@ describe("MovieSearch pagination and identity", () => {
       });
 
     render(<MovieSearch onAddMovie={vi.fn()} />);
-    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
+    fireEvent.change(screen.getByPlaceholderText("Movie, actor or director"), {
       target: { value: "Movie" },
     });
 
@@ -89,7 +89,7 @@ describe("MovieSearch pagination and identity", () => {
       .mockRejectedValueOnce(new Error("Page unavailable"));
 
     render(<MovieSearch onAddMovie={vi.fn()} />);
-    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
+    fireEvent.change(screen.getByPlaceholderText("Movie, actor or director"), {
       target: { value: "Movie" },
     });
 
@@ -120,7 +120,7 @@ describe("MovieSearch pagination and identity", () => {
     });
 
     render(<MovieSearch onAddMovie={vi.fn()} />);
-    fireEvent.change(screen.getByPlaceholderText("Movie title or person"), {
+    fireEvent.change(screen.getByPlaceholderText("Movie, actor or director"), {
       target: { value: "Movie" },
     });
 
