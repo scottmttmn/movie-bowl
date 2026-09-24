@@ -1,7 +1,9 @@
 # Starter Packs
 
-Status: design settled September 23, 2026; nothing is implemented and nothing
-is scheduled. The behavior below is decided, and the open questions the first
+Status: design settled September 23, 2026; in progress. Step 1 of "Sketch of
+the Work" is built -- the pack definitions and Best Picture list in
+`src/utils/starterPacks.js` and the live resolver at
+`/api/starter-packs/candidates` -- and nothing a person can see exists yet. The behavior below is decided, and the open questions the first
 draft carried are closed except the one under "Still Open": whether the reveal
 holds up in a real bowl.
 

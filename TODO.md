@@ -154,7 +154,8 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 - Starter packs: let an owner pour a named curated list into a bowl so a new
   bowl can reach its first draw without six people running six searches.
-  **Design settled September 23, 2026; not built.** The pack's titles are
+  **Design settled September 23, 2026; step 1 of 4 built** (pack definitions
+  and the live candidate resolver; nothing visible yet). The pack's titles are
   shared slips in every person's pile, so it never takes a turn, behaves like
   any title under `title_first`, and fades as people add their own. One pack
   per bowl, at most 15 undrawn titles from it, owner-only install and removal.

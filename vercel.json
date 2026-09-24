@@ -38,6 +38,10 @@
       "destination": "/api/movie-cache?action=warm-filter-metadata"
     },
     {
+      "source": "/api/starter-packs/candidates",
+      "destination": "/api/movie-cache?action=starter-pack-candidates"
+    },
+    {
       "source": "/voice-probe/privacy",
       "destination": "/index.html"
     },

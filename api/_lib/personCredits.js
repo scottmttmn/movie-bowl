@@ -42,6 +42,9 @@ function toMovie(credit, extra = {}) {
     poster_path: credit.poster_path || null,
     overview: credit.overview || null,
     popularity: Number(credit.popularity) || 0,
+    // Not used by search; starter packs filter on them (src/utils/starterPacks.js).
+    vote_count: Number(credit.vote_count) || 0,
+    genre_ids: Array.isArray(credit.genre_ids) ? credit.genre_ids : [],
     ...extra,
   };
 }
@@ -54,13 +57,17 @@ export function normalizePersonMovieCredits(credits) {
     const existing = acting.get(id);
     // One movie can list the same person twice (two characters); keep one row
     // and every name they played.
+    const billing = Number.isInteger(credit.order) ? credit.order : null;
     if (existing) {
       if (credit.character && !existing.characters.includes(credit.character)) {
         existing.characters.push(credit.character);
       }
+      if (billing !== null && (existing.billing === null || billing < existing.billing)) existing.billing = billing;
       continue;
     }
-    acting.set(id, toMovie(credit, { characters: credit.character ? [credit.character] : [] }));
+    // Billing is TMDB's cast order, 0 for the lead; the best of a person's
+    // entries in one movie is the one that counts.
+    acting.set(id, toMovie(credit, { characters: credit.character ? [credit.character] : [], billing }));
   }
 
   const directing = new Map();
