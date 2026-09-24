@@ -241,6 +241,24 @@ describe("movie strip components", () => {
     expect(screen.queryByRole("button", { name: /pin "movie"/i })).not.toBeInTheDocument();
   });
 
+  it("labels a watched starter pack pick with its pack", () => {
+    render(
+      <WatchedMovieCard
+        movie={{
+          id: "w2",
+          title: "Memento",
+          poster_path: "/memento.jpg",
+          added_by: null,
+          added_by_name: "Nolan: The '00s",
+          starter_pack: "nolan-2000s",
+        }}
+      />
+    );
+
+    expect(screen.getByRole("img", { name: "From the Nolan: The '00s pack" }))
+      .toHaveAttribute("title", "From the Nolan: The '00s pack");
+  });
+
   it("renders WatchedMovieCard and forwards click", () => {
     const onClick = vi.fn();
     render(

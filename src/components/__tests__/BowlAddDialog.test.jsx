@@ -47,6 +47,16 @@ async function openSession() {
 }
 
 describe("add dialog session list", () => {
+  it("says so when an add claimed a starter pack title, since the bowl's count does not move", async () => {
+    const message = "Added Halloween — it was in the Carpenter: The '70s pack, now it's yours.";
+    mocks.add.mockImplementationOnce(async (op) => ({ ok: true, code: "claimed_from_pack", message,
+      movie: { ...op.movie, id: "slip", note: null } }));
+    await open();
+    fireEvent.change(screen.getByPlaceholderText("Movie, actor or director"), { target: { value: "Halloween" } });
+    fireEvent.click(await screen.findByRole("button", { name: 'Add "Halloween"', exact: true }));
+    await waitFor(() => expect(screen.getAllByRole("status").some((node) => node.textContent === message)).toBe(true));
+  });
+
   it("locks the document without showing a redundant visible title", async () => {
     await open();
     expect(document.documentElement.style.overflow).toBe("hidden");

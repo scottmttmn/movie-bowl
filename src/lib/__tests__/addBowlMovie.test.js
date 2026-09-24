@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 vi.mock("../supabase", () => ({ supabase: {} }));
-import { createBowlMovieService } from "../addBowlMovie";
+import { createBowlMovieService, getDuplicateMovieMessage } from "../addBowlMovie";
 
 function harness() {
   const state = { user: "u1", bowls: [{ id: "a" }, { id: "b" }], rows: [], readError: null };
@@ -65,6 +65,43 @@ describe("shared bowl add service", () => {
   it("preserves duplicate attribution and does not insert", async () => {
     const h = harness(); h.state.rows = [{ id: "row", tmdb_id: 101, bowl_id: "a", added_by: "u2" }];
     expect(await h.service.add(h.operation())).toMatchObject({ ok: false, code: "duplicate_movie", message: expect.stringContaining("Friend added it") });
+    expect(h.insert).not.toHaveBeenCalled();
+  });
+  // A starter pack title belongs to nobody. Adding it makes it yours, in place.
+  it("claims a starter pack slip instead of reporting a duplicate, and skips the warm", async () => {
+    const warmProviders = vi.fn(); const warmMetadata = vi.fn();
+    const h = harness();
+    const service = createBowlMovieService({ client: h.client, publish: h.publish, offline: h.offline, warmProviders, warmMetadata });
+    h.state.rows = [{ id: "slip", tmdb_id: 101, bowl_id: "a", added_by: null, added_by_name: "Spielberg: The '80s", starter_pack: "spielberg-1980s" }];
+    const claimed = { id: "slip", tmdb_id: 101, bowl_id: "a", added_by: "u1", added_by_name: null, starter_pack: null, note: "Saw it as a kid" };
+    const defaultRpc = h.client.rpc.getMockImplementation();
+    h.client.rpc.mockImplementation(async (name, params) => (name === "claim_bowl_starter_pack_movie"
+      ? { data: claimed, error: null } : defaultRpc(name, params)));
+
+    const result = await service.add(h.operation({ id: 101, title: "Movie", note: "  Saw it as a kid " }));
+
+    expect(result).toMatchObject({
+      ok: true,
+      code: "claimed_from_pack",
+      message: "Added Movie — it was in the Spielberg: The '80s pack, now it's yours.",
+      movie: expect.objectContaining({ id: "slip", added_by: "u1" }),
+    });
+    expect(h.client.rpc).toHaveBeenCalledWith("claim_bowl_starter_pack_movie", {
+      p_bowl_id: "a", p_tmdb_id: 101, p_note: "Saw it as a kid",
+    });
+    expect(h.insert).not.toHaveBeenCalled();
+    expect(h.publish).toHaveBeenCalledWith(expect.objectContaining({ type: "add", phase: "success", submissionId: "slip" }));
+    expect(warmProviders).not.toHaveBeenCalled();
+    expect(warmMetadata).not.toHaveBeenCalled();
+  });
+  it("reports a lost claim as a failure rather than a duplicate or a second copy", async () => {
+    const h = harness();
+    h.state.rows = [{ id: "slip", tmdb_id: 101, bowl_id: "a", added_by: null, added_by_name: "Pack", starter_pack: "nolan-2000s" }];
+    const defaultRpc = h.client.rpc.getMockImplementation();
+    h.client.rpc.mockImplementation(async (name, params) => (name === "claim_bowl_starter_pack_movie"
+      ? { data: null, error: { code: "P0001", message: "This movie is no longer in the starter pack." } }
+      : defaultRpc(name, params)));
+    expect(await h.service.add(h.operation())).toMatchObject({ ok: false, code: "add_failed" });
     expect(h.insert).not.toHaveBeenCalled();
   });
   it("keeps comment validation and allows separate repeated custom additions", async () => {
@@ -166,5 +203,12 @@ describe("shared bowl add service", () => {
     expect(await h.service.add(h.operation({ id: 101, title: "Movie" }, "b"))).toMatchObject({ ok: true });
     complete(); expect(await first).toMatchObject({ ok: true });
     expect(h.insert).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("getDuplicateMovieMessage", () => {
+  it("says a title is in the pack rather than crediting the pack with a turn", () => {
+    expect(getDuplicateMovieMessage({ title: "Memento" }, { added_by: null, added_by_name: "Nolan: The '00s", starter_pack: "nolan-2000s" }))
+      .toBe("\"Memento\" is already in the bowl, in the Nolan: The '00s pack, so it can come up on anyone's turn.");
   });
 });

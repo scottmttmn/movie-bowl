@@ -4,7 +4,7 @@ import { warmTmdbMovieFilterMetadata } from "./tmdbApi";
 import { notifyBowlChange } from "./bowlChanges";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { getMovieNoteValidationError, normalizeMovieNote } from "../utils/movieNote";
-import { getMovieAttributionLabel } from "../utils/drawBuckets";
+import { getMovieAttributionLabel, isStarterPackMovie } from "../utils/drawBuckets";
 import { OFFLINE_MESSAGE, describeNetworkError, isOffline } from "../utils/networkErrors";
 
 export const BOWL_MOVIE_FIELDS = "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, is_pinned, added_by, added_by_name, starter_pack, added_at, drawn_at, drawn_by, snapshot_at";
@@ -31,6 +31,9 @@ export function isDuplicateMovieError(error) {
 }
 export function getDuplicateMovieMessage(movie, existingMovie) {
   const contributor = getMovieAttributionLabel(existingMovie);
+  if (movie?.title && contributor && isStarterPackMovie(existingMovie)) {
+    return `"${movie.title.trim()}" is already in the bowl, in the ${contributor} pack, so it can come up on anyone's turn.`;
+  }
   return movie?.title && contributor
     ? `"${movie.title.trim()}" is already in the bowl — ${contributor} added it, so it can come up on their turn.`
     : "This movie is already in the bowl.";
@@ -136,6 +139,25 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
         return addResult(false, "limit_reached", `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`);
       }
       existingMovie = tmdbId && (remaining || []).find((row) => getPositiveTmdbId(row) === tmdbId);
+      // Adding a title that is sitting in the bowl's starter pack claims it:
+      // the slip becomes this person's, in place, so the bowl keeps one copy
+      // and they can pin it. The count does not move, so the message says why.
+      if (existingMovie && isStarterPackMovie(existingMovie)) {
+        const { data: claimedRow, error: claimError } = await client.rpc("claim_bowl_starter_pack_movie", {
+          p_bowl_id: bowlId, p_tmdb_id: tmdbId, p_note: normalizeMovieNote(movie.note),
+        });
+        if (claimError) throw claimError;
+        const claimedMovie = Array.isArray(claimedRow) ? claimedRow[0] : claimedRow;
+        result = {
+          ...addResult(true, "claimed_from_pack",
+            `Added ${movie.title} — it was in the ${getMovieAttributionLabel(existingMovie)} pack, now it's yours.`),
+          movie: { ...claimedMovie, local_status: null, local_temp_id: null },
+        };
+        publish({ type: "add", phase: "success", userId: accountId, bowlId, submissionId: claimedMovie?.id, movie: result.movie });
+        // No warm: a pack title was never an ordinary add, and claiming one
+        // must not spend the provider budget installs are kept off.
+        return result;
+      }
       if (existingMovie) {
         const { data: profiles } = await client.rpc("get_bowl_profile_directory", { p_bowl_id: bowlId });
         const profile = profiles?.find((row) => row.user_id === existingMovie.added_by);

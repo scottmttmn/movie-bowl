@@ -44,6 +44,14 @@ export function getMovieAttributionLabel(movie) {
     : null;
 }
 
+// How a title's source is said wherever a person would be named. A pack pick
+// has no person and no comment, so the pack's name stands where theirs would.
+export function getMovieAttributionLine(movie) {
+  const label = getMovieAttributionLabel(movie);
+  if (!label) return null;
+  return isStarterPackMovie(movie) ? `From the ${label} pack` : `Added by ${label}`;
+}
+
 export function getMovieAttributionAccent(movie) {
   const contributorName = String(movie?.added_by_name || "").trim();
   const contributorKey = contributorName

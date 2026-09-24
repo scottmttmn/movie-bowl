@@ -4,6 +4,7 @@ import {
   isStarterPackMovie,
   getMovieAttributionAccent,
   getMovieAttributionLabel,
+  getMovieAttributionLine,
 } from "../drawBuckets";
 
 describe("drawBuckets", () => {
@@ -17,6 +18,9 @@ describe("drawBuckets", () => {
     expect(getContributorBucketKey(namesake)).toBe("guest:nolan: the '00s");
     // The reveal names the pack where it would name a person.
     expect(getMovieAttributionLabel(packSlip)).toBe("Nolan: The '00s");
+    expect(getMovieAttributionLine(packSlip)).toBe("From the Nolan: The '00s pack");
+    expect(getMovieAttributionLine(namesake)).toBe("Added by Nolan: The '00s");
+    expect(getMovieAttributionLine({ added_by: null })).toBeNull();
   });
 
   it("uses added_by for bucket identity and added_by_name for movie attribution", () => {

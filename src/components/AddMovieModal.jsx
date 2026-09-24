@@ -8,7 +8,7 @@ import AvailabilityAttribution from "./AvailabilityAttribution";
 import MoviePosterPin from "./MoviePosterPin";
 import ServiceLogo from "./ServiceLogo";
 import TrailerEmbed from "./TrailerEmbed";
-import { getMovieAttributionLabel } from "../utils/drawBuckets";
+import { getMovieAttributionLabel, isStarterPackMovie } from "../utils/drawBuckets";
 import { getMovieReleaseStatus } from "../utils/movieReleaseStatus";
 import {
   MAX_MOVIE_NOTE_LENGTH,
@@ -345,7 +345,15 @@ export default function AddMovieModal({
                 )}
                 {addedByLabel && (
                   <p className="mt-3 break-words text-sm text-slate-400">
-                    <span>Added by</span>{" "}<span className="text-slate-200">{addedByLabel}</span>
+                    {isStarterPackMovie(movie) ? (
+                      <>
+                        <span>From the</span>{" "}<span className="text-slate-200">{addedByLabel}</span>{" "}<span>pack</span>
+                      </>
+                    ) : (
+                      <>
+                        <span>Added by</span>{" "}<span className="text-slate-200">{addedByLabel}</span>
+                      </>
+                    )}
                   </p>
                 )}
                 {watchedDateLabel && <p className="mt-2 text-sm text-slate-400">Watched on: {watchedDateLabel}</p>}
