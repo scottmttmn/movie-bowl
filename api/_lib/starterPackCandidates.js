@@ -154,16 +154,18 @@ export async function starterPackPeople(req, res) {
       return;
     }
 
+    // Never kept by the browser: this instance already keeps the answer for a
+    // day and the app asks once a session, and a browser copy only outlives
+    // the fix for a missing photo -- an hour of it did, once.
+    res.setHeader?.("Cache-Control", "no-store");
     if (!peopleCache || Date.now() - peopleCache.at > PEOPLE_TTL_MS) {
       const { people, complete } = await lookUpPackPeople();
       // A lookup with a failure in it is served but not kept, so the next
       // request tries the missing ones again.
       if (complete) peopleCache = { at: Date.now(), people };
-      res.setHeader?.("Cache-Control", "private, max-age=3600");
       res.status(200).json({ people });
       return;
     }
-    res.setHeader?.("Cache-Control", "private, max-age=3600");
     res.status(200).json({ people: peopleCache.people });
   } catch (error) {
     console.error("[api/starter-packs/people] Failed to look up starter pack people", error);

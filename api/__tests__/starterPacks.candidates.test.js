@@ -148,6 +148,8 @@ describe("starter pack people", () => {
     expect(res.statusCode).toBe(200);
     expect(res.body.people["Steven Spielberg"]).toBe("/Spielberg.jpg");
     expect(res.body.people["Tom Hanks"]).toBe("/Hanks.jpg");
+    // The server keeps it; a browser copy would outlive a fixed photo.
+    expect(res.headers["Cache-Control"]).toBe("no-store");
     // Nine people, one search each -- Spielberg's four decades share one.
     expect(mocks.tmdbFetch).toHaveBeenCalledTimes(9);
 

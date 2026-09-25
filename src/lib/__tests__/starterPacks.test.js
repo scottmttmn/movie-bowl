@@ -156,7 +156,10 @@ describe("fetchStarterPackPeople", () => {
     await expect(fetchStarterPackPeople({ client: h.client, fetchImpl })).resolves.toEqual({ "Tom Hanks": "/hanks.jpg" });
     await fetchStarterPackPeople({ client: h.client, fetchImpl });
     expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(fetchImpl).toHaveBeenCalledWith("/api/starter-packs/people", { headers: { Authorization: "Bearer token" } });
+    expect(fetchImpl).toHaveBeenCalledWith("/api/starter-packs/people", {
+      cache: "no-store",
+      headers: { Authorization: "Bearer token" },
+    });
   });
 
   it("resolves to no photos when the route fails, and asks again next time", async () => {
