@@ -171,7 +171,7 @@ describe("BowlDashboard streaming match count", () => {
 
     await waitFor(() => expect(screen.getByText(/on Netflix/i)).toBeInTheDocument());
     expect(fetchStreamingProviders).toHaveBeenCalledTimes(2);
-    const line = screen.getByRole("button", { name: /drawing from 1 titles on Netflix/i });
+    const line = screen.getByRole("button", { name: /drawing from 1 title on Netflix/i });
     expect(line).toHaveAttribute("data-tone", "active");
     // The eligible count and the service tally were the same number twice.
     expect(screen.queryByText(/favoring/i)).not.toBeInTheDocument();
@@ -214,7 +214,7 @@ describe("BowlDashboard streaming match count", () => {
     fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
 
     const poolSegment = await screen.findByRole("button", {
-      name: /drawing from 1 titles on Netflix/i,
+      name: /drawing from 1 title on Netflix/i,
     });
     expect(poolSegment).toHaveAttribute("data-tone", "warning");
     // The people readout is now its own segment, as a ratio behind a glyph.

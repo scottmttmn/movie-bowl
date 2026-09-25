@@ -27,7 +27,7 @@ test("a member can create a bowl, add and draw a title, see history, and return 
   await page.getByRole("button", { name: "Close add movie" }).click();
   await expect(page.getByRole("dialog")).toHaveCount(0);
   await expect(
-    page.getByRole("button", { name: /Drawing from 1 titles/i })
+    page.getByRole("button", { name: /Drawing from 1 title\b/i })
   ).toBeVisible();
 
   const drawButton = page.getByRole("button", {
@@ -56,7 +56,7 @@ test("a member can create a bowl, add and draw a title, see history, and return 
 
   await expect(page.getByText("0 watched", { exact: true })).toBeVisible();
   await expect(
-    page.getByRole("button", { name: /Drawing from 1 titles/i })
+    page.getByRole("button", { name: /Drawing from 1 title\b/i })
   ).toBeVisible();
 
   expect(backend.state.bowls).toHaveLength(1);

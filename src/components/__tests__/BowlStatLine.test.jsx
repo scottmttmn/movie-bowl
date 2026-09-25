@@ -68,6 +68,24 @@ describe("BowlStatLine", () => {
     expect(screen.queryByText(/favoring/i)).not.toBeInTheDocument();
   });
 
+  it("names a single title in the singular", () => {
+    renderLine({ poolStatus: DRAW_POOL_STATUS.ready, poolCount: 1 });
+    expect(screen.getByRole("button", { name: "Drawing from 1 title. Open draw filters." })).toBeInTheDocument();
+
+    cleanup();
+    renderLine({
+      poolStatus: DRAW_POOL_STATUS.ready,
+      poolCount: 3,
+      streamingStatus: STREAMING_MATCH_STATUS.ready,
+      streamingMatchCount: 1,
+      streamingTopService: "Netflix",
+      streamingTopServiceCount: 1,
+      isPrioritized: true,
+      useServiceRank: true,
+    });
+    expect(screen.getByRole("button", { name: "Drawing from 1 title on Netflix. Open draw filters." })).toBeInTheDocument();
+  });
+
   it("uses every matching service when ranking is off", () => {
     renderLine({
       poolStatus: DRAW_POOL_STATUS.ready,
