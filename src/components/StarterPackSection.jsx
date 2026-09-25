@@ -206,7 +206,7 @@ async function readStarterPackState(bowlId) {
     reads = await Promise.all([
       supabase.from("bowls").select("starter_pack, starter_pack_installed_at").eq("id", bowlId).maybeSingle(),
       supabase.from("bowl_movies").select("tmdb_id, starter_pack").eq("bowl_id", bowlId).is("drawn_at", null),
-      supabase.from("bowl_draw_events").select("tmdb_id, starter_pack").eq("bowl_id", bowlId).is("returned_at", null),
+      supabase.from("bowl_draw_events").select("tmdb_id, starter_pack, removed_at").eq("bowl_id", bowlId).is("returned_at", null),
     ]);
   } catch (error) {
     console.error("[StarterPackSection] Failed to load the starter pack", error);
@@ -227,7 +227,10 @@ async function readStarterPackState(bowlId) {
     slug,
     installedAt: bowlRead.data?.starter_pack_installed_at || null,
     packSlipCount: movies.filter((movie) => movie.starter_pack).length,
-    drawnCount: slug ? draws.filter((draw) => draw.starter_pack === slug).length : 0,
+    // A draw the owner removed from the watched history is not counted here,
+    // as no watched list counts it -- but it still happened, so it stays among
+    // the titles a top-up must not bring back.
+    drawnCount: slug ? draws.filter((draw) => draw.starter_pack === slug && !draw.removed_at).length : 0,
     heldTmdbIds: [...movies, ...draws].map((row) => Number(row.tmdb_id)).filter((id) => id > 0),
   };
 }

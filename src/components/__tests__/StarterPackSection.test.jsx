@@ -111,7 +111,12 @@ describe("StarterPackSection installed", () => {
   it("shows the pack with its photo, what is waiting and what was drawn, and lets the owner pull more", async () => {
     mocks.state.bowl = { starter_pack: "spielberg-1980s", starter_pack_installed_at: "2026-09-24T18:00:00Z" };
     mocks.state.movies = [packSlip(1), packSlip(2), { tmdb_id: 3, starter_pack: null }];
-    mocks.state.draws = [{ tmdb_id: 4, starter_pack: "spielberg-1980s" }, { tmdb_id: 5, starter_pack: null }];
+    mocks.state.draws = [
+      { tmdb_id: 4, starter_pack: "spielberg-1980s", removed_at: null },
+      // Removed from the watched history: not counted as drawn, still never re-offered.
+      { tmdb_id: 6, starter_pack: "spielberg-1980s", removed_at: "2026-09-25T00:00:00Z" },
+      { tmdb_id: 5, starter_pack: null, removed_at: null },
+    ];
     mocks.installStarterPack.mockResolvedValue({ ok: false, message: "Everything in the Spielberg: The '80s pack has already been in this bowl." });
 
     const { container } = render(<StarterPackSection bowlId="bowl-1" isOwner />);
@@ -124,7 +129,9 @@ describe("StarterPackSection installed", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Pull more" }));
     expect(await screen.findByRole("alert")).toHaveTextContent("has already been in this bowl");
-    expect(mocks.installStarterPack).toHaveBeenCalledWith(expect.objectContaining({ slug: "spielberg-1980s", packSlipCount: 2 }));
+    expect(mocks.installStarterPack).toHaveBeenCalledWith(expect.objectContaining({
+      slug: "spielberg-1980s", packSlipCount: 2, heldTmdbIds: [1, 2, 3, 4, 6, 5],
+    }));
   });
 
   it("removes the pack only after confirming", async () => {
