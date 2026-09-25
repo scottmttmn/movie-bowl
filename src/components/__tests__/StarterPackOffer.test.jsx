@@ -64,6 +64,22 @@ describe("StarterPackOffer", () => {
     expect(screen.getByRole("button", { name: "Pour into the bowl" })).toBeEnabled();
   });
 
+  it("forgets one bowl's choice before offering anything for the next", async () => {
+    let resolveNext;
+    const { rerender } = render(<StarterPackOffer bowlId="bowl-1" onSeeAll={vi.fn()} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Nolan: The '00s" }));
+    expect(screen.getByRole("button", { name: "Pour into the bowl" })).toBeEnabled();
+
+    mocks.readBowlStarterPack.mockReturnValue(new Promise((resolve) => { resolveNext = resolve; }));
+    rerender(<StarterPackOffer bowlId="bowl-2" onSeeAll={vi.fn()} />);
+    expect(screen.queryByRole("button", { name: "Pour into the bowl" })).not.toBeInTheDocument();
+
+    resolveNext({ ...noPack, heldTmdbIds: [9] });
+    expect(await screen.findByRole("button", { name: "Pour into the bowl" })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Nolan: The '00s" })).toHaveAttribute("aria-pressed", "false");
+    expect(mocks.readBowlStarterPack).toHaveBeenLastCalledWith("bowl-2");
+  });
+
   it("opens the full shelf from See all", async () => {
     const onSeeAll = vi.fn();
     render(<StarterPackOffer bowlId="bowl-1" onSeeAll={onSeeAll} />);

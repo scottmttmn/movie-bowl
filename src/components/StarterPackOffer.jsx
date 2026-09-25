@@ -52,6 +52,17 @@ export default function StarterPackOffer({ bowlId, onSeeAll, onInstalled }) {
   const [selectedSlug, setSelectedSlug] = useState(null);
   const [isWorking, setIsWorking] = useState(false);
   const [failure, setFailure] = useState(null);
+  const [loadedBowlId, setLoadedBowlId] = useState(bowlId);
+
+  // The picker moves between bowls without remounting this, and a choice made
+  // for one bowl -- and the titles it holds -- must never pour into the next.
+  // Reset during render, so not one frame offers the old bowl's Pour.
+  if (loadedBowlId !== bowlId) {
+    setLoadedBowlId(bowlId);
+    setState({ isLoading: true, slug: null, heldTmdbIds: [], loadError: null });
+    setSelectedSlug(null);
+    setFailure(null);
+  }
 
   useEffect(() => {
     let cancelled = false;
