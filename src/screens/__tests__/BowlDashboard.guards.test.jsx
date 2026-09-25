@@ -104,13 +104,14 @@ vi.mock("../../hooks/useUserBowls", () => ({ default: () => userBowlsMock }));
 
 vi.mock("../../hooks/useBowlAdd", () => ({ default: () => ({ openBowlAdd: mocks.state.openBowlAdd }) }));
 vi.mock("../../hooks/useBowl", () => ({
-  default: (_bowlId, options) => {
+  default: (bowlId, options) => {
     // The screen owns the bowl row, so what it hands the hook is the wiring
     // that decides how the bowl actually draws.
     mocks.state.useBowlOptions = options;
     return {
       bowl: mocks.state.bowlData,
       isLoading: mocks.state.bowlIsLoading,
+      loadedBowlId: mocks.state.bowlIsLoading ? null : (mocks.state.bowlRowsBowlId ?? bowlId),
       errorMessage: mocks.state.bowlErrorMessage ?? null,
       handleDraw: mocks.state.handleDraw,
       handleAddMovie: mocks.state.handleAddMovie,
@@ -179,6 +180,7 @@ function renderDashboard() {
 describe("BowlDashboard guards", () => {
   beforeEach(() => {
     mocks.state.navigate.mockReset();
+    mocks.state.bowlRowsBowlId = null;
     mocks.state.authUserId = "u1";
     mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", draw_access_mode: "all_members" };
     mocks.state.hasDrawMethodColumn = true;
@@ -708,6 +710,16 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     fireEvent.click(await screen.findByRole("button", { name: "Start with a starter pack" }));
     expect(mocks.state.navigate).toHaveBeenCalledWith(`/bowl/${mocks.state.bowlId}/settings#starter-pack`);
+  });
+
+  it("does not offer a pack on the strength of the previous bowl's empty list", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = { remaining: [], watched: [] };
+    // The rows still showing were read for the bowl the picker just left.
+    mocks.state.bowlRowsBowlId = "another-bowl";
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Start with a starter pack" })).not.toBeInTheDocument();
   });
 
   it("does not call a bowl empty when its movies failed to load", async () => {

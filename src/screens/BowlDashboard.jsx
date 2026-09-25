@@ -62,6 +62,7 @@ export default function BowlDashboard() {
     const {
       bowl,
       isLoading,
+      loadedBowlId: bowlRowsBowlId,
       errorMessage,
       reload: reloadBowl,
       handleDraw,
@@ -1071,10 +1072,12 @@ return (
 
                 {/* The one place a starter pack is offered rather than found:
                     an empty bowl cannot draw, and the owner is the one who can
-                    install a pack. Only once the bowl has actually loaded --
+                    install a pack. Only once this bowl has actually loaded --
                     a failed read also leaves the list empty, and that bowl
-                    is unknown, not empty. */}
-                {!isFirstLoad && !errorMessage && isCurrentUserOwner && bowl.remaining.length === 0 && (
+                    is unknown, not empty; and the empty list still showing
+                    after a switch from another bowl is that bowl's, not
+                    this one's, so the rows must have been read for it. */}
+                {!isFirstLoad && !errorMessage && bowlRowsBowlId === bowlId && isCurrentUserOwner && bowl.remaining.length === 0 && (
                   <StarterPackOffer
                     bowlId={bowlId}
                     onSeeAll={() => navigate(`/bowl/${bowlId}/settings#starter-pack`)}
