@@ -58,9 +58,10 @@ function PoolSegment({ count, service, tone, onOpenFilters }) {
       </Segment>
     );
   }
+  const titles = count === 1 ? "1 title" : `${count} titles`;
   const label = service
-    ? `Drawing from ${count} titles on ${service}. Open draw filters.`
-    : `Drawing from ${count} titles. Open draw filters.`;
+    ? `Drawing from ${titles} on ${service}. Open draw filters.`
+    : `Drawing from ${titles}. Open draw filters.`;
   return (
     <Segment as="button" tone={tone} onClick={onOpenFilters} ariaLabel={label}>
       Drawing from <Count tone={tone}>{count}</Count>{service ? ` on ${service}` : ""}

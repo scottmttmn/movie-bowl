@@ -306,7 +306,7 @@ describe("BowlDashboard draw pool count", () => {
     await renderDashboard();
     selectOnlyGenre("Comedy");
 
-    const segment = await screen.findByRole("button", { name: /drawing from 1 titles\./i });
+    const segment = await screen.findByRole("button", { name: /drawing from 1 title\./i });
     expect(segment).toHaveAttribute("data-tone", "active");
     expect(screen.queryByRole("button", { name: /people have a movie in the draw/i })).not.toBeInTheDocument();
 
