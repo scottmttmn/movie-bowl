@@ -710,7 +710,7 @@ describe("BowlDashboard guards", () => {
     mocks.state.bowlData = { remaining: [], watched: [] };
     renderDashboard();
     fireEvent.click(await screen.findByRole("button", { name: "Start with a starter pack" }));
-    expect(mocks.state.navigate).toHaveBeenCalledWith(`/bowl/${mocks.state.bowlId}/settings#starter-pack`);
+    expect(mocks.state.navigate).toHaveBeenCalledWith(`/bowl/${mocks.state.bowlId}/settings#starter-pack-all`);
   });
 
   it("does not offer a pack on the strength of the previous bowl's empty list", async () => {

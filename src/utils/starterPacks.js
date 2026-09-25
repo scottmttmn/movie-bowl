@@ -112,10 +112,17 @@ function sameName(a, b) {
   return nameWords(a).join(" ") === nameWords(b).join(" ");
 }
 
+// How far ahead of the next namesake the most popular one has to be before it
+// is taken for the pack's person. Harrison Ford the silent-film actor, or
+// another John Hughes, trails the one a pack means by orders of magnitude;
+// two people this close are a genuine tie, and a pack should not guess.
+const PACK_PERSON_POPULARITY_LEAD = 3;
+
 /**
  * Which of TMDB's people search results is the pack's person. Exactly one
- * exact name wins; with several, the one known for the pack's role does; any
- * other outcome is a failure the caller reports rather than a guess.
+ * exact name wins; with several, the one known for the pack's role does; with
+ * several of those, a clear lead in popularity does. Any other outcome is a
+ * failure the caller reports rather than a guess.
  */
 export function choosePackPerson(pack, people) {
   const named = (Array.isArray(people) ? people : []).filter((person) => person && sameName(person.name, pack.person));
@@ -124,7 +131,17 @@ export function choosePackPerson(pack, people) {
   const department = pack.role === "directing" ? "Directing" : "Acting";
   const inRole = named.filter((person) => person.known_for_department === department);
   if (inRole.length === 1) return { person: inRole[0] };
+  const ranked = [...(inRole.length > 0 ? inRole : named)]
+    .sort((a, b) => popularity(b) - popularity(a));
+  if (popularity(ranked[0]) > 0 && popularity(ranked[0]) >= popularity(ranked[1]) * PACK_PERSON_POPULARITY_LEAD) {
+    return { person: ranked[0] };
+  }
   return { error: `More than one ${pack.person} was found.` };
+}
+
+function popularity(person) {
+  const value = Number(person?.popularity);
+  return Number.isFinite(value) && value > 0 ? value : 0;
 }
 
 /**
@@ -218,3 +235,7 @@ export function describeStarterPack(pack) {
 // kinds of night rather than between near neighbours.
 export const STARTER_PACK_SUGGESTIONS = ["spielberg-1980s", "best-picture-1990s", "nolan-2000s"]
   .map((slug) => getStarterPack(slug));
+
+// The Bowl Settings link that opens the starter pack section with its full
+// shelf already unfolded, as "See all" on an empty bowl expects.
+export const STARTER_PACK_SHELF_HASH = "#starter-pack-all";

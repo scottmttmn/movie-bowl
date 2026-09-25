@@ -3,6 +3,7 @@ import HoldToDrawButton from "../components/HoldToDrawButton";
 import BowlStatLine from "../components/BowlStatLine";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
 import StarterPackOffer from "../components/StarterPackOffer";
+import { STARTER_PACK_SHELF_HASH } from "../utils/starterPacks";
 import MyMoviesStrip from "../components/MyMoviesStrip";
 import MovieStripSkeleton from "../components/MovieStripSkeleton";
 import AddMovieButton from "../components/AddMovieButton";
@@ -1082,7 +1083,7 @@ return (
                 {!isFirstLoad && !errorMessage && bowlRowsBowlId === bowlId && isAccessKnown && isCurrentUserOwner && bowl.remaining.length === 0 && (
                   <StarterPackOffer
                     bowlId={bowlId}
-                    onSeeAll={() => navigate(`/bowl/${bowlId}/settings#starter-pack`)}
+                    onSeeAll={() => navigate(`/bowl/${bowlId}/settings${STARTER_PACK_SHELF_HASH}`)}
                     onInstalled={reloadBowl}
                   />
                 )}

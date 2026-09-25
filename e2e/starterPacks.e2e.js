@@ -18,12 +18,18 @@ test("the owner picks a starter pack from the photo shelf", async ({ page, backe
   await page.goto("/bowl/pack-bowl/settings#starter-pack");
 
   const section = page.locator("#starter-pack");
+  // Folded to three suggestions until asked for every pack.
+  await expect(section.getByRole("group", { name: "Suggested starter packs" })).toBeVisible();
+  await section.getByRole("button", { name: "See all packs" }).click();
   const spielberg = section.getByRole("group", { name: "Steven Spielberg decades" });
   await expect(spielberg).toBeVisible();
   await expect(section.locator('img[src="https://image.tmdb.org/t/p/w342/spielberg.jpg"]')).toBeVisible();
 
   const pour = section.getByRole("button", { name: /Pour into the bowl/ });
   await expect(pour).toBeDisabled();
+  // A tap on the card itself chooses the first decade.
+  await section.getByRole("button", { name: "Choose Steven Spielberg" }).click();
+  await expect(section.getByRole("button", { name: "Spielberg: The '70s" })).toHaveAttribute("aria-pressed", "true");
   await section.getByRole("button", { name: "Spielberg: The '80s" }).click();
   await expect(section.getByText(/Up to 15 of the movies Steven Spielberg directed from 1980 to 1989/)).toBeVisible();
   await expect(pour).toBeEnabled();
@@ -52,7 +58,7 @@ test("every Best Picture decade fits on a narrow phone", async ({ page, backend 
     starter_pack_installed_at: null,
   });
   backend.state.bowl_members.push({ bowl_id: "pack-bowl", user_id: "user-smoke", role: "Owner" });
-  await page.goto("/bowl/pack-bowl/settings#starter-pack");
+  await page.goto("/bowl/pack-bowl/settings#starter-pack-all");
 
   const group = page.getByRole("group", { name: "Best Picture decades" });
   await expect(group).toBeVisible();

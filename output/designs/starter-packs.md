@@ -378,7 +378,13 @@ converting the slip without a second copy; and the rotation turn cases above.
   movies, which would show what the pack puts in. The photo paths come from
   `/api/starter-packs/people`, looked up live and kept a day in memory, never
   stored. Best Picture decades sit in a generic laurel: the award is described,
-  but the Academy's statuette is its trademark and is not drawn.
+  but the Academy's statuette is its trademark and is not drawn. With no pack
+  in, the section shows the same three suggestions as an empty bowl and folds
+  the full shelf behind "See all packs"; the empty bowl's "See all" arrives
+  with it unfolded. A tap anywhere on a person's card chooses their first
+  decade. The person behind a pack is resolved by exact name, then the pack's
+  role, then a clear lead in TMDB popularity -- Harrison Ford has a silent-era
+  namesake -- and a close call fails rather than guesses.
 - **Empty bowl state** on the dashboard: the one place a pack is *offered*
   rather than found, and to the owner only. `StarterPackOffer` shows three
   packs (a director, the Oscars, a newer director) as the shelf draws them,

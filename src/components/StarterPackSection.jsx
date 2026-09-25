@@ -8,6 +8,7 @@ import {
 import {
   STARTER_PACKS,
   STARTER_PACK_MAX_SLIPS,
+  STARTER_PACK_SHELF_HASH,
   bestPictureWinnersFor,
   describeStarterPack,
   getStarterPack,
@@ -16,6 +17,7 @@ import {
 } from "../utils/starterPacks";
 import LaurelWreath from "./LaurelWreath";
 import StarterPackPhoto from "./StarterPackPhoto";
+import StarterPackSuggestions from "./StarterPackSuggestions";
 
 // Bowl Settings' starter pack section (output/designs/starter-packs.md,
 // "Surfaces"). The owner picks a pack from a shelf -- one card per person,
@@ -66,10 +68,20 @@ function PersonCard({ group, profilePath, selectedSlug, onSelect, disabled, comp
           : "border-slate-700/60 bg-slate-950/45"
       }`}
     >
-      <div className="relative">
+      {/* The whole card chooses, not only its decades: a tap on the face picks
+          the first decade, or keeps whichever of this person's is chosen. */}
+      <button
+        type="button"
+        aria-label={`Choose ${group.person}`}
+        disabled={disabled}
+        onClick={() => {
+          if (!isSelected) onSelect(group.packs[0].slug);
+        }}
+        className="relative block w-full text-left"
+      >
         <StarterPackPhoto profilePath={profilePath} className={compact ? "h-36" : "h-40"} />
-        <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/95 to-transparent" />
-        <h4 className="absolute inset-x-3 bottom-2 text-base font-extrabold leading-tight text-white">{group.person}</h4>
+        <span className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/95 to-transparent" />
+        <span className="absolute inset-x-3 bottom-2 text-base font-extrabold leading-tight text-white">{group.person}</span>
         {isSelected && (
           <span className="absolute right-2 top-2 flex h-7 w-7 items-center justify-center rounded-full bg-rose-600 shadow-lg" aria-hidden="true">
             <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="#fff" strokeWidth="3" strokeLinecap="round" strokeLinejoin="round">
@@ -77,7 +89,7 @@ function PersonCard({ group, profilePath, selectedSlug, onSelect, disabled, comp
             </svg>
           </span>
         )}
-      </div>
+      </button>
       <div role="group" aria-label={`${group.person} decades`} className="flex flex-wrap gap-1.5 p-3">
         {group.packs.map((pack) => (
           <DecadeButton key={pack.slug} pack={pack} selectedSlug={selectedSlug} onSelect={onSelect} disabled={disabled} />
@@ -132,6 +144,10 @@ export default function StarterPackSection({ bowlId, isOwner, onSummaryChange })
   const [isWorking, setIsWorking] = useState(false);
   const [isConfirmingRemove, setIsConfirmingRemove] = useState(false);
   const [notice, setNotice] = useState(null);
+  // With no pack in, the section shows the same three suggestions as an empty
+  // bowl and keeps the full shelf folded away until asked for. The dashboard's
+  // "See all" arrives already asking.
+  const [isShelfOpen, setIsShelfOpen] = useState(() => window.location.hash === STARTER_PACK_SHELF_HASH);
 
   useEffect(() => {
     let cancelled = false;
@@ -172,7 +188,7 @@ export default function StarterPackSection({ bowlId, isOwner, onSummaryChange })
   // own load, too late for the browser's jump to a hash, so it makes its own.
   const hasLoaded = !state.isLoading;
   useEffect(() => {
-    if (!hasLoaded || window.location.hash !== "#starter-pack") return;
+    if (!hasLoaded || !["#starter-pack", STARTER_PACK_SHELF_HASH].includes(window.location.hash)) return;
     const section = document.getElementById("starter-pack");
     section?.focus({ preventScroll: true });
     section?.scrollIntoView?.({ block: "start" });
@@ -302,68 +318,86 @@ export default function StarterPackSection({ bowlId, isOwner, onSummaryChange })
         </div>
       ) : isOwner ? (
         <div className="mt-5 space-y-6">
-          <div className="space-y-3">
-            <ShelfHeading title="Directors" detail="Movies they directed, by decade" />
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
-              {DIRECTORS.map((group) => (
-                <PersonCard
-                  key={group.person}
-                  group={group}
-                  profilePath={people[group.person]}
-                  selectedSlug={selectedSlug}
-                  onSelect={setSelectedSlug}
-                  disabled={isWorking}
-                />
-              ))}
-            </div>
+          <div className="flex items-baseline justify-between gap-3">
+            <p className="eyebrow">{isShelfOpen ? "Every pack" : "Suggested"}</p>
+            <button
+              type="button"
+              className="text-sm font-bold text-rose-300 underline-offset-2 hover:underline"
+              aria-expanded={isShelfOpen}
+              aria-controls="starter-pack-shelf"
+              onClick={() => setIsShelfOpen((open) => !open)}
+            >
+              {isShelfOpen ? "Show fewer" : "See all packs"}
+            </button>
           </div>
-          <div className="space-y-3">
-            <ShelfHeading title="Stars" detail="Movies they led, by decade" />
-            <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-              {STARS.map((group) => (
-                <PersonCard
-                  key={group.person}
-                  group={group}
-                  profilePath={people[group.person]}
-                  selectedSlug={selectedSlug}
-                  onSelect={setSelectedSlug}
-                  disabled={isWorking}
-                  compact
-                />
-              ))}
-            </div>
-          </div>
-          <div className="space-y-3">
-            <ShelfHeading title="Best Picture winners" detail="Every winner of a decade" />
-            <div role="group" aria-label="Best Picture decades" className="grid grid-cols-4 gap-2 sm:grid-cols-8">
-              {BEST_PICTURE.map((pack) => {
-                const isSelected = pack.slug === selectedSlug;
-                return (
-                  <button
-                    key={pack.slug}
-                    type="button"
-                    aria-pressed={isSelected}
-                    aria-label={pack.name}
+          {isShelfOpen ? (
+            <div id="starter-pack-shelf" className="space-y-6">
+            <div className="space-y-3">
+              <ShelfHeading title="Directors" detail="Movies they directed, by decade" />
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-3">
+                {DIRECTORS.map((group) => (
+                  <PersonCard
+                    key={group.person}
+                    group={group}
+                    profilePath={people[group.person]}
+                    selectedSlug={selectedSlug}
+                    onSelect={setSelectedSlug}
                     disabled={isWorking}
-                    onClick={() => setSelectedSlug(pack.slug)}
-                    className={`flex min-h-24 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border px-1 py-2 transition ${
-                      isSelected
-                        ? "border-rose-400 bg-rose-950/40 shadow-[0_0_0_4px_rgba(244,63,94,0.14)]"
-                        : "border-yellow-400/30 bg-gradient-to-br from-yellow-950/50 to-slate-950 hover:border-yellow-300/50"
-                    }`}
-                  >
-                    <span className="relative flex aspect-[76/58] w-full max-w-[76px] items-center justify-center">
-                      <LaurelWreath className="absolute inset-0 h-full w-full" />
-                      <span className="relative text-sm font-extrabold text-amber-200">{starterPackDecade(pack)}</span>
-                    </span>
-                    <span className="text-[11px] font-semibold text-slate-300">
-                      {bestPictureWinnersFor(pack.decade).length} films
-                    </span>
-                  </button>
-                );
-              })}
+                  />
+                ))}
+              </div>
             </div>
-          </div>
+            <div className="space-y-3">
+              <ShelfHeading title="Stars" detail="Movies they led, by decade" />
+              <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
+                {STARS.map((group) => (
+                  <PersonCard
+                    key={group.person}
+                    group={group}
+                    profilePath={people[group.person]}
+                    selectedSlug={selectedSlug}
+                    onSelect={setSelectedSlug}
+                    disabled={isWorking}
+                    compact
+                  />
+                ))}
+              </div>
+            </div>
+            <div className="space-y-3">
+              <ShelfHeading title="Best Picture winners" detail="Every winner of a decade" />
+              <div role="group" aria-label="Best Picture decades" className="grid grid-cols-4 gap-2 sm:grid-cols-8">
+                {BEST_PICTURE.map((pack) => {
+                  const isSelected = pack.slug === selectedSlug;
+                  return (
+                    <button
+                      key={pack.slug}
+                      type="button"
+                      aria-pressed={isSelected}
+                      aria-label={pack.name}
+                      disabled={isWorking}
+                      onClick={() => setSelectedSlug(pack.slug)}
+                      className={`flex min-h-24 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border px-1 py-2 transition ${
+                        isSelected
+                          ? "border-rose-400 bg-rose-950/40 shadow-[0_0_0_4px_rgba(244,63,94,0.14)]"
+                          : "border-yellow-400/30 bg-gradient-to-br from-yellow-950/50 to-slate-950 hover:border-yellow-300/50"
+                      }`}
+                    >
+                      <span className="relative flex aspect-[76/58] w-full max-w-[76px] items-center justify-center">
+                        <LaurelWreath className="absolute inset-0 h-full w-full" />
+                        <span className="relative text-sm font-extrabold text-amber-200">{starterPackDecade(pack)}</span>
+                      </span>
+                      <span className="text-[11px] font-semibold text-slate-300">
+                        {bestPictureWinnersFor(pack.decade).length} films
+                      </span>
+                    </button>
+                  );
+                })}
+              </div>
+            </div>
+            </div>
+          ) : (
+            <StarterPackSuggestions people={people} selectedSlug={selectedSlug} disabled={isWorking} onSelect={setSelectedSlug} />
+          )}
 
           <div className="flex flex-col gap-3 border-t border-slate-800 pt-4 sm:flex-row sm:items-center sm:gap-5">
             <div className="min-w-0 flex-1" aria-live="polite">
@@ -373,7 +407,7 @@ export default function StarterPackSection({ bowlId, isOwner, onSummaryChange })
                   <p className="text-sm text-slate-400">{describeStarterPack(selectedPack)}</p>
                 </>
               ) : (
-                <p className="text-sm text-slate-400">Choose a decade above to see what goes in.</p>
+                <p className="text-sm text-slate-400">Choose a pack above to see what goes in.</p>
               )}
             </div>
             <button
