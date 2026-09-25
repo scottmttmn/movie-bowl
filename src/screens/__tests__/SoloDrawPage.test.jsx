@@ -298,6 +298,7 @@ describe("SoloDrawPage", () => {
     mocks.poolStatus.current = "manual";
     renderPage();
 
+    expect(screen.getByText(/^1 title in scope\./)).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Check filter matches" }));
     expect(mocks.runLookups).toHaveBeenCalled();
   });

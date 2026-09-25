@@ -267,6 +267,36 @@ describe("BowlDashboard draw pool count", () => {
     expect(screen.getByText(/Alex is left out — your filters removed every movie they added\./)).toBeInTheDocument();
   });
 
+  it("counts a one-title bowl in the singular in the filters overlay", async () => {
+    mocks.state.bowlData = { remaining: [TWO_CONTRIBUTORS[0]], watched: [] };
+    await renderDashboard();
+    fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
+    expect(await screen.findByText("1 eligible title")).toBeInTheDocument();
+  });
+
+  it("counts a one-title lookup and its result in the singular", async () => {
+    mocks.state.bowlData = { remaining: [TWO_CONTRIBUTORS[0]], watched: [] };
+    mocks.state.selectedRatings = ["R"];
+    let resolveDetails;
+    getTmdbMovieDetails.mockImplementation(() => new Promise((resolve) => { resolveDetails = resolve; }));
+    await renderDashboard();
+    await waitFor(() => expect(getTmdbMovieDetails).toHaveBeenCalledTimes(1));
+    fireEvent.click(screen.getByRole("button", { name: /drawing from 1 title\b/i }));
+
+    expect(screen.getByText("0 of 1 title checked")).toBeInTheDocument();
+    expect(screen.getByRole("progressbar", { name: /filter lookup progress/i })).toHaveAttribute(
+      "aria-valuetext",
+      "0 of 1 title checked"
+    );
+
+    await act(async () => {
+      resolveDetails({
+        release_dates: { results: [{ iso_3166_1: "US", release_dates: [{ certification: "PG" }] }] },
+      });
+    });
+    expect(await screen.findByText("0 of 1 title eligible")).toBeInTheDocument();
+  });
+
   it("shows the live eligible count in the filters overlay with reset and done", async () => {
     await renderDashboard();
     selectOnlyGenre("Comedy");

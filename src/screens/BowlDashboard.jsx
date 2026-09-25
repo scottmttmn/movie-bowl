@@ -54,6 +54,8 @@ import {
 import { DEFAULT_DRAW_METHOD, getDrawMethod, normalizeDrawMethod } from "../utils/drawMethods";
 
 
+const countTitles = (count) => (count === 1 ? "1 title" : `${count} titles`);
+
 export default function BowlDashboard() {
     const DRAW_ACCESS_MODE_ALL = "all_members";
     const DRAW_ACCESS_MODE_SELECTED = "selected_members";
@@ -1160,8 +1162,10 @@ return (
                             {drawPoolStatus === DRAW_POOL_STATUS.counting
                               ? "Checking filter matches…"
                               : drawPoolStatus === DRAW_POOL_STATUS.ready
-                                ? `${drawPoolCount} of ${drawPoolTotalCount} titles eligible`
-                                : `All ${drawPoolTotalCount} titles eligible`}
+                                ? `${drawPoolCount} of ${countTitles(drawPoolTotalCount)} eligible`
+                                : drawPoolTotalCount === 1
+                                  ? "1 eligible title"
+                                  : `All ${drawPoolTotalCount} titles eligible`}
                           </p>
                           {drawPoolStatus === DRAW_POOL_STATUS.counting && (
                             <div className="mt-2 w-full max-w-64">
@@ -1174,7 +1178,7 @@ return (
                                 aria-valuenow={drawPoolLookupTotal > 0 ? drawPoolLookupCompleted : undefined}
                                 aria-valuetext={
                                   drawPoolLookupTotal > 0
-                                    ? `${drawPoolLookupCompleted} of ${drawPoolLookupTotal} titles checked`
+                                    ? `${drawPoolLookupCompleted} of ${countTitles(drawPoolLookupTotal)} checked`
                                     : "Applying local filters"
                                 }
                               >
@@ -1191,7 +1195,7 @@ return (
                               </div>
                               <p className="mt-1 text-xs text-slate-500">
                                 {drawPoolLookupTotal > 0
-                                  ? `${drawPoolLookupCompleted} of ${drawPoolLookupTotal} titles checked`
+                                  ? `${drawPoolLookupCompleted} of ${countTitles(drawPoolLookupTotal)} checked`
                                   : "Applying local filters…"}
                               </p>
                             </div>
