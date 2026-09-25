@@ -38,6 +38,51 @@ export async function fetchStarterPackCandidates(slug, { client = supabase, fetc
   return Array.isArray(body?.candidates) ? body.candidates : [];
 }
 
+// Which pack a bowl has and when it went in, how many of its titles are still
+// waiting and how many were drawn, and every title the bowl holds or has drawn
+// -- the last only steers what an install offers, so a topped-up pack never
+// brings back a title already watched. A claimed title keeps no mark of the
+// pack, so claims cannot be counted.
+const STARTER_PACK_READ_FAILED = {
+  isLoading: false, slug: null, installedAt: null, packSlipCount: 0, drawnCount: 0, heldTmdbIds: [],
+  loadError: "Could not load this bowl's starter pack.",
+};
+
+export async function readBowlStarterPack(bowlId, { client = supabase } = {}) {
+  let reads;
+  try {
+    reads = await Promise.all([
+      client.from("bowls").select("starter_pack, starter_pack_installed_at").eq("id", bowlId).maybeSingle(),
+      client.from("bowl_movies").select("tmdb_id, starter_pack").eq("bowl_id", bowlId).is("drawn_at", null),
+      client.from("bowl_draw_events").select("tmdb_id, starter_pack, removed_at").eq("bowl_id", bowlId).is("returned_at", null),
+    ]);
+  } catch (error) {
+    console.error("[starterPacks] Failed to load the bowl's starter pack", error);
+    return STARTER_PACK_READ_FAILED;
+  }
+  const [bowlRead, movieRead, drawRead] = reads;
+  const error = bowlRead.error || movieRead.error || drawRead.error;
+  if (error) {
+    console.error("[starterPacks] Failed to load the bowl's starter pack", error);
+    return STARTER_PACK_READ_FAILED;
+  }
+  const slug = bowlRead.data?.starter_pack || null;
+  const movies = movieRead.data || [];
+  const draws = drawRead.data || [];
+  return {
+    isLoading: false,
+    loadError: null,
+    slug,
+    installedAt: bowlRead.data?.starter_pack_installed_at || null,
+    packSlipCount: movies.filter((movie) => movie.starter_pack).length,
+    // A draw the owner removed from the watched history is not counted here,
+    // as no watched list counts it -- but it still happened, so it stays among
+    // the titles a top-up must not bring back.
+    drawnCount: slug ? draws.filter((draw) => draw.starter_pack === slug && !draw.removed_at).length : 0,
+    heldTmdbIds: [...movies, ...draws].map((row) => Number(row.tmdb_id)).filter((id) => id > 0),
+  };
+}
+
 // Each pack person's TMDB photo path, asked for once a session. The photos
 // dress the shelf and nothing depends on them, so any failure resolves to no
 // photos rather than an error, and a later visit asks again.

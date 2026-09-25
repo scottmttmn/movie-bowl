@@ -104,13 +104,14 @@ vi.mock("../../hooks/useUserBowls", () => ({ default: () => userBowlsMock }));
 
 vi.mock("../../hooks/useBowlAdd", () => ({ default: () => ({ openBowlAdd: mocks.state.openBowlAdd }) }));
 vi.mock("../../hooks/useBowl", () => ({
-  default: (_bowlId, options) => {
+  default: (bowlId, options) => {
     // The screen owns the bowl row, so what it hands the hook is the wiring
     // that decides how the bowl actually draws.
     mocks.state.useBowlOptions = options;
     return {
       bowl: mocks.state.bowlData,
       isLoading: mocks.state.bowlIsLoading,
+      loadedBowlId: mocks.state.bowlIsLoading ? null : (mocks.state.bowlRowsBowlId ?? bowlId),
       errorMessage: mocks.state.bowlErrorMessage ?? null,
       handleDraw: mocks.state.handleDraw,
       handleAddMovie: mocks.state.handleAddMovie,
@@ -161,6 +162,13 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
+// The offer has its own tests; here it only has to appear, or not.
+vi.mock("../../components/StarterPackOffer", () => ({
+  default: ({ onSeeAll }) => (
+    <button type="button" onClick={onSeeAll}>Start with a starter pack</button>
+  ),
+}));
+
 import BowlDashboard from "../BowlDashboard";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../../utils/appLimits";
 import { readRememberedReadout, rememberReadout } from "../../utils/rememberedReadouts";
@@ -172,6 +180,8 @@ function renderDashboard() {
 describe("BowlDashboard guards", () => {
   beforeEach(() => {
     mocks.state.navigate.mockReset();
+    mocks.state.bowlRowsBowlId = null;
+    mocks.state.bowlId = "bowl-1";
     mocks.state.authUserId = "u1";
     mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", draw_access_mode: "all_members" };
     mocks.state.hasDrawMethodColumn = true;
@@ -701,6 +711,30 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     fireEvent.click(await screen.findByRole("button", { name: "Start with a starter pack" }));
     expect(mocks.state.navigate).toHaveBeenCalledWith(`/bowl/${mocks.state.bowlId}/settings#starter-pack`);
+  });
+
+  it("does not offer a pack on the strength of the previous bowl's empty list", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = { remaining: [], watched: [] };
+    // The rows still showing were read for the bowl the picker just left.
+    mocks.state.bowlRowsBowlId = "another-bowl";
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Start with a starter pack" })).not.toBeInTheDocument();
+  });
+
+  it("does not offer a pack on the strength of the previous bowl's ownership", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = { remaining: [], watched: [] };
+    const { rerender } = renderDashboard();
+    expect(await screen.findByRole("button", { name: "Start with a starter pack" })).toBeInTheDocument();
+
+    // The picker moves to an empty bowl whose access has not been read yet:
+    // being the last bowl's owner says nothing about this one.
+    mocks.state.bowlId = "bowl-2";
+    mocks.state.heldBowlRow = new Promise(() => {});
+    rerender(<BowlDashboard />);
+    expect(screen.queryByRole("button", { name: "Start with a starter pack" })).not.toBeInTheDocument();
   });
 
   it("does not call a bowl empty when its movies failed to load", async () => {

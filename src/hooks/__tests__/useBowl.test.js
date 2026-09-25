@@ -278,6 +278,19 @@ describe("useBowl handleDraw integration", () => {
     await act(async () => { finishRemaining([]); });
     await waitFor(() => expect(result.current.isLoading).toBe(false));
   });
+  it("names the bowl its rows were read for, and keeps naming it until the next bowl's read lands", async () => {
+    const { result, rerender } = renderHook(({ bowlId }) => useBowl(bowlId), { initialProps: { bowlId: "bowl-1" } });
+    await waitFor(() => expect(result.current.loadedBowlId).toBe("bowl-1"));
+
+    let finishRemaining;
+    mocks.remainingQueue.push(new Promise((resolve) => { finishRemaining = resolve; }));
+    rerender({ bowlId: "bowl-2" });
+    expect(result.current.loadedBowlId).toBe("bowl-1");
+
+    await act(async () => { finishRemaining([]); });
+    await waitFor(() => expect(result.current.loadedBowlId).toBe("bowl-2"));
+  });
+
   it("returns an add failure if the session lookup throws before dispatch", async () => {
     const { result } = renderHook(() => useBowl("bowl-1"));
     await waitFor(() => expect(result.current.isLoading).toBe(false));

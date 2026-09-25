@@ -196,3 +196,25 @@ export function groupFilmographyPacks(packs = STARTER_PACKS) {
   });
   return Array.from(groups.values());
 }
+
+// A pack's decade as the shelf writes it on a button or a slip: '80s.
+export function starterPackDecade(pack) {
+  return `'${String(pack.decade).slice(2)}s`;
+}
+
+// What a pack will put in, said before anyone presses the button.
+export function describeStarterPack(pack) {
+  const years = `${pack.decade} to ${pack.decade + 9}`;
+  if (pack.kind === "best-picture") {
+    const winners = bestPictureWinnersFor(pack.decade).length;
+    return `All ${winners} Best Picture winners from ${years}. Anything already in the bowl is skipped.`;
+  }
+  const verb = pack.role === "directing" ? "directed" : "led";
+  return `Up to ${STARTER_PACK_MAX_SLIPS} of the movies ${pack.person} ${verb} from ${years}, picked at random. Anything already in the bowl is skipped.`;
+}
+
+// The three an empty bowl offers before anyone opens the full shelf: a
+// director, the Oscars and a newer director, so the first choice is between
+// kinds of night rather than between near neighbours.
+export const STARTER_PACK_SUGGESTIONS = ["spielberg-1980s", "best-picture-1990s", "nolan-2000s"]
+  .map((slug) => getStarterPack(slug));

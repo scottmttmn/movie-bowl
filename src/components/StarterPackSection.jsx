@@ -1,18 +1,21 @@
 import { useEffect, useMemo, useState } from "react";
-import { supabase } from "../lib/supabase";
 import {
   fetchStarterPackPeople,
-  getStarterPackPhotoUrl,
   installStarterPack,
+  readBowlStarterPack,
   removeStarterPack,
 } from "../lib/starterPacks";
 import {
   STARTER_PACKS,
   STARTER_PACK_MAX_SLIPS,
   bestPictureWinnersFor,
+  describeStarterPack,
   getStarterPack,
   groupFilmographyPacks,
+  starterPackDecade,
 } from "../utils/starterPacks";
+import LaurelWreath from "./LaurelWreath";
+import StarterPackPhoto from "./StarterPackPhoto";
 
 // Bowl Settings' starter pack section (output/designs/starter-packs.md,
 // "Surfaces"). The owner picks a pack from a shelf -- one card per person,
@@ -26,82 +29,11 @@ const DIRECTORS = PERSON_GROUPS.filter((group) => group.role === "directing");
 const STARS = PERSON_GROUPS.filter((group) => group.role === "acting");
 const BEST_PICTURE = STARTER_PACKS.filter((pack) => pack.kind === "best-picture");
 
-function decadeLabel(decade) {
-  return `'${String(decade).slice(2)}s`;
-}
-
-// What the pack will put in, said before anyone presses the button.
-function describePack(pack) {
-  const years = `${pack.decade} to ${pack.decade + 9}`;
-  if (pack.kind === "best-picture") {
-    const winners = bestPictureWinnersFor(pack.decade).length;
-    return `All ${winners} Best Picture winners from ${years}. Anything already in the bowl is skipped.`;
-  }
-  const verb = pack.role === "directing" ? "directed" : "led";
-  return `Up to ${STARTER_PACK_MAX_SLIPS} of the movies ${pack.person} ${verb} from ${years}, picked at random. Anything already in the bowl is skipped.`;
-}
-
 function formatInstalledOn(value) {
   const date = value ? new Date(value) : null;
   return date && !Number.isNaN(date.getTime())
     ? date.toLocaleDateString(undefined, { month: "short", day: "numeric" })
     : null;
-}
-
-function PersonSilhouette({ className = "" }) {
-  return (
-    <svg viewBox="0 0 100 100" aria-hidden="true" className={className}>
-      <circle cx="50" cy="30" r="17" fill="rgba(203,213,225,0.32)" />
-      <path d="M16 90 C 18 60, 82 60, 84 90 Z" fill="rgba(203,213,225,0.32)" />
-    </svg>
-  );
-}
-
-// A person's TMDB photo, or a silhouette of the same size while it loads, when
-// TMDB has none, or when the lookup failed. Decorative: the name is beside it.
-function PackPhoto({ profilePath, className = "" }) {
-  const [failed, setFailed] = useState(false);
-  const url = failed ? null : getStarterPackPhotoUrl(profilePath);
-  return (
-    <div className={`relative overflow-hidden bg-gradient-to-br from-slate-600 to-slate-900 ${className}`}>
-      {url ? (
-        <img
-          src={url}
-          alt=""
-          loading="lazy"
-          decoding="async"
-          onError={() => setFailed(true)}
-          className="h-full w-full object-cover object-top"
-        />
-      ) : (
-        <PersonSilhouette className="absolute inset-x-0 top-[6%] mx-auto h-[78%]" />
-      )}
-    </div>
-  );
-}
-
-// A generic laurel, drawn here: the Best Picture packs describe the award, but
-// the Academy's statuette is its trademark and is not used.
-function LaurelWreath({ className = "" }) {
-  const half = (
-    <>
-      <path d="M31 50 C 16 46, 8 34, 10 12" stroke="#eab308" strokeWidth="1.6" strokeLinecap="round" />
-      <ellipse cx="24" cy="47" rx="5" ry="2.3" fill="#facc15" transform="rotate(-25 24 47)" />
-      <ellipse cx="17" cy="41" rx="5" ry="2.3" fill="#facc15" transform="rotate(-45 17 41)" />
-      <ellipse cx="12" cy="33" rx="5" ry="2.3" fill="#facc15" transform="rotate(-65 12 33)" />
-      <ellipse cx="10" cy="24" rx="5" ry="2.3" fill="#facc15" transform="rotate(-85 10 24)" />
-      <ellipse cx="11" cy="15" rx="4.5" ry="2.1" fill="#facc15" transform="rotate(-105 11 15)" />
-      <ellipse cx="18" cy="37" rx="4.5" ry="2" fill="#ca8a04" transform="rotate(20 18 37)" />
-      <ellipse cx="14" cy="27" rx="4.5" ry="2" fill="#ca8a04" transform="rotate(5 14 27)" />
-      <ellipse cx="14" cy="18" rx="4" ry="1.8" fill="#ca8a04" transform="rotate(-10 14 18)" />
-    </>
-  );
-  return (
-    <svg viewBox="0 0 70 54" fill="none" aria-hidden="true" className={className}>
-      <g>{half}</g>
-      <g transform="translate(70 0) scale(-1 1)">{half}</g>
-    </svg>
-  );
 }
 
 function DecadeButton({ pack, selectedSlug, onSelect, disabled }) {
@@ -119,7 +51,7 @@ function DecadeButton({ pack, selectedSlug, onSelect, disabled }) {
           : "border-slate-600/70 bg-slate-900/60 text-slate-300 hover:border-slate-500 hover:text-white"
       }`}
     >
-      {decadeLabel(pack.decade)}
+      {starterPackDecade(pack)}
     </button>
   );
 }
@@ -135,7 +67,7 @@ function PersonCard({ group, profilePath, selectedSlug, onSelect, disabled, comp
       }`}
     >
       <div className="relative">
-        <PackPhoto profilePath={profilePath} className={compact ? "h-36" : "h-40"} />
+        <StarterPackPhoto profilePath={profilePath} className={compact ? "h-36" : "h-40"} />
         <div className="pointer-events-none absolute inset-x-0 bottom-0 h-20 bg-gradient-to-t from-slate-950/95 to-transparent" />
         <h4 className="absolute inset-x-3 bottom-2 text-base font-extrabold leading-tight text-white">{group.person}</h4>
         {isSelected && (
@@ -172,7 +104,7 @@ function InstalledArt({ pack, profilePath }) {
       <div className="flex h-44 w-36 flex-shrink-0 flex-col items-center justify-center gap-1 rounded-2xl border border-yellow-400/30 bg-gradient-to-br from-yellow-950/60 to-slate-950">
         <span className="relative flex h-[84px] w-28 items-center justify-center">
           <LaurelWreath className="absolute inset-0 h-full w-full" />
-          <span className="relative text-lg font-extrabold text-amber-200">{decadeLabel(pack.decade)}</span>
+          <span className="relative text-lg font-extrabold text-amber-200">{starterPackDecade(pack)}</span>
         </span>
         <span className="text-[11px] font-bold uppercase tracking-[0.14em] text-amber-200">Best Picture</span>
       </div>
@@ -180,59 +112,14 @@ function InstalledArt({ pack, profilePath }) {
   }
   return (
     <div className="relative h-48 w-40 flex-shrink-0">
-      <PackPhoto profilePath={profilePath} className="h-44 w-36 rounded-2xl border border-slate-600/50" />
+      <StarterPackPhoto profilePath={profilePath} className="h-44 w-36 rounded-2xl border border-slate-600/50" />
       {pack && (
         <span className="starter-pack-slip absolute bottom-0 right-0" aria-hidden="true">
-          the {decadeLabel(pack.decade)}
+          the {starterPackDecade(pack)}
         </span>
       )}
     </div>
   );
-}
-
-// Which pack the bowl has and when it went in, how many of its titles are
-// still waiting and how many were drawn, and every title the bowl holds or
-// has drawn -- the last only steers what "pull more" offers, so a topped-up
-// pack never brings back a title already watched. A claimed title keeps no
-// mark of the pack, so claims cannot be counted.
-const LOAD_FAILED = {
-  isLoading: false, slug: null, installedAt: null, packSlipCount: 0, drawnCount: 0, heldTmdbIds: [],
-  loadError: "Could not load this bowl's starter pack.",
-};
-
-async function readStarterPackState(bowlId) {
-  let reads;
-  try {
-    reads = await Promise.all([
-      supabase.from("bowls").select("starter_pack, starter_pack_installed_at").eq("id", bowlId).maybeSingle(),
-      supabase.from("bowl_movies").select("tmdb_id, starter_pack").eq("bowl_id", bowlId).is("drawn_at", null),
-      supabase.from("bowl_draw_events").select("tmdb_id, starter_pack, removed_at").eq("bowl_id", bowlId).is("returned_at", null),
-    ]);
-  } catch (error) {
-    console.error("[StarterPackSection] Failed to load the starter pack", error);
-    return LOAD_FAILED;
-  }
-  const [bowlRead, movieRead, drawRead] = reads;
-  const error = bowlRead.error || movieRead.error || drawRead.error;
-  if (error) {
-    console.error("[StarterPackSection] Failed to load the starter pack", error);
-    return LOAD_FAILED;
-  }
-  const slug = bowlRead.data?.starter_pack || null;
-  const movies = movieRead.data || [];
-  const draws = drawRead.data || [];
-  return {
-    isLoading: false,
-    loadError: null,
-    slug,
-    installedAt: bowlRead.data?.starter_pack_installed_at || null,
-    packSlipCount: movies.filter((movie) => movie.starter_pack).length,
-    // A draw the owner removed from the watched history is not counted here,
-    // as no watched list counts it -- but it still happened, so it stays among
-    // the titles a top-up must not bring back.
-    drawnCount: slug ? draws.filter((draw) => draw.starter_pack === slug && !draw.removed_at).length : 0,
-    heldTmdbIds: [...movies, ...draws].map((row) => Number(row.tmdb_id)).filter((id) => id > 0),
-  };
 }
 
 export default function StarterPackSection({ bowlId, isOwner, onSummaryChange }) {
@@ -248,7 +135,7 @@ export default function StarterPackSection({ bowlId, isOwner, onSummaryChange })
 
   useEffect(() => {
     let cancelled = false;
-    readStarterPackState(bowlId).then((next) => {
+    readBowlStarterPack(bowlId).then((next) => {
       if (!cancelled) setState(next);
     });
     return () => {
@@ -467,7 +354,7 @@ export default function StarterPackSection({ bowlId, isOwner, onSummaryChange })
                   >
                     <span className="relative flex aspect-[76/58] w-full max-w-[76px] items-center justify-center">
                       <LaurelWreath className="absolute inset-0 h-full w-full" />
-                      <span className="relative text-sm font-extrabold text-amber-200">{decadeLabel(pack.decade)}</span>
+                      <span className="relative text-sm font-extrabold text-amber-200">{starterPackDecade(pack)}</span>
                     </span>
                     <span className="text-[11px] font-semibold text-slate-300">
                       {bestPictureWinnersFor(pack.decade).length} films
@@ -483,7 +370,7 @@ export default function StarterPackSection({ bowlId, isOwner, onSummaryChange })
               {selectedPack ? (
                 <>
                   <p className="text-sm font-bold text-slate-50">{selectedPack.name}</p>
-                  <p className="text-sm text-slate-400">{describePack(selectedPack)}</p>
+                  <p className="text-sm text-slate-400">{describeStarterPack(selectedPack)}</p>
                 </>
               ) : (
                 <p className="text-sm text-slate-400">Choose a decade above to see what goes in.</p>

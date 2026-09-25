@@ -110,6 +110,10 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
 
   // Simple loading/error flags for DB-backed state.
   const [isLoading, setIsLoading] = useState(true);
+  // Which bowl the rows in `bowl` were read for. A route change keeps the last
+  // bowl's rows and its settled isLoading for a render or more before the new
+  // read starts, so "not loading" alone cannot say the rows are this bowl's.
+  const [loadedBowlId, setLoadedBowlId] = useState(null);
   const [errorMessage, setErrorMessage] = useState(null);
   const loadedUserId = useRef(null);
   const loadSequence = useRef(0);
@@ -262,7 +266,10 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       );
       setBowl({ remaining: [], watched: [] });
     } finally {
-      if (sequence === loadSequence.current) setIsLoading(false);
+      if (sequence === loadSequence.current) {
+        setIsLoading(false);
+        setLoadedBowlId(bowlId);
+      }
     }
   }, [bowlId]);
 
@@ -653,6 +660,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
   return {
     bowl,
     isLoading,
+    loadedBowlId,
     errorMessage,
     reload: loadBowlMovies,
     handleDraw,

@@ -229,6 +229,8 @@ describe("AddMovieModal", () => {
     const { container } = render(<AddMovieModal movie={movie} onClose={vi.fn()} userStreamingServices={[]} />);
     expect(screen.queryByText("Added by")).not.toBeInTheDocument();
     expect(container.textContent).toContain("From the Spielberg: The '80s pack");
+    // On the pack's paper slip, not as a line of attribution.
+    expect(container.querySelector(".starter-pack-slip")).toHaveTextContent("From the Spielberg: The '80s pack");
   });
 
   it("hides the attribution block when there is no usable adder label", () => {

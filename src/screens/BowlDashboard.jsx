@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import HoldToDrawButton from "../components/HoldToDrawButton";
 import BowlStatLine from "../components/BowlStatLine";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
+import StarterPackOffer from "../components/StarterPackOffer";
 import MyMoviesStrip from "../components/MyMoviesStrip";
 import MovieStripSkeleton from "../components/MovieStripSkeleton";
 import AddMovieButton from "../components/AddMovieButton";
@@ -61,7 +62,9 @@ export default function BowlDashboard() {
     const {
       bowl,
       isLoading,
+      loadedBowlId: bowlRowsBowlId,
       errorMessage,
+      reload: reloadBowl,
       handleDraw,
       handleUpdateMovieNote,
       handleSetMoviePin,
@@ -1069,20 +1072,19 @@ return (
 
                 {/* The one place a starter pack is offered rather than found:
                     an empty bowl cannot draw, and the owner is the one who can
-                    install a pack. Only once the bowl has actually loaded --
+                    install a pack. Only once this bowl has actually loaded --
                     a failed read also leaves the list empty, and that bowl
-                    is unknown, not empty. */}
-                {!isFirstLoad && !errorMessage && isCurrentUserOwner && bowl.remaining.length === 0 && (
-                  <p className="mt-3 text-center text-sm text-slate-400">
-                    Nothing to draw yet.{" "}
-                    <button
-                      type="button"
-                      className="font-semibold text-rose-300 underline-offset-2 hover:underline"
-                      onClick={() => navigate(`/bowl/${bowlId}/settings#starter-pack`)}
-                    >
-                      Start with a starter pack
-                    </button>
-                  </p>
+                    is unknown, not empty; and the empty list still showing
+                    after a switch from another bowl is that bowl's, not
+                    this one's, so the rows must have been read for it. The
+                    same goes for ownership: the last bowl's owner is not this
+                    bowl's until this bowl's access has been read. */}
+                {!isFirstLoad && !errorMessage && bowlRowsBowlId === bowlId && isAccessKnown && isCurrentUserOwner && bowl.remaining.length === 0 && (
+                  <StarterPackOffer
+                    bowlId={bowlId}
+                    onSeeAll={() => navigate(`/bowl/${bowlId}/settings#starter-pack`)}
+                    onInstalled={reloadBowl}
+                  />
                 )}
 
                 {/* Below both actions rather than between them: the two buttons

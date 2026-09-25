@@ -343,17 +343,19 @@ export default function AddMovieModal({
                     {releaseStatus.milestones.slice(0, 3).map((milestone) => milestone.label).join(" • ")}
                   </p>
                 )}
-                {addedByLabel && (
+                {/* A pack pick names no person, so where a name would go it
+                    shows the slip the pack put in -- the same paper the shelf
+                    writes its decades on. */}
+                {addedByLabel && isStarterPackMovie(movie) && (
+                  <p className="starter-pack-slip mt-4 inline-flex max-w-full flex-col break-words">
+                    <span className="text-sm font-semibold">From the</span>{" "}
+                    <span>{addedByLabel}</span>{" "}
+                    <span className="text-sm font-semibold">pack</span>
+                  </p>
+                )}
+                {addedByLabel && !isStarterPackMovie(movie) && (
                   <p className="mt-3 break-words text-sm text-slate-400">
-                    {isStarterPackMovie(movie) ? (
-                      <>
-                        <span>From the</span>{" "}<span className="text-slate-200">{addedByLabel}</span>{" "}<span>pack</span>
-                      </>
-                    ) : (
-                      <>
-                        <span>Added by</span>{" "}<span className="text-slate-200">{addedByLabel}</span>
-                      </>
-                    )}
+                    <span>Added by</span>{" "}<span className="text-slate-200">{addedByLabel}</span>
                   </p>
                 )}
                 {watchedDateLabel && <p className="mt-2 text-sm text-slate-400">Watched on: {watchedDateLabel}</p>}

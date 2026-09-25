@@ -25,7 +25,9 @@ vi.mock("../../lib/supabase", () => ({
     }),
   },
 }));
-vi.mock("../../lib/starterPacks", () => ({
+vi.mock("../../lib/starterPacks", async (importOriginal) => ({
+  // The real read, against the mocked client above.
+  readBowlStarterPack: (await importOriginal()).readBowlStarterPack,
   installStarterPack: mocks.installStarterPack,
   removeStarterPack: mocks.removeStarterPack,
   fetchStarterPackPeople: mocks.fetchStarterPackPeople,
