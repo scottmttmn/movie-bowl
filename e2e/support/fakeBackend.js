@@ -72,6 +72,8 @@ function createInitialState() {
     tmdbPersonMovies: {},
     // What a search that found nothing is retried as; null suggests nothing.
     tmdbSuggestion: null,
+    // Starter pack photos by person; nobody has one unless a test seeds it.
+    starterPackPeople: {},
   };
 }
 
@@ -896,6 +898,11 @@ export class FakeBackend {
     const method = request.method();
     const body = request.postDataJSON?.() ?? null;
     this.requests.push({ method, pathname: url.pathname, body });
+
+    if (url.pathname === "/api/starter-packs/people" && method === "GET") {
+      await fulfillJson(route, { people: this.state.starterPackPeople });
+      return;
+    }
 
     if (url.pathname === "/api/provider-links/lookup" && method === "POST") {
       await fulfillJson(route, { links: [] });

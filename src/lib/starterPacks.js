@@ -38,6 +38,37 @@ export async function fetchStarterPackCandidates(slug, { client = supabase, fetc
   return Array.isArray(body?.candidates) ? body.candidates : [];
 }
 
+// Each pack person's TMDB photo path, asked for once a session. The photos
+// dress the shelf and nothing depends on them, so any failure resolves to no
+// photos rather than an error, and a later visit asks again.
+let peopleRequest = null;
+
+export function clearStarterPackPeopleCache() {
+  peopleRequest = null;
+}
+
+export function fetchStarterPackPeople({ client = supabase, fetchImpl = fetch } = {}) {
+  if (!peopleRequest) {
+    peopleRequest = (async () => {
+      const token = await getAccessToken(client);
+      const response = await fetchImpl("/api/starter-packs/people", { headers: { Authorization: `Bearer ${token}` } });
+      if (!response.ok) throw new Error(`Starter pack photos failed with ${response.status}`);
+      const body = await response.json();
+      return body?.people && typeof body.people === "object" ? body.people : {};
+    })().catch((error) => {
+      console.error("[starterPacks] Failed to load starter pack photos", error);
+      peopleRequest = null;
+      return {};
+    });
+  }
+  return peopleRequest;
+}
+
+// TMDB serves a person's photo by path at a fixed set of widths.
+export function getStarterPackPhotoUrl(profilePath, width = "w342") {
+  return profilePath ? `https://image.tmdb.org/t/p/${width}${profilePath}` : null;
+}
+
 function toSnapshot(candidate, details) {
   return {
     tmdb_id: Number(candidate.id),

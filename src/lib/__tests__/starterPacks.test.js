@@ -4,7 +4,14 @@ vi.mock("../supabase", () => ({ supabase: {} }));
 vi.mock("../tmdbApi", () => ({ getTmdbMovieDetails: vi.fn() }));
 vi.mock("../bowlChanges", () => ({ notifyBowlChange: vi.fn() }));
 
-import { fetchStarterPackCandidates, installStarterPack, removeStarterPack } from "../starterPacks";
+import {
+  clearStarterPackPeopleCache,
+  fetchStarterPackCandidates,
+  fetchStarterPackPeople,
+  getStarterPackPhotoUrl,
+  installStarterPack,
+  removeStarterPack,
+} from "../starterPacks";
 
 function harness({ rpc = { data: null, error: null } } = {}) {
   const client = {
@@ -138,5 +145,33 @@ describe("removeStarterPack", () => {
     const h = harness({ rpc: { data: null, error: { code: "42501", message: "Only the bowl owner can remove a starter pack." } } });
     await expect(removeStarterPack({ bowlId: "bowl-1", client: h.client, offline: h.offline, publish: h.publish }))
       .resolves.toEqual({ ok: false, message: "Only the bowl owner can remove a starter pack." });
+  });
+});
+
+describe("fetchStarterPackPeople", () => {
+  it("asks once a session, through the signed-in route", async () => {
+    clearStarterPackPeopleCache();
+    const h = harness();
+    const fetchImpl = vi.fn(async () => ({ ok: true, json: async () => ({ people: { "Tom Hanks": "/hanks.jpg" } }) }));
+    await expect(fetchStarterPackPeople({ client: h.client, fetchImpl })).resolves.toEqual({ "Tom Hanks": "/hanks.jpg" });
+    await fetchStarterPackPeople({ client: h.client, fetchImpl });
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
+    expect(fetchImpl).toHaveBeenCalledWith("/api/starter-packs/people", { headers: { Authorization: "Bearer token" } });
+  });
+
+  it("resolves to no photos when the route fails, and asks again next time", async () => {
+    clearStarterPackPeopleCache();
+    const h = harness();
+    const fetchImpl = vi.fn(async () => ({ ok: false, status: 502, json: async () => ({}) }));
+    await expect(fetchStarterPackPeople({ client: h.client, fetchImpl })).resolves.toEqual({});
+    await fetchStarterPackPeople({ client: h.client, fetchImpl });
+    expect(fetchImpl).toHaveBeenCalledTimes(2);
+  });
+});
+
+describe("getStarterPackPhotoUrl", () => {
+  it("builds TMDB's image URL from a profile path, and nothing without one", () => {
+    expect(getStarterPackPhotoUrl("/hanks.jpg")).toBe("https://image.tmdb.org/t/p/w342/hanks.jpg");
+    expect(getStarterPackPhotoUrl(null)).toBeNull();
   });
 });

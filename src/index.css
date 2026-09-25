@@ -917,6 +917,21 @@
   transform: rotate(-1deg);
 }
 
+/* A starter pack's decade, tucked on the corner of its photo: the same paper
+   and hand as every other slip, so the pack reads as slips for the bowl. */
+.starter-pack-slip {
+  padding: 0.3rem 0.8rem;
+  border-radius: 7px;
+  background: linear-gradient(175deg, #fffef9, #eee9df);
+  box-shadow: 0 16px 26px -14px rgba(2, 6, 23, 0.95);
+  color: rgba(15, 23, 42, 0.9);
+  font-family: "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive;
+  font-size: 1.1rem;
+  font-weight: 700;
+  line-height: 1.1;
+  transform: rotate(-5deg);
+}
+
 /* Voice search: bars that move while the field is listening, so it reads as
    hearing you before a single word has arrived. */
 .voice-wave-bar {

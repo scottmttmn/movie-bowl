@@ -1,6 +1,6 @@
 import deleteAccount from "./_lib/deleteAccount.js";
 import lookupProviderLinks from "./_lib/lookupProviderLinks.js";
-import starterPackCandidates from "./_lib/starterPackCandidates.js";
+import starterPackCandidates, { starterPackPeople } from "./_lib/starterPackCandidates.js";
 import warmFilterMetadata from "./_lib/warmFilterMetadata.js";
 
 // Public URLs are rewritten here to stay within Vercel Hobby's
@@ -17,6 +17,9 @@ export default async function handler(req, res) {
   }
   if (req.query?.action === "starter-pack-candidates") {
     return starterPackCandidates(req, res);
+  }
+  if (req.query?.action === "starter-pack-people") {
+    return starterPackPeople(req, res);
   }
   res.status(404).json({ error: "Not found" });
 }

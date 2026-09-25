@@ -373,7 +373,12 @@ converting the slip without a second copy; and the rotation turn cases above.
   packs, with install when none is installed, and "pull more" and remove for
   the installed one. This is the natural home -- it already owns draw access,
   draw method, and the member roster. Members see which pack is installed but no
-  controls.
+  controls. The packs are a shelf of cards, one per person with a button per
+  decade, carrying that person's TMDB photo -- never the posters of their
+  movies, which would show what the pack puts in. The photo paths come from
+  `/api/starter-packs/people`, looked up live and kept a day in memory, never
+  stored. Best Picture decades sit in a generic laurel: the award is described,
+  but the Academy's statuette is its trademark and is not drawn.
 - **Empty bowl state** on the dashboard: the one place a pack is *offered*
   rather than found, and to the owner only.
 - **The reveal.** A pack pick has no person and no comment, so the pack's name

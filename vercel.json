@@ -42,6 +42,10 @@
       "destination": "/api/movie-cache?action=starter-pack-candidates"
     },
     {
+      "source": "/api/starter-packs/people",
+      "destination": "/api/movie-cache?action=starter-pack-people"
+    },
+    {
       "source": "/voice-probe/privacy",
       "destination": "/index.html"
     },

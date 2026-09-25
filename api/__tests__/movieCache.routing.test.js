@@ -56,6 +56,18 @@ describe("movie cache public routing", () => {
     expect(posted.statusCode).toBe(405);
   });
 
+  it("keeps /api/starter-packs/people signed-in only and GET only after rewriting", async () => {
+    const request = rewrittenRequest("/api/starter-packs/people", "GET");
+    const res = response();
+    await handler(request, res);
+    expect(res.statusCode).toBe(401);
+    expect(res.body).toEqual({ error: "Unauthorized" });
+
+    const posted = response();
+    await handler({ ...request, method: "POST" }, posted);
+    expect(posted.statusCode).toBe(405);
+  });
+
   it.each([["unknown"], [["account-delete", "provider-links", "warm-filter-metadata"]]])("rejects an unknown or ambiguous action", async (action) => {
     const res = response();
     await handler({ query: { action } }, res);
