@@ -1076,8 +1076,10 @@ return (
                     a failed read also leaves the list empty, and that bowl
                     is unknown, not empty; and the empty list still showing
                     after a switch from another bowl is that bowl's, not
-                    this one's, so the rows must have been read for it. */}
-                {!isFirstLoad && !errorMessage && bowlRowsBowlId === bowlId && isCurrentUserOwner && bowl.remaining.length === 0 && (
+                    this one's, so the rows must have been read for it. The
+                    same goes for ownership: the last bowl's owner is not this
+                    bowl's until this bowl's access has been read. */}
+                {!isFirstLoad && !errorMessage && bowlRowsBowlId === bowlId && isAccessKnown && isCurrentUserOwner && bowl.remaining.length === 0 && (
                   <StarterPackOffer
                     bowlId={bowlId}
                     onSeeAll={() => navigate(`/bowl/${bowlId}/settings#starter-pack`)}

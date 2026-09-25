@@ -181,6 +181,7 @@ describe("BowlDashboard guards", () => {
   beforeEach(() => {
     mocks.state.navigate.mockReset();
     mocks.state.bowlRowsBowlId = null;
+    mocks.state.bowlId = "bowl-1";
     mocks.state.authUserId = "u1";
     mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", draw_access_mode: "all_members" };
     mocks.state.hasDrawMethodColumn = true;
@@ -719,6 +720,20 @@ describe("BowlDashboard guards", () => {
     mocks.state.bowlRowsBowlId = "another-bowl";
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Start with a starter pack" })).not.toBeInTheDocument();
+  });
+
+  it("does not offer a pack on the strength of the previous bowl's ownership", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = { remaining: [], watched: [] };
+    const { rerender } = renderDashboard();
+    expect(await screen.findByRole("button", { name: "Start with a starter pack" })).toBeInTheDocument();
+
+    // The picker moves to an empty bowl whose access has not been read yet:
+    // being the last bowl's owner says nothing about this one.
+    mocks.state.bowlId = "bowl-2";
+    mocks.state.heldBowlRow = new Promise(() => {});
+    rerender(<BowlDashboard />);
     expect(screen.queryByRole("button", { name: "Start with a starter pack" })).not.toBeInTheDocument();
   });
 
