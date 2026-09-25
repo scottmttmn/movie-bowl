@@ -57,9 +57,10 @@ vi.mock("../../hooks/useUserBowls", () => ({ default: () => userBowlsMock }));
 
 vi.mock("../../hooks/useBowlAdd", () => ({ default: () => ({ openBowlAdd: vi.fn() }) }));
 vi.mock("../../hooks/useBowl", () => ({
-  default: () => ({
+  default: (bowlId) => ({
     bowl: mocks.state.bowlData,
     isLoading: false,
+    loadedBowlId: bowlId,
     errorMessage: null,
     handleDraw: vi.fn(),
     handleDeleteMovie: vi.fn(),

@@ -277,6 +277,42 @@ describe("BowlDashboard guards", () => {
     expect(screen.queryByRole("button", { name: /drawing from 7 titles/i })).not.toBeInTheDocument();
   });
 
+  // The picker reuses the dashboard, so the first render for the next bowl
+  // still holds the last bowl's rows with its settled isLoading.
+  it("holds the next bowl's placeholders, not the last bowl's counts, while its read is open", async () => {
+    const { rerender } = renderDashboard();
+    await waitFor(() => expect(screen.getByRole("button", { name: /drawing from 4 titles/i })).toBeInTheDocument());
+    expect(screen.getByText("4 movies")).toBeInTheDocument();
+
+    const bowl2View = {
+      statLine: { pool: { kind: "count", count: 7, service: null, tone: "idle" }, reach: null },
+      myMovieCount: 7,
+      watchedCount: 2,
+      canDraw: true,
+    };
+    rememberReadout("bowl:bowl-2", "u1", bowl2View);
+    let answerBowlRow;
+    mocks.state.heldBowlRow = new Promise((resolve) => { answerBowlRow = resolve; });
+    mocks.state.bowlRowsBowlId = "bowl-1";
+    mocks.state.bowlId = "bowl-2";
+    rerender(<BowlDashboard />);
+
+    expect(screen.getByRole("button", { name: /drawing from 7 titles/i })).toBeInTheDocument();
+    expect(screen.getByText("7 movies")).toBeInTheDocument();
+    expect(screen.getByText("2 watched")).toBeInTheDocument();
+    expect(screen.queryByText("4 movies")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /press and hold to draw/i })).toBeDisabled();
+    expect(readRememberedReadout("bowl:bowl-2").value).toEqual(bowl2View);
+
+    mocks.state.bowlData = { remaining: [{ id: "b2-m1", added_by: "u1" }, { id: "b2-m2", added_by: "u1" }], watched: [] };
+    mocks.state.bowlRowsBowlId = null;
+    rerender(<BowlDashboard />);
+    answerBowlRow({ data: { ...mocks.state.bowlRow, name: "Bowl 2" }, error: null });
+    await waitFor(() => expect(screen.getByRole("button", { name: /drawing from 2 titles/i })).toBeInTheDocument());
+    expect(screen.getByText("2 movies")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /press and hold to draw/i })).toBeEnabled();
+  });
+
   it("keeps Add Movie enabled and explains the current person-first draw method", async () => {
     renderDashboard();
 

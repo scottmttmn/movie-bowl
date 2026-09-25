@@ -467,12 +467,11 @@ export default function BowlDashboard() {
     const drawMethodBucketsByContributor = getDrawMethod(drawMethod).bucketsByContributor;
 
     // A reload after an add or a draw keeps the rows it had, so only the first
-    // read of a bowl has nothing worth showing. Adjusted during render, as with
-    // any state derived from props, so the frame that finishes loading is also
-    // the first one that stops holding placeholders.
-    const [loadedBowlId, setLoadedBowlId] = useState(null);
-    if (!isLoading && loadedBowlId !== bowlId) setLoadedBowlId(bowlId);
-    const isFirstLoad = loadedBowlId !== bowlId;
+    // read of a bowl has nothing worth showing. Asked of useBowl rather than
+    // inferred from isLoading: switching bowls keeps the last bowl's rows and
+    // its settled isLoading until the new read starts, and those rows are not
+    // this bowl's.
+    const isFirstLoad = bowlRowsBowlId !== bowlId;
 
     const statLineInputs = {
       poolStatus: drawPoolStatus,
@@ -491,6 +490,7 @@ export default function BowlDashboard() {
     // movies, the saved filters (or the failure to load them, which leaves the
     // defaults in force), the bowl's draw method and access, and the count.
     const isBowlViewSettled =
+      !isFirstLoad &&
       !isLoading &&
       isAccessKnown &&
       (didApplyDefaultDrawSettings || Boolean(preferencesLoadError)) &&
@@ -905,7 +905,7 @@ export default function BowlDashboard() {
     // Fired by a completed hold on the draw button, or by the keyboard path's
     // confirm dialog — both arrive here with intent already established.
     const runDraw = async () => {
-      if (isDrawing || !canCurrentUserDraw || bowl.remaining.length === 0) return;
+      if (isDrawing || isFirstLoad || !canCurrentUserDraw || bowl.remaining.length === 0) return;
       setShowDrawConfirm(false);
       setDrawAnimationTitle("");
       setIsDrawing(true);
@@ -1007,7 +1007,7 @@ return (
             {isLoading && (
               <p className="sr-only" role="status">Loading bowl…</p>
             )}
-            {!isLoading && errorMessage && (
+            {!isFirstLoad && !isLoading && errorMessage && (
               <div className="status-error mb-3">{errorMessage}</div>
             )}
             {!showDrawFilters && (preferencesLoadError || filterSaveStatus === "error") && (
@@ -1055,7 +1055,7 @@ return (
                   <HoldToDrawButton
                     onHoldComplete={runDraw}
                     onKeyboardActivate={() => {
-                      if (isDrawing || !canCurrentUserDraw || bowl.remaining.length === 0) return;
+                      if (isDrawing || isFirstLoad || !canCurrentUserDraw || bowl.remaining.length === 0) return;
                       setShowDrawConfirm(true);
                     }}
                     isLoading={isDrawing}
@@ -1077,10 +1077,10 @@ return (
                     a failed read also leaves the list empty, and that bowl
                     is unknown, not empty; and the empty list still showing
                     after a switch from another bowl is that bowl's, not
-                    this one's, so the rows must have been read for it. The
+                    this one's, which isFirstLoad already rules out. The
                     same goes for ownership: the last bowl's owner is not this
                     bowl's until this bowl's access has been read. */}
-                {!isFirstLoad && !errorMessage && bowlRowsBowlId === bowlId && isAccessKnown && isCurrentUserOwner && bowl.remaining.length === 0 && (
+                {!isFirstLoad && !errorMessage && isAccessKnown && isCurrentUserOwner && bowl.remaining.length === 0 && (
                   <StarterPackOffer
                     bowlId={bowlId}
                     onSeeAll={() => navigate(`/bowl/${bowlId}/settings${STARTER_PACK_SHELF_HASH}`)}

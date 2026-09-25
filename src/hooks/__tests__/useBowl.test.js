@@ -291,6 +291,25 @@ describe("useBowl handleDraw integration", () => {
     await waitFor(() => expect(result.current.loadedBowlId).toBe("bowl-2"));
   });
 
+  it("refuses to draw the last bowl's rows while the next bowl's read is open", async () => {
+    mocks.remainingQueue.push([{ id: "m1", tmdb_id: 101, title: "Movie A", added_at: "2026-02-22T00:00:00.000Z" }]);
+    const { result, rerender } = renderHook(({ bowlId }) => useBowl(bowlId), { initialProps: { bowlId: "bowl-1" } });
+    await waitFor(() => expect(result.current.loadedBowlId).toBe("bowl-1"));
+    expect(result.current.bowl.remaining).toHaveLength(1);
+
+    let finishRemaining;
+    mocks.remainingQueue.push(new Promise((resolve) => { finishRemaining = resolve; }));
+    rerender({ bowlId: "bowl-2" });
+    expect(result.current.bowl.remaining).toHaveLength(1);
+
+    let drawn;
+    await act(async () => { drawn = await result.current.handleDraw(); });
+    expect(drawn).toBeNull();
+    expect(mocks.rpcCalls.map((call) => call.name)).not.toContain("draw_bowl_movie");
+
+    await act(async () => { finishRemaining([]); });
+  });
+
   it("returns an add failure if the session lookup throws before dispatch", async () => {
     const { result } = renderHook(() => useBowl("bowl-1"));
     await waitFor(() => expect(result.current.isLoading).toBe(false));

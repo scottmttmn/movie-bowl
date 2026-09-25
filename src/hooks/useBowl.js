@@ -297,6 +297,9 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
   // entries atomically, then reload the remaining/watched lists.
   const handleDraw = useCallback(async (options = {}) => {
     if (!bowlId) return null;
+    // Right after a bowl switch the rows are still the last bowl's. Drawing
+    // them would send that bowl's titles under this bowl's id.
+    if (loadedBowlId !== bowlId) return null;
     const drawableRemaining = (bowl.remaining || []).filter(
       (movie) => movie?.local_status !== "syncing"
     );
@@ -427,7 +430,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       streamingRegion: selected.region || "US",
       streamingFetchedAt: selected.fetchedAt || null,
     };
-  }, [bowlId, bowl.remaining, loadBowlMovies, drawMethod, filterMetadataFetchers]);
+  }, [bowlId, loadedBowlId, bowl.remaining, loadBowlMovies, drawMethod, filterMetadataFetchers]);
 
   useEffect(() => subscribeBowlChanges((change) => {
     if (change.bowlId !== bowlId || change.userId !== loadedUserId.current) return;
