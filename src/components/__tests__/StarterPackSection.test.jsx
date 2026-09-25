@@ -168,6 +168,8 @@ describe("StarterPackSection installed", () => {
     expect(await screen.findByRole("heading", { name: "Best Picture Winners: The '90s" })).toBeInTheDocument();
     expect(screen.getByText("Best Picture")).toBeInTheDocument();
     expect(container.querySelectorAll("img")).toHaveLength(0);
+    // Nothing on this view shows a face, so no lookup is spent on one.
+    expect(mocks.fetchStarterPackPeople).not.toHaveBeenCalled();
   });
 });
 
@@ -185,6 +187,7 @@ describe("StarterPackSection for members and failures", () => {
     render(<StarterPackSection bowlId="bowl-1" isOwner={false} />);
     expect(await screen.findByText("This bowl has no starter pack.")).toBeInTheDocument();
     expect(screen.queryByRole("group", { name: "Best Picture decades" })).not.toBeInTheDocument();
+    expect(mocks.fetchStarterPackPeople).not.toHaveBeenCalled();
   });
 
   it("says so when the bowl's pack cannot be read", async () => {

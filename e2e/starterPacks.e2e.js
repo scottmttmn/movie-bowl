@@ -35,3 +35,32 @@ test("the owner picks a starter pack from the photo shelf", async ({ page, backe
   const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
   expect(overflow).toBeLessThanOrEqual(0);
 });
+
+// Narrower than either project's own viewport: a 360px phone is common, and the
+// app shell hides horizontal overflow, so a grid wider than its panel is clipped
+// silently rather than scrolled.
+test("every Best Picture decade fits on a narrow phone", async ({ page, backend }) => {
+  await page.setViewportSize({ width: 360, height: 780 });
+  await backend.authenticate(page);
+  backend.state.bowls.push({
+    id: "pack-bowl",
+    name: "Family Night",
+    owner_id: "user-smoke",
+    draw_access_mode: "all_members",
+    draw_method: "person_first",
+    starter_pack: null,
+    starter_pack_installed_at: null,
+  });
+  backend.state.bowl_members.push({ bowl_id: "pack-bowl", user_id: "user-smoke", role: "Owner" });
+  await page.goto("/bowl/pack-bowl/settings#starter-pack");
+
+  const group = page.getByRole("group", { name: "Best Picture decades" });
+  await expect(group).toBeVisible();
+  await expect(group.getByRole("button")).toHaveCount(8);
+  // Each tile's laurel has to shrink with its column rather than spill past
+  // the tile into its neighbour.
+  const overflowing = await group.getByRole("button").evaluateAll((buttons) =>
+    buttons.filter((button) => button.scrollWidth > button.clientWidth).map((button) => button.getAttribute("aria-label"))
+  );
+  expect(overflowing).toEqual([]);
+});

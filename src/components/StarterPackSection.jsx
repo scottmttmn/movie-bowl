@@ -256,9 +256,17 @@ export default function StarterPackSection({ bowlId, isOwner, onSummaryChange })
     };
   }, [bowlId, reloadKey]);
 
+  const installedPack = state.slug ? getStarterPack(state.slug) : null;
+  const packName = installedPack?.name || state.slug;
+  // Only the owner's shelf and an installed filmography pack show a face. A
+  // cold lookup is nine TMDB searches, so nobody else's view pays for one.
+  const showsPhotos = !state.isLoading && !state.loadError
+    && (installedPack ? installedPack.kind === "filmography" : isOwner && !state.slug);
+
   // Photos are dressing: the shelf renders at once with silhouettes and the
   // pictures arrive when they do.
   useEffect(() => {
+    if (!showsPhotos) return undefined;
     let cancelled = false;
     fetchStarterPackPeople().then((next) => {
       if (!cancelled) setPeople(next || {});
@@ -266,10 +274,7 @@ export default function StarterPackSection({ bowlId, isOwner, onSummaryChange })
     return () => {
       cancelled = true;
     };
-  }, []);
-
-  const installedPack = state.slug ? getStarterPack(state.slug) : null;
-  const packName = installedPack?.name || state.slug;
+  }, [showsPhotos]);
 
   useEffect(() => {
     if (state.isLoading) return;
@@ -454,13 +459,13 @@ export default function StarterPackSection({ bowlId, isOwner, onSummaryChange })
                     aria-label={pack.name}
                     disabled={isWorking}
                     onClick={() => setSelectedSlug(pack.slug)}
-                    className={`flex min-h-24 flex-col items-center justify-center gap-0.5 rounded-xl border px-1 py-2 transition ${
+                    className={`flex min-h-24 min-w-0 flex-col items-center justify-center gap-0.5 rounded-xl border px-1 py-2 transition ${
                       isSelected
                         ? "border-rose-400 bg-rose-950/40 shadow-[0_0_0_4px_rgba(244,63,94,0.14)]"
                         : "border-yellow-400/30 bg-gradient-to-br from-yellow-950/50 to-slate-950 hover:border-yellow-300/50"
                     }`}
                   >
-                    <span className="relative flex h-[58px] w-[76px] items-center justify-center">
+                    <span className="relative flex aspect-[76/58] w-full max-w-[76px] items-center justify-center">
                       <LaurelWreath className="absolute inset-0 h-full w-full" />
                       <span className="relative text-sm font-extrabold text-amber-200">{decadeLabel(pack.decade)}</span>
                     </span>
