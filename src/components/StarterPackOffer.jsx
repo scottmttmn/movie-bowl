@@ -1,4 +1,4 @@
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { fetchStarterPackPeople, installStarterPack, readBowlStarterPack } from "../lib/starterPacks";
 import { STARTER_PACK_SUGGESTIONS, describeStarterPack, getStarterPack, starterPackDecade } from "../utils/starterPacks";
 import LaurelWreath from "./LaurelWreath";
@@ -62,7 +62,14 @@ export default function StarterPackOffer({ bowlId, onSeeAll, onInstalled }) {
     setState({ isLoading: true, slug: null, heldTmdbIds: [], loadError: null });
     setSelectedSlug(null);
     setFailure(null);
+    setIsWorking(false);
   }
+
+  // Which bowl is on screen now, for a pour that finishes after it changed.
+  const currentBowlId = useRef(bowlId);
+  useEffect(() => {
+    currentBowlId.current = bowlId;
+  }, [bowlId]);
 
   useEffect(() => {
     let cancelled = false;
@@ -121,6 +128,10 @@ export default function StarterPackOffer({ bowlId, onSeeAll, onInstalled }) {
       heldTmdbIds: state.heldTmdbIds,
       packSlipCount: 0,
     });
+    // A pour that lands after the picker moved on belongs to a bowl no longer
+    // on screen: reloading it, or showing its failure, would dress the new
+    // bowl in the old one's result.
+    if (currentBowlId.current !== bowlId) return;
     // On success the bowl reloads with the pack in it and this offer goes
     // away with the empty bowl, so there is nothing to confirm here.
     if (result.ok) await onInstalled?.();

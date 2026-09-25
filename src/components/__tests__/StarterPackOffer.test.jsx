@@ -80,6 +80,33 @@ describe("StarterPackOffer", () => {
     expect(mocks.readBowlStarterPack).toHaveBeenLastCalledWith("bowl-2");
   });
 
+  it("drops a pour that finishes after the bowl changed", async () => {
+    let finishInstall;
+    const firstBowlInstalled = vi.fn();
+    mocks.installStarterPack.mockReturnValue(new Promise((resolve) => { finishInstall = resolve; }));
+    const { rerender } = render(<StarterPackOffer bowlId="bowl-1" onSeeAll={vi.fn()} onInstalled={firstBowlInstalled} />);
+    fireEvent.click(await screen.findByRole("button", { name: "Nolan: The '00s" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pour into the bowl" }));
+
+    const secondBowlInstalled = vi.fn();
+    rerender(<StarterPackOffer bowlId="bowl-2" onSeeAll={vi.fn()} onInstalled={secondBowlInstalled} />);
+    expect(await screen.findByRole("button", { name: "Pour into the bowl" })).toBeDisabled();
+
+    finishInstall({ ok: false, message: "Could not load that starter pack. Please try again." });
+    await waitFor(() => expect(mocks.installStarterPack).toHaveBeenCalledTimes(1));
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(firstBowlInstalled).not.toHaveBeenCalled();
+    expect(secondBowlInstalled).not.toHaveBeenCalled();
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+
+    // Only the first bowl's pour is dropped; the next one works as usual.
+    mocks.installStarterPack.mockResolvedValue({ ok: true, inserted: 2, message: "Added 2 titles." });
+    fireEvent.click(screen.getByRole("button", { name: "Spielberg: The '80s" }));
+    fireEvent.click(screen.getByRole("button", { name: "Pour into the bowl" }));
+    await waitFor(() => expect(secondBowlInstalled).toHaveBeenCalledTimes(1));
+    expect(mocks.installStarterPack).toHaveBeenLastCalledWith(expect.objectContaining({ bowlId: "bowl-2", slug: "spielberg-1980s" }));
+  });
+
   it("opens the full shelf from See all", async () => {
     const onSeeAll = vi.fn();
     render(<StarterPackOffer bowlId="bowl-1" onSeeAll={onSeeAll} />);
