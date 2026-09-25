@@ -380,9 +380,18 @@ converting the slip without a second copy; and the rotation turn cases above.
   stored. Best Picture decades sit in a generic laurel: the award is described,
   but the Academy's statuette is its trademark and is not drawn.
 - **Empty bowl state** on the dashboard: the one place a pack is *offered*
-  rather than found, and to the owner only.
+  rather than found, and to the owner only. `StarterPackOffer` shows three
+  packs (a director, the Oscars, a newer director) as the shelf draws them,
+  "See all" to the shelf, and the same describe-then-pour step; pouring reloads
+  the bowl and the offer goes with the emptiness. It adds no "add your own"
+  button of its own -- the dashboard's Add sits directly above it. A bowl whose
+  pack has run dry is pointed back to that pack instead of offered another,
+  since the database allows one pack per bowl.
 - **The reveal.** A pack pick has no person and no comment, so the pack's name
-  goes where a contributor's would: "From the Spielberg: The '80s pack."
+  goes where a contributor's would: "From the Spielberg: The '80s pack,"
+  written on the same paper slip the shelf uses, in place of the "Added by"
+  line. "Drawn on Dana's turn" is not shown: the phone's draw result does not
+  carry the turn it spent, and the reveal would have to guess.
   `getMovieAttributionLabel` already returns `added_by_name` first, so the phone
   strip and `TvTonightScreen` inherit it; the copy is what needs writing.
 - **Add confirmation** when an add claims a pack slip, as above.

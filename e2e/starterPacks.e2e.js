@@ -64,3 +64,42 @@ test("every Best Picture decade fits on a narrow phone", async ({ page, backend 
   );
   expect(overflowing).toEqual([]);
 });
+
+// The offer an empty bowl makes its owner: pour a pack from the dashboard and
+// the bowl has something to draw without a trip to Settings.
+test("an empty bowl offers its owner a starter pack and pours it", async ({ page, backend }) => {
+  await backend.authenticate(page);
+  backend.state.bowls.push({
+    id: "pack-bowl",
+    name: "Family Night",
+    owner_id: "user-smoke",
+    draw_access_mode: "all_members",
+    draw_method: "person_first",
+    starter_pack: null,
+    starter_pack_installed_at: null,
+  });
+  backend.state.bowl_members.push({ bowl_id: "pack-bowl", user_id: "user-smoke", role: "Owner" });
+  backend.state.starterPackPeople = { "Christopher Nolan": "/nolan.jpg" };
+  backend.state.starterPackCandidates = {
+    "nolan-2000s": [
+      { id: 1124, title: "The Prestige", release_date: "2006-10-17", poster_path: null },
+      { id: 155, title: "The Dark Knight", release_date: "2008-07-16", poster_path: null },
+    ],
+  };
+  await page.goto("/bowl/pack-bowl");
+
+  const offer = page.getByRole("region", { name: "Nothing to draw yet" });
+  await expect(offer).toBeVisible();
+  await expect(offer.locator('img[src="https://image.tmdb.org/t/p/w342/nolan.jpg"]')).toBeVisible();
+  const pour = offer.getByRole("button", { name: "Pour into the bowl" });
+  await expect(pour).toBeDisabled();
+  await offer.getByRole("button", { name: "Nolan: The '00s" }).click();
+  await expect(offer.getByText(/Up to 15 of the movies Christopher Nolan directed from 2000 to 2009/)).toBeVisible();
+
+  const overflow = await page.evaluate(() => document.documentElement.scrollWidth - document.documentElement.clientWidth);
+  expect(overflow).toBeLessThanOrEqual(0);
+
+  await pour.click();
+  await expect(offer).toBeHidden();
+  expect(backend.state.bowl_movies.filter((movie) => movie.starter_pack === "nolan-2000s")).toHaveLength(2);
+});

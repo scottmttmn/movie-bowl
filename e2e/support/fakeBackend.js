@@ -74,6 +74,8 @@ function createInitialState() {
     tmdbSuggestion: null,
     // Starter pack photos by person; nobody has one unless a test seeds it.
     starterPackPeople: {},
+    // Each pack's TMDB candidates by slug; a pack nobody seeded has none.
+    starterPackCandidates: {},
   };
 }
 
@@ -531,6 +533,34 @@ export class FakeBackend {
       return;
     }
 
+    // The install without its limits: the database suites hold those. This
+    // only has to put a pack's titles in the bowl the way the real one does.
+    if (rpcName === "install_bowl_starter_pack") {
+      const bowl = this.state.bowls.find((row) => row.id === args.p_bowl_id);
+      const now = new Date().toISOString();
+      const inserted = (args.p_movies || []).map((movie) => {
+        const row = {
+          ...movie,
+          id: nextId(this.state, "movie", "bowl_movies"),
+          bowl_id: args.p_bowl_id,
+          added_by: null,
+          added_by_name: args.p_pack_name,
+          starter_pack: args.p_pack_slug,
+          added_at: now,
+          drawn_at: null,
+          drawn_by: null,
+        };
+        this.state.bowl_movies.push(row);
+        return row.id;
+      });
+      if (bowl && !bowl.starter_pack) {
+        bowl.starter_pack = args.p_pack_slug;
+        bowl.starter_pack_installed_at = now;
+      }
+      await fulfillJson(route, { inserted, already_in_bowl: [], over_limit: [] });
+      return;
+    }
+
     if (rpcName === "draw_bowl_movie") {
       const movie = this.state.bowl_movies.find((row) => row.id === args.p_bowl_movie_id);
       if (!movie || movie.drawn_at) {
@@ -899,6 +929,11 @@ export class FakeBackend {
     const body = request.postDataJSON?.() ?? null;
     this.requests.push({ method, pathname: url.pathname, body });
 
+    if (url.pathname === "/api/starter-packs/candidates" && method === "GET") {
+      await fulfillJson(route, { candidates: this.state.starterPackCandidates[url.searchParams.get("pack")] || [] });
+      return;
+    }
+
     if (url.pathname === "/api/starter-packs/people" && method === "GET") {
       await fulfillJson(route, { people: this.state.starterPackPeople });
       return;
@@ -936,7 +971,8 @@ export class FakeBackend {
 
     if (url.pathname === "/api/tmdb/movie/details" && method === "GET") {
       const creditMovies = Object.values(this.state.tmdbPersonMovies).flatMap((credits) => [...credits.acting, ...credits.directing]);
-      const movie = [...this.state.tmdbSearchResults, ...creditMovies].find((row) => String(row.id) === url.searchParams.get("id"));
+      const packMovies = Object.values(this.state.starterPackCandidates).flat();
+      const movie = [...this.state.tmdbSearchResults, ...creditMovies, ...packMovies].find((row) => String(row.id) === url.searchParams.get("id"));
       await fulfillJson(route, { ...movie, runtime: 110, genres: [{ name: "Drama" }], overview: "A movie for the next gathering." });
       return;
     }

@@ -2,6 +2,7 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import HoldToDrawButton from "../components/HoldToDrawButton";
 import BowlStatLine from "../components/BowlStatLine";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
+import StarterPackOffer from "../components/StarterPackOffer";
 import MyMoviesStrip from "../components/MyMoviesStrip";
 import MovieStripSkeleton from "../components/MovieStripSkeleton";
 import AddMovieButton from "../components/AddMovieButton";
@@ -62,6 +63,7 @@ export default function BowlDashboard() {
       bowl,
       isLoading,
       errorMessage,
+      reload: reloadBowl,
       handleDraw,
       handleUpdateMovieNote,
       handleSetMoviePin,
@@ -1073,16 +1075,11 @@ return (
                     a failed read also leaves the list empty, and that bowl
                     is unknown, not empty. */}
                 {!isFirstLoad && !errorMessage && isCurrentUserOwner && bowl.remaining.length === 0 && (
-                  <p className="mt-3 text-center text-sm text-slate-400">
-                    Nothing to draw yet.{" "}
-                    <button
-                      type="button"
-                      className="font-semibold text-rose-300 underline-offset-2 hover:underline"
-                      onClick={() => navigate(`/bowl/${bowlId}/settings#starter-pack`)}
-                    >
-                      Start with a starter pack
-                    </button>
-                  </p>
+                  <StarterPackOffer
+                    bowlId={bowlId}
+                    onSeeAll={() => navigate(`/bowl/${bowlId}/settings#starter-pack`)}
+                    onInstalled={reloadBowl}
+                  />
                 )}
 
                 {/* Below both actions rather than between them: the two buttons

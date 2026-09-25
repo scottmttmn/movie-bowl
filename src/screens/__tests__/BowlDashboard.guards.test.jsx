@@ -161,6 +161,13 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
+// The offer has its own tests; here it only has to appear, or not.
+vi.mock("../../components/StarterPackOffer", () => ({
+  default: ({ onSeeAll }) => (
+    <button type="button" onClick={onSeeAll}>Start with a starter pack</button>
+  ),
+}));
+
 import BowlDashboard from "../BowlDashboard";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../../utils/appLimits";
 import { readRememberedReadout, rememberReadout } from "../../utils/rememberedReadouts";
