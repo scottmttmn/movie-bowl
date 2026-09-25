@@ -107,6 +107,20 @@ describe("StarterPackOffer", () => {
     expect(mocks.installStarterPack).toHaveBeenLastCalledWith(expect.objectContaining({ bowlId: "bowl-2", slug: "spielberg-1980s" }));
   });
 
+  it("never shows the previous bowl's pack read in the next bowl", async () => {
+    const reads = {};
+    mocks.readBowlStarterPack.mockImplementation((bowlId) => new Promise((resolve) => { reads[bowlId] = resolve; }));
+    const { rerender } = render(<StarterPackOffer bowlId="bowl-1" onSeeAll={vi.fn()} />);
+    rerender(<StarterPackOffer bowlId="bowl-2" onSeeAll={vi.fn()} />);
+
+    reads["bowl-1"]({ ...noPack, slug: "spielberg-1980s" });
+    await new Promise((resolve) => setTimeout(resolve, 0));
+    expect(screen.queryByRole("button", { name: /Pull more/ })).not.toBeInTheDocument();
+
+    reads["bowl-2"](noPack);
+    expect(await screen.findByRole("group", { name: "Suggested starter packs" })).toBeInTheDocument();
+  });
+
   it("opens the full shelf from See all", async () => {
     const onSeeAll = vi.fn();
     render(<StarterPackOffer bowlId="bowl-1" onSeeAll={onSeeAll} />);

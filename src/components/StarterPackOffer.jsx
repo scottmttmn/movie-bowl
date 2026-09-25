@@ -46,39 +46,29 @@ function SuggestionTile({ pack, profilePath, isSelected, disabled, onSelect }) {
   );
 }
 
-export default function StarterPackOffer({ bowlId, onSeeAll, onInstalled }) {
+function OfferForBowl({ bowlId, onSeeAll, onInstalled }) {
   const [state, setState] = useState({ isLoading: true, slug: null, heldTmdbIds: [], loadError: null });
   const [people, setPeople] = useState({});
   const [selectedSlug, setSelectedSlug] = useState(null);
   const [isWorking, setIsWorking] = useState(false);
   const [failure, setFailure] = useState(null);
-  const [loadedBowlId, setLoadedBowlId] = useState(bowlId);
 
-  // The picker moves between bowls without remounting this, and a choice made
-  // for one bowl -- and the titles it holds -- must never pour into the next.
-  // Reset during render, so not one frame offers the old bowl's Pour.
-  if (loadedBowlId !== bowlId) {
-    setLoadedBowlId(bowlId);
-    setState({ isLoading: true, slug: null, heldTmdbIds: [], loadError: null });
-    setSelectedSlug(null);
-    setFailure(null);
-    setIsWorking(false);
-  }
-
-  // Which bowl is on screen, for a pour that finishes after it changed. A
-  // layout effect, not a passive one: it runs inside the same synchronous
-  // commit that puts the new bowl on screen, so no pour can settle between the
-  // two. A passive effect runs later, and a pour landing in that gap would
-  // still pass for the old bowl.
-  const currentBowlId = useRef(bowlId);
+  // Whether this bowl's offer is still the one on screen. A layout effect, so
+  // it turns false inside the same synchronous commit that swaps the bowl:
+  // nothing that settles afterwards -- a read, a pour -- can pass for the bowl
+  // now showing.
+  const isOnScreen = useRef(false);
   useLayoutEffect(() => {
-    currentBowlId.current = bowlId;
-  }, [bowlId]);
+    isOnScreen.current = true;
+    return () => {
+      isOnScreen.current = false;
+    };
+  }, []);
 
   useEffect(() => {
     let cancelled = false;
     readBowlStarterPack(bowlId).then((next) => {
-      if (!cancelled) setState(next);
+      if (!cancelled && isOnScreen.current) setState(next);
     });
     return () => {
       cancelled = true;
@@ -135,7 +125,7 @@ export default function StarterPackOffer({ bowlId, onSeeAll, onInstalled }) {
     // A pour that lands after the picker moved on belongs to a bowl no longer
     // on screen: reloading it, or showing its failure, would dress the new
     // bowl in the old one's result.
-    if (currentBowlId.current !== bowlId) return;
+    if (!isOnScreen.current) return;
     // On success the bowl reloads with the pack in it and this offer goes
     // away with the empty bowl, so there is nothing to confirm here.
     if (result.ok) await onInstalled?.();
@@ -191,4 +181,11 @@ export default function StarterPackOffer({ bowlId, onSeeAll, onInstalled }) {
       {failure && <p role="alert" className="status-error text-sm">{failure}</p>}
     </section>
   );
+}
+
+// One offer per bowl. The picker moves between bowls without remounting the
+// dashboard, and nothing one bowl chose, read or poured may carry into the
+// next, so a new bowl gets a new offer rather than a reset of the old one.
+export default function StarterPackOffer(props) {
+  return <OfferForBowl key={props.bowlId} {...props} />;
 }
