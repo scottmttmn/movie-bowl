@@ -52,6 +52,18 @@ describe("choosePackPerson", () => {
     expect(choosePackPerson(pack, [both[0], { ...both[0], id: 3 }]).error).toMatch(/More than one/);
     expect(choosePackPerson(pack, []).error).toMatch(/No one named/);
   });
+
+  it("takes the far more popular of two namesakes in the same role, and refuses a close call", () => {
+    const ford = getStarterPack("ford-1980s");
+    const actors = [
+      { id: 1880, name: "Harrison Ford", known_for_department: "Acting", popularity: 0.6 },
+      { id: 3, name: "Harrison Ford", known_for_department: "Acting", popularity: 48.2 },
+    ];
+    expect(choosePackPerson(ford, actors).person.id).toBe(3);
+    expect(choosePackPerson(ford, [actors[1], { ...actors[0], popularity: 30 }]).error).toMatch(/More than one/);
+    // Without popularity there is no lead to go on.
+    expect(choosePackPerson(ford, actors.map((person) => ({ ...person, popularity: undefined }))).error).toMatch(/More than one/);
+  });
 });
 
 describe("selectFilmographyCandidates", () => {

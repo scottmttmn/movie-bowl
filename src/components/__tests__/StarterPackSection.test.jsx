@@ -37,6 +37,7 @@ vi.mock("../../lib/starterPacks", async (importOriginal) => ({
 import StarterPackSection from "../StarterPackSection";
 
 const packSlip = (tmdbId, slug = "spielberg-1980s") => ({ tmdb_id: tmdbId, starter_pack: slug });
+const openShelf = async () => fireEvent.click(await screen.findByRole("button", { name: "See all packs" }));
 
 beforeEach(() => {
   mocks.state = { bowl: { starter_pack: null, starter_pack_installed_at: null }, movies: [], draws: [], error: null };
@@ -44,11 +45,15 @@ beforeEach(() => {
   mocks.removeStarterPack.mockReset();
   mocks.fetchStarterPackPeople.mockReset().mockResolvedValue({ "Steven Spielberg": "/spielberg.jpg" });
 });
-afterEach(cleanup);
+afterEach(() => {
+  cleanup();
+  window.history.replaceState(null, "", "/");
+});
 
 describe("StarterPackSection shelf", () => {
   it("shows one card per person with their photo, or a silhouette until there is one", async () => {
     const { container } = render(<StarterPackSection bowlId="bowl-1" isOwner />);
+    await openShelf();
     const spielberg = await screen.findByRole("group", { name: "Steven Spielberg decades" });
     expect(within(spielberg).getAllByRole("button").map((button) => button.textContent)).toEqual(["'70s", "'80s", "'90s", "'00s"]);
     await waitFor(() => expect(container.querySelector('img[src="https://image.tmdb.org/t/p/w342/spielberg.jpg"]')).not.toBeNull());
@@ -71,7 +76,8 @@ describe("StarterPackSection shelf", () => {
     render(<StarterPackSection bowlId="bowl-1" isOwner onSummaryChange={onSummaryChange} />);
     const pour = await screen.findByRole("button", { name: /Pour into the bowl/ });
     expect(pour).toBeDisabled();
-    expect(screen.getByText("Choose a decade above to see what goes in.")).toBeInTheDocument();
+    expect(screen.getByText("Choose a pack above to see what goes in.")).toBeInTheDocument();
+    await openShelf();
     await waitFor(() => expect(onSummaryChange).toHaveBeenCalledWith("None"));
 
     fireEvent.click(screen.getByRole("button", { name: "Spielberg: The '80s" }));
@@ -90,10 +96,49 @@ describe("StarterPackSection shelf", () => {
 
   it("puts every Best Picture winner of a decade in, and says so", async () => {
     render(<StarterPackSection bowlId="bowl-1" isOwner />);
-    const nineties = await screen.findByRole("button", { name: "Best Picture Winners: The '90s" });
+    await openShelf();
+    const nineties = within(screen.getByRole("group", { name: "Best Picture decades" }))
+      .getByRole("button", { name: "Best Picture Winners: The '90s" });
     expect(nineties).toHaveTextContent("10 films");
     fireEvent.click(nineties);
     expect(screen.getByText(/All 10 Best Picture winners from 1990 to 1999/)).toBeInTheDocument();
+  });
+
+  it("shows three suggestions until the owner asks for every pack, and folds back up", async () => {
+    render(<StarterPackSection bowlId="bowl-1" isOwner />);
+    const suggestions = await screen.findByRole("group", { name: "Suggested starter packs" });
+    expect(within(suggestions).getAllByRole("button")).toHaveLength(3);
+    expect(screen.queryByRole("group", { name: "Steven Spielberg decades" })).not.toBeInTheDocument();
+
+    const seeAll = screen.getByRole("button", { name: "See all packs" });
+    expect(seeAll).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(seeAll);
+    expect(screen.getByRole("group", { name: "Steven Spielberg decades" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Show fewer" }));
+    expect(screen.queryByRole("group", { name: "Steven Spielberg decades" })).not.toBeInTheDocument();
+
+    // A suggestion chooses its pack in one tap.
+    fireEvent.click(within(screen.getByRole("group", { name: "Suggested starter packs" })).getByRole("button", { name: "Nolan: The '00s" }));
+    expect(screen.getByText(/Up to 15 of the movies Christopher Nolan directed from 2000 to 2009/)).toBeInTheDocument();
+  });
+
+  it("opens with every pack showing when the link asks for it", async () => {
+    window.history.replaceState(null, "", "/bowl/bowl-1/settings#starter-pack-all");
+    render(<StarterPackSection bowlId="bowl-1" isOwner />);
+    expect(await screen.findByRole("group", { name: "Steven Spielberg decades" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Show fewer" })).toHaveAttribute("aria-expanded", "true");
+  });
+
+  it("chooses a person's first decade from a tap on their card, and keeps a decade already chosen", async () => {
+    render(<StarterPackSection bowlId="bowl-1" isOwner />);
+    await openShelf();
+    fireEvent.click(screen.getByRole("button", { name: "Choose Tom Hanks" }));
+    expect(screen.getByRole("button", { name: "Tom Hanks: The '90s" })).toHaveAttribute("aria-pressed", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: "Spielberg: The '90s" }));
+    fireEvent.click(screen.getByRole("button", { name: "Choose Steven Spielberg" }));
+    expect(screen.getByRole("button", { name: "Spielberg: The '90s" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Spielberg: The '70s" })).toHaveAttribute("aria-pressed", "false");
   });
 
   it("names TMDB as the source of the photos and titles", async () => {
@@ -104,6 +149,7 @@ describe("StarterPackSection shelf", () => {
   it("still shows the shelf when the photos cannot be loaded", async () => {
     mocks.fetchStarterPackPeople.mockResolvedValue({});
     const { container } = render(<StarterPackSection bowlId="bowl-1" isOwner />);
+    await openShelf();
     expect(await screen.findByRole("group", { name: "Steven Spielberg decades" })).toBeInTheDocument();
     expect(container.querySelectorAll("img")).toHaveLength(0);
   });
@@ -153,7 +199,7 @@ describe("StarterPackSection installed", () => {
 
     expect(await screen.findByRole("status")).toHaveTextContent("Removed the pack and its 2 titles still in the bowl.");
     expect(mocks.removeStarterPack).toHaveBeenCalledWith({ bowlId: "bowl-1" });
-    expect(await screen.findByRole("group", { name: "Best Picture decades" })).toBeInTheDocument();
+    expect(await screen.findByRole("group", { name: "Suggested starter packs" })).toBeInTheDocument();
   });
 
   it("stops offering more once the pack holds fifteen", async () => {
