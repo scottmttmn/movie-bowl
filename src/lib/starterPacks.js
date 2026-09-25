@@ -96,7 +96,13 @@ export function fetchStarterPackPeople({ client = supabase, fetchImpl = fetch } 
   if (!peopleRequest) {
     peopleRequest = (async () => {
       const token = await getAccessToken(client);
-      const response = await fetchImpl("/api/starter-packs/people", { headers: { Authorization: `Bearer ${token}` } });
+      // Past the browser's cache even when it holds an answer: the route once
+      // let browsers keep one for an hour, and a copy from before a fix would
+      // otherwise still be served without the server being asked.
+      const response = await fetchImpl("/api/starter-packs/people", {
+        cache: "no-store",
+        headers: { Authorization: `Bearer ${token}` },
+      });
       if (!response.ok) throw new Error(`Starter pack photos failed with ${response.status}`);
       const body = await response.json();
       return body?.people && typeof body.people === "object" ? body.people : {};
