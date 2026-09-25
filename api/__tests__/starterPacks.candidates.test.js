@@ -7,12 +7,14 @@ vi.mock("../_lib/supabaseAdmin.js", () => ({
   getSupabaseAdmin: () => ({ auth: { getUser: mocks.getUser } }),
 }));
 
-import handler from "../_lib/starterPackCandidates.js";
+import handler, { clearStarterPackPeopleCache, starterPackPeople } from "../_lib/starterPackCandidates.js";
 
 function createRes() {
   return {
     statusCode: 200,
     body: null,
+    headers: {},
+    setHeader(name, value) { this.headers[name] = value; },
     status(code) { this.statusCode = code; return this; },
     json(payload) { this.body = payload; return this; },
   };
@@ -109,5 +111,74 @@ describe("starter pack candidates", () => {
     expect(res.statusCode).toBe(502);
     expect(consoleError).toHaveBeenCalledWith("[api/starter-packs/candidates] Failed to resolve a starter pack", expect.any(Error));
     consoleError.mockRestore();
+  });
+});
+
+describe("starter pack people", () => {
+  const people = (overrides = {}) => async (path) => {
+    const query = decodeURIComponent(path.match(/query=([^&]+)/)[1]);
+    if (query in overrides) return overrides[query]();
+    return { results: [{ id: query.length, name: query, known_for_department: "Directing", profile_path: `/${query.split(" ")[1]}.jpg` }] };
+  };
+  const signedInGet = { method: "GET", query: {}, headers: { authorization: "Bearer token" } };
+
+  beforeEach(() => {
+    mocks.tmdbFetch.mockReset();
+    mocks.getUser.mockReset();
+    mocks.getUser.mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+    clearStarterPackPeopleCache();
+  });
+
+  it("refuses the wrong method and anyone not signed in", async () => {
+    const posted = createRes();
+    await starterPackPeople({ ...signedInGet, method: "POST" }, posted);
+    expect(posted.statusCode).toBe(405);
+
+    const anonymous = createRes();
+    await starterPackPeople({ method: "GET", query: {}, headers: {} }, anonymous);
+    expect(anonymous.statusCode).toBe(401);
+    expect(mocks.tmdbFetch).not.toHaveBeenCalled();
+  });
+
+  it("returns each pack person's TMDB photo path, looked up once each, and keeps it for a day", async () => {
+    mocks.tmdbFetch.mockImplementation(people());
+    const res = createRes();
+    await starterPackPeople(signedInGet, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body.people["Steven Spielberg"]).toBe("/Spielberg.jpg");
+    expect(res.body.people["Tom Hanks"]).toBe("/Hanks.jpg");
+    // Nine people, one search each -- Spielberg's four decades share one.
+    expect(mocks.tmdbFetch).toHaveBeenCalledTimes(9);
+
+    const again = createRes();
+    await starterPackPeople(signedInGet, again);
+    expect(again.body).toEqual(res.body);
+    expect(mocks.tmdbFetch).toHaveBeenCalledTimes(9);
+  });
+
+  it("leaves one failed person without a photo, and asks again next time", async () => {
+    mocks.tmdbFetch.mockImplementation(people({ "Tom Hanks": () => { throw new Error("TMDB down"); } }));
+    const res = createRes();
+    await starterPackPeople(signedInGet, res);
+    expect(res.statusCode).toBe(200);
+    expect(res.body.people["Tom Hanks"]).toBeNull();
+    expect(res.body.people["Steven Spielberg"]).toBe("/Spielberg.jpg");
+
+    mocks.tmdbFetch.mockClear();
+    await starterPackPeople(signedInGet, createRes());
+    expect(mocks.tmdbFetch).toHaveBeenCalledTimes(9);
+  });
+
+  it("gives no photo when the person cannot be told apart", async () => {
+    mocks.tmdbFetch.mockImplementation(people({
+      "John Hughes": () => ({ results: [
+        { id: 1, name: "John Hughes", known_for_department: "Acting", profile_path: "/a.jpg" },
+        { id: 2, name: "John Hughes", known_for_department: "Acting", profile_path: "/b.jpg" },
+      ] }),
+    }));
+    const res = createRes();
+    await starterPackPeople(signedInGet, res);
+    expect(res.body.people["John Hughes"]).toBeNull();
   });
 });

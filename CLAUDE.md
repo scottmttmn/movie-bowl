@@ -35,7 +35,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (164 test files / 1482 tests, 80 Playwright tests with 8 skipped,
+fully green (164 test files / 1497 tests, 82 Playwright tests with 8 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -116,9 +116,9 @@ output/designs/      design specs and roadmaps for shipped + planned features
 
 Vercel Hobby allows 12 functions per deployment, and this app uses all 12.
 `vercel.json` rewrites account deletion, provider-link lookups,
-filter-metadata warmups and starter-pack candidates to `api/movie-cache.js`,
-which dispatches to their authorized handlers in `_lib/`. Preserve all four
-public URLs when changing that shared entry point.
+filter-metadata warmups, starter-pack candidates and starter-pack photos to
+`api/movie-cache.js`, which dispatches to their authorized handlers in
+`_lib/`. Preserve all five public URLs when changing that shared entry point.
 
 ### Layer rules
 

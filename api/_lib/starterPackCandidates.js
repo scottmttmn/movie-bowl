@@ -5,6 +5,7 @@ import {
   bestPictureWinnersFor,
   choosePackPerson,
   getStarterPack,
+  groupFilmographyPacks,
   matchBestPictureWinner,
   selectFilmographyCandidates,
 } from "../../src/utils/starterPacks.js";
@@ -99,5 +100,73 @@ export default async function handler(req, res) {
     }
     console.error("[api/starter-packs/candidates] Failed to resolve a starter pack", error);
     res.status(502).json({ error: "Failed to load the starter pack" });
+  }
+}
+
+// The photo on each person's card. Only TMDB's own image path is passed on --
+// the browser loads the picture from TMDB -- and it is kept here for a day
+// rather than stored anywhere, so asking again costs one search per person at
+// most once a day per warm instance.
+const PEOPLE_TTL_MS = 24 * 60 * 60 * 1000;
+let peopleCache = null;
+
+export function clearStarterPackPeopleCache() {
+  peopleCache = null;
+}
+
+async function lookUpPackPeople() {
+  let complete = true;
+  const entries = await Promise.all(groupFilmographyPacks().map(async (group) => {
+    try {
+      const search = await tmdbFetch(
+        `/search/person?query=${encodeURIComponent(group.person)}&page=1&language=en-US&include_adult=false`
+      );
+      const chosen = choosePackPerson(group.packs[0], search?.results);
+      return [group.person, chosen.person?.profile_path || null];
+    } catch (error) {
+      // One missing photo leaves that card on its placeholder; it does not
+      // take the other photos down with it.
+      console.error(`[api/starter-packs/people] Failed to look up ${group.person}`, error);
+      complete = false;
+      return [group.person, null];
+    }
+  }));
+  return { people: Object.fromEntries(entries), complete };
+}
+
+export async function starterPackPeople(req, res) {
+  if (req.method !== "GET") {
+    res.status(405).json({ error: "Method not allowed" });
+    return;
+  }
+
+  // Signed-in only, like the candidates: it spends TMDB requests.
+  const token = getBearerToken(req);
+  if (!token) {
+    res.status(401).json({ error: "Unauthorized" });
+    return;
+  }
+
+  try {
+    const { data: authData, error: authError } = await getSupabaseAdmin().auth.getUser(token);
+    if (authError || !authData?.user) {
+      res.status(401).json({ error: "Unauthorized" });
+      return;
+    }
+
+    if (!peopleCache || Date.now() - peopleCache.at > PEOPLE_TTL_MS) {
+      const { people, complete } = await lookUpPackPeople();
+      // A lookup with a failure in it is served but not kept, so the next
+      // request tries the missing ones again.
+      if (complete) peopleCache = { at: Date.now(), people };
+      res.setHeader?.("Cache-Control", "private, max-age=3600");
+      res.status(200).json({ people });
+      return;
+    }
+    res.setHeader?.("Cache-Control", "private, max-age=3600");
+    res.status(200).json({ people: peopleCache.people });
+  } catch (error) {
+    console.error("[api/starter-packs/people] Failed to look up starter pack people", error);
+    res.status(502).json({ error: "Failed to load starter pack photos" });
   }
 }

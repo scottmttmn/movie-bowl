@@ -182,3 +182,17 @@ export function sampleStarterPackCandidates(candidates, {
   }
   return picks.slice(0, size);
 }
+
+// The filmography packs as the people they belong to, in the order they are
+// listed: one entry per person and role, holding that person's packs by
+// decade. The shelf shows one card per entry, and the photo lookup asks about
+// each person once.
+export function groupFilmographyPacks(packs = STARTER_PACKS) {
+  const groups = new Map();
+  packs.filter((pack) => pack.kind === "filmography").forEach((pack) => {
+    const key = `${pack.role}:${pack.person}`;
+    if (!groups.has(key)) groups.set(key, { person: pack.person, role: pack.role, packs: [] });
+    groups.get(key).packs.push(pack);
+  });
+  return Array.from(groups.values());
+}

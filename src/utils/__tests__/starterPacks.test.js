@@ -5,6 +5,7 @@ import {
   bestPictureWinnersFor,
   choosePackPerson,
   getStarterPack,
+  groupFilmographyPacks,
   matchBestPictureWinner,
   sampleStarterPackCandidates,
   selectFilmographyCandidates,
@@ -133,5 +134,17 @@ describe("sampleStarterPackCandidates", () => {
   it("drops candidates without a real TMDB id and survives a missing list", () => {
     expect(sampleStarterPackCandidates([{ id: -3 }, { id: null }, { id: 7 }], { randomFn: () => 0 })).toEqual([{ id: 7 }]);
     expect(sampleStarterPackCandidates(undefined)).toEqual([]);
+  });
+});
+
+describe("groupFilmographyPacks", () => {
+  it("gives each person one entry holding their decades in order, and leaves Best Picture out", () => {
+    const groups = groupFilmographyPacks();
+    const spielberg = groups.find((group) => group.person === "Steven Spielberg");
+    expect(spielberg.role).toBe("directing");
+    expect(spielberg.packs.map((pack) => pack.decade)).toEqual([1970, 1980, 1990, 2000]);
+    expect(groups.map((group) => group.person)).toEqual([...new Set(groups.map((group) => group.person))]);
+    expect(groups.flatMap((group) => group.packs).every((pack) => pack.kind === "filmography")).toBe(true);
+    expect(groups.find((group) => group.person === "Tom Hanks").role).toBe("acting");
   });
 });
