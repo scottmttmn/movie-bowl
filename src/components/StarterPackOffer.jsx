@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import { fetchStarterPackPeople, installStarterPack, readBowlStarterPack } from "../lib/starterPacks";
 import { STARTER_PACK_SUGGESTIONS, describeStarterPack, getStarterPack, starterPackDecade } from "../utils/starterPacks";
 import LaurelWreath from "./LaurelWreath";
@@ -65,9 +65,13 @@ export default function StarterPackOffer({ bowlId, onSeeAll, onInstalled }) {
     setIsWorking(false);
   }
 
-  // Which bowl is on screen now, for a pour that finishes after it changed.
+  // Which bowl is on screen, for a pour that finishes after it changed. A
+  // layout effect, not a passive one: it runs inside the same synchronous
+  // commit that puts the new bowl on screen, so no pour can settle between the
+  // two. A passive effect runs later, and a pour landing in that gap would
+  // still pass for the old bowl.
   const currentBowlId = useRef(bowlId);
-  useEffect(() => {
+  useLayoutEffect(() => {
     currentBowlId.current = bowlId;
   }, [bowlId]);
 
