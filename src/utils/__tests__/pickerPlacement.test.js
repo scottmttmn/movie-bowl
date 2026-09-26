@@ -34,11 +34,27 @@ describe("getAnchoredPanelLayout", () => {
     expect(layout.caretLeft).toBeLessThanOrEqual(layout.width - 24);
   });
 
-  it("keeps a usable height on a short viewport so the list scrolls instead", () => {
+  it("shrinks to the room below the trigger so the list scrolls instead", () => {
+    const layout = getAnchoredPanelLayout({
+      anchor: rect(10, 68, 200, 46), viewportWidth: 740, viewportHeight: 400,
+    });
+    expect(layout).toMatchObject({ top: 124, maxHeight: 266 });
+  });
+
+  it("rises over the trigger rather than running off a very short viewport", () => {
     const layout = getAnchoredPanelLayout({
       anchor: rect(10, 68, 200, 46), viewportWidth: 740, viewportHeight: 300,
     });
     expect(layout.maxHeight).toBe(200);
+    expect(layout.top + layout.maxHeight).toBeLessThanOrEqual(290);
+    expect(layout.top).toBe(90);
+  });
+
+  it("never exceeds a viewport too short for the minimum height", () => {
+    const layout = getAnchoredPanelLayout({
+      anchor: rect(10, 68, 200, 46), viewportWidth: 740, viewportHeight: 150,
+    });
+    expect(layout).toMatchObject({ top: 10, maxHeight: 130 });
   });
 });
 

@@ -222,7 +222,9 @@ export default function BowlPicker({
         style={panelStyle}
         className="fixed flex flex-col rounded-[22px] border border-slate-600/60 bg-slate-900 text-left shadow-[0_30px_70px_-20px_rgba(0,0,0,0.95),inset_0_1px_0_rgba(255,255,255,0.04)] focus:outline-none"
       >
-        {layout && (
+        {/* On a viewport too short to hang below the trigger the shelf rises
+            over it, and a caret would point at nothing. */}
+        {layout && layout.top >= layout.anchorBottom && (
           <span
             aria-hidden="true"
             className="absolute -top-[7px] h-3.5 w-3.5 rotate-45 border-l border-t border-slate-600/60 bg-slate-900"
@@ -292,8 +294,16 @@ export default function BowlPicker({
           </div>
         )}
         {/* Escape and the dim close it for keyboard and pointer; a screen
-            reader on a phone has neither, so it gets a button. */}
-        <button type="button" onClick={onClose} className="sr-only">Close bowl picker</button>
+            reader on a phone has neither, so it gets a button. It is still a
+            Tab stop, so it shows itself when focused rather than being an
+            invisible one. */}
+        <button
+          type="button"
+          onClick={onClose}
+          className="sr-only focus:not-sr-only focus:mx-3 focus:mb-3 focus:rounded-xl focus:px-3 focus:py-2 focus:text-center focus:text-sm focus:font-semibold focus:text-slate-300 focus:outline-none focus:ring-2 focus:ring-rose-800/60 sm:focus:mx-4"
+        >
+          Close bowl picker
+        </button>
       </div>
     </div>
   );

@@ -24,10 +24,17 @@ export function getAnchoredPanelLayout({
     ? anchor.left
     : anchor.left + anchor.width / 2 - width / 2;
   const left = clamp(preferredLeft, gutter, viewportWidth - gutter - width);
-  const top = anchor.bottom + gap;
   // The list scrolls inside the panel, so a short viewport shrinks the panel
-  // instead of pushing its footer off the screen.
-  const maxHeight = Math.max(minHeight, viewportHeight - top - gutter);
+  // instead of pushing its footer off the screen. When even `minHeight` will
+  // not fit below the trigger (a landscape phone, heavy zoom), the panel rises
+  // to overlap it instead: the page cannot scroll while it is open, so a panel
+  // that runs past the bottom edge would strand the home command there.
+  const belowTrigger = anchor.bottom + gap;
+  const maxHeight = Math.max(
+    viewportHeight - belowTrigger - gutter,
+    Math.min(minHeight, viewportHeight - gutter * 2),
+  );
+  const top = Math.max(gutter, Math.min(belowTrigger, viewportHeight - gutter - maxHeight));
   // The caret points at the trigger: its middle when centred, and just inside
   // its leading edge when start-aligned, where the bowl icon is.
   const caretTarget = align === "start"
