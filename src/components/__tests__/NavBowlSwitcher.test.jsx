@@ -87,6 +87,20 @@ describe("NavBowlSwitcher", () => {
     expect(screen.getByRole("button", { name: /Horror club/ })).toBeInTheDocument();
   });
 
+  // The switcher sits at the left of the header, so the shelf lines up under it
+  // rather than centring itself half a screen away.
+  it("hangs the picker beneath the trigger, aligned to its left edge", () => {
+    renderSwitcher();
+    const trigger = screen.getByRole("button", { name: /Switch bowl/ });
+    vi.spyOn(trigger, "getBoundingClientRect").mockReturnValue({
+      left: 88, top: 10, width: 320, height: 44, right: 408, bottom: 54,
+    });
+    fireEvent.click(trigger);
+    const dialog = screen.getByRole("dialog", { name: "Choose a bowl" });
+    expect(dialog.style.top).toBe("64px");
+    expect(dialog.style.left).toBe("88px");
+  });
+
   // Away from a bowl there is no bowl in view to designate, so the picker must
   // not offer to move Home -- and must never claim a bowl is the current one.
   it("offers no home command and marks no row current", () => {

@@ -961,13 +961,13 @@ return (
                       aria-haspopup="dialog"
                       aria-expanded={isPickerOpen}
                       aria-label={`Switch bowl. Current bowl: ${displayBowlName}`}
-                      className="mx-auto flex min-h-11 max-w-full items-center gap-2 rounded-xl px-2 text-2xl font-semibold tracking-tight text-slate-50 hover:bg-slate-800/60 sm:text-3xl"
+                      className="mx-auto flex min-h-11 max-w-full items-center gap-2 rounded-xl px-2 text-2xl font-semibold tracking-tight text-slate-50 hover:bg-slate-800/60 aria-expanded:bg-slate-800 sm:text-3xl"
                     >
                       <span className="min-w-0 truncate">{displayBowlName}</span>
                       <svg
                         aria-hidden="true"
                         viewBox="0 0 24 24"
-                        className={`h-4 w-4 shrink-0 motion-safe:transition-transform ${isPickerOpen ? "rotate-180" : ""}`}
+                        className={`h-4 w-4 shrink-0 motion-safe:transition-transform ${isPickerOpen ? "rotate-180 text-rose-300" : ""}`}
                         fill="none"
                         stroke="currentColor"
                         strokeWidth="2"
