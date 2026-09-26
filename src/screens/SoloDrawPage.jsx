@@ -223,7 +223,7 @@ export default function SoloDrawPage() {
   const resolvedRows = eligibleMovieIds ? scopedRows.filter((row) => eligibleMovieIds.includes(row.id)) : scopedRows;
   const drawCount = getSoloDrawGroups(resolvedRows).length;
   const readout = poolStatus === DRAW_POOL_STATUS.manual
-    ? `${totalTitles} titles in scope. Check filter matches to preview your draw.`
+    ? `${totalTitles === 1 ? "1 title" : `${totalTitles} titles`} in scope. Check filter matches to preview your draw.`
     : poolStatus === DRAW_POOL_STATUS.counting
       ? "Checking which titles match your filters…"
       : `Drawing from ${filteredOut ? 0 : drawCount} of ${totalTitles} of your titles`;
