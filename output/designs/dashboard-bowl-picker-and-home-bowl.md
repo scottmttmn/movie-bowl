@@ -3,7 +3,10 @@
 Status: implemented. Proposed on September 2, 2026 and revised the same day
 after design review; `src/components/BowlPicker.jsx` and the home-bowl badge
 landed that day in `d776ecf`. CLAUDE.md's "Routes" section describes the
-shipped behaviour and cites this file for it.
+shipped behaviour and cites this file for it. Revised on September 26, 2026:
+the picker is now a shelf of tiles hung beneath its trigger on every screen
+size, replacing the centred popover and the phone bottom sheet; the sections
+below describe that version.
 
 This specification supersedes the dashboard navigation, My Bowls navigation,
 and default-star presentation in
@@ -167,18 +170,26 @@ nothing because it is not interactive.
 
 ### Surface and responsive behavior
 
-- On screens at least 640px wide, open a 360px-wide popover below the bowl-name
-  trigger. Keep it within the viewport and cap its body at 420px.
-- Below 640px, open a bottom sheet with 16px side gutters, a 24px top radius,
-  and a body capped by the visual viewport. The sheet may grow to fit short
-  lists but must leave the fixed application navigation visible only if it
-  cannot be activated behind the sheet.
-- Use the existing dark modal/popover surfaces, slate borders, rose focus
-  tokens, and shadow language. Do not introduce a new visual system.
-- Heading: `Choose a bowl`. Include a 44px close button on the sheet. The
-  desktop popover may close through the trigger, Escape, or an outside click.
-- On phone, lock background scrolling and trap focus. Restore focus to the
-  bowl-name trigger on dismissal without navigation.
+- Open a shelf hung 10px beneath the control that opened it, with a caret
+  pointing back at it, on every screen size. From the dashboard title it is
+  centred under the title; from the header switcher on account pages it lines
+  up with the switcher's left edge. The first version centred itself on the
+  screen instead, which laid it over the dashboard title it came from and, from
+  the header, half a screen away from the button.
+- Up to 620px wide, never closer than 10px to a viewport edge, so on a phone it
+  spans the width beneath the title. Its height stops 10px above the bottom of
+  the viewport and the tiles scroll inside it; the home command stays pinned.
+  The geometry lives in `utils/pickerPlacement.js`.
+- The trigger stays visible and pressed while the shelf is open. Everything
+  below the trigger is dimmed without blur; a quick switch is not a modal
+  interruption.
+- Use the existing dark surfaces, slate borders, rose focus tokens, and shadow
+  language. Do not introduce a new visual system.
+- The dialog is named `Choose a bowl` by visually hidden heading. There is no
+  visible close button: the trigger, Escape and a press outside close it, and a
+  visually hidden `Close bowl picker` button serves screen readers on phones.
+- Lock background scrolling and trap focus. Restore focus to the trigger on
+  dismissal without navigation.
 
 ### Ordering and grouping
 
@@ -216,21 +227,24 @@ write control.
 
 ### Picker rows
 
-Each row is one navigation button with:
+Each row is one navigation tile, two to a row within each group, with:
 
+- the bowl illustration in a dark well;
 - bowl name, wrapping to two lines before truncation;
 - quiet secondary text such as `12 to draw` and `3 members`, using the counts
   already returned by the shared bowl context. The available count in
   `get_my_bowl_context` is `remaining_count` — undrawn titles, not everything
   the bowl has ever held — so the copy must not say `12 movies`;
-- a check on the bowl currently being viewed;
-- a compact `Home` badge on the saved home bowl.
+- a rose outline and a `Viewing` label on the bowl currently being viewed;
+- a house marker in the corner of the saved home bowl's tile, the same marker
+  the dashboard hero card carries. It needs no copy explaining it.
 
-The current check and Home badge can appear on the same row. They mean different
+The Viewing treatment and the house marker can appear on the same tile. They mean different
 things and must not be merged. Do not put a star, house button, radio, or
 favorite toggle at the trailing edge of each row.
 
-Rows have a 52px minimum height and a normal visible focus state. Accessible
+Tiles have a normal visible focus state, and arrow keys move between them by
+position rather than document order. Accessible
 names include state when relevant, for example:
 `Friday Night, current bowl, 12 to draw, 3 members` and
 `Family Movies, home bowl, 8 to draw, 2 members`.
@@ -252,14 +266,19 @@ or change Home.
 
 ### Home command
 
-Below the scrollable rows and above `Create new bowl`, show one home command
-that acts on the bowl currently being viewed:
+Pinned below the scrollable tiles, show one full-width home command that acts
+on the bowl currently being viewed:
 
 ```text
-[house] Make Friday Night home
+[tile] [tile]
+[ + New bowl ]
 ──────────────────────────────
-[  +  ] Create new bowl
+[house] Make Friday Night home
 ```
+
+Do not add copy such as `Home opens [bowl]` beside it. The house marker already
+says which bowl is home, and a sentence about what Home opens reads as though
+there were a Home control somewhere in the picker.
 
 - Show it only when the viewed bowl is not already home. On the home bowl the
   slot is absent, because that bowl's row already carries the `Home` badge.
@@ -274,7 +293,7 @@ that acts on the bowl currently being viewed:
   the picker, reorder the rows, open Add, or affect any other member.
 - During the write, keep the old home designation authoritative everywhere,
   label the command `Making home…`, and disable further home changes.
-- On success, move the `Home` badge to the current bowl's row, remove the
+- On success, move the house marker to the current bowl's tile, remove the
   command, show the `Home bowl` badge in the header behind the picker, and
   announce `[bowl name] is now your home bowl` in a polite live region. Keep the
   picker open so the change is visible where it was made.
@@ -287,13 +306,11 @@ that acts on the bowl currently being viewed:
   not already Home. Once resolved, replace the status with the command or
   remove the slot when the viewed bowl is Home.
 
-### Picker footer
+### Create entry point
 
-Pin a footer below the scrollable bowl rows:
-
-```text
-[ + ] Create new bowl
-```
+`New bowl` is a dashed tile after the last group: in the empty cell beside an
+odd last group, or across the full row otherwise. Its accessible name is
+`Create new bowl`.
 
 - The action is always visible unless the owned-bowl limit has been reached.
   At the limit, keep it disabled with the existing limit explanation.

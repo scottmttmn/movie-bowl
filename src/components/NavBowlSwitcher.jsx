@@ -63,7 +63,7 @@ export default function NavBowlSwitcher({ homeBowlName }) {
         aria-haspopup="dialog"
         aria-expanded={isOpen}
         aria-label={`Switch bowl. Home bowl: ${homeBowlName}`}
-        className="flex min-h-11 min-w-0 items-center gap-2.5 rounded-xl pr-2 text-lg min-[360px]:text-xl font-semibold tracking-tight text-slate-100 transition hover:bg-slate-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60 sm:text-2xl"
+        className="flex min-h-11 min-w-0 items-center gap-2.5 rounded-xl pr-2 text-lg min-[360px]:text-xl font-semibold tracking-tight text-slate-100 transition hover:bg-slate-800/60 aria-expanded:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60 sm:text-2xl"
       >
         <span className="flex h-9 w-9 shrink-0 items-center justify-center">
           <img
@@ -77,7 +77,7 @@ export default function NavBowlSwitcher({ homeBowlName }) {
         <svg
           aria-hidden="true"
           viewBox="0 0 24 24"
-          className={`h-4 w-4 shrink-0 text-slate-400 motion-safe:transition-transform ${isOpen ? "rotate-180" : ""}`}
+          className={`h-4 w-4 shrink-0 motion-safe:transition-transform ${isOpen ? "rotate-180 text-rose-300" : "text-slate-400"}`}
           fill="none"
           stroke="currentColor"
           strokeWidth="2"
@@ -107,6 +107,7 @@ export default function NavBowlSwitcher({ homeBowlName }) {
         isCreateLimitReached={isCreateLimitReached}
         createLimitMessage={`You can create up to ${MAX_BOWLS_PER_USER} bowls.`}
         triggerRef={triggerRef}
+        align="start"
         onClose={() => setIsOpen(false)}
       />
       <CreateBowlModal
