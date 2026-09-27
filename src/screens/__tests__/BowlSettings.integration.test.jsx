@@ -570,6 +570,13 @@ vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
 vi.mock("../../lib/inviteEmails", () => ({
   sendInviteEmails: mocks.sendInviteEmails,
 }));
+// The starter pack section asks a serverless route for its people's photos,
+// which this suite has no reason to exercise; without this every render logs a
+// failed fetch. The section's own tests cover the photos.
+vi.mock("../../lib/starterPacks", async () => ({
+  ...(await vi.importActual("../../lib/starterPacks")),
+  fetchStarterPackPeople: vi.fn(async () => ({})),
+}));
 vi.mock("react-router-dom", async () => {
   const actual = await vi.importActual("react-router-dom");
   return {

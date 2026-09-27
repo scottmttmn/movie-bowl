@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => {
       const query = {
         select: vi.fn(() => query),
         eq: vi.fn(() => query),
+        is: vi.fn(() => query),
         maybeSingle: vi.fn(async () => ({ data: { user_id: state.authUserId }, error: null })),
         single: vi.fn(async () => {
           if (table === "bowls") return { data: state.bowlRow, error: null };
@@ -90,6 +91,13 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
 }));
 
 vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
+// An empty bowl offers its owner a starter pack, whose section asks a
+// serverless route for its people's photos; this suite has no reason to
+// exercise that, and without this every render logs a failed fetch.
+vi.mock("../../lib/starterPacks", async () => ({
+  ...(await vi.importActual("../../lib/starterPacks")),
+  fetchStarterPackPeople: vi.fn(async () => ({})),
+}));
 
 const fetchStreamingProviders = vi.fn(async () => ({
   providers: ["Netflix"],
