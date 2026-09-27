@@ -236,13 +236,18 @@ describe("WatchListPage", () => {
     expect(screen.getByText("From Shared Bowl")).toBeInTheDocument();
     expect(screen.getByText("From Owned Bowl")).toBeInTheDocument();
     expect(screen.getByText("Added manually")).toBeInTheDocument();
-    expect(screen.getByText("3 watched in 2026 · 3 all time")).toBeInTheDocument();
+    expect(screen.getByText("3 watched in")).toBeInTheDocument();
+    expect(screen.getByLabelText(/year watched/i)).toHaveValue("2026");
+    expect(screen.getByText("· 3 all time")).toBeInTheDocument();
     expect(screen.getAllByText(/Watched on /i)).toHaveLength(3);
     expect(screen.getByRole("button", { name: /export all history csv/i })).toBeEnabled();
-    expect(screen.getByText("2 exportable, 1 skipped")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /export all history csv/i })).toHaveAttribute(
+      "title",
+      "Export all history CSV (2 exportable, 1 skipped)"
+    );
   });
 
-  it("defaults to the latest watched year and navigates only between years with history", async () => {
+  it("defaults to the latest watched year and offers only years with history", async () => {
     mocks.state.watchedRows = [
       ...mocks.state.watchedRows,
       {
@@ -268,21 +273,15 @@ describe("WatchListPage", () => {
     expect(screen.getByRole("option", { name: "2026" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "2024" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "2025" })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /previous watched year/i })).toBeEnabled();
-    expect(screen.getByRole("button", { name: /next watched year/i })).toBeDisabled();
     expect(screen.queryByText("Older Favorite")).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /previous watched year/i }));
+    fireEvent.change(yearSelect, { target: { value: "2024" } });
 
     expect(yearSelect).toHaveValue("2024");
-    expect(screen.getByText("1 watched in 2024 · 4 all time")).toBeInTheDocument();
+    expect(screen.getByText("1 watched in")).toBeInTheDocument();
+    expect(screen.getByText("· 4 all time")).toBeInTheDocument();
     expect(screen.getByText("Older Favorite")).toBeInTheDocument();
     expect(screen.queryByText("Owned Favorite")).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /previous watched year/i })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /next watched year/i })).toBeEnabled();
-
-    fireEvent.click(screen.getByRole("button", { name: /next watched year/i }));
-    expect(yearSelect).toHaveValue("2026");
   });
 
   it("groups the selected year by month and watched date in newest-first order", async () => {
@@ -339,7 +338,6 @@ describe("WatchListPage", () => {
     await waitFor(() => {
       expect(screen.getByText(/no watched movies yet/i)).toBeInTheDocument();
     });
-    expect(screen.getByText("0 watched movies")).toBeInTheDocument();
     expect(screen.getByRole("button", { name: /export all history csv/i })).toBeDisabled();
   });
 
@@ -403,6 +401,9 @@ describe("WatchListPage", () => {
       expect(anchorClick).toHaveBeenCalledTimes(1);
       expect(revokeObjectURL).toHaveBeenCalledWith("blob:letterboxd-watch-list");
       expect(createdAnchor.download).toMatch(/^movie-bowl-letterboxd-watched-\d{4}-\d{2}-\d{2}\.csv$/);
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Exported 2 movies. 1 custom title was skipped"
+      );
 
       const blob = createObjectURL.mock.calls[0][0];
       expect(blob.options).toEqual({ type: "text/csv;charset=utf-8" });

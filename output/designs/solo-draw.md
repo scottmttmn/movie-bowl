@@ -220,8 +220,9 @@ Solo draw is its own route, `/solo-draw`, lazily imported and wrapped in
 entry point decides whether that default is overridden before the person sees
 anything:
 
-- From Watch History, the link is plain `/solo-draw` and the scope starts as all
-  bowls.
+- Arriving with no bowl, at plain `/solo-draw`, the scope starts as all bowls.
+  Watch History used to link here; it no longer does, because it is a record of
+  what you watched and the draw is a decision about what is next.
 - From a bowl's own dashboard, the link is `/solo-draw?bowl=<id>` and the scope
   starts as that bowl. Like the invitations hub's `?bowl=`, it is a hint honoured
   only while the bowl is still among yours; otherwise the scope falls back to all
