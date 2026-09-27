@@ -11,6 +11,10 @@ the Bowl Settings section (`src/components/StarterPackSection.jsx`) with the
 empty bowl's offer. The one question left is under "Still Open": whether the
 reveal holds up in a real bowl.
 
+Revised September 27, 2026, not yet built: pack titles now show in every
+member's My Movies, reversing "Nothing browses the pack". See "Pack Titles in
+My Movies".
+
 ## Product Idea
 
 A new bowl is empty, and an empty bowl cannot draw. The first night is the one
@@ -107,8 +111,8 @@ Spielberg: The '80s pack, now it's yours."
 **Pack titles cannot be pinned directly.** A pin puts one of *your* titles
 first in *your* pile; a shared slip is in every pile and belongs to no one, so
 pinning it would need its own rules for whose pile it leads and what two pins on
-one slip mean. Claiming covers the want: add it, then pin it. The bowl never
-shows the pack's contents, so claiming is always an Add, never a browse.
+one slip mean. Claiming covers the want: add it, or claim it from its card in
+My Movies, then pin it.
 
 ### Rotation must record whose turn it was
 
@@ -401,8 +405,58 @@ converting the slip without a second copy; and the rotation turn cases above.
   `getMovieAttributionLabel` already returns `added_by_name` first, so the phone
   strip and `TvTonightScreen` inherit it; the copy is what needs writing.
 - **Add confirmation** when an add claims a pack slip, as above.
-- **Nothing browses the pack.** Pack titles do not appear in anyone's own list,
-  and the bowl does not show the pack's contents.
+- **My Movies** lists the pack's undrawn titles for everyone. See below.
+
+## Pack Titles in My Movies
+
+Decided September 27, 2026; not yet built.
+
+The pack was opaque. An owner poured in up to 15 titles and could not see one of
+them; members could not tell a pack was there at all. The original reason for
+hiding it -- a readable pack becomes a browse-and-pick list -- does not hold for
+My Movies: that strip already shows each person their own picks, which are just
+as browsable. Pack titles are also already in every person's pile, since every
+draw counts them there, so listing them in everyone's My Movies says what is
+true. And the surprise being protected is thin: a pack pick has no person
+behind it, so its reveal reads "From the Spielberg: The '80s pack" whether or
+not you knew the title was in there.
+
+**Where.** In the My Movies strip, after the person's own titles, so their own
+picks lead and the pack reads as what fades behind them. No separate heading and
+no explanatory line.
+
+**The card.** An ordinary `MovieActionCard` with two differences:
+
+- The line that reads "Added <date>" on a person's own card names the pack
+  instead, on the same paper slip the reveal uses. That is the whole marker.
+- No pin toggle. Pack titles cannot be pinned (above).
+
+**The detail view.** One action, **Make it mine**, which claims the slip through
+`claim_bowl_starter_pack_movie` with no comment. The card then becomes an
+ordinary title of theirs in place, and they can add a comment the usual way.
+There is no delete: removing a pack stays with the owner in Bowl Settings.
+The existing claim confirmation is enough; nothing new is written for it.
+
+**Counts and readouts.** The count beside "My Movies" counts every card shown,
+pack titles included. Filter eligibility treats pack cards like any other, so a
+pack title the filters exclude dims the same way. A person with no titles of
+their own but an installed pack sees the pack titles rather than the empty-state
+line.
+
+**Copy removed.** "Your undrawn picks in this bowl." under the heading no longer
+describes the strip and goes; the heading already says it.
+
+**Unchanged.**
+
+- "Draw for myself" still draws only from the person's own titles; solo draw
+  reads `added_by = you`, and a pack title belongs to no one until claimed.
+- The television, which has no My Movies.
+- Install, removal and the one-pack rule.
+
+**Tests.** Pack cards appear for owner and member alike, after own titles, with
+the pack's name in place of the date and no pin; Make it mine claims and the
+card turns into the person's own; the count includes pack cards; a person with
+only pack titles sees them instead of the empty state.
 
 ## Decided September 23, 2026
 
@@ -448,6 +502,3 @@ visible to anyone.
   place from different directions.
 - **Importing a person's external list** (Letterboxd and friends). That is a
   contributor feature wearing a pack's clothes, and it deserves its own design.
-- **Browsing a pack's contents inside the bowl.** The bowl hides what is in it
-  on purpose. A pack the group can read through is a browse-and-pick list, which
-  is the failure mode the whole product is arranged to avoid.

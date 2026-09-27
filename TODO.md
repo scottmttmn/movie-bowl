@@ -164,6 +164,9 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   records whose turn a pack draw spent. First packs: filmographies by decade and
   Best Picture winners by decade. Installs skip the provider/metadata warm the
   way public add links do. See `output/designs/starter-packs.md`.
+  **Next, decided September 27:** show the pack's undrawn titles in everyone's
+  My Movies, after their own, marked by the pack's name and claimable with
+  "Make it mine". Spec'd under "Pack Titles in My Movies"; not built.
 
 - Theater mode on the web draw: the trailer pre-roll runs only on `/tv`, but the
   toggle for it lives in the web app's "TV & playback" settings section -- so a
