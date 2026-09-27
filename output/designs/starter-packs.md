@@ -456,14 +456,18 @@ describes the strip and goes; the heading already says it.
 **Unchanged.**
 
 - "Draw for myself" still draws only from the person's own titles; solo draw
-  reads `added_by = you`, and a pack title belongs to no one until claimed.
+  reads `added_by = you`, and a pack title belongs to no one until claimed. So
+  the button needs its own test: it shows when the person has a title of their
+  own, not whenever My Movies has cards, or a member holding only pack titles
+  is offered a draw with nothing in it.
 - The television, which has no My Movies.
 - Install, removal and the one-pack rule.
 
 **Tests.** Pack cards appear for owner and member alike, after own titles, with
 the pack's name in place of the date and no pin; Make it mine claims and the
 card turns into the person's own; the count includes pack cards; a person with
-only pack titles sees them instead of the empty state.
+only pack titles sees them instead of the empty state, and no "Draw for
+myself".
 
 ## Decided September 23, 2026
 
