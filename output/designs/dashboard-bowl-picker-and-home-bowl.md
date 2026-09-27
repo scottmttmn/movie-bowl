@@ -130,6 +130,12 @@ name remains available in the picker.
 - `aria-haspopup="dialog"` and `aria-expanded` describe the picker state.
 - With one accessible bowl, retain the chevron and picker because `Create new
   bowl` remains useful. Do not show a disabled or fake selector.
+- The header switcher on account pages (`NavBowlSwitcher`) is the exception.
+  With one accessible bowl it renders as a plain link to that bowl, named
+  `Go to [bowl name]`, with no chevron and no picker. There the picker would
+  hold only the bowl the person was going to pick, and creating a second bowl
+  stays one tap away in the bowl page's picker. It turns back into the picker
+  as soon as a second bowl exists.
 
 ### Home designation
 

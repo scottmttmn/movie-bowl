@@ -49,6 +49,25 @@ test("the settings header names the home bowl and switches from it", async ({ pa
   await expect(page.getByRole("link", { name: "Go to your home bowl" })).toBeVisible();
 });
 
+test("with one bowl the settings header goes straight to it", async ({ page, backend }) => {
+  await backend.authenticate(page);
+  backend.state.bowls.push({
+    id: "only-bowl",
+    name: "Friday Night",
+    owner_id: "user-smoke",
+    draw_access_mode: "all_members",
+    draw_method: "person_first",
+  });
+  backend.state.defaults = { "user-smoke": "only-bowl" };
+  await page.goto("/settings");
+
+  // A picker holding only the bowl you would pick anyway is a tap for nothing.
+  await expect(page.getByRole("button", { name: /Switch bowl/ })).toHaveCount(0);
+  await page.getByRole("link", { name: "Go to Friday Night" }).click();
+  await expect(page).toHaveURL(/\/bowl\/only-bowl$/);
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+});
+
 test("bowl settings section jumps preserve both page and browser Back navigation", async ({ page, backend }) => {
   await backend.authenticate(page);
   backend.state.bowls.push({

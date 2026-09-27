@@ -35,7 +35,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (168 test files / 1547 tests, 88 Playwright tests with 8 skipped,
+fully green (168 test files / 1549 tests, 90 Playwright tests with 8 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -206,7 +206,10 @@ already has its own picker, `/bowls` keeps it because it is the list, and so
 does a header whose account context has not answered yet — flickering between
 two controls while it loads is worse than the one that always works. Nothing
 there moves the home bowl: `BowlPicker` renders `Make [bowl] home` only for the
-bowl being viewed, and away from a bowl there is none.
+bowl being viewed, and away from a bowl there is none. With exactly one bowl the
+switcher is a plain link to it, with no chevron and no picker: a list holding
+only the bowl you would pick anyway is a tap for nothing. The bowl page's own
+picker does not do this, because it is where a second bowl gets created.
 
 `NavBowlSwitcher` portals the picker and the create dialog to the body, and any
 overlay added to the top nav needs the same. The header carries
