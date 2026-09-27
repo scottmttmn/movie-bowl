@@ -68,10 +68,8 @@ test("watch history can remove the bowl copies of a solo draw", async ({ page, b
   await backend.authenticate(page);
   seedTwoBowls(backend);
 
-  await page.goto("/watch-list");
-  await page.getByRole("link", { name: "Draw for myself" }).click();
-  await expect(page).toHaveURL(/\/solo-draw$/);
-  // From the personal surface the scope is every bowl.
+  await page.goto("/solo-draw");
+  // With no bowl to start from, the scope is every bowl.
   await expect(page.getByRole("button", { name: "Solo One, 1 title" })).toHaveAttribute("aria-pressed", "true");
   await expect(page.getByRole("button", { name: "Solo Two, 1 title" })).toHaveAttribute("aria-pressed", "true");
 

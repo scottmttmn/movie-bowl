@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link } from "react-router-dom";
 import AddMovieModal from "../components/AddMovieModal";
 import RemoveFromBowlsModal from "../components/RemoveFromBowlsModal";
 import WatchHistoryEntryModal from "../components/WatchHistoryEntryModal";
@@ -163,11 +162,6 @@ export default function WatchListPage() {
     selectedYear !== null && availableYears.includes(selectedYear)
       ? selectedYear
       : availableYears[0] ?? null;
-  const activeYearIndex = activeYear === null ? -1 : availableYears.indexOf(activeYear);
-  const previousWatchedYear =
-    activeYearIndex >= 0 ? availableYears[activeYearIndex + 1] ?? null : null;
-  const nextWatchedYear =
-    activeYearIndex > 0 ? availableYears[activeYearIndex - 1] ?? null : null;
   const filteredRows = useMemo(
     () => rows.filter((movie) => movie.watchedYear === activeYear),
     [activeYear, rows]
@@ -458,53 +452,70 @@ export default function WatchListPage() {
   return (
     <div className="page-container py-6 sm:py-8">
       <section className="page-hero mx-auto max-w-5xl">
-        <div className="mb-7 flex flex-col gap-4 border-b border-slate-800 pb-6 sm:flex-row sm:items-start sm:justify-between">
-          <div>
-            <p className="eyebrow">History</p>
-            <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">
+        <div className="mb-7 flex items-start justify-between gap-4 border-b border-slate-800 pb-6">
+          <div className="min-w-0">
+            <h1 className="text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">
               Watch History
             </h1>
-            <p className="mt-3 max-w-2xl text-base leading-7 text-slate-300">
-              Your personal record of movies you watched, from bowls and on your own.
-            </p>
-            {!isLoading && !errorMessage && (
-              <p className="mt-2 text-sm font-semibold text-slate-400">
-                {activeYear === null
-                  ? emptyCountLabel
-                  : `${selectedYearCountLabel} in ${activeYear} · ${allTimeCountLabel}`}
+            {!isLoading && !errorMessage && rows.length > 0 && (
+              <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-slate-400">
+                {activeYear === null ? (
+                  emptyCountLabel
+                ) : (
+                  <>
+                    <span>{selectedYearCountLabel} in</span>
+                    <select
+                      className="input-field min-h-0 w-auto py-1 pl-2.5 pr-8 text-sm font-semibold"
+                      aria-label="Year watched"
+                      value={activeYear}
+                      onChange={(event) => setSelectedYear(Number(event.target.value))}
+                    >
+                      {availableYears.map((year) => (
+                        <option key={year} value={year}>
+                          {year}
+                        </option>
+                      ))}
+                    </select>
+                    <span>· {allTimeCountLabel}</span>
+                  </>
+                )}
               </p>
             )}
           </div>
-          <div className="flex flex-col items-start gap-2 sm:items-end">
+          <div className="flex shrink-0 items-center gap-2">
             <button
               type="button"
-              className="btn btn-primary whitespace-nowrap"
+              className="icon-btn"
+              aria-label="Log a watched movie"
+              title="Log a watched movie"
               onClick={() => {
                 setEntryEditorError("");
                 setEditingEntry(null);
                 setIsEntryEditorOpen(true);
               }}
             >
-              Log a watched movie
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round">
+                <path d="M12 5v14M5 12h14" />
+              </svg>
             </button>
-            {/* From here the pool is every bowl: this is the personal surface,
-                so nothing has narrowed the scope yet. */}
-            <Link to="/solo-draw" className="btn btn-secondary whitespace-nowrap">
-              Draw for myself
-            </Link>
+            {/* The skipped count is detail, not status: custom titles have no
+                TMDB id for Letterboxd to match, so it rides on the tooltip. */}
             <button
               type="button"
-              className="btn btn-secondary whitespace-nowrap disabled:cursor-not-allowed disabled:border-slate-800 disabled:bg-slate-900 disabled:text-slate-400 disabled:shadow-none"
+              className="icon-btn disabled:cursor-not-allowed disabled:opacity-45"
+              aria-label="Export all history CSV"
+              title={
+                letterboxdExport.skippedCount > 0
+                  ? `Export all history CSV (${letterboxdExport.exportedCount} exportable, ${letterboxdExport.skippedCount} skipped)`
+                  : "Export all history CSV"
+              }
               onClick={handleExportLetterboxd}
               disabled={!canExportLetterboxd}
             >
-              Export all history CSV
+              <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                <path d="M12 4v11M7 10l5 5 5-5M5 20h14" />
+              </svg>
             </button>
-            {!isLoading && !errorMessage && rows.length > 0 && letterboxdExport.skippedCount > 0 && (
-              <p className="text-xs text-slate-400">
-                {letterboxdExport.exportedCount} exportable, {letterboxdExport.skippedCount} skipped
-              </p>
-            )}
           </div>
         </div>
 
@@ -530,48 +541,6 @@ export default function WatchListPage() {
           </div>
         ) : (
           <div className="space-y-8">
-            <div
-              className="flex flex-col gap-3 rounded-2xl border border-slate-700/70 bg-slate-950/45 p-3 sm:flex-row sm:items-end sm:justify-between sm:p-4"
-              aria-label="Watched year"
-            >
-              <label className="min-w-0 flex-1 text-sm font-medium text-slate-300">
-                Year watched
-                <select
-                  className="input-field mt-1.5"
-                  value={activeYear ?? ""}
-                  onChange={(event) => setSelectedYear(Number(event.target.value))}
-                >
-                  {availableYears.map((year) => (
-                    <option key={year} value={year}>
-                      {year}
-                    </option>
-                  ))}
-                </select>
-              </label>
-              <div className="grid grid-cols-2 gap-2 sm:flex">
-                <button
-                  type="button"
-                  className="btn btn-secondary px-3 text-sm"
-                  onClick={() => setSelectedYear(previousWatchedYear)}
-                  disabled={previousWatchedYear === null}
-                  aria-label="Show previous watched year"
-                >
-                  <span aria-hidden="true">←</span>
-                  Older
-                </button>
-                <button
-                  type="button"
-                  className="btn btn-secondary px-3 text-sm"
-                  onClick={() => setSelectedYear(nextWatchedYear)}
-                  disabled={nextWatchedYear === null}
-                  aria-label="Show next watched year"
-                >
-                  Newer
-                  <span aria-hidden="true">→</span>
-                </button>
-              </div>
-            </div>
-
             <div className="space-y-10">
               {monthGroups.map((monthGroup) => (
                 <section key={monthGroup.key} aria-labelledby={`month-${monthGroup.key}`}>
