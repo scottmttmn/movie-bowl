@@ -42,6 +42,9 @@ export default function InvitesPage() {
   const sent = useSentInvitations(ownedBowls);
 
   const [bowlChoice, setBowlChoice] = useState(null);
+  // Addresses become chips as soon as a separator follows them, so a bad one is
+  // visible while it is still easy to fix rather than after Send.
+  const [emailChips, setEmailChips] = useState([]);
   const [emailDraft, setEmailDraft] = useState("");
   const [formError, setFormError] = useState(null);
   const [resultMessage, setResultMessage] = useState(null);
@@ -57,6 +60,7 @@ export default function InvitesPage() {
   const sentGroupRefs = useRef(new Map());
   const handledShortcut = useRef(null);
   const resultRef = useRef(null);
+  const emailInputRef = useRef(null);
 
   const ownedBowlCount = ownedBowls.length;
   const createBowl = useCreateBowl({ ownedBowlCount, refresh: refreshBowls });
@@ -67,7 +71,7 @@ export default function InvitesPage() {
   const isRequestedBowlOwned = Boolean(requestedBowlId)
     && ownedBowls.some((bowl) => bowl.id === requestedBowlId);
   const selectedBowlId = useMemo(() => {
-    // An explicit choice wins, including clearing back to no selection.
+    // An explicit choice wins while that bowl is still owned.
     if (bowlChoice !== null) {
       return ownedBowls.some((bowl) => bowl.id === bowlChoice) ? bowlChoice : "";
     }
@@ -113,7 +117,48 @@ export default function InvitesPage() {
     void Promise.resolve().then(() => reloadInvites());
   }, [reloadInvites]);
 
-  const parsed = parseInviteEmails(emailDraft);
+  // The chips and the unfinished draft are one list as far as sending goes:
+  // nobody should have to press Enter on the last address before Send counts it.
+  const parsed = parseInviteEmails([...emailChips, emailDraft].join(" "));
+  const invalidEmailSet = new Set(parsed.invalidEmails);
+  const invalidChipCount = emailChips.filter((email) => invalidEmailSet.has(email)).length;
+  const selectedBowl = ownedBowls.find((bowl) => bowl.id === selectedBowlId) || null;
+
+  const commitEmails = (pieces) => {
+    const next = pieces.map((value) => value.trim().toLowerCase()).filter(Boolean);
+    if (next.length === 0) return;
+    setEmailChips((current) => [...new Set([...current, ...next])]);
+  };
+
+  const handleEmailChange = (value) => {
+    // Typing a separator or pasting a list commits everything before the last
+    // separator; whatever follows it is still being typed.
+    const pieces = value.split(/[\s,]+/);
+    if (pieces.length === 1) {
+      setEmailDraft(value);
+      return;
+    }
+    commitEmails(pieces.slice(0, -1));
+    setEmailDraft(pieces[pieces.length - 1]);
+  };
+
+  const handleEmailKeyDown = (event) => {
+    if (event.key === "Enter" && emailDraft.trim()) {
+      event.preventDefault();
+      commitEmails([emailDraft]);
+      setEmailDraft("");
+      return;
+    }
+    if (event.key === "Backspace" && emailDraft === "" && emailChips.length > 0) {
+      event.preventDefault();
+      setEmailChips((current) => current.slice(0, -1));
+    }
+  };
+
+  const removeEmailChip = (email) => {
+    setEmailChips((current) => current.filter((entry) => entry !== email));
+    emailInputRef.current?.focus();
+  };
   const sendLabel = parsed.validEmails.length > 1
     ? `Send ${parsed.validEmails.length} invitations`
     : "Send invitation";
@@ -172,6 +217,7 @@ export default function InvitesPage() {
       setFormError(result.message);
       return;
     }
+    setEmailChips([]);
     setEmailDraft("");
     setResultMessage(result.message);
     resultRef.current?.focus();
@@ -193,191 +239,106 @@ export default function InvitesPage() {
 
   return (
     <div className="invites-screen page-container py-6 sm:py-8">
-      <header className="mb-6">
-        <h1 className="text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">Invitations</h1>
-        <p className="mt-2 max-w-xl text-sm text-slate-400 sm:text-base">
-          Join a bowl or invite people to one you own.
-        </p>
-      </header>
+      {/* One column, in the order the jobs come up: something waiting on you,
+          then sending, then the bookkeeping on what you already sent. */}
+      <div className="mx-auto max-w-2xl space-y-8">
+        <header>
+          <h1 className="text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">Invitations</h1>
+          <p className="mt-2 text-sm text-slate-400 sm:text-base">
+            Join a bowl or invite people to one you own.
+          </p>
+        </header>
 
-      <div className="flex flex-col gap-6 min-[900px]:flex-row min-[900px]:items-start">
-        <div className="section-stack min-w-0 flex-1">
-          <section className="panel" aria-labelledby="received-heading">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 id="received-heading" className="section-title">Received invitations</h2>
-              {received.length > 0 && (
-                <span className="text-sm text-slate-400">{received.length} pending</span>
-              )}
-            </div>
-            <p className="mt-1 text-sm text-slate-400">
-              {accountEmail ? `Invitations sent to ${accountEmail}.` : "Invitations sent to your account."}
-            </p>
-            {receivedError && <p className="status-error mt-3" role="alert">{receivedError}</p>}
-            {receivedMessage && <p className="status-success mt-3" role="status">{receivedMessage}</p>}
-            {receivedLoadError && (
-              <div className="mt-3">
-                <p className="status-error" role="alert">{receivedLoadError}</p>
-                <button type="button" className="btn btn-secondary mt-2" onClick={() => { void reloadInvites(); }}>
-                  Try again
-                </button>
-              </div>
+        <section aria-labelledby="received-heading">
+          <div className="flex flex-wrap items-baseline justify-between gap-2">
+            <h2 id="received-heading" className="section-title">Invitations for you</h2>
+            {received.length > 0 && (
+              <span className="text-sm text-slate-400">{received.length} waiting</span>
             )}
-
-            {isReceivedLoading && received.length === 0 ? (
-              <p className="panel mt-3 text-sm text-slate-400" role="status">Checking for invitations…</p>
-            ) : received.length === 0 && !receivedLoadError ? (
-              <p className="mt-3 text-sm text-slate-500">Nothing waiting for you right now.</p>
-            ) : (
-              <div className="mt-3 space-y-3">
-                {received.map((invite) => (
-                  <article key={invite.id} className="surface-card p-4">
-                    <div className="flex flex-wrap items-start justify-between gap-3">
-                      <div className="min-w-0">
-                        <h3 className="text-base font-semibold text-slate-100">
-                          {invite.bowl_name || "Movie Bowl Invite"}
-                        </h3>
-                        {invite.invited_by_name && (
-                          <p className="mt-1 truncate text-sm text-slate-400">
-                            Invited by {invite.invited_by_name}
-                          </p>
-                        )}
-                      </div>
-                      {invite.created_at && (
-                        <span className="shrink-0 text-xs text-slate-400">
-                          {formatRelativeDateLabel(invite.created_at)}
-                        </span>
+          </div>
+          {receivedError && <p className="status-error mt-3" role="alert">{receivedError}</p>}
+          {receivedMessage && <p className="status-success mt-3" role="status">{receivedMessage}</p>}
+          {receivedLoadError && (
+            <div className="mt-3">
+              <p className="status-error" role="alert">{receivedLoadError}</p>
+              <button type="button" className="btn btn-secondary mt-2" onClick={() => { void reloadInvites(); }}>
+                Try again
+              </button>
+            </div>
+          )}
+          {isReceivedLoading && received.length === 0 ? (
+            <p className="mt-1 text-sm text-slate-400" role="status">Checking for invitations…</p>
+          ) : received.length === 0 && !receivedLoadError ? (
+            // Naming the address answers "why isn't my invitation here?" -- it
+            // went to a different email -- without a panel full of nothing.
+            <p className="mt-1 text-sm text-slate-500">
+              {accountEmail
+                ? `Nothing waiting for ${accountEmail} right now.`
+                : "Nothing waiting for you right now."}
+            </p>
+          ) : (
+            <div className="mt-3 space-y-3">
+              {received.map((invite) => {
+                const bowlName = invite.bowl_name || "Movie Bowl Invite";
+                const sentLabel = formatRelativeDateLabel(invite.created_at);
+                return (
+                  <article key={invite.id} className="invite-ticket" aria-labelledby={`invite-${invite.id}-title`}>
+                    <div className="min-w-0 space-y-3 p-5">
+                      <p className="eyebrow text-rose-300">You&apos;re invited</p>
+                      <h3
+                        id={`invite-${invite.id}-title`}
+                        className="break-words text-2xl font-bold tracking-tight text-slate-50"
+                      >
+                        {bowlName}
+                      </h3>
+                      {(invite.invited_by_name || sentLabel) && (
+                        <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-rose-100/80">
+                          {invite.invited_by_name && (
+                            <span className="min-w-0 break-words">Invited by {invite.invited_by_name}</span>
+                          )}
+                          {sentLabel && <span>{sentLabel}</span>}
+                        </p>
                       )}
+                      <div className="flex flex-wrap gap-2 pt-1">
+                        <button
+                          type="button"
+                          className="btn btn-primary"
+                          disabled={pendingAccept === invite.id}
+                          aria-label={`Accept invitation to ${invite.bowl_name || "this bowl"}`}
+                          onClick={() => { void handleAccept(invite); }}
+                        >
+                          {pendingAccept === invite.id ? "Joining…" : "Join bowl"}
+                        </button>
+                        <button
+                          type="button"
+                          className="btn btn-ghost"
+                          disabled={pendingAccept === invite.id}
+                          aria-label={`Decline invitation to ${invite.bowl_name || "this bowl"}`}
+                          onClick={() => setDeclineTarget(invite)}
+                        >
+                          Decline
+                        </button>
+                      </div>
                     </div>
-                    <div className="mt-3 flex flex-wrap gap-2">
-                      <button
-                        type="button"
-                        className="btn btn-primary"
-                        disabled={pendingAccept === invite.id}
-                        aria-label={`Accept invitation to ${invite.bowl_name || "this bowl"}`}
-                        onClick={() => { void handleAccept(invite); }}
-                      >
-                        {pendingAccept === invite.id ? "Joining…" : "Accept invitation"}
-                      </button>
-                      <button
-                        type="button"
-                        className="btn btn-ghost"
-                        disabled={pendingAccept === invite.id}
-                        aria-label={`Decline invitation to ${invite.bowl_name || "this bowl"}`}
-                        onClick={() => setDeclineTarget(invite)}
-                      >
-                        Decline
-                      </button>
+                    <div className="invite-ticket-stub" aria-hidden="true">
+                      <span className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-rose-300">Admit</span>
+                      <span className="text-3xl font-extrabold leading-none text-white">1</span>
                     </div>
                   </article>
-                ))}
-              </div>
-            )}
-          </section>
-
-          <section className="panel" aria-labelledby="sent-heading" id="sent">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 id="sent-heading" className="section-title">Pending invitations sent</h2>
-              {sent.invitations.length > 0 && (
-                <span className="text-sm text-slate-400">{sent.invitations.length} pending</span>
-              )}
+                );
+              })}
             </div>
-            {sentMessage && <p className="status-success mt-3" role="status">{sentMessage}</p>}
-            {sent.loadError && (
-              <div className="mt-3">
-                <p className="status-error" role="alert">{sent.loadError}</p>
-                <button type="button" className="btn btn-secondary mt-2" onClick={() => { void sent.refresh(); }}>
-                  Try again
-                </button>
-              </div>
-            )}
-            {!isOwnershipKnown ? (
-              // Unknown ownership is not "you have sent nothing". The send panel
-              // owns the alert and the retry for this same failure, so this is a
-              // plain line rather than a second alert for one problem.
-              <p className="panel mt-3 text-sm text-slate-400" role="status">
-                {bowlsError
-                  ? "Your bowls could not be loaded, so this list is unavailable."
-                  : "Loading sent invitations…"}
-              </p>
-            ) : ownedBowlCount === 0 ? null : sent.isLoading && sent.invitations.length === 0 ? (
-              <p className="panel mt-3 text-sm text-slate-400" role="status">Loading sent invitations…</p>
-            ) : sent.invitations.length === 0 ? (
-              <p className="mt-3 text-sm text-slate-500">
-                Invitations you send stay here until someone accepts.
-              </p>
-            ) : (
-              <div className="mt-3 space-y-5">
-                {groupedSent.map(({ bowl, rows }) => (
-                  <div
-                    key={bowl.id}
-                    className={hash === "#sent" && bowl.id === requestedBowlId
-                      ? "rounded-2xl ring-1 ring-rose-800/70"
-                      : undefined}
-                  >
-                    <h3
-                      tabIndex={-1}
-                      ref={(node) => {
-                        if (node) sentGroupRefs.current.set(bowl.id, node);
-                        else sentGroupRefs.current.delete(bowl.id);
-                      }}
-                      className="text-sm font-semibold text-slate-200"
-                    >
-                      {bowl.name}
-                    </h3>
-                    <div className="mt-2 space-y-2">
-                      {rows.map((row) => (
-                        <div key={row.id} className="surface-card flex flex-wrap items-center justify-between gap-2 px-3.5 py-3">
-                          <div className="min-w-0">
-                            <p className="truncate text-sm font-medium text-slate-100" title={row.invited_email}>
-                              {row.invited_email}
-                            </p>
-                            {row.created_at && (
-                              <p className="text-xs text-slate-400">{formatRelativeDateLabel(row.created_at)}</p>
-                            )}
-                          </div>
-                          <div className="flex shrink-0 gap-2">
-                            <CopyButton
-                              value={`${window.location.origin}/accept-invite/${row.token}`}
-                              label="Copy link"
-                              ariaLabel={`Copy invitation link for ${row.invited_email}`}
-                              onCopied={() => setSentMessage(`Invitation link copied for ${row.invited_email}.`)}
-                            />
-                            <button
-                              type="button"
-                              className="btn btn-danger px-3 py-1.5 text-sm"
-                              aria-label={`Revoke invitation for ${row.invited_email}`}
-                              onClick={() => setRevokeTarget({
-                                bowlId: bowl.id,
-                                bowlName: bowl.name,
-                                invitationId: row.id,
-                                invitedEmail: row.invited_email,
-                              })}
-                            >
-                              Revoke
-                            </button>
-                          </div>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        </div>
+          )}
+        </section>
 
-        <section
-          aria-labelledby="invite-people-heading"
-          id="invite-people"
-          className="panel w-full min-[900px]:sticky min-[900px]:top-24 min-[900px]:w-[22rem] min-[900px]:shrink-0"
-        >
+        <section aria-labelledby="invite-people-heading" id="invite-people" className="panel sm:p-6">
           <h2 id="invite-people-heading" ref={inviteHeadingRef} tabIndex={-1} className="section-title">
             Invite people
           </h2>
           {!isOwnershipKnown ? (
             <>
               {bowlsError ? (
-                <p className="status-error mt-1" role="alert">Could not load your bowls.</p>
+                <p className="status-error mt-2" role="alert">Could not load your bowls.</p>
               ) : (
                 <p className="mt-1 text-sm text-slate-400" role="status">Loading your bowls…</p>
               )}
@@ -397,51 +358,215 @@ export default function InvitesPage() {
               </button>
             </>
           ) : (
-            <>
-              <p className="mt-1 text-sm text-slate-400">
-                They&apos;ll get an email and join once they accept.
-              </p>
-              <form onSubmit={handleSend} className="mt-4 space-y-4">
-                <div>
-                  <label htmlFor="invite-bowl" className="mb-1 block text-sm text-slate-300">Bowl</label>
-                  <select
-                    id="invite-bowl"
-                    className="input-field"
-                    value={selectedBowlId}
-                    disabled={sent.isSending}
-                    onChange={(event) => setBowlChoice(event.target.value)}
-                  >
-                    <option value="">Choose a bowl</option>
-                    {ownedBowls.map((bowl) => (
-                      <option key={bowl.id} value={bowl.id}>{bowl.name}</option>
-                    ))}
-                  </select>
+            <form onSubmit={handleSend} className="mt-4 space-y-5">
+              <fieldset disabled={sent.isSending}>
+                <legend className="mb-2 text-sm font-medium text-slate-300">Invite to</legend>
+                <div className="flex flex-wrap gap-2">
+                  {ownedBowls.map((bowl) => (
+                    <label key={bowl.id} className="choice-pill">
+                      <input
+                        type="radio"
+                        name="invite-bowl"
+                        className="sr-only"
+                        value={bowl.id}
+                        checked={selectedBowlId === bowl.id}
+                        onChange={() => setBowlChoice(bowl.id)}
+                      />
+                      <span className="min-w-0 break-words">{bowl.name}</span>
+                      {bowl.memberCount > 0 && (
+                        <span className="text-xs font-medium text-slate-500">
+                          {bowl.memberCount} {bowl.memberCount === 1 ? "member" : "members"}
+                        </span>
+                      )}
+                    </label>
+                  ))}
                 </div>
-                <div>
-                  <label htmlFor="invite-emails" className="mb-1 block text-sm text-slate-300">Email addresses</label>
-                  <textarea
+              </fieldset>
+
+              <div>
+                <label htmlFor="invite-emails" className="mb-2 block text-sm font-medium text-slate-300">
+                  Email addresses
+                </label>
+                {/* The field is the box, not the input inside it: a click on
+                    the space between chips should still start typing. */}
+                <div
+                  className="input-field flex flex-wrap items-center gap-1.5 focus-within:border-rose-500"
+                  onClick={() => emailInputRef.current?.focus()}
+                >
+                  {emailChips.map((email) => {
+                    const isInvalid = invalidEmailSet.has(email);
+                    return (
+                      <span key={email} className={`email-chip${isInvalid ? " email-chip-invalid" : ""}`}>
+                        <span className="truncate">{email}</span>
+                        {isInvalid && <span className="sr-only"> (not a valid address)</span>}
+                        <button
+                          type="button"
+                          className="email-chip-remove"
+                          aria-label={`Remove ${email}`}
+                          disabled={sent.isSending}
+                          onClick={(event) => {
+                            event.stopPropagation();
+                            removeEmailChip(email);
+                          }}
+                        >
+                          ×
+                        </button>
+                      </span>
+                    );
+                  })}
+                  <input
                     id="invite-emails"
-                    className="input-field min-h-20"
-                    placeholder="friend@example.com, family@example.com"
+                    ref={emailInputRef}
+                    type="text"
+                    inputMode="email"
+                    autoComplete="off"
+                    autoCapitalize="none"
+                    spellCheck={false}
+                    aria-describedby="invite-emails-hint"
+                    className="min-w-[12rem] flex-1 bg-transparent py-1 text-slate-100 placeholder:text-slate-500 focus:outline-none"
+                    placeholder={emailChips.length === 0 ? "friend@example.com" : ""}
                     value={emailDraft}
                     disabled={sent.isSending}
-                    onChange={(event) => setEmailDraft(event.target.value)}
+                    onChange={(event) => handleEmailChange(event.target.value)}
+                    onKeyDown={handleEmailKeyDown}
+                    onBlur={() => {
+                      if (!emailDraft.trim()) return;
+                      commitEmails([emailDraft]);
+                      setEmailDraft("");
+                    }}
                   />
-                  <p className="mt-1 text-xs text-slate-400">
-                    Separate multiple addresses with commas, spaces, or new lines.
-                  </p>
                 </div>
-                {formError && <p className="status-error" role="alert">{formError}</p>}
-                <p ref={resultRef} tabIndex={-1} role="status" className={resultMessage ? "status-success" : "sr-only"}>
-                  {resultMessage || ""}
+                <p
+                  id="invite-emails-hint"
+                  className={`mt-2 text-xs ${invalidChipCount > 0 ? "text-rose-300" : "text-slate-400"}`}
+                >
+                  {invalidChipCount > 0
+                    ? `${invalidChipCount} ${invalidChipCount === 1 ? "address needs" : "addresses need"} fixing before you send.`
+                    : "Paste a list, or press Enter after each address."}
                 </p>
-                <button type="submit" className="btn btn-primary w-full" disabled={sent.isSending}>
+              </div>
+
+              {formError && <p className="status-error" role="alert">{formError}</p>}
+              <p ref={resultRef} tabIndex={-1} role="status" className={resultMessage ? "status-success" : "sr-only"}>
+                {resultMessage || ""}
+              </p>
+              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-slate-400">
+                  {selectedBowl
+                    ? `They'll get an email and join ${selectedBowl.name} once they accept.`
+                    : "They'll get an email and join once they accept."}
+                </p>
+                <button type="submit" className="btn btn-primary w-full shrink-0 sm:w-auto" disabled={sent.isSending}>
                   {sent.isSending ? "Sending…" : sendLabel}
                 </button>
-              </form>
-            </>
+              </div>
+            </form>
           )}
         </section>
+
+        {(!isOwnershipKnown || ownedBowlCount > 0) && (
+          <section aria-labelledby="sent-heading" id="sent">
+            <div className="flex flex-wrap items-baseline justify-between gap-2">
+              <h2 id="sent-heading" className="section-title">Waiting to join</h2>
+              {sent.invitations.length > 0 && (
+                <span className="text-sm text-slate-400">{sent.invitations.length} pending</span>
+              )}
+            </div>
+            {sentMessage && <p className="status-success mt-3" role="status">{sentMessage}</p>}
+            {sent.loadError && (
+              <div className="mt-3">
+                <p className="status-error" role="alert">{sent.loadError}</p>
+                <button type="button" className="btn btn-secondary mt-2" onClick={() => { void sent.refresh(); }}>
+                  Try again
+                </button>
+              </div>
+            )}
+            {!isOwnershipKnown ? (
+              // Unknown ownership is not "you have sent nothing". The send panel
+              // owns the alert and the retry for this same failure, so this is a
+              // plain line rather than a second alert for one problem.
+              <p className="mt-1 text-sm text-slate-400" role="status">
+                {bowlsError
+                  ? "Your bowls could not be loaded, so this list is unavailable."
+                  : "Loading sent invitations…"}
+              </p>
+            ) : sent.isLoading && sent.invitations.length === 0 ? (
+              <p className="mt-1 text-sm text-slate-400" role="status">Loading sent invitations…</p>
+            ) : sent.invitations.length === 0 ? (
+              <p className="mt-1 text-sm text-slate-500">
+                Invitations you send stay here until someone accepts.
+              </p>
+            ) : (
+              <div className="mt-4 space-y-6">
+                {groupedSent.map(({ bowl, rows }) => (
+                  <div
+                    key={bowl.id}
+                    className={hash === "#sent" && bowl.id === requestedBowlId
+                      ? "-m-3 rounded-2xl p-3 ring-1 ring-rose-800/70"
+                      : undefined}
+                  >
+                    <h3
+                      tabIndex={-1}
+                      ref={(node) => {
+                        if (node) sentGroupRefs.current.set(bowl.id, node);
+                        else sentGroupRefs.current.delete(bowl.id);
+                      }}
+                      className="eyebrow focus-visible:outline-none"
+                    >
+                      {bowl.name}
+                    </h3>
+                    <ul className="mt-2 divide-y divide-slate-800/80 border-y border-slate-800/80">
+                      {rows.map((row) => (
+                        <li key={row.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
+                          <span
+                            aria-hidden="true"
+                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-slate-600 text-xs font-semibold uppercase text-slate-400"
+                          >
+                            {row.invited_email?.[0] || "?"}
+                          </span>
+                          {/* The basis is what sends the actions to their own line on a
+                              phone, rather than squeezing the address to a few letters. */}
+                          <div className="min-w-0 flex-1 basis-52">
+                            <p className="truncate text-sm font-medium text-slate-100" title={row.invited_email}>
+                              {row.invited_email}
+                            </p>
+                            {row.created_at && (
+                              <p className="text-xs text-slate-500">
+                                Sent {formatRelativeDateLabel(row.created_at)}
+                              </p>
+                            )}
+                          </div>
+                          <div className="ml-11 flex shrink-0 gap-1 sm:ml-0">
+                            <CopyButton
+                              value={`${window.location.origin}/accept-invite/${row.token}`}
+                              label="Copy link"
+                              className="btn btn-ghost px-3 text-sm"
+                              ariaLabel={`Copy invitation link for ${row.invited_email}`}
+                              onCopied={() => setSentMessage(`Invitation link copied for ${row.invited_email}.`)}
+                            />
+                            <button
+                              type="button"
+                              className="btn btn-ghost px-3 text-sm text-rose-300"
+                              aria-label={`Revoke invitation for ${row.invited_email}`}
+                              onClick={() => setRevokeTarget({
+                                bowlId: bowl.id,
+                                bowlName: bowl.name,
+                                invitationId: row.id,
+                                invitedEmail: row.invited_email,
+                              })}
+                            >
+                              Revoke
+                            </button>
+                          </div>
+                        </li>
+                      ))}
+                    </ul>
+                  </div>
+                ))}
+              </div>
+            )}
+          </section>
+        )}
       </div>
 
       <ConfirmDialog
