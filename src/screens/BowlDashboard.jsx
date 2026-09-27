@@ -31,6 +31,12 @@ import useDrawPoolCount, { DRAW_POOL_STATUS } from "../hooks/useDrawPoolCount";
 import useMyMovieEligibility, { MY_MOVIE_ELIGIBILITY_STATUS } from "../hooks/useMyMovieEligibility";
 import AddMovieModal from "../components/AddMovieModal";
 import DrawAnimationModal from "../components/DrawAnimationModal";
+import DrawRevealTrack from "../components/DrawRevealTrack";
+import {
+  DRAW_REVEAL_TITLE_HOLD_MS,
+  getDrawRevealCopy,
+  getDrawRevealPersonMs,
+} from "../utils/drawReveal";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { isStarterPackMovie } from "../utils/drawBuckets";
 import { supabase } from "../lib/supabase";
@@ -102,6 +108,7 @@ export default function BowlDashboard() {
     const [showRuntimeFilters, setShowRuntimeFilters] = useState(false);
     const [isDrawing, setIsDrawing] = useState(false);
     const [drawAnimationTitle, setDrawAnimationTitle] = useState("");
+    const [drawReveal, setDrawReveal] = useState(null);
     const [showDrawConfirm, setShowDrawConfirm] = useState(false);
     const [showMethodInfo, setShowMethodInfo] = useState(false);
     const [bowlName, setBowlName] = useState("");
@@ -911,6 +918,7 @@ export default function BowlDashboard() {
       if (isDrawing || isFirstLoad || !canCurrentUserDraw || bowl.remaining.length === 0) return;
       setShowDrawConfirm(false);
       setDrawAnimationTitle("");
+      setDrawReveal(null);
       setIsDrawing(true);
 
       try {
@@ -920,11 +928,23 @@ export default function BowlDashboard() {
           prioritizeByServiceRank: useStreamingRank,
           userStreamingServices,
           ...drawFilters,
-        }).then((movie) => {
-          startProviderLookup(movie);
-          if (movie?.title) {
-            setDrawAnimationTitle(movie.title);
+        }).then(async (result) => {
+          if (!result) {
+            startProviderLookup(result);
+            return result;
           }
+          const { drawReveal: reveal = null, ...movie } = result;
+          startProviderLookup(movie);
+          // The reveal replays the draw that just happened: the person lands
+          // first, then the title goes on the slip. A quick draw still opens at
+          // 1.5s; a slow one gets the stages it would otherwise have skipped.
+          setDrawReveal(reveal);
+          const personMs = getDrawRevealPersonMs(reveal, {
+            reducedMotion: Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches),
+          });
+          if (personMs > 0) await new Promise((resolve) => setTimeout(resolve, personMs));
+          if (movie.title) setDrawAnimationTitle(movie.title);
+          if (reveal) await new Promise((resolve) => setTimeout(resolve, DRAW_REVEAL_TITLE_HOLD_MS));
           return movie;
         });
 
@@ -941,6 +961,7 @@ export default function BowlDashboard() {
       } finally {
         setIsDrawing(false);
         setDrawAnimationTitle("");
+        setDrawReveal(null);
       }
     };
 
@@ -1037,12 +1058,19 @@ return (
                 </span>
               )}
               <div className="mx-auto max-w-5xl">
-                <div>
+                <div className="relative">
                   <BowlIllustration
                     drawTitle={drawAnimationTitle}
                     isDrawing={isDrawing}
                     className="mx-auto h-44 w-full max-w-2xl drop-shadow-2xl sm:h-48 md:h-52"
                   />
+                  {isDrawing && (
+                    <DrawRevealTrack
+                      method={getDrawMethod(drawReveal?.methodId ?? drawMethod)}
+                      reveal={drawReveal}
+                      titleShown={Boolean(drawAnimationTitle)}
+                    />
+                  )}
                 </div>
 
                 <BowlStatLine
@@ -1876,7 +1904,7 @@ return (
                 </div>
               </div>
             )}
-            {isDrawing && <DrawAnimationModal />}
+            {isDrawing && <DrawAnimationModal detail={getDrawRevealCopy(drawReveal).announcement} />}
             <BowlPicker
               isOpen={isPickerOpen}
               bowls={accountBowls}

@@ -888,6 +888,136 @@
   }
 }
 
+/* The draw reveal sits over the foot of the bowl while a draw runs. It narrates
+   the method's own stages -- a person, then one of their movies; or one title
+   from the whole bowl -- using the result that was actually drawn. */
+.draw-reveal-track {
+  position: absolute;
+  inset: auto 0 -0.25rem;
+  z-index: 3;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.4rem;
+  padding: 0 1rem;
+  pointer-events: none;
+  animation: draw-reveal-in 220ms ease-out both;
+}
+
+.draw-reveal-people {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.35rem;
+  max-width: 34rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.draw-reveal-person {
+  min-width: 4.5rem;
+  max-width: 9rem;
+  overflow: hidden;
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--color-border-strong);
+  border-radius: 999px;
+  background: rgba(10, 16, 28, 0.82);
+  color: rgba(226, 232, 240, 0.72);
+  font-size: 0.75rem;
+  font-weight: 600;
+  text-align: center;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transition: transform 120ms ease-out, border-color 120ms ease-out, background-color 120ms ease-out, color 120ms ease-out;
+}
+
+.draw-reveal-person.is-active {
+  border-color: var(--color-accent-bright);
+  color: #fff;
+}
+
+.draw-reveal-person.is-chosen {
+  background: var(--color-accent);
+  border-color: var(--color-accent-bright);
+  color: #fff;
+  transform: translateY(-3px) scale(1.06);
+}
+
+/* Rotation is not a raffle, so nobody is swept past: the row waits, and the
+   person whose turn it is steps forward. */
+.draw-reveal-people.is-turn .draw-reveal-person:not(.is-chosen) {
+  opacity: 0.55;
+}
+
+@media (max-width: 639px) {
+  .draw-reveal-people {
+    gap: 0.25rem;
+  }
+
+  .draw-reveal-person {
+    min-width: 0;
+    max-width: 6.5rem;
+    padding: 0.1rem 0.45rem;
+    font-size: 0.68rem;
+  }
+
+  .draw-reveal-caption {
+    font-size: 0.74rem;
+  }
+}
+
+.draw-reveal-person.is-more {
+  min-width: 0;
+  border-style: dashed;
+}
+
+.draw-reveal-caption {
+  margin: 0;
+  padding: 0.2rem 0.7rem;
+  border-radius: 999px;
+  background: rgba(2, 4, 10, 0.72);
+  color: rgba(226, 232, 240, 0.9);
+  font-size: 0.8rem;
+  font-weight: 600;
+  text-align: center;
+}
+
+.draw-reveal-track[data-stage="pending"] .draw-reveal-caption {
+  animation: draw-reveal-pending 1.1s ease-in-out infinite alternate;
+}
+
+@keyframes draw-reveal-in {
+  from {
+    opacity: 0;
+    transform: translateY(4px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes draw-reveal-pending {
+  from {
+    opacity: 0.6;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .draw-reveal-track,
+  .draw-reveal-track[data-stage="pending"] .draw-reveal-caption {
+    animation: none;
+  }
+
+  .draw-reveal-person.is-chosen {
+    transform: none;
+  }
+}
+
 /* The add dialog shares one header and one results scroller. The bowl list is
    the only temporary nested scroller, immediately beneath its name button. */
 .bowl-add-overlay {

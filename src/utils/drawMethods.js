@@ -65,6 +65,9 @@ const PERSON_FIRST = {
   ],
   // Equal odds are a promise about people, so a filter that removes everything
   // one person added quietly removes them from the draw. Say so.
+  // What the reveal says while the draw is still in flight, before it knows who
+  // or what it landed on.
+  revealPending: "Picking a person at random",
   bucketsByContributor: true,
   reachCaveat: "",
   honorsPin: true,
@@ -87,6 +90,7 @@ const TITLE_FIRST = {
     { title: "One title, at random", note: "From the whole bowl, so more movies means more chances" },
   ],
   footnote: "Pins do nothing here — there is no per-person step to apply them to.",
+  revealPending: "Picking one title from the whole bowl",
   bucketsByContributor: false,
   reachCaveat: "",
   honorsPin: false,
@@ -108,6 +112,7 @@ const ROTATION = {
     { title: "One of their movies", note: "Their pinned movie if they picked one" },
   ],
   footnote: "Returning a movie does not reset the turn.",
+  revealPending: "Finding whoever has waited longest",
   bucketsByContributor: true,
   reachCaveat: "They rejoin when one of their movies is eligible again.",
   honorsPin: true,

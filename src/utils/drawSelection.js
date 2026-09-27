@@ -232,7 +232,8 @@ export async function getDrawSelection({
     drawMethod,
   });
 
-  return { selected, errorMessage: null };
+  // The pool travels with the pick so the reveal can show what it was drawn from.
+  return { selected, candidates, errorMessage: null };
 }
 
 /**

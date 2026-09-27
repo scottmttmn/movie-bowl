@@ -35,7 +35,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (168 test files / 1553 tests, 92 Playwright tests with 8 skipped,
+fully green (170 test files / 1574 tests, 92 Playwright tests with 8 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -392,6 +392,13 @@ else. The television indicates the method rather than naming it —
 because the method belongs to the bowl and not to tonight. `tvLabel` is that
 mark's accessible name, so a method added to the registry needs a mark here
 too or it renders nothing at all.
+
+The dashboard's draw reveal shows the method working: `handleDraw` returns a
+`drawReveal` (`utils/drawReveal.js`) built from the pool the method actually
+selected from, and `DrawRevealTrack` replays it -- a person, then one of their
+movies; or one title from the whole bowl. It is a replay, never a performance:
+it lands only on what was drawn, and a stage the client cannot verify is left
+out rather than guessed. See `output/designs/draw-method-reveals.md`.
 
 Streaming prioritization narrows the pool *before* the contributor bucketing:
 with `prioritizeByServiceRank` it keeps only the top-ranked matching service,
