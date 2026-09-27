@@ -8,6 +8,7 @@ import AvailabilityAttribution from "./AvailabilityAttribution";
 import MoviePosterPin from "./MoviePosterPin";
 import ServiceLogo from "./ServiceLogo";
 import TrailerEmbed from "./TrailerEmbed";
+import PersonalCommentSection from "./PersonalCommentSection";
 import { getMovieAttributionLabel, isStarterPackMovie } from "../utils/drawBuckets";
 import { getMovieReleaseStatus } from "../utils/movieReleaseStatus";
 import {
@@ -93,6 +94,8 @@ export default function AddMovieModal({
   deleteActionLabel = "Delete",
   deleteActionAriaLabel = null,
   noteHeading = null,
+  noteCollapsed = false,
+  personalComment = null,
   onTogglePin = null,
   pinDisabledReason = "",
   isObscured = false,
@@ -102,6 +105,7 @@ export default function AddMovieModal({
   const [isEditingNote, setIsEditingNote] = useState(false);
   const [isSavingNote, setIsSavingNote] = useState(false);
   const [noteEditError, setNoteEditError] = useState("");
+  const [isNoteOpen, setIsNoteOpen] = useState(!noteCollapsed);
   const [isSavingPin, setIsSavingPin] = useState(false);
   const [pinError, setPinError] = useState("");
   const [isTrailerVisible, setIsTrailerVisible] = useState(false);
@@ -139,6 +143,7 @@ export default function AddMovieModal({
   const trailerSubjectChanged = useChangedDeps([movie?.id, movie?.tmdb_id]);
 
   if (noteChanged) {
+    setIsNoteOpen(!noteCollapsed);
     setDisplayedNote(normalizeMovieNote(movie?.note));
     setNoteDraft(movie?.note || "");
     setIsEditingNote(false);
@@ -221,8 +226,16 @@ export default function AddMovieModal({
   const trailerRegionId = resolvedMovieId != null
     ? `movie-trailer-${String(resolvedMovieId).replace(/[^a-zA-Z0-9_-]+/g, "-")}`
     : "movie-trailer";
-  const resolvedNoteHeading =
-    noteHeading || (movie.source_kind === "manual" ? "Your comment" : "Why it’s in the bowl");
+  const resolvedNoteHeading = noteHeading || "Why it’s in the bowl";
+
+  const personalCommentSection = personalComment ? (
+    <PersonalCommentSection
+      key={`${resolvedMovieId ?? ""}:${personalComment.entryId ?? ""}`}
+      note={personalComment.note}
+      onSave={personalComment.onSave}
+      collapsed={Boolean(personalComment.collapsed)}
+    />
+  ) : null;
 
   const saveNote = async () => {
     if (!onEditNote || isSavingNote) return;
@@ -482,10 +495,35 @@ export default function AddMovieModal({
             </section>
           )}
 
-          {(displayedNote || isEditingNote) ? (
+          {/* The comment this page is about comes first; the other one follows,
+              folded away. */}
+          {personalComment && !personalComment.collapsed && personalCommentSection}
+          {displayedNote && !isEditingNote && !isNoteOpen ? (
+            <button
+              type="button"
+              className="btn btn-ghost -ml-3 px-3 text-sm"
+              aria-expanded="false"
+              onClick={() => setIsNoteOpen(true)}
+            >
+              {resolvedNoteHeading} <span aria-hidden="true">▸</span>
+            </button>
+          ) : (displayedNote || isEditingNote) ? (
             <section className="surface-card p-4" aria-labelledby="movie-note-title">
               <div className="mb-2 flex items-center justify-between gap-3">
-                <h3 id="movie-note-title" className="text-xs font-medium text-slate-400">{resolvedNoteHeading}</h3>
+                {noteCollapsed ? (
+                  <h3 id="movie-note-title" className="text-xs font-medium text-slate-400">
+                    <button
+                      type="button"
+                      className="-m-1 rounded p-1 hover:text-slate-200"
+                      aria-expanded="true"
+                      onClick={() => setIsNoteOpen(false)}
+                    >
+                      {resolvedNoteHeading} <span aria-hidden="true">▾</span>
+                    </button>
+                  </h3>
+                ) : (
+                  <h3 id="movie-note-title" className="text-xs font-medium text-slate-400">{resolvedNoteHeading}</h3>
+                )}
                 {onEditNote && !isEditingNote && (
                   <button type="button" className="btn btn-ghost -my-2 -mr-2 px-2 text-xs" aria-label="Edit Comment" onClick={() => {
                     setNoteDraft(displayedNote || "");
@@ -532,6 +570,7 @@ export default function AddMovieModal({
               setIsEditingNote(true);
             }}>+ Add a comment</button>
           ) : null}
+          {personalComment?.collapsed && personalCommentSection}
         </div>
 
         {(detailPrimaryActionError || detailPrimaryActionNote || onDeleteMovie || (onDetailPrimaryAction && detailPrimaryActionLabel)) && (

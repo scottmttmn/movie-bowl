@@ -28,15 +28,10 @@ export default function WatchHistoryEntryModal({
   const [title, setTitle] = useState(entry?.title || "");
   const [watchedOn, setWatchedOn] = useState(normalizeDateInput(entry?.watched_on) || getToday());
   const [releaseDate, setReleaseDate] = useState(normalizeDateInput(entry?.release_date));
-  const [note, setNote] = useState(entry?.note || "");
+  const [note, setNote] = useState(entry?.personal_note || "");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
 
   const isEditing = Boolean(entry?.id);
-  const isSoloDrawEntry = entry?.source_kind === "solo_draw";
-  // The note came off the slip, so it says why the movie was in the bowl, not
-  // what you thought of it. Editable only where it was written by hand.
-  const isDrawnEntry = entry?.source_kind === "bowl_draw" || isSoloDrawEntry;
-  const drawnNote = isDrawnEntry ? normalizeMovieNote(entry?.note) : null;
   const canUndoSolo = isWithinSoloUndoWindow(entry);
   // Only the entries whose draw actually took copies away have something to put
   // back, so the confirmation promises a restore only when one is coming.
@@ -62,7 +57,7 @@ export default function WatchHistoryEntryModal({
       title: title.trim(),
       watched_on: watchedOn,
       release_date: releaseDate || null,
-      note: isDrawnEntry ? entry?.note ?? null : normalizeMovieNote(note),
+      personal_note: normalizeMovieNote(note),
     });
   };
 
@@ -159,52 +154,21 @@ export default function WatchHistoryEntryModal({
               </label>
             </div>
 
-            {isDrawnEntry ? (
-              <section
-                className="rounded-xl border border-slate-700 bg-slate-950/45 p-3"
-                aria-labelledby="bowl-draw-comment-heading"
-              >
-                <div className="flex flex-wrap items-center justify-between gap-2">
-                  <h3
-                    id="bowl-draw-comment-heading"
-                    className="text-sm font-semibold text-slate-200"
-                  >
-                    {isSoloDrawEntry ? "Comment from the bowl" : "Comment from bowl draw"}
-                  </h3>
-                  <span className="rounded-full border border-slate-600 bg-slate-800 px-2 py-0.5 text-xs font-semibold text-slate-300">
-                    Read only
-                  </span>
-                </div>
-                {drawnNote ? (
-                  <p className="mt-3 whitespace-pre-wrap text-sm leading-6 text-slate-200">
-                    {drawnNote}
-                  </p>
-                ) : (
-                  <p className="mt-3 text-sm italic text-slate-400">
-                    No comment was saved with this draw.
-                  </p>
-                )}
-                <p className="mt-3 border-t border-slate-800 pt-2 text-xs text-slate-400">
-                  Saved with the draw and can’t be changed from watch history.
-                </p>
-              </section>
-            ) : (
-              <label className="block text-sm font-medium text-slate-300">
-                Comment (optional)
-                <textarea
-                  className="input-field mt-1.5 min-h-28 resize-y whitespace-pre-wrap"
-                  value={note}
-                  onChange={(event) => setNote(event.target.value)}
-                  maxLength={MAX_MOVIE_NOTE_LENGTH}
-                  placeholder="What made this one memorable?"
-                  disabled={isSaving}
-                />
-                <span className="mt-1 flex items-start justify-between gap-3 text-xs font-normal text-slate-400">
-                  <span>Keep a short personal reminder with this history entry.</span>
-                  <span className="shrink-0">{note.length}/{MAX_MOVIE_NOTE_LENGTH}</span>
-                </span>
-              </label>
-            )}
+            <label className="block text-sm font-medium text-slate-300">
+              Your comment (optional)
+              <textarea
+                className="input-field mt-1.5 min-h-28 resize-y whitespace-pre-wrap"
+                value={note}
+                onChange={(event) => setNote(event.target.value)}
+                maxLength={MAX_MOVIE_NOTE_LENGTH}
+                placeholder="What made this one memorable?"
+                disabled={isSaving}
+              />
+              <span className="mt-1 flex items-start justify-between gap-3 text-xs font-normal text-slate-400">
+                <span>Only you can see this.</span>
+                <span className="shrink-0">{note.length}/{MAX_MOVIE_NOTE_LENGTH}</span>
+              </span>
+            </label>
 
             {errorMessage && (
               <div className="status-error" role="alert">

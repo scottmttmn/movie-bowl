@@ -202,6 +202,14 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   directly by URL. Copy about the app itself stays staged against the Play
   roadmap, with the About page speaking last. Specified in
   `output/designs/tv-web-seam.md`.
+- Personal comments on watched movies: shipped. Why a movie was in the bowl
+  and what you thought of it are now two comments: the slip's reason stays
+  shared and frozen at the draw, and each watcher keeps a private, editable
+  `personal_note` on their own history entry. The bowl page leads with the
+  reason and folds your comment away; Watch History does the reverse. Not
+  built: shared reactions a bowl can read, and a "how was it?" prompt some time
+  after a draw. See "Two comments on a watched movie" in
+  `output/designs/movie-comments.md`.
 
 ## Technical Debt / Maintenance
 

@@ -15,6 +15,7 @@ import { isWithinSoloUndoWindow } from "../utils/watchHistory";
 import { supabase } from "../lib/supabase";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { getMovieNoteValidationError, normalizeMovieNote } from "../utils/movieNote";
+import { updateOwnWatchComment } from "../lib/watchComments";
 import {
   buildLetterboxdWatchedCsv,
   getLetterboxdWatchedExportFileName,
@@ -78,7 +79,7 @@ export default function WatchListPage() {
       const { data: watchedRows, error: watchedError } = await supabase
         .from("user_watch_events")
         .select(
-          "id, source_draw_event_id, source_kind, source_bowl_movie_id, bowl_name, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, watched_on, created_at, updated_at"
+          "id, source_draw_event_id, source_kind, source_bowl_movie_id, bowl_name, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, personal_note, watched_on, created_at, updated_at"
         )
         .eq("user_id", user.id)
         .order("watched_on", { ascending: false })
@@ -260,10 +261,7 @@ export default function WatchListPage() {
       setEntryEditorError("Add a title and the date you watched it.");
       return;
     }
-    const canEditNote = !editingEntry?.id || editingEntry?.source_kind === "manual";
-    const noteValidationError = canEditNote
-      ? getMovieNoteValidationError(entry?.note)
-      : null;
+    const noteValidationError = getMovieNoteValidationError(entry?.personal_note);
     if (noteValidationError) {
       setEntryEditorError(noteValidationError);
       return;
@@ -277,16 +275,14 @@ export default function WatchListPage() {
       let createdTmdbId = null;
 
       if (editingEntry?.id) {
-        const updateParams = {
+        ({ error } = await supabase.rpc("update_user_watch_event", {
           p_event_id: editingEntry.id,
           p_title: title,
           p_watched_on: entry.watched_on,
           p_release_date: entry.release_date || null,
-        };
-        if (editingEntry.source_kind === "manual") {
-          updateParams.p_note = normalizeMovieNote(entry.note);
-        }
-        ({ error } = await supabase.rpc("update_user_watch_event", updateParams));
+          p_note: normalizeMovieNote(entry.personal_note),
+          p_set_personal_note: true,
+        }));
       } else {
         const tmdbId = Number(entry?.tmdb_id ?? entry?.id);
         createdTmdbId = Number.isInteger(tmdbId) && tmdbId > 0 ? tmdbId : null;
@@ -299,7 +295,7 @@ export default function WatchListPage() {
           p_runtime: entry?.runtime || null,
           p_genres: normalizeGenres(entry?.genres),
           p_overview: entry?.overview || null,
-          p_note: normalizeMovieNote(entry?.note),
+          p_note: normalizeMovieNote(entry?.personal_note),
         }));
       }
 
@@ -327,6 +323,16 @@ export default function WatchListPage() {
     } finally {
       setIsSavingEntry(false);
     }
+  };
+
+  const handleSavePersonalNote = async (entryId, note) => {
+    const result = await updateOwnWatchComment(entryId, note);
+    if (result.ok) {
+      const patch = (row) => (row?.id === entryId ? { ...row, personal_note: result.note } : row);
+      setMovies((current) => current.map(patch));
+      setSelectedDetailMovie((current) => patch(current));
+    }
+    return result;
   };
 
   // Offered from a solo entry rather than at the reveal: drawing alone does not
@@ -656,6 +662,13 @@ export default function WatchListPage() {
         <AddMovieModal
           movie={selectedDetailMovie}
           showWhereToWatch={false}
+          noteHeading="Why it was in the bowl"
+          noteCollapsed
+          personalComment={{
+            entryId: selectedDetailMovie.id,
+            note: selectedDetailMovie.personal_note,
+            onSave: (note) => handleSavePersonalNote(selectedDetailMovie.id, note),
+          }}
           detailPrimaryActionLabel="Edit history"
           onDetailPrimaryAction={async (movie) => {
             setEntryEditorError("");

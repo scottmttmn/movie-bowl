@@ -117,6 +117,12 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
+const watchComments = vi.hoisted(() => ({
+  fetchOwnDrawWatchEntry: vi.fn(),
+  updateOwnWatchComment: vi.fn(),
+}));
+vi.mock("../../lib/watchComments", () => watchComments);
+
 import BowlDashboard from "../BowlDashboard";
 
 async function openWatchedDetail() {
@@ -146,12 +152,16 @@ describe("BowlDashboard watched detail", () => {
           tmdb_id: 101,
           title: "Movie A",
           poster_path: "/a.jpg",
+          note: "Sam swears by it.",
           drawn_at: "2026-04-10T00:00:00.000Z",
         },
       ],
     };
     fetchStreamingProviders.mockClear();
     getTmdbMovieDetails.mockClear();
+    watchComments.fetchOwnDrawWatchEntry.mockReset();
+    watchComments.fetchOwnDrawWatchEntry.mockResolvedValue(null);
+    watchComments.updateOwnWatchComment.mockReset();
   });
 
   afterEach(() => {
@@ -236,5 +246,49 @@ describe("BowlDashboard watched detail", () => {
     expect(screen.getByRole("heading", { name: "Movie A", level: 2 })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /remove/i })).toBeNull();
     expect(screen.queryByRole("button", { name: /^delete$/i })).toBeNull();
+  });
+
+  it("leads with why it was in the bowl and folds your own comment away", async () => {
+    watchComments.fetchOwnDrawWatchEntry.mockResolvedValue({
+      id: "history-1",
+      personal_note: "Loved the score.",
+    });
+    await openWatchedDetail();
+
+    expect(watchComments.fetchOwnDrawWatchEntry).toHaveBeenCalledWith("d1");
+    expect(screen.getByText("Why it’s in the bowl")).toBeInTheDocument();
+    expect(screen.getByText("Sam swears by it.")).toBeInTheDocument();
+    expect(screen.queryByText("Loved the score.")).not.toBeInTheDocument();
+
+    const yours = screen.getByRole("button", { name: "Your comment" });
+    expect(yours).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(yours);
+    expect(screen.getByText("Loved the score.")).toBeInTheDocument();
+  });
+
+  it("writes your comment from the bowl page without leaving it", async () => {
+    watchComments.fetchOwnDrawWatchEntry.mockResolvedValue({ id: "history-1", personal_note: null });
+    watchComments.updateOwnWatchComment.mockResolvedValue({ ok: true, note: "The ending!" });
+    await openWatchedDetail();
+
+    fireEvent.click(screen.getByRole("button", { name: "+ Add your comment" }));
+    fireEvent.change(screen.getByRole("textbox", { name: "Your comment" }), {
+      target: { value: "The ending!" },
+    });
+    fireEvent.click(screen.getByRole("button", { name: "Save comment" }));
+
+    await waitFor(() =>
+      expect(watchComments.updateOwnWatchComment).toHaveBeenCalledWith("history-1", "The ending!")
+    );
+    expect(await screen.findByText("The ending!")).toBeInTheDocument();
+    expect(screen.getByText("Sam swears by it.")).toBeInTheDocument();
+  });
+
+  it("offers no comment to someone who was not part of the draw", async () => {
+    watchComments.fetchOwnDrawWatchEntry.mockResolvedValue(null);
+    await openWatchedDetail();
+
+    expect(screen.getByText("Sam swears by it.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /your comment/i })).toBeNull();
   });
 });

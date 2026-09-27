@@ -45,6 +45,7 @@ import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 import { matchUserServices } from "../utils/streamingServices";
 import { getAutoStartMode, getAutoStartSurface, resolvePreferredLaunchTarget } from "../utils/webLaunch";
 import useBowlAdd from "../hooks/useBowlAdd";
+import { fetchOwnDrawWatchEntry, updateOwnWatchComment } from "../lib/watchComments";
 import { notifyBowlChange } from "../lib/bowlChanges";
 import {
   DEFAULT_DRAW_SETTINGS,
@@ -1594,9 +1595,13 @@ return (
                   onToggleExpanded={() => setShowWatched((prev) => !prev)}
                   onSelectMovie={async (movie) => {
                     setSelectedDetailContext("watched");
-                    setSelectedDetailMovie(
-                      await buildDetailMovie(movie, { includeStreaming: false })
-                    );
+                    // Read beside the details so the dialog opens with the
+                    // answer rather than growing a row a moment later.
+                    const [detail, ownWatchEntry] = await Promise.all([
+                      buildDetailMovie(movie, { includeStreaming: false }),
+                      fetchOwnDrawWatchEntry(movie?.drawEventId ?? movie?.id),
+                    ]);
+                    setSelectedDetailMovie({ ...detail, ownWatchEntry });
                   }}
                 />
                 {readdErrorMessage && (
@@ -1719,6 +1724,25 @@ return (
                         setSelectedDetailMovie(null);
                         setSelectedDetailContext(null);
                         setPendingReaddMovie(movie);
+                      }
+                    : null
+                }
+                personalComment={
+                  selectedDetailContext === "watched" && selectedDetailMovie.ownWatchEntry
+                    ? {
+                        entryId: selectedDetailMovie.ownWatchEntry.id,
+                        note: selectedDetailMovie.ownWatchEntry.personal_note,
+                        collapsed: true,
+                        onSave: async (note) => {
+                          const entryId = selectedDetailMovie.ownWatchEntry.id;
+                          const result = await updateOwnWatchComment(entryId, note);
+                          if (result.ok) {
+                            setSelectedDetailMovie((current) => current?.ownWatchEntry?.id === entryId
+                              ? { ...current, ownWatchEntry: { ...current.ownWatchEntry, personal_note: result.note } }
+                              : current);
+                          }
+                          return result;
+                        },
                       }
                     : null
                 }
