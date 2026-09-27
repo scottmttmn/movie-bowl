@@ -588,6 +588,39 @@ describe("useBowl handleDraw integration", () => {
     expect(drawn).toEqual(
       expect.objectContaining({ id: "m2", streamingProviders: ["Netflix"] })
     );
+    expect(drawn.drawReveal).toMatchObject({
+      methodId: "rotation",
+      person: { mode: "turn", chosenKey: "user:user-2" },
+      title: { scope: "person", count: 1 },
+    });
+  });
+
+  it("returns the person-first reveal for the turn the draw actually spent", async () => {
+    const movieA = { id: "m1", tmdb_id: 101, title: "Movie A", added_by: "user-1" };
+    const movieB = { id: "m2", tmdb_id: 202, title: "Movie B", added_by: "user-1" };
+    const movieC = { id: "m3", tmdb_id: 303, title: "Movie C", added_by: "user-2" };
+    mocks.remainingQueue.push([movieA, movieB, movieC], [movieA, movieB]);
+    mocks.watchedQueue.push([], []);
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let drawn;
+    await act(async () => {
+      // The last bucket, then the last title in it.
+      drawn = await result.current.handleDraw({ randomFn: () => 0.99 });
+    });
+
+    expect(drawn.id).toBe("m3");
+    expect(drawn.drawReveal).toMatchObject({
+      methodId: "person_first",
+      person: {
+        mode: "random",
+        chosenKey: "user:user-2",
+        people: [{ key: "user:user-1" }, { key: "user:user-2" }],
+      },
+      title: { scope: "person", count: 1 },
+    });
   });
 
   it("preserves the streaming fallback and manual titles in a rotation pool", async () => {

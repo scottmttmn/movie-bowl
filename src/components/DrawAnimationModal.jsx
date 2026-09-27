@@ -7,7 +7,9 @@ const PHASES = [
   { name: "finish", durationMs: 220 },
 ];
 
-export default function DrawAnimationModal() {
+// `detail` is the reveal's own account of the draw (who, then which pile), so a
+// screen reader hears the same stages the animation shows.
+export default function DrawAnimationModal({ detail = "" }) {
   const [phase, setPhase] = useState("enter");
 
   useEffect(() => {
@@ -31,7 +33,7 @@ export default function DrawAnimationModal() {
 
   return (
     <div data-blocks-global-add className="sr-only" role="status" aria-live="polite" data-phase={phase}>
-      Movie Bowl. Drawing a title from the bowl...
+      Movie Bowl. Drawing a title from the bowl...{detail ? ` ${detail}.` : ""}
     </div>
   );
 }

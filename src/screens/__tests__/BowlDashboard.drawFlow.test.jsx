@@ -221,6 +221,59 @@ describe("BowlDashboard draw flow", () => {
     vi.useRealTimers();
   });
 
+  it("lands on the drawn person before the title goes on the slip", async () => {
+    mocks.state.handleDraw.mockResolvedValue({
+      id: "m1",
+      tmdb_id: 101,
+      title: "Movie A",
+      release_date: "2020-01-01",
+      streamingProviders: [],
+      drawReveal: {
+        methodId: "person_first",
+        person: {
+          mode: "random",
+          people: [
+            { key: "user:u1", label: "Owner" },
+            { key: "user:u2", label: "Friend" },
+          ],
+          chosenKey: "user:u1",
+          chosenLabel: "Owner",
+        },
+        title: { mode: "random", scope: "person", personLabel: "Owner", count: 2 },
+      },
+    });
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    vi.useFakeTimers();
+    confirmDraw();
+    await act(async () => {
+      await Promise.resolve();
+    });
+
+    const track = document.querySelector(".draw-reveal-track");
+    expect(track).toHaveAttribute("data-stage", "person");
+    expect(document.querySelector(".bowl-draw-pop-title")).toHaveTextContent("Drawing...");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(800);
+    });
+    expect(document.querySelector(".draw-reveal-person.is-chosen")).toHaveTextContent("Owner");
+    expect(document.querySelector(".bowl-draw-pop-title")).toHaveTextContent("Movie A");
+    expect(track).toHaveTextContent("Owner, at random · 1 of Owner's 2 movies");
+    expect(screen.getByRole("status")).toHaveTextContent("Owner, at random. 1 of Owner's 2 movies.");
+    expect(screen.queryByRole("heading", { name: "Movie A", level: 2 })).not.toBeInTheDocument();
+
+    // A quick draw still opens at the usual minimum.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(700);
+    });
+    expect(screen.getByRole("heading", { name: "Movie A", level: 2 })).toBeInTheDocument();
+    expect(document.querySelector(".draw-reveal-track")).toBeNull();
+    vi.useRealTimers();
+  });
+
   it("draws from a completed press-and-hold without a confirm dialog", async () => {
     mocks.state.handleDraw.mockResolvedValue({
       id: "m1",

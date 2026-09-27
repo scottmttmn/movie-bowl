@@ -5,6 +5,7 @@ import { bowlMovieService, addResult, getPositiveTmdbId, isDuplicateMovieError, 
 import { subscribeBowlChanges, notifyBowlChange } from "../lib/bowlChanges";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { getDrawSelection, getResolvedDrawPool } from "../utils/drawSelection";
+import { getDrawReveal } from "../utils/drawReveal";
 import { DEFAULT_DRAW_METHOD, getDrawMethod } from "../utils/drawMethods";
 import { isStarterPackMovie } from "../utils/drawBuckets";
 import {
@@ -332,6 +333,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
     };
 
     let selected;
+    let drawPool = [];
     try {
       if (method.selectionMode === "server_rotation") {
         const { candidates, errorMessage: drawError } = await getResolvedDrawPool(
@@ -376,8 +378,9 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         }
 
         selected = await hydrateDrawCandidate(selectedCandidate, fetchProviders);
+        drawPool = candidates;
       } else {
-        const { selected: clientSelected, errorMessage: drawError } =
+        const { selected: clientSelected, candidates, errorMessage: drawError } =
           await getDrawSelection({
             ...selectionOptions,
             randomFn: options.randomFn,
@@ -406,6 +409,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
           return null;
         }
         selected = clientSelected;
+        drawPool = candidates || [];
       }
     } catch (error) {
       console.error("[useBowl] Unexpected error drawing movie", error);
@@ -429,6 +433,12 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       streamingProviderStatus: selected.providerStatus || "ready",
       streamingRegion: selected.region || "US",
       streamingFetchedAt: selected.fetchedAt || null,
+      drawReveal: getDrawReveal({
+        drawMethod: activeDrawMethod,
+        pool: drawPool,
+        drawn,
+        turnBucketKey: selected.turnBucketKey || null,
+      }),
     };
   }, [bowlId, loadedBowlId, bowl.remaining, loadBowlMovies, drawMethod, filterMetadataFetchers]);
 
