@@ -61,6 +61,7 @@ export default function WatchListPage() {
   const [isRemovingFromBowls, setIsRemovingFromBowls] = useState(false);
   const [restorableCopies, setRestorableCopies] = useState([]);
   const [restoreNotice, setRestoreNotice] = useState("");
+  const [exportNotice, setExportNotice] = useState("");
 
   const loadWatchList = useCallback(async () => {
     setIsLoading(true);
@@ -240,6 +241,17 @@ export default function WatchListPage() {
     link.click();
     link.remove();
     URL.revokeObjectURL(url);
+
+    // The tooltip cannot be read on a phone, so an export that left titles
+    // out says so where everyone sees it.
+    const { exportedCount, skippedCount } = letterboxdExport;
+    setExportNotice(
+      skippedCount > 0
+        ? `Exported ${exportedCount} ${exportedCount === 1 ? "movie" : "movies"}. ` +
+            `${skippedCount} custom ${skippedCount === 1 ? "title was" : "titles were"} skipped, ` +
+            "because Letterboxd can only match movies from the search."
+        : ""
+    );
   };
 
   const normalizeGenres = (genres) =>
@@ -518,6 +530,15 @@ export default function WatchListPage() {
             </button>
           </div>
         </div>
+
+        {exportNotice && (
+          <div className="status-warning mb-4 flex flex-wrap items-center justify-between gap-3" role="status">
+            <p>{exportNotice}</p>
+            <button type="button" className="btn btn-ghost" onClick={() => setExportNotice("")}>
+              Dismiss
+            </button>
+          </div>
+        )}
 
         {restoreNotice && (
           <div className="status-warning mb-4 flex flex-wrap items-center justify-between gap-3" role="status">

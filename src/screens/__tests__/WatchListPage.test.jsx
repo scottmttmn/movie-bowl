@@ -401,6 +401,9 @@ describe("WatchListPage", () => {
       expect(anchorClick).toHaveBeenCalledTimes(1);
       expect(revokeObjectURL).toHaveBeenCalledWith("blob:letterboxd-watch-list");
       expect(createdAnchor.download).toMatch(/^movie-bowl-letterboxd-watched-\d{4}-\d{2}-\d{2}\.csv$/);
+      expect(screen.getByRole("status")).toHaveTextContent(
+        "Exported 2 movies. 1 custom title was skipped"
+      );
 
       const blob = createObjectURL.mock.calls[0][0];
       expect(blob.options).toEqual({ type: "text/csv;charset=utf-8" });
