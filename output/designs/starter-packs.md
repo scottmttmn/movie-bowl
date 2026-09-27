@@ -437,6 +437,13 @@ ordinary title of theirs in place, and they can add a comment the usual way.
 There is no delete: removing a pack stays with the owner in Bowl Settings.
 The existing claim confirmation is enough; nothing new is written for it.
 
+Claiming trades reach for ownership. Under person-first a pack title is in
+every person's pile; claimed, it is in the claimer's alone, so its overall
+chance of being drawn falls, and a pin wins back only part of that. What it
+gains is a person and a reason on the reveal, which a pack title never has.
+The button says nothing about odds either way, and must never suggest the title
+will come up sooner.
+
 **Counts and readouts.** The count beside "My Movies" counts every card shown,
 pack titles included. Filter eligibility treats pack cards like any other, so a
 pack title the filters exclude dims the same way. A person with no titles of
