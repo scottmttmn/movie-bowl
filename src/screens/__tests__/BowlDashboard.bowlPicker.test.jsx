@@ -266,6 +266,19 @@ describe("BowlDashboard bowl picker", () => {
     expect(document.activeElement).toBe(screen.getByRole("button", { name: /switch bowl/i }));
   });
 
+  // Unlike the header on account pages, the bowl page keeps its picker with a
+  // single bowl: it is where a second bowl gets created.
+  it("still opens the picker with only one bowl, to offer a new one", async () => {
+    mocks.state.bowls = [BOWLS[0]];
+    mocks.state.defaultBowlId = "bowl-1";
+
+    await renderDashboard();
+    const dialog = await openPicker();
+
+    expect(within(dialog).getByRole("button", { name: /Friday Night, current bowl/ })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Create new bowl" })).toBeEnabled();
+  });
+
   it("disables creation at the owned-bowl limit and explains why", async () => {
     mocks.state.bowls = Array.from({ length: MAX_BOWLS_PER_USER }, (_unused, index) => ({
       id: index === 0 ? "bowl-1" : `owned-${index}`,

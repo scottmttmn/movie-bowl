@@ -1,6 +1,6 @@
 import { useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { useNavigate } from "react-router-dom";
+import { Link, useNavigate } from "react-router-dom";
 import BowlPicker from "./BowlPicker";
 import CreateBowlModal from "./CreateBowlModal";
 import useUserBowls from "../hooks/useUserBowls";
@@ -54,6 +54,36 @@ export default function NavBowlSwitcher({ homeBowlName }) {
     if (result?.ok && result.bowl?.id) navigate(`/bowl/${result.bowl.id}`);
   };
 
+  const bowlMark = (
+    <span className="flex h-9 w-9 shrink-0 items-center justify-center">
+      <img
+        src={bowlImage}
+        alt=""
+        aria-hidden="true"
+        className="h-8 w-8 object-contain"
+      />
+    </span>
+  );
+
+  // With one bowl there is nothing to choose between: a list holding only the
+  // bowl the person would pick anyway is a tap spent for nothing, so the
+  // trigger becomes a plain link to it. It is a link because it navigates,
+  // and it drops the chevron because there is no menu behind it. Creating a
+  // second bowl stays one tap away, in the bowl page's own picker.
+  if (bowls.length === 1) {
+    const [onlyBowl] = bowls;
+    return (
+      <Link
+        to={`/bowl/${onlyBowl.id}`}
+        aria-label={`Go to ${onlyBowl.name}`}
+        className="flex min-h-11 min-w-0 items-center gap-2.5 rounded-xl pr-2 text-lg min-[360px]:text-xl font-semibold tracking-tight text-slate-100 transition hover:bg-slate-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60 sm:text-2xl"
+      >
+        {bowlMark}
+        <span className="min-w-0 truncate">{onlyBowl.name}</span>
+      </Link>
+    );
+  }
+
   return (
     <>
       <button
@@ -65,14 +95,7 @@ export default function NavBowlSwitcher({ homeBowlName }) {
         aria-label={`Switch bowl. Home bowl: ${homeBowlName}`}
         className="flex min-h-11 min-w-0 items-center gap-2.5 rounded-xl pr-2 text-lg min-[360px]:text-xl font-semibold tracking-tight text-slate-100 transition hover:bg-slate-800/60 aria-expanded:bg-slate-800 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60 sm:text-2xl"
       >
-        <span className="flex h-9 w-9 shrink-0 items-center justify-center">
-          <img
-            src={bowlImage}
-            alt=""
-            aria-hidden="true"
-            className="h-8 w-8 object-contain"
-          />
-        </span>
+        {bowlMark}
         <span className="min-w-0 truncate">{homeBowlName}</span>
         <svg
           aria-hidden="true"

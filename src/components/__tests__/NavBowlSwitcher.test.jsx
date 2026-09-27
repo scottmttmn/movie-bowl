@@ -101,6 +101,24 @@ describe("NavBowlSwitcher", () => {
     expect(dialog.style.left).toBe("88px");
   });
 
+  // A list holding only the bowl the person would pick anyway is a tap spent
+  // for nothing, so with one bowl the trigger goes straight there.
+  it("links straight to the only bowl instead of opening a picker", () => {
+    state.bowls = [
+      { id: "bowl-home", name: "Movie night", role: "Owner", remainingCount: 14, memberCount: 2 },
+    ];
+    renderSwitcher();
+
+    const link = screen.getByRole("link", { name: "Go to Movie night" });
+    expect(link).toHaveAttribute("href", "/bowl/bowl-home");
+    expect(link).toHaveTextContent("Movie night");
+    expect(link).not.toHaveAttribute("aria-haspopup");
+    expect(screen.queryByRole("button", { name: /Switch bowl/ })).not.toBeInTheDocument();
+
+    fireEvent.click(link);
+    expect(screen.queryByRole("dialog", { name: "Choose a bowl" })).not.toBeInTheDocument();
+  });
+
   // Away from a bowl there is no bowl in view to designate, so the picker must
   // not offer to move Home -- and must never claim a bowl is the current one.
   it("offers no home command and marks no row current", () => {
