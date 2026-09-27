@@ -1,6 +1,7 @@
 # Invitations Hub
 
-Status: implemented. Proposed on September 2, 2026 and revised the same day
+Status: implemented, layout revised September 27, 2026 (see Information
+architecture). Proposed on September 2, 2026 and revised the same day
 after design review. `/invites` now sends, accepts, declines and revokes:
 `src/screens/InvitesPage.jsx` holds both sections, `useSentInvitations` owns the
 sent side, and the owner-side writes go through `create_bowl_invites` and
@@ -35,7 +36,7 @@ general notifications.
 | Who can send? | A bowl owner can invite people to that owned bowl. Membership alone does not grant invitation authority. |
 | Where are invitations sent? | From the global Invitations hub, with an explicit bowl destination. |
 | What remains in Bowl Settings? | The member roster and member removal. Its invitation area becomes a contextual link into the hub with that bowl preselected. |
-| Where are sent invitations managed? | In the hub's `Pending invitations sent` section, where the owner can copy a link or revoke. |
+| Where are sent invitations managed? | In the hub's `Waiting to join` section, where the owner can copy a link or revoke. |
 | How are invitations created and revoked? | Through narrow, owner-authorized RPCs. Owner-side client row creation and deletion are retired, not wrapped. Invitee acceptance keeps its existing atomic RPC; the separately scoped decline path remains protected for the invitee. See [Required database work](#required-database-work). |
 | Does the first version show invitation history? | No. It shows actionable received invitations and unaccepted sent invitations, not a permanent accepted/declined audit log. |
 | Are public Add links included? | No. They allow movie submissions rather than bowl membership and remain in Bowl Settings → Add links. |
@@ -97,52 +98,75 @@ Invitations
 Join a bowl or invite people to one you own.
 ```
 
-Use three sections in this order on phone:
+Use three sections, in this order at every width, in one centred column
+(`max-w-2xl`):
 
-1. Received invitations
+1. Invitations for you
 2. Invite people
-3. Pending invitations sent
+3. Waiting to join
 
 Do not use tabs. Volumes are expected to be small, and the three sections have
 different jobs that benefit from being simultaneously discoverable.
 
-On desktop, use a two-column layout:
+**Layout revision (September 27, 2026).** The first build used a two-column
+desktop layout with the send form in a 22rem sticky sidebar. In use, the two
+wide panels were almost always empty (one grey sentence each) while the form
+people came for sat in the narrow column, and the destination bowl was hidden in
+a `Choose a bowl` select. The page is now one column:
 
 ```text
-┌───────────────────────────────────────┬─────────────────────────────┐
-│ Received invitations             (2) │ Invite people               │
-│ ┌───────────────────────────────────┐ │ Bowl                        │
-│ │ Friday Night                     │ │ [ Choose a bowl          v] │
-│ │ Invited by alex@example.com      │ │ Email addresses             │
-│ │ [Accept] [Decline]               │ │ [                         ] │
-│ └───────────────────────────────────┘ │ [Send invitations]          │
-│                                       │                             │
-│ Pending invitations sent         (3) │                             │
-│ ┌───────────────────────────────────┐ │                             │
-│ │ friend@example.com               │ │                             │
-│ │ Kathryn and Scott's bowl         │ │                             │
-│ │ [Copy link] [Revoke]             │ │                             │
-│ └───────────────────────────────────┘ │                             │
-└───────────────────────────────────────┴─────────────────────────────┘
+Invitations
+Join a bowl or invite people to one you own.
+
+Invitations for you                                         1 waiting
+┌──────────────────────────────────────────────────┬────────┐
+│ YOU'RE INVITED                                  │ ADMIT  │
+│ Sunday Double Feature                           │   1    │
+│ Invited by Priya   Aug 21                       │        │
+│ [ Join bowl ]  Decline                          │        │
+└──────────────────────────────────────────────────┴────────┘
+
+┌ Invite people ─────────────────────────────────────────────┐
+│ Invite to                                                  │
+│ (Friday Night 4 members) (Horror Club 2) (Family Picks 6)  │
+│ Email addresses                                            │
+│ [ jordan@… × ] [ alex@exmaple × ] sam@example.com|         │
+│ 1 address needs fixing before you send.                    │
+│ They'll get an email and join Friday Night…  [Send 2 inv.] │
+└────────────────────────────────────────────────────────────┘
+
+Waiting to join                                             1 pending
+FRIDAY NIGHT
+(M) maria@example.com   Sent Aug 21            Copy link  Revoke
 ```
 
-The main column is flexible. The send card is 320–384px wide and may remain
-sticky below the fixed application navigation while the invitation lists
-scroll. At widths below 900px, use the phone section order and normal document
-flow. Never make the page itself a modal.
+- A received invitation is a ticket (`.invite-ticket`), the same paper as the
+  slips and theater mode's stub. It is the loudest object on the page because
+  it exists only while something is waiting on you.
+- The bowl choice is a radio group of pills (`.choice-pill`) with each bowl's
+  member count, so the destination is read before sending. The selection rules
+  below are unchanged; with several bowls none is checked.
+- Addresses become chips (`.email-chip`) once a separator, Enter or blur
+  follows them. Invalid chips are marked, and the hint beneath the field counts
+  them before Send is pressed. Backspace in an empty field takes back the last
+  chip. The unfinished draft counts toward Send.
+- Sent invitations are a divided list per bowl rather than a card per row.
+- `Waiting to join` is omitted when the person owns no bowls.
 
-## Received invitations
+Never make the page itself a modal.
+
+## Invitations for you (received)
 
 ### Section heading
 
 ```text
-Received invitations                                      2 pending
-Invitations sent to scott@example.com.
+Invitations for you                                       2 waiting
 ```
 
-Use the authenticated account email in the explanatory line so a person can
-understand why an expected invitation may not appear. Do not expose another
-account's address.
+When the section is empty, its one line names the authenticated account email
+(`Nothing waiting for scott@example.com right now.`) so a person can understand
+why an expected invitation may not appear. Do not expose another account's
+address.
 
 ### Invitation card
 
@@ -193,15 +217,8 @@ without making acceptance laborious.
 
 ### Empty state
 
-Keep the section visible even when empty:
-
-```text
-No pending invitations
-New bowl invitations sent to scott@example.com will appear here.
-```
-
-Use a compact dashed/quiet panel rather than a full-page empty state. Sending
-and sent-pending sections remain available below it.
+Keep the heading visible even when empty, followed by one quiet line naming
+the account email and no panel. Sending and sent sections remain below it.
 
 ## Invite people
 
@@ -276,12 +293,12 @@ can partially fail.
 | A response is ambiguous | Preserve entered addresses and retry with the same idempotency key. The batch RPC returns already-existing invitations rather than creating second ones, so a retry after a timeout yields no duplicate row and no second live token. |
 
 On confirmed success, clear the submitted addresses, retain the bowl selection,
-refresh `Pending invitations sent`, and move keyboard focus to the result
+refresh `Waiting to join`, and move keyboard focus to the result
 message. Newly created rows appear immediately at the top of their bowl group.
 
 Do not automatically navigate to the bowl or open Bowl Settings after sending.
 
-## Pending invitations sent
+## Waiting to join (sent)
 
 ### Scope and grouping
 
@@ -295,7 +312,7 @@ in the main navigation badge.
 Example:
 
 ```text
-Pending invitations sent                                3 pending
+Waiting to join                                         3 pending
 
 Kathryn and Scott's bowl
 friend@example.com                               Yesterday
@@ -401,7 +418,7 @@ from overwriting current state.
 ## Accessibility and interaction
 
 - Use an `h1` for Invitations and `h2` headings for Received, Invite people,
-  and Pending invitations sent.
+  and Waiting to join.
 - Associate pending counts with their headings in visible text; do not encode
   meaning only in the menu badge.
 - Every input has a persistent visible label. Error text is associated with the

@@ -2,7 +2,13 @@ import { useEffect, useState } from "react";
 
 // Shared by Bowl Settings add links and the Invitations hub. The copied state is
 // local and self-clearing so callers do not have to manage a transient label.
-export default function CopyButton({ value, label = "Copy", ariaLabel, onCopied }) {
+export default function CopyButton({
+  value,
+  label = "Copy",
+  ariaLabel,
+  onCopied,
+  className = "btn btn-secondary px-3 py-1.5 text-sm",
+}) {
   const [copied, setCopied] = useState(false);
 
   useEffect(() => {
@@ -15,7 +21,7 @@ export default function CopyButton({ value, label = "Copy", ariaLabel, onCopied 
     <button
       type="button"
       aria-label={ariaLabel}
-      className="btn btn-secondary px-3 py-1.5 text-sm"
+      className={className}
       onClick={async () => {
         try {
           await navigator.clipboard.writeText(value);
