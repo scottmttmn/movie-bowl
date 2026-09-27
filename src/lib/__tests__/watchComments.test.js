@@ -96,6 +96,15 @@ describe("watchComments", () => {
     ]);
   });
 
+  it("reads the saved comment whether the row arrives bare or in an array", async () => {
+    mocks.state.rpcResult = { data: [{ id: "history-1", personal_note: "Saved." }], error: null };
+
+    await expect(updateOwnWatchComment("history-1", "Saved.")).resolves.toEqual({
+      ok: true,
+      note: "Saved.",
+    });
+  });
+
   it("clears a blank comment to null", async () => {
     mocks.state.rpcResult = { data: { id: "history-1", personal_note: null }, error: null };
 

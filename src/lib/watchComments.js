@@ -61,7 +61,8 @@ export async function updateOwnWatchComment(entryId, note) {
       return { ok: false, message: error.message || SAVE_ERROR };
     }
 
-    return { ok: true, note: normalizeMovieNote(data?.personal_note) };
+    const event = Array.isArray(data) ? data[0] : data;
+    return { ok: true, note: normalizeMovieNote(event?.personal_note) };
   } catch (error) {
     console.error("[watchComments] Unexpected error saving comment", error);
     return { ok: false, message: SAVE_ERROR };
