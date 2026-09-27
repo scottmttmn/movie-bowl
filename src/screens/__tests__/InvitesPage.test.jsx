@@ -106,16 +106,23 @@ describe("InvitesPage", () => {
     renderHub();
 
     expect(screen.getByRole("heading", { level: 1, name: "Invitations" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Received invitations" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Invitations for you" })).toBeInTheDocument();
     expect(screen.getByRole("heading", { level: 2, name: "Invite people" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Pending invitations sent" })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { level: 2, name: "Waiting to join" })).toBeInTheDocument();
+  });
+
+  it("leaves out the sent list for someone who owns no bowls", () => {
+    mocks.state.bowls = [SHARED];
+
+    renderHub();
+
+    expect(screen.queryByRole("heading", { level: 2, name: "Waiting to join" })).not.toBeInTheDocument();
   });
 
   it("names the account in the received empty state", () => {
     renderHub();
 
-    expect(screen.getByText("Nothing waiting for you right now.")).toBeInTheDocument();
-    expect(screen.getByText(/sent to user@example.com/i)).toBeInTheDocument();
+    expect(screen.getByText("Nothing waiting for user@example.com right now.")).toBeInTheDocument();
   });
 
   it("accepts a received invitation and opens the joined bowl", async () => {
@@ -123,6 +130,7 @@ describe("InvitesPage", () => {
 
     renderHub();
     expect(screen.getByText("Invited by Alex")).toBeInTheDocument();
+    expect(screen.getByRole("article", { name: "Film Club" })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /accept invitation to Film Club/i }));
 
     await waitFor(() => expect(mocks.state.acceptInvite).toHaveBeenCalled());
@@ -156,32 +164,55 @@ describe("InvitesPage", () => {
     expect(screen.getByRole("button", { name: /accept invitation to Film Club/i })).toBeInTheDocument();
   });
 
+  function bowlChoices() {
+    return within(screen.getByRole("group", { name: "Invite to" })).getAllByRole("radio");
+  }
+
   it("preselects the only owned bowl and offers shared bowls to nobody", () => {
     renderHub();
 
-    const select = screen.getByLabelText("Bowl");
-    expect(select).toHaveValue("bowl-1");
-    expect(within(select).queryByText("Work Crew")).not.toBeInTheDocument();
+    const choices = bowlChoices();
+    expect(choices).toHaveLength(1);
+    expect(screen.getByRole("radio", { name: /Friday Night/ })).toBeChecked();
+    expect(screen.queryByRole("radio", { name: /Work Crew/ })).not.toBeInTheDocument();
+    expect(screen.getByText("They'll get an email and join Friday Night once they accept.")).toBeInTheDocument();
   });
 
-  it("refuses to guess between several owned bowls", () => {
+  it("shows each owned bowl's size beside its name", () => {
+    mocks.state.bowls = [{ ...OWNED, memberCount: 4 }, { ...OWNED_2, memberCount: 1 }];
+
+    renderHub();
+
+    expect(screen.getByRole("radio", { name: "Friday Night 4 members" })).toBeInTheDocument();
+    expect(screen.getByRole("radio", { name: "Family Movies 1 member" })).toBeInTheDocument();
+  });
+
+  it("refuses to guess between several owned bowls", async () => {
     mocks.state.bowls = [OWNED, OWNED_2, SHARED];
 
     renderHub();
 
-    expect(screen.getByLabelText("Bowl")).toHaveValue("");
+    expect(bowlChoices().every((choice) => !choice.checked)).toBe(true);
+    fireEvent.change(screen.getByLabelText("Email addresses"), { target: { value: "one@example.com" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send invitation" }));
+    await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Choose a bowl to invite people to."));
+    expect(mocks.state.send).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("radio", { name: /Family Movies/ }));
+    fireEvent.click(screen.getByRole("button", { name: "Send invitation" }));
+    await waitFor(() => expect(mocks.state.send).toHaveBeenCalledWith(expect.objectContaining({ bowlId: "bowl-2" })));
   });
 
   it("honours a bowl the caller still owns and ignores one they do not", () => {
     mocks.state.bowls = [OWNED, OWNED_2];
     mocks.state.search = "bowl=bowl-2";
     const { unmount } = renderHub();
-    expect(screen.getByLabelText("Bowl")).toHaveValue("bowl-2");
+    expect(screen.getByRole("radio", { name: /Family Movies/ })).toBeChecked();
     unmount();
 
     mocks.state.search = "bowl=bowl-9";
     renderHub();
-    expect(screen.getByLabelText("Bowl")).toHaveValue("");
+    expect(bowlChoices().every((choice) => !choice.checked)).toBe(true);
   });
 
   it("sends the pending-count shortcut to sent, not to the form", () => {
@@ -270,13 +301,48 @@ describe("InvitesPage", () => {
     expect(mocks.state.send).not.toHaveBeenCalled();
   });
 
+  it("turns addresses into chips and flags a bad one before Send", () => {
+    renderHub();
+    const field = screen.getByLabelText("Email addresses");
+
+    fireEvent.change(field, { target: { value: "One@Example.com, alex@exmaple two@example.com" } });
+
+    // Everything before the last separator is committed; the rest is still typing.
+    expect(screen.getByRole("button", { name: "Remove one@example.com" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Remove alex@exmaple" })).toBeInTheDocument();
+    expect(field).toHaveValue("two@example.com");
+    expect(screen.getByText("(not a valid address)", { exact: false })).toBeInTheDocument();
+    expect(screen.getByText("1 address needs fixing before you send.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Send 2 invitations" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove alex@exmaple" }));
+    expect(screen.queryByText(/needs fixing/)).not.toBeInTheDocument();
+    expect(document.activeElement).toBe(field);
+  });
+
+  it("commits on Enter and takes the last chip back on Backspace", () => {
+    renderHub();
+    const field = screen.getByLabelText("Email addresses");
+
+    fireEvent.change(field, { target: { value: "one@example.com" } });
+    fireEvent.keyDown(field, { key: "Enter" });
+    expect(field).toHaveValue("");
+    expect(screen.getByRole("button", { name: "Remove one@example.com" })).toBeInTheDocument();
+
+    fireEvent.change(field, { target: { value: "one@example.com " } });
+    expect(screen.getAllByRole("button", { name: "Remove one@example.com" })).toHaveLength(1);
+
+    fireEvent.keyDown(field, { key: "Backspace" });
+    expect(screen.queryByRole("button", { name: "Remove one@example.com" })).not.toBeInTheDocument();
+  });
+
   it("tells a member with no owned bowls that only owners can invite", () => {
     mocks.state.bowls = [SHARED];
 
     renderHub();
 
     expect(screen.getByText(/only an owner can invite new members/i)).toBeInTheDocument();
-    expect(screen.queryByLabelText("Bowl")).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Invite to" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /create a bowl/i })).toBeInTheDocument();
   });
 
@@ -307,8 +373,8 @@ describe("InvitesPage", () => {
     renderHub();
 
     expect(screen.getByText("Film Club")).toBeInTheDocument();
-    expect(screen.queryByText("Nothing waiting for you right now.")).not.toBeInTheDocument();
-    const retry = within(screen.getByRole("heading", { level: 2, name: "Received invitations" }).closest("section"))
+    expect(screen.queryByText(/Nothing waiting for/)).not.toBeInTheDocument();
+    const retry = within(screen.getByRole("heading", { level: 2, name: "Invitations for you" }).closest("section"))
       .getByRole("button", { name: /try again/i });
     mocks.state.reloadInvites.mockClear();
     fireEvent.click(retry);
@@ -355,7 +421,7 @@ describe("InvitesPage", () => {
 
     expect(screen.getByText("Loading your bowls…")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /create a bowl/i })).not.toBeInTheDocument();
-    expect(screen.queryByLabelText("Bowl")).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Invite to" })).not.toBeInTheDocument();
   });
 
   it("treats a bowl-context failure as unknown ownership, not as owning nothing", () => {

@@ -192,3 +192,75 @@ test("a guest finds a movie through the person in it and adds from their list", 
   await expect(page.getByRole("button", { name: "Details for Hanky Panky" })).toBeVisible();
   await expect(page.getByText("Tom Hanks’s movies", { exact: true })).toHaveCount(0);
 });
+
+test("the invitations hub shows what is waiting and checks addresses as they are typed", async ({ page, backend }) => {
+  await backend.authenticate(page);
+  backend.state.profiles.push({
+    id: "owner-invite",
+    email: "owner@example.com",
+    display_name: "Priya",
+    streaming_services: [],
+    default_draw_settings: null,
+  });
+  backend.state.bowls.push(
+    {
+      id: "bowl-mine",
+      name: "Friday Night",
+      owner_id: "user-smoke",
+      draw_access_mode: "all_members",
+      draw_method: "person_first",
+      created_at: "2026-08-20T12:00:00.000Z",
+    },
+    {
+      id: "bowl-theirs",
+      name: "Sunday Double Feature",
+      owner_id: "owner-invite",
+      draw_access_mode: "all_members",
+      draw_method: "person_first",
+      created_at: "2026-08-20T12:00:00.000Z",
+    }
+  );
+  backend.state.bowl_members.push({ id: "member-mine", bowl_id: "bowl-mine", user_id: "user-smoke", role: "Owner" });
+  backend.state.bowl_invites.push(
+    {
+      id: "invite-received",
+      bowl_id: "bowl-theirs",
+      invited_email: "smoke@example.com",
+      invited_by: "owner-invite",
+      token: "invite-token-received",
+      accepted_at: null,
+      created_at: "2026-08-21T12:00:00.000Z",
+    },
+    {
+      id: "invite-sent",
+      bowl_id: "bowl-mine",
+      invited_email: "maria@example.com",
+      invited_by: "user-smoke",
+      token: "invite-token-sent",
+      accepted_at: null,
+      created_at: "2026-08-21T12:00:00.000Z",
+    }
+  );
+
+  await page.goto("/invites");
+
+  const ticket = page.getByRole("article", { name: "Sunday Double Feature" });
+  await expect(ticket).toBeVisible();
+  await expect(ticket.getByText("Invited by Priya")).toBeVisible();
+  await expect(ticket.getByRole("button", { name: "Accept invitation to Sunday Double Feature" })).toBeVisible();
+
+  await expect(page.getByRole("radio", { name: /Friday Night/ })).toBeChecked();
+  const field = page.getByLabel("Email addresses");
+  await field.fill("jordan@example.com, alex@exmaple sam@example.com");
+  await expect(page.getByRole("button", { name: "Remove jordan@example.com" })).toBeVisible();
+  await expect(page.getByText("1 address needs fixing before you send.")).toBeVisible();
+  await expect(page.getByRole("button", { name: "Send 2 invitations" })).toBeVisible();
+
+  const sent = page.locator("#sent");
+  await expect(sent.getByText("maria@example.com")).toBeVisible();
+  await expect(sent.getByRole("button", { name: "Revoke invitation for maria@example.com" })).toBeVisible();
+
+  // The chips and the ticket are the widest things here; neither may push the
+  // page sideways on a phone.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
