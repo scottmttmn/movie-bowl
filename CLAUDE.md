@@ -35,7 +35,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (166 test files / 1528 tests, 86 Playwright tests with 8 skipped,
+fully green (168 test files / 1546 tests, 88 Playwright tests with 8 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -253,6 +253,15 @@ offered on the web only. A television is shared by whoever holds the remote
 but is usually signed in as the owner, so the database cannot tell them apart,
 and the TV has no control for it.
 
+A watched movie carries two comments, and they are not the same thing. `note`
+is why it was in the bowl: written by the contributor on the slip, copied onto
+the draw event and each participant's history row at the draw, and never
+edited after. `user_watch_events.personal_note` is what that person thought of
+it: private to them and editable on every entry kind, including manual ones,
+which have no `note` at all. The bowl page leads with the reason and folds the
+viewer's own comment away; Watch History does the reverse. See
+`output/designs/movie-comments.md`.
+
 RPCs used by the client — prefer these over multi-statement client writes,
 because they are the atomic/permission-checked path:
 
@@ -268,7 +277,8 @@ because they are the atomic/permission-checked path:
 `install_bowl_starter_pack`, `remove_bowl_starter_pack`,
 `claim_bowl_starter_pack_movie`,
 `record_solo_draw`, `undo_solo_draw`,
-`update_user_watch_event`, `delete_user_watch_event`.
+`update_user_watch_event`, `update_own_watch_event_note`,
+`delete_user_watch_event`.
 
 Invitations live at `/invites`, the one surface that sends, accepts, declines,
 and revokes them. Bowl Settings keeps the member roster and links into the hub
@@ -302,7 +312,7 @@ on a PostgreSQL you already have, applies `supabase/baseline/` and then every
 migration in order, runs the suites and drops it again. It needs pgTAP and
 `pg_prove` beside that server (`apt-get install pgtap`, or `brew install pgtap`)
 and `DATABASE_URL` if the server is not the local default. Never against the
-hosted database: pgTAP writes rows. A clean run is 26 suites / 714 assertions,
+hosted database: pgTAP writes rows. A clean run is 27 suites / 745 assertions,
 all passing, and `npm run test:counts -- pgtap` holds that sentence to the run.
 
 `supabase/baseline/` is the pre-migration schema, not a migration. Movie Bowl's

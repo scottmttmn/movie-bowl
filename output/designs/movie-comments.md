@@ -1,6 +1,9 @@
 # Movie Comments
 
-Status: implemented.
+Status: implemented. The personal comment on watch history (see **Two
+comments on a watched movie** below) replaced the original single-comment
+watch history in September 2026; where the sections below disagree with it,
+it wins.
 
 ## Product Idea
 
@@ -36,7 +39,8 @@ the add dialog's session list. Bowl cards and poster strips remain unchanged.
 - Moving a watched movie back to the bowl preserves its original comment and
   makes it editable again only for its original signed-in contributor.
 - Manual watch-history comments belong to the signed-in user and remain
-  editable with the rest of that history entry.
+  editable with the rest of that history entry. They are stored as the
+  personal comment, not as `note`.
 - Existing movies and history entries have no comment and render exactly as
   they do today.
 
@@ -62,15 +66,17 @@ can reflect the context.
 - Placeholder: **Recommended by Tim at dinner…**
 - Supporting copy: **Add a reminder of why this movie belongs in the bowl.**
 
-### Manual watch-history form
+### Watch-history form (every entry kind)
 
-- Label: **Comment (optional)**
+- Label: **Your comment (optional)**
 - Placeholder: **What made this one memorable?**
+- Supporting copy: **Only you can see this.**
 
 ### Detail and reveal display
 
-- Bowl movie heading: **Why it’s in the bowl**
-- Manual history heading: **Your comment**
+- Bowl movie heading: **Why it’s in the bowl**; in Watch History, **Why it was
+  in the bowl**
+- Personal heading: **Your comment**
 
 Comments are multiline plain text with a 500-character maximum. Trim leading
 and trailing whitespace before saving and store a blank result as `null`.
@@ -341,3 +347,67 @@ The deployment order is:
 - adding comments to existing undrawn guest slips whose link has already been
   consumed;
 - exporting comments to Letterboxd CSV.
+
+## Two comments on a watched movie
+
+Status: implemented.
+
+The comment on a slip says why the movie went into the bowl. What someone
+thought after watching it is a different thing, written by a different person
+at a different time, and the original design had nowhere to put it: a drawn
+history entry's only comment slot held the slip's reason, read-only. So a
+watched movie now carries two comments.
+
+| | Why it's in the bowl | Your comment |
+| --- | --- | --- |
+| Written by | The contributor, before the draw | Each watcher, after |
+| Stored | `bowl_movies.note`, copied at the draw to `bowl_draw_events.note` and every participant's `user_watch_events.note` | `user_watch_events.personal_note` |
+| Seen by | The whole bowl | Only its author |
+| Editable after the draw | Never | Always, on every entry kind |
+
+`note` now means the reason in all three tables. A manual entry never came off
+a slip, so its comment was always a personal one: the migration moved it into
+`personal_note`, and a check keeps `note` null on manual rows. The reason stays
+copied onto the history row rather than being read from the draw event,
+because personal history has to outlive leaving or deleting the bowl.
+
+### Where each one shows
+
+Both details show both comments, and each page leads with its own:
+
+- **Bowl page, Watched detail:** "Why it's in the bowl" is open. "Your
+  comment" follows, folded. It appears only for someone who was part of the
+  draw, since only they have a history entry to hold one.
+- **Watch History detail:** "Your comment" is open. "Why it was in the bowl"
+  follows, folded, and is absent when the slip had no reason.
+
+A folded row still says whether anything is inside: "Your comment ▸" when
+there is one, "+ Add your comment" when there is not, which opens straight
+into the editor. Folding is not remembered between openings, so the default
+is predictable. The history editor carries the same field for every entry
+kind. Both surfaces edit the same value, so a change on one shows on the
+other. The TV, the draw reveal and public add links are unchanged: the reveal
+happens before anyone has watched anything.
+
+### Writes
+
+- `update_own_watch_event_note(p_event_id, p_note)` sets only the caller's own
+  personal comment, for in-place editing from either detail. It cannot touch
+  the reason, the title or the date.
+- `update_user_watch_event` gained `p_set_personal_note`. `p_note` cannot tell
+  "left out" from "cleared", and a client from before this change leaves it
+  out when editing a drawn entry; without the flag that client would erase a
+  comment it had never seen. Unflagged calls keep the old rule and write the
+  comment on manual entries only.
+- `create_manual_watch_event` writes `p_note` into `personal_note`.
+
+The migration is `20260927120000_separate_personal_watch_comments.sql`, with
+pgTAP coverage beside it and a rollback that moves manual comments back into
+`note`. Comments written on drawn entries have nowhere to go in the old shape
+and are lost on rollback.
+
+### Out of scope
+
+Shared reactions, where a bowl sees what everyone thought, are a different
+feature with its own visibility questions, and are not built. A prompt to
+comment some time after a draw is not built either.

@@ -58,6 +58,9 @@ const mocks = vi.hoisted(() => {
       }),
       rpc: vi.fn(async (name, params) => {
         state.rpcCalls.push({ name, params });
+        if (name === "update_own_watch_event_note") {
+          return { data: { id: params.p_event_id, personal_note: params.p_note }, error: null };
+        }
         return { data: null, error: null };
       }),
     },
@@ -86,11 +89,26 @@ vi.mock("../../lib/streamingProviders", () => ({
 }));
 
 vi.mock("../../components/AddMovieModal", () => ({
-  default: ({ movie, showWhereToWatch, detailPrimaryActionLabel, onDetailPrimaryAction }) => (
+  default: ({
+    movie,
+    showWhereToWatch,
+    detailPrimaryActionLabel,
+    onDetailPrimaryAction,
+    noteHeading,
+    noteCollapsed,
+    personalComment,
+  }) => (
     <div data-testid="movie-detail-modal">
       <div>{movie.title}</div>
       <div>{showWhereToWatch ? "where to watch shown" : "where to watch hidden"}</div>
       <div>{movie.note || "no comment"}</div>
+      <div>{`${noteHeading}${noteCollapsed ? " (folded)" : ""}`}</div>
+      <div>{`your comment: ${personalComment?.note || "none"}${personalComment?.collapsed ? " (folded)" : ""}`}</div>
+      {personalComment && (
+        <button type="button" onClick={() => personalComment.onSave("Loved the score.")}>
+          Save your comment
+        </button>
+      )}
       <div>{detailPrimaryActionLabel ? "actions enabled" : "read-only"}</div>
       {detailPrimaryActionLabel && (
         <button type="button" onClick={() => onDetailPrimaryAction?.(movie)}>
@@ -115,7 +133,7 @@ vi.mock("../../components/WatchHistoryEntryModal", () => ({
               watched_on: "2026-05-01",
               release_date: "1999-01-01",
               genres: ["Drama"],
-              note: "  A quiet favorite.  ",
+              personal_note: "  A quiet favorite.  ",
             }
           )
         }
@@ -179,7 +197,8 @@ describe("WatchListPage", () => {
         runtime: 90,
         genres: ["Drama"],
         overview: "Duplicate title in another bowl",
-        note: "My own note.",
+        note: null,
+        personal_note: "My own note.",
         watched_on: "2026-04-01",
       },
     ];
@@ -511,13 +530,11 @@ describe("WatchListPage", () => {
           p_event_id: "history-1",
           p_title: "Owned Favorite",
           p_watched_on: "2026-04-12",
+          p_note: null,
+          p_set_personal_note: true,
         }),
       });
     });
-    const bowlUpdate = mocks.state.rpcCalls.find(
-      ({ name }) => name === "update_user_watch_event"
-    );
-    expect(bowlUpdate.params).not.toHaveProperty("p_note");
 
     fireEvent.click(screen.getByRole("button", { name: /owned favorite/i }));
     await screen.findByTestId("movie-detail-modal");
@@ -532,7 +549,7 @@ describe("WatchListPage", () => {
     });
   });
 
-  it("updates a manual history comment without touching bowl-draw snapshots", async () => {
+  it("saves your comment on a manual entry through the history editor", async () => {
     render(
     <MemoryRouter>
       <WatchListPage />
@@ -553,8 +570,36 @@ describe("WatchListPage", () => {
         params: expect.objectContaining({
           p_event_id: "history-3",
           p_note: "My own note.",
+          p_set_personal_note: true,
         }),
       });
     });
+  });
+
+  it("leads a drawn entry with your comment and folds away why it was in the bowl", async () => {
+    render(
+      <MemoryRouter>
+        <WatchListPage />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Owned Favorite");
+    fireEvent.click(screen.getByRole("button", { name: /owned favorite/i }));
+    const detail = await screen.findByTestId("movie-detail-modal");
+
+    expect(detail).toHaveTextContent("Why it was in the bowl (folded)");
+    expect(detail).toHaveTextContent("your comment: none");
+    expect(detail).not.toHaveTextContent("your comment: none (folded)");
+
+    fireEvent.click(screen.getByRole("button", { name: /save your comment/i }));
+
+    await waitFor(() => {
+      expect(mocks.state.rpcCalls).toContainEqual({
+        name: "update_own_watch_event_note",
+        params: { p_event_id: "history-1", p_note: "Loved the score." },
+      });
+    });
+    expect(await screen.findByText("your comment: Loved the score.")).toBeInTheDocument();
+    expect(mocks.state.rpcCalls.some(({ name }) => name === "update_user_watch_event")).toBe(false);
   });
 });

@@ -273,22 +273,58 @@ describe("AddMovieModal", () => {
     expect(screen.queryByText("Why it’s in the bowl")).not.toBeInTheDocument();
   });
 
-  it("uses the personal heading for a manual history comment", () => {
+  it("folds why it was in the bowl away when the page is about your comment", () => {
     render(
       <AddMovieModal
-        movie={{
-          id: "history-1",
-          source_kind: "manual",
-          title: "Dune",
-          note: "My favorite theater trip.",
-          streamingProviders: [],
-        }}
+        movie={{ id: "history-1", title: "Dune", note: "Sam swears by it.", streamingProviders: [] }}
+        noteHeading="Why it was in the bowl"
+        noteCollapsed
+        personalComment={{ entryId: "history-1", note: "Loved the score.", onSave: vi.fn() }}
         onClose={vi.fn()}
       />
     );
 
-    expect(screen.getByText("Your comment")).toBeInTheDocument();
-    expect(screen.queryByText("Why it’s in the bowl")).not.toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Your comment" })).toHaveTextContent("Loved the score.");
+    expect(screen.queryByText("Sam swears by it.")).not.toBeInTheDocument();
+
+    const reason = screen.getByRole("button", { name: /why it was in the bowl/i });
+    expect(reason).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(reason);
+    expect(screen.getByText("Sam swears by it.")).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /why it was in the bowl/i }));
+    expect(screen.queryByText("Sam swears by it.")).not.toBeInTheDocument();
+  });
+
+  it("shows no folded reason row when there is no reason", () => {
+    render(
+      <AddMovieModal
+        movie={{ id: "history-3", title: "Dune", note: null, streamingProviders: [] }}
+        noteHeading="Why it was in the bowl"
+        noteCollapsed
+        personalComment={{ entryId: "history-3", note: "Rainy Sunday pick.", onSave: vi.fn() }}
+        onClose={vi.fn()}
+      />
+    );
+
+    expect(screen.queryByRole("button", { name: /why it was in the bowl/i })).not.toBeInTheDocument();
+    expect(screen.getByText("Rainy Sunday pick.")).toBeInTheDocument();
+  });
+
+  it("puts the bowl's reason first and your folded comment after it", () => {
+    render(
+      <AddMovieModal
+        movie={{ id: "draw-1", title: "Dune", note: "Sam swears by it.", streamingProviders: [] }}
+        personalComment={{ entryId: "history-1", note: "Loved the score.", collapsed: true, onSave: vi.fn() }}
+        onClose={vi.fn()}
+      />
+    );
+
+    const reason = screen.getByText("Sam swears by it.");
+    const yours = screen.getByRole("button", { name: "Your comment" });
+    expect(yours).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("Loved the score.")).not.toBeInTheDocument();
+    expect(reason.compareDocumentPosition(yours) & Node.DOCUMENT_POSITION_FOLLOWING).toBeTruthy();
   });
 
   it("adds, cancels, and clears a comment without leaving an empty note card", async () => {

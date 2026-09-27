@@ -604,6 +604,7 @@ export class FakeBackend {
           genres: movie.genres || [],
           overview: movie.overview || null,
           note: movie.note || null,
+          personal_note: null,
           watched_on: watchedOn,
           created_at: now,
           updated_at: now,
@@ -659,6 +660,7 @@ export class FakeBackend {
         genres: movie.genres || [],
         overview: movie.overview || null,
         note: movie.note || null,
+        personal_note: null,
         watched_on: formatCalendarDateAtTimeZone(now, args.p_watched_timezone || "UTC"),
         created_at: now,
         updated_at: now,
@@ -845,6 +847,24 @@ export class FakeBackend {
       }
       movie.note = String(args.p_note || "").trim() || null;
       await fulfillJson(route, movie);
+      return;
+    }
+
+    if (rpcName === "update_own_watch_event_note") {
+      const event = this.state.user_watch_events.find(
+        (row) => row.id === args.p_event_id && row.user_id === this.state.currentUser.id
+      );
+      if (!event) {
+        await fulfillJson(
+          route,
+          { message: "This history entry is no longer available.", code: "P0001" },
+          400
+        );
+        return;
+      }
+      event.personal_note = String(args.p_note || "").trim() || null;
+      event.updated_at = new Date().toISOString();
+      await fulfillJson(route, event);
       return;
     }
 

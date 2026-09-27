@@ -28,14 +28,14 @@ describe("WatchHistoryEntryModal comments", () => {
     expect(chooseButton).toHaveAttribute("data-include-comment", "false");
     fireEvent.click(chooseButton);
 
-    fireEvent.change(screen.getByPlaceholderText("What made this one memorable?"), {
+    fireEvent.change(screen.getByRole("textbox", { name: /your comment/i }), {
       target: { value: "  First date at the old theater.  " },
     });
     fireEvent.click(screen.getByRole("button", { name: /add to history/i }));
 
     await waitFor(() => {
       expect(onSave).toHaveBeenCalledWith(
-        expect.objectContaining({ note: "First date at the old theater." })
+        expect.objectContaining({ personal_note: "First date at the old theater." })
       );
     });
   });
@@ -49,78 +49,57 @@ describe("WatchHistoryEntryModal comments", () => {
           source_kind: "manual",
           title: "Arrival",
           watched_on: "2026-08-20",
-          note: "Original",
+          personal_note: "Original",
         }}
         onClose={vi.fn()}
         onSave={onSave}
       />
     );
 
-    const comment = screen.getByPlaceholderText("What made this one memorable?");
-    expect(comment).not.toHaveAttribute("readonly");
+    const comment = screen.getByRole("textbox", { name: /your comment/i });
+    expect(comment).toHaveValue("Original");
     fireEvent.change(comment, { target: { value: "Updated" } });
     fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
 
     await waitFor(() => {
-      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ note: "Updated" }));
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ personal_note: "Updated" }));
     });
   });
 
-  it("shows a bowl-draw comment as a static snapshot and preserves it on save", async () => {
-    const onSave = vi.fn(async () => {});
-    render(
-      <WatchHistoryEntryModal
-        entry={{
-          id: "history-2",
-          source_kind: "bowl_draw",
-          title: "Arrival",
-          watched_on: "2026-08-20",
-          note: "Tim recommended this.",
-        }}
-        onClose={vi.fn()}
-        onSave={onSave}
-      />
-    );
-
-    expect(screen.queryByPlaceholderText("What made this one memorable?")).not.toBeInTheDocument();
-    expect(screen.queryByRole("textbox", { name: /comment/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: /comment from bowl draw/i })).toBeInTheDocument();
-    expect(screen.getByText("Read only")).toBeInTheDocument();
-    expect(screen.getByText("Tim recommended this.")).toBeInTheDocument();
-    expect(screen.getByText(/can’t be changed from watch history/i)).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
-
-    await waitFor(() => {
-      expect(onSave).toHaveBeenCalledWith(
-        expect.objectContaining({ note: "Tim recommended this." })
+  it.each(["bowl_draw", "solo_draw"])(
+    "lets a %s entry take your own comment without touching why it was in the bowl",
+    async (sourceKind) => {
+      const onSave = vi.fn(async () => {});
+      render(
+        <WatchHistoryEntryModal
+          entry={{
+            id: "history-2",
+            source_kind: sourceKind,
+            title: "Arrival",
+            watched_on: "2026-08-20",
+            note: "Tim recommended this.",
+            personal_note: null,
+            created_at: "2026-08-01T00:00:00Z",
+          }}
+          onClose={vi.fn()}
+          onSave={onSave}
+        />
       );
-    });
-  });
 
-  it("shows an explicit empty state when a bowl draw has no comment", async () => {
-    const onSave = vi.fn(async () => {});
-    render(
-      <WatchHistoryEntryModal
-        entry={{
-          id: "history-3",
-          source_kind: "bowl_draw",
-          title: "Arrival",
-          watched_on: "2026-08-20",
-          note: null,
-        }}
-        onClose={vi.fn()}
-        onSave={onSave}
-      />
-    );
+      // The reason belongs to the detail view; the editor is for your entry.
+      expect(screen.queryByText("Tim recommended this.")).not.toBeInTheDocument();
+      const comment = screen.getByRole("textbox", { name: /your comment/i });
+      expect(comment).toHaveValue("");
+      fireEvent.change(comment, { target: { value: "  The ending got me.  " } });
+      fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
 
-    expect(screen.queryByPlaceholderText("What made this one memorable?")).not.toBeInTheDocument();
-    expect(screen.getByText("No comment was saved with this draw.")).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
-
-    await waitFor(() => {
-      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ note: null }));
-    });
-  });
+      await waitFor(() => {
+        expect(onSave).toHaveBeenCalledWith(
+          expect.objectContaining({ personal_note: "The ending got me." })
+        );
+      });
+    }
+  );
 });
 
 const HOUR_MS = 60 * 60 * 1000;

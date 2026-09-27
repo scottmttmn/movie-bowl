@@ -318,7 +318,7 @@ select lives_ok(
 
 select is(
   (
-    select note
+    select personal_note
     from public.user_watch_events
     where title = 'Manual Comment Movie'
   ),
@@ -342,7 +342,7 @@ select lives_ok(
 );
 
 select is(
-  (select note from public.user_watch_events where title = 'Manual Comment Movie'),
+  (select personal_note from public.user_watch_events where title = 'Manual Comment Movie'),
   'Updated manual note',
   'the manual history comment update is persisted'
 );
