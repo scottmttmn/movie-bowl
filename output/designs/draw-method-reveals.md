@@ -4,6 +4,7 @@ Status: step 1 built September 27, 2026 on the web bowl dashboard, and replaced
 by step 2 on September 28 (`src/utils/drawReveal.js`,
 `src/components/DrawRevealStage.jsx`). Step 3, the television, is built
 September 28 in `TvTonightScreen` and `TvDrawingScreen`.
+Step 4, solo draw on mobile, desktop and TV, is built September 28.
 
 ## The Question
 
@@ -140,11 +141,31 @@ restores focus to the bowl.
 
 Reduced motion uses the shared in-place stages. A polite live status announces
 each stage as it lands, while the visual stage stays hidden from assistive
-technology. Solo draws continue to use `TvDrawingScreen`'s plain animation.
+technology.
+
+## Step 4 — Solo Draw (built September 28)
+
+Solo draw uses title-first's crowd, flicker, pluck and unfold. Every selected
+bowl contributes to one crowd, with one slip per distinct eligible title;
+custom titles stay separate. When eligible pins narrow the actual selection,
+the crowd contains those titles, shows their pins, and says it is choosing
+among pinned titles. An only-title pool shows one slip. There is no person
+stage, rotation queue, or bowl pile.
+
+`useSoloDraw` hands that pool to `onPoolResolved` before saving. Only the saved
+result carries `drawReveal`; a failed save shows no title and a retry replays
+the original pool and pick with the same request id. `SoloDrawReveal` supplies
+solo copy and focus handling to the shared stage, with the same mobile,
+desktop and television layouts.
+
+`useSoloDrawReveal` gives both screens one schedule. Details load during the
+animation, then the result and theater previews open after the title has
+unfolded. A quick full reveal takes about 4.1 seconds. Reduced motion keeps
+the stages in place and takes 1.6 seconds on web; TV retains its 1.8-second
+minimum. Slow saves stay on the waiting stages. Leaving the route ignores
+delayed callbacks, and closing the result restores focus to the draw control.
 
 ## Still Open
 
 - Whether four and a half seconds still feels like an event on the fifth draw
   of a night, or wants a tap to skip.
-- Solo draw has no method and keeps the plain animation; `TODO.md` has the
-  follow-up to give it the crowd.

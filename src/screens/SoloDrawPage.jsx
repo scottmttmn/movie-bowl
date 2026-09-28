@@ -5,13 +5,14 @@ import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 import useAuth from "../hooks/useAuth";
 import useSoloDrawPool from "../hooks/useSoloDrawPool";
 import useSoloDraw from "../hooks/useSoloDraw";
+import useSoloDrawReveal from "../hooks/useSoloDrawReveal";
 import useDrawProviderLinks from "../hooks/useDrawProviderLinks";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import { getDisplayInitial, getProfileDisplayName } from "../utils/profileIdentity";
 import useDeviceDrawSettings from "../hooks/useDeviceDrawSettings";
 import useDrawPoolCount, { DRAW_POOL_STATUS } from "../hooks/useDrawPoolCount";
 import AddMovieModal from "../components/AddMovieModal";
-import DrawAnimationModal from "../components/DrawAnimationModal";
+import SoloDrawReveal from "../components/SoloDrawReveal";
 import HoldToDrawButton from "../components/HoldToDrawButton";
 import BowlIllustration from "../components/BowlIllustration";
 import SoloDrawDialog from "../components/SoloDrawDialog";
@@ -37,7 +38,6 @@ import { getAutoStartMode, getAutoStartSurface, resolvePreferredLaunchTarget } f
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { getRememberedValueFor, readRememberedReadout, rememberReadout } from "../utils/rememberedReadouts";
 
-const DRAW_ANIMATION_MINIMUM_MS = 1500;
 const SOLO_FILTER_METADATA_FETCHERS = {
   fetchMovieDetails: getTmdbMovieDetails,
   fetchProviders: fetchStreamingProviders,
@@ -147,15 +147,16 @@ export default function SoloDrawPage() {
   const [showFilters, setShowFilters] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
   const [isConfirmingDraw, setIsConfirmingDraw] = useState(false);
-  const [isPreparingReveal, setIsPreparingReveal] = useState(false);
-  const [drawAnimationTitle, setDrawAnimationTitle] = useState("");
+  const { revealRun, isRevealing: isPreparingReveal, revealCommittedDraw } = useSoloDrawReveal();
+  const drawBowlRef = useRef(null);
+  const drawActionRef = useRef(null);
   const [detailMovie, setDetailMovie] = useState(null);
   const [trailerQueue, setTrailerQueue] = useState([]);
   const [isTheaterPlaying, setIsTheaterPlaying] = useState(false);
   const theaterRequestRef = useRef(0);
 
   // The hook commits before it publishes `result`. Suppress that raw result
-  // while the page holds the minimum animation and prepares the same detail
+  // while the page plays the reveal and prepares the same detail
   // card the bowl uses; a pre-existing result still renders immediately in
   // tests and on any future restored in-memory flow.
   const revealedMovie = detailMovie || (!isPreparingReveal ? result : null);
@@ -380,37 +381,23 @@ export default function SoloDrawPage() {
     endTheater();
     setDetailMovie(null);
     dismissResult();
+    window.requestAnimationFrame(() => drawActionRef.current?.querySelector("button")?.focus());
   };
 
-  const revealCommittedDraw = async (drawAction, drawPool, drawOptions) => {
-    setDrawAnimationTitle("");
-    setIsPreparingReveal(true);
-    const minimumAnimation = new Promise((resolve) =>
-      window.setTimeout(resolve, DRAW_ANIMATION_MINIMUM_MS)
-    );
-
-    try {
-      const movie = await drawAction();
-      // The pool is read once and held, so copies the draw removed would sit in
-      // it as candidates until the screen is mounted again -- drawable, and
-      // counted in the readout, after the server has already taken them.
-      if (movie) removeRows((movie.removedCopies || []).map((copy) => copy.id));
-      if (movie?.title) setDrawAnimationTitle(movie.title);
-      if (movie) startProviderLookup(movie);
-
-      const [preparedMovie] = await Promise.all([
-        movie ? buildDetailMovie(movie) : Promise.resolve(null),
-        minimumAnimation,
-      ]);
-      if (!preparedMovie) return;
-
-      setDetailMovie(preparedMovie);
-      if (isTheaterModeEnabled) {
-        startTheater(preparedMovie, drawPool, drawOptions);
-      }
-    } finally {
-      setIsPreparingReveal(false);
-      setDrawAnimationTitle("");
+  const revealSoloDraw = async (drawAction, drawPool, drawOptions) => {
+    const preparedMovie = await revealCommittedDraw(drawAction, {
+      originRect: drawBowlRef.current?.querySelector(".bowl-illustration-image")?.getBoundingClientRect() || null,
+      prepareMovie: (movie) => {
+        // Remove committed copies from the held pool before another draw.
+        removeRows((movie.removedCopies || []).map((copy) => copy.id));
+        startProviderLookup(movie);
+        return buildDetailMovie(movie);
+      },
+    });
+    if (!preparedMovie) return;
+    setDetailMovie(preparedMovie);
+    if (isTheaterModeEnabled) {
+      startTheater(preparedMovie, drawPool, drawOptions);
     }
   };
 
@@ -419,8 +406,8 @@ export default function SoloDrawPage() {
     setIsConfirmingDraw(false);
     const drawPool = [...scopedRows];
     const drawOptions = { ...filters };
-    void revealCommittedDraw(
-      () => draw(drawPool, drawOptions),
+    void revealSoloDraw(
+      (callbacks) => draw(drawPool, drawOptions, callbacks),
       drawPool,
       drawOptions
     );
@@ -430,12 +417,12 @@ export default function SoloDrawPage() {
     if (!canRetrySave || isDrawInProgress) return;
     const drawPool = [...scopedRows];
     const drawOptions = { ...filters };
-    void revealCommittedDraw(retrySave, drawPool, drawOptions);
+    void revealSoloDraw(retrySave, drawPool, drawOptions);
   };
 
   return (
     <div className="page-container solo-draw-page py-6 sm:py-8">
-      <div className="solo-draw-layout">
+      <div className="solo-draw-layout" aria-hidden={isDrawInProgress ? "true" : undefined} inert={isDrawInProgress}>
         <header className="flex items-start justify-between gap-3">
           <div className="flex min-w-0 flex-1 flex-wrap items-baseline gap-x-3 gap-y-1">
             <h1 className="text-[26px] font-bold tracking-tight text-slate-50">Solo Draw</h1>
@@ -456,11 +443,9 @@ export default function SoloDrawPage() {
             <span className="solo-identity"><span className="solo-avatar">{shownInitial}</span>Just you</span>
           </div>
           <div className="relative flex flex-col items-center pt-5 text-center">
-            <div className="solo-bowl-stage">
+            <div className="solo-bowl-stage" ref={drawBowlRef}>
               <BowlIllustration
                 className="h-full w-full"
-                drawTitle={drawAnimationTitle}
-                isDrawing={isDrawInProgress}
               />
               <span className="solo-avatar solo-bowl-avatar" aria-hidden="true">{shownInitial}</span>
             </div>
@@ -491,7 +476,7 @@ export default function SoloDrawPage() {
                 {heldSoloView?.statusAction === "adjust" && <button type="button" className="btn btn-secondary mt-3" disabled>Adjust filters</button>}
               </div>
             )}
-            <div className="solo-draw-action mt-5 w-full max-w-sm">
+            <div className="solo-draw-action mt-5 w-full max-w-sm" ref={drawActionRef}>
               <HoldToDrawButton label="Hold to draw for yourself" ariaLabel="Draw a movie for yourself. Press and hold to draw."
                 onHoldComplete={runDraw} onKeyboardActivate={() => { if (canDraw) setIsConfirmingDraw(true); }}
                 disabled={!canDraw} isLoading={isDrawInProgress} />
@@ -548,7 +533,7 @@ export default function SoloDrawPage() {
         <button type="button" className="btn btn-secondary mt-5 w-full" onClick={() => setShowInfo(false)}>Got it</button>
       </SoloDrawDialog>}
 
-      {isDrawInProgress && <DrawAnimationModal />}
+      {revealRun && <SoloDrawReveal run={revealRun} />}
 
       <ConfirmDialog
         isOpen={isConfirmingDraw}

@@ -176,6 +176,7 @@ vi.mock("../components/TvTheaterPreroll", () => ({
 }));
 
 import TvSoloDrawScreen from "../screens/TvSoloDrawScreen";
+import { getSoloDrawReveal } from "../../utils/soloDrawReveal";
 
 function renderSolo() {
   return render(
@@ -256,6 +257,7 @@ describe("TV solo draw", () => {
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it("keeps the idle screen focused on the draw instead of reproducing the busy mockup", () => {
@@ -281,7 +283,7 @@ describe("TV solo draw", () => {
     expect(screen.getByRole("dialog", { name: /pick one of your movies/i })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /reveal one/i }));
-    expect(screen.getByRole("heading", { name: /picking one of yours/i })).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Picking one of your titles");
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1800);
@@ -291,11 +293,60 @@ describe("TV solo draw", () => {
     expect(screen.getByText("From Family Night • Saved to your Watch History")).toBeInTheDocument();
     expect(mocks.draw).toHaveBeenCalledWith(
       mocks.rows,
-      expect.objectContaining({ prioritizeByServices: false })
+      expect.objectContaining({ prioritizeByServices: false }),
+      expect.objectContaining({ onPoolResolved: expect.any(Function) })
     );
     expect(mocks.startProviderLookup).toHaveBeenCalledWith(
       expect.objectContaining({ id: "solo-feature" })
     );
+  });
+
+  it("finishes the full crowd reveal before starting TV theater previews", async () => {
+    mocks.theaterModeEnabled = true;
+    mocks.draw.mockImplementation(async (_pool, _options, callbacks) => {
+      callbacks.onPoolResolved(mocks.rows);
+      return { ...mocks.rows[0], drawReveal: getSoloDrawReveal(mocks.rows) };
+    });
+    renderSolo();
+    fireEvent.click(screen.getByRole("button", { name: /draw for myself/i }));
+    fireEvent.click(screen.getByRole("button", { name: /reveal one/i }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
+    const stage = document.querySelector(".tv-draw-reveal-stage");
+    expect(stage).toHaveAttribute("data-method", "solo");
+    expect(stage).toHaveTextContent("2 titles");
+    expect(stage.querySelectorAll(".draw-reveal-card")).toHaveLength(0);
+    fireEvent.keyDown(window, { key: "Escape" });
+    await act(async () => { await vi.advanceTimersByTimeAsync(3099); });
+    expect(stage).toHaveAttribute("data-phase", "unfold");
+    expect(mocks.buildTrailerQueue).not.toHaveBeenCalled();
+    expect(screen.queryByRole("heading", { name: "Arrival (2016)" })).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(screen.getByRole("dialog", { name: /previews before arrival/i })).toBeInTheDocument();
+    expect(document.querySelector(".tv-draw-reveal-stage")).toBeNull();
+    expect(mocks.draw).toHaveBeenCalledTimes(1);
+  });
+
+  it("shows one pinned title and honors reduced motion before returning remote focus", async () => {
+    vi.stubGlobal("matchMedia", (query) => ({ matches: query.includes("prefers-reduced-motion") }));
+    mocks.rows[1].is_pinned = true;
+    mocks.draw.mockImplementation(async (_pool, _options, callbacks) => {
+      callbacks.onPoolResolved(mocks.rows);
+      return { ...mocks.rows[0], drawReveal: getSoloDrawReveal(mocks.rows) };
+    });
+    renderSolo();
+    fireEvent.click(screen.getByRole("button", { name: /draw for myself/i }));
+    fireEvent.click(screen.getByRole("button", { name: /reveal one/i }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(150); });
+    expect(document.querySelector(".draw-reveal-count")).toHaveTextContent("1 title");
+    expect(document.querySelectorAll(".draw-reveal-slip")).toHaveLength(1);
+    expect(document.querySelectorAll(".draw-reveal-pin")).toHaveLength(1);
+    await act(async () => { await vi.advanceTimersByTimeAsync(950); });
+    expect(screen.getByRole("status")).toHaveTextContent("Your only eligible pinned title");
+    await act(async () => { await vi.advanceTimersByTimeAsync(700); });
+    expect(screen.getByRole("heading", { name: "Arrival (2016)" })).toBeInTheDocument();
+    fireEvent.keyDown(window, { key: "Escape" });
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    expect(screen.getByRole("button", { name: /draw for myself/i })).toHaveFocus();
   });
 
   // The television reads the pool once, so a draw that empties bowls has to say

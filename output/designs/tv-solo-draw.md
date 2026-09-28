@@ -1,13 +1,20 @@
 # TV Solo Draw
 
 Status: implemented September 16, 2026; scope and streaming brought onto
-the screen behind the pool line the same day.
+the screen behind the pool line the same day. Full-screen solo reveal added
+September 28, 2026.
 
 The TV now offers solo draw from the bowl picker at `/tv/solo`. It uses the
 same private, committed selection as the web flow: only titles added by the
 signed-in person are eligible, duplicate TMDB titles get one chance, eligible
 pins narrow the pool, the shared bowl copies are untouched, and the result is
 written to personal Watch History before it is revealed.
+
+Drawing now uses the shared title-first crowd and unfolding slip, scaled for
+TV. The crowd counts distinct eligible titles, including the narrowing to
+pins. Result controls and theater previews wait until it finishes; remote
+presses cannot interrupt the committed draw or start a duplicate. See step 4
+of `draw-method-reveals.md`.
 
 ## Design decision: one quiet stage
 

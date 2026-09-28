@@ -5,6 +5,8 @@ import useDeviceDrawSettings from "../../hooks/useDeviceDrawSettings";
 import useDrawPoolCount, { DRAW_POOL_STATUS } from "../../hooks/useDrawPoolCount";
 import useDrawProviderLinks from "../../hooks/useDrawProviderLinks";
 import useSoloDraw from "../../hooks/useSoloDraw";
+import useSoloDrawReveal from "../../hooks/useSoloDrawReveal";
+import SoloDrawReveal from "../../components/SoloDrawReveal";
 import useSoloDrawPool from "../../hooks/useSoloDrawPool";
 import useUserStreamingServices from "../../hooks/useUserStreamingServices";
 import { fetchMovieFilterMetadata } from "../../lib/movieFilterMetadata";
@@ -33,7 +35,7 @@ import {
 } from "../../utils/webLaunch";
 import TvBrand from "../components/TvBrand";
 import TvSoloScopeSheet from "../components/TvSoloScopeSheet";
-import { TvDrawingScreen, TvRevealScreen } from "../components/TvDrawExperience";
+import { TvRevealScreen } from "../components/TvDrawExperience";
 import TvTheaterPreroll from "../components/TvTheaterPreroll";
 import TvTheaterTicket from "../components/TvTheaterTicket";
 import useTvSpatialNavigation from "../hooks/useTvSpatialNavigation";
@@ -47,7 +49,6 @@ import {
   getAvailableDrawGenres,
 } from "../utils/drawOptions";
 
-const MIN_DRAW_ANIMATION_MS = 1800;
 const MAX_PREVIEW_WAIT_MS = 2500;
 const SOLO_RETURN_KEY = "solo";
 // Enough to show the set without turning the line into a logo parade.
@@ -152,15 +153,14 @@ export default function TvSoloDrawScreen({ userId }) {
   // another person draws on Friday.
   const [scopeOverride, setScopeOverride] = useState(null);
   const [showDrawConfirm, setShowDrawConfirm] = useState(false);
-  const [isPreparingReveal, setIsPreparingReveal] = useState(false);
-  const [drawAnimationTitle, setDrawAnimationTitle] = useState("");
+  const { revealRun, isRevealing: isPreparingReveal, revealCommittedDraw } = useSoloDrawReveal({ minimumMs: 1800 });
   const [drawnMovie, setDrawnMovie] = useState(() => readExternalReturn(SOLO_RETURN_KEY));
   const [showTrailer, setShowTrailer] = useState(false);
   const [trailerQueue, setTrailerQueue] = useState([]);
   const [isTheaterPending, setIsTheaterPending] = useState(false);
   const [isTheaterPlaying, setIsTheaterPlaying] = useState(false);
   const [providerLaunchMessage, setProviderLaunchMessage] = useState(null);
-  const drawInFlightRef = useRef(false);
+  const drawBowlRef = useRef(null);
   const theaterRequestRef = useRef(0);
 
   const bowlIds = useMemo(() => bowls.map((bowl) => bowl.id), [bowls]);
@@ -373,42 +373,23 @@ export default function TvSoloDrawScreen({ userId }) {
     }
   };
 
-  const revealCommittedDraw = async (drawAction, drawPool, options) => {
-    if (drawInFlightRef.current) return;
-
-    drawInFlightRef.current = true;
+  const revealSoloDraw = async (drawAction, drawPool, options) => {
     clearExternalReturn();
     setShowDrawConfirm(false);
-    setDrawAnimationTitle("");
     setProviderLaunchMessage(null);
-    setIsPreparingReveal(true);
-
-    const minimumAnimation = new Promise((resolve) =>
-      window.setTimeout(resolve, MIN_DRAW_ANIMATION_MS)
-    );
-
-    try {
-      const movie = await drawAction();
-      // The pool is read once and held, so copies the draw removed would sit in
-      // it as candidates until this screen is mounted again.
-      if (movie) removeRows((movie.removedCopies || []).map((copy) => copy.id));
-      if (movie?.title) setDrawAnimationTitle(movie.title);
-      if (movie) startProviderLookup(movie);
-
-      const [preparedMovie] = await Promise.all([
-        movie ? enrichSoloMovie(movie) : Promise.resolve(null),
-        minimumAnimation,
-      ]);
-      if (!preparedMovie) return;
-
-      setDrawnMovie(preparedMovie);
-      if (isTheaterModeEnabled) {
-        void startTheater(preparedMovie, drawPool, options);
-      }
-    } finally {
-      drawInFlightRef.current = false;
-      setIsPreparingReveal(false);
-      setDrawAnimationTitle("");
+    const preparedMovie = await revealCommittedDraw(drawAction, {
+      originRect: drawBowlRef.current?.querySelector(".bowl-illustration-image")?.getBoundingClientRect() || null,
+      prepareMovie: (movie) => {
+        // Remove committed copies from the held pool before another draw.
+        removeRows((movie.removedCopies || []).map((copy) => copy.id));
+        startProviderLookup(movie);
+        return enrichSoloMovie(movie);
+      },
+    });
+    if (!preparedMovie) return;
+    setDrawnMovie(preparedMovie);
+    if (isTheaterModeEnabled) {
+      void startTheater(preparedMovie, drawPool, options);
     }
   };
 
@@ -426,14 +407,14 @@ export default function TvSoloDrawScreen({ userId }) {
 
     const drawPool = [...scopedRows];
     const options = { ...drawOptions };
-    void revealCommittedDraw(() => draw(drawPool, options), drawPool, options);
+    void revealSoloDraw((callbacks) => draw(drawPool, options, callbacks), drawPool, options);
   };
 
   const retryPendingSave = () => {
     if (!canRetrySave || isBusy) return;
     const drawPool = [...scopedRows];
     const options = { ...drawOptions };
-    void revealCommittedDraw(retrySave, drawPool, options);
+    void revealSoloDraw(retrySave, drawPool, options);
   };
 
   useTvSpatialNavigation({
@@ -485,14 +466,7 @@ export default function TvSoloDrawScreen({ userId }) {
 
   if (isBusy) {
     return (
-      <TvDrawingScreen
-        bowlName="Solo draw"
-        drawTitle={drawAnimationTitle}
-        poolCount={distinctTitleCount}
-        totalCount={distinctTitleCount}
-        heading="Picking one of yours…"
-        caption="Only your titles are in this draw."
-      />
+      <main>{revealRun && <SoloDrawReveal run={revealRun} presentation="tv" />}</main>
     );
   }
 
@@ -578,6 +552,7 @@ export default function TvSoloDrawScreen({ userId }) {
 
           <div className="tv-solo-action" data-tv-nav-region="solo-stage">
             <button
+              ref={drawBowlRef}
               type="button"
               className="tv-solo-draw-button"
               data-tv-focusable

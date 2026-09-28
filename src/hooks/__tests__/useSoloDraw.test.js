@@ -82,6 +82,29 @@ describe("useSoloDraw", () => {
     expect(result.current.errorMessage).toBe("");
   });
 
+  it("previews the filtered, distinct pinned pool while persistence is pending", async () => {
+    let finish;
+    mocks.recordSoloDraw.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const onPoolResolved = vi.fn();
+    const { result } = renderSoloDraw();
+    let drawPromise;
+    await act(async () => {
+      drawPromise = result.current.draw([
+        movie("a", { tmdb_id: 101, is_pinned: false }),
+        movie("b", { tmdb_id: 101, is_pinned: true }),
+        movie("c", { tmdb_id: 202 }),
+        movie("d", { tmdb_id: 303, is_pinned: true, runtime: 200 }),
+      ], { runtimeFilter: { minMinutes: 0, maxMinutes: 120, includeUnknown: false } }, { onPoolResolved });
+    });
+    expect(onPoolResolved).toHaveBeenCalledWith([expect.objectContaining({ id: "a", is_pinned: true })]);
+    expect(result.current.result).toBeNull();
+    await act(async () => {
+      finish({ ok: true, event: { id: "event-1", watched_on: "2026-09-15" } });
+      await drawPromise;
+    });
+    expect(result.current.result).toMatchObject({ id: "a", drawReveal: { person: null, title: { scope: "solo", count: 1, pinnedPool: true } } });
+  });
+
   // Revealing is what commits a solo draw, so a save that fails must not show
   // a pick -- and must not quietly spend another one either.
   // The setting lives on the account, so the hook reports what the server
@@ -120,8 +143,9 @@ describe("useSoloDraw", () => {
     expect(result.current.errorMessage).toBe("Could not save this draw. Please try again.");
     expect(result.current.canRetrySave).toBe(true);
 
+    const onPoolResolved = vi.fn();
     await act(async () => {
-      await result.current.retrySave();
+      await result.current.retrySave({ onPoolResolved });
     });
 
     // Same movie, same request id: the retry finishes this draw rather than
@@ -130,6 +154,8 @@ describe("useSoloDraw", () => {
     expect(mocks.recordSoloDraw.mock.calls[1]).toEqual(["m1", "request-1"]);
     expect(mocks.createSoloDrawRequestId).toHaveBeenCalledTimes(1);
     expect(result.current.result).toMatchObject({ id: "m1" });
+    expect(onPoolResolved.mock.calls[0][0].map((entry) => entry.id)).toEqual(["m1", "m2"]);
+    expect(result.current.result.drawReveal.title.count).toBe(2);
   });
 
   it("shows the server's own refusal of a title", async () => {

@@ -8,7 +8,6 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 - Invite inbox polish: state handling for accepted, declined, and stale invites. Visibility is covered by the top nav badge and `/invites` page.
 - Draw filter UX follow-up: keep evaluating whether runtime, genre, and rating controls still feel too dense after recent cleanup.
 - Streaming rank on touch: the reordering rows in User Settings still use HTML5 drag events, which do not fire on touch, so phones fall back to the ↑/↓ buttons. The redesign (`output/designs/user-settings-redesign.md`) kept that as-is; a pointer-event drag or an explicit "move to position" affordance would close it.
-- Solo draw reveal: solo draw (web `SoloDrawPage` and the TV solo screen) still plays the old in-page shake-and-pop from `BowlIllustration`, which now looks slight beside the bowl dashboard's full-screen reveal. Solo has no draw method, so the natural fit is the reveal's single-crowd path: the pool rises as one crowd, a light flickers, one slip is plucked and unfolds. It would reuse `DrawRevealStage` and `getDrawRevealTimeline` from a pool preview and a result, and needs a decision on whether a pool drawn across several bowls shows them as piles or as one crowd.
 - Visual consistency sweep: audit remaining non-core pages and components for raw styling that bypasses shared tokens.
 - Large-bowl draw count UX: bowls with over 100 titles the daily cron has not
   cached still need an explicit tap on the phone to resolve an exact eligible

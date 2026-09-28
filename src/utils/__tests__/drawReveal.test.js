@@ -7,10 +7,43 @@ import {
   getDrawRevealPreview,
   getDrawRevealTimeline,
 } from "../drawReveal";
+import { getSoloDrawReveal, getSoloDrawRevealPreview, getSoloDrawRevealMethod } from "../soloDrawReveal";
 
 const sam = (id, extra = {}) => ({ id, added_by: "sam", profiles: { display_name: "Sam" }, ...extra });
 const alex = (id, extra = {}) => ({ id, added_by: "alex", profiles: { display_name: "Alex" }, ...extra });
 const pack = (id) => ({ id, starter_pack: true, added_by_name: "Classics" });
+
+describe("solo reveal", () => {
+  it("shows one crowd of distinct titles across bowls, keeping custom rows separate", () => {
+    const pool = [
+      { id: "a", tmdb_id: 101, bowl_id: "one" },
+      { id: "b", tmdb_id: 101, bowl_id: "two" },
+      { id: "c", tmdb_id: -1, title: "Home Movies" },
+      { id: "d", tmdb_id: -1, title: "Home Movies" },
+    ];
+    expect(getSoloDrawRevealPreview(pool)).toMatchObject({ stage: "bowl", people: [], total: 3, pinnedPool: false });
+    const reveal = getSoloDrawReveal(pool);
+    expect(reveal.person).toBeNull();
+    expect(getDrawRevealCopy(reveal).announcement).toBe("1 of your 3 titles");
+  });
+
+  it("limits the crowd to pins even when the representative copy is not pinned", () => {
+    const pool = [
+      { id: "a", tmdb_id: 101 },
+      { id: "b", tmdb_id: 101, is_pinned: true },
+      { id: "c", tmdb_id: 202 },
+    ];
+    const preview = getSoloDrawRevealPreview(pool);
+    expect(preview).toMatchObject({ total: 1, pinnedPool: true });
+    expect(getSoloDrawRevealMethod(preview).revealPending).toContain("pinned titles");
+    expect(getDrawRevealCopy(getSoloDrawReveal(pool)).announcement).toBe("Your only eligible pinned title");
+  });
+
+  it("does not invent a preview for an empty pool", () => {
+    expect(getSoloDrawRevealPreview([])).toBeNull();
+    expect(getSoloDrawReveal([])).toBeNull();
+  });
+});
 
 describe("getDrawReveal", () => {
   it("returns nothing without a drawn movie or a pool", () => {

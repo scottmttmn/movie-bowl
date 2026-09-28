@@ -38,16 +38,26 @@ for (const method of ["person_first", "rotation", "title_first"]) {
     // so Playwright's assertion polling can skip its readable window.
     await page.evaluate(() => {
       window.tvRevealFrames = [];
+      window.tvRevealClosedAt = null;
       let sawHero = false;
+      const observer = new MutationObserver(() => {
+        if (sawHero && !document.querySelector(".draw-reveal-hero")) {
+          window.tvRevealClosedAt = performance.now();
+          observer.disconnect();
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
       const sample = () => {
         const hero = document.querySelector(".draw-reveal-hero");
         if (hero) {
           sawHero = true;
           const rect = hero.getBoundingClientRect();
+          const animations = hero.getAnimations({ subtree: true });
           window.tvRevealFrames.push({
             at: performance.now(),
             opacity: Number(getComputedStyle(hero.querySelector(".draw-reveal-hero-title")).opacity),
-            finished: hero.getAnimations({ subtree: true }).every((animation) => animation.playState === "finished"),
+            finished: animations.every((animation) => animation.playState === "finished"),
+            finishedAt: Math.max(...animations.map((animation) => Number(animation.startTime) + animation.effect.getComputedTiming().endTime)),
             top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right, width: rect.width,
             headerBottom: document.querySelector(".draw-reveal-header").getBoundingClientRect().bottom,
           });
@@ -77,10 +87,11 @@ for (const method of ["person_first", "rotation", "title_first"]) {
       }
     }
     await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible({ timeout: 15_000 });
-    const frames = await page.evaluate(() => window.tvRevealFrames);
+    const { frames, closedAt } = await page.evaluate(() => ({ frames: window.tvRevealFrames, closedAt: window.tvRevealClosedAt }));
     const readable = frames.filter((frame) => frame.opacity === 1 && frame.finished);
     expect(readable.length, "the ink and folds finish before the TV stage closes").toBeGreaterThan(1);
-    expect(readable.at(-1).at - readable[0].at, "the TV holds the fully opened title").toBeGreaterThan(150);
+    // Measure the actual hold, including intervals between sampled frames.
+    expect(closedAt - readable[0].finishedAt, "the TV holds the fully opened title").toBeGreaterThan(150);
     for (const frame of readable) {
       expect(frame.width).toBeGreaterThan(viewport.width === 1920 ? 650 : 440);
       expect(frame.top).toBeGreaterThanOrEqual(frame.headerBottom);
