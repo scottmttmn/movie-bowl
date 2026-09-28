@@ -2,8 +2,8 @@
 
 Status: step 1 built September 27, 2026 on the web bowl dashboard, and replaced
 by step 2 on September 28 (`src/utils/drawReveal.js`,
-`src/components/DrawRevealStage.jsx`). Step 3, the television, is a plan and
-nothing of it exists in code.
+`src/components/DrawRevealStage.jsx`). Step 3, the television, is built
+September 28 in `TvTonightScreen` and `TvDrawingScreen`.
 
 ## The Question
 
@@ -123,14 +123,24 @@ The stage is `aria-hidden`. The draw's polite live status speaks each stage as
 the stage lands ("Sam, at random." then "1 of Sam's 4 movies."), never before
 the animation has shown it.
 
-## Step 3 — The Television (not built)
+## Step 3 — The Television (built September 28)
 
-The television is where this matters most -- the whole room watches the draw
-together -- and it already receives `drawReveal` from the same `handleDraw`.
-What is left is `TvDrawingScreen`: a ten-foot version of the stage, driven by
-the same `getDrawRevealTimeline`, in `TvTonightScreen`'s draw, which has its own minimum delay and
-theater hand-off. `TvDrawMethodMark` already names the method beside the bowl
-name; the reveal would be where it shows it working.
+`TvDrawingScreen` now presents the same stage and `getDrawRevealTimeline` for
+bowl draws. `presentation="tv"` scales the geometry and text together from a
+1280 × 720 scene, so piles and names stay readable at 720p and 1080p without
+depending on the TV document's root font size. The bowl lifts from the focused
+draw control into the stage.
+
+`TvTonightScreen` receives the real pool before persistence, then the committed
+`drawReveal`. Movie enrichment runs during the animation; the result screen
+and theater previews wait until the timeline ends. A result without reveal
+metadata retains the TV's 1.8-second minimum. Remote back and select presses
+cannot interrupt a committed draw or trigger a duplicate; leaving the result
+restores focus to the bowl.
+
+Reduced motion uses the shared in-place stages. A polite live status announces
+each stage as it lands, while the visual stage stays hidden from assistive
+technology. Solo draws continue to use `TvDrawingScreen`'s plain animation.
 
 ## Still Open
 

@@ -1,4 +1,8 @@
+import { useState } from "react";
 import BowlIllustration from "../../components/BowlIllustration";
+import DrawRevealStage from "../../components/DrawRevealStage";
+import { getDrawMethod } from "../../utils/drawMethods";
+import { getDrawRevealAnnouncement } from "../../utils/drawReveal";
 import ProviderLinksAttribution from "../../components/ProviderLinksAttribution";
 import AvailabilityAttribution from "../../components/AvailabilityAttribution";
 import ServiceLogo from "../../components/ServiceLogo";
@@ -28,7 +32,32 @@ export function TvDrawingScreen({
   contributorReach,
   heading = "Drawing tonight's movie…",
   caption: captionOverride = null,
+  revealRun = null,
 }) {
+  const [phase, setPhase] = useState("gather");
+  if (revealRun) {
+    const announcement = getDrawRevealAnnouncement(revealRun.reveal, phase);
+    return (
+      <main>
+        <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
+          {bowlName}. {announcement || heading}
+        </div>
+        <DrawRevealStage
+          method={getDrawMethod(revealRun.methodId)}
+          preview={revealRun.preview}
+          previewAt={revealRun.previewAt}
+          reveal={revealRun.reveal}
+          resultAt={revealRun.resultAt}
+          startedAt={revealRun.startedAt}
+          title={revealRun.title}
+          originRect={revealRun.originRect}
+          reducedMotion={revealRun.reducedMotion}
+          presentation="tv"
+          onPhaseChange={setPhase}
+        />
+      </main>
+    );
+  }
   const resolvedCount = poolCount ?? totalCount;
   const excludedCount = contributorReach
     ? contributorReach.totalCount - contributorReach.reachedCount

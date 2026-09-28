@@ -13,6 +13,8 @@ import { getTmdbMovieDetails } from "../../lib/tmdbApi";
 import { fetchMovieTrailer, resolveEligiblePreviewIds } from "../../lib/theaterPreviews";
 import { getMovieAttributionLine } from "../../utils/drawBuckets";
 import { getDrawReadout } from "../../utils/drawReadout";
+import { normalizeDrawMethod } from "../../utils/drawMethods";
+import { getDrawRevealPreview, getDrawRevealTimeline } from "../../utils/drawReveal";
 import { clampTheaterTrailerCount } from "../../utils/drawSettings";
 import { getPosterUrl } from "../../utils/getPosterUrl";
 
@@ -483,7 +485,7 @@ export default function TvTonightScreen({ userId }) {
 
   const [showDrawConfirm, setShowDrawConfirm] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
-  const [drawAnimationTitle, setDrawAnimationTitle] = useState("");
+  const [revealRun, setRevealRun] = useState(null);
   const [drawnMovie, setDrawnMovie] = useState(() => readExternalReturn(bowlId));
   const [selectedHistoryMovie, setSelectedHistoryMovie] = useState(null);
   const [historyFocusId, setHistoryFocusId] = useState(null);
@@ -506,7 +508,15 @@ export default function TvTonightScreen({ userId }) {
   const [isTheaterPlaying, setIsTheaterPlaying] = useState(false);
   const [providerLaunchMessage, setProviderLaunchMessage] = useState(null);
   const drawInFlightRef = useRef(false);
+  const drawBowlRef = useRef(null);
+  const revealRunRef = useRef(null);
   const historyLoadSequenceRef = useRef(0);
+
+  useEffect(() => () => {
+    // A committed draw may finish after this route goes away. Its animation
+    // callbacks must not publish a result into a different bowl's screen.
+    revealRunRef.current = null;
+  }, [bowlId]);
 
   const isTheaterModeEnabled = Boolean(defaultDrawSettings?.theaterModeEnabled);
   const theaterTrailerCount = clampTheaterTrailerCount(
@@ -884,24 +894,59 @@ export default function TvTonightScreen({ userId }) {
     clearExternalReturn();
     setShowDrawConfirm(false);
     setTonightMessage(null);
-    setDrawAnimationTitle("");
+    const startedAt = Date.now();
+    const run = {
+      startedAt,
+      methodId: normalizeDrawMethod(bowlMeta.drawMethod),
+      reducedMotion: Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches),
+      originRect: drawBowlRef.current?.querySelector(".bowl-illustration-image")?.getBoundingClientRect() || null,
+      preview: null,
+      previewAt: null,
+      reveal: null,
+      resultAt: null,
+      title: "",
+    };
+    revealRunRef.current = run;
+    setRevealRun(run);
+    const updateRun = (patch) => {
+      if (revealRunRef.current?.startedAt !== startedAt) return;
+      revealRunRef.current = { ...revealRunRef.current, ...patch };
+      setRevealRun(revealRunRef.current);
+    };
     setIsDrawing(true);
 
     try {
       const delay = new Promise((resolve) =>
         window.setTimeout(resolve, MIN_DRAW_ANIMATION_MS)
       );
-      const drawPromise = handleDraw(drawOptions).then((movie) => {
+      const drawPromise = handleDraw({
+        ...drawOptions,
+        onPoolResolved: (pool) => updateRun({
+          preview: getDrawRevealPreview({ drawMethod: run.methodId, pool }),
+          previewAt: Date.now() - startedAt,
+        }),
+      }).then(async (result) => {
+        if (!result || revealRunRef.current?.startedAt !== startedAt) return null;
+        const { drawReveal: reveal = null, ...movie } = result;
         startProviderLookup(movie);
-        if (movie?.title) setDrawAnimationTitle(movie.title);
-        return movie;
+        const resultAt = Date.now() - startedAt;
+        updateRun({ reveal, resultAt, title: movie.title || "" });
+        const { preview, previewAt } = revealRunRef.current;
+        const { openAt } = getDrawRevealTimeline({ preview, previewAt, reveal, resultAt, reducedMotion: run.reducedMotion });
+        const wait = Math.max(MIN_DRAW_ANIMATION_MS, openAt ?? 0) - (Date.now() - startedAt);
+        // Enrichment runs during the reveal, but neither the result nor the
+        // theater hand-off is published until the shared schedule finishes.
+        const [detailedMovie] = await Promise.all([
+          enrichDrawnMovie(movie),
+          wait > 0 ? new Promise((resolve) => window.setTimeout(resolve, wait)) : Promise.resolve(),
+        ]);
+        return detailedMovie;
       });
 
       const [movie] = await Promise.all([drawPromise, delay]);
-      if (!movie) return;
+      if (!movie || revealRunRef.current?.startedAt !== startedAt) return;
 
-      const detailedMovie = await enrichDrawnMovie(movie);
-      setDrawnMovie(detailedMovie);
+      setDrawnMovie(movie);
       setIsTheaterPending(isTheaterModeEnabled);
       setIsTheaterPlaying(false);
       setShowTrailer(false);
@@ -909,7 +954,8 @@ export default function TvTonightScreen({ userId }) {
     } finally {
       drawInFlightRef.current = false;
       setIsDrawing(false);
-      setDrawAnimationTitle("");
+      setRevealRun(null);
+      revealRunRef.current = null;
     }
   };
 
@@ -973,7 +1019,7 @@ export default function TvTonightScreen({ userId }) {
     return (
       <TvDrawingScreen
         bowlName={bowlMeta.name}
-        drawTitle={drawAnimationTitle}
+        revealRun={revealRun}
         poolCount={drawPoolCount}
         totalCount={drawPoolTotalCount}
         contributorReach={drawPoolContributorReach}
@@ -1083,6 +1129,7 @@ export default function TvTonightScreen({ userId }) {
                   nothing back; inside it, the largest thing here and the only
                   thing to do are the same object. */}
               <button
+                ref={drawBowlRef}
                 type="button"
                 className="tv-draw-button"
                 data-tv-focusable
