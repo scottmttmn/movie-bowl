@@ -33,15 +33,25 @@ for (const scenario of [
     // ink animation. Assertion polling can miss a short, completed reveal.
     await page.evaluate(() => {
       window.soloRevealFrames = [];
+      window.soloRevealClosedAt = null;
       let sawHero = false;
+      const observer = new MutationObserver(() => {
+        if (sawHero && !document.querySelector(".draw-reveal-hero")) {
+          window.soloRevealClosedAt = performance.now();
+          observer.disconnect();
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
       const sample = () => {
         const hero = document.querySelector(".draw-reveal-hero");
         if (hero) {
           sawHero = true;
           const rect = hero.getBoundingClientRect();
+          const animations = hero.getAnimations({ subtree: true });
           window.soloRevealFrames.push({
             at: performance.now(), opacity: Number(getComputedStyle(hero.querySelector(".draw-reveal-hero-title")).opacity),
-            finished: hero.getAnimations({ subtree: true }).every((animation) => animation.playState === "finished"),
+            finished: animations.every((animation) => animation.playState === "finished"),
+            finishedAt: Math.max(...animations.map((animation) => Number(animation.startTime) + animation.effect.getComputedTiming().endTime)),
             top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right,
             headerBottom: document.querySelector(".draw-reveal-header").getBoundingClientRect().bottom,
             width: window.innerWidth, height: window.innerHeight,
@@ -51,6 +61,12 @@ for (const scenario of [
       };
       requestAnimationFrame(sample);
     });
+    const scrollBefore = await page.evaluate(() => {
+      // Finish any smooth scroll started by focusing the off-screen draw
+      // button on short screens; measure only the reveal's focus change.
+      window.scrollTo({ left: window.scrollX, top: window.scrollY, behavior: "instant" });
+      return window.scrollY;
+    });
     await page.getByRole("button", { name: scenario.tv ? "Reveal one" : "Draw", exact: true }).click();
     const stage = page.locator(".draw-reveal-stage");
     await expect(stage).toHaveAttribute("data-method", "solo");
@@ -58,6 +74,7 @@ for (const scenario of [
     await page.keyboard.press("Tab");
     await page.keyboard.press("Enter");
     await expect(stage).toHaveAttribute("data-phase", "arrange");
+    expect(await page.evaluate(() => window.scrollY), "focusing the reveal must preserve the source page").toBe(scrollBefore);
     await expect(stage.locator(".draw-reveal-count")).toHaveText(scenario.pinned ? "1 title" : "3 titles");
     await expect(stage.locator(".draw-reveal-card")).toHaveCount(0);
     await expect(stage.locator(".draw-reveal-pin")).toHaveCount(scenario.pinned ? 1 : 0);
@@ -65,10 +82,12 @@ for (const scenario of [
     if (scenario.tv) await expect(stage).toHaveClass(/tv-draw-reveal-stage/);
 
     await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible({ timeout: 15_000 });
-    const frames = await page.evaluate(() => window.soloRevealFrames);
+    const { frames, closedAt } = await page.evaluate(() => ({ frames: window.soloRevealFrames, closedAt: window.soloRevealClosedAt }));
     const readable = frames.filter((frame) => frame.opacity === 1 && frame.finished);
     expect(readable.length).toBeGreaterThan(1);
-    expect(readable.at(-1).at - readable[0].at).toBeGreaterThan(150);
+    // Native animation end times and DOM removal measure the actual hold,
+    // even when a busy main thread skips our sampling frames.
+    expect(closedAt - readable[0].finishedAt).toBeGreaterThan(150);
     for (const frame of readable) {
       expect(frame.top).toBeGreaterThanOrEqual(frame.headerBottom);
       expect(frame.bottom).toBeLessThan(frame.height);

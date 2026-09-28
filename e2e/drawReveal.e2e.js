@@ -27,17 +27,27 @@ for (const viewport of [null, { width: 844, height: 390 }, { width: 568, height:
     // cannot catch ink hidden by CSS or a slip clipped by its fixed stage.
     await page.evaluate(() => {
       window.revealFrames = [];
+      window.revealClosedAt = null;
       let sawHero = false;
+      const observer = new MutationObserver(() => {
+        if (sawHero && !document.querySelector(".draw-reveal-hero")) {
+          window.revealClosedAt = performance.now();
+          observer.disconnect();
+        }
+      });
+      observer.observe(document.body, { childList: true, subtree: true });
       const sample = () => {
         const hero = document.querySelector(".draw-reveal-hero");
         if (hero) {
           sawHero = true;
           const titleNode = hero.querySelector(".draw-reveal-hero-title");
           const rect = hero.getBoundingClientRect();
+          const animations = hero.getAnimations({ subtree: true });
           window.revealFrames.push({
             at: performance.now(),
             opacity: Number(getComputedStyle(titleNode).opacity),
-            finished: hero.getAnimations({ subtree: true }).every((animation) => animation.playState === "finished"),
+            finished: animations.every((animation) => animation.playState === "finished"),
+            finishedAt: Math.max(...animations.map((animation) => Number(animation.startTime) + animation.effect.getComputedTiming().endTime)),
             top: rect.top, bottom: rect.bottom, left: rect.left, right: rect.right,
             headerBottom: document.querySelector(".draw-reveal-header").getBoundingClientRect().bottom,
             width: window.innerWidth, height: window.innerHeight,
@@ -50,10 +60,11 @@ for (const viewport of [null, { width: 844, height: 390 }, { width: 568, height:
     await page.getByRole("button", { name: "Reveal Movie" }).click();
     await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible({ timeout: 10_000 });
 
-    const frames = await page.evaluate(() => window.revealFrames);
+    const { frames, closedAt } = await page.evaluate(() => ({ frames: window.revealFrames, closedAt: window.revealClosedAt }));
     const readable = frames.filter((frame) => frame.opacity === 1 && frame.finished);
     expect(readable.length, "the title and folds should finish while the stage is still mounted").toBeGreaterThan(1);
-    expect(readable.at(-1).at - readable[0].at, "hold the fully opened title long enough to see it").toBeGreaterThan(150);
+    // Measure the actual hold, including intervals between sampled frames.
+    expect(closedAt - readable[0].finishedAt, "hold the fully opened title long enough to see it").toBeGreaterThan(150);
     for (const frame of readable) {
       expect(frame.top).toBeGreaterThanOrEqual(frame.headerBottom);
       expect(frame.bottom).toBeLessThan(frame.height);

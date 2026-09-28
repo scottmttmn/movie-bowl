@@ -13,7 +13,7 @@ export default function SoloDrawReveal({ run, presentation = "web" }) {
     const previousFocus = document.activeElement;
     const previousOverflow = document.body.style.overflow;
     document.body.style.overflow = "hidden";
-    statusRef.current?.focus();
+    statusRef.current?.focus({ preventScroll: true });
     const holdFocus = (event) => {
       if (event.key === "Tab" || event.key === "Escape") {
         event.preventDefault();
@@ -24,7 +24,7 @@ export default function SoloDrawReveal({ run, presentation = "web" }) {
     return () => {
       document.body.style.overflow = previousOverflow;
       document.removeEventListener("keydown", holdFocus);
-      if (previousFocus?.isConnected) previousFocus.focus();
+      if (previousFocus?.isConnected) previousFocus.focus({ preventScroll: true });
     };
   }, []);
 
