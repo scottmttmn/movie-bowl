@@ -35,7 +35,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (170 test files / 1604 tests, 104 Playwright tests with 11 skipped,
+fully green (170 test files / 1613 tests, 110 Playwright tests with 12 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -408,6 +408,14 @@ the one schedule: the stage plays it and both surfaces open the movie when it
 ends. The TV uses `presentation="tv"` to scale the scene and text together from
 720p, independently of its root font size. Theater previews start only after
 the reveal finishes. See `output/designs/draw-method-reveals.md`.
+
+Solo draw uses the same crowd, flicker, pluck and unfold on mobile, desktop and
+TV. `useSoloDraw` passes the exact filtered, distinct title pool through
+`onPoolResolved` and returns `drawReveal` only after saving. The pending retry
+holds that pool with the original pick and request id. `soloDrawReveal.js`
+describes its unique titles and eligible pins; `useSoloDrawReveal` owns the
+shared schedule, detail preparation, and cancellation on unmount. Both solo
+screens open the result and theater previews after it finishes.
 
 Streaming prioritization narrows the pool *before* the contributor bucketing:
 with `prioritizeByServiceRank` it keeps only the top-ranked matching service,

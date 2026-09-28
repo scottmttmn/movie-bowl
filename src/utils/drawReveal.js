@@ -177,7 +177,10 @@ export function getDrawRevealCopy(reveal) {
     : "";
 
   let titleLine = "";
-  if (title.scope === "bowl") {
+  if (title.scope === "solo") {
+    const noun = title.pinnedPool ? "pinned title" : "title";
+    titleLine = title.count === 1 ? `Your only eligible ${noun}` : `1 of your ${title.count} ${noun}s`;
+  } else if (title.scope === "bowl") {
     titleLine = title.count === 1 ? "The only movie in the bowl" : `1 of ${pluralMovies(title.count)} in the bowl`;
   } else if (title.scope === "pack") {
     titleLine =
@@ -219,6 +222,7 @@ function getPreviewFromReveal(reveal) {
     people: [],
     sharedCount: 0,
     total: reveal.title?.count || 0,
+    ...(reveal.title?.scope === "solo" ? { scope: "solo", pinnedPool: Boolean(reveal.title.pinnedPool) } : {}),
   };
 }
 

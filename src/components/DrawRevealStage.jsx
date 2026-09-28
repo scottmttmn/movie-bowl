@@ -273,7 +273,7 @@ export default function DrawRevealStage({
         Array.from({ length: Math.min(pile.count, MAX_PILE_SLIPS) }, (_, k) => ({ pileIndex, k }))
       );
     }
-    const count = Math.max(3, Math.min(shape?.total || 12, MAX_CROWD));
+    const count = Math.max(1, Math.min(shape?.total || 12, MAX_CROWD));
     return Array.from({ length: count }, (_, k) => ({ pileIndex: -1, k }));
   }, [stage, piles, shape]);
 
@@ -558,7 +558,7 @@ export default function DrawRevealStage({
               transitionDelay: `${place.d || 0}ms`,
             }}
           >
-            {isPinned && slip.pileIndex === chosenPile && slip.k === pickK && <span className="draw-reveal-pin" />}
+            {((stage === "bowl" && shape?.pinnedPool) || (isPinned && slip.pileIndex === chosenPile && slip.k === pickK)) && <span className="draw-reveal-pin" />}
           </span>
         );
       })}
@@ -589,7 +589,7 @@ export default function DrawRevealStage({
 
       {stage === "bowl" && ["rise", "arrange", "loop", "flicker"].includes(phase) && shape?.total > 0 && (
         <p className="draw-reveal-count" style={{ top: layout.headerH - 4 }}>
-          {shape.total === 1 ? "1 movie" : `${shape.total} movies`}
+          {shape.total} {shape.scope === "solo" ? "title" : "movie"}{shape.total === 1 ? "" : "s"}
         </p>
       )}
 

@@ -9,7 +9,8 @@ import {
 } from "../lib/soloDraw";
 import { getResolvedDrawPool } from "../utils/drawSelection";
 import { getMovieFromDrawCandidate, hydrateDrawCandidate } from "../utils/selectDrawCandidate";
-import { selectSoloDrawCandidate } from "../utils/soloDrawSelection";
+import { getSoloDrawGroups, selectSoloDrawCandidate } from "../utils/soloDrawSelection";
+import { getSoloDrawReveal } from "../utils/soloDrawReveal";
 
 const EMPTY_POOL_MESSAGE = "You have no movies to draw.";
 const UNEXPECTED_ERROR = "Could not draw a movie. Please try again.";
@@ -38,14 +39,14 @@ export default function useSoloDraw({
   const [errorMessage, setErrorMessage] = useState("");
   const pendingRef = useRef(null);
 
-  const commit = useCallback(async (candidate, requestId) => {
+  const commit = useCallback(async (candidate, requestId, revealPool) => {
     const movie = getMovieFromDrawCandidate(candidate);
     const saved = await recordSoloDraw(movie.id, requestId);
 
     if (!saved.ok) {
       // Hold the pick and its id so Retry finishes this draw rather than
       // starting another one.
-      pendingRef.current = { candidate, requestId };
+      pendingRef.current = { candidate, requestId, revealPool };
       setErrorMessage(saved.message);
       return null;
     }
@@ -68,13 +69,14 @@ export default function useSoloDraw({
       watchEventId: saved.event.id,
       watchedOn: saved.event.watched_on,
       removedCopies,
+      drawReveal: getSoloDrawReveal(revealPool),
     };
 
     setResult(drawn);
     return drawn;
   }, [fetchProviders]);
 
-  const draw = useCallback(async (movies, filters = {}) => {
+  const draw = useCallback(async (movies, filters = {}, { onPoolResolved } = {}) => {
     if (isDrawing) return null;
 
     setIsDrawing(true);
@@ -99,13 +101,15 @@ export default function useSoloDraw({
         return null;
       }
 
+      const revealPool = getSoloDrawGroups(candidates).map((group) => ({ ...group.movie, is_pinned: group.isPinned }));
+      onPoolResolved?.(revealPool);
       const candidate = selectSoloDrawCandidate(candidates, { randomFn });
       if (!candidate) {
         setErrorMessage(EMPTY_POOL_MESSAGE);
         return null;
       }
 
-      return await commit(candidate, createSoloDrawRequestId());
+      return await commit(candidate, createSoloDrawRequestId(), revealPool);
     } catch (error) {
       console.error("[useSoloDraw] Unexpected error drawing solo", error);
       setErrorMessage(UNEXPECTED_ERROR);
@@ -115,7 +119,7 @@ export default function useSoloDraw({
     }
   }, [commit, fetchFilterMetadata, fetchMovieDetails, fetchProviders, isDrawing, randomFn]);
 
-  const retrySave = useCallback(async () => {
+  const retrySave = useCallback(async ({ onPoolResolved } = {}) => {
     const pending = pendingRef.current;
     if (!pending || isDrawing) return null;
 
@@ -123,7 +127,8 @@ export default function useSoloDraw({
     setErrorMessage("");
 
     try {
-      return await commit(pending.candidate, pending.requestId);
+      onPoolResolved?.(pending.revealPool);
+      return await commit(pending.candidate, pending.requestId, pending.revealPool);
     } catch (error) {
       console.error("[useSoloDraw] Unexpected error saving a solo draw", error);
       setErrorMessage(UNEXPECTED_ERROR);

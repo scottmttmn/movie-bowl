@@ -105,6 +105,7 @@ vi.mock("../../lib/theaterPreviews", () => ({
 }));
 
 import SoloDrawPage from "../SoloDrawPage";
+import { getSoloDrawReveal } from "../../utils/soloDrawReveal";
 
 function movie(id, bowlId) {
   return { id, bowl_id: bowlId, tmdb_id: 100, title: `Movie ${id}`, genres: [], runtime: 100 };
@@ -140,6 +141,7 @@ beforeEach(() => {
   mocks.draw.mockReset();
   mocks.retrySave.mockReset();
   mocks.reload.mockReset();
+  mocks.removeRows.mockClear();
   mocks.runLookups.mockReset();
   mocks.saveDefaultDrawSettings.mockClear();
   mocks.startProviderLookup.mockClear();
@@ -405,13 +407,17 @@ describe("SoloDrawPage", () => {
     await waitFor(() => expect(mocks.removeRows).toHaveBeenCalledWith(["m1", "m9"]));
   });
 
-  it("holds the bowl animation before opening the normal movie detail", async () => {
-    mocks.draw.mockResolvedValue({
-      id: "m1",
-      bowl_id: "bowl-1",
-      tmdb_id: 100,
-      title: "Movie m1",
-      watchedOn: "2026-09-16",
+  it("plucks from one crowd before opening the normal movie detail", async () => {
+    mocks.draw.mockImplementation(async (_pool, _options, callbacks) => {
+      callbacks.onPoolResolved(mocks.state.pool.rows);
+      return {
+        id: "m1",
+        bowl_id: "bowl-1",
+        tmdb_id: 100,
+        title: "Movie m1",
+        watchedOn: "2026-09-16",
+        drawReveal: getSoloDrawReveal(mocks.state.pool.rows),
+      };
     });
     mocks.getTmdbMovieDetails.mockResolvedValue({
       trailer: { key: "feature-trailer", site: "YouTube" },
@@ -422,17 +428,19 @@ describe("SoloDrawPage", () => {
     fireEvent.click(screen.getByRole("button", { name: /hold to draw/i }));
     fireEvent.click(screen.getByRole("button", { name: "Draw" }));
 
-    expect(screen.getByText(/drawing a title from the bowl/i)).toBeInTheDocument();
+    expect(screen.getByRole("status")).toHaveTextContent("Picking one of your titles");
     await act(async () => {
       await Promise.resolve();
     });
-    expect(document.querySelector(".bowl-draw-pop-title")).toHaveTextContent("Movie m1");
+    expect(document.querySelector(".draw-reveal-stage")).toHaveAttribute("data-method", "solo");
+    expect(document.querySelectorAll(".draw-reveal-card")).toHaveLength(0);
     expect(screen.queryByRole("heading", { name: "Movie m1", level: 2 })).toBeNull();
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(1499);
+      await vi.advanceTimersByTimeAsync(4099);
     });
     expect(screen.queryByRole("heading", { name: "Movie m1", level: 2 })).toBeNull();
+    expect(document.querySelector(".draw-reveal-hero-title")).toHaveTextContent("Movie m1");
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1);
@@ -444,6 +452,68 @@ describe("SoloDrawPage", () => {
     expect(mocks.startProviderLookup).toHaveBeenCalledWith(
       expect.objectContaining({ id: "m1", bowl_id: "bowl-1" })
     );
+  });
+
+  it("keeps flickering over the real crowd while the save is pending", async () => {
+    let finish;
+    mocks.draw.mockImplementation((_pool, _options, callbacks) => {
+      callbacks.onPoolResolved(mocks.state.pool.rows);
+      return new Promise((resolve) => { finish = resolve; });
+    });
+    renderPage();
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: /hold to draw/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Draw" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(8000); });
+    expect(document.querySelector(".draw-reveal-stage")).toHaveAttribute("data-phase", "loop");
+    expect(document.querySelector(".draw-reveal-hero")).toBeNull();
+    expect(screen.getByRole("status")).toHaveTextContent("Picking one of your titles");
+    fireEvent.keyDown(document.activeElement, { key: "Escape" });
+    await act(async () => {
+      finish({ ...mocks.state.pool.rows[0], drawReveal: getSoloDrawReveal(mocks.state.pool.rows) });
+    });
+    await act(async () => { await vi.advanceTimersByTimeAsync(2499); });
+    expect(document.querySelector(".draw-reveal-stage")).toHaveAttribute("data-phase", "unfold");
+    expect(screen.queryByRole("heading", { name: "Movie m1", level: 2 })).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(screen.getByRole("heading", { name: "Movie m1", level: 2 })).toBeInTheDocument();
+    expect(mocks.draw).toHaveBeenCalledTimes(1);
+  });
+
+  it("uses reduced motion and restores keyboard focus after the solo result closes", async () => {
+    vi.stubGlobal("matchMedia", (query) => ({ matches: query.includes("prefers-reduced-motion") }));
+    mocks.draw.mockImplementation(async (_pool, _options, callbacks) => {
+      callbacks.onPoolResolved(mocks.state.pool.rows);
+      return { ...mocks.state.pool.rows[0], drawReveal: getSoloDrawReveal(mocks.state.pool.rows) };
+    });
+    renderPage();
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: /hold to draw/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Draw" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(1599); });
+    expect(document.querySelector(".draw-reveal-stage")).toHaveAttribute("data-phase", "unfold");
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    expect(screen.getByRole("heading", { name: "Movie m1", level: 2 })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(100); });
+    expect(screen.getByRole("button", { name: /hold to draw/i })).toHaveFocus();
+  });
+
+  it("ignores a saved result after leaving the solo page", async () => {
+    let finish;
+    mocks.draw.mockImplementation(() => new Promise((resolve) => { finish = resolve; }));
+    const { unmount } = renderPage();
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: /hold to draw/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Draw" }));
+    unmount();
+    await act(async () => {
+      finish({ ...mocks.state.pool.rows[0], drawReveal: getSoloDrawReveal(mocks.state.pool.rows) });
+      await vi.advanceTimersByTimeAsync(5000);
+    });
+    expect(document.querySelector(".draw-reveal-stage")).toBeNull();
+    expect(mocks.getTmdbMovieDetails).not.toHaveBeenCalled();
+    expect(mocks.removeRows).not.toHaveBeenCalled();
   });
 
   it("stores the theater ticket on this device without changing account settings", async () => {

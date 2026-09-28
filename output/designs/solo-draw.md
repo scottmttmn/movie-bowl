@@ -26,6 +26,13 @@ TV distance. The quieter production design is documented in
 `tv-solo-draw.md`. On both web and TV, the theater ticket and post-draw playback
 now match the bowl flow.
 
+The draw itself now takes over the screen on mobile, desktop and TV. It uses
+the title-first crowd, flicker, pluck and unfold, with one slip per distinct
+eligible title across selected bowls. Eligible pins replace that crowd with
+pinned titles. The saved pick supplies the reveal; retries retain its original
+pool and request id. Details and theater previews wait for the shared timeline
+to finish. See `draw-method-reveals.md`, step 4.
+
 ## Product Idea
 
 Sometimes you are watching alone. You still want the bowl to decide for you, but
