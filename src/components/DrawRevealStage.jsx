@@ -75,15 +75,16 @@ function getPiles(preview) {
 }
 
 function getLayout({ width, height }, pileCount) {
-  const compact = width < 640;
-  const headerH = compact ? 212 : 236;
-  const bowlW = Math.round(Math.max(170, Math.min(width * 0.64, (height - headerH) * 0.42, 340)));
+  const short = height < 600;
+  const compact = width < 640 || short;
+  const headerH = short ? 128 : compact ? 212 : 236;
+  const bowlW = Math.round(Math.max(short ? 100 : 170, Math.min(width * 0.64, (height - headerH) * 0.42, 340)));
   const bowl = { x: (width - bowlW) / 2, y: height - bowlW * 0.9, w: bowlW };
   const mouth = { x: width / 2, y: bowl.y + bowlW * 0.36 };
-  const area = { top: headerH + 8, bottom: Math.max(headerH + 120, bowl.y + bowlW * 0.16 - 12) };
+  const area = { top: headerH + 8, bottom: Math.min(height - 16, Math.max(headerH + 120, bowl.y + bowlW * 0.16 - 12)) };
   const areaH = area.bottom - area.top;
 
-  const perRow = compact ? 4 : MAX_PILES;
+  const perRow = compact && width < height ? 4 : MAX_PILES;
   const rows = Math.max(1, Math.ceil(pileCount / perRow));
   const gap = compact ? 8 : 24;
   const slot = Math.min(compact ? 86 : 150, (width - 32 - gap * (perRow - 1)) / perRow);
@@ -105,7 +106,8 @@ function getLayout({ width, height }, pileCount) {
     return { x: (width - rowW) / 2 + col * (slot + gap) + slot / 2, baseY, cardY: baseY + slipH / 2 + 10 };
   };
 
-  const heroW = Math.min(width - 48, 460);
+  // Leave room for the opening slip's overshoot and final tilt on both axes.
+  const heroW = Math.min(width - 48, 460, (areaH - 24) / 0.48);
   const heroH = Math.round(heroW * 0.48);
   const center = { x: width / 2, y: area.top + areaH / 2 };
   const fanScale = compact ? 1.5 : 1.6;
@@ -113,6 +115,7 @@ function getLayout({ width, height }, pileCount) {
 
   return {
     compact,
+    short,
     headerH,
     bowl,
     mouth,
@@ -502,7 +505,7 @@ export default function DrawRevealStage({
   return createPortal(
     <div
       aria-hidden="true"
-      className={`draw-reveal-stage ${entered ? "is-entered" : ""} ${layout.compact ? "is-compact" : ""}`}
+      className={`draw-reveal-stage ${entered ? "is-entered" : ""} ${layout.compact ? "is-compact" : ""} ${layout.short ? "is-short" : ""}`}
       data-method={method.id}
       data-phase={phase}
       data-stage={stage || "pending"}
