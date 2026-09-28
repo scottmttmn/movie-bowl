@@ -35,7 +35,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (170 test files / 1574 tests, 92 Playwright tests with 8 skipped,
+fully green (170 test files / 1597 tests, 98 Playwright tests with 8 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -315,7 +315,7 @@ on a PostgreSQL you already have, applies `supabase/baseline/` and then every
 migration in order, runs the suites and drops it again. It needs pgTAP and
 `pg_prove` beside that server (`apt-get install pgtap`, or `brew install pgtap`)
 and `DATABASE_URL` if the server is not the local default. Never against the
-hosted database: pgTAP writes rows. A clean run is 27 suites / 745 assertions,
+hosted database: pgTAP writes rows. A clean run is 28 suites / 760 assertions,
 all passing, and `npm run test:counts -- pgtap` holds that sentence to the run.
 
 `supabase/baseline/` is the pre-migration schema, not a migration. Movie Bowl's
@@ -393,12 +393,19 @@ because the method belongs to the bowl and not to tonight. `tvLabel` is that
 mark's accessible name, so a method added to the registry needs a mark here
 too or it renders nothing at all.
 
-The dashboard's draw reveal shows the method working: `handleDraw` returns a
-`drawReveal` (`utils/drawReveal.js`) built from the pool the method actually
-selected from, and `DrawRevealTrack` replays it -- a person, then one of their
-movies; or one title from the whole bowl. It is a replay, never a performance:
-it lands only on what was drawn, and a stage the client cannot verify is left
-out rather than guessed. See `output/designs/draw-method-reveals.md`.
+The dashboard's draw reveal shows the method working, full screen:
+`DrawRevealStage` lifts the bowl out of the page, sorts the pool into one pile
+per person (or one crowd, for title-first), and replays the draw -- a person,
+then one of their movies; or one title plucked from everything. `handleDraw`
+hands the resolved pool to `onPoolResolved` before the draw is sent, so that
+arrangement plays while the request is in flight; the `drawReveal` it returns
+afterwards is what lands. It is a replay, never a performance: before the result
+the stage may sweep real names but never settles, it lands only on what was
+drawn, and a stage the client cannot verify is left out rather than guessed.
+Rotation's line-up comes from `draw_bowl_movie_by_rotation`'s own
+`rotation_queue`, never from the client's history. `getDrawRevealTimeline` is
+the one schedule: the stage plays it and the dashboard opens the movie when it
+ends. See `output/designs/draw-method-reveals.md`.
 
 Streaming prioritization narrows the pool *before* the contributor bucketing:
 with `prioritizeByServiceRank` it keeps only the top-ranked matching service,

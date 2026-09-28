@@ -31,11 +31,12 @@ import useDrawPoolCount, { DRAW_POOL_STATUS } from "../hooks/useDrawPoolCount";
 import useMyMovieEligibility, { MY_MOVIE_ELIGIBILITY_STATUS } from "../hooks/useMyMovieEligibility";
 import AddMovieModal from "../components/AddMovieModal";
 import DrawAnimationModal from "../components/DrawAnimationModal";
-import DrawRevealTrack from "../components/DrawRevealTrack";
+import DrawRevealStage from "../components/DrawRevealStage";
 import {
-  DRAW_REVEAL_TITLE_HOLD_MS,
-  getDrawRevealCopy,
-  getDrawRevealPersonMs,
+  DRAW_REVEAL_FALLBACK_OPEN_MS,
+  getDrawRevealAnnouncement,
+  getDrawRevealPreview,
+  getDrawRevealTimeline,
 } from "../utils/drawReveal";
 import { Link, useNavigate, useParams } from "react-router-dom";
 import { isStarterPackMovie } from "../utils/drawBuckets";
@@ -107,8 +108,12 @@ export default function BowlDashboard() {
     const [showGenreFilters, setShowGenreFilters] = useState(false);
     const [showRuntimeFilters, setShowRuntimeFilters] = useState(false);
     const [isDrawing, setIsDrawing] = useState(false);
-    const [drawAnimationTitle, setDrawAnimationTitle] = useState("");
-    const [drawReveal, setDrawReveal] = useState(null);
+    // Everything the takeover reveal needs, gathered as the draw goes: the pool
+    // before the request is sent, then the result. See DrawRevealStage.
+    const [revealRun, setRevealRun] = useState(null);
+    const [revealPhase, setRevealPhase] = useState("gather");
+    const revealRunRef = useRef(null);
+    const drawBowlRef = useRef(null);
     const [showDrawConfirm, setShowDrawConfirm] = useState(false);
     const [showMethodInfo, setShowMethodInfo] = useState(false);
     const [bowlName, setBowlName] = useState("");
@@ -917,17 +922,42 @@ export default function BowlDashboard() {
     const runDraw = async () => {
       if (isDrawing || isFirstLoad || !canCurrentUserDraw || bowl.remaining.length === 0) return;
       setShowDrawConfirm(false);
-      setDrawAnimationTitle("");
-      setDrawReveal(null);
+      const startedAt = Date.now();
+      const reducedMotion = Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
+      const run = {
+        startedAt,
+        methodId: normalizeDrawMethod(drawMethod),
+        reducedMotion,
+        originRect: drawBowlRef.current?.getBoundingClientRect?.() || null,
+        preview: null,
+        previewAt: null,
+        reveal: null,
+        resultAt: null,
+        title: "",
+      };
+      revealRunRef.current = run;
+      const updateRun = (patch) => {
+        if (revealRunRef.current?.startedAt !== startedAt) return;
+        revealRunRef.current = { ...revealRunRef.current, ...patch };
+        setRevealRun(revealRunRef.current);
+      };
+      setRevealRun(run);
+      setRevealPhase("gather");
       setIsDrawing(true);
 
       try {
-        const minAnimationDelay = new Promise((resolve) => setTimeout(resolve, 1500));
+        const minAnimationDelay = new Promise((resolve) => setTimeout(resolve, DRAW_REVEAL_FALLBACK_OPEN_MS));
         const drawPromise = handleDraw({
           prioritizeByServices: prioritizeStreaming,
           prioritizeByServiceRank: useStreamingRank,
           userStreamingServices,
           ...drawFilters,
+          // The pool is known before the draw is sent, so the reveal can rise
+          // and sort it while the request is in flight.
+          onPoolResolved: (pool) => updateRun({
+            preview: getDrawRevealPreview({ drawMethod: run.methodId, pool }),
+            previewAt: Date.now() - startedAt,
+          }),
         }).then(async (result) => {
           if (!result) {
             startProviderLookup(result);
@@ -935,16 +965,15 @@ export default function BowlDashboard() {
           }
           const { drawReveal: reveal = null, ...movie } = result;
           startProviderLookup(movie);
-          // The reveal replays the draw that just happened: the person lands
-          // first, then the title goes on the slip. A quick draw still opens at
-          // 1.5s; a slow one gets the stages it would otherwise have skipped.
-          setDrawReveal(reveal);
-          const personMs = getDrawRevealPersonMs(reveal, {
-            reducedMotion: Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches),
-          });
-          if (personMs > 0) await new Promise((resolve) => setTimeout(resolve, personMs));
-          if (movie.title) setDrawAnimationTitle(movie.title);
-          if (reveal) await new Promise((resolve) => setTimeout(resolve, DRAW_REVEAL_TITLE_HOLD_MS));
+          // The reveal replays the draw that just happened, and the movie opens
+          // when its schedule says the show is over -- never before, and never
+          // left waiting after.
+          const resultAt = Date.now() - startedAt;
+          updateRun({ reveal, resultAt, title: movie.title || "" });
+          const { preview, previewAt } = revealRunRef.current || run;
+          const { openAt } = getDrawRevealTimeline({ preview, previewAt, reveal, resultAt, reducedMotion });
+          const wait = (openAt ?? 0) - (Date.now() - startedAt);
+          if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
           return movie;
         });
 
@@ -960,8 +989,8 @@ export default function BowlDashboard() {
         }
       } finally {
         setIsDrawing(false);
-        setDrawAnimationTitle("");
-        setDrawReveal(null);
+        revealRunRef.current = null;
+        setRevealRun(null);
       }
     };
 
@@ -1058,19 +1087,12 @@ return (
                 </span>
               )}
               <div className="mx-auto max-w-5xl">
-                <div className="relative">
+                <div className="relative" ref={drawBowlRef}>
+                  {/* The takeover lifts this bowl out of the page, so it is
+                      hidden here for as long as the stage holds it. */}
                   <BowlIllustration
-                    drawTitle={drawAnimationTitle}
-                    isDrawing={isDrawing}
-                    className="mx-auto h-44 w-full max-w-2xl drop-shadow-2xl sm:h-48 md:h-52"
+                    className={`mx-auto h-44 w-full max-w-2xl drop-shadow-2xl sm:h-48 md:h-52 ${isDrawing ? "invisible" : ""}`}
                   />
-                  {isDrawing && (
-                    <DrawRevealTrack
-                      method={getDrawMethod(drawReveal?.methodId ?? drawMethod)}
-                      reveal={drawReveal}
-                      titleShown={Boolean(drawAnimationTitle)}
-                    />
-                  )}
                 </div>
 
                 <BowlStatLine
@@ -1904,7 +1926,21 @@ return (
                 </div>
               </div>
             )}
-            {isDrawing && <DrawAnimationModal detail={getDrawRevealCopy(drawReveal).announcement} />}
+            {isDrawing && revealRun && (
+              <DrawRevealStage
+                method={getDrawMethod(revealRun.reveal?.methodId ?? revealRun.methodId)}
+                preview={revealRun.preview}
+                previewAt={revealRun.previewAt}
+                reveal={revealRun.reveal}
+                resultAt={revealRun.resultAt}
+                startedAt={revealRun.startedAt}
+                title={revealRun.title}
+                originRect={revealRun.originRect}
+                reducedMotion={revealRun.reducedMotion}
+                onPhaseChange={setRevealPhase}
+              />
+            )}
+            {isDrawing && <DrawAnimationModal detail={getDrawRevealAnnouncement(revealRun?.reveal, revealPhase)} />}
             <BowlPicker
               isOpen={isPickerOpen}
               bowls={accountBowls}

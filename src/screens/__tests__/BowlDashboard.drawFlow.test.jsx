@@ -199,7 +199,9 @@ describe("BowlDashboard draw flow", () => {
       await Promise.resolve();
     });
 
-    expect(document.querySelector(".bowl-draw-pop-title")).toHaveTextContent("Movie A");
+    // A result with nothing to replay takes the screen and opens at the
+    // usual minimum.
+    expect(document.querySelector(".draw-reveal-stage")).toBeInTheDocument();
     expect(screen.queryByText("Movie A (2020)")).not.toBeInTheDocument();
 
     await act(async () => {
@@ -221,7 +223,7 @@ describe("BowlDashboard draw flow", () => {
     vi.useRealTimers();
   });
 
-  it("lands on the drawn person before the title goes on the slip", async () => {
+  it("replays the draw in a takeover: the person lands first, then the title, then the movie opens", async () => {
     mocks.state.handleDraw.mockResolvedValue({
       id: "m1",
       tmdb_id: 101,
@@ -233,8 +235,8 @@ describe("BowlDashboard draw flow", () => {
         person: {
           mode: "random",
           people: [
-            { key: "user:u1", label: "Owner" },
-            { key: "user:u2", label: "Friend" },
+            { key: "user:u1", label: "Owner", count: 2 },
+            { key: "user:u2", label: "Friend", count: 1 },
           ],
           chosenKey: "user:u1",
           chosenLabel: "Owner",
@@ -252,25 +254,50 @@ describe("BowlDashboard draw flow", () => {
       await Promise.resolve();
     });
 
-    const track = document.querySelector(".draw-reveal-track");
-    expect(track).toHaveAttribute("data-stage", "person");
-    expect(document.querySelector(".bowl-draw-pop-title")).toHaveTextContent("Drawing...");
+    const stage = document.querySelector(".draw-reveal-stage");
+    // Portaled out of the page, so no header's containing block can trap it.
+    expect(stage.parentElement).toBe(document.body);
+    expect(stage).toHaveAttribute("aria-hidden", "true");
+    expect(stage).toHaveTextContent("Picking a person at random…");
+
+    // The piles sort and the light sweeps, but nothing lands before its time.
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(2899);
+    });
+    expect(stage).toHaveAttribute("data-phase", "sweep");
+    expect(document.querySelector(".draw-reveal-card.is-chosen")).toBeNull();
+    expect(screen.getByRole("status")).not.toHaveTextContent("Owner, at random");
 
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(800);
+      await vi.advanceTimersByTimeAsync(1);
     });
-    expect(document.querySelector(".draw-reveal-person.is-chosen")).toHaveTextContent("Owner");
-    expect(document.querySelector(".bowl-draw-pop-title")).toHaveTextContent("Movie A");
-    expect(track).toHaveTextContent("Owner, at random · 1 of Owner's 2 movies");
+    expect(document.querySelector(".draw-reveal-card.is-chosen")).toHaveTextContent("Owner");
+    expect(stage).toHaveTextContent("Owner, at random");
+    expect(screen.getByRole("status")).toHaveTextContent("Owner, at random.");
+    expect(screen.getByRole("status")).not.toHaveTextContent("1 of Owner's 2 movies");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(950);
+    });
+    expect(stage).toHaveAttribute("data-phase", "pick");
     expect(screen.getByRole("status")).toHaveTextContent("Owner, at random. 1 of Owner's 2 movies.");
+
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(400);
+    });
+    expect(document.querySelector(".draw-reveal-hero-title")).toHaveTextContent("Movie A");
     expect(screen.queryByRole("heading", { name: "Movie A", level: 2 })).not.toBeInTheDocument();
 
-    // A quick draw still opens at the usual minimum.
+    // The movie opens when the replay is over, just under five seconds in.
     await act(async () => {
-      await vi.advanceTimersByTimeAsync(700);
+      await vi.advanceTimersByTimeAsync(699);
+    });
+    expect(screen.queryByRole("heading", { name: "Movie A", level: 2 })).not.toBeInTheDocument();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1);
     });
     expect(screen.getByRole("heading", { name: "Movie A", level: 2 })).toBeInTheDocument();
-    expect(document.querySelector(".draw-reveal-track")).toBeNull();
+    expect(document.querySelector(".draw-reveal-stage")).toBeNull();
     vi.useRealTimers();
   });
 
