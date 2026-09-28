@@ -332,8 +332,20 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       fetchFilterMetadata: filterMetadataFetchers.fetchFilterMetadata,
     };
 
+    // The screen starts arranging the pool while the request is in flight, so
+    // it hears about the pool before the draw is sent. It never hears who was
+    // drawn until the draw is recorded.
+    const announcePool = (pool) => {
+      try {
+        options.onPoolResolved?.(pool);
+      } catch (error) {
+        console.error("[useBowl] Draw pool listener failed", error);
+      }
+    };
+
     let selected;
     let drawPool = [];
+    let rotationTurn = null;
     try {
       if (method.selectionMode === "server_rotation") {
         const { candidates, errorMessage: drawError } = await getResolvedDrawPool(
@@ -348,6 +360,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
           .map((candidate) => getMovieFromDrawCandidate(candidate)?.id)
           .filter(Boolean);
         if (candidateMovieIds.length === 0) return null;
+        announcePool(candidates);
 
         const { data, error } = await supabase.rpc("draw_bowl_movie_by_rotation", {
           p_bowl_id: bowlId,
@@ -379,6 +392,10 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
 
         selected = await hydrateDrawCandidate(selectedCandidate, fetchProviders);
         drawPool = candidates;
+        rotationTurn = {
+          turnBucketKey: rotationResult?.turn_bucket_key || null,
+          rotationQueue: rotationResult?.rotation_queue || null,
+        };
       } else {
         const { selected: clientSelected, candidates, errorMessage: drawError } =
           await getDrawSelection({
@@ -391,6 +408,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
           return null;
         }
         if (!clientSelected) return null;
+        announcePool(candidates || []);
 
         // A pack slip names no one, so the turn it was drawn on is sent with it.
         // Every other draw keeps the two-argument call its contributor already
@@ -437,7 +455,8 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         drawMethod: activeDrawMethod,
         pool: drawPool,
         drawn,
-        turnBucketKey: selected.turnBucketKey || null,
+        turnBucketKey: rotationTurn?.turnBucketKey || selected.turnBucketKey || null,
+        rotationQueue: rotationTurn?.rotationQueue || null,
       }),
     };
   }, [bowlId, loadedBowlId, bowl.remaining, loadBowlMovies, drawMethod, filterMetadataFetchers]);

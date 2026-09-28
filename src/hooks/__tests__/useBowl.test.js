@@ -595,6 +595,72 @@ describe("useBowl handleDraw integration", () => {
     });
   });
 
+  const countDrawRpcs = () =>
+    mocks.rpcCalls.filter(({ name }) => name.startsWith("draw_bowl_movie")).length;
+
+  it("hands the pool to the screen before the draw is sent, and lines rotation up as the draw ranked it", async () => {
+    const movieA = { id: "m1", tmdb_id: 101, title: "Movie A", added_by: "user-1" };
+    const movieB = { id: "m2", tmdb_id: 202, title: "Movie B", added_by: "user-2" };
+    mocks.remainingQueue.push([movieA, movieB], [movieA]);
+    mocks.watchedQueue.push([], [{ ...movieB, drawn_at: "2026-08-21T18:00:00.000Z" }]);
+    mocks.rpcResponses.push({
+      data: [{
+        bowl_movie_id: "m2",
+        draw_event_id: "event-2",
+        turn_bucket_key: "user:user-2",
+        rotation_queue: [
+          { bucket_key: "user:user-2", never_drawn: true },
+          { bucket_key: "user:user-1", never_drawn: false },
+        ],
+      }],
+      error: null,
+    });
+    mocks.fetchStreamingProviders.mockResolvedValue({ providers: [], region: "US", fetchedAt: null });
+
+    const { result } = renderHook(() => useBowl("bowl-1", { drawMethod: "rotation" }));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const rpcCountWhenPoolArrived = [];
+    const onPoolResolved = vi.fn(() => rpcCountWhenPoolArrived.push(countDrawRpcs()));
+    let drawn;
+    await act(async () => {
+      drawn = await result.current.handleDraw({ onPoolResolved });
+    });
+
+    expect(onPoolResolved).toHaveBeenCalledTimes(1);
+    expect(onPoolResolved.mock.calls[0][0].map((candidate) => (candidate.movie || candidate).id)).toEqual(["m1", "m2"]);
+    expect(rpcCountWhenPoolArrived).toEqual([0]);
+    expect(drawn.drawReveal.person).toMatchObject({
+      mode: "turn",
+      chosenKey: "user:user-2",
+      queue: [
+        { key: "user:user-2", neverDrawn: true },
+        { key: "user:user-1", neverDrawn: false },
+      ],
+    });
+  });
+
+  it("hands a person-first pool to the screen before recording the draw", async () => {
+    const movieA = { id: "m1", tmdb_id: 101, title: "Movie A", added_by: "user-1" };
+    const movieB = { id: "m2", tmdb_id: 202, title: "Movie B", added_by: "user-2" };
+    mocks.remainingQueue.push([movieA, movieB], [movieA]);
+    mocks.watchedQueue.push([], []);
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const rpcCountWhenPoolArrived = [];
+    await act(async () => {
+      await result.current.handleDraw({
+        randomFn: () => 0.99,
+        onPoolResolved: () => rpcCountWhenPoolArrived.push(countDrawRpcs()),
+      });
+    });
+
+    expect(rpcCountWhenPoolArrived).toEqual([0]);
+    expect(mocks.rpcCalls.map(({ name }) => name)).toContain("draw_bowl_movie");
+  });
+
   it("returns the person-first reveal for the turn the draw actually spent", async () => {
     const movieA = { id: "m1", tmdb_id: 101, title: "Movie A", added_by: "user-1" };
     const movieB = { id: "m2", tmdb_id: 202, title: "Movie B", added_by: "user-1" };

@@ -1,8 +1,9 @@
 # Draw Method Reveals
 
-Status: step 1 built September 27, 2026 on the web bowl dashboard
-(`src/utils/drawReveal.js`, `src/components/DrawRevealTrack.jsx`). Step 2, the
-television, is a plan and nothing of it exists in code.
+Status: step 1 built September 27, 2026 on the web bowl dashboard, and replaced
+by step 2 on September 28 (`src/utils/drawReveal.js`,
+`src/components/DrawRevealStage.jsx`). Step 3, the television, is a plan and
+nothing of it exists in code.
 
 ## The Question
 
@@ -40,7 +41,7 @@ resolved pool and the persisted result:
 - A stage the method does not have is never shown. Title-first has no person
   stage at all, and leaving it out is itself the explanation.
 
-## The Stages
+## The Stages (step 1)
 
 | Method | Person stage | Title stage |
 |---|---|---|
@@ -61,35 +62,79 @@ Also:
   registry copy in `utils/drawMethods.js`, which also owns each method's
   in-flight line (`revealPending`).
 
-## Timing
+## Step 2 — The Takeover (built September 28)
 
-The draw used to open its result 1.5 seconds after the hold completed, however
-fast the request came back. The reveal keeps that: once the result is in, the
-person stage runs 800 ms, the title goes on the slip, and it holds for 500 ms.
-A draw that returns in the first 200 ms still opens at 1.5 s. A slow one gets
-the stages after its result rather than skipping them, so it opens up to 1.3 s
-after the request returns.
+Step 1 narrated the method in a row of small chips under the bowl, inside the
+1.5 seconds the draw always took. It was true and easy to miss. Step 2 gives the
+draw the whole screen and about four and a half seconds, and turns each method
+into something that happens to the slips.
 
-With reduced motion there is no sweep: the person stage lands after a short
-pause and the chips do not move.
+`DrawRevealStage` is portaled to the body and lifts the dashboard's bowl out of
+the page onto a dark stage. The method's steps sit across the top as numbered
+pills, read from the registry's `steps`, and light up as each stage lands.
 
-## Accessibility
+| Method | While in flight (claims nothing) | Once the result is in |
+|---|---|---|
+| Person-first | Slips rise and sort into one pile per person. Piles are as tall as what each person added; every name tag is the same size. A light sweeps the tags. | The sweep slows onto the drawn person (at least one lap), the other piles drop back, theirs fans, one slip lifts and unfolds. |
+| Rotation | The same piles, on ticket stubs. No sweep. | The piles line up in the order the draw ranked them ("Never drawn", "2nd in line"), the turn steps forward, then the same fan and lift. |
+| Title-first | Every slip rises as one crowd, "14 movies", swirling while a light flickers between slips. | The flicker slows onto one slip, which is pulled forward and unfolds. |
 
-The track is decorative (`aria-hidden`). The same account is appended to the
-draw's polite live status ("Sam, at random. 1 of Sam's 4 movies."), so a screen
-reader hears the stages the animation shows.
+A pinned pick lifts straight off the top of the pile, with its pin showing,
+instead of fanning. One person, a pack-only pool, or a result with no person
+stage plays as the crowd. Past eight people the rest share a "+N" pile, whose tag
+names the drawn person when that pile is the one drawn.
 
-## Step 2 — The Television (not built)
+### What may play before the result
+
+This relaxes step 1's rule that the reveal "never cycles names it does not yet
+have". The pool is resolved before the request goes out, so `handleDraw` hands
+it to `onPoolResolved` first, and the stage may rise, sort and sweep over real
+names while the draw is in flight. What it may not do is land: every stage that
+settles on someone starts no earlier than the result. The replay rule is
+unchanged; only the waiting got louder.
+
+### Rotation's queue
+
+The line-up needs the order the draw actually used, and the client cannot
+rebuild it: returned and removed draws still count for rotation and are hidden
+from every watched list. So `draw_bowl_movie_by_rotation` now also returns
+`turn_bucket_key` and `rotation_queue`, the eligible people in the order its
+locked transaction ranked them, each with a `never_drawn` flag
+(`20260928120000_return_rotation_queue.sql`). It carries order and never dates,
+because a date would surface a draw its owner removed from the bowl's history. A
+queue that does not put the drawn person first, or does not match the pool, is
+dropped and the turn simply steps forward. Returning the turn also means a
+rotation pack slip now has a person stage.
+
+### Timing
+
+`getDrawRevealTimeline` is the one schedule. The stage plays it; the dashboard
+opens the movie when it ends. With a quick result, person-first and rotation
+open at about 4.95 s, a pinned pick at 4.55 s and title-first at 4.1 s. A slow
+result spends its wait on the in-flight stages and lands one sweep after it
+arrives. A result with no reveal opens as before, at 1.5 s.
+
+With reduced motion nothing flies or sweeps; every stage still appears, in
+place, and the movie opens in about two seconds.
+
+### Accessibility
+
+The stage is `aria-hidden`. The draw's polite live status speaks each stage as
+the stage lands ("Sam, at random." then "1 of Sam's 4 movies."), never before
+the animation has shown it.
+
+## Step 3 — The Television (not built)
 
 The television is where this matters most -- the whole room watches the draw
 together -- and it already receives `drawReveal` from the same `handleDraw`.
-What is left is `TvDrawingScreen`: a ten-foot version of the row and the same
-sequencing in `TvTonightScreen`'s draw, which has its own minimum delay and
+What is left is `TvDrawingScreen`: a ten-foot version of the stage, driven by
+the same `getDrawRevealTimeline`, in `TvTonightScreen`'s draw, which has its own minimum delay and
 theater hand-off. `TvDrawMethodMark` already names the method beside the bowl
 name; the reveal would be where it shows it working.
 
 ## Still Open
 
-- Whether 800 ms is long enough for a sweep across eight names to read as a
-  pick rather than a flicker, in a real bowl on a phone.
-- Solo draw has no method and keeps the plain animation.
+- Whether four and a half seconds still feels like an event on the fifth draw
+  of a night, or wants a tap to skip.
+- Solo draw has no method and keeps the plain animation; `TODO.md` has the
+  follow-up to give it the crowd.
