@@ -16,7 +16,7 @@ import {
 // Everything that lands comes from `reveal`, which only exists once the draw is
 // recorded. Before that the stage may sweep and swirl over the real pool, but
 // it never settles. The schedule is getDrawRevealTimeline's, shared with the
-// dashboard, which opens the movie when the schedule says the show is over.
+// draw screens, which open the movie when the schedule says the show is over.
 // See output/designs/draw-method-reveals.md.
 
 const MAX_PILES = 8;
@@ -74,26 +74,31 @@ function getPiles(preview) {
   ];
 }
 
-function getLayout({ width, height }, pileCount) {
-  const short = height < 600;
-  const compact = width < 640 || short;
-  const headerH = short ? 128 : compact ? 212 : 236;
-  const bowlW = Math.round(Math.max(short ? 100 : 170, Math.min(width * 0.64, (height - headerH) * 0.42, 340)));
+function getLayout({ width, height }, pileCount, presentation) {
+  // TV geometry and its type use one scale, independent of html.tv-root's
+  // rem ramp. A 720p and a 1080p screen should show the same sized scene.
+  const tv = presentation === "tv";
+  const scale = tv ? Math.min(width / 1280, height / 720) : 1;
+  const unit = (value) => value * scale;
+  const short = !tv && height < 600;
+  const compact = !tv && (width < 640 || short);
+  const headerH = tv ? unit(200) : short ? 128 : compact ? 212 : 236;
+  const bowlW = Math.round(Math.max(unit(short ? 100 : 170), Math.min(width * 0.64, (height - headerH) * 0.42, unit(340))));
   const bowl = { x: (width - bowlW) / 2, y: height - bowlW * 0.9, w: bowlW };
   const mouth = { x: width / 2, y: bowl.y + bowlW * 0.36 };
-  const area = { top: headerH + 8, bottom: Math.min(height - 16, Math.max(headerH + 120, bowl.y + bowlW * 0.16 - 12)) };
+  const area = { top: headerH + unit(8), bottom: Math.min(height - unit(16), Math.max(headerH + unit(120), bowl.y + bowlW * 0.16 - unit(12))) };
   const areaH = area.bottom - area.top;
 
   const perRow = compact && width < height ? 4 : MAX_PILES;
   const rows = Math.max(1, Math.ceil(pileCount / perRow));
-  const gap = compact ? 8 : 24;
-  const slot = Math.min(compact ? 86 : 150, (width - 32 - gap * (perRow - 1)) / perRow);
-  const slipW = Math.round(Math.min(slot * 0.72, 84));
+  const gap = unit(compact ? 8 : 24);
+  const slot = Math.min(unit(compact ? 86 : 150), (width - unit(32) - gap * (perRow - 1)) / perRow);
+  const slipW = Math.round(Math.min(slot * 0.72, unit(84)));
   const slipH = Math.round(slipW * 0.54);
-  const stack = Math.max(3, Math.round(slipH * 0.2));
-  const cardH = compact ? 46 : 54;
-  const rowGap = 16;
-  const rowH = (MAX_PILE_SLIPS - 1) * stack + slipH + 10 + cardH;
+  const stack = Math.max(unit(3), Math.round(slipH * 0.2));
+  const cardH = unit(compact ? 46 : 54);
+  const rowGap = unit(16);
+  const rowH = (MAX_PILE_SLIPS - 1) * stack + slipH + unit(10) + cardH;
   const totalH = rows * rowH + (rows - 1) * rowGap;
   const startY = area.top + Math.max(0, (areaH - totalH) / 2);
 
@@ -103,11 +108,11 @@ function getLayout({ width, height }, pileCount) {
     const inRow = Math.min(perRow, pileCount - row * perRow);
     const rowW = inRow * slot + (inRow - 1) * gap;
     const baseY = startY + row * (rowH + rowGap) + (MAX_PILE_SLIPS - 1) * stack + slipH / 2;
-    return { x: (width - rowW) / 2 + col * (slot + gap) + slot / 2, baseY, cardY: baseY + slipH / 2 + 10 };
+    return { x: (width - rowW) / 2 + col * (slot + gap) + slot / 2, baseY, cardY: baseY + slipH / 2 + unit(10) };
   };
 
   // Leave room for the opening slip's overshoot and final tilt on both axes.
-  const heroW = Math.min(width - 48, 460, (areaH - 24) / 0.48);
+  const heroW = Math.min(width - unit(48), unit(460), (areaH - unit(24)) / 0.48);
   const heroH = Math.round(heroW * 0.48);
   const center = { x: width / 2, y: area.top + areaH / 2 };
   const fanScale = compact ? 1.5 : 1.6;
@@ -116,6 +121,7 @@ function getLayout({ width, height }, pileCount) {
   return {
     compact,
     short,
+    scale,
     headerH,
     bowl,
     mouth,
@@ -123,21 +129,21 @@ function getLayout({ width, height }, pileCount) {
     slipW,
     slipH,
     stack,
-    cardW: slot - 4,
+    cardW: slot - unit(4),
     cardH,
     pileSpot,
     fan: { x: center.x, y: center.y + slipH * 0.3, scale: fanScale },
-    fanCardY: center.y + slipH * 0.3 + (slipH * fanScale) / 2 + 22,
+    fanCardY: center.y + slipH * 0.3 + (slipH * fanScale) / 2 + unit(22),
     hero: { x: (width - heroW) / 2, y: Math.max(area.top, center.y - heroH / 2), w: heroW, h: heroH },
     crowd: {
-      x: Math.max(24, (width - 700) / 2),
-      y: area.top + 8,
-      w: Math.min(width - 48, 700) - slipW,
-      h: Math.max(40, areaH - slipH - 16),
+      x: Math.max(unit(24), (width - unit(700)) / 2),
+      y: area.top + unit(8),
+      w: Math.min(width - unit(48), unit(700)) - slipW,
+      h: Math.max(unit(40), areaH - slipH - unit(16)),
     },
     axis: {
       x: (width - lastRowW) / 2,
-      y: pileSpot(Math.max(0, pileCount - 1)).cardY + cardH + 12,
+      y: pileSpot(Math.max(0, pileCount - 1)).cardY + cardH + unit(12),
       w: lastRowW,
     },
   };
@@ -163,6 +169,7 @@ export default function DrawRevealStage({
   title = "",
   originRect = null,
   reducedMotion = false,
+  presentation = "web",
   onPhaseChange,
 }) {
   const viewport = useViewport();
@@ -186,7 +193,7 @@ export default function DrawRevealStage({
 
   const elapsedNow = () => Date.now() - startedAt;
 
-  // One frame at the dashboard's bowl first, so the lift out of the page is a
+  // One frame at the source screen's bowl first, so the lift out of the page is a
   // move rather than a cut.
   useEffect(() => {
     const id = window.setTimeout(() => setEntered(true), ENTER_MS);
@@ -318,7 +325,7 @@ export default function DrawRevealStage({
     return () => window.clearInterval(id);
   }, [stage, phase, reducedMotion]);
 
-  const layout = getLayout(viewport, piles.length);
+  const layout = getLayout(viewport, piles.length, presentation);
   const { slipW, slipH } = layout;
   const heroCenter = { x: layout.hero.x + layout.hero.w / 2, y: layout.hero.y + layout.hero.h / 2 };
   const personRoute = stage === "people" && chosenPile >= 0;
@@ -505,7 +512,8 @@ export default function DrawRevealStage({
   return createPortal(
     <div
       aria-hidden="true"
-      className={`draw-reveal-stage ${entered ? "is-entered" : ""} ${layout.compact ? "is-compact" : ""} ${layout.short ? "is-short" : ""}`}
+      className={`draw-reveal-stage ${entered ? "is-entered" : ""} ${layout.compact ? "is-compact" : ""} ${layout.short ? "is-short" : ""} ${presentation === "tv" ? "tv-draw-reveal-stage" : ""}`}
+      style={presentation === "tv" ? { "--draw-reveal-scale": layout.scale } : undefined}
       data-method={method.id}
       data-phase={phase}
       data-stage={stage || "pending"}

@@ -121,6 +121,8 @@ vi.mock("../../lib/tmdbApi", () => ({
 }));
 
 import { AUTO_LOOKUP_TITLE_LIMIT } from "../../hooks/useDrawPoolCount";
+import { getDrawReveal } from "../../utils/drawReveal";
+import { getContributorBucketKey } from "../../utils/drawBuckets";
 import TvBowlPicker from "../screens/TvBowlPicker";
 import TvTonightScreen from "../screens/TvTonightScreen";
 
@@ -246,6 +248,7 @@ describe("Movie Bowl TV experience", () => {
   afterEach(() => {
     cleanup();
     vi.useRealTimers();
+    vi.unstubAllGlobals();
   });
 
   it("opens the last bowl directly from the TV launch route", async () => {
@@ -877,6 +880,139 @@ describe("Movie Bowl TV experience", () => {
       expect(getDrawReadout()).toHaveAttribute("data-tone", "warning")
     );
     expect(getDrawReadout()).toHaveTextContent(/^Drawing from 1$/);
+  });
+
+  describe("the full-screen method reveal", () => {
+    const pool = [
+      { id: "alex-1", tmdb_id: -11, title: "Alex's pick", added_by_name: "Alex" },
+      { id: "alex-2", tmdb_id: -12, title: "Alex's other pick", added_by_name: "Alex" },
+      { id: "sam-1", tmdb_id: -13, title: "Sam's pick", added_by_name: "Sam" },
+    ];
+
+    async function startDraw({ method = "person_first", pending = false, pinned = false } = {}) {
+      mocks.drawMethod = method;
+      mocks.streamingServices = [];
+      mocks.bowlData = { remaining: pool, watched: [] };
+      const drawn = { ...pool[0], is_pinned: pinned };
+      const revealPool = pool.map((movie) => movie.id === drawn.id ? drawn : movie);
+      const drawReveal = getDrawReveal({
+        drawMethod: method, pool: revealPool, drawn,
+        turnBucketKey: getContributorBucketKey(drawn),
+        rotationQueue: method === "rotation" ? [
+          { bucket_key: getContributorBucketKey(pool[0]), never_drawn: true },
+          { bucket_key: getContributorBucketKey(pool[2]), never_drawn: false },
+        ] : null,
+      });
+      let resolve;
+      mocks.handleDraw.mockImplementation((options) => {
+        options.onPoolResolved(revealPool);
+        return pending ? new Promise((done) => { resolve = done; }) : Promise.resolve({ ...drawn, drawReveal });
+      });
+      const view = renderTonight();
+      fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+      vi.useFakeTimers();
+      fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+      await act(async () => { await vi.advanceTimersByTimeAsync(0); });
+      return { ...view, finish: () => resolve({ ...drawn, drawReveal }) };
+    }
+
+    const stage = () => document.querySelector(".tv-draw-reveal-stage");
+    const advance = async (ms) => act(async () => { await vi.advanceTimersByTimeAsync(ms); });
+
+    it("sweeps the real pool while waiting and only announces the committed person when they land", async () => {
+      const { finish } = await startDraw({ pending: true });
+      await advance(8000);
+      expect(stage()).toHaveAttribute("data-phase", "loop");
+      expect(document.querySelector(".draw-reveal-card.is-chosen")).toBeNull();
+      expect(screen.getByRole("status")).toHaveTextContent("Drawing tonight's movie");
+      fireEvent.keyDown(window, { key: "Escape" });
+      expect(stage()).not.toBeNull();
+
+      await act(async () => { finish(); });
+      await advance(1299);
+      expect(stage()).toHaveAttribute("data-phase", "sweep");
+      expect(screen.getByRole("status")).not.toHaveTextContent("Alex, at random");
+      await advance(1);
+      expect(screen.getByRole("status")).toHaveTextContent("Alex, at random");
+      await advance(2049);
+      expect(stage()).toHaveAttribute("data-phase", "unfold");
+      expect(screen.queryByRole("heading", { name: "Alex's pick" })).toBeNull();
+      await advance(1);
+      expect(screen.getByRole("heading", { name: "Alex's pick" })).toBeInTheDocument();
+      expect(stage()).toBeNull();
+      expect(mocks.handleDraw).toHaveBeenCalledTimes(1);
+    });
+
+    it("lines rotation up from the returned queue without a random sweep", async () => {
+      await startDraw({ method: "rotation" });
+      await advance(1600);
+      expect(stage()).toHaveAttribute("data-phase", "lineup");
+      expect(stage()).toHaveTextContent("Never drawn");
+      expect(stage()).toHaveTextContent("2nd in line");
+      expect(document.querySelector(".draw-reveal-card.is-active")).toBeNull();
+      await advance(600);
+      expect(screen.getByRole("status")).toHaveTextContent("Alex's turn");
+      await advance(2750);
+      expect(screen.getByRole("heading", { name: "Alex's pick" })).toBeInTheDocument();
+    });
+
+    it("plucks title-first from one crowd and skips the people", async () => {
+      await startDraw({ method: "title_first" });
+      await advance(1000);
+      expect(document.querySelectorAll(".draw-reveal-card")).toHaveLength(0);
+      expect(stage()).toHaveTextContent("3 movies");
+      await advance(1900);
+      expect(stage()).toHaveAttribute("data-phase", "pluck");
+      expect(screen.getByRole("status")).toHaveTextContent("1 of 3 movies in the bowl");
+      await advance(1199);
+      expect(stage()).toHaveAttribute("data-phase", "unfold");
+      await advance(1);
+      expect(screen.getByRole("heading", { name: "Alex's pick" })).toBeInTheDocument();
+    });
+
+    it("lifts the pinned title without a fan and still completes the unfolded slip", async () => {
+      await startDraw({ pinned: true });
+      await advance(3350);
+      expect(stage()).toHaveAttribute("data-phase", "pinlift");
+      expect(screen.getByRole("status")).toHaveTextContent("Alex's pinned movie");
+      await advance(1199);
+      expect(stage()).toHaveAttribute("data-phase", "unfold");
+      await advance(1);
+      expect(screen.getByRole("heading", { name: "Alex's pick" })).toBeInTheDocument();
+    });
+
+    it("uses the reduced-motion schedule and returns remote focus after the result", async () => {
+      vi.stubGlobal("matchMedia", () => ({ matches: true }));
+      await startDraw();
+      await advance(1450);
+      expect(stage()).toHaveAttribute("data-phase", "unfold");
+      await advance(499);
+      expect(screen.queryByRole("heading", { name: "Alex's pick" })).toBeNull();
+      await advance(1);
+      expect(screen.getByRole("heading", { name: "Alex's pick" })).toBeInTheDocument();
+      fireEvent.keyDown(window, { key: "Escape" });
+      await advance(100);
+      expect(screen.getByRole("button", { name: /draw a movie/i })).toHaveFocus();
+    });
+
+    it("drops the stage after a failed draw and ignores callbacks after the TV route unmounts", async () => {
+      mocks.streamingServices = [];
+      mocks.handleDraw.mockResolvedValue(null);
+      const view = renderTonight();
+      fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+      vi.useFakeTimers();
+      fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+      await advance(1800);
+      expect(stage()).toBeNull();
+      expect(screen.getByRole("button", { name: /draw a movie/i })).toBeEnabled();
+      view.unmount();
+
+      const { unmount, finish } = await startDraw({ pending: true });
+      unmount();
+      await act(async () => { finish(); });
+      await advance(5000);
+      expect(stage()).toBeNull();
+    });
   });
 
   // A logo is the service name drawn, so the name stays as the alt text: a

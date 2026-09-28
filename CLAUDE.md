@@ -35,7 +35,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (170 test files / 1597 tests, 98 Playwright tests with 8 skipped,
+fully green (170 test files / 1604 tests, 104 Playwright tests with 11 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -393,7 +393,7 @@ because the method belongs to the bowl and not to tonight. `tvLabel` is that
 mark's accessible name, so a method added to the registry needs a mark here
 too or it renders nothing at all.
 
-The dashboard's draw reveal shows the method working, full screen:
+The dashboard and television draw reveals show the method working, full screen:
 `DrawRevealStage` lifts the bowl out of the page, sorts the pool into one pile
 per person (or one crowd, for title-first), and replays the draw -- a person,
 then one of their movies; or one title plucked from everything. `handleDraw`
@@ -404,8 +404,10 @@ the stage may sweep real names but never settles, it lands only on what was
 drawn, and a stage the client cannot verify is left out rather than guessed.
 Rotation's line-up comes from `draw_bowl_movie_by_rotation`'s own
 `rotation_queue`, never from the client's history. `getDrawRevealTimeline` is
-the one schedule: the stage plays it and the dashboard opens the movie when it
-ends. See `output/designs/draw-method-reveals.md`.
+the one schedule: the stage plays it and both surfaces open the movie when it
+ends. The TV uses `presentation="tv"` to scale the scene and text together from
+720p, independently of its root font size. Theater previews start only after
+the reveal finishes. See `output/designs/draw-method-reveals.md`.
 
 Streaming prioritization narrows the pool *before* the contributor bucketing:
 with `prioritizeByServiceRank` it keeps only the top-ranked matching service,

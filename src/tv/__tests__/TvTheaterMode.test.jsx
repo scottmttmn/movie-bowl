@@ -61,6 +61,8 @@ vi.mock("../../lib/providerLinks", () => ({
 }));
 
 import { clearDrawSelectionCache } from "../../utils/drawSelection";
+import { getDrawReveal } from "../../utils/drawReveal";
+import { getContributorBucketKey } from "../../utils/drawBuckets";
 import { MPAA_RATING_OPTIONS } from "../../utils/movieRatings";
 import TvTonightScreen from "../screens/TvTonightScreen";
 import { readExternalReturn } from "../utils/externalReturn";
@@ -179,6 +181,31 @@ describe("TV theater mode", () => {
     delete window.onYouTubeIframeAPIReady;
     vi.restoreAllMocks();
     vi.useRealTimers();
+  });
+
+  it("waits for the complete method reveal before starting theater previews", async () => {
+    const pool = mocks.bowlData.remaining.map((movie, index) => ({ ...movie, added_by_name: index < 2 ? "Alex" : "Sam" }));
+    const drawReveal = getDrawReveal({
+      drawMethod: "person_first", pool, drawn: pool[0],
+      turnBucketKey: getContributorBucketKey(pool[0]),
+    });
+    mocks.handleDraw.mockImplementation(async (options) => {
+      options.onPoolResolved(pool);
+      return { ...DRAWN_MOVIE, drawReveal };
+    });
+    renderTonight();
+    fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+    vi.useFakeTimers();
+    fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+    await act(async () => { await vi.advanceTimersByTimeAsync(4949); });
+    expect(document.querySelector(".tv-draw-reveal-stage")).toHaveAttribute("data-phase", "unfold");
+    expect(window.YT.Player).not.toHaveBeenCalled();
+    expect(screen.queryByRole("dialog", { name: /previews before arrival/i })).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1); });
+    vi.useRealTimers();
+    expect(await screen.findByRole("dialog", { name: /previews before arrival/i })).toBeInTheDocument();
+    expect(document.querySelector(".tv-draw-reveal-stage")).toBeNull();
+    await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
   });
 
   it("plays queued previews on one player and hands off to the feature", async () => {

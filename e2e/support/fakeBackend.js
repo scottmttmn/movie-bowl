@@ -59,6 +59,9 @@ function createInitialState() {
     bowl_members: [],
     bowl_movies: [],
     bowl_draw_events: [],
+    // A rotation scenario supplies the transaction's exact selected row and
+    // queue. The browser fake does not reimplement Postgres's ranking logic.
+    rotationDraw: null,
     user_watch_events: [],
     solo_draw_removed_copies: [],
     bowl_invites: [],
@@ -561,10 +564,16 @@ export class FakeBackend {
       return;
     }
 
-    if (rpcName === "draw_bowl_movie") {
-      const movie = this.state.bowl_movies.find((row) => row.id === args.p_bowl_movie_id);
+    if (rpcName === "draw_bowl_movie" || rpcName === "draw_bowl_movie_by_rotation") {
+      const rotation = rpcName === "draw_bowl_movie_by_rotation" ? this.state.rotationDraw : null;
+      const selectedId = rotation?.bowl_movie_id || args.p_bowl_movie_id;
+      const movie = this.state.bowl_movies.find((row) => row.id === selectedId);
       if (!movie || movie.drawn_at) {
         await fulfillJson(route, { message: "Movie is no longer available", code: "P0001" }, 400);
+        return;
+      }
+      if (rotation && (movie.bowl_id !== args.p_bowl_id || !args.p_candidate_movie_ids?.includes(movie.id))) {
+        await fulfillJson(route, { message: "Eligible movie pool changed", code: "P0001" }, 400);
         return;
       }
       const now = new Date().toISOString();
@@ -610,7 +619,7 @@ export class FakeBackend {
           updated_at: now,
         });
       });
-      await fulfillJson(route, null);
+      await fulfillJson(route, rotation ? [{ ...rotation, draw_event_id: drawEvent.id, drawn_at: now }] : null);
       return;
     }
 
