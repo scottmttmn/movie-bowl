@@ -329,11 +329,16 @@ const mocks = vi.hoisted(() => {
           queryState.filters.push({ type: "is", key, value });
           return query;
         }),
-        order: vi.fn(async () => resolveQuery(table, queryState, "order")),
+        // An ordered read is awaited directly, or paged with range.
+        order: vi.fn(() => {
+          queryState.ordered = true;
+          return query;
+        }),
+        range: vi.fn(async () => resolveQuery(table, queryState, "order")),
         single: vi.fn(async () => resolveQuery(table, queryState, "single")),
         maybeSingle: vi.fn(async () => resolveQuery(table, queryState, "maybeSingle")),
         then: (resolve, reject) =>
-          Promise.resolve(resolveQuery(table, queryState, "then")).then(resolve, reject),
+          Promise.resolve(resolveQuery(table, queryState, queryState.ordered ? "order" : "then")).then(resolve, reject),
       };
 
       return query;

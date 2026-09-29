@@ -1,6 +1,7 @@
 import { supabase } from "./supabase";
 import { getTmdbMovieDetails } from "./tmdbApi";
 import { notifyBowlChange } from "./bowlChanges";
+import { readAllRows } from "./readAllRows";
 import { STARTER_PACK_MAX_SLIPS, getStarterPack, sampleStarterPackCandidates } from "../utils/starterPacks";
 import { OFFLINE_MESSAGE, describeNetworkError, isOffline } from "../utils/networkErrors";
 
@@ -55,7 +56,12 @@ export async function readBowlStarterPack(bowlId, { client = supabase } = {}) {
     reads = await Promise.all([
       client.from("bowls").select("starter_pack, starter_pack_installed_at").eq("id", bowlId).maybeSingle(),
       client.from("bowl_movies").select("tmdb_id, starter_pack").eq("bowl_id", bowlId).is("drawn_at", null),
-      client.from("bowl_draw_events").select("tmdb_id, starter_pack, removed_at").eq("bowl_id", bowlId).is("returned_at", null),
+      readAllRows(() => client
+        .from("bowl_draw_events")
+        .select("id, tmdb_id, starter_pack, removed_at")
+        .eq("bowl_id", bowlId)
+        .is("returned_at", null)
+        .order("id", { ascending: true })),
     ]);
   } catch (error) {
     console.error("[starterPacks] Failed to load the bowl's starter pack", error);

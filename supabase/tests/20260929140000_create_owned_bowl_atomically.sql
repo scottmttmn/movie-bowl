@@ -38,8 +38,8 @@ select ok(
 
 select is(
   (select prosecdef from pg_proc where oid = 'public.create_owned_bowl(uuid, text)'::regprocedure),
-  false,
-  'bowl creation runs as the caller, under the ordinary bowl policies'
+  true,
+  'bowl creation runs as the function owner and authorizes the caller itself'
 );
 
 -- A first creation.

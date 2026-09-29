@@ -91,7 +91,14 @@ const mocks = vi.hoisted(() => ({
           }
           return query;
         }),
-        order: vi.fn(async () => {
+        // History is read in pages, so an ordered read can be ordered again,
+        // ranged, or awaited as it stands; each resolves the same result.
+        order: vi.fn(() => {
+          state.ordered = true;
+          return query;
+        }),
+        range: vi.fn(() => query.orderedResult()),
+        orderedResult: async () => {
           if (state.kind === "remaining") {
             return {
               data: (mocks.lastRemaining = await (mocks.remainingQueue.shift() ?? mocks.lastRemaining)),
@@ -114,7 +121,7 @@ const mocks = vi.hoisted(() => ({
           }
 
           return { data: [], error: null };
-        }),
+        },
         update: vi.fn((payload) => {
           state.mode = "update";
           mocks.updatePayloads.push(payload);
@@ -153,7 +160,8 @@ const mocks = vi.hoisted(() => ({
           }
           return query;
         }),
-        then: (resolve) => {
+        then: (resolve, reject) => {
+          if (state.ordered) return query.orderedResult().then(resolve, reject);
           if (state.mode === "delete") return resolve({ data: [{ id: mocks.deleteEqFilters.find((filter) => filter.key === "id")?.value }], error: null });
           if (state.mode === "update" && mocks.updateResponses.length > 0) {
             return resolve(mocks.updateResponses.shift());
@@ -186,6 +194,7 @@ vi.mock("../../utils/getBrowserTimeZone", () => ({
 import useBowl from "../useBowl";
 import { notifyBowlChange } from "../../lib/bowlChanges";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../../utils/appLimits";
+import { HISTORY_PAGE_SIZE } from "../../lib/readAllRows";
 
 function expectDrawRpc(movieId) {
   expect(mocks.rpcCalls).toContainEqual({
@@ -399,6 +408,20 @@ describe("useBowl handleDraw integration", () => {
     expect(drawEventsCall?.isFilters).toContainEqual(["returned_at", null]);
     // A draw the owner removed from the watched history is excluded the same way.
     expect(drawEventsCall?.isFilters).toContainEqual(["removed_at", null]);
+  });
+
+  it("reads a watched list longer than one page, past the API's row cap", async () => {
+    const draw = (n) => ({ id: `draw-${n}`, title: `Draw ${n}`, drawn_at: "2026-09-01T12:00:00.000Z" });
+    const firstPage = Array.from({ length: HISTORY_PAGE_SIZE }, (_, index) => draw(index));
+
+    mocks.remainingQueue.push([]);
+    mocks.watchedQueue.push(firstPage, [draw(HISTORY_PAGE_SIZE)]);
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.bowl.watched).toHaveLength(HISTORY_PAGE_SIZE + 1);
+    expect(result.current.bowl.watched.at(-1).id).toBe(`draw-${HISTORY_PAGE_SIZE}`);
   });
 
   it("prioritizes titles matching user streaming services", async () => {
