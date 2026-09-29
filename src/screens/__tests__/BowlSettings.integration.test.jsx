@@ -272,11 +272,17 @@ const mocks = vi.hoisted(() => {
       if (state.errors.updateAddLink) {
         return { data: null, error: state.errors.updateAddLink };
       }
+      // Mirrors the relabel policy: RLS refuses by matching nothing, not by
+      // raising, so a refused or stale update resolves with no rows.
       const linkId = getEq(queryState.filters, "id");
-      state.addLinks = state.addLinks.map((link) =>
-        link.id === linkId ? { ...link, ...queryState.payload } : link
+      const isOwner = state.bowl.owner_id === state.authUser.id;
+      const matched = state.addLinks.filter(
+        (link) => link.id === linkId && (isOwner || link.created_by === state.authUser.id)
       );
-      return { data: [], error: null };
+      state.addLinks = state.addLinks.map((link) =>
+        matched.includes(link) ? { ...link, ...queryState.payload } : link
+      );
+      return { data: queryState.returning ? matched.map((link) => ({ id: link.id })) : [], error: null };
     }
 
     return { data: null, error: null };
@@ -295,7 +301,10 @@ const mocks = vi.hoisted(() => {
 
       const query = {
         select: vi.fn(() => {
-          queryState.action = "select";
+          // After a write, select() asks for the written rows back rather than
+          // starting a read.
+          if (queryState.action === "select") return query;
+          queryState.returning = true;
           return query;
         }),
         delete: vi.fn(() => {
@@ -900,6 +909,94 @@ describe("BowlSettings integration", () => {
     expect(screen.getByLabelText(/^contributor label$/i)).toHaveValue("Grandpa");
   });
 
+
+  it("reports a label the database refused instead of calling it saved", async () => {
+    mocks.state.addLinks = [
+      {
+        id: "link-1",
+        bowl_id: "bowl-1",
+        token: "token-1",
+        max_adds: 3,
+        adds_used: 1,
+        default_contributor_name: "Dad",
+        revoked_at: null,
+        created_at: "2026-04-06T00:00:00.000Z",
+        created_by: "owner-1",
+      },
+    ];
+
+    renderSettings();
+
+    await waitFor(() => {
+      expect(screen.getByLabelText(/^contributor label$/i)).toHaveValue("Dad");
+    });
+
+    // Someone deleted the link after this screen loaded, so the update the
+    // label sends matches no row.
+    mocks.state.addLinks = [];
+
+    vi.useFakeTimers();
+    fireEvent.change(screen.getByLabelText(/^contributor label$/i), {
+      target: { value: "Grandpa" },
+    });
+    await settleAutosave();
+    vi.useRealTimers();
+
+    await waitFor(() => {
+      expect(screen.getByText(/that add link's label wasn't saved/i)).toBeInTheDocument();
+    });
+    // The reload shows what is actually stored: the link is gone.
+    expect(screen.queryByLabelText(/^contributor label$/i)).not.toBeInTheDocument();
+    expect(screen.getByText(/no add links yet\./i)).toBeInTheDocument();
+  });
+
+  it("lets a member relabel only the add links they created", async () => {
+    mocks.state.authUser = { id: "member-1", email: "member@example.com" };
+    mocks.state.addLinks = [
+      {
+        id: "link-owner",
+        bowl_id: "bowl-1",
+        token: "token-owner",
+        max_adds: 3,
+        adds_used: 0,
+        default_contributor_name: "Dad",
+        revoked_at: null,
+        created_at: "2026-04-07T00:00:00.000Z",
+        created_by: "owner-1",
+      },
+      {
+        id: "link-member",
+        bowl_id: "bowl-1",
+        token: "token-member",
+        max_adds: 3,
+        adds_used: 0,
+        default_contributor_name: "Mum",
+        revoked_at: null,
+        created_at: "2026-04-06T00:00:00.000Z",
+        created_by: "member-1",
+      },
+    ];
+
+    renderSettings();
+
+    await waitFor(() => {
+      expect(screen.getByDisplayValue("Mum")).toBeInTheDocument();
+    });
+
+    expect(screen.getByDisplayValue("Dad")).toHaveAttribute("readonly");
+    const ownLabel = screen.getByDisplayValue("Mum");
+    expect(ownLabel).not.toHaveAttribute("readonly");
+
+    vi.useFakeTimers();
+    fireEvent.change(ownLabel, { target: { value: "Mother" } });
+    await settleAutosave();
+    vi.useRealTimers();
+
+    expect(
+      mocks.state.addLinks.find((link) => link.id === "link-member")?.default_contributor_name
+    ).toBe("Mother");
+    expect(screen.queryByText(/label wasn't saved/i)).not.toBeInTheDocument();
+  });
 
   it("autosaves an updated bowl name without a save button", async () => {
     mocks.state.bowl = {

@@ -18,6 +18,8 @@ import { getDisplayInitial, getProfileDisplayName } from "../utils/profileIdenti
 
 const DRAW_ACCESS_MODE_ALL = "all_members";
 const DRAW_ACCESS_MODE_SELECTED = "selected_members";
+const ADD_LINK_COLUMNS =
+  "id, token, max_adds, adds_used, revoked_at, created_at, created_by, default_contributor_name";
 
 // Copying a link is the whole point of this screen's sharing sections, and the
 // page-level banner confirming it is often scrolled out of view — so the button
@@ -78,6 +80,36 @@ export default function BowlSettings() {
       .filter((id) => memberIds.has(id))
       .sort();
   }, [drawAllowedUserIds, members, ownerId]);
+
+  // Refreshes the add-link rows after a label save the database refused. Only
+  // the refused link's draft is reset; edits to other links stay as typed.
+  const reloadAddLinks = useCallback(
+    async (refusedLinkId) => {
+      const { data: rows, error } = await supabase
+        .from("bowl_add_links")
+        .select(ADD_LINK_COLUMNS)
+        .eq("bowl_id", bowlId)
+        .order("created_at", { ascending: false });
+
+      if (error) {
+        console.error("[BowlSettings] Failed to reload add links", error);
+        return;
+      }
+
+      setAddLinks(rows || []);
+      setEditingAddLinkNames((current) =>
+        Object.fromEntries(
+          (rows || []).map((row) => [
+            row.id,
+            row.id !== refusedLinkId && Object.prototype.hasOwnProperty.call(current, row.id)
+              ? current[row.id]
+              : row.default_contributor_name || "",
+          ])
+        )
+      );
+    },
+    [bowlId]
+  );
 
   const bowlSettingsSnapshot = useMemo(
     () => ({
@@ -192,13 +224,25 @@ export default function BowlSettings() {
         );
         for (const linkId of changedAddLinkIds) {
           const nextName = String(next.addLinkNames[linkId] || "").trim();
-          const { error } = await supabase
+          const { data: updatedLinks, error } = await supabase
             .from("bowl_add_links")
             .update({ default_contributor_name: nextName || null })
-            .eq("id", linkId);
+            .eq("id", linkId)
+            .select("id");
 
           if (error) {
             console.error("[BowlSettings] Failed to save add link label", error);
+            return { error: new Error("Failed to save add link label.") };
+          }
+          // RLS answers a refused or stale update with zero rows and no error,
+          // so only a returned row proves the label was saved. The reload shows
+          // what is really stored, which lets the next autosave pass succeed, so
+          // the explanation goes in the page banner that outlasts this attempt.
+          if (!updatedLinks?.length) {
+            await reloadAddLinks(linkId);
+            setErrorMessage(
+              "That add link's label wasn't saved. The link may have been deleted, or only its creator and the bowl owner can rename it."
+            );
             return { error: new Error("Failed to save add link label.") };
           }
           setAddLinks((current) =>
@@ -216,7 +260,7 @@ export default function BowlSettings() {
         return { error: new Error("Unexpected error saving bowl settings.") };
       }
     },
-    [bowlId, isOwner]
+    [bowlId, isOwner, reloadAddLinks]
   );
 
   const { status: saveStatus, error: saveError, retry: retrySave } = useAutosave({
@@ -280,7 +324,7 @@ export default function BowlSettings() {
         .order("created_at", { ascending: false }));
       const addLinksRequest = startRead(supabase
         .from("bowl_add_links")
-        .select("id, token, max_adds, adds_used, revoked_at, created_at, created_by, default_contributor_name")
+        .select(ADD_LINK_COLUMNS)
         .eq("bowl_id", bowlId)
         .order("created_at", { ascending: false }));
 
@@ -1081,9 +1125,9 @@ export default function BowlSettings() {
                         Number(link.max_adds || 0) - Number(link.adds_used || 0)
                       );
                       const linkUrl = buildAddLinkUrl(link.token);
-                      // Mirrors the delete policy: the owner or the link's creator.
-                      // Anyone else would only be refused by RLS after the click.
-                      const canDeleteLink = isOwner || link.created_by === currentUserId;
+                      // Mirrors the delete and relabel policies: the owner or the
+                      // link's creator. Anyone else would only be refused by RLS.
+                      const canManageLink = isOwner || link.created_by === currentUserId;
                       const status = link.revoked_at
                         ? { label: "Revoked", tone: "border-rose-800/70 bg-rose-950/40 text-rose-300" }
                         : remainingAdds === 0
@@ -1112,7 +1156,7 @@ export default function BowlSettings() {
                                 ariaLabel="Copy add link"
                                 onCopied={() => setActionMessage("Add link copied.")}
                               />
-                              {canDeleteLink && (
+                              {canManageLink && (
                                 <button
                                   type="button"
                                   onClick={() => {
@@ -1134,6 +1178,7 @@ export default function BowlSettings() {
                               id={`add-link-label-${link.id}`}
                               type="text"
                               value={editingAddLinkNames[link.id] ?? ""}
+                              readOnly={!canManageLink}
                               onChange={(event) =>
                                 setEditingAddLinkNames((prev) => ({
                                   ...prev,
@@ -1141,7 +1186,7 @@ export default function BowlSettings() {
                                 }))
                               }
                               placeholder="Link Guest"
-                              className="input-field mt-1 text-sm"
+                              className={`input-field mt-1 text-sm${canManageLink ? "" : " cursor-default opacity-70"}`}
                             />
                           </label>
                         </div>
