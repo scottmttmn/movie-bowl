@@ -162,16 +162,6 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Technical Debt / Maintenance
 
-- **Check `supabase/baseline/` against a real dump.** The baseline shipped and
-  the database suites now run in CI on every pull request, so this is no longer
-  a hole in the gate. But the baseline is a reconstruction assembled from the
-  migrations, the tests and the app code — not a dump — and what holds it true
-  is that all 33 suites pass against it unchanged. A column no suite reads could
-  still be wrong. Run the diff recipe in `supabase/README.md` against the linked
-  project once and record the result; until then, treat a pgTAP failure that
-  implicates a baseline-defined table as a suspected baseline error before
-  suspecting the migration.
-
 - **Meter the free tiers — partly done.** `service_usage_counters` now records
   daily per-metric spend through `record_service_usage`, wired at the two
   chokepoints that already hold the service role: invite mail (with a warning
