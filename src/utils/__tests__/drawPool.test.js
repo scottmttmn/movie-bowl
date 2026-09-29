@@ -19,6 +19,7 @@ describe("summarizeContributorReach", () => {
     expect(summarizeContributorReach([alexA, sam, packSlip], [packSlip])).toEqual({
       totalCount: 2,
       reachedCount: 0,
+      packTitleCount: 1,
       excludedNames: ["Alex", "Sam"],
     });
   });
@@ -28,6 +29,7 @@ describe("summarizeContributorReach", () => {
     expect(summarizeContributorReach(pool, pool)).toEqual({
       totalCount: 2,
       reachedCount: 2,
+      packTitleCount: 0,
       excludedNames: [],
     });
   });
@@ -38,6 +40,7 @@ describe("summarizeContributorReach", () => {
     expect(summarizeContributorReach(pool, [alexA])).toEqual({
       totalCount: 3,
       reachedCount: 1,
+      packTitleCount: 0,
       excludedNames: ["Jo", "Sam"],
     });
   });
@@ -49,6 +52,7 @@ describe("summarizeContributorReach", () => {
     expect(summarizeContributorReach(pool, [alexA, sam])).toEqual({
       totalCount: 2,
       reachedCount: 2,
+      packTitleCount: 0,
       excludedNames: [],
     });
   });
@@ -69,6 +73,7 @@ describe("summarizeContributorReach", () => {
     expect(summarizeContributorReach(pool, [])).toEqual({
       totalCount: 2,
       reachedCount: 0,
+      packTitleCount: 0,
       excludedNames: ["Alex", "Sam"],
     });
   });

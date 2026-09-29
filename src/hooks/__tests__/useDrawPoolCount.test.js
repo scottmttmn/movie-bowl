@@ -106,6 +106,7 @@ describe("useDrawPoolCount", () => {
     expect(result.current.contributorReach).toEqual({
       totalCount: 2,
       reachedCount: 1,
+      packTitleCount: 0,
       excludedNames: ["Sam"],
     });
   });
@@ -526,6 +527,7 @@ describe("useDrawPoolCount", () => {
     expect(result.current.contributorReach).toEqual({
       totalCount: 2,
       reachedCount: 1,
+      packTitleCount: 0,
       excludedNames: ["Sam"],
     });
     expect(fetchProviders).toHaveBeenCalledTimes(1);

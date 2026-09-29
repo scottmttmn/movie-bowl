@@ -24,7 +24,7 @@ export const DRAW_POOL_STATUS = {
   ready: "ready",
 };
 
-const EMPTY_REACH = { totalCount: 0, reachedCount: 0, excludedNames: [] };
+const EMPTY_REACH = { totalCount: 0, reachedCount: 0, packTitleCount: 0, excludedNames: [] };
 const EMPTY_STREAMING_MATCH = {
   matchCount: null,
   topService: null,
