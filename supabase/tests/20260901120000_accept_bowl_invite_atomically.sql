@@ -245,7 +245,9 @@ select isnt(
   'finalizing repairs a membership that never marked its invite accepted'
 );
 
--- The mirror image: a finalized invite whose membership never landed.
+-- The mirror image: a finalized invite whose membership is gone. This used to
+-- recreate the membership, which let a removed member rejoin on an old link;
+-- 20260929120000_stop_accepted_invites_readmitting.sql refuses it instead.
 update public.bowl_invites
 set accepted_at = now()
 where id = '30000000-0000-0000-0000-000000000063';
@@ -257,10 +259,11 @@ select set_config(
   true
 );
 
-select is(
-  public.accept_bowl_invite('token-repair-two'),
-  '10000000-0000-0000-0000-000000000061'::uuid,
-  'an already-finalized invite still admits the account it named'
+select throws_ok(
+  $sql$ select public.accept_bowl_invite('token-repair-two') $sql$,
+  'P0001',
+  'This invite is no longer available. It may have been used already, or it was sent to a different account.',
+  'an already-finalized invite does not admit an account that has no membership'
 );
 
 reset role;
@@ -272,8 +275,8 @@ select is(
     where bowl_id = '10000000-0000-0000-0000-000000000061'
       and user_id = '00000000-0000-0000-0000-000000000065'
   ),
-  1,
-  'finalizing repairs an invite that was marked accepted without membership'
+  0,
+  'a refused finalized invite leaves no membership behind'
 );
 
 select * from finish();
