@@ -21,76 +21,99 @@
 -- Tables
 -- ---------------------------------------------------------------------------
 
--- Accounts. One row per auth user, created by the client on first sign-in.
+-- Checked column by column against a schema dump of the linked project on
+-- September 29, 2026. Some of this reads as an oversight -- nullable columns,
+-- `bowl_invites` timestamps without a time zone, a lower-case `'member'`
+-- default nothing relies on because every writer names the role -- but it is
+-- what production has, and a baseline that tidies it tests a database nobody
+-- runs.
+
+-- Accounts. One row per auth user. The other tables reference profiles rather
+-- than auth.users, as production does.
 create table if not exists public.profiles (
   id uuid primary key references auth.users(id) on delete cascade,
   email text,
-  streaming_services text[] not null default '{}',
-  default_draw_settings jsonb not null default '{}'::jsonb,
-  created_at timestamptz not null default now()
+  streaming_services text[],
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
+  default_draw_settings jsonb not null default '{}'::jsonb
 );
 
 -- A bowl. `max_contribution_lead` caps how far ahead of the field one person
--- may get; null means no cap.
+-- may get; null means no cap. `visibility` is unused.
 create table if not exists public.bowls (
-  id uuid primary key default extensions.gen_random_uuid(),
+  id uuid primary key default gen_random_uuid(),
   name text not null,
-  owner_id uuid references auth.users(id) on delete set null,
-  draw_access_mode text not null default 'all_members'
-    check (draw_access_mode in ('all_members', 'selected_members')),
+  owner_id uuid references public.profiles(id) on delete cascade,
+  visibility text default 'private',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
   max_contribution_lead integer
+    constraint bowls_max_contribution_lead_check
+    check (max_contribution_lead is null or max_contribution_lead >= 1),
+  draw_access_mode text not null default 'all_members'
+    check (draw_access_mode in ('all_members', 'selected_members'))
 );
 
 create table if not exists public.bowl_members (
-  id uuid primary key default extensions.gen_random_uuid(),
-  bowl_id uuid not null references public.bowls(id) on delete cascade,
-  user_id uuid not null references auth.users(id) on delete cascade,
-  role text not null default 'Member',
-  joined_at timestamptz not null default now(),
-  updated_at timestamptz not null default now(),
+  id uuid primary key default gen_random_uuid(),
+  bowl_id uuid references public.bowls(id) on delete cascade,
+  user_id uuid references public.profiles(id) on delete cascade,
+  role text default 'member',
+  created_at timestamptz default now(),
+  updated_at timestamptz default now(),
   unique (bowl_id, user_id)
 );
 
--- The allow-list behind `bowls.draw_access_mode = 'selected_members'`.
+-- Redundant with the unique constraint above, and production's.
+create unique index if not exists bowl_members_bowl_user_uidx
+  on public.bowl_members (bowl_id, user_id);
+
+-- The allow-list behind `bowls.draw_access_mode = 'selected_members'`. Keyed
+-- to the membership row, so leaving a bowl takes the permission with it.
 create table if not exists public.bowl_draw_permissions (
   bowl_id uuid not null references public.bowls(id) on delete cascade,
-  user_id uuid not null references auth.users(id) on delete cascade,
+  user_id uuid not null,
   created_at timestamptz not null default now(),
-  primary key (bowl_id, user_id)
+  primary key (bowl_id, user_id),
+  constraint bowl_draw_permissions_bowl_member_fkey
+    foreign key (bowl_id, user_id)
+    references public.bowl_members (bowl_id, user_id)
+    on delete cascade
 );
 
 -- A slip in the bowl. `snapshot_at` records when the TMDB details beside it
--- were taken; a custom slip carries a negative synthetic `tmdb_id` and none of
--- them.
+-- were taken; a custom slip carries a negative synthetic `tmdb_id`.
 create table if not exists public.bowl_movies (
-  id uuid primary key default extensions.gen_random_uuid(),
+  id uuid primary key default gen_random_uuid(),
   bowl_id uuid not null references public.bowls(id) on delete cascade,
-  added_by uuid references auth.users(id) on delete set null,
+  added_by uuid not null references public.profiles(id) on delete restrict,
   tmdb_id bigint not null,
   title text not null,
   poster_path text,
   release_date date,
   runtime integer,
-  genres text[] not null default '{}',
+  genres text[],
   overview text,
-  snapshot_at timestamptz,
+  snapshot_at timestamptz not null default now(),
   added_at timestamptz not null default now(),
   drawn_at timestamptz,
-  drawn_by uuid references auth.users(id) on delete set null
+  drawn_by uuid references public.profiles(id)
 );
 
-create index if not exists bowl_movies_bowl_id_idx on public.bowl_movies (bowl_id);
-create index if not exists bowl_movies_undrawn_idx
+create index if not exists bowl_movies_bowl_drawn_idx
+  on public.bowl_movies (bowl_id, drawn_at);
+create index if not exists bowl_movies_bowl_remaining_idx
   on public.bowl_movies (bowl_id) where drawn_at is null;
 
 create table if not exists public.bowl_invites (
-  id uuid primary key default extensions.gen_random_uuid(),
+  id uuid primary key default gen_random_uuid(),
   bowl_id uuid not null references public.bowls(id) on delete cascade,
   invited_email text not null,
-  invited_by uuid references auth.users(id) on delete set null,
-  token text not null unique default encode(extensions.gen_random_bytes(24), 'hex'),
-  accepted_at timestamptz,
-  created_at timestamptz not null default now()
+  invited_by uuid not null references public.profiles(id),
+  token text not null unique,
+  accepted_at timestamp,
+  created_at timestamp default now()
 );
 
 -- ---------------------------------------------------------------------------
@@ -106,35 +129,53 @@ create table if not exists public.bowl_invites (
 -- of their own bowl. Being definer-run is what makes that safe -- each one
 -- answers only about `auth.uid()` and returns a boolean, so a caller learns
 -- nothing it could not learn by reading the bowl it is asking about.
-create or replace function public.is_bowl_owner(p_bowl_id uuid)
+create or replace function public.is_bowl_owner(bid uuid)
 returns boolean
 language sql
 security definer
-stable
 set search_path = public
 as $$
   select exists (
     select 1
-    from public.bowls b
-    where b.id = p_bowl_id
-      and b.owner_id = auth.uid()
+    from public.bowls
+    where id = bid and owner_id = auth.uid()
   );
 $$;
 
-create or replace function public.is_bowl_member(p_bowl_id uuid)
+create or replace function public.is_bowl_member(bid uuid)
 returns boolean
 language sql
 security definer
-stable
 set search_path = public
 as $$
   select exists (
     select 1
-    from public.bowl_members bm
-    where bm.bowl_id = p_bowl_id
-      and bm.user_id = auth.uid()
+    from public.bowl_members
+    where bowl_id = bid
+      and user_id = auth.uid()
   );
 $$;
+
+-- Dropped by 20260929230000; here in the shape it drops.
+create or replace function public.is_bowl_owner_member(bid uuid)
+returns boolean
+language sql
+security definer
+set search_path = public
+as $$
+  select exists (
+    select 1
+    from public.bowl_members
+    where bowl_id = bid
+      and user_id = auth.uid()
+      and role = 'Owner'
+  );
+$$;
+
+-- Production also has `handle_new_user`, which upserts a profile from an
+-- auth.users row. The dump that checked this file covers `public` only, so
+-- whether a trigger on auth.users still calls it is unconfirmed. It is left
+-- out rather than guessed at.
 
 -- ---------------------------------------------------------------------------
 -- Row level security
@@ -173,58 +214,134 @@ to authenticated
 using (id = auth.uid())
 with check (id = auth.uid());
 
-create policy "bowls_select_accessible"
+-- Production's policies on these three tables, by production's names and to
+-- the roles production grants them (`public` unless stated).
+create policy "Users can view their bowls"
 on public.bowls
 for select
-to authenticated
 using (owner_id = auth.uid() or public.is_bowl_member(id));
 
-create policy "bowls_insert_own"
+create policy "Users can create bowls"
 on public.bowls
 for insert
-to authenticated
 with check (owner_id = auth.uid());
 
-create policy "bowls_update_owner"
+create policy "Owner can update bowl"
 on public.bowls
 for update
-to authenticated
-using (owner_id = auth.uid())
-with check (owner_id = auth.uid());
-
-create policy "bowls_delete_owner"
-on public.bowls
-for delete
-to authenticated
 using (owner_id = auth.uid());
 
-create policy "bowl_members_select_accessible"
+create policy "Owner can delete bowl"
+on public.bowls
+for delete
+using (owner_id = auth.uid());
+
+create policy "bowl_members_select_if_member"
 on public.bowl_members
 for select
-to authenticated
-using (
-  user_id = auth.uid()
-  or public.is_bowl_owner(bowl_id)
-  or public.is_bowl_member(bowl_id)
-);
+using (public.is_bowl_member(bowl_id));
 
-create policy "bowl_members_insert_owner_or_self"
+create policy "bowl_members_bootstrap_owner_row"
 on public.bowl_members
 for insert
-to authenticated
-with check (user_id = auth.uid() or public.is_bowl_owner(bowl_id));
+with check (
+  role = 'Owner'
+  and user_id = auth.uid()
+  and exists (
+    select 1
+    from public.bowls b
+    where b.id = bowl_members.bowl_id
+      and b.owner_id = auth.uid()
+  )
+);
 
-create policy "bowl_members_delete_owner_or_self"
+create policy "Members can leave bowl"
 on public.bowl_members
 for delete
 to authenticated
-using (user_id = auth.uid() or public.is_bowl_owner(bowl_id));
+using (user_id = auth.uid() and role <> 'Owner');
 
-create policy "bowl_draw_permissions_select_accessible"
+create policy "Owners can remove members"
+on public.bowl_members
+for delete
+to authenticated
+using (
+  exists (
+    select 1
+    from public.bowls b
+    where b.id = bowl_members.bowl_id
+      and b.owner_id = auth.uid()
+  )
+  and role <> 'Owner'
+);
+
+-- Dropped by 20260929230000; here in the shape it drops.
+create policy "Invited user can join bowl via invite"
+on public.bowl_members
+for insert
+with check (
+  user_id = auth.uid()
+  and exists (
+    select 1
+    from public.bowl_invites bi
+    join public.profiles p on p.id = auth.uid()
+    where bi.bowl_id = bowl_members.bowl_id
+      and lower(bi.invited_email) = lower(p.email)
+      and bi.accepted_at is null
+  )
+);
+
+create policy "bowl_members_insert_owner_only"
+on public.bowl_members
+for insert
+with check (public.is_bowl_owner_member(bowl_id));
+
+create policy "bowl_members_update_owner_only"
+on public.bowl_members
+for update
+using (public.is_bowl_owner_member(bowl_id))
+with check (public.is_bowl_owner_member(bowl_id));
+
+create policy "bowl_members_delete_owner_only"
+on public.bowl_members
+for delete
+using (public.is_bowl_owner_member(bowl_id));
+
+create policy "members_can_read_draw_permissions"
 on public.bowl_draw_permissions
 for select
-to authenticated
-using (public.is_bowl_owner(bowl_id) or public.is_bowl_member(bowl_id));
+using (
+  exists (
+    select 1
+    from public.bowl_members bm
+    where bm.bowl_id = bowl_draw_permissions.bowl_id
+      and bm.user_id = auth.uid()
+  )
+);
+
+create policy "owner_can_insert_draw_permissions"
+on public.bowl_draw_permissions
+for insert
+with check (
+  exists (
+    select 1
+    from public.bowls b
+    where b.id = bowl_draw_permissions.bowl_id
+      and b.owner_id = auth.uid()
+  )
+);
+
+create policy "owner_can_delete_draw_permissions"
+on public.bowl_draw_permissions
+for delete
+using (
+  exists (
+    select 1
+    from public.bowls b
+    where b.id = bowl_draw_permissions.bowl_id
+      and b.owner_id = auth.uid()
+  )
+);
 
 -- Replaced wholesale by 20260726153000 and 20260904120000.
 create policy "bowl_movies_select_members"

@@ -57,7 +57,7 @@ Set `DATABASE_URL` to a superuser connection if the server is not
 `.github/workflows/ci.yml` runs, against a PostgreSQL that exists for the length
 of the job.
 
-A clean run is **23 suites / 600 assertions, all passing**. If yours is not
+A clean run is **34 suites / 839 assertions, all passing**. If yours is not
 green, that is your change. `npm run test:counts -- pgtap` holds those numbers
 to the sentence in `CLAUDE.md`.
 
@@ -85,23 +85,29 @@ turns out to have been described wrongly.
 
 ### What holds the baseline honest
 
-It is a reconstruction, not a dump. What keeps it true is the suites: 600
-assertions over policies, grants, RPC behaviour and the tables the baseline
-defines, and they pass against it exactly as they passed against a dump of
-production. A column the suites never read could still be wrong.
+It was first reconstructed from the migrations, the tests and the app code, and
+the suites passed against it. That turned out not to be enough: on September 29,
+2026 it was checked against a dump of production and was wrong about column
+nullability, which table the foreign keys reference, and the policies on
+`bowls`, `bowl_members` and `bowl_draw_permissions`, none of which any suite
+had noticed. It was corrected to match that dump, object for object. The two
+functions it still leaves out are `handle_new_user`, whose trigger lives in the
+`auth` schema the dump does not cover, and Supabase's own `rls_auto_enable`.
 
-To confirm it against the real thing, from a linked checkout:
+To check it again, have someone with the linked project run
 
 ```bash
-supabase db dump --schema public -f /tmp/deployed.sql
-./scripts/pgtap.sh                                 # leaves nothing behind
+supabase db dump --schema public -f deployed.sql
 ```
 
-and dump the scratch database the same way before it is dropped. Expect
-cosmetic differences — statement order, ownership, the `IF NOT EXISTS` clauses
-the baseline uses — and read the diff for missing columns, constraints and
-policies rather than for equality. Do this when a migration surprises you, not
-routinely.
+then build two scratch databases: one from `baseline/` and `migrations/` as
+`scripts/pgtap.sh` does, and one from `baseline/00_platform.sql` followed by the
+dump. Compare their catalogs — `information_schema.columns`, `pg_constraint`,
+`pg_indexes`, `pg_policies`, and each function's `prosecdef` and source —
+rather than the SQL text, which differs in ordering and quoting. Grants are the
+exception: loading a dump on top of default privileges leaves grants the dump
+never states, so compare its `GRANT` lines directly. Do this when a migration
+surprises you, not routinely.
 
 ### Privileges
 

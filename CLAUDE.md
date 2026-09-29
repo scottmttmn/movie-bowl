@@ -315,7 +315,7 @@ on a PostgreSQL you already have, applies `supabase/baseline/` and then every
 migration in order, runs the suites and drops it again. It needs pgTAP and
 `pg_prove` beside that server (`apt-get install pgtap`, or `brew install pgtap`)
 and `DATABASE_URL` if the server is not the local default. Never against the
-hosted database: pgTAP writes rows. A clean run is 33 suites / 827 assertions,
+hosted database: pgTAP writes rows. A clean run is 34 suites / 839 assertions,
 all passing, and `npm run test:counts -- pgtap` holds that sentence to the run.
 
 `supabase/baseline/` is the pre-migration schema, not a migration. Movie Bowl's
@@ -328,9 +328,14 @@ that has had those objects for a year.
 
 Two things follow. New schema is a migration and never an edit to the baseline;
 the baseline moves only when the pre-March-2026 schema turns out to have been
-described wrongly. And the baseline is a reconstruction held true by the suites
-rather than by a dump, so if a suite starts failing in a way that implicates a
-table the baseline defines, suspect the baseline before the migration.
+described wrongly. It began as a reconstruction held true only by the suites,
+and on September 29, 2026 a dump of production showed it wrong: other column
+nullability, references to `profiles` rather than `auth.users`, and different
+policies on `bowls`, `bowl_members` and `bowl_draw_permissions`. The suites had
+passed against it regardless, so a suite passing is not proof the baseline is
+right. It now matches that dump object for object; if a suite starts failing in
+a way that implicates a table the baseline defines, still suspect the baseline
+before the migration.
 
 ## The draw
 
