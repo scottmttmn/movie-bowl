@@ -7,7 +7,6 @@ function createClient({
     error: null,
   },
   bowlResponses = [{ data: { id: "bowl-1", name: "Weekend Bowl" }, error: null }],
-  memberError = null,
   inviteError = null,
   inviteDataFactory = (args) => ({
     request_id: args.p_request_id,
@@ -20,36 +19,21 @@ function createClient({
     })),
   }),
 } = {}) {
-  const insertedBowls = [];
-  const insertedMembers = [];
+  const createBowlCalls = [];
   const inviteRpcCalls = [];
   const responses = [...bowlResponses];
   const client = {
     auth: { getSession: vi.fn(async () => authResponse) },
+    // Bowl creation is one RPC now; a direct table write would be the old
+    // two-write path coming back.
     from: vi.fn((table) => {
-      if (table === "bowls") {
-        return {
-          insert: vi.fn((rows) => {
-            insertedBowls.push(rows);
-            return {
-              select: vi.fn(() => ({
-                single: vi.fn(async () => responses.shift()),
-              })),
-            };
-          }),
-        };
-      }
-      if (table === "bowl_members") {
-        return {
-          insert: vi.fn(async (rows) => {
-            insertedMembers.push(rows);
-            return { error: memberError };
-          }),
-        };
-      }
-      throw new Error(`Unexpected table: ${table}`);
+      throw new Error(`Unexpected table write: ${table}`);
     }),
     rpc: vi.fn(async (name, args) => {
+      if (name === "create_owned_bowl") {
+        createBowlCalls.push(args);
+        return responses.shift();
+      }
       if (name !== "create_bowl_invites") {
         throw new Error(`Unexpected RPC: ${name}`);
       }
@@ -61,7 +45,7 @@ function createClient({
     }),
   };
 
-  return { client, insertedBowls, insertedMembers, inviteRpcCalls };
+  return { client, createBowlCalls, inviteRpcCalls };
 }
 
 beforeEach(() => {
@@ -90,7 +74,7 @@ describe("create bowl service", () => {
       errorMessage: "Invalid email(s): not-an-email",
     });
     expect(client.auth.getSession).not.toHaveBeenCalled();
-    expect(client.from).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalled();
   });
 
   it("reports an authentication failure without writing", async () => {
@@ -104,11 +88,11 @@ describe("create bowl service", () => {
       code: "not_authenticated",
       errorMessage: "You must be signed in to create a bowl.",
     });
-    expect(client.from).not.toHaveBeenCalled();
+    expect(client.rpc).not.toHaveBeenCalled();
   });
 
-  it("creates the bowl, owner membership, invitations, and email payloads once", async () => {
-    const { client, insertedBowls, insertedMembers, inviteRpcCalls } = createClient();
+  it("creates the bowl, invitations, and email payloads once", async () => {
+    const { client, createBowlCalls, inviteRpcCalls } = createClient();
     const publish = vi.fn();
     const sendEmails = vi.fn(async () => ({ sent: 1, failed: 1, error: "one failed" }));
     const requestIdFactory = vi.fn(() => "request-1");
@@ -117,6 +101,7 @@ describe("create bowl service", () => {
     const result = await service.create({
       bowlName: "  Weekend Bowl  ",
       inviteEmails: "Friend@example.com, friend@example.com\nsecond@example.com",
+      bowlId: "bowl-id-1",
     });
 
     expect(result).toMatchObject({
@@ -124,14 +109,7 @@ describe("create bowl service", () => {
       bowl: { id: "bowl-1", name: "Weekend Bowl" },
       actionMessage: "Bowl created, but only 1 of 2 invite emails sent.",
     });
-    expect(insertedBowls).toEqual([[{
-      owner_id: "user-1",
-      name: "Weekend Bowl",
-      draw_access_mode: "all_members",
-    }]]);
-    expect(insertedMembers).toEqual([[
-      { bowl_id: "bowl-1", user_id: "user-1", role: "Owner" },
-    ]]);
+    expect(createBowlCalls).toEqual([{ p_bowl_id: "bowl-id-1", p_name: "Weekend Bowl" }]);
     expect(inviteRpcCalls).toEqual([{
       p_bowl_id: "bowl-1",
       p_emails: ["friend@example.com", "second@example.com"],
@@ -156,34 +134,31 @@ describe("create bowl service", () => {
     expect(publish).toHaveBeenCalledWith({ userId: "user-1", bowlId: "bowl-1" });
   });
 
-  it("retries without draw access mode for an older schema", async () => {
-    const { client, insertedBowls, insertedMembers } = createClient({
-      bowlResponses: [
-        { data: null, error: { message: "column draw_access_mode does not exist" } },
-        { data: { id: "bowl-2", name: "Fallback Bowl" }, error: null },
-      ],
-    });
-    const publish = vi.fn();
-    const sendEmails = vi.fn();
-    const service = createBowlCreationService({ client, publish, sendEmails });
+  it("mints a bowl id when the caller has none", async () => {
+    const { client, createBowlCalls } = createClient();
+    const service = createBowlCreationService({ client, bowlIdFactory: () => "minted-id" });
 
-    await expect(service.create({ bowlName: "Fallback Bowl" })).resolves.toMatchObject({
-      ok: true,
-      bowl: { id: "bowl-2" },
-    });
-    expect(insertedBowls).toEqual([
-      [{ owner_id: "user-1", name: "Fallback Bowl", draw_access_mode: "all_members" }],
-      [{ owner_id: "user-1", name: "Fallback Bowl" }],
-    ]);
-    expect(insertedMembers).toEqual([[
-      { bowl_id: "bowl-2", user_id: "user-1", role: "Owner" },
-    ]]);
-    expect(sendEmails).not.toHaveBeenCalled();
+    await expect(service.create({ bowlName: "Weekend Bowl" })).resolves.toMatchObject({ ok: true });
+    expect(createBowlCalls).toEqual([{ p_bowl_id: "minted-id", p_name: "Weekend Bowl" }]);
   });
 
-  it("does not continue when the bowl insert fails", async () => {
-    const { client, insertedMembers } = createClient({
-      bowlResponses: [{ data: null, error: { message: "write failed" } }],
+  it("accepts the created bowl as a one-row array", async () => {
+    const { client } = createClient({
+      bowlResponses: [{ data: [{ id: "bowl-1", name: "Weekend Bowl" }], error: null }],
+    });
+    const publish = vi.fn();
+    const service = createBowlCreationService({ client, publish });
+
+    await expect(service.create({ bowlName: "Weekend Bowl" })).resolves.toMatchObject({
+      ok: true,
+      bowl: { id: "bowl-1", name: "Weekend Bowl" },
+    });
+    expect(publish).toHaveBeenCalledWith({ userId: "user-1", bowlId: "bowl-1" });
+  });
+
+  it("reports a rolled-back creation as a failure without publishing", async () => {
+    const { client } = createClient({
+      bowlResponses: [{ data: null, error: { code: "P0001", message: "write failed" } }],
     });
     const publish = vi.fn();
     const service = createBowlCreationService({ client, publish });
@@ -194,27 +169,54 @@ describe("create bowl service", () => {
       errorMessage: "Failed to create bowl.",
     });
     expect(publish).not.toHaveBeenCalled();
-    expect(insertedMembers).toEqual([]);
   });
 
-  it("keeps owner membership failure fatal after publishing the bowl change", async () => {
-    const { client, inviteRpcCalls } = createClient({ memberError: { message: "member failed" } });
+  it("calls a creation that got no answer unknown, not failed", async () => {
+    const { client, inviteRpcCalls } = createClient({
+      bowlResponses: [{ data: null, error: { code: "", message: "TypeError: Failed to fetch" } }],
+    });
     const publish = vi.fn();
-    const sendEmails = vi.fn();
-    const service = createBowlCreationService({ client, publish, sendEmails });
+    const service = createBowlCreationService({ client, publish });
 
     await expect(service.create({
       bowlName: "Weekend Bowl",
       inviteEmails: "friend@example.com",
     })).resolves.toMatchObject({
       ok: false,
-      code: "owner_membership_failed",
-      errorMessage: "Failed to add owner membership.",
-      bowl: { id: "bowl-1" },
+      code: "outcome_unknown",
+      errorMessage: "Could not finish creating the bowl. Check your bowls before trying again.",
     });
-    expect(publish).toHaveBeenCalledWith({ userId: "user-1", bowlId: "bowl-1" });
+    expect(publish).not.toHaveBeenCalled();
     expect(inviteRpcCalls).toEqual([]);
-    expect(sendEmails).not.toHaveBeenCalled();
+  });
+
+  it("maps the server's bowl limit to the limit message", async () => {
+    const { client } = createClient({
+      bowlResponses: [{
+        data: null,
+        error: { code: "P0001", hint: "limit_reached", message: "You can create up to 10 bowls." },
+      }],
+    });
+    const service = createBowlCreationService({ client, maxOwnedBowls: 10 });
+
+    await expect(service.create({ bowlName: "Eleventh", ownedBowlCount: 3 })).resolves.toMatchObject({
+      ok: false,
+      code: "limit_reached",
+      errorMessage: "You can create up to 10 bowls.",
+    });
+  });
+
+  it("says so when a retry returns a bowl an earlier attempt named differently", async () => {
+    const { client } = createClient({
+      bowlResponses: [{ data: { id: "bowl-1", name: "Friday Films" }, error: null }],
+    });
+    const service = createBowlCreationService({ client });
+
+    await expect(service.create({ bowlName: "Saturday Films", bowlId: "bowl-1" })).resolves.toMatchObject({
+      ok: true,
+      bowl: { id: "bowl-1", name: "Friday Films" },
+      actionMessage: "Your earlier attempt had already created “Friday Films”.",
+    });
   });
 
   it("treats failed invitation rows as partial success", async () => {

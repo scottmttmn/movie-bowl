@@ -467,6 +467,35 @@ export class FakeBackend {
       return;
     }
 
+    if (rpcName === "create_owned_bowl") {
+      const userId = this.state.currentUser.id;
+      let bowl = this.state.bowls.find((row) => row.id === args.p_bowl_id && row.owner_id === userId);
+      if (!bowl) {
+        const now = new Date().toISOString();
+        bowl = {
+          id: args.p_bowl_id,
+          owner_id: userId,
+          name: String(args.p_name || "").trim(),
+          created_at: now,
+          updated_at: now,
+          draw_access_mode: "all_members",
+          draw_method: "person_first",
+        };
+        this.state.bowls.push(bowl);
+      }
+      if (!this.state.bowl_members.some((member) => member.bowl_id === bowl.id && member.user_id === userId)) {
+        this.state.bowl_members.push({
+          id: nextId(this.state, "member", "bowl_members"),
+          bowl_id: bowl.id,
+          user_id: userId,
+          role: "Owner",
+        });
+      }
+      this.resolveDefault(userId);
+      await fulfillJson(route, bowl);
+      return;
+    }
+
     if (rpcName === "accept_bowl_invite") {
       const email = String(this.state.currentUser.email || "").trim().toLowerCase();
       const invite = this.state.bowl_invites.find((row) => row.token === args.p_token

@@ -16,7 +16,9 @@ test("a member can create a bowl, add and draw a title, see history, and return 
   await expect(bowlCard).toBeVisible();
   await bowlCard.click();
 
-  await expect(page).toHaveURL(/\/bowl\/bowl-1$/);
+  // The client names a new bowl itself, so the id is a fresh UUID.
+  await expect(page).toHaveURL(/\/bowl\/[0-9a-f-]{36}$/);
+  const bowlPath = new URL(page.url()).pathname;
   await expect(page.getByRole("heading", { name: "Smoke Night", level: 1 })).toBeVisible();
 
   await page.getByRole("button", { name: "Add to this bowl" }).click();
@@ -46,7 +48,7 @@ test("a member can create a bowl, add and draw a title, see history, and return 
   await expect(page.getByRole("heading", { name: "Watch History", level: 1 })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Smoke Feature" })).toBeVisible();
 
-  await page.goto("/bowl/bowl-1");
+  await page.goto(bowlPath);
   await expect(page.getByText("1 watched", { exact: true })).toBeVisible();
   await page.getByRole("button", { name: "Show", exact: true }).click();
   await page.getByRole("button", { name: "Smoke Feature" }).click();

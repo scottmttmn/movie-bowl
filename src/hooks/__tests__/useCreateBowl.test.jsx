@@ -23,6 +23,55 @@ function renderCreateBowl({ ownedBowlCount = 0, result } = {}) {
 }
 
 describe("useCreateBowl", () => {
+  it("resends the same bowl id after an unknown outcome, even across reopening", async () => {
+    const unknown = {
+      ok: false,
+      code: "outcome_unknown",
+      errorMessage: "Could not finish creating the bowl. Check your bowls before trying again.",
+      actionMessage: null,
+      bowl: null,
+    };
+    const created = {
+      ok: true,
+      code: null,
+      errorMessage: null,
+      actionMessage: null,
+      bowl: { id: "id-1", name: "Weekend Bowl" },
+    };
+    const refresh = vi.fn(async () => {});
+    const service = {
+      create: vi.fn()
+        .mockResolvedValueOnce(unknown)
+        .mockRejectedValueOnce(new Error("network"))
+        .mockResolvedValueOnce(created)
+        .mockResolvedValueOnce(created),
+    };
+    let nextId = 0;
+    const bowlIdFactory = vi.fn(() => `id-${++nextId}`);
+    const { result } = renderHook(() =>
+      useCreateBowl({ ownedBowlCount: 0, refresh, service, bowlIdFactory })
+    );
+    const attempt = async (name) => {
+      act(() => {
+        result.current.open();
+        result.current.setBowlName(name);
+      });
+      await act(async () => {
+        await result.current.create();
+      });
+    };
+
+    await attempt("Weekend Bowl");
+    act(() => result.current.close());
+    await attempt("Weekend Bowl");
+    await attempt("Weekend Bowl");
+    await attempt("Another Bowl");
+
+    const ids = service.create.mock.calls.map(([input]) => input.bowlId);
+    // Unknown, then thrown: both keep the id. The success releases it.
+    expect(ids).toEqual(["id-1", "id-1", "id-1", "id-2"]);
+  });
+
   it("refuses to open at the owned-bowl limit", () => {
     const { result, service } = renderCreateBowl({ ownedBowlCount: 10 });
 
@@ -59,6 +108,7 @@ describe("useCreateBowl", () => {
       bowlName: "Weekend Bowl",
       inviteEmails: "friend@example.com",
       ownedBowlCount: 0,
+      bowlId: expect.any(String),
     });
     expect(result.current.isOpen).toBe(true);
     expect(result.current.bowlName).toBe("Weekend Bowl");
