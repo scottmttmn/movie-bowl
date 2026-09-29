@@ -76,7 +76,21 @@ describe("installStarterPack", () => {
       offline: h.offline, publish: h.publish,
     });
     expect(h.client.rpc.mock.calls[0][1].p_movies).toHaveLength(2);
-    expect(result.message).toBe("Added 1 title from the Nolan: The '00s pack. 1 was already in the bowl or over the limit.");
+    expect(result.message).toBe("Added 1 title from the Nolan: The '00s pack. 1 was already in the bowl, already drawn, or over the limit.");
+  });
+
+  it("counts a title the database found already drawn among the skipped, since the history read can stop short", async () => {
+    const h = harness({ rpc: { data: { inserted: [11], already_in_bowl: [], already_drawn: [12, 13], over_limit: [] }, error: null } });
+    const result = await installStarterPack({
+      bowlId: "bowl-1", slug: "nolan-2000s", heldTmdbIds: [],
+      client: h.client, fetchCandidates: async () => candidates, getDetails: async (id) => details(id), randomFn: () => 0,
+      offline: h.offline, publish: h.publish,
+    });
+    expect(result).toEqual({
+      ok: true,
+      inserted: 1,
+      message: "Added 1 title from the Nolan: The '00s pack. 2 were already in the bowl, already drawn, or over the limit.",
+    });
   });
 
   it("leaves out a title whose details will not load, rather than failing the pack", async () => {

@@ -242,7 +242,7 @@ select is(
       {"id": 50102, "title": "Pack B"},
       {"tmdb_id": 50101, "title": "Pack A again"}]'
   ),
-  '{"starter_pack": "spielberg-1980s", "inserted": [50101, 50102], "already_in_bowl": [50002], "over_limit": [], "pack_slips": 2}'::jsonb,
+  '{"starter_pack": "spielberg-1980s", "inserted": [50101, 50102], "already_in_bowl": [50002], "already_drawn": [], "over_limit": [], "pack_slips": 2}'::jsonb,
   'install adds new titles and skips one already in the bowl, and a repeat in the batch'
 );
 
@@ -297,6 +297,7 @@ select is(
   jsonb_build_object(
     'starter_pack', 'spielberg-1980s',
     'already_in_bowl', '[]'::jsonb,
+    'already_drawn', '[]'::jsonb,
     'over_limit', (select jsonb_agg(50110 + n order by n) from generate_series(14, 16) n),
     'pack_slips', 15
   ),
@@ -310,7 +311,7 @@ select is(
     'Tom Hanks: The ''90s',
     '[{"tmdb_id": 54901, "title": "One"}, {"tmdb_id": 54902, "title": "Two"}]'
   ),
-  '{"starter_pack": "hanks-1990s", "inserted": [54901], "already_in_bowl": [], "over_limit": [54902], "pack_slips": 1}'::jsonb,
+  '{"starter_pack": "hanks-1990s", "inserted": [54901], "already_in_bowl": [], "already_drawn": [], "over_limit": [54902], "pack_slips": 1}'::jsonb,
   'install stops at the bowl limit'
 );
 
@@ -321,7 +322,7 @@ select is(
     'Tom Hanks: The ''90s',
     '[{"tmdb_id": 55001, "title": "Already Here"}]'
   ),
-  '{"starter_pack": null, "inserted": [], "already_in_bowl": [55001], "over_limit": [], "pack_slips": 0}'::jsonb,
+  '{"starter_pack": null, "inserted": [], "already_in_bowl": [55001], "already_drawn": [], "over_limit": [], "pack_slips": 0}'::jsonb,
   'an install that lands nothing says so'
 );
 reset role;

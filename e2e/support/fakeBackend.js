@@ -589,7 +589,7 @@ export class FakeBackend {
         bowl.starter_pack = args.p_pack_slug;
         bowl.starter_pack_installed_at = now;
       }
-      await fulfillJson(route, { inserted, already_in_bowl: [], over_limit: [] });
+      await fulfillJson(route, { inserted, already_in_bowl: [], already_drawn: [], over_limit: [] });
       return;
     }
 

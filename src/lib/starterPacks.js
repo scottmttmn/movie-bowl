@@ -40,9 +40,10 @@ export async function fetchStarterPackCandidates(slug, { client = supabase, fetc
 
 // Which pack a bowl has and when it went in, how many of its titles are still
 // waiting and how many were drawn, and every title the bowl holds or has drawn
-// -- the last only steers what an install offers, so a topped-up pack never
-// brings back a title already watched. A claimed title keeps no mark of the
-// pack, so claims cannot be counted.
+// -- the last only steers what an install offers, so a top-up samples titles
+// that can land. The install itself refuses a title the bowl already drew,
+// since this read can stop short of a long history. A claimed title keeps no
+// mark of the pack, so claims cannot be counted.
 const STARTER_PACK_READ_FAILED = {
   isLoading: false, slug: null, installedAt: null, packSlipCount: 0, drawnCount: 0, heldTmdbIds: [],
   loadError: "Could not load this bowl's starter pack.",
@@ -189,7 +190,9 @@ export async function installStarterPack({
 
     const inserted = Array.isArray(data?.inserted) ? data.inserted.length : 0;
     if (inserted > 0) publish({ type: "context", bowlId });
-    const skipped = (data?.already_in_bowl?.length || 0) + (data?.over_limit?.length || 0);
+    const skipped = (data?.already_in_bowl?.length || 0)
+      + (data?.already_drawn?.length || 0)
+      + (data?.over_limit?.length || 0);
     if (inserted === 0) {
       return { ok: false, code: "nothing_added", message: `Nothing new was added from the ${pack.name} pack.` };
     }
@@ -197,7 +200,7 @@ export async function installStarterPack({
       ok: true,
       inserted,
       message: skipped > 0
-        ? `Added ${titleCount(inserted)} from the ${pack.name} pack. ${skipped} ${skipped === 1 ? "was" : "were"} already in the bowl or over the limit.`
+        ? `Added ${titleCount(inserted)} from the ${pack.name} pack. ${skipped} ${skipped === 1 ? "was" : "were"} already in the bowl, already drawn, or over the limit.`
         : `Added ${titleCount(inserted)} from the ${pack.name} pack.`,
     };
   } catch (error) {

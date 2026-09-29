@@ -331,8 +331,8 @@ one transaction it:
 1. verifies the caller owns the bowl;
 2. refuses if `bowls.starter_pack` names a different pack (one pack at a time),
    and sets it when it is empty;
-3. skips ids already active in the bowl -- a clean skip rather than a failed
-   batch -- and inserts only up to 15 undrawn pack rows in total, and within
+3. skips ids already active in the bowl, and ids the bowl has drawn and not
+   returned -- a clean skip rather than a failed batch -- and inserts only up to 15 undrawn pack rows in total, and within
    `MAX_UNDRAWN_MOVIES_PER_BOWL`, counted against the *resulting* totals;
 4. inserts the rows with `added_by` null, the pack's name in `added_by_name`
    and its slug in `starter_pack`;
@@ -340,7 +340,10 @@ one transaction it:
    13 of 15 -- two were already in the bowl."
 
 "Pull more" is the same function called again for the installed pack. The
-client samples which ids to offer; the database enforces every limit.
+client samples which ids to offer; the database enforces every limit. The
+drawn-title skip was added on September 29: until then only the client's
+history read kept a watched title out of a top-up, and that read stops at the
+API's row cap.
 
 **The database does not check that an id belongs to the pack.** Doing that
 needs a stored list of each pack's contents, which is exactly what the sourcing
