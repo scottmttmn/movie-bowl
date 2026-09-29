@@ -13,6 +13,7 @@ const mocks = vi.hoisted(() => {
     pendingInvites: [],
     profileRows: [],
     insertedBowls: [],
+    createBowlCalls: [],
     insertedMembers: [],
     insertedInvites: [],
     inviteRpcCalls: [],
@@ -44,6 +45,13 @@ const mocks = vi.hoisted(() => {
             .some((member) => member.bowl_id === row.id));
         if (params?.p_bowl_id) state.defaultBowlId = params.p_bowl_id;
         return { data: { bowls: rows, default_bowl_id: state.defaultBowlId || rows[0]?.id || null }, error: null };
+      }
+      if (name === "create_owned_bowl") {
+        const row = { owner_id: state.sessionUser.id, name: params.p_name };
+        state.createBowlCalls.push(params);
+        state.insertedBowls.push([row]);
+        state.insertedMembers.push([{ bowl_id: "bowl-1", user_id: state.sessionUser.id, role: "Owner" }]);
+        return { data: { ...row, id: "bowl-1" }, error: null };
       }
       if (name === "accept_bowl_invite") {
         if (state.acceptInviteError) return { data: null, error: state.acceptInviteError };
@@ -280,6 +288,7 @@ describe("MyBowlsScreen", () => {
     mocks.state.pendingInvites = [];
     mocks.state.profileRows = [];
     mocks.state.insertedBowls = [];
+    mocks.state.createBowlCalls = [];
     mocks.state.insertedMembers = [];
     mocks.state.insertedInvites = [];
     mocks.state.inviteRpcCalls = [];
@@ -520,20 +529,10 @@ describe("MyBowlsScreen", () => {
     await waitFor(() => expect(screen.queryByText(/start your first movie bowl/i)).not.toBeInTheDocument());
     expect(screen.getByText(/bowl created and 1 invite email sent\./i)).toBeInTheDocument();
 
-    expect(mocks.state.insertedBowls[0][0]).toMatchObject({
-      owner_id: "u1",
-      name: "Weekend Bowl",
-    });
-    expect(Object.keys(mocks.state.insertedBowls[0][0])).toEqual([
-      "owner_id",
-      "name",
-      "draw_access_mode",
+    // One call makes the bowl and its owner membership together.
+    expect(mocks.state.createBowlCalls).toEqual([
+      { p_bowl_id: expect.any(String), p_name: "Weekend Bowl" },
     ]);
-    expect(mocks.state.insertedMembers[0][0]).toMatchObject({
-      bowl_id: "bowl-1",
-      user_id: "u1",
-      role: "Owner",
-    });
     expect(mocks.state.inviteRpcCalls[0]).toMatchObject({
       p_bowl_id: "bowl-1",
       p_emails: ["friend@example.com"],

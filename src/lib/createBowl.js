@@ -5,6 +5,9 @@ import { supabase } from "./supabase";
 import { MAX_BOWLS_PER_USER } from "../utils/appLimits";
 import { parseInviteEmails } from "../utils/parseInviteEmails";
 
+export const UNKNOWN_CREATE_MESSAGE =
+  "Could not finish creating the bowl. Check your bowls before trying again.";
+
 export const createBowlResult = ({
   ok,
   code = null,
@@ -19,9 +22,10 @@ export function createBowlCreationService({
   publish = notifyBowlChange,
   sendEmails = sendInviteEmails,
   requestIdFactory = () => crypto.randomUUID(),
+  bowlIdFactory = () => crypto.randomUUID(),
   maxOwnedBowls = MAX_BOWLS_PER_USER,
 } = {}) {
-  async function create({ bowlName: rawBowlName, inviteEmails = "", ownedBowlCount = 0 }) {
+  async function create({ bowlName: rawBowlName, inviteEmails = "", ownedBowlCount = 0, bowlId = null }) {
     if (ownedBowlCount >= maxOwnedBowls) {
       return createBowlResult({
         ok: false,
@@ -59,51 +63,42 @@ export function createBowlCreationService({
       });
     }
 
-    const insertBowl = (payload) => client
-      .from("bowls")
-      .insert([payload])
-      .select()
-      .single();
-
-    let { data: newBowl, error: bowlError } = await insertBowl({
-      owner_id: user.id,
-      name: bowlName,
-      draw_access_mode: "all_members",
+    // The bowl id is the creation's identity: the caller keeps it across
+    // retries, so a repeat after a lost response returns the bowl the first
+    // attempt made instead of making another.
+    const { data: newBowl, error: bowlError } = await client.rpc("create_owned_bowl", {
+      p_bowl_id: bowlId || bowlIdFactory(),
+      p_name: bowlName,
     });
 
-    if (bowlError && String(bowlError?.message || "").toLowerCase().includes("draw_access_mode")) {
-      const fallback = await insertBowl({ owner_id: user.id, name: bowlName });
-      newBowl = fallback.data;
-      bowlError = fallback.error;
-    }
-
-    if (bowlError || !newBowl) {
+    if (bowlError || !newBowl?.id) {
       console.error("Failed to create bowl", bowlError);
+      if (bowlError?.hint === "limit_reached") {
+        return createBowlResult({
+          ok: false,
+          code: "limit_reached",
+          errorMessage: `You can create up to ${maxOwnedBowls} bowls.`,
+        });
+      }
+      // A database error means the transaction rolled back. No error code
+      // means the request never got an answer, so the bowl may exist.
       return createBowlResult({
         ok: false,
-        code: "create_failed",
-        errorMessage: "Failed to create bowl.",
+        code: bowlError?.code ? "create_failed" : "outcome_unknown",
+        errorMessage: bowlError?.code ? "Failed to create bowl." : UNKNOWN_CREATE_MESSAGE,
       });
     }
 
     publish({ userId: user.id, bowlId: newBowl.id });
 
-    const { error: memberError } = await client
-      .from("bowl_members")
-      .insert([{ bowl_id: newBowl.id, user_id: user.id, role: "Owner" }]);
-
-    if (memberError) {
-      console.error("Failed to add owner membership", memberError);
-      return createBowlResult({
-        ok: false,
-        code: "owner_membership_failed",
-        errorMessage: "Failed to add owner membership.",
-        bowl: newBowl,
-      });
-    }
+    // A retry can land on a bowl an earlier attempt already made under the
+    // name typed then; say so rather than let the name silently differ.
+    const earlierAttemptNote = newBowl.name !== bowlName
+      ? `Your earlier attempt had already created “${newBowl.name}”.`
+      : null;
 
     if (validEmails.length === 0) {
-      return createBowlResult({ ok: true, bowl: newBowl });
+      return createBowlResult({ ok: true, actionMessage: earlierAttemptNote, bowl: newBowl });
     }
 
     const { data: inviteData, error: inviteError } = await createBowlInvitations(
