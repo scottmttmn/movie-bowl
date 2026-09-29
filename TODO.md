@@ -118,28 +118,6 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   double-counting and making sibling retirement visible. Analysed under
   "Edge Case: Somebody Else Already Added It" in
   `output/designs/pinned-movie.md`; needs its own design before any code.
-- Solo draw: draw privately from your own titles across all your bowls, with
-  scope narrowing. Reveal commits the pick to personal history; no acceptance
-  or redraw controls. Bowl copies stay available. Personal history offers
-  deletion (labelled undo for two hours) and a separate optional "Remove from
-  my bowls…" action; deletion never restores separately removed copies.
-  Preserve the manual entry's immediate removal offer. An opt-in setting
-  removes your copies automatically at reveal, off by default; with it on, undo
-  is a server-enforced operation that restores them. Each TMDB movie gets one chance;
-  custom titles stay separate without name matching. Eligible pinned titles go
-  first after all filters, sampled uniformly without clearing their pins.
-  Repeat picks remain possible by design. Own `/solo-draw` route, dashboard
-  filter settings, read-only slip note. Persistence: a `solo_draw` watch event
-  built server-side by `record_solo_draw`, with source row and retry id.
-  Empty states and large-pool lookup controls belong in the initial release.
-  Shipped at `/solo-draw`, automatic removal included: Settings carries the
-  opt-in, `undo_solo_draw` restores what a draw took, and watch history is the
-  only surface that offers it -- a TV solo draw under the setting has to be
-  undone from the web. See `output/designs/solo-draw.md`. Web redesign references and implementation notes
-  are in `output/designs/solo-draw-redesign/README.md`. Web and TV solo draw now
-  share the bowl's theater playback. The TV deliberately replaces the rejected
-  dense exploration with one quiet all-bowls stage; see
-  `output/designs/tv-solo-draw.md`.
 - Guest night: make sharing episodic instead of persistent. A visiting friend's
   titles join one evening's draw, the movie lands in both watch histories but
   only the host bowl's strip, and nothing permanent is created. Three separable
@@ -167,33 +145,6 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   My Movies, after their own, marked by the pack's name and claimable with
   "Make it mine". Spec'd under "Pack Titles in My Movies"; not built.
 
-- Theater mode on the web draw: the trailer pre-roll runs only on `/tv`, but the
-  toggle for it lives in the web app's "TV & playback" settings section -- so a
-  laptop user can switch on a feature nothing they normally open will run. Bring
-  the pre-roll to the dashboard draw behind the control the television already
-  has: a theater mode ticket beside the draw button, `role="switch"`, saying on
-  or off before the draw rather than offering previews after it. Armed, the web
-  behaves as the television does and previews start once the pick is revealed --
-  the switch is the consent that earns the autostart, which an affordance
-  appearing after the draw could never give. The ticket writes a per-device
-  override rather than the account setting, so disarming it on a laptop cannot
-  reach across and turn theater mode off on a television; a web device with
-  nothing stored starts off, which is what keeps `theaterModeEnabled` from
-  silently widening from "on the television" for existing accounts. Keep
-  `deviceDrawSettings.js`'s storage prefix, which still says `tv`, or every
-  television forgets its overrides. **Shipped September 14, 2026.** This does put
-  a control on the bowl page for everyone, reversing an earlier line in the
-  design doc, and it is paid for deliberately: it is also the only thing that
-  makes the feature discoverable on the web. The settings copy that still
-  described only the television was rewritten September 19, 2026, along with the
-  preview count, which had been collapsed behind a toggle a web device never
-  touches. Later the same day the count left Settings altogether: it is a device
-  override now and the ticket's stub is its only control, pressed to walk 1 to 4
-  on the phone, the laptop and the television alike. The account stopped
-  carrying a count with it, and **Reset playback** went too: it restored two
-  checkboxes on the same page and one value that no longer existed. Specified in
-  `output/designs/tv-web-seam.md`.
-
 - Web/television seam: the Google TV app is the only supported television, and
   other televisions' browsers are out of scope -- in practice a path almost
   nobody can take, since Roku ships no browser and Google TV and Android TV have
@@ -204,13 +155,9 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   directly by URL. Copy about the app itself stays staged against the Play
   roadmap, with the About page speaking last. Specified in
   `output/designs/tv-web-seam.md`.
-- Personal comments on watched movies: shipped. Why a movie was in the bowl
-  and what you thought of it are now two comments: the slip's reason stays
-  shared and frozen at the draw, and each watcher keeps a private, editable
-  `personal_note` on their own history entry. The bowl page leads with the
-  reason and folds your comment away; Watch History does the reverse. Not
-  built: shared reactions a bowl can read, and a "how was it?" prompt some time
-  after a draw. See "Two comments on a watched movie" in
+- Watched-movie comments, not built: shared reactions a bowl can read, and a
+  "how was it?" prompt some time after a draw. The two-comment split itself
+  shipped; see "Two comments on a watched movie" in
   `output/designs/movie-comments.md`.
 
 ## Technical Debt / Maintenance
@@ -219,7 +166,7 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   the database suites now run in CI on every pull request, so this is no longer
   a hole in the gate. But the baseline is a reconstruction assembled from the
   migrations, the tests and the app code — not a dump — and what holds it true
-  is that all 23 suites pass against it unchanged. A column no suite reads could
+  is that all 33 suites pass against it unchanged. A column no suite reads could
   still be wrong. Run the diff recipe in `supabase/README.md` against the linked
   project once and record the result; until then, treat a pgTAP failure that
   implicates a baseline-defined table as a suspected baseline error before
