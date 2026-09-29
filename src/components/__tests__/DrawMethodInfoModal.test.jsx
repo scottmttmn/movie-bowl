@@ -54,6 +54,21 @@ describe("DrawMethodInfoModal", () => {
     expect(screen.getByText(/alex and sam are left out — your filters removed every movie they added\./)).toBeInTheDocument();
   });
 
+  // Everyone's titles are out but the pack's are not, so the bowl still draws.
+  it("says the draw comes from the pack when only pack titles are left", () => {
+    render(
+      <DrawMethodInfoModal
+        drawMethod="person_first"
+        contributorReach={{ totalCount: 1, reachedCount: 0, packTitleCount: 1, excludedNames: ["Scott"] }}
+        onClose={() => {}}
+      />
+    );
+
+    expect(
+      screen.getByText(/Scott is left out — your filters removed every movie they added, so tonight's draw is a straight pick from the starter pack\./)
+    ).toBeInTheDocument();
+  });
+
   it("falls back to a count when the excluded contributors have no display name", () => {
     render(
       <DrawMethodInfoModal

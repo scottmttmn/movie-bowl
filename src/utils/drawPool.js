@@ -38,6 +38,11 @@ export function summarizeContributorReach(poolMovies = [], candidates = []) {
 
   return {
     totalCount: labelsByKey.size,
+    // With every person excluded, whatever the pool still holds is pack titles,
+    // and the draw is a flat pick among them rather than nothing at all.
+    packTitleCount: (candidates || []).filter(
+      (candidate) => getContributorBucketKey(candidate) === null
+    ).length,
     reachedCount: labelsByKey.size - excluded.length,
     // Unnamed contributors still count as excluded; they just cannot be listed.
     excludedNames: excluded

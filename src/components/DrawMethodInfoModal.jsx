@@ -20,6 +20,11 @@ export default function DrawMethodInfoModal({ drawMethod, contributorReach = nul
     ? contributorReach.totalCount - contributorReach.reachedCount
     : 0;
   const showReach = excludedCount > 0;
+  // Nobody left but the pack: the draw still happens, from the pack alone, and
+  // "left out" on its own read as though the bowl could not draw at all.
+  const drawsFromPackOnly = showReach &&
+    contributorReach.reachedCount === 0 &&
+    contributorReach.packTitleCount > 0;
 
   return (
     <div className="modal-overlay z-[70]" role="presentation" onClick={onClose}>
@@ -53,7 +58,9 @@ export default function DrawMethodInfoModal({ drawMethod, contributorReach = nul
         {showReach && (
           <p className="mt-4 rounded-xl border border-amber-800/70 bg-amber-950/25 px-3.5 py-3 text-sm leading-6 text-amber-200">
             {describeExcludedContributors(contributorReach.excludedNames, excludedCount)} — your filters
-            removed every movie they added.{method.reachCaveat ? ` ${method.reachCaveat}` : ""}
+            removed every movie they added
+            {drawsFromPackOnly ? ", so tonight's draw is a straight pick from the starter pack." : "."}
+            {method.reachCaveat ? ` ${method.reachCaveat}` : ""}
           </p>
         )}
         <div className="mt-4 flex justify-end">
