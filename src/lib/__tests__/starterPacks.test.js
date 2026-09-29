@@ -4,12 +4,14 @@ vi.mock("../supabase", () => ({ supabase: {} }));
 vi.mock("../tmdbApi", () => ({ getTmdbMovieDetails: vi.fn() }));
 vi.mock("../bowlChanges", () => ({ notifyBowlChange: vi.fn() }));
 
+import { HISTORY_PAGE_SIZE } from "../readAllRows";
 import {
   clearStarterPackPeopleCache,
   fetchStarterPackCandidates,
   fetchStarterPackPeople,
   getStarterPackPhotoUrl,
   installStarterPack,
+  readBowlStarterPack,
   removeStarterPack,
 } from "../starterPacks";
 
@@ -143,6 +145,36 @@ describe("installStarterPack", () => {
     await expect(installStarterPack({ bowlId: "bowl-1", slug: "nolan-2000s", client: h.client, fetchCandidates, offline: h.offline }))
       .resolves.toMatchObject({ ok: false });
     expect(fetchCandidates).not.toHaveBeenCalled();
+  });
+});
+
+describe("readBowlStarterPack", () => {
+  it("holds back every drawn title, even past the first page of history", async () => {
+    const drawPages = [
+      { data: Array.from({ length: HISTORY_PAGE_SIZE }, (_, index) => ({ id: `d${index}`, tmdb_id: 1000 + index, starter_pack: null })), error: null },
+      { data: [{ id: "d-last", tmdb_id: 42, starter_pack: "nolan-2000s", removed_at: null }], error: null },
+    ];
+    const query = (result) => {
+      const chain = {
+        select: () => chain, eq: () => chain, is: () => chain, order: () => chain,
+        maybeSingle: async () => result,
+        range: async () => drawPages.shift(),
+        then: (resolve) => resolve(result),
+      };
+      return chain;
+    };
+    const client = {
+      from: (table) => (table === "bowls"
+        ? query({ data: { starter_pack: "nolan-2000s", starter_pack_installed_at: "2026-09-01" }, error: null })
+        : query({ data: [{ tmdb_id: 7, starter_pack: "nolan-2000s" }], error: null })),
+    };
+
+    const result = await readBowlStarterPack("bowl-1", { client });
+
+    expect(result.loadError).toBeNull();
+    expect(result.heldTmdbIds).toContain(42);
+    expect(result.heldTmdbIds).toHaveLength(HISTORY_PAGE_SIZE + 2);
+    expect(result.drawnCount).toBe(1);
   });
 });
 

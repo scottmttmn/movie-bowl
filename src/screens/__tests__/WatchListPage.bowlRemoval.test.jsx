@@ -43,6 +43,7 @@ const mocks = vi.hoisted(() => {
       }),
       not: vi.fn(() => query),
       order: vi.fn(() => query),
+      range: vi.fn(() => query),
       then(onFulfilled, onRejected) {
         return Promise.resolve(resolve(record)).then(onFulfilled, onRejected);
       },

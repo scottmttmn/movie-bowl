@@ -12,6 +12,7 @@ import {
 } from "../lib/soloDraw";
 import { isWithinSoloUndoWindow } from "../utils/watchHistory";
 import { supabase } from "../lib/supabase";
+import { readAllRows } from "../lib/readAllRows";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { getMovieNoteValidationError, normalizeMovieNote } from "../utils/movieNote";
 import { updateOwnWatchComment } from "../lib/watchComments";
@@ -76,14 +77,17 @@ export default function WatchListPage() {
         return;
       }
 
-      const { data: watchedRows, error: watchedError } = await supabase
-        .from("user_watch_events")
-        .select(
-          "id, source_draw_event_id, source_kind, source_bowl_movie_id, bowl_name, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, personal_note, watched_on, created_at, updated_at"
-        )
-        .eq("user_id", user.id)
-        .order("watched_on", { ascending: false })
-        .order("created_at", { ascending: false });
+      const { data: watchedRows, error: watchedError } = await readAllRows(() =>
+        supabase
+          .from("user_watch_events")
+          .select(
+            "id, source_draw_event_id, source_kind, source_bowl_movie_id, bowl_name, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, personal_note, watched_on, created_at, updated_at"
+          )
+          .eq("user_id", user.id)
+          .order("watched_on", { ascending: false })
+          .order("created_at", { ascending: false })
+          .order("id", { ascending: true })
+      );
 
       if (watchedError) {
         console.error("[WatchListPage] Failed to load watch history", watchedError);

@@ -30,9 +30,15 @@ const mocks = vi.hoisted(() => ({
           if (column === "returned_at") state.kind = "watched";
           return query;
         }),
-        order: vi.fn(async () =>
-          state.kind === "remaining" ? mocks.remainingResult : mocks.watchedResult
-        ),
+        // History is read in pages, so an ordered read can be ordered again,
+        // ranged, or awaited as it stands; each resolves the same result.
+        order: vi.fn(() => {
+          state.ordered = true;
+          return query;
+        }),
+        range: vi.fn(() => query.orderedResult()),
+        orderedResult: async () =>
+          state.kind === "remaining" ? mocks.remainingResult : mocks.watchedResult,
         insert: vi.fn((payload) => {
           mocks.insertPayloads.push(payload);
           const response = {
@@ -44,7 +50,9 @@ const mocks = vi.hoisted(() => ({
             then: (resolve, reject) => Promise.resolve(response).then(resolve, reject),
           };
         }),
-        then: (resolve) => resolve({ data: null, error: null }),
+        then: (resolve, reject) => (state.ordered
+          ? query.orderedResult().then(resolve, reject)
+          : resolve({ data: null, error: null })),
       };
       return query;
     }),

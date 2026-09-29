@@ -1,5 +1,6 @@
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
+import { readAllRows } from "../lib/readAllRows";
 import { bowlMovieActions } from "../lib/bowlMovieActions";
 import { bowlMovieService, addResult, getPositiveTmdbId, isDuplicateMovieError, getDuplicateMovieMessage } from "../lib/addBowlMovie";
 import { subscribeBowlChanges, notifyBowlChange } from "../lib/bowlChanges";
@@ -164,15 +165,19 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       // bowl never erases the fact that the bowl made a draw. A draw the owner
       // removed from the watched history is kept for the same reason, and is
       // filtered out here just like a returned one.
-      const drawEventsRequest = supabase
-        .from("bowl_draw_events")
-        .select(
-          "id, bowl_id, source_bowl_movie_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, added_by, added_by_name, starter_pack, drawn_at, drawn_by, snapshot_at, returned_at, returned_by"
-        )
-        .eq("bowl_id", bowlId)
-        .is("returned_at", null)
-        .is("removed_at", null)
-        .order("drawn_at", { ascending: false });
+      // Paged, because a long-running bowl outgrows a single read.
+      const drawEventsRequest = readAllRows(() =>
+        supabase
+          .from("bowl_draw_events")
+          .select(
+            "id, bowl_id, source_bowl_movie_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, added_by, added_by_name, starter_pack, drawn_at, drawn_by, snapshot_at, returned_at, returned_by"
+          )
+          .eq("bowl_id", bowlId)
+          .is("returned_at", null)
+          .is("removed_at", null)
+          .order("drawn_at", { ascending: false })
+          .order("id", { ascending: true })
+      );
 
       const profilesRequest = supabase.rpc(
         "get_bowl_profile_directory",

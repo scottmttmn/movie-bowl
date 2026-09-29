@@ -25,6 +25,7 @@ const mocks = vi.hoisted(() => {
           select: vi.fn(() => query),
           eq: vi.fn(() => query),
           order: vi.fn(() => query),
+          range: vi.fn(() => query),
           then: (resolve, reject) =>
             Promise.resolve({ data: state.watchedRows, error: null }).then(resolve, reject),
         };

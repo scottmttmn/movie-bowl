@@ -27,6 +27,7 @@ const mocks = vi.hoisted(() => {
       is: vi.fn(() => query),
       not: vi.fn(() => query),
       order: vi.fn(() => query),
+      range: vi.fn(() => query),
       then(resolve, reject) {
         return Promise.resolve(result).then(resolve, reject);
       },
@@ -46,6 +47,13 @@ const mocks = vi.hoisted(() => {
       },
       from: vi.fn((table) => {
         if (table === "user_watch_events") {
+          // One result per page when a test sets pages; otherwise every page
+          // is the same single short one.
+          if (state.watchedPages) {
+            const query = createFilterQuery(null);
+            query.range = vi.fn(async () => state.watchedPages.shift());
+            return query;
+          }
           return createFilterQuery({ data: state.watchedRows, error: null });
         }
 
@@ -151,9 +159,11 @@ vi.mock("../../components/WatchHistoryEntryModal", () => ({
 
 import { MemoryRouter } from "react-router-dom";
 import WatchListPage from "../WatchListPage";
+import { HISTORY_PAGE_SIZE } from "../../lib/readAllRows";
 
 describe("WatchListPage", () => {
   beforeEach(() => {
+    mocks.state.watchedPages = null;
     mocks.state.sessionUser = { id: "user-1", email: "owner@example.com" };
     mocks.state.ownedRows = [{ id: "bowl-1" }];
     mocks.state.memberRows = [{ bowl_id: "bowl-2" }];
@@ -339,6 +349,42 @@ describe("WatchListPage", () => {
       expect(screen.getByText(/no watched movies yet/i)).toBeInTheDocument();
     });
     expect(screen.getByRole("button", { name: /export all history csv/i })).toBeDisabled();
+  });
+
+  it("shows a history longer than one page in full", async () => {
+    const entry = (n) => ({
+      id: `watch-${n}`, source_kind: "manual", title: `Film ${n}`, tmdb_id: -n,
+      watched_on: "2025-03-01", created_at: "2025-03-01T00:00:00.000Z",
+    });
+    mocks.state.watchedPages = [
+      { data: Array.from({ length: HISTORY_PAGE_SIZE }, (_, index) => entry(index + 1)), error: null },
+      { data: [entry(HISTORY_PAGE_SIZE + 1)], error: null },
+    ];
+
+    render(
+      <MemoryRouter>
+        <WatchListPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText(`Film ${HISTORY_PAGE_SIZE + 1}`)).toBeInTheDocument();
+    expect(screen.getByText("Film 1")).toBeInTheDocument();
+  });
+
+  it("reports a failed later page instead of showing part of the history as all of it", async () => {
+    mocks.state.watchedPages = [
+      { data: Array.from({ length: HISTORY_PAGE_SIZE }, (_, index) => ({ id: `watch-${index}`, title: `Film ${index}`, watched_on: "2025-03-01" })), error: null },
+      { data: null, error: { message: "timeout" } },
+    ];
+
+    render(
+      <MemoryRouter>
+        <WatchListPage />
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByText("Failed to load your watch history.")).toBeInTheDocument();
+    expect(screen.queryByText("Film 0")).not.toBeInTheDocument();
   });
 
   it("disables Letterboxd export while the watch list is loading", () => {

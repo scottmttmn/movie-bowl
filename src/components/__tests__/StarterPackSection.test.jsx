@@ -15,6 +15,8 @@ vi.mock("../../lib/supabase", () => ({
         select: () => query,
         eq: () => query,
         is: () => query,
+        order: () => query,
+        range: () => query,
         maybeSingle: async () => ({ data: mocks.state.bowl, error: mocks.state.error }),
         then: (resolve) => resolve({
           data: table === "bowl_movies" ? mocks.state.movies : mocks.state.draws,
