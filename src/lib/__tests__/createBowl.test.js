@@ -142,6 +142,20 @@ describe("create bowl service", () => {
     expect(createBowlCalls).toEqual([{ p_bowl_id: "minted-id", p_name: "Weekend Bowl" }]);
   });
 
+  it("accepts the created bowl as a one-row array", async () => {
+    const { client } = createClient({
+      bowlResponses: [{ data: [{ id: "bowl-1", name: "Weekend Bowl" }], error: null }],
+    });
+    const publish = vi.fn();
+    const service = createBowlCreationService({ client, publish });
+
+    await expect(service.create({ bowlName: "Weekend Bowl" })).resolves.toMatchObject({
+      ok: true,
+      bowl: { id: "bowl-1", name: "Weekend Bowl" },
+    });
+    expect(publish).toHaveBeenCalledWith({ userId: "user-1", bowlId: "bowl-1" });
+  });
+
   it("reports a rolled-back creation as a failure without publishing", async () => {
     const { client } = createClient({
       bowlResponses: [{ data: null, error: { code: "P0001", message: "write failed" } }],

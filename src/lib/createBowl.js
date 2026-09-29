@@ -66,10 +66,12 @@ export function createBowlCreationService({
     // The bowl id is the creation's identity: the caller keeps it across
     // retries, so a repeat after a lost response returns the bowl the first
     // attempt made instead of making another.
-    const { data: newBowl, error: bowlError } = await client.rpc("create_owned_bowl", {
+    const { data: bowlData, error: bowlError } = await client.rpc("create_owned_bowl", {
       p_bowl_id: bowlId || bowlIdFactory(),
       p_name: bowlName,
     });
+    // A composite return can arrive as a one-row array.
+    const newBowl = Array.isArray(bowlData) ? bowlData[0] : bowlData;
 
     if (bowlError || !newBowl?.id) {
       console.error("Failed to create bowl", bowlError);

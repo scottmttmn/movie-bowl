@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(22);
+select plan(24);
 
 insert into auth.users (id, email)
 values
@@ -180,10 +180,34 @@ select is(
 );
 reset role;
 
+-- An older or custom client writing the table directly is held to it too.
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-000000000313');
+select throws_ok(
+  $sql$ insert into public.bowls (id, owner_id, name)
+        values ('10000000-0000-0000-0000-000000000412', '00000000-0000-0000-0000-000000000313', 'Direct') $sql$,
+  'P0001',
+  'You can create up to 10 bowls.',
+  'a direct insert past the limit is refused'
+);
+reset role;
+
 select is(
   (select count(*)::int from public.bowls where owner_id = '00000000-0000-0000-0000-000000000313'),
   10,
   'the limit holds at ten bowls'
+);
+
+-- Moving a bowl to someone already at the limit is a transfer, not a
+-- creation, and the trigger leaves it alone.
+update public.bowls
+set owner_id = '00000000-0000-0000-0000-000000000313'
+where id = '10000000-0000-0000-0000-000000000312';
+
+select is(
+  (select count(*)::int from public.bowls where owner_id = '00000000-0000-0000-0000-000000000313'),
+  11,
+  'an ownership transfer is not blocked by the creation limit'
 );
 
 -- All or nothing: a membership failure takes the bowl with it.

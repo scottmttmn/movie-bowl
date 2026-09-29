@@ -6,14 +6,48 @@
 -- One transaction now does both, keyed on a bowl id the client generates once
 -- per creation and keeps across retries. A repeat of the same id returns the
 -- bowl that already exists (repairing a missing owner membership on the way)
--- instead of making another. The ten-bowl limit, until now only a UI check,
--- is enforced here too, serialized per owner so two tabs cannot both take the
--- last slot.
+-- instead of making another.
+--
+-- The ten-bowl limit, until now only a UI check, becomes a trigger on bowls
+-- rather than a check inside the function, so a direct insert from an older
+-- or custom client is held to it too. It serializes per owner so two tabs
+-- cannot both take the last slot.
 --
 -- Security invoker: the existing policies already let an owner insert their
 -- own bowl and their own membership, so nothing here needs to bypass RLS.
 
 begin;
+
+-- Mirrors MAX_BOWLS_PER_USER in src/utils/appLimits.js. Only new bowls count
+-- against it: an ownership transfer is an update and is not limited here.
+create or replace function public._enforce_owned_bowl_limit()
+returns trigger
+language plpgsql
+security definer
+set search_path = public
+as $$
+begin
+  if new.owner_id is null then
+    return new;
+  end if;
+
+  perform pg_advisory_xact_lock(hashtextextended('owned_bowl_limit:' || new.owner_id::text, 0));
+
+  if (select count(*) from public.bowls where owner_id = new.owner_id) >= 10 then
+    raise exception 'You can create up to 10 bowls.'
+      using errcode = 'P0001', hint = 'limit_reached';
+  end if;
+
+  return new;
+end;
+$$;
+
+revoke all on function public._enforce_owned_bowl_limit() from public, anon, authenticated;
+
+drop trigger if exists enforce_owned_bowl_limit on public.bowls;
+create trigger enforce_owned_bowl_limit
+before insert on public.bowls
+for each row execute function public._enforce_owned_bowl_limit();
 
 create or replace function public.create_owned_bowl(p_bowl_id uuid, p_name text)
 returns public.bowls
@@ -25,7 +59,6 @@ declare
   v_user_id uuid := auth.uid();
   v_name text := nullif(trim(coalesce(p_name, '')), '');
   v_bowl public.bowls%rowtype;
-  v_owned_count integer;
 begin
   if v_user_id is null then
     raise exception 'You must be signed in to create a bowl.'
@@ -42,9 +75,10 @@ begin
       using errcode = '22023';
   end if;
 
-  -- Serializes one person's creations: the limit check and the insert must
-  -- not interleave with another tab doing the same.
-  perform pg_advisory_xact_lock(hashtextextended('create_owned_bowl:' || v_user_id::text, 0));
+  -- The same lock the limit trigger takes, taken first: a duplicate submission
+  -- racing this one waits here and then finds the committed bowl, instead of
+  -- missing it and colliding on insert.
+  perform pg_advisory_xact_lock(hashtextextended('owned_bowl_limit:' || v_user_id::text, 0));
 
   select *
   into v_bowl
@@ -53,17 +87,6 @@ begin
     and owner_id = v_user_id;
 
   if v_bowl.id is null then
-    select count(*)::int
-    into v_owned_count
-    from public.bowls
-    where owner_id = v_user_id;
-
-    -- Mirrors MAX_BOWLS_PER_USER in src/utils/appLimits.js.
-    if v_owned_count >= 10 then
-      raise exception 'You can create up to 10 bowls.'
-        using errcode = 'P0001', hint = 'limit_reached';
-    end if;
-
     insert into public.bowls (id, owner_id, name)
     values (p_bowl_id, v_user_id, v_name)
     on conflict (id) do nothing
