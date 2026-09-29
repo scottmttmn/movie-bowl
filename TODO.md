@@ -7,7 +7,6 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 - Offline read cache: connectivity is now detected and explained (global banner, honest error copy, draw/add refused up front, reload on reconnect), but nothing is cached, so reloading a bowl with no connection still shows an empty bowl behind the banner rather than the last known movies. Caching the last-loaded bowl read-only would close that, and needs a decision on staleness copy and invalidation before any code.
 - Invite inbox polish: state handling for accepted, declined, and stale invites. Visibility is covered by the top nav badge and `/invites` page.
 - Draw filter UX follow-up: keep evaluating whether runtime, genre, and rating controls still feel too dense after recent cleanup.
-- Streaming rank on touch: the reordering rows in User Settings still use HTML5 drag events, which do not fire on touch, so phones fall back to the ↑/↓ buttons. The redesign (`output/designs/user-settings-redesign.md`) kept that as-is; a pointer-event drag or an explicit "move to position" affordance would close it.
 - Visual consistency sweep: audit remaining non-core pages and components for raw styling that bypasses shared tokens.
 - Large-bowl draw count UX: bowls with over 100 titles the daily cron has not
   cached still need an explicit tap on the phone to resolve an exact eligible
