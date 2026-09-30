@@ -839,6 +839,10 @@ describe("AddMovieModal tonight", () => {
     });
 
     expect(screen.getByRole("link", { name: /rent on apple tv/i })).toHaveClass("btn-primary");
+    // The store on the button is not counted again behind the logos.
+    const logos = screen.getByRole("button", { name: "Where else to watch: 3 options" });
+    expect([...logos.querySelectorAll("img")].map((img) => img.getAttribute("src")))
+      .not.toContainEqual(expect.stringContaining("apple"));
   });
 
   it("offers no primary button when there is nowhere to watch", () => {

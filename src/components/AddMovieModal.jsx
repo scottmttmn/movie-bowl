@@ -362,9 +362,16 @@ export default function AddMovieModal({
           linksAttribution: rentCandidate.linkType === "rent",
         }
         : null;
+  // The logos are everywhere else: the service or store already on the
+  // primary button is not repeated behind them.
+  const primaryRentStore = !webLaunchCandidate && rentCandidate?.linkType === "rent" ? rentCandidate.storeName : null;
   const tonightProviders = tonight
-    ? uniqueProvidersByName([...streamingGroups, ...storeGroups].flatMap((group) => group.providers))
-      .filter((provider) => normalizeStreamingServices([provider.name])[0] !== webLaunchCandidate?.serviceName)
+    ? uniqueProvidersByName([
+      ...streamingGroups.flatMap((group) => group.providers)
+        .filter((provider) => normalizeStreamingServices([provider.name])[0] !== webLaunchCandidate?.serviceName),
+      ...storeGroups.flatMap((group) => group.providers)
+        .filter((provider) => !primaryRentStore || normalizeRentalStore(provider.name) !== primaryRentStore),
+    ])
     : [];
   const tonightProviderLogos = tonightProviders
     .map((provider) => getProviderLogoUrl(provider.logoPath || providerLogos[normalizeStreamingServices([provider.name])[0]]))
