@@ -1,4 +1,5 @@
-import { normalizeServiceName, normalizeStreamingServices } from "./streamingServices.js";
+import { matchUserServices, normalizeServiceName, normalizeStreamingServices } from "./streamingServices.js";
+import { RENTAL_STORES, RENT_FROM_OFF, normalizeRentFrom, normalizeRentalStore } from "./rentalStores.js";
 
 const STREAMING_SERVICE_WEB_SEARCH_URLS = {
   Netflix: (query) => `https://www.netflix.com/search?q=${query}`,
@@ -70,6 +71,51 @@ export function resolvePreferredLaunchTarget({ providerLinks = [], ...options })
       android: link ? safeProviderUrl(link.androidUrl, { native: true }) : null,
     },
   };
+}
+
+// For a movie none of your services carry: one store's rental page, or the
+// watch page listing every store when no direct link came back. Its linkType
+// is never "title", so getAutoStartMode leaves it alone -- spending money
+// always takes a tap.
+export function resolveRentTarget({
+  providerLinks = [],
+  rentFrom,
+  watchUrl = null,
+  canRent = false,
+  userServices = [],
+  movieProviders = [],
+  availabilityStatus = "ready",
+}) {
+  const preference = normalizeRentFrom(rentFrom);
+  if (preference === RENT_FROM_OFF) return null;
+
+  // Asking someone to pay needs proof they can't already watch it. A failed
+  // availability read is an empty list, not that proof, and either source
+  // naming one of their services rules a rental out.
+  if (availabilityStatus === "failed") return null;
+  if (matchUserServices(movieProviders, userServices).length > 0) return null;
+  const links = Array.isArray(providerLinks) ? providerLinks : [];
+  const includedServices = links
+    .filter((entry) => ["sub", "free"].includes(entry?.type))
+    .map((entry) => entry.service);
+  if (matchUserServices(includedServices, userServices).length > 0) return null;
+
+  const rentLinks = links.flatMap((entry) => {
+    if (entry?.type !== "rent") return [];
+    const storeName = normalizeRentalStore(entry.service);
+    const url = safeProviderUrl(entry.webUrl);
+    return storeName && url ? [{ storeName, url }] : [];
+  });
+  const order = RENTAL_STORES.includes(preference)
+    ? [preference, ...RENTAL_STORES.filter((store) => store !== preference)]
+    : RENTAL_STORES;
+  for (const storeName of order) {
+    const link = rentLinks.find((entry) => entry.storeName === storeName);
+    if (link) return { storeName, url: link.url, linkType: "rent" };
+  }
+
+  const fallbackUrl = safeProviderUrl(watchUrl);
+  return canRent && fallbackUrl ? { storeName: null, url: fallbackUrl, linkType: "rent-options" } : null;
 }
 
 export const AUTO_START_SURFACE = {

@@ -678,6 +678,46 @@ describe("AddMovieModal", () => {
     expect(screen.queryByTitle("Movie B trailer")).not.toBeInTheDocument();
   });
 
+  it("offers a rental in the store's name, crediting Watchmode only for a direct link", () => {
+    const movie = {
+      title: "Arrival",
+      streamingAvailability: {
+        subscription: [{ id: 1899, name: "Max", logoPath: null }],
+        rent: [{ id: 7, name: "Fandango At Home", logoPath: "/fandango.jpg" }],
+      },
+    };
+    const { rerender } = render(
+      <AddMovieModal
+        movie={movie}
+        onClose={vi.fn()}
+        userStreamingServices={["Netflix"]}
+        rentCandidate={{ storeName: "Fandango at Home", url: "https://athome.fandango.com/1", linkType: "rent" }}
+      />
+    );
+
+    expect(screen.getByText("Not on any of your services.")).toBeInTheDocument();
+    const link = screen.getByRole("link", { name: /rent on fandango at home.*opens in a new tab/i });
+    expect(link).toHaveAttribute("href", "https://athome.fandango.com/1");
+    expect(link).toHaveAttribute("rel", "noopener noreferrer");
+    expect(link.querySelector("img")).toHaveAttribute("src", expect.stringContaining("/fandango.jpg"));
+    expect(screen.getByRole("link", { name: "Watchmode" })).toBeInTheDocument();
+
+    rerender(
+      <AddMovieModal
+        movie={movie}
+        onClose={vi.fn()}
+        userStreamingServices={["Netflix"]}
+        rentCandidate={{ storeName: null, url: "https://www.themoviedb.org/movie/1/watch", linkType: "rent-options" }}
+      />
+    );
+
+    expect(screen.getByRole("link", { name: /see rent options/i })).toHaveAttribute(
+      "href",
+      "https://www.themoviedb.org/movie/1/watch"
+    );
+    expect(screen.queryByRole("link", { name: "Watchmode" })).not.toBeInTheDocument();
+  });
+
   it("attributes only direct links", () => {
     const props = { movie: { title: "Arrival" }, onClose: vi.fn() };
     const candidate = { serviceName: "Netflix", url: "https://www.netflix.com/title/123", linkType: "title" };

@@ -3,6 +3,7 @@ import {
   normalizeServiceName,
 } from "../../src/utils/streamingServices.js";
 import { safeProviderUrl } from "../../src/utils/webLaunch.js";
+import { normalizeRentalStore } from "../../src/utils/rentalStores.js";
 
 const WATCHMODE_SOURCE_ALIASES = {
   "amazon prime": "Prime Video",
@@ -18,8 +19,13 @@ export function normalizeProviderLinks(sources) {
   const seen = new Set();
   return sources.flatMap((source) => {
     if (source?.region !== "US" || typeof source.name !== "string") return [];
+    // A rental is filed under the store that sells it, which need not be a
+    // streaming service anyone can pick (Fandango at Home, Google Play).
+    const isPurchase = ["rent", "buy"].includes(source.type);
     const alias = WATCHMODE_SOURCE_ALIASES[source.name.trim().toLowerCase()];
-    const service = services.get(normalizeServiceName(alias || source.name).toLowerCase());
+    const service = isPurchase
+      ? normalizeRentalStore(source.name)
+      : services.get(normalizeServiceName(alias || source.name).toLowerCase());
     if (!service || !["sub", "free", "rent", "buy", "tve"].includes(source.type)) return [];
     const link = {
       service,

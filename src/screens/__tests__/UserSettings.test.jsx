@@ -421,6 +421,28 @@ describe("UserSettings", () => {
     expect(mocks.hook.saveStreamingServices).not.toHaveBeenCalled();
   });
 
+  it("offers any rental store, one store or none, and saves the choice", async () => {
+    vi.useFakeTimers();
+    mocks.hook.defaultDrawSettings = { ...mocks.hook.defaultDrawSettings, rentFrom: "any" };
+    const { rerender } = renderSettings();
+    const select = screen.getByLabelText("Rent from");
+    expect(select).toHaveValue("any");
+    expect(Array.from(select.options).map((option) => option.textContent)).toEqual([
+      "Any store", "Apple TV", "Prime Video", "Fandango at Home", "Google Play", "YouTube", "Don't offer rentals",
+    ]);
+
+    fireEvent.change(select, { target: { value: "Fandango at Home" } });
+    expect(mocks.hook.setDefaultDrawSettings).toHaveBeenCalledWith(
+      expect.objectContaining({ rentFrom: "Fandango at Home" })
+    );
+    mocks.hook.defaultDrawSettings = { ...mocks.hook.defaultDrawSettings, rentFrom: "Fandango at Home" };
+    rerender(<UserSettings />);
+    await settleAutosave();
+    expect(mocks.hook.saveDefaultDrawSettings).toHaveBeenCalledExactlyOnceWith(
+      expect.objectContaining({ rentFrom: "Fandango at Home" })
+    );
+  });
+
   it("offers captions on previews, off, and saves the choice", async () => {
     vi.useFakeTimers();
     const { rerender } = renderSettings();

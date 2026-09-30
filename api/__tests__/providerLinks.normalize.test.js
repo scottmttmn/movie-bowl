@@ -15,7 +15,21 @@ describe("Watchmode provider links", () => {
       { ...source, region: "CA" }, { ...source, name: "Unknown" }, null,
     ]).map(({ service, type }) => [service, type])).toEqual([
       ["Netflix", "sub"], ["Max", "free"], ["Prime Video", "rent"],
-      ["Apple TV+", "buy"], ["Hulu", "tve"],
+      ["Apple TV", "buy"], ["Hulu", "tve"],
+    ]);
+  });
+
+  it("files rentals under the store even when it is not a streaming service", () => {
+    expect(normalizeProviderLinks([
+      { ...source, name: "VUDU", type: "rent" },
+      { ...source, name: "Google Play", type: "rent" },
+      { ...source, name: "YouTube", type: "buy" },
+      { ...source, name: "iTunes", type: "rent" },
+      // A store's name on a subscription source is still not a service.
+      { ...source, name: "Google Play", type: "sub" },
+      { ...source, name: "Microsoft Store", type: "rent" },
+    ]).map(({ service, type }) => [service, type])).toEqual([
+      ["Fandango at Home", "rent"], ["Google Play", "rent"], ["YouTube", "buy"], ["Apple TV", "rent"],
     ]);
   });
 

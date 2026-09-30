@@ -3,6 +3,7 @@ import MovieSearch from "./MovieSearch";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { getProviderLogoUrl } from "../utils/getProviderLogoUrl";
 import { matchUserServices, normalizeStreamingServices } from "../utils/streamingServices";
+import { normalizeRentalStore } from "../utils/rentalStores";
 import ProviderLinksAttribution from "./ProviderLinksAttribution";
 import AvailabilityAttribution from "./AvailabilityAttribution";
 import MoviePosterPin from "./MoviePosterPin";
@@ -142,6 +143,7 @@ export default function AddMovieModal({
   isDetailPrimaryActionLoading = false,
   isDetailPrimaryActionDisabled = false,
   webLaunchCandidate = null,
+  rentCandidate = null,
   onEditNote = null,
   onDeleteMovie = null,
   deleteActionLabel = "Delete",
@@ -309,6 +311,22 @@ export default function AddMovieModal({
         <span className="sr-only"> (opens in a new tab)</span>
       </a>
       {webLaunchCandidate.linkType === "title" && <div className="mt-2"><ProviderLinksAttribution /></div>}
+    </div>
+  ) : null;
+  const rentStoreLogoUrl = rentCandidate?.storeName
+    ? getProviderLogoUrl(
+      (Array.isArray(availability.rent) ? availability.rent : [])
+        .find((provider) => normalizeRentalStore(provider.name) === rentCandidate.storeName)?.logoPath
+    )
+    : null;
+  const rentButton = rentCandidate ? (
+    <div>
+      <a href={rentCandidate.url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary w-full text-sm sm:w-auto">
+        {rentStoreLogoUrl && <img src={rentStoreLogoUrl} alt="" className="h-5 w-5 rounded" loading="lazy" />}
+        {rentCandidate.linkType === "rent" ? `Rent on ${rentCandidate.storeName}` : "See rent options"}
+        <span className="sr-only"> (opens in a new tab)</span>
+      </a>
+      {rentCandidate.linkType === "rent" && <div className="mt-2"><ProviderLinksAttribution /></div>}
     </div>
   ) : null;
   const providerStatus = movie.streamingProviderStatus || "ready";
@@ -517,6 +535,7 @@ export default function AddMovieModal({
                       : "No US streaming providers found right now."}
                   </p>
                   {launchButton}
+                  {rentButton}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -533,6 +552,7 @@ export default function AddMovieModal({
                     <p className="text-sm text-slate-300">Not on any of your services.</p>
                   ) : null}
                   {launchButton}
+                  {rentButton}
                   {(otherStreamingGroups.length > 0 || storeGroups.length > 0) && (
                     <div className="border-b border-slate-700/60">
                       {otherStreamingGroups.length > 0 && (

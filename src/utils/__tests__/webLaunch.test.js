@@ -5,6 +5,7 @@ import {
   getAutoStartSurface,
   resolvePreferredLaunchTarget,
   resolvePreferredWebLaunchCandidate,
+  resolveRentTarget,
 } from "../webLaunch";
 
 describe("resolvePreferredWebLaunchCandidate", () => {
@@ -143,5 +144,73 @@ describe("getAutoStartMode", () => {
       launchCandidate: titleLink,
       launchError: "Max isn't installed on this TV.",
     })).toBeNull();
+  });
+});
+
+describe("resolveRentTarget", () => {
+  const links = [
+    { service: "Netflix", type: "sub", webUrl: "https://www.netflix.com/title/1" },
+    { service: "Prime Video", type: "buy", webUrl: "https://www.amazon.com/buy/1" },
+    // Cached before stores had their own names, an Apple rental reads "Apple TV+".
+    { service: "Apple TV+", type: "rent", webUrl: "https://tv.apple.com/movie/1" },
+    { service: "Fandango at Home", type: "rent", webUrl: "https://athome.fandango.com/1" },
+    { service: "YouTube", type: "rent", webUrl: "javascript:alert(1)" },
+  ];
+
+  it("starts with Apple TV when no store was chosen", () => {
+    expect(resolveRentTarget({ providerLinks: links })).toEqual({
+      storeName: "Apple TV",
+      url: "https://tv.apple.com/movie/1",
+      linkType: "rent",
+    });
+  });
+
+  it("prefers the chosen store and otherwise falls back in order", () => {
+    expect(resolveRentTarget({ providerLinks: links, rentFrom: "Fandango at Home" })).toMatchObject({
+      storeName: "Fandango at Home",
+    });
+    // A buy link and an unsafe URL are not a rental there.
+    expect(resolveRentTarget({ providerLinks: links, rentFrom: "Prime Video" })).toMatchObject({
+      storeName: "Apple TV",
+    });
+    expect(resolveRentTarget({ providerLinks: links, rentFrom: "YouTube" })).toMatchObject({
+      storeName: "Apple TV",
+    });
+  });
+
+  it("offers nothing when rentals are turned off", () => {
+    expect(resolveRentTarget({ providerLinks: links, rentFrom: "off", watchUrl: "https://www.themoviedb.org/movie/1/watch", canRent: true })).toBeNull();
+  });
+
+  it("falls back to the watch page only when the title can be rented", () => {
+    const watchUrl = "https://www.themoviedb.org/movie/1/watch";
+    expect(resolveRentTarget({ providerLinks: [], watchUrl, canRent: true })).toEqual({
+      storeName: null,
+      url: watchUrl,
+      linkType: "rent-options",
+    });
+    expect(resolveRentTarget({ providerLinks: [], watchUrl, canRent: false })).toBeNull();
+    expect(resolveRentTarget({ providerLinks: [], watchUrl: null, canRent: true })).toBeNull();
+  });
+
+  it("offers no rental unless it is sure none of your services carry the movie", () => {
+    const rental = [{ service: "Apple TV", type: "rent", webUrl: "https://tv.apple.com/movie/1" }];
+    const base = { providerLinks: rental, userServices: ["Netflix"], movieProviders: ["Max"] };
+    expect(resolveRentTarget(base)).toMatchObject({ storeName: "Apple TV" });
+    // A failed read came back empty; that is not proof it is on nothing you have.
+    expect(resolveRentTarget({ ...base, movieProviders: [], availabilityStatus: "failed" })).toBeNull();
+    expect(resolveRentTarget({ ...base, movieProviders: ["Max", "Netflix"] })).toBeNull();
+    expect(resolveRentTarget({
+      ...base,
+      movieProviders: [],
+      providerLinks: [...rental, { service: "Netflix", type: "sub", webUrl: "https://www.netflix.com/title/1" }],
+    })).toBeNull();
+  });
+
+  it("never starts a rental on its own after the pre-roll", () => {
+    const target = resolveRentTarget({ providerLinks: links });
+    for (const surface of Object.values(AUTO_START_SURFACE)) {
+      expect(getAutoStartMode({ surface, launchCandidate: target })).toBeNull();
+    }
   });
 });

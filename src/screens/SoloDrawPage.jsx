@@ -34,7 +34,7 @@ import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { fetchMovieFilterMetadata } from "../lib/movieFilterMetadata";
 import { matchUserServices } from "../utils/streamingServices";
-import { getAutoStartMode, getAutoStartSurface, resolvePreferredLaunchTarget } from "../utils/webLaunch";
+import { getAutoStartMode, getAutoStartSurface, resolvePreferredLaunchTarget, resolveRentTarget } from "../utils/webLaunch";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { getRememberedValueFor, readRememberedReadout, rememberReadout } from "../utils/rememberedReadouts";
 
@@ -192,6 +192,19 @@ export default function SoloDrawPage() {
     providerLinks,
     streamingServices,
   ]);
+
+  const revealedMovieRentCandidate = useMemo(() => {
+    if (!revealedMovie) return null;
+    return resolveRentTarget({
+      providerLinks,
+      rentFrom: settings.rentFrom,
+      watchUrl: revealedMovie.streamingWatchUrl,
+      canRent: (revealedMovie.streamingAvailability?.rent || []).length > 0,
+      userServices: streamingServices,
+      movieProviders: revealedMovie.streamingProviders || [],
+      availabilityStatus: revealedMovie.streamingProviderStatus,
+    });
+  }, [revealedMovie, streamingServices, providerLinks, settings.rentFrom]);
 
   const toggleBowl = (bowlId) => {
     setScopeOverride((previous) => {
@@ -565,6 +578,7 @@ export default function SoloDrawPage() {
           isObscured={isTheaterPlaying}
           userStreamingServices={streamingServices}
           webLaunchCandidate={settings.enablePreferredWebLaunch ? preferredWebLaunchCandidate : null}
+          rentCandidate={revealedMovieRentCandidate}
           detailPrimaryActionNote={describeSoloReveal(revealedMovie)}
           onClose={closeReveal}
         />

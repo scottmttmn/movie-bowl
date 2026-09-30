@@ -469,6 +469,51 @@ describe("BowlDashboard draw flow", () => {
     expect(screen.getByRole("link", { name: "Watchmode" })).toBeInTheDocument();
   });
 
+  it("offers the preferred rental store when none of your services carry the drawn movie", async () => {
+    mocks.fetchProviderLinks.mockResolvedValue({
+      links: [
+        { service: "Max", type: "sub", webUrl: "https://play.max.com/movie/1" },
+        { service: "Apple TV+", type: "rent", webUrl: "https://tv.apple.com/movie/1" },
+        { service: "Google Play", type: "rent", webUrl: "https://play.google.com/store/movies/1" },
+      ],
+    });
+    mocks.state.streamingServices = ["Netflix"];
+    mocks.state.defaultDrawSettings.enablePreferredWebLaunch = true;
+    mocks.state.defaultDrawSettings.rentFrom = "Google Play";
+    mocks.state.handleDraw.mockResolvedValue({ id: "m1", tmdb_id: 101, title: "Arrival" });
+    fetchStreamingProviders.mockResolvedValue({ providers: ["Max"] });
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    vi.useFakeTimers();
+    confirmDraw();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+    vi.useRealTimers();
+
+    const link = await screen.findByRole("link", { name: /rent on google play/i });
+    expect(link).toHaveAttribute("href", "https://play.google.com/store/movies/1");
+    expect(link).toHaveAttribute("target", "_blank");
+    expect(screen.queryByRole("link", { name: /open on web/i })).not.toBeInTheDocument();
+  });
+
+  it("offers no rental when one of your services carries the drawn movie", async () => {
+    mocks.fetchProviderLinks.mockResolvedValue({
+      links: [{ service: "Apple TV", type: "rent", webUrl: "https://tv.apple.com/movie/1" }],
+    });
+    mocks.state.streamingServices = ["Netflix"];
+    mocks.state.handleDraw.mockResolvedValue({ id: "m1", tmdb_id: 101, title: "Arrival" });
+    fetchStreamingProviders.mockResolvedValue({ providers: ["Netflix"] });
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    vi.useFakeTimers();
+    confirmDraw();
+    await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
+    vi.useRealTimers();
+
+    await waitFor(() => expect(mocks.fetchProviderLinks).toHaveBeenCalled());
+    await screen.findByRole("heading", { name: "Arrival", level: 2 });
+    expect(screen.queryByRole("link", { name: /rent on/i })).not.toBeInTheDocument();
+  });
+
   it("does not infer a blocked popup from an unavailable window handle", async () => {
     const openSpy = vi.spyOn(window, "open").mockReturnValue(null);
     mocks.state.streamingServices = ["Netflix"];

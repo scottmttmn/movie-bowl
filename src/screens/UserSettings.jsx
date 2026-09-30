@@ -5,6 +5,7 @@ import useAutosave, { valuesAreEqual } from "../hooks/useAutosave";
 import AutosaveStatus from "../components/AutosaveStatus";
 import SettingsSectionNav from "../components/SettingsSectionNav";
 import ServiceLogo from "../components/ServiceLogo";
+import { RENTAL_STORES, RENT_FROM_ANY, RENT_FROM_OFF } from "../utils/rentalStores";
 import { AVAILABLE_STREAMING_SERVICES } from "../utils/streamingServices";
 import { deleteMyAccount } from "../lib/account";
 import { DISPLAY_NAME_MAX_LENGTH } from "../utils/profileIdentity";
@@ -200,6 +201,7 @@ export default function UserSettings() {
         enablePreferredWebLaunch: defaultDrawSettings.enablePreferredWebLaunch,
         theaterModeEnabled: defaultDrawSettings.theaterModeEnabled,
         prerollCaptionsEnabled: defaultDrawSettings.prerollCaptionsEnabled,
+        rentFrom: defaultDrawSettings.rentFrom,
       },
       removeFromBowlsOnSoloDraw,
     }),
@@ -659,6 +661,31 @@ export default function UserSettings() {
                     })
                   }
                 />
+              </div>
+              <div className="border-t border-slate-800 pt-4">
+                <label htmlFor="rent-from" className="text-base font-semibold text-slate-100">Rent from</label>
+                <p id="rent-from-help" className="mt-0.5 text-sm text-slate-400">
+                  When a drawn movie isn&apos;t on any of your services, offer a button to rent it here.
+                </p>
+                <select
+                  id="rent-from"
+                  name="rent_from"
+                  className="input-field mt-3 sm:max-w-xs"
+                  aria-describedby="rent-from-help"
+                  value={defaultDrawSettings.rentFrom}
+                  onChange={(event) =>
+                    setDefaultDrawSettings({
+                      ...defaultDrawSettings,
+                      rentFrom: event.target.value,
+                    })
+                  }
+                >
+                  <option value={RENT_FROM_ANY}>Any store</option>
+                  {RENTAL_STORES.map((store) => (
+                    <option key={store} value={store}>{store}</option>
+                  ))}
+                  <option value={RENT_FROM_OFF}>Don&apos;t offer rentals</option>
+                </select>
               </div>
             </div>
           </section>
