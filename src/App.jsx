@@ -1,5 +1,5 @@
-import React, { Suspense, useEffect } from "react";
-import { BrowserRouter as Router, Routes, Route, Navigate, useLocation, useNavigate, useParams } from "react-router-dom";
+import React, { Suspense, useCallback, useEffect } from "react";
+import { BrowserRouter as Router, Routes, Route, Navigate, matchPath, useLocation, useNavigate, useParams } from "react-router-dom";
 import useAuth from "./hooks/useAuth";
 import useAppUpdate from "./hooks/useAppUpdate";
 import usePendingInvites, { PendingInvitesProvider } from "./hooks/usePendingInvites";
@@ -106,6 +106,14 @@ function AppShell({ children }) {
   // A bowl dashboard already carries the picker in its own header, and /bowls is
   // the list itself; everywhere else the header is the only way back to a bowl.
   const showBowlSwitcher = Boolean(session) && !isBowlRoute && !isBowlsRoute;
+  // The header + adds to the bowl on screen, so on a bowl page it and "Add to
+  // this bowl" agree; away from a bowl there is none, and home is the answer.
+  const viewedBowlId = matchPath("/bowl/:bowlId/*", location.pathname)?.params.bowlId || null;
+  const { openBowlAdd, openGlobalAdd } = bowlAdd;
+  const handleAddMovie = useCallback(
+    () => (viewedBowlId ? openBowlAdd(viewedBowlId) : openGlobalAdd()),
+    [viewedBowlId, openBowlAdd, openGlobalAdd]
+  );
   usePrefetchLikelyRoutes(session, location.pathname);
 
   return (
@@ -126,7 +134,7 @@ function AppShell({ children }) {
           homeBowlId={defaultBowlId}
           homeBowlName={homeBowlName}
           showBowlSwitcher={showBowlSwitcher}
-          onAddMovie={bowlAdd.openGlobalAdd}
+          onAddMovie={handleAddMovie}
         />
       )}
 
