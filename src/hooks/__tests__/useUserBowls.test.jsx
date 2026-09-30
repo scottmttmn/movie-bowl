@@ -87,6 +87,12 @@ describe("shared account bowl context", () => {
     await waitFor(() => expect(result.current.defaultBowlId).toBe("b"));
     expect(result.current.bowls).toHaveLength(1);
   });
+  it("ignores a warmed metadata row, which changes no bowl it lists", async () => {
+    await loaded(); const calls = mocks.rpc.mock.calls.length;
+    act(() => notifyBowlChange({ type: "metadata", bowlId: "a", tmdbId: 101 }));
+    await act(async () => {});
+    expect(mocks.rpc.mock.calls.length).toBe(calls);
+  });
   it("does not query for disabled TV/public surfaces", () => {
     renderHook(() => useUserBowls(), { wrapper: ({ children }) => <UserBowlsProvider enabled={false} userId="u1">{children}</UserBowlsProvider> });
     expect(mocks.rpc).not.toHaveBeenCalled();
