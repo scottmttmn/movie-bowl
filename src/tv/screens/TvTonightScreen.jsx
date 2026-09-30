@@ -468,6 +468,7 @@ export default function TvTonightScreen({ userId }) {
     streamingServices,
     defaultDrawSettings: accountDrawSettings,
     loading: isPreferencesLoading,
+    loadError: preferencesLoadError,
   } = useUserStreamingServices();
   // Everything below reads the merged view, so a television's overrides reach
   // the draw, the readout, and the pre-roll without any of them knowing that
@@ -661,8 +662,11 @@ export default function TvTonightScreen({ userId }) {
       title: drawnMovie.title || "",
     });
   }, [drawnMovie, streamingServices, providerLinks]);
+  // Until the account's services and "Rent from" choice have actually loaded,
+  // the defaults would offer a paid rental to someone who streams the movie or
+  // turned rentals off, so the TV offers none.
   const rentCandidate = useMemo(() => {
-    if (!drawnMovie) return null;
+    if (!drawnMovie || isPreferencesLoading || preferencesLoadError) return null;
 
     return resolveRentTarget({
       providerLinks,
@@ -672,7 +676,14 @@ export default function TvTonightScreen({ userId }) {
       availabilityStatus: drawnMovie.streamingProviderStatus,
       acceptLink: isTvAppRentalLink,
     });
-  }, [drawnMovie, providerLinks, streamingServices, accountDrawSettings?.rentFrom]);
+  }, [
+    drawnMovie,
+    isPreferencesLoading,
+    preferencesLoadError,
+    providerLinks,
+    streamingServices,
+    accountDrawSettings?.rentFrom,
+  ]);
 
   const chooseAnotherBowl = () => {
     clearExternalReturn();

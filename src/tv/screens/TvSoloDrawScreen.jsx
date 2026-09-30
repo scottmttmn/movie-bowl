@@ -131,6 +131,7 @@ export default function TvSoloDrawScreen({ userId }) {
     defaultDrawSettings: accountDrawSettings,
     removeFromBowlsOnSoloDraw,
     loading: isPreferencesLoading,
+    loadError: preferencesLoadError,
   } = useUserStreamingServices();
   const {
     settings,
@@ -267,8 +268,11 @@ export default function TvSoloDrawScreen({ userId }) {
       title: drawnMovie.title || "",
     });
   }, [drawnMovie, providerLinks, streamingServices]);
+  // Until the account's services and "Rent from" choice have actually loaded,
+  // the defaults would offer a paid rental to someone who streams the movie or
+  // turned rentals off, so the TV offers none.
   const rentCandidate = useMemo(() => {
-    if (!drawnMovie) return null;
+    if (!drawnMovie || isPreferencesLoading || preferencesLoadError) return null;
 
     return resolveRentTarget({
       providerLinks,
@@ -278,7 +282,14 @@ export default function TvSoloDrawScreen({ userId }) {
       availabilityStatus: drawnMovie.streamingProviderStatus,
       acceptLink: isTvAppRentalLink,
     });
-  }, [drawnMovie, providerLinks, streamingServices, accountDrawSettings?.rentFrom]);
+  }, [
+    drawnMovie,
+    isPreferencesLoading,
+    preferencesLoadError,
+    providerLinks,
+    streamingServices,
+    accountDrawSettings?.rentFrom,
+  ]);
 
   const leaveSolo = useCallback(() => {
     clearExternalReturn();
