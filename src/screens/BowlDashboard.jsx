@@ -109,6 +109,7 @@ export default function BowlDashboard() {
     const [showGenreFilters, setShowGenreFilters] = useState(false);
     const [showRuntimeFilters, setShowRuntimeFilters] = useState(false);
     const [isDrawing, setIsDrawing] = useState(false);
+    const [holdState, setHoldState] = useState("idle");
     // Everything the takeover reveal needs, gathered as the draw goes: the pool
     // before the request is sent, then the result. See DrawRevealStage.
     const [revealRun, setRevealRun] = useState(null);
@@ -1113,6 +1114,7 @@ return (
                       hidden here for as long as the stage holds it. */}
                   <BowlIllustration
                     className={`mx-auto h-44 w-full max-w-2xl drop-shadow-2xl sm:h-48 md:h-52 ${isDrawing ? "invisible" : ""}`}
+                    holdState={holdState}
                   />
                 </div>
 
@@ -1128,6 +1130,7 @@ return (
                 <div className="mx-auto mt-4 flex w-full max-w-sm flex-col items-stretch gap-2.5">
                   <HoldToDrawButton
                     onHoldComplete={runDraw}
+                    onHoldStateChange={setHoldState}
                     onKeyboardActivate={() => {
                       if (isDrawing || isFirstLoad || !canCurrentUserDraw || bowl.remaining.length === 0) return;
                       setShowDrawConfirm(true);
@@ -1746,6 +1749,7 @@ return (
                     : null
                 }
                 rentCandidate={drawnMovieRentCandidate}
+                tonight={{ bowlName: displayBowlName }}
                 onClose={closeReveal}
               />
             )}

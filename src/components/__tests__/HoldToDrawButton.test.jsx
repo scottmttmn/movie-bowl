@@ -1,6 +1,6 @@
 import { act, cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import HoldToDrawButton, { HOLD_TO_DRAW_MS } from "../HoldToDrawButton";
+import HoldToDrawButton, { HOLD_TAP_MS, HOLD_TO_DRAW_MS } from "../HoldToDrawButton";
 
 describe("HoldToDrawButton", () => {
   beforeEach(() => {
@@ -125,5 +125,115 @@ describe("HoldToDrawButton", () => {
     });
 
     expect(onHoldComplete).not.toHaveBeenCalled();
+  });
+
+  // The fill is the whole explanation: a tap shows it starting, an early
+  // release shows how far it got. None of it is written down.
+  describe("showing the hold", () => {
+    const fillOf = (button) => button.querySelector("span[aria-hidden='true']");
+    const scaleOf = (button) => fillOf(button).style.transform;
+
+    it("answers a tap by starting the fill and draining it, without drawing", () => {
+      const onHoldStateChange = vi.fn();
+      const { button, onHoldComplete } = renderButton({ onHoldStateChange });
+
+      fireEvent.pointerDown(button);
+      act(() => {
+        vi.advanceTimersByTime(HOLD_TAP_MS - 150);
+      });
+      fireEvent.pointerUp(button);
+
+      expect(scaleOf(button)).toBe("scaleX(0.3)");
+      expect(onHoldStateChange).toHaveBeenLastCalledWith("tap");
+      act(() => {
+        vi.advanceTimersByTime(600);
+      });
+      expect(scaleOf(button)).toBe("scaleX(0)");
+      expect(onHoldStateChange).toHaveBeenLastCalledWith("idle");
+      act(() => {
+        vi.advanceTimersByTime(HOLD_TO_DRAW_MS);
+      });
+      expect(onHoldComplete).not.toHaveBeenCalled();
+    });
+
+    it("drains an early release from where the finger let go", () => {
+      const onHoldStateChange = vi.fn();
+      const { button } = renderButton({ onHoldStateChange });
+
+      fireEvent.pointerDown(button);
+      expect(onHoldStateChange).toHaveBeenLastCalledWith("holding");
+      act(() => {
+        vi.advanceTimersByTime(HOLD_TO_DRAW_MS / 2);
+      });
+      fireEvent.pointerUp(button);
+
+      expect(scaleOf(button)).toBe("scaleX(0.5)");
+      expect(fillOf(button).style.transition).toBe("none");
+      expect(onHoldStateChange).toHaveBeenLastCalledWith("idle");
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+      expect(scaleOf(button)).toBe("scaleX(0)");
+      expect(fillOf(button).style.transition).toContain("ease-in");
+    });
+
+    it("does not let a pending drain empty a hold that has already restarted", () => {
+      const { button, onHoldComplete } = renderButton();
+
+      fireEvent.pointerDown(button);
+      act(() => {
+        vi.advanceTimersByTime(HOLD_TO_DRAW_MS / 2);
+      });
+      fireEvent.pointerUp(button);
+      fireEvent.pointerDown(button);
+      act(() => {
+        vi.advanceTimersByTime(50);
+      });
+
+      expect(scaleOf(button)).toBe("scaleX(1)");
+      act(() => {
+        vi.advanceTimersByTime(HOLD_TO_DRAW_MS);
+      });
+      expect(onHoldComplete).toHaveBeenCalledTimes(1);
+    });
+
+    it("tells the bowl the hold is over when the draw fires", () => {
+      const onHoldStateChange = vi.fn();
+      const { button, onHoldComplete } = renderButton({ onHoldStateChange });
+
+      fireEvent.pointerDown(button);
+      act(() => {
+        vi.advanceTimersByTime(HOLD_TO_DRAW_MS);
+      });
+
+      expect(onHoldComplete).toHaveBeenCalledTimes(1);
+      expect(onHoldStateChange.mock.calls.map(([state]) => state)).toEqual(["holding", "idle"]);
+    });
+
+    it("buzzes at each quarter where the device can", () => {
+      const vibrate = vi.fn();
+      Object.defineProperty(navigator, "vibrate", { value: vibrate, configurable: true });
+      try {
+        const { button } = renderButton();
+        fireEvent.pointerDown(button);
+        act(() => {
+          vi.advanceTimersByTime(HOLD_TO_DRAW_MS);
+        });
+        expect(vibrate).toHaveBeenCalledTimes(4);
+      } finally {
+        delete navigator.vibrate;
+      }
+    });
+
+    it("holds without a buzz where the device has none", () => {
+      const { button, onHoldComplete } = renderButton();
+
+      fireEvent.pointerDown(button);
+      act(() => {
+        vi.advanceTimersByTime(HOLD_TO_DRAW_MS);
+      });
+
+      expect(onHoldComplete).toHaveBeenCalledTimes(1);
+    });
   });
 });

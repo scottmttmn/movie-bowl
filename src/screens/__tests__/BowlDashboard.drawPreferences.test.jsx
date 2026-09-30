@@ -919,7 +919,7 @@ describe("BowlDashboard draw preferences", () => {
       await finishFeatureCard();
 
       expect(assign).not.toHaveBeenCalled();
-      expect(screen.getByRole("link", { name: /open on web in netflix/i })).toHaveAttribute(
+      expect(screen.getByRole("link", { name: /watch on netflix/i })).toHaveAttribute(
         "href",
         NETFLIX_TITLE_URL
       );

@@ -748,6 +748,123 @@ describe("AddMovieModal", () => {
   });
 });
 
+// The drawn movie, as tonight's pick: the slip says why, one button says what
+// next, and everything else folds into a row of logos.
+describe("AddMovieModal tonight", () => {
+  afterEach(() => {
+    cleanup();
+  });
+
+  const pick = {
+    title: "Arrival",
+    release_date: "2016-11-11",
+    runtime: 116,
+    added_by_name: "Casey",
+    note: "Bring tissues",
+    trailer: { site: "YouTube", key: "tFMo3UJ4B4g" },
+    streamingProviders: ["Netflix", "Hulu", "Max"],
+    streamingAvailability: {
+      subscription: [
+        { id: 8, name: "Netflix", logoPath: "/netflix.jpg" },
+        { id: 15, name: "Hulu", logoPath: "/hulu.jpg" },
+        { id: 1899, name: "Max", logoPath: null },
+      ],
+      rent: [{ id: 2, name: "Apple TV", logoPath: "/apple.jpg" }],
+    },
+  };
+  const netflix = { serviceName: "Netflix", url: "https://www.netflix.com/title/1", linkType: "title" };
+
+  function renderPick(props = {}) {
+    return render(
+      <AddMovieModal
+        movie={pick}
+        onClose={vi.fn()}
+        userStreamingServices={["Netflix"]}
+        webLaunchCandidate={netflix}
+        tonight={{ bowlName: "Friday Night" }}
+        {...props}
+      />
+    );
+  }
+
+  it("leads with the contributor's slip and one way to start watching", () => {
+    renderPick();
+
+    expect(screen.queryByText("Movie details")).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Arrival", level: 2 })).toBeInTheDocument();
+    const slip = screen.getByText("Bring tissues").closest("figure");
+    expect(slip).toHaveTextContent("C");
+    expect(slip).toHaveTextContent("From Casey");
+    expect(screen.queryByText("Added by")).not.toBeInTheDocument();
+    expect(screen.queryByText("Why it’s in the bowl")).not.toBeInTheDocument();
+
+    const watch = screen.getByRole("link", { name: /watch on netflix.*opens in a new tab/i });
+    expect(watch).toHaveClass("btn-primary");
+    expect(watch).toHaveAttribute("href", "https://www.netflix.com/title/1");
+    expect(screen.getByRole("link", { name: "Watchmode" })).toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /open on web in/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Watch trailer" })).not.toHaveClass("btn-primary");
+  });
+
+  it("folds every other way to watch behind the logos, keeping the credit in view", () => {
+    renderPick();
+
+    expect(screen.queryByRole("region", { name: "Where to watch" })).not.toBeInTheDocument();
+    const logos = screen.getByRole("button", { name: "Where else to watch: 3 options" });
+    expect(logos).toHaveAttribute("aria-expanded", "false");
+    expect(logos.querySelectorAll("img")).toHaveLength(2);
+    expect(logos).toHaveTextContent("+1");
+    expect(screen.getByRole("link", { name: "JustWatch" })).toBeInTheDocument();
+
+    fireEvent.click(logos);
+
+    expect(logos).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("region", { name: "Where to watch" })).toBeInTheDocument();
+    expect(screen.getAllByRole("link", { name: "JustWatch" })).toHaveLength(1);
+    expect(screen.getAllByRole("link", { name: /netflix/i })).toHaveLength(1);
+  });
+
+  it("keeps the byline when the slip has no note", () => {
+    renderPick({ movie: { ...pick, note: null } });
+
+    expect(screen.getByText("Added by")).toBeInTheDocument();
+    expect(screen.getByText("Casey")).toBeInTheDocument();
+    expect(screen.queryByRole("figure")).not.toBeInTheDocument();
+  });
+
+  it("rents when none of your services have it", () => {
+    renderPick({
+      webLaunchCandidate: null,
+      rentCandidate: { storeName: "Apple TV", url: "https://tv.apple.com/movie/1", linkType: "rent" },
+    });
+
+    expect(screen.getByRole("link", { name: /rent on apple tv/i })).toHaveClass("btn-primary");
+    // The store on the button is not counted again behind the logos.
+    const logos = screen.getByRole("button", { name: "Where else to watch: 3 options" });
+    expect([...logos.querySelectorAll("img")].map((img) => img.getAttribute("src")))
+      .not.toContainEqual(expect.stringContaining("apple"));
+  });
+
+  it("offers no primary button when there is nowhere to watch", () => {
+    renderPick({ webLaunchCandidate: null, movie: { ...pick, streamingProviders: [], streamingAvailability: {} } });
+
+    expect(screen.queryByRole("link", { name: /watch on|rent on|rent options/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /where else to watch/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Watch trailer" })).toBeInTheDocument();
+  });
+
+  it("leaves browsing a movie as it was", () => {
+    render(
+      <AddMovieModal movie={pick} onClose={vi.fn()} userStreamingServices={["Netflix"]} webLaunchCandidate={netflix} />
+    );
+
+    expect(screen.getByText("Movie details")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: /open on web in netflix/i })).toBeInTheDocument();
+    expect(screen.getByRole("region", { name: "Where to watch" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /where else to watch/i })).not.toBeInTheDocument();
+  });
+});
+
 // The pane is painted before React gets to its effects, so there is a real
 // moment in which it is on screen, tappable, and still carrying pending work.
 // That window is where an opened trailer used to close itself again, and no

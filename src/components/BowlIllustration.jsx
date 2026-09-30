@@ -1,10 +1,13 @@
 import bowlImage from "../assets/movie-bowl.webp";
 
-export default function BowlIllustration({ className = "", drawTitle = "", isDrawing = false }) {
+// holdState comes from HoldToDrawButton: "holding" rattles the bowl harder as
+// the fill grows, "tap" gives it one wobble.
+export default function BowlIllustration({ className = "", drawTitle = "", isDrawing = false, holdState = "idle" }) {
+  const holdClass = holdState === "holding" ? "is-holding" : holdState === "tap" ? "is-nudged" : "";
   return (
     <div
       aria-hidden="true"
-      className={`bowl-illustration-stage ${isDrawing ? "is-drawing" : ""} ${className}`}
+      className={`bowl-illustration-stage ${isDrawing ? "is-drawing" : ""} ${holdClass} ${className}`}
     >
       <img
         src={bowlImage}

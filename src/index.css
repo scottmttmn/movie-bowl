@@ -372,6 +372,41 @@
     background: rgba(225, 29, 72, 0.3);
   }
 
+  /* The contributor's note, on the paper it was written on. */
+  .tonight-slip {
+    @apply relative m-0 rounded px-3 pb-3 pt-2.5;
+    background: #fbf8f1;
+    color: #3b3346;
+    transform: rotate(-1.2deg);
+    box-shadow: 0 8px 16px -6px rgba(0, 0, 0, 0.6);
+  }
+
+  .tonight-slip blockquote {
+    @apply m-0 whitespace-pre-wrap break-words;
+    font-family: "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive;
+    font-size: 1.15rem;
+    font-weight: 700;
+    line-height: 1.15;
+  }
+
+  .tonight-slip-avatar {
+    @apply absolute -right-2 -top-2 flex h-6 w-6 items-center justify-center rounded-full bg-rose-600 text-[0.7rem] font-extrabold text-white;
+    transform: rotate(1.2deg);
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.45);
+  }
+
+  .tonight-logos {
+    @apply inline-flex min-h-11 items-center rounded-xl border border-slate-700/70 bg-slate-900/70 px-2.5 text-xs font-bold text-slate-400 transition hover:border-slate-500 hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/70;
+  }
+
+  .tonight-logos img {
+    @apply -ml-1.5 h-7 w-7 rounded-md border-2 border-slate-900 first:ml-0;
+  }
+
+  .tonight-logos span {
+    @apply ml-1.5;
+  }
+
   /* The pre-roll. Fixed rather than natively fullscreen on purpose -- see the
      component -- so it must sit above every modal, the reveal included, because
      it plays over the drawn movie the way the television plays over its.
@@ -734,6 +769,40 @@
   transform-origin: 50% 72%;
 }
 
+/* The hold: the bowl shakes harder as the fill grows, like a hand working
+   into the slips, and a tap gets one wobble so it visibly answered. */
+.bowl-illustration-stage.is-holding .bowl-illustration-image {
+  animation: bowl-hold-rattle 1s linear forwards;
+}
+
+.bowl-illustration-stage.is-nudged .bowl-illustration-image {
+  animation: bowl-hold-nudge 460ms ease-out;
+}
+
+@keyframes bowl-hold-rattle {
+  0% { transform: translate(0, 0) rotate(0); }
+  10% { transform: translate(-0.5px, 0) rotate(-0.6deg); }
+  20% { transform: translate(0.5px, 0) rotate(0.6deg); }
+  30% { transform: translate(-1px, 0.5px) rotate(-1.2deg); }
+  40% { transform: translate(1px, -0.5px) rotate(1.2deg); }
+  50% { transform: translate(-1.5px, 0.5px) rotate(-1.8deg); }
+  58% { transform: translate(1.5px, -0.5px) rotate(1.9deg); }
+  66% { transform: translate(-2px, 1px) rotate(-2.4deg); }
+  73% { transform: translate(2px, -1px) rotate(2.5deg); }
+  80% { transform: translate(-2.5px, 1px) rotate(-3deg); }
+  86% { transform: translate(2.5px, -1px) rotate(3deg); }
+  91% { transform: translate(-3px, 1px) rotate(-3.4deg); }
+  96% { transform: translate(3px, -1.5px) rotate(3.4deg) scale(1.02); }
+  100% { transform: translate(0, -3px) rotate(0) scale(1.03); }
+}
+
+@keyframes bowl-hold-nudge {
+  0%, 100% { transform: rotate(0); }
+  25% { transform: rotate(-4deg); }
+  55% { transform: rotate(3deg); }
+  80% { transform: rotate(-1.2deg); }
+}
+
 .bowl-draw-pop-slip {
   position: absolute;
   left: 50%;
@@ -970,6 +1039,8 @@
     transition-delay: 0ms !important;
   }
 
+  .bowl-illustration-stage.is-holding .bowl-illustration-image,
+  .bowl-illustration-stage.is-nudged .bowl-illustration-image,
   .bowl-illustration-stage.is-drawing .bowl-illustration-image,
   .bowl-illustration-stage.is-drawing .bowl-draw-pop-slip,
   .bowl-illustration-stage.is-drawing .bowl-draw-pop-fold,
