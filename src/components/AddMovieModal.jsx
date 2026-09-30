@@ -26,7 +26,7 @@ const AVAILABILITY_GROUPS = [
   { key: "buy", label: "Buy", eligible: false },
 ];
 
-function ProviderPills({ providers, providerLogos, userStreamingServices, eligible }) {
+function ProviderPills({ providers, providerLogos, userStreamingServices, eligible, onAddService }) {
   return (
     <ul className="flex flex-wrap gap-2">
       {providers.map((provider) => {
@@ -40,6 +40,22 @@ function ProviderPills({ providers, providerLogos, userStreamingServices, eligib
         );
 
         return (
+          // A service you could stream this on but have not chosen is one tap
+          // from being yours: the pill itself is the control, marked with a +.
+          eligible && !isMatch && onAddService ? (
+            <li key={provider.id ? `${provider.id}:${provider.name}` : provider.name}>
+              <button
+                type="button"
+                aria-label={`Add ${normalizedName} to your services`}
+                className={`flex items-center gap-2 rounded-lg border border-dashed border-slate-600 py-1.5 text-sm text-slate-300 transition hover:border-emerald-700 hover:text-emerald-200 ${logoUrl ? "pl-1.5 pr-3" : "px-3"}`}
+                onClick={() => onAddService(normalizedName)}
+              >
+                {logoUrl && <img src={logoUrl} alt="" className="h-7 w-7 rounded-md" loading="lazy" />}
+                <span>{provider.name}</span>
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+              </button>
+            </li>
+          ) : (
           <li
             key={provider.id ? `${provider.id}:${provider.name}` : provider.name}
             className={`flex items-center gap-2 rounded-lg border py-1.5 text-sm ${logoUrl ? "pl-1.5 pr-3" : "px-3"} ${isMatch ? "border-emerald-800/60 bg-emerald-950/30 text-emerald-300" : "border-slate-700/70 text-slate-300"}`}
@@ -51,6 +67,7 @@ function ProviderPills({ providers, providerLogos, userStreamingServices, eligib
             <span>{provider.name}</span>
             {isMatch && <span className="sr-only"> (in your services)</span>}
           </li>
+          )
         );
       })}
     </ul>
@@ -76,7 +93,7 @@ function uniqueProvidersByName(providers) {
 
 // A folded row of provider groups. The list stays mounted and hidden, so the
 // button's aria-controls always names something that exists.
-function ProviderDisclosure({ id, label, isOpen, onToggle, groups, providerLogos, userStreamingServices }) {
+function ProviderDisclosure({ id, label, isOpen, onToggle, groups, providerLogos, userStreamingServices, onAddService }) {
   return (
     <div className="border-t border-slate-700/60">
       <button
@@ -102,6 +119,7 @@ function ProviderDisclosure({ id, label, isOpen, onToggle, groups, providerLogos
               providerLogos={providerLogos}
               userStreamingServices={userStreamingServices}
               eligible={group.eligible}
+              onAddService={onAddService}
             />
           </div>
         ))}
@@ -155,6 +173,7 @@ export default function AddMovieModal({
   pinDisabledReason = "",
   isObscured = false,
   tonight = null,
+  onAddService = null,
 }) {
   const [displayedNote, setDisplayedNote] = useState(() => normalizeMovieNote(movie?.note));
   const [noteDraft, setNoteDraft] = useState(() => movie?.note || "");
@@ -165,7 +184,7 @@ export default function AddMovieModal({
   const [isSavingPin, setIsSavingPin] = useState(false);
   const [pinError, setPinError] = useState("");
   const [isTrailerVisible, setIsTrailerVisible] = useState(false);
-  const [isOtherStreamingOpen, setIsOtherStreamingOpen] = useState(false);
+  const [isOtherStreamingOpen, setIsOtherStreamingOpen] = useState(null);
   const [isStoresOpen, setIsStoresOpen] = useState(false);
   const [failedPosterUrl, setFailedPosterUrl] = useState(null);
   const [isWhereOpen, setIsWhereOpen] = useState(false);
@@ -216,7 +235,7 @@ export default function AddMovieModal({
 
   if (trailerSubjectChanged) {
     setIsTrailerVisible(false);
-    setIsOtherStreamingOpen(false);
+    setIsOtherStreamingOpen(null);
     setIsStoresOpen(false);
     setIsWhereOpen(false);
   }
@@ -378,6 +397,11 @@ export default function AddMovieModal({
     .filter(Boolean)
     .slice(0, 3);
   const showWhereSection = showWhereToWatch && (!tonight || isWhereOpen);
+  // With no services chosen there is nothing for the other services to be
+  // "also" beside, and each one is an offer to become yours, so they start open.
+  const hasNoServices = normalizeStreamingServices(userStreamingServices).length === 0;
+  const canAddServices = Boolean(onAddService) && hasNoServices;
+  const isOtherStreamingShown = isOtherStreamingOpen ?? canAddServices;
 
   const personalCommentSection = personalComment ? (
     <PersonalCommentSection
@@ -597,7 +621,9 @@ export default function AddMovieModal({
                       onClick={() => setIsWhereOpen((open) => !open)}
                     >
                       {tonightProviderLogos.map((url) => <img key={url} src={url} alt="" loading="lazy" />)}
-                      {tonightProviders.length > tonightProviderLogos.length && (
+                      {canAddServices && streamingGroups.length > 0 ? (
+                        <svg aria-hidden="true" viewBox="0 0 24 24" className="ml-1.5 h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
+                      ) : tonightProviders.length > tonightProviderLogos.length && (
                         <span>+{tonightProviders.length - tonightProviderLogos.length}</span>
                       )}
                     </button>
@@ -660,11 +686,12 @@ export default function AddMovieModal({
                         <ProviderDisclosure
                           id="movie-other-streaming"
                           label={`${userServiceProviders.length > 0 ? "Also streaming" : "Streaming"} on ${describeProviderNames(otherStreamingNames)}`}
-                          isOpen={isOtherStreamingOpen}
-                          onToggle={() => setIsOtherStreamingOpen((open) => !open)}
+                          isOpen={isOtherStreamingShown}
+                          onToggle={() => setIsOtherStreamingOpen(!isOtherStreamingShown)}
                           groups={otherStreamingGroups}
                           providerLogos={providerLogos}
                           userStreamingServices={userStreamingServices}
+                          onAddService={onAddService}
                         />
                       )}
                       {storeGroups.length > 0 && (
