@@ -146,3 +146,15 @@ export function getAutoStartMode({ surface, launchCandidate, launchError = null 
   if (surface === AUTO_START_SURFACE.desktop) return "navigate";
   return null;
 }
+
+// A launch failure with no known destination is assumed to be this one, which
+// is how every failure was treated before failures carried a destination.
+export function isFailedLaunchUrl(failedUrl, url) {
+  if (!failedUrl) return true;
+  if (!url) return false;
+  try {
+    return new URL(failedUrl).href === new URL(url).href;
+  } catch {
+    return false;
+  }
+}

@@ -3,6 +3,7 @@ import {
   AUTO_START_SURFACE,
   getAutoStartMode,
   getAutoStartSurface,
+  isFailedLaunchUrl,
   resolvePreferredLaunchTarget,
   resolvePreferredWebLaunchCandidate,
   resolveRentTarget,
@@ -228,5 +229,14 @@ describe("resolveRentTarget", () => {
     for (const surface of Object.values(AUTO_START_SURFACE)) {
       expect(getAutoStartMode({ surface, launchCandidate: target })).toBeNull();
     }
+  });
+});
+
+describe("isFailedLaunchUrl", () => {
+  it("matches the destination that failed, and assumes a failure with none is this one", () => {
+    expect(isFailedLaunchUrl("https://tv.apple.com/us/movie/heat/1", "https://tv.apple.com/us/movie/heat/1")).toBe(true);
+    expect(isFailedLaunchUrl("https://www.watchmode.com/", "https://tv.apple.com/us/movie/heat/1")).toBe(false);
+    expect(isFailedLaunchUrl(null, "https://tv.apple.com/us/movie/heat/1")).toBe(true);
+    expect(isFailedLaunchUrl("https://www.watchmode.com/", null)).toBe(false);
   });
 });

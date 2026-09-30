@@ -161,6 +161,25 @@ describe("TvRevealScreen", () => {
       expect(screen.getByRole("link", { name: /Rent on Apple TV/ })).not.toHaveFocus();
     });
 
+    it("keeps the rental when what failed to open was something else", () => {
+      renderReveal(movie, {
+        rentCandidate,
+        providerLaunchMessage: "That streaming app could not be opened on this TV.",
+        providerLaunchFailedUrl: "https://www.watchmode.com/",
+      });
+
+      expect(screen.getByRole("link", { name: /Rent on Apple TV/ })).toHaveAttribute("href", rentCandidate.url);
+      expect(screen.getByRole("status")).toHaveTextContent("could not be opened");
+      cleanup();
+
+      renderReveal(movie, {
+        rentCandidate,
+        providerLaunchMessage: "Apple TV isn't installed on this TV.",
+        providerLaunchFailedUrl: rentCandidate.url,
+      });
+      expect(screen.getByRole("button", { name: /Rent on Apple TV/ })).toBeDisabled();
+    });
+
     it("disables the rental after the TV reports it could not open the store", () => {
       renderReveal(movie, { rentCandidate, providerLaunchMessage: "Apple TV isn't installed on this TV." });
 
