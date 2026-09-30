@@ -34,16 +34,17 @@ export function createBowlMovieActions({ client = supabase, offline = isOffline,
       }
       const { data, error } = action === "comment"
         ? await client.rpc("update_own_bowl_movie_note", { p_bowl_movie_id: movieId, p_note: normalizeMovieNote(note) })
-        : await client.from("bowl_movies").delete().eq("id", movieId).eq("bowl_id", bowlId)
-          .eq("added_by", accountId).is("drawn_at", null).select("id");
+        : await client.rpc("remove_own_bowl_movie", { p_bowl_id: bowlId, p_bowl_movie_id: movieId });
       if (error) throw error;
-      const movie = Array.isArray(data) ? data[0] : data;
-      // A DELETE can succeed with zero affected rows after access loss or a draw.
-      // Only a returned row confirms that this action actually changed a movie.
+      // Removing a title claimed from the bowl's pack puts it back in the pack
+      // instead of deleting it. The row survives, as a pack slip.
+      const returnedToPack = action === "remove" && data?.returned_to_pack === true;
+      const movie = action === "remove" ? (returnedToPack ? data.movie : { id: data?.id }) : data;
+      // Only a returned id confirms that this action actually changed a movie.
       if (movie?.id !== movieId) throw new Error("This movie is no longer available.");
       if (!current()) return addResult(false, "not_authenticated", "Your account changed. Reopen Add a movie to continue.");
-      publish({ type: "movie", action, userId: accountId, bowlId, movieId, movie });
-      return { ...addResult(true), movie };
+      publish({ type: "movie", action: returnedToPack ? "return_to_pack" : action, userId: accountId, bowlId, movieId, movie });
+      return { ...addResult(true), movie, ...(action === "remove" ? { returnedToPack } : {}) };
     } catch (error) {
       if (current()) publish({ type: "context", userId: accountId, bowlId });
       return actionError(error, action);

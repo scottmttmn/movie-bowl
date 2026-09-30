@@ -91,7 +91,7 @@ function OfferForBowl({ bowlId, onSeeAll, onInstalled }) {
     if (!isOnScreen.current) return;
     // On success the bowl reloads with the pack in it and this offer goes
     // away with the empty bowl, so there is nothing to confirm here.
-    if (result.ok) await onInstalled?.();
+    if (result.ok) await onInstalled?.(selectedPack.slug);
     else setFailure(result.message);
     setIsWorking(false);
   };

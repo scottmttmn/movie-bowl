@@ -438,6 +438,8 @@ no explanatory line.
 `claim_bowl_starter_pack_movie` with no comment. The card then becomes an
 ordinary title of theirs in place, and they can add a comment the usual way.
 There is no delete: removing a pack stays with the owner in Bowl Settings.
+A claimed title's own delete gives it back instead (below), so claiming and
+deleting is not a way for one member to take a title out of everyone's pile.
 The existing claim confirmation is enough; nothing new is written for it.
 
 Claiming trades reach for ownership. Under person-first a pack title is in
@@ -483,6 +485,31 @@ myself".
 4. **Refill:** manual, up to the cap.
 5. **Bucket collision:** moot. Pack rows are marked by `starter_pack`, not by
    name, and are not a bucket.
+
+## Decided September 30, 2026: Deleting a Claim Gives It Back
+
+Claiming made a pack title an ordinary title, and a member may delete their own
+undrawn titles, so claim-then-delete took a shared title out of the bowl for
+everyone. Now deleting a title you claimed puts it back in the pack it came
+from, while that pack is still the bowl's installed one: the note and any pin
+go, it belongs to nobody again, and anyone can claim it.
+
+- A claim records its origin in `bowl_movies.claimed_from_starter_pack` and
+  the name the slip carried in `claimed_from_starter_pack_name`.
+- The app removes a title of your own through `remove_own_bowl_movie`, which
+  either returns it or deletes it and says which. It is an RPC rather than a
+  delete trigger because a bowl deletion cascades through the same rows.
+- If the pack has been removed or replaced since, the title deletes outright.
+  So do titles claimed before September 30, which recorded no origin.
+- A return does not check the 15-title cap. The cap limits what an install
+  pours in, and this slip was already in the bowl.
+- The dashboard's confirmation says "Put ... back in the ... pack?" when the
+  title will return. Watch History's "take it out of your bowls" goes through
+  the same RPC, so a claimed copy removed there goes back to the pack too.
+- Only the claim writes the origin: an ordinary insert that carries one is
+  refused. And claimed rows leave the bowl only through the RPC: a direct
+  delete, which a tab opened before this change still sends, removes nothing
+  and that tab reports the title as no longer available.
 
 ## Still Open
 

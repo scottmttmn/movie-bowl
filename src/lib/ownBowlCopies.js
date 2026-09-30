@@ -92,9 +92,11 @@ export async function findOwnUndrawnBowlCopies({ tmdbId = null, bowlMovieId = nu
 }
 
 /**
- * Deletes the chosen copies, re-asserting ownership and undrawn state in the
- * statement itself: the list was built before the dialog opened, and a copy
- * somebody drew in the meantime is no longer yours to remove.
+ * Removes the chosen copies through remove_own_bowl_movie, the one path that
+ * returns a claimed starter-pack title to its pack instead of deleting it. The
+ * RPC re-asserts ownership and undrawn state: the list was built before the
+ * dialog opened, and a copy somebody drew in the meantime is no longer yours
+ * to remove.
  */
 export async function removeOwnBowlCopies(bowlMovieIds) {
   const targetIds = (bowlMovieIds || []).filter(Boolean);
@@ -110,16 +112,29 @@ export async function removeOwnBowlCopies(bowlMovieIds) {
       return { ok: false, code: "unauthenticated", message: REMOVE_ERROR, userId: null };
     }
 
-    const { error } = await supabase
+    const { data: copies, error: lookupError } = await supabase
       .from("bowl_movies")
-      .delete()
+      .select("id, bowl_id")
       .in("id", targetIds)
       .eq("added_by", user.id)
       .is("drawn_at", null);
 
-    if (error) {
-      console.error("[ownBowlCopies] Failed to remove movie from bowls", error);
-      return { ok: false, code: error.code || "error", message: REMOVE_ERROR, userId: user.id };
+    if (lookupError) {
+      console.error("[ownBowlCopies] Failed to look up bowl copies to remove", lookupError);
+      return { ok: false, code: lookupError.code || "error", message: REMOVE_ERROR, userId: user.id };
+    }
+
+    const removals = await Promise.all((copies || []).map((copy) => supabase.rpc("remove_own_bowl_movie", {
+      p_bowl_id: copy.bowl_id,
+      p_bowl_movie_id: copy.id,
+    })));
+    // P0001 means the copy was drawn or removed since the lookup, which is the
+    // outcome asked for, so only other failures count.
+    const failure = removals.find(({ error }) => error && error.code !== "P0001")?.error;
+
+    if (failure) {
+      console.error("[ownBowlCopies] Failed to remove movie from bowls", failure);
+      return { ok: false, code: failure.code || "error", message: REMOVE_ERROR, userId: user.id };
     }
 
     return { ok: true, code: null, message: "", userId: user.id };

@@ -44,7 +44,8 @@ describe("StarterPackOffer", () => {
     expect(screen.getByText(/Up to 15 of the movies Christopher Nolan directed from 2000 to 2009/)).toBeInTheDocument();
     fireEvent.click(pour);
 
-    await waitFor(() => expect(onInstalled).toHaveBeenCalledTimes(1));
+    await waitFor(() => expect(onInstalled).toHaveBeenCalledWith("nolan-2000s"));
+    expect(onInstalled).toHaveBeenCalledTimes(1);
     expect(mocks.installStarterPack).toHaveBeenCalledWith({
       bowlId: "bowl-1", slug: "nolan-2000s", heldTmdbIds: [7, 8], packSlipCount: 0,
     });

@@ -7,7 +7,7 @@ const mocks = vi.hoisted(() => {
     watchedRows: [],
     bowlMovieRows: [],
     bowlMovieLookupError: null,
-    bowlMovieDeleteError: null,
+    bowlMovieRemoveError: null,
     bowlRows: [],
     bowlsLookupError: null,
     bowlMovieCalls: [],
@@ -67,11 +67,12 @@ const mocks = vi.hoisted(() => {
         }
 
         if (table === "bowl_movies") {
-          const { query, record } = createQuery((call) =>
-            call.deleted
-              ? { data: null, error: state.bowlMovieDeleteError }
-              : { data: state.bowlMovieRows, error: state.bowlMovieLookupError }
-          );
+          const { query, record } = createQuery((call) => {
+            // The removal re-reads the chosen slips by id before removing them.
+            const ids = call.filters.find(([column]) => column === "id")?.[1];
+            const rows = ids ? state.bowlMovieRows.filter((row) => ids.includes(row.id)) : state.bowlMovieRows;
+            return { data: rows, error: state.bowlMovieLookupError };
+          });
           state.bowlMovieCalls.push(record);
           return query;
         }
@@ -83,7 +84,10 @@ const mocks = vi.hoisted(() => {
 
         return createQuery(() => ({ data: [], error: null })).query;
       }),
-      rpc: vi.fn(async () => ({ data: null, error: null })),
+      rpc: vi.fn(async (name) => ({
+        data: null,
+        error: name === "remove_own_bowl_movie" ? state.bowlMovieRemoveError : null,
+      })),
     },
   };
 });
@@ -132,8 +136,8 @@ async function saveManualEntry() {
   fireEvent.click(screen.getByRole("button", { name: "Save history entry" }));
 }
 
-function getDeleteCall() {
-  return mocks.state.bowlMovieCalls.find((call) => call.deleted) || null;
+function getRemovals() {
+  return mocks.supabase.rpc.mock.calls.filter(([name]) => name === "remove_own_bowl_movie");
 }
 
 describe("WatchListPage bowl removal prompt", () => {
@@ -142,7 +146,7 @@ describe("WatchListPage bowl removal prompt", () => {
     mocks.state.watchedRows = [];
     mocks.state.bowlMovieRows = [];
     mocks.state.bowlMovieLookupError = null;
-    mocks.state.bowlMovieDeleteError = null;
+    mocks.state.bowlMovieRemoveError = null;
     mocks.state.bowlRows = [];
     mocks.state.bowlsLookupError = null;
     mocks.state.bowlMovieCalls = [];
@@ -182,12 +186,13 @@ describe("WatchListPage bowl removal prompt", () => {
       expect(screen.queryByText("Take it out of your bowls?")).not.toBeInTheDocument();
     });
 
-    const deleteCall = getDeleteCall();
-    expect(deleteCall).not.toBeNull();
-    expect(deleteCall.filters).toEqual([
+    expect(mocks.state.bowlMovieCalls.at(-1).filters).toEqual([
       ["id", ["slip-1"]],
       ["added_by", "user-1"],
       ["drawn_at", null],
+    ]);
+    expect(getRemovals()).toEqual([
+      ["remove_own_bowl_movie", { p_bowl_id: "bowl-1", p_bowl_movie_id: "slip-1" }],
     ]);
   });
 
@@ -224,10 +229,8 @@ describe("WatchListPage bowl removal prompt", () => {
       expect(screen.queryByText("Take it out of your bowls?")).not.toBeInTheDocument();
     });
 
-    expect(getDeleteCall().filters).toEqual([
-      ["id", ["slip-1"]],
-      ["added_by", "user-1"],
-      ["drawn_at", null],
+    expect(getRemovals()).toEqual([
+      ["remove_own_bowl_movie", { p_bowl_id: "bowl-1", p_bowl_movie_id: "slip-1" }],
     ]);
   });
 
@@ -247,7 +250,7 @@ describe("WatchListPage bowl removal prompt", () => {
       expect(screen.queryByText("Take it out of your bowls?")).not.toBeInTheDocument();
     });
 
-    expect(getDeleteCall()).toBeNull();
+    expect(getRemovals()).toEqual([]);
   });
 
   it("looks up only the signed-in user's undrawn slips", async () => {
@@ -318,7 +321,7 @@ describe("WatchListPage bowl removal prompt", () => {
   it("keeps the prompt open with an error when the removal fails", async () => {
     mocks.state.bowlMovieRows = [{ id: "slip-1", bowl_id: "bowl-1" }];
     mocks.state.bowlRows = [{ id: "bowl-1", name: "Family Bowl" }];
-    mocks.state.bowlMovieDeleteError = { message: "delete denied" };
+    mocks.state.bowlMovieRemoveError = { code: "42501", message: "You no longer have access to this bowl." };
     vi.spyOn(console, "error").mockImplementation(() => {});
 
     await saveManualEntry();

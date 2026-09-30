@@ -119,6 +119,7 @@ vi.mock("../../hooks/useBowl", () => ({
       handleSetMoviePin: mocks.state.handleSetMoviePin,
       handleDeleteMovie: mocks.state.handleDeleteMovie,
       handleReaddMovie: mocks.state.handleReaddMovie,
+      reload: mocks.state.reloadBowl,
     };
   },
 }));
@@ -164,8 +165,11 @@ vi.mock("react-router-dom", async () => {
 
 // The offer has its own tests; here it only has to appear, or not.
 vi.mock("../../components/StarterPackOffer", () => ({
-  default: ({ onSeeAll }) => (
-    <button type="button" onClick={onSeeAll}>Start with a starter pack</button>
+  default: ({ onSeeAll, onInstalled }) => (
+    <>
+      <button type="button" onClick={onSeeAll}>Start with a starter pack</button>
+      <button type="button" onClick={() => onInstalled("nolan-2000s")}>Pour the Nolan pack</button>
+    </>
   ),
 }));
 
@@ -201,6 +205,7 @@ describe("BowlDashboard guards", () => {
       watched: [],
     };
     mocks.state.handleReaddMovie.mockClear();
+    mocks.state.reloadBowl = vi.fn(async () => {});
     mocks.state.handleDeleteMovie.mockClear();
     mocks.state.handleAddMovie.mockClear();
     mocks.state.handleUpdateMovieNote.mockClear();
@@ -649,6 +654,32 @@ describe("BowlDashboard guards", () => {
     confirmSpy.mockRestore();
   });
 
+  it("asks to put a claimed pack title back in the pack while that pack is installed", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    mocks.state.bowlRow = { ...mocks.state.bowlRow, starter_pack: "nolan-2000s" };
+    mocks.state.bowlData = {
+      remaining: [
+        { id: "claimed", title: "Memento", added_by: "u1", claimed_from_starter_pack: "nolan-2000s", claimed_from_starter_pack_name: "Nolan: The '00s" },
+        { id: "claimed-elsewhere", title: "Heat", added_by: "u1", claimed_from_starter_pack: "mann-1990s", claimed_from_starter_pack_name: "Mann: The '90s" },
+      ],
+      watched: [],
+    };
+    renderDashboard();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Details for Memento" }));
+    fireEvent.click(await screen.findByRole("button", { name: 'Delete "Memento" from this bowl' }));
+    expect(confirmSpy).toHaveBeenLastCalledWith(
+      'Put "Memento" back in the Nolan: The \'00s pack? Anyone can claim it again.'
+    );
+    await waitFor(() => expect(mocks.state.handleDeleteMovie).toHaveBeenCalledWith("claimed"));
+
+    // Claimed from a pack the bowl no longer has: deleting really deletes.
+    fireEvent.click(await screen.findByRole("button", { name: "Details for Heat" }));
+    fireEvent.click(await screen.findByRole("button", { name: 'Delete "Heat" from this bowl' }));
+    expect(confirmSpy).toHaveBeenLastCalledWith('Delete "Heat" from this bowl?');
+    confirmSpy.mockRestore();
+  });
+
   it("leaves the details open and says so when the delete does not land", async () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     mocks.state.handleDeleteMovie.mockResolvedValueOnce(false);
@@ -747,6 +778,28 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     fireEvent.click(await screen.findByRole("button", { name: "Start with a starter pack" }));
     expect(mocks.state.navigate).toHaveBeenCalledWith(`/bowl/${mocks.state.bowlId}/settings#starter-pack-all`);
+  });
+
+  it("knows the pack it just poured, so a claim from it goes back there", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(false);
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = { remaining: [], watched: [] };
+    mocks.state.reloadBowl = vi.fn(async () => {
+      mocks.state.bowlData = {
+        remaining: [{ id: "claimed", title: "Memento", added_by: "u1", claimed_from_starter_pack: "nolan-2000s", claimed_from_starter_pack_name: "Nolan: The '00s" }],
+        watched: [],
+      };
+    });
+    renderDashboard();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Pour the Nolan pack" }));
+    await waitFor(() => expect(mocks.state.reloadBowl).toHaveBeenCalledTimes(1));
+    fireEvent.click(await screen.findByRole("button", { name: "Details for Memento" }));
+    fireEvent.click(await screen.findByRole("button", { name: 'Delete "Memento" from this bowl' }));
+    expect(confirmSpy).toHaveBeenLastCalledWith(
+      'Put "Memento" back in the Nolan: The \'00s pack? Anyone can claim it again.'
+    );
+    confirmSpy.mockRestore();
   });
 
   it("does not offer a pack on the strength of the previous bowl's empty list", async () => {

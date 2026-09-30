@@ -9,9 +9,9 @@ const mocks = vi.hoisted(() => {
     bowlRows: [],
     moviesError: null,
     bowlsError: null,
-    deleteError: null,
+    rpcErrors: {},
     movieQueries: [],
-    deleteFilters: null,
+    rpcCalls: [],
   };
 
   return {
@@ -23,14 +23,14 @@ const mocks = vi.hoisted(() => {
           error: state.authError,
         })),
       },
+      rpc: vi.fn(async (name, params) => {
+        state.rpcCalls.push({ name, params });
+        return { data: null, error: state.rpcErrors[params.p_bowl_movie_id] || null };
+      }),
       from: vi.fn((table) => {
         const filters = {};
         const query = {
           select: vi.fn(() => query),
-          delete: vi.fn(() => {
-            filters.delete = true;
-            return query;
-          }),
           eq: vi.fn((column, value) => {
             filters[column] = value;
             return query;
@@ -49,14 +49,6 @@ const mocks = vi.hoisted(() => {
                 data: state.bowlsError ? null : state.bowlRows,
                 error: state.bowlsError,
               }).then(resolve, reject);
-            }
-
-            if (filters.delete) {
-              state.deleteFilters = filters;
-              return Promise.resolve({ data: null, error: state.deleteError }).then(
-                resolve,
-                reject
-              );
             }
 
             state.movieQueries.push(filters);
@@ -86,11 +78,12 @@ beforeEach(() => {
     bowlRows: [],
     moviesError: null,
     bowlsError: null,
-    deleteError: null,
+    rpcErrors: {},
     movieQueries: [],
-    deleteFilters: null,
+    rpcCalls: [],
   });
   mocks.supabase.from.mockClear();
+  mocks.supabase.rpc.mockClear();
 });
 
 describe("findOwnUndrawnBowlCopies", () => {
@@ -173,21 +166,38 @@ describe("findOwnUndrawnBowlCopies", () => {
 });
 
 describe("removeOwnBowlCopies", () => {
-  it("deletes only your own undrawn copies", async () => {
-    const result = await removeOwnBowlCopies(["copy-1", "copy-2"]);
+  it("removes only your own undrawn copies, each through the RPC", async () => {
+    mocks.state.byRowId = [
+      { id: "copy-1", bowl_id: "bowl-1" },
+      { id: "copy-2", bowl_id: "bowl-2" },
+    ];
+
+    const result = await removeOwnBowlCopies(["copy-1", "copy-2", "copy-drawn"]);
 
     expect(result.ok).toBe(true);
     expect(result.userId).toBe("user-1");
-    expect(mocks.state.deleteFilters).toMatchObject({
-      id: ["copy-1", "copy-2"],
+    expect(mocks.state.movieQueries.at(-1)).toMatchObject({
+      id: ["copy-1", "copy-2", "copy-drawn"],
       added_by: "user-1",
       drawn_at: null,
     });
+    expect(mocks.state.rpcCalls).toEqual([
+      { name: "remove_own_bowl_movie", params: { p_bowl_id: "bowl-1", p_bowl_movie_id: "copy-1" } },
+      { name: "remove_own_bowl_movie", params: { p_bowl_id: "bowl-2", p_bowl_movie_id: "copy-2" } },
+    ]);
   });
 
-  it("reports a failed delete", async () => {
+  it("counts a copy drawn or removed since the lookup as done", async () => {
+    mocks.state.byRowId = [{ id: "copy-1", bowl_id: "bowl-1" }];
+    mocks.state.rpcErrors = { "copy-1": { code: "P0001", message: "This movie is no longer available to remove." } };
+
+    expect(await removeOwnBowlCopies(["copy-1"])).toMatchObject({ ok: true });
+  });
+
+  it("reports a failed removal", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
-    mocks.state.deleteError = { message: "network down" };
+    mocks.state.byRowId = [{ id: "copy-1", bowl_id: "bowl-1" }];
+    mocks.state.rpcErrors = { "copy-1": { code: "08006", message: "network down" } };
 
     const result = await removeOwnBowlCopies(["copy-1"]);
 
@@ -195,10 +205,19 @@ describe("removeOwnBowlCopies", () => {
     expect(result.message).toBe("Could not remove it from your bowls. Please try again.");
   });
 
+  it("reports a failed lookup without removing anything", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.state.moviesError = { message: "network down" };
+
+    expect(await removeOwnBowlCopies(["copy-1"])).toMatchObject({ ok: false });
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled();
+  });
+
   it("does nothing with an empty selection", async () => {
     const result = await removeOwnBowlCopies([]);
 
     expect(result.ok).toBe(false);
-    expect(mocks.state.deleteFilters).toBeNull();
+    expect(mocks.supabase.from).not.toHaveBeenCalled();
+    expect(mocks.supabase.rpc).not.toHaveBeenCalled();
   });
 });

@@ -240,7 +240,8 @@ test("a draw on another device prevents comment edits and removal of a session a
   await expect(page.getByRole("list", { name: "Movies added this session" }).getByRole("listitem")).toHaveCount(2);
   expect(backend.state.bowl_movies).toHaveLength(2);
   expect(backend.state.bowl_movies.every((movie) => movie.note == null)).toBe(true);
-  expect(backend.consoleErrors).toEqual(["Failed to load resource: the server responded with a status of 400 (Bad Request)"]);
+  // Both refusals come from the server: the comment save and remove_own_bowl_movie.
+  expect(backend.consoleErrors).toEqual(Array(2).fill("Failed to load resource: the server responded with a status of 400 (Bad Request)"));
   backend.consoleErrors.length = 0;
 });
 

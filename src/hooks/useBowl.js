@@ -155,7 +155,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       const remainingRequest = supabase
         .from("bowl_movies")
         .select(
-          "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, is_pinned, added_by, added_by_name, starter_pack, added_at, drawn_at, drawn_by, snapshot_at"
+          "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, is_pinned, added_by, added_by_name, starter_pack, claimed_from_starter_pack, claimed_from_starter_pack_name, added_at, drawn_at, drawn_by, snapshot_at"
         )
         .eq("bowl_id", bowlId)
         .is("drawn_at", null)
