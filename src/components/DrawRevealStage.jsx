@@ -2,7 +2,6 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import bowlImage from "../assets/movie-bowl.webp";
 import {
-  getDrawRevealCopy,
   getDrawRevealPhaseAt,
   getDrawRevealProgress,
   getDrawRevealTimeline,
@@ -419,25 +418,6 @@ export default function DrawRevealStage({
   };
 
   const progress = getDrawRevealProgress(reveal, phase);
-  const copy = getDrawRevealCopy(reveal);
-  let lead = `${method.revealPending}…`;
-  let pending = true;
-  let follow = "";
-  if (person && progress.personLanded) {
-    lead = copy.person;
-    pending = false;
-    if (progress.titleLanded) follow = copy.title;
-  } else if (!person && progress.titleLanded) {
-    lead = copy.title;
-    pending = false;
-  }
-
-  const stepState = (index) => {
-    if (method.steps.length === 1) return progress.titleLanded ? "done" : "now";
-    if (index === 0) return progress.personLanded || (progress.titleLanded && !person) ? "done" : "now";
-    return progress.titleLanded ? "done" : progress.personLanded ? "now" : "";
-  };
-
   const showCards = stage === "people"
     && (["arrange", "loop", "flicker"].includes(phase) || (personRoute && (PERSON_PHASES.has(phase) || FAN_PHASES.has(phase))));
   const cardFor = (pile, pileIndex) => {
@@ -524,19 +504,8 @@ export default function DrawRevealStage({
         style={{ left: bowl.x - bowl.w * 0.15, top: bowl.y + bowl.w * 0.1, width: bowl.w * 1.3, height: bowl.w * 0.9 }}
       />
 
-      <div className="draw-reveal-header" style={{ height: layout.headerH }}>
-        <ol className="draw-reveal-steps">
-          {method.steps.map((step, index) => (
-            <li key={step.title} className={`draw-reveal-step ${stepState(index)}`}>
-              <span className="draw-reveal-step-num">{index + 1}</span>
-              {step.title}
-            </li>
-          ))}
-        </ol>
-        <p className="draw-reveal-eyebrow">{method.label} draw</p>
-        <p className={`draw-reveal-lead ${pending ? "is-pending" : ""}`}>{lead}</p>
-        <p className="draw-reveal-follow">{follow}</p>
-      </div>
+      {/* Preserve the approved scene framing above the bowl. */}
+      <div className="draw-reveal-header" style={{ height: layout.headerH }} />
 
       {slips.map((slip, index) => {
         const place = placeSlip(slip, index);
@@ -585,12 +554,6 @@ export default function DrawRevealStage({
           <span>← Waited longest</span>
           <span>Drawn most recently</span>
         </div>
-      )}
-
-      {stage === "bowl" && ["rise", "arrange", "loop", "flicker"].includes(phase) && shape?.total > 0 && (
-        <p className="draw-reveal-count" style={{ top: layout.headerH - 4 }}>
-          {shape.total} {shape.scope === "solo" ? "title" : "movie"}{shape.total === 1 ? "" : "s"}
-        </p>
       )}
 
       {OPEN_PHASES.has(phase) && (

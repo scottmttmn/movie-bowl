@@ -960,7 +960,7 @@ describe("Movie Bowl TV experience", () => {
       await startDraw({ method: "title_first" });
       await advance(1000);
       expect(document.querySelectorAll(".draw-reveal-card")).toHaveLength(0);
-      expect(stage()).toHaveTextContent("3 movies");
+      expect(document.querySelectorAll(".draw-reveal-slip")).toHaveLength(3);
       await advance(1900);
       expect(stage()).toHaveAttribute("data-phase", "pluck");
       expect(screen.getByRole("status")).toHaveTextContent("1 of 3 movies in the bowl");
