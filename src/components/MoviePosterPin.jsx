@@ -6,23 +6,11 @@ export default function MoviePosterPin({
   isSaving = false,
   describedBy,
 }) {
-  const className = `absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-xl border bg-slate-950/90 text-sm shadow-lg shadow-black/40 ${
-    isPinned ? "border-rose-600 text-rose-300" : "border-slate-600 text-slate-200"
-  }`;
+  const className = `poster-ribbon ${isPinned ? "is-picked" : ""}`;
   const icon = (
-    <svg
-      aria-hidden="true"
-      viewBox="0 0 24 24"
-      className={`h-4 w-4 ${isSaving ? "animate-pulse" : ""}`}
-      fill={isPinned ? "currentColor" : "none"}
-      stroke="currentColor"
-      strokeWidth="2"
-      strokeLinecap="round"
-      strokeLinejoin="round"
-    >
-      <path d="M12 17v5" />
-      <path d="M5 3h14l-3 6v5l2 2H6l2-2V9L5 3Z" />
-    </svg>
+    <span aria-hidden="true" className={`poster-ribbon-shape ${isSaving ? "animate-pulse" : ""}`}>
+      <svg viewBox="0 0 24 24"><path d="M12 3.5l2.6 5.3 5.9.9-4.3 4.1 1 5.8L12 16.9l-5.2 2.7 1-5.8-4.3-4.1 5.9-.9z" /></svg>
+    </span>
   );
 
   if (!onClick) {
@@ -32,7 +20,7 @@ export default function MoviePosterPin({
   return (
     <button
       type="button"
-      className={`icon-btn ${className}`}
+      className={className}
       aria-label={label}
       aria-pressed={Boolean(isPinned)}
       aria-describedby={describedBy}

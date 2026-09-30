@@ -90,6 +90,7 @@ function AppShell({ children }) {
   const isVoiceProbePrivacyRoute = location.pathname === "/voice-probe/privacy";
   const isWatchListRoute = location.pathname === "/watch-list";
   const isInvitesRoute = location.pathname === "/invites";
+  const isSoloDrawRoute = location.pathname === "/solo-draw";
   const isPublicAddRoute = location.pathname.startsWith("/add-to-bowl/");
   const isBowlRoute = location.pathname.startsWith("/bowl/");
   const isBowlsRoute = location.pathname === "/bowls";
@@ -118,6 +119,7 @@ function AppShell({ children }) {
           isSettingsRoute={isSettingsRoute}
           isWatchListRoute={isWatchListRoute}
           isInvitesRoute={isInvitesRoute}
+          isSoloDrawRoute={isSoloDrawRoute}
           onSignOut={signOut}
           isAuthenticated={Boolean(session)}
           pendingInviteCount={pendingInviteCount}

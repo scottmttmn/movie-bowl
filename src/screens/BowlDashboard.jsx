@@ -54,6 +54,8 @@ import { getAutoStartMode, getAutoStartSurface, resolvePreferredLaunchTarget, re
 import useBowlAdd from "../hooks/useBowlAdd";
 import { fetchOwnDrawWatchEntry, updateOwnWatchComment } from "../lib/watchComments";
 import { notifyBowlChange } from "../lib/bowlChanges";
+import GearGlyph from "../components/GearGlyph";
+import HomeGlyph from "../components/HomeGlyph";
 import {
   DEFAULT_DRAW_SETTINGS,
   RUNTIME_FILTER_MAX_MINUTES,
@@ -1036,6 +1038,10 @@ return (
                       aria-label={`Switch bowl. Current bowl: ${displayBowlName}`}
                       className="mx-auto flex min-h-11 max-w-full items-center gap-2 rounded-xl px-2 text-2xl font-semibold tracking-tight text-slate-50 hover:bg-slate-800/60 aria-expanded:bg-slate-800 sm:text-3xl"
                     >
+                      {/* The same small house My Bowls rows carry. It sits inside a
+                          labelled button, so it is spoken by the line after
+                          the heading instead. */}
+                      {isCurrentBowlHome && <HomeGlyph className="h-4 w-4 shrink-0 text-slate-400" />}
                       <span className="min-w-0 truncate">{displayBowlName}</span>
                       <svg
                         aria-hidden="true"
@@ -1051,6 +1057,7 @@ return (
                       </svg>
                     </button>
                   </h1>
+                  {isCurrentBowlHome && <p className="sr-only">Home bowl</p>}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <button
@@ -1075,7 +1082,7 @@ return (
                       />
                     )}
                   </button>
-                  <button onClick={() => navigate(`/bowl/${bowlId}/settings`)} className="icon-btn" aria-label="Bowl settings">⚙️</button>
+                  <button onClick={() => navigate(`/bowl/${bowlId}/settings`)} className="icon-btn" aria-label="Bowl settings"><GearGlyph /></button>
                 </div>
             </header>
 
@@ -1097,17 +1104,6 @@ return (
             )}
 
             <section className="page-hero relative my-3">
-              {isCurrentBowlHome && (
-                <span
-                  className="absolute right-4 top-4 inline-flex text-rose-300"
-                  title="Home bowl"
-                >
-                  <svg aria-hidden="true" viewBox="0 0 24 24" className="h-6 w-6" fill="currentColor">
-                    <path d="M12 3.2 2.8 11.1a1 1 0 0 0 .66 1.75H5v7.3a.9.9 0 0 0 .9.9h4.05v-5.2h4.1v5.2h4.05a.9.9 0 0 0 .9-.9v-7.3h1.54a1 1 0 0 0 .66-1.75Z" />
-                  </svg>
-                  <span className="sr-only">Home bowl</span>
-                </span>
-              )}
               <div className="mx-auto max-w-5xl">
                 <div className="relative" ref={drawBowlRef}>
                   {/* The takeover lifts this bowl out of the page, so it is
@@ -1620,9 +1616,10 @@ return (
                 {showsMyMovies && (
                   <button
                     type="button"
-                    className="btn btn-ghost shrink-0 text-sm"
+                    className="btn btn-secondary shrink-0 gap-2 text-sm"
                     onClick={() => navigate(`/solo-draw?bowl=${bowlId}`)}
                   >
+                    <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
                     Draw for myself
                   </button>
                 )}

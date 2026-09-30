@@ -298,9 +298,11 @@ describe("movie strip components", () => {
     expect(screen.getByAltText("Movie Two")).toBeInTheDocument();
   });
 
-  it("shows zero watched count for an empty watched strip", () => {
-    render(<WatchedMoviesStrip movies={[]} />);
-    expect(screen.getByText("0 watched")).toBeInTheDocument();
+  it("shows an empty spot rather than a zero count or a toggle when nothing is watched", () => {
+    render(<WatchedMoviesStrip movies={[]} isExpanded={false} onToggleExpanded={vi.fn()} />);
+    expect(screen.getByRole("img", { name: "Nothing watched yet" })).toBeInTheDocument();
+    expect(screen.queryByText(/watched$/)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /show|hide/i })).not.toBeInTheDocument();
   });
 
   it("can collapse watched posters while keeping its count visible", () => {

@@ -20,6 +20,7 @@ import SoloDrawFilters from "../components/SoloDrawFilters";
 import ConfirmDialog from "../components/ConfirmDialog";
 import TheaterPreroll from "../components/TheaterPreroll";
 import TheaterTicket from "../components/TheaterTicket";
+import GearGlyph from "../components/GearGlyph";
 import { WEB_SURFACE_DEFAULTS } from "../utils/deviceDrawSettings";
 import { buildDrawFiltersFromSettings, clampTheaterTrailerCount } from "../utils/drawSettings";
 import {
@@ -447,7 +448,7 @@ export default function SoloDrawPage() {
               <svg aria-hidden="true" viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M4 6h16M7 12h10M10 18h4" /></svg>
               {hasFilters && <span className="absolute right-1 top-1 h-2 w-2 rounded-full bg-violet-400" />}
             </button>
-            <Link to="/settings" className="icon-btn" aria-label="Your settings" title="Your settings">⚙️</Link>
+            <Link to="/settings" className="icon-btn" aria-label="Your settings" title="Your settings"><GearGlyph /></Link>
           </div>
         </header>
 

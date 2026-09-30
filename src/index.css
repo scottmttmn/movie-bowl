@@ -301,8 +301,8 @@
      -- an outer focus ring included. Masking a face inside the button leaves
      the button itself free to wear the ring every other control wears. */
   .theater-ticket-face {
-    @apply flex min-h-11 items-center gap-2.5 rounded-lg px-3 text-[0.7rem] font-bold uppercase text-slate-400 transition;
-    background: rgba(148, 163, 184, 0.14);
+    @apply flex min-h-11 items-center gap-2.5 rounded-lg px-3 text-[0.7rem] font-bold uppercase text-slate-200 transition;
+    background: rgba(148, 163, 184, 0.2);
     letter-spacing: 0.06em;
     -webkit-mask:
       radial-gradient(circle 8px at 0 50%, transparent 99%, #000 100%),
@@ -315,7 +315,7 @@
   }
 
   .theater-ticket-stub {
-    @apply pr-2.5 text-slate-500;
+    @apply pr-2.5 text-slate-300;
     border-right: 2px dashed rgba(148, 163, 184, 0.4);
   }
 
@@ -364,8 +364,8 @@
   }
 
   .theater-ticket:hover:not(:disabled) .theater-ticket-face {
-    @apply text-slate-200;
-    background: rgba(148, 163, 184, 0.22);
+    @apply text-slate-50;
+    background: rgba(148, 163, 184, 0.28);
   }
 
   .theater-ticket[data-on]:hover:not(:disabled) .theater-ticket-face {
@@ -1952,5 +1952,58 @@
       radial-gradient(circle 3px at 100% 50%, transparent 97%, #000) right / 51% 100% no-repeat;
     mask: radial-gradient(circle 3px at 0 50%, transparent 97%, #000) left / 51% 100% no-repeat,
       radial-gradient(circle 3px at 100% 50%, transparent 97%, #000) right / 51% 100% no-repeat;
+  }
+}
+
+/* The pick ribbon hangs from the poster's top edge like a bookmark. Every
+   poster has a faint one, so there is always somewhere to tap; yours drops
+   longer and turns rose. The button is the full 44px target, the ribbon only
+   what you see of it. */
+@layer components {
+  .poster-ribbon {
+    @apply absolute right-1 top-0 flex h-11 w-11 items-start justify-center border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/70 rounded-lg disabled:cursor-not-allowed;
+  }
+
+  .poster-ribbon-shape {
+    @apply flex h-[2.1rem] w-[1.55rem] items-start justify-center pt-[0.3rem] transition-[height,background-color] duration-200;
+    background: rgba(2, 6, 23, 0.72);
+    border: 1.5px solid rgba(226, 232, 240, 0.55);
+    border-top: 0;
+    clip-path: polygon(0 0, 100% 0, 100% 100%, 50% 78%, 0 100%);
+    filter: drop-shadow(0 2px 4px rgba(0, 0, 0, 0.4));
+  }
+
+  .poster-ribbon-shape svg {
+    @apply h-[0.95rem] w-[0.95rem];
+    fill: none;
+    stroke: #e2e8f0;
+    stroke-width: 2;
+    stroke-linejoin: round;
+  }
+
+  .poster-ribbon.is-picked .poster-ribbon-shape {
+    @apply h-[2.6rem];
+    background: #e11d48;
+    border-color: #e11d48;
+  }
+
+  .poster-ribbon.is-picked .poster-ribbon-shape svg {
+    fill: #fff1f2;
+    stroke: #fff1f2;
+  }
+
+  /* An empty Watched section is a place a movie will go, not a control that
+     opens onto nothing. */
+  .watched-empty {
+    @apply flex h-40 w-28 items-center justify-center rounded-xl;
+    border: 2px dashed rgba(148, 163, 184, 0.28);
+  }
+
+  .watched-empty svg {
+    @apply h-8 w-8;
+    fill: none;
+    stroke: rgba(148, 163, 184, 0.45);
+    stroke-width: 1.6;
+    stroke-linejoin: round;
   }
 }

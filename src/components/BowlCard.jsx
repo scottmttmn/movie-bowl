@@ -1,46 +1,55 @@
-// The home bowl is marked here, never set here. A star with aria-pressed would
-// describe a toggle that can be switched off; a home bowl can only be moved, and
-// the one command that moves it lives in the dashboard picker.
+import bowlImage from "../assets/movie-bowl.webp";
+import HomeGlyph from "./HomeGlyph";
+
+// One row per bowl: the bowl, its name, and two counts drawn as icons -- a
+// film strip for titles left to draw, people for members -- with a chevron
+// saying the row opens. The home bowl is marked here, never set here: the one
+// command that moves it lives in the dashboard picker. Owner and member need
+// no badge, because the section a row sits in already says which it is.
 export default function BowlCard({ bowl, onSelect, isHome = false }) {
+  const remaining = Number(bowl.remainingCount) || 0;
+  const members = Number(bowl.memberCount) || 0;
+  const label = [
+    bowl.name,
+    isHome ? "home bowl" : null,
+    `${remaining} ${remaining === 1 ? "title" : "titles"} to draw`,
+    `${members} ${members === 1 ? "member" : "members"}`,
+  ].filter(Boolean).join(", ");
+
   return (
-    <div className="panel bowl-card group relative">
     <button
       type="button"
-      className="w-full cursor-pointer text-left transition duration-200 hover:-translate-y-1 hover:border-slate-700 hover:shadow-2xl hover:shadow-black/30 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60"
+      aria-label={label}
+      className="panel bowl-card group flex w-full items-center gap-3 p-3 text-left transition hover:border-slate-600 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60"
       onClick={() => onSelect(bowl.id)}
     >
-      <div className="min-w-0 pr-14">
-        <span
-          className={`inline-flex rounded-full px-2.5 py-1 text-xs font-semibold ${
-            bowl.role === "Owner"
-              ? "border border-rose-900/70 bg-rose-950/55 text-rose-200"
-              : "border border-slate-700 bg-slate-800 text-slate-300"
-          }`}
-        >
-          {bowl.role}
+      <img src={bowlImage} alt="" aria-hidden="true" className="h-12 w-12 shrink-0 object-contain" />
+      <span className="min-w-0 flex-1" aria-hidden="true">
+        <span className="flex items-center gap-1.5">
+          {isHome && <HomeGlyph className="h-4 w-4 shrink-0 text-slate-400" />}
+          <span className="bowl-card-name truncate text-lg font-semibold text-slate-100">{bowl.name}</span>
         </span>
-        <h3 className="mt-3 truncate text-lg font-semibold text-slate-100">{bowl.name}</h3>
-      </div>
-
-      <div className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
-        <div className="rounded-xl border border-slate-800 bg-slate-950/45 px-3 py-2.5">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Remaining</p>
-          <p className="mt-1 text-lg font-semibold text-slate-100">{bowl.remainingCount}</p>
-        </div>
-        <div className="rounded-xl border border-slate-800 bg-slate-950/45 px-3 py-2.5">
-          <p className="text-[11px] font-medium uppercase tracking-wide text-slate-400">Members</p>
-          <p className="mt-1 text-lg font-semibold text-slate-100">{bowl.memberCount}</p>
-        </div>
-      </div>
-    </button>
-    {isHome && (
-      <span className="absolute right-3 top-3 inline-flex items-center gap-1 rounded-full bg-rose-950/70 px-2.5 py-1 text-xs font-semibold text-rose-300">
-        <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor">
-          <path d="M12 3.2 2.8 11.1a1 1 0 0 0 .66 1.75H5v7.3a.9.9 0 0 0 .9.9h4.05v-5.2h4.1v5.2h4.05a.9.9 0 0 0 .9-.9v-7.3h1.54a1 1 0 0 0 .66-1.75Z" />
-        </svg>
-        Home
+        <span className="mt-1 flex items-center gap-4 text-sm tabular-nums text-slate-400">
+          <span className="inline-flex items-center gap-1.5">
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
+              <rect x="3" y="4" width="18" height="16" rx="2" />
+              <path d="M7 4v16M17 4v16M3 9h4m-4 6h4M17 9h4m-4 6h4" />
+            </svg>
+            {remaining}
+          </span>
+          <span className="inline-flex items-center gap-1.5">
+            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
+              <circle cx="9" cy="8" r="3.5" />
+              <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
+              <path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6" />
+            </svg>
+            {members}
+          </span>
+        </span>
       </span>
-    )}
-    </div>
+      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5 shrink-0 text-slate-500 transition group-hover:translate-x-0.5 group-hover:text-slate-300" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M9 6l6 6-6 6" />
+      </svg>
+    </button>
   );
 }

@@ -33,17 +33,19 @@ describe("button and card components", () => {
       />
     );
 
-    fireEvent.click(screen.getByText("Friday Bowl"));
+    fireEvent.click(screen.getByRole("button", { name: "Friday Bowl, 4 titles to draw, 2 members" }));
     expect(onSelect).toHaveBeenCalledWith("b1");
+    // The section heading says Owner; the row does not repeat it.
+    expect(screen.queryByText("Owner")).not.toBeInTheDocument();
   });
 
   it("marks the home bowl without offering a control to move it", () => {
     const onSelect = vi.fn();
     const { rerender } = render(<BowlCard bowl={{ id: "b1", name: "Friday Night" }} onSelect={onSelect} />);
-    expect(screen.queryByText("Home")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /home bowl/ })).not.toBeInTheDocument();
 
     rerender(<BowlCard bowl={{ id: "b1", name: "Friday Night" }} onSelect={onSelect} isHome />);
-    expect(screen.getByText("Home")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Friday Night, home bowl, 0 titles to draw, 0 members" })).toBeInTheDocument();
     // A home bowl can only be moved, never unset, so nothing here may look like
     // a toggle -- and the card must not gain a second control beside Open.
     expect(document.querySelector("[aria-pressed]")).toBeNull();
