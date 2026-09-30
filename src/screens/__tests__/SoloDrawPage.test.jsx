@@ -239,6 +239,28 @@ describe("SoloDrawPage", () => {
     expect(screen.queryByText("no bowls selected")).not.toBeInTheDocument();
   });
 
+  it("hands focus back to the info button when the readout settles behind its dialog", () => {
+    const loaded = mocks.state.pool;
+    mocks.state.pool = { ...loaded, rows: [], bowls: [], bowlIds: [], isLoading: true };
+    const { rerender } = renderPage();
+
+    const infoButton = screen.getByRole("button", { name: "How solo draw picks" });
+    infoButton.focus();
+    fireEvent.click(infoButton);
+    expect(screen.getByRole("dialog")).toBeInTheDocument();
+
+    mocks.state.pool = loaded;
+    rerender(
+      <MemoryRouter initialEntries={["/solo-draw"]}>
+        <SoloDrawPage />
+      </MemoryRouter>
+    );
+    expect(screen.getByRole("button", { name: "How solo draw picks" })).toBe(infoButton);
+
+    fireEvent.click(screen.getByRole("button", { name: "Got it" }));
+    expect(infoButton).toHaveFocus();
+  });
+
   it("holds its place without an interim answer on a first visit", () => {
     mocks.state.pool = { rows: [], bowls: [], bowlIds: [], isLoading: true, errorMessage: "" };
     mocks.poolStatus.current = "counting";

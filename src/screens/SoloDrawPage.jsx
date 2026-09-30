@@ -468,27 +468,23 @@ export default function SoloDrawPage() {
               <div className="panel-muted status-error mt-4" role="alert">
                 <p>{poolErrorMessage}</p><button type="button" className="btn btn-secondary mt-3" onClick={reload}>Retry</button>
               </div>
-            ) : isSoloViewSettled ? (
-              <div className="mt-4 text-sm text-slate-300">
-                <p role="status">{soloStatusText}
-                  <button type="button" className="solo-info-button" aria-label="How solo draw picks" onClick={() => setShowInfo(true)}>i</button>
-                </p>
-                {soloStatusAction === "check" && <button type="button" className="btn btn-secondary mt-3" onClick={runLookups}>Check filter matches</button>}
-                {soloStatusAction === "adjust" && <button type="button" className="btn btn-secondary mt-3" onClick={() => setShowFilters(true)}>Adjust filters</button>}
-              </div>
             ) : (
-              // The same shape as the settled readout, so nothing under it
-              // moves when the answer replaces it.
-              <div className="mt-4 text-sm text-slate-300" aria-busy="true">
+              // One readout whether settled or not, so nothing under it moves
+              // when the answer replaces the remembered one, and the info
+              // button stays the same element: remounting it would drop the
+              // focus its dialog hands back on close.
+              <div className="mt-4 text-sm text-slate-300" aria-busy={isSoloViewSettled ? undefined : "true"}>
                 <p role="status">
-                  <span className="sr-only">{isLoading ? "Loading your movies…" : "Checking which titles match your filters…"}</span>
-                  {heldSoloView?.statusText
-                    ? <span aria-hidden="true">{heldSoloView.statusText}</span>
-                    : <span className="skeleton-block inline-block h-4 w-56 max-w-full rounded align-middle" aria-hidden="true" />}
+                  {isSoloViewSettled ? soloStatusText : <>
+                    <span className="sr-only">{isLoading ? "Loading your movies…" : "Checking which titles match your filters…"}</span>
+                    {heldSoloView?.statusText
+                      ? <span aria-hidden="true">{heldSoloView.statusText}</span>
+                      : <span className="skeleton-block inline-block h-4 w-56 max-w-full rounded align-middle" aria-hidden="true" />}
+                  </>}
                   <button type="button" className="solo-info-button" aria-label="How solo draw picks" onClick={() => setShowInfo(true)}>i</button>
                 </p>
-                {heldSoloView?.statusAction === "check" && <button type="button" className="btn btn-secondary mt-3" disabled>Check filter matches</button>}
-                {heldSoloView?.statusAction === "adjust" && <button type="button" className="btn btn-secondary mt-3" disabled>Adjust filters</button>}
+                {(isSoloViewSettled ? soloStatusAction : heldSoloView?.statusAction) === "check" && <button type="button" className="btn btn-secondary mt-3" onClick={runLookups} disabled={!isSoloViewSettled}>Check filter matches</button>}
+                {(isSoloViewSettled ? soloStatusAction : heldSoloView?.statusAction) === "adjust" && <button type="button" className="btn btn-secondary mt-3" onClick={() => setShowFilters(true)} disabled={!isSoloViewSettled}>Adjust filters</button>}
               </div>
             )}
             <div className="solo-draw-action mt-5 w-full max-w-sm" ref={drawActionRef}>
