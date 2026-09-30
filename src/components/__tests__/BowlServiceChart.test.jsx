@@ -1,4 +1,4 @@
-import { cleanup, render, screen, within } from "@testing-library/react";
+import { act, cleanup, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -29,6 +29,8 @@ vi.mock("../../lib/supabase", () => ({
 }));
 
 import BowlServiceChart from "../BowlServiceChart";
+import { notifyBowlChange } from "../../lib/bowlChanges";
+import { supabase } from "../../lib/supabase";
 
 function row(tmdbId, subscription, { fetched = true } = {}) {
   return {
@@ -109,5 +111,42 @@ describe("BowlServiceChart", () => {
 
     expect(await screen.findByText(/couldn't be loaded right now/)).toBeInTheDocument();
     expect(screen.queryByRole("list")).not.toBeInTheDocument();
+  });
+
+  it("counts unchecked movies as left in the bowl rather than calling it empty", async () => {
+    const onSummaryChange = vi.fn();
+    mocks.state.rows = [row(1, [], { fetched: false }), row(2, [], { fetched: false })];
+
+    render(<BowlServiceChart bowlId="bowl-1" onSummaryChange={onSummaryChange} />);
+
+    expect(await screen.findByText(/hasn't been checked yet\./)).toBeInTheDocument();
+    expect(screen.getByText(/How many of the 2 movies left/)).toBeInTheDocument();
+    expect(screen.getByText(/2 movies haven't been checked yet/)).toBeInTheDocument();
+    expect(screen.queryByText(/No movies left/)).not.toBeInTheDocument();
+    expect(onSummaryChange).toHaveBeenLastCalledWith("Not checked yet");
+  });
+
+  it("describes the whole bowl when only some of it has been checked", async () => {
+    mocks.state.rows = [row(1, ["Max"]), row(2, [], { fetched: false })];
+
+    render(<BowlServiceChart bowlId="bowl-1" />);
+
+    expect(await screen.findByText(/How many of the 2 movies left/)).toBeInTheDocument();
+    expect(screen.getByText(/1 movie hasn't been checked yet/)).toBeInTheDocument();
+  });
+
+  it("reads again when this bowl changes, such as a starter pack going in", async () => {
+    mocks.state.rows = [row(1, ["Max"])];
+    supabase.rpc.mockClear();
+    render(<BowlServiceChart bowlId="bowl-1" />);
+    await screen.findByText(/How many of the 1 movie left/);
+
+    mocks.state.rows = [row(1, ["Max"]), row(2, ["Max"]), row(3, ["Peacock"])];
+    act(() => notifyBowlChange({ type: "context", bowlId: "other-bowl" }));
+    act(() => notifyBowlChange({ type: "add", phase: "pending", bowlId: "bowl-1" }));
+    expect(supabase.rpc).toHaveBeenCalledTimes(1);
+
+    act(() => notifyBowlChange({ type: "context", bowlId: "bowl-1" }));
+    expect(await screen.findByText(/How many of the 3 movies left/)).toBeInTheDocument();
   });
 });

@@ -17,11 +17,15 @@ function plural(count, one, many) {
 // see output/designs and the no-odds decision before adding anything that
 // reads as a chance of being drawn.
 export default function BowlServiceChart({ bowlId, onSummaryChange }) {
-  const { status, chart, uncheckedCount } = useBowlServiceChart(bowlId);
+  const { status, chart, totalCount, uncheckedCount } = useBowlServiceChart(bowlId);
   const topRow = chart?.rows.find((row) => row.count > 0) || null;
-  const summary = status === "ready"
-    ? topRow ? `${topRow.service} carries ${topRow.count}` : "None on paid services"
-    : null;
+  const isAllUnchecked = Boolean(chart) && totalCount > 0 && chart.titleCount === 0;
+  let summary = null;
+  if (status === "ready") {
+    if (topRow) summary = `${topRow.service} carries ${topRow.count}`;
+    else if (isAllUnchecked) summary = "Not checked yet";
+    else summary = "None on paid services";
+  }
 
   useEffect(() => {
     onSummaryChange?.(summary);
@@ -57,15 +61,19 @@ export default function BowlServiceChart({ bowlId, onSummaryChange }) {
       {status === "error" && (
         <p className="mt-1 text-sm text-slate-400">Streaming availability couldn&apos;t be loaded right now.</p>
       )}
-      {chart && chart.titleCount === 0 && (
+      {chart && totalCount === 0 && (
         <p className="mt-1 text-sm text-slate-400">No movies left in this bowl to check yet.</p>
       )}
-      {chart && chart.titleCount > 0 && (
+      {chart && totalCount > 0 && (
         <>
           <p className="mt-1 text-sm text-slate-400">
-            How many of the {plural(chart.titleCount, "movie", "movies")} left in this bowl each paid service carries.
+            How many of the {plural(totalCount, "movie", "movies")} left in this bowl each paid service carries.
           </p>
-          {chart.rows.length === 0 ? (
+          {isAllUnchecked ? (
+            <p className="mt-4 text-sm text-slate-300">
+              Where these are streaming hasn&apos;t been checked yet.
+            </p>
+          ) : chart.rows.length === 0 ? (
             <p className="mt-4 text-sm text-slate-300">None of them are on a paid service right now.</p>
           ) : (
             <>
