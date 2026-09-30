@@ -1,6 +1,12 @@
 import { cleanup, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TvRevealScreen } from "../components/TvDrawExperience";
+import useTvSpatialNavigation from "../hooks/useTvSpatialNavigation";
+
+function Navigable({ children }) {
+  useTvSpatialNavigation({ scopeKey: "reveal" });
+  return children;
+}
 
 function renderReveal(movie, overrides = {}) {
   return render(
@@ -128,6 +134,31 @@ describe("TvRevealScreen", () => {
       });
       expect(screen.getByRole("link", { name: /Open Netflix/ })).toBeInTheDocument();
       expect(screen.queryByRole("link", { name: /Rent on/ })).not.toBeInTheDocument();
+    });
+
+    it("is never where the remote starts, even as the first control on screen", async () => {
+      render(
+        <Navigable>
+          <TvRevealScreen
+            bowlName="Family Night"
+            movie={movie}
+            streamingServices={["Netflix"]}
+            isPreparingPreviews={false}
+            showTrailer={false}
+            isDialogOpen={false}
+            webLaunchCandidate={null}
+            rentCandidate={rentCandidate}
+            providerLaunchMessage={null}
+            onProviderLaunch={vi.fn()}
+            onCloseTrailer={vi.fn()}
+            onToggleTrailer={vi.fn()}
+          />
+        </Navigable>
+      );
+
+      // Focus goes where it would have with no rental on offer at all.
+      await vi.waitFor(() => expect(screen.getByRole("link", { name: "Watchmode" })).toHaveFocus());
+      expect(screen.getByRole("link", { name: /Rent on Apple TV/ })).not.toHaveFocus();
     });
 
     it("disables the rental after the TV reports it could not open the store", () => {

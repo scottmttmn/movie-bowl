@@ -227,13 +227,14 @@ export function TvMovieDetailStage({
               Open {webLaunchCandidate.serviceName}
             </button>
           )}
-          {/* Never autofocused and never auto-started: spending money is the
+          {/* Never focused first and never auto-started: spending money is the
               one press the room should have to go looking for. */}
           {offersRent && !providerLaunchMessage && (
             <a
               className="tv-button tv-button-secondary"
               data-tv-focusable
               data-tv-nav-group="reveal-actions"
+              data-tv-no-initial-focus="true"
               href={rentCandidate.url}
               target="_blank"
               rel="noopener noreferrer"

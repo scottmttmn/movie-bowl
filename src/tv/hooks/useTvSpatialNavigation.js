@@ -282,7 +282,11 @@ export default function useTvSpatialNavigation({ scopeKey, onBack }) {
       const preferred = focusable.find(
         (element) => element.dataset.tvAutofocus === "true"
       );
-      (preferred || focusable[0])?.focus();
+      // Some controls are fine to reach but wrong to land on: a stray Select
+      // on the first thing focused should never be the one that spends money.
+      const initial =
+        preferred || focusable.find((element) => element.dataset.tvNoInitialFocus !== "true");
+      initial?.focus();
     }, 0);
 
     const handleKeyDown = (event) => {
