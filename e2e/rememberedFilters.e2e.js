@@ -22,10 +22,10 @@ test("filters survive reload and settings edits, and reset leaves playback intac
   await expect(filters.getByRole("button", { name: "Reset" })).toBeEnabled();
   expect(backend.requests.filter((request) => request.method === "PATCH")).toHaveLength(0);
   await expect(filters.getByRole("button", { name: "Done" })).toBeInViewport();
-  await filters.getByRole("button", { name: /edit runtime/i }).click();
+  await filters.getByRole("button", { name: /^Length\b/ }).click();
   await filters.getByLabel("draw-runtime-max", { exact: true }).fill("120");
   await expect(filters.getByText("2 of 3 titles eligible", { exact: true })).toBeVisible();
-  await filters.getByRole("button", { name: /edit genres/i }).click();
+  await filters.getByRole("button", { name: /^Genre\b/ }).click();
   await filters.getByRole("button", { name: "Only Comedy", exact: true }).click();
   await filters.locator('label[for="prioritize-streaming-draw"]').click();
   await filters.locator('label[for="use-streaming-rank-draw"]').click();
@@ -43,10 +43,10 @@ test("filters survive reload and settings edits, and reset leaves playback intac
 
   await page.reload();
   await page.getByRole("button", { name: "Filters", exact: true }).click();
-  await filters.getByRole("button", { name: /edit runtime/i }).click();
+  await filters.getByRole("button", { name: /^Length\b/ }).click();
   await expect(filters.getByLabel("draw-runtime-max", { exact: true })).toHaveValue("120");
-  await expect(filters.getByRole("checkbox", { name: "Use streaming service ranking", exact: true })).not.toBeChecked();
-  await filters.getByRole("button", { name: /edit streaming service ranking/i }).click();
+  await expect(filters.getByRole("checkbox", { name: "Top service first", exact: true })).not.toBeChecked();
+  await filters.getByRole("button", { name: "Change your streaming services" }).click();
   await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
   await expect(page.getByRole("heading", { name: "Draw filter defaults" })).toHaveCount(0);
   // Named rather than counted: a bare count went stale the moment a section was
@@ -74,7 +74,7 @@ test("filters survive reload and settings edits, and reset leaves playback intac
   await expect(page.getByRole("button", { name: "Filters", exact: true })).toBeFocused();
   await page.reload();
   await page.getByRole("button", { name: "Filters", exact: true }).click();
-  await expect(filters.getByRole("checkbox", { name: "Prioritize streaming services", exact: true })).not.toBeChecked();
-  await filters.getByRole("button", { name: /edit runtime/i }).click();
+  await expect(filters.getByRole("checkbox", { name: "Favor my services", exact: true })).not.toBeChecked();
+  await filters.getByRole("button", { name: /^Length\b/ }).click();
   await expect(filters.getByLabel("draw-runtime-max", { exact: true })).toHaveValue("500");
 });

@@ -205,8 +205,9 @@ describe("BowlDashboard bowl picker", () => {
 
     expect(within(dialog).getByText("Owned by you")).toBeInTheDocument();
     expect(within(dialog).getByText("Shared with you")).toBeInTheDocument();
-    expect(within(dialog).getByText("12 to draw · 3 members")).toBeInTheDocument();
-    expect(within(dialog).getByText("4 to draw · 5 members")).toBeInTheDocument();
+    // The counts show as numbers beside marks; the row's name says them in words.
+    expect(within(dialog).getByRole("button", { name: /12 to draw · 3 members$/ })).toHaveTextContent("123");
+    expect(within(dialog).getByRole("button", { name: /4 to draw · 5 members$/ })).toHaveTextContent("45");
     expect(within(dialog).queryByText(/12 movies/)).not.toBeInTheDocument();
 
     expect(within(dialog).getByRole("button", { name: /Friday Night, current bowl/ })).toHaveAttribute("aria-current", "true");

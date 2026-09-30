@@ -172,7 +172,7 @@ test("solo redesign keeps scope counts, filters and dialog focus usable", async 
 
   await page.getByRole("button", { name: "Filters", exact: true }).click();
   const filters = page.getByRole("dialog", { name: "Narrow the draw" });
-  await filters.getByRole("button", { name: "Runtime filter", exact: true }).click();
+  await filters.getByRole("button", { name: /^Length\b/ }).click();
   await filters.getByLabel("Maximum minutes").fill("120");
   await expect(filters).toContainText("Drawing from 1 of 2 of your titles");
   await expect.poll(() => backend.state.profiles[0].default_draw_settings?.runtimeMaxMinutes).toBe(120);
@@ -188,7 +188,7 @@ test("solo redesign keeps scope counts, filters and dialog focus usable", async 
   await expect(page.getByRole("button", { name: "How solo draw picks" })).toBeFocused();
 
   await page.getByRole("button", { name: "Filters", exact: true }).click();
-  await page.getByRole("button", { name: "Runtime filter", exact: true }).click();
+  await page.getByRole("button", { name: /^Length\b/ }).click();
   await page.getByLabel("Maximum minutes").fill("50");
   await page.getByRole("button", { name: "Done" }).click();
   await expect(page.getByRole("button", { name: /Press and hold to draw/i })).toBeDisabled();

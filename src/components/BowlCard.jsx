@@ -1,5 +1,7 @@
 import bowlImage from "../assets/movie-bowl.webp";
+import FilmStripGlyph from "./FilmStripGlyph";
 import HomeGlyph from "./HomeGlyph";
+import PeopleGlyph from "./PeopleGlyph";
 
 // One row per bowl: the bowl, its name, and two counts drawn as icons -- a
 // film strip for titles left to draw, people for members -- with a chevron
@@ -31,18 +33,11 @@ export default function BowlCard({ bowl, onSelect, isHome = false }) {
         </span>
         <span className="mt-1 flex items-center gap-4 text-sm tabular-nums text-slate-400">
           <span className="inline-flex items-center gap-1.5">
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round">
-              <rect x="3" y="4" width="18" height="16" rx="2" />
-              <path d="M7 4v16M17 4v16M3 9h4m-4 6h4M17 9h4m-4 6h4" />
-            </svg>
+            <FilmStripGlyph />
             {remaining}
           </span>
           <span className="inline-flex items-center gap-1.5">
-            <svg viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
-              <circle cx="9" cy="8" r="3.5" />
-              <path d="M2.5 20a6.5 6.5 0 0 1 13 0" />
-              <path d="M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6" />
-            </svg>
+            <PeopleGlyph />
             {members}
           </span>
         </span>

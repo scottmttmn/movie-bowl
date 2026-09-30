@@ -87,6 +87,16 @@ describe("NavBowlSwitcher", () => {
     expect(screen.getByRole("button", { name: /Horror club/ })).toBeInTheDocument();
   });
 
+  // The counts are marks, as on My Bowls, so the words live in the row's name.
+  it("shows each bowl's counts as numbers beside marks and says them in the name", () => {
+    renderSwitcher();
+    fireEvent.click(screen.getByRole("button", { name: /Switch bowl/ }));
+    const row = screen.getByRole("button", { name: "Horror club, 31 to draw · 6 members" });
+    expect(row).toHaveTextContent("316");
+    expect(row).not.toHaveTextContent("to draw");
+    expect(row.querySelectorAll("svg[aria-hidden='true']")).toHaveLength(2);
+  });
+
   // The switcher sits at the left of the header, so the shelf lines up under it
   // rather than centring itself half a screen away.
   it("hangs the picker beneath the trigger, aligned to its left edge", () => {

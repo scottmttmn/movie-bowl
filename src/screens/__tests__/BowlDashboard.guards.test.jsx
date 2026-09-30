@@ -530,7 +530,7 @@ describe("BowlDashboard guards", () => {
     await waitFor(() => expect(myMoviesSection.querySelectorAll("article")).toHaveLength(2));
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /edit runtime/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Length\b/ }));
     fireEvent.change(screen.getByLabelText("draw-runtime-max"), { target: { value: "120" } });
 
     await waitFor(() => {

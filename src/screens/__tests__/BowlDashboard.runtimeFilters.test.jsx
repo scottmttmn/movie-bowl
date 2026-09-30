@@ -134,7 +134,7 @@ describe("BowlDashboard runtime filters", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /edit runtime/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Length\b/ }));
     fireEvent.change(screen.getByRole("spinbutton", { name: /draw-runtime-min/i }), { target: { value: "95" } });
     fireEvent.change(screen.getByRole("spinbutton", { name: /draw-runtime-max/i }), { target: { value: "170" } });
 

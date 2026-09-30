@@ -167,7 +167,7 @@ describe("BowlDashboard streaming match count", () => {
     expect(fetchStreamingProviders).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /favor my services/i }));
 
     await waitFor(() => expect(screen.getByText(/on Netflix/i)).toBeInTheDocument());
     expect(fetchStreamingProviders).toHaveBeenCalledTimes(2);
@@ -211,7 +211,7 @@ describe("BowlDashboard streaming match count", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /favor my services/i }));
 
     const poolSegment = await screen.findByRole("button", {
       name: /drawing from 1 title on Netflix/i,
@@ -236,8 +236,8 @@ describe("BowlDashboard streaming match count", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /use streaming service ranking/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /favor my services/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /top service first/i }));
 
     await waitFor(() =>
       expect(screen.getByRole("button", { name: /drawing from 2 titles\./i })).toBeInTheDocument()
@@ -252,7 +252,7 @@ describe("BowlDashboard streaming match count", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /favor my services/i }));
 
     // A preference that is on but changing nothing should not look like one
     // that works. The sentence is gone; the tone still says it.
@@ -272,13 +272,13 @@ describe("BowlDashboard streaming match count", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     expect(
-      screen.queryByRole("checkbox", { name: /prioritize streaming services/i })
+      screen.queryByRole("checkbox", { name: /favor my services/i })
     ).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /drawing from/i }));
 
     expect(
-      screen.getByRole("checkbox", { name: /prioritize streaming services/i })
+      screen.getByRole("checkbox", { name: /favor my services/i })
     ).toBeInTheDocument();
   });
 

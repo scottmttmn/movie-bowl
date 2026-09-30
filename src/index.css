@@ -2007,3 +2007,23 @@
     stroke-linejoin: round;
   }
 }
+
+/* Filter rows: a list, not a stack of cards. A hairline between rows, the
+   whole row pressable, and a chevron that turns when the row opens. */
+@layer components {
+  .filter-row {
+    @apply border-t border-slate-700/70 first:border-t-0;
+  }
+
+  .filter-row-button {
+    @apply flex min-h-14 w-full items-center gap-3 rounded-lg py-2.5 text-left transition hover:bg-slate-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60;
+  }
+
+  .filter-row-chevron {
+    @apply h-5 w-5 shrink-0 text-slate-500 transition-transform duration-200;
+  }
+
+  .filter-row-button[aria-expanded="true"] .filter-row-chevron {
+    @apply rotate-180 text-slate-300;
+  }
+}

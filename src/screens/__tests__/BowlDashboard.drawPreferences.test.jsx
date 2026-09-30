@@ -199,7 +199,7 @@ describe("BowlDashboard draw preferences", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /favor my services/i }));
 
     vi.useFakeTimers();
     confirmDraw();
@@ -244,7 +244,7 @@ describe("BowlDashboard draw preferences", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
+    fireEvent.click(screen.getByRole("checkbox", { name: /favor my services/i }));
 
     vi.useFakeTimers();
     confirmDraw();
@@ -271,8 +271,8 @@ describe("BowlDashboard draw preferences", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
-    fireEvent.click(screen.getByRole("checkbox", { name: /prioritize streaming services/i }));
-    const rankToggle = screen.getByRole("checkbox", { name: /use streaming service ranking/i });
+    fireEvent.click(screen.getByRole("checkbox", { name: /favor my services/i }));
+    const rankToggle = screen.getByRole("checkbox", { name: /top service first/i });
     fireEvent.click(rankToggle);
     expect(rankToggle).not.toBeChecked();
 
@@ -301,16 +301,16 @@ describe("BowlDashboard draw preferences", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
-    const prioritizeToggle = screen.getByRole("checkbox", { name: /prioritize streaming services/i });
+    const prioritizeToggle = screen.getByRole("checkbox", { name: /favor my services/i });
     fireEvent.click(prioritizeToggle);
-    const rankToggle = screen.getByRole("checkbox", { name: /use streaming service ranking/i });
+    const rankToggle = screen.getByRole("checkbox", { name: /top service first/i });
     fireEvent.click(rankToggle);
     expect(rankToggle).not.toBeChecked();
 
     fireEvent.click(prioritizeToggle);
     fireEvent.click(prioritizeToggle);
 
-    expect(screen.getByRole("checkbox", { name: /use streaming service ranking/i })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /top service first/i })).toBeChecked();
   });
 
   it("includes selected genres in the draw payload", async () => {
@@ -326,7 +326,7 @@ describe("BowlDashboard draw preferences", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /edit genres/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Genre\b/ }));
     fireEvent.click(screen.getByRole("button", { name: /draw genre Comedy/i }));
 
     vi.useFakeTimers();
@@ -366,11 +366,11 @@ describe("BowlDashboard draw preferences", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /edit ratings/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Rating\b/ }));
 
-    expect(screen.getByRole("checkbox", { name: /prioritize streaming services/i })).toBeChecked();
-    expect(screen.getByRole("checkbox", { name: /use streaming service ranking/i })).not.toBeChecked();
-    fireEvent.click(screen.getByRole("button", { name: /edit runtime/i }));
+    expect(screen.getByRole("checkbox", { name: /favor my services/i })).toBeChecked();
+    expect(screen.getByRole("checkbox", { name: /top service first/i })).not.toBeChecked();
+    fireEvent.click(screen.getByRole("button", { name: /^Length\b/ }));
     expect(screen.getByRole("spinbutton", { name: /draw-runtime-max/i })).toHaveValue(180);
     expect(screen.getByRole("spinbutton", { name: /draw-runtime-min/i })).toHaveValue(0);
     const ratingControls = screen.getByRole("region", { name: /draw rating controls/i });
@@ -391,7 +391,7 @@ describe("BowlDashboard draw preferences", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /edit genres/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Genre\b/ }));
     fireEvent.click(screen.getByRole("button", { name: /only Comedy/i }));
 
     vi.useFakeTimers();
@@ -420,7 +420,7 @@ describe("BowlDashboard draw preferences", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
-    fireEvent.click(screen.getByRole("button", { name: /edit streaming service ranking/i }));
+    fireEvent.click(screen.getByRole("button", { name: /change your streaming services/i }));
 
     expect(mocks.state.navigate).toHaveBeenCalledWith("/settings#streaming-services");
   });
@@ -437,9 +437,9 @@ describe("BowlDashboard draw preferences", () => {
     rerender(<BowlDashboard />);
     await settleAutosave();
     expect(mocks.state.saveDefaultDrawSettings).not.toHaveBeenCalled();
-    fireEvent.click(screen.getByRole("button", { name: /edit runtime/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Length\b/ }));
     expect(screen.getByLabelText("draw-runtime-max")).toHaveValue(0);
-    fireEvent.click(screen.getByRole("button", { name: /edit genres/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Genre\b/ }));
     expect(screen.getByRole("button", { name: "Only Comedy", exact: true })).toBeInTheDocument();
   });
 
@@ -449,7 +449,7 @@ describe("BowlDashboard draw preferences", () => {
     await screen.findByText("Bowl 1");
     vi.useFakeTimers();
     fireEvent.click(screen.getByRole("button", { name: "Filters", exact: true }));
-    fireEvent.click(screen.getByRole("button", { name: /edit runtime/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Length\b/ }));
     fireEvent.change(screen.getByLabelText("draw-runtime-max"), { target: { value: "120" } });
     await settleAutosave();
     expect(mocks.state.saveDefaultDrawSettings).toHaveBeenCalledTimes(1);
@@ -461,7 +461,7 @@ describe("BowlDashboard draw preferences", () => {
     unmount();
     renderDashboard();
     fireEvent.click(screen.getByRole("button", { name: "Filters", exact: true }));
-    fireEvent.click(screen.getByRole("button", { name: /edit runtime/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Length\b/ }));
     expect(screen.getByLabelText("draw-runtime-max")).toHaveValue(120);
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     await settleAutosave();
@@ -475,7 +475,7 @@ describe("BowlDashboard draw preferences", () => {
     await screen.findByText("Bowl 1");
     vi.useFakeTimers();
     fireEvent.click(screen.getByRole("button", { name: "Filters", exact: true }));
-    fireEvent.click(screen.getByRole("button", { name: /edit runtime/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Length\b/ }));
     fireEvent.change(screen.getByLabelText("draw-runtime-max"), { target: { value: "120" } });
     await settleAutosave();
     expect(screen.getByRole("alert")).toHaveTextContent("These filters still work for this draw");
@@ -494,7 +494,7 @@ describe("BowlDashboard draw preferences", () => {
     await screen.findByText("Bowl 1");
     vi.useFakeTimers();
     fireEvent.click(screen.getByRole("button", { name: "Filters", exact: true }));
-    fireEvent.click(screen.getByRole("button", { name: /edit runtime/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^Length\b/ }));
     fireEvent.change(screen.getByLabelText("draw-runtime-max"), { target: { value: "140" } });
     unmount();
     await act(async () => {});
@@ -526,7 +526,7 @@ describe("BowlDashboard draw preferences", () => {
     await screen.findByText("Bowl 1");
     fireEvent.click(screen.getByRole("button", { name: "Filters", exact: true }));
     expect(screen.getByRole("button", { name: "Reset" })).toBeDisabled();
-    expect(screen.getByRole("button", { name: /edit runtime/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /^Length\b/ })).toBeDisabled();
     fireEvent.click(screen.getByRole("button", { name: "Retry" }));
     expect(mocks.state.reloadPreferences).toHaveBeenCalledTimes(1);
     expect(mocks.state.saveDefaultDrawSettings).not.toHaveBeenCalled();
