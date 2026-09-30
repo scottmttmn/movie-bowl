@@ -32,12 +32,15 @@ import {
   getAutoStartMode,
   getAutoStartSurface,
   resolvePreferredLaunchTarget,
+  resolveRentTarget,
 } from "../../utils/webLaunch";
+import { isTvAppRentalLink } from "../../utils/rentalStores";
 import TvBrand from "../components/TvBrand";
 import TvSoloScopeSheet from "../components/TvSoloScopeSheet";
 import { TvRevealScreen } from "../components/TvDrawExperience";
 import TvTheaterPreroll from "../components/TvTheaterPreroll";
 import TvTheaterTicket from "../components/TvTheaterTicket";
+import useProviderLaunchError from "../hooks/useProviderLaunchError";
 import useTvSpatialNavigation from "../hooks/useTvSpatialNavigation";
 import {
   clearExternalReturn,
@@ -128,6 +131,7 @@ export default function TvSoloDrawScreen({ userId }) {
     defaultDrawSettings: accountDrawSettings,
     removeFromBowlsOnSoloDraw,
     loading: isPreferencesLoading,
+    loadError: preferencesLoadError,
   } = useUserStreamingServices();
   const {
     settings,
@@ -160,7 +164,8 @@ export default function TvSoloDrawScreen({ userId }) {
   const [isTheaterPending, setIsTheaterPending] = useState(false);
   const [isTheaterPlaying, setIsTheaterPlaying] = useState(false);
   const theaterRef = useRef(null);
-  const [providerLaunchMessage, setProviderLaunchMessage] = useState(null);
+  const { launchError, clearLaunchError, noteLaunch } = useProviderLaunchError();
+  const providerLaunchMessage = launchError?.message || null;
   const drawBowlRef = useRef(null);
   const theaterRequestRef = useRef(0);
 
@@ -264,6 +269,28 @@ export default function TvSoloDrawScreen({ userId }) {
       title: drawnMovie.title || "",
     });
   }, [drawnMovie, providerLinks, streamingServices]);
+  // Until the account's services and "Rent from" choice have actually loaded,
+  // the defaults would offer a paid rental to someone who streams the movie or
+  // turned rentals off, so the TV offers none.
+  const rentCandidate = useMemo(() => {
+    if (!drawnMovie || isPreferencesLoading || preferencesLoadError) return null;
+
+    return resolveRentTarget({
+      providerLinks,
+      rentFrom: accountDrawSettings?.rentFrom,
+      userServices: streamingServices,
+      movieProviders: drawnMovie.streamingProviders || [],
+      availabilityStatus: drawnMovie.streamingProviderStatus,
+      acceptLink: isTvAppRentalLink,
+    });
+  }, [
+    drawnMovie,
+    isPreferencesLoading,
+    preferencesLoadError,
+    providerLinks,
+    streamingServices,
+    accountDrawSettings?.rentFrom,
+  ]);
 
   const leaveSolo = useCallback(() => {
     clearExternalReturn();
@@ -283,22 +310,9 @@ export default function TvSoloDrawScreen({ userId }) {
     setTrailerQueue([]);
     setShowTrailer(false);
     setDrawnMovie(null);
-    setProviderLaunchMessage(null);
+    clearLaunchError();
     dismissResult();
-  }, [dismissResult, endTheater]);
-
-  useEffect(() => {
-    const handleProviderLaunchError = (event) => {
-      setProviderLaunchMessage(
-        event?.detail?.message || "That streaming app could not be opened on this TV."
-      );
-    };
-
-    window.addEventListener("moviebowl:provider-launch-error", handleProviderLaunchError);
-    return () => {
-      window.removeEventListener("moviebowl:provider-launch-error", handleProviderLaunchError);
-    };
-  }, []);
+  }, [clearLaunchError, dismissResult, endTheater]);
 
   useEffect(
     () => () => {
@@ -308,9 +322,9 @@ export default function TvSoloDrawScreen({ userId }) {
   );
 
   const beginProviderLaunch = useCallback(() => {
-    setProviderLaunchMessage(null);
+    clearLaunchError();
     rememberExternalReturn({ bowlId: SOLO_RETURN_KEY, movie: drawnMovie });
-  }, [drawnMovie]);
+  }, [clearLaunchError, drawnMovie]);
 
   const autoStartCandidate =
     getAutoStartMode({
@@ -329,8 +343,9 @@ export default function TvSoloDrawScreen({ userId }) {
       return;
     }
     beginProviderLaunch();
+    noteLaunch(autoStartCandidate.url);
     window.open(autoStartCandidate.url, "_blank", "noopener,noreferrer");
-  }, [autoStartCandidate, beginProviderLaunch, endTheater]);
+  }, [autoStartCandidate, beginProviderLaunch, endTheater, noteLaunch]);
 
   const startTheater = async (movie, drawPool, options) => {
     const requestId = ++theaterRequestRef.current;
@@ -381,7 +396,7 @@ export default function TvSoloDrawScreen({ userId }) {
   const revealSoloDraw = async (drawAction, drawPool, options) => {
     clearExternalReturn();
     setShowDrawConfirm(false);
-    setProviderLaunchMessage(null);
+    clearLaunchError();
     const preparedMovie = await revealCommittedDraw(drawAction, {
       originRect: drawBowlRef.current?.querySelector(".bowl-illustration-image")?.getBoundingClientRect() || null,
       prepareMovie: (movie) => {
@@ -492,7 +507,9 @@ export default function TvSoloDrawScreen({ userId }) {
           showTrailer={showTrailer}
           isDialogOpen={isTheaterPlaying}
           webLaunchCandidate={preferredWebLaunchCandidate}
+          rentCandidate={rentCandidate}
           providerLaunchMessage={providerLaunchMessage}
+          providerLaunchFailedUrl={launchError?.url}
           onProviderLaunch={beginProviderLaunch}
           onCloseTrailer={() => setShowTrailer(false)}
           onToggleTrailer={() => setShowTrailer((current) => !current)}

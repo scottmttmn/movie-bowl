@@ -11,6 +11,7 @@ import { getPosterUrl } from "../../utils/getPosterUrl";
 import { getProviderLogoUrl } from "../../utils/getProviderLogoUrl";
 import { getMovieReleaseStatus } from "../../utils/movieReleaseStatus";
 import { matchUserServices } from "../../utils/streamingServices";
+import { isFailedLaunchUrl } from "../../utils/webLaunch";
 import TvBrand from "./TvBrand";
 import TvFullscreenTrailer from "./TvFullscreenTrailer";
 
@@ -93,7 +94,9 @@ export function TvMovieDetailStage({
   noteLabel = "Bowl note",
   historyMetadata = [],
   webLaunchCandidate,
+  rentCandidate,
   providerLaunchMessage,
+  providerLaunchFailedUrl = null,
   onProviderLaunch,
   onToggleTrailer,
   playbackAutofocus = true,
@@ -119,7 +122,13 @@ export function TvMovieDetailStage({
     .some((group) => Array.isArray(availability[group]) && availability[group].length > 0);
   const trailer = movie.trailer;
   const canOfferLaunch = showWhereToWatch && Boolean(webLaunchCandidate?.url);
-  const canLaunch = canOfferLaunch && !providerLaunchMessage;
+  const launchFailed = (url) =>
+    Boolean(providerLaunchMessage) && isFailedLaunchUrl(providerLaunchFailedUrl, url);
+  const canLaunch = canOfferLaunch && !launchFailed(webLaunchCandidate.url);
+  // Only when there is nothing of yours to open, and only a store's own title
+  // page: the TV has no browser to show a list of stores in.
+  const offersRent = showWhereToWatch && !canOfferLaunch && rentCandidate?.linkType === "rent";
+  const canRent = offersRent && !launchFailed(rentCandidate.url);
 
   return (
     <section className="tv-reveal is-kept">
@@ -185,7 +194,7 @@ export function TvMovieDetailStage({
           </div>
         )}
 
-        {showWhereToWatch && hasTransactionalAvailability && (
+        {showWhereToWatch && hasTransactionalAvailability && !offersRent && (
           <p className="tv-transactional-availability">Rent or buy options available</p>
         )}
 
@@ -223,6 +232,35 @@ export function TvMovieDetailStage({
               Open {webLaunchCandidate.serviceName}
             </button>
           )}
+          {/* Never focused first and never auto-started: spending money is the
+              one press the room should have to go looking for. */}
+          {canRent && (
+            <a
+              className="tv-button tv-button-secondary"
+              data-tv-focusable
+              data-tv-nav-group="reveal-actions"
+              data-tv-no-initial-focus="true"
+              href={rentCandidate.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={onProviderLaunch}
+            >
+              <ServiceLogo service={rentCandidate.storeName} className="tv-launch-logo" />
+              Rent on {rentCandidate.storeName}
+            </a>
+          )}
+          {offersRent && !canRent && (
+            <button
+              type="button"
+              className="tv-button tv-button-secondary"
+              data-tv-focusable
+              data-tv-nav-group="reveal-actions"
+              disabled
+            >
+              <ServiceLogo service={rentCandidate.storeName} className="tv-launch-logo" />
+              Rent on {rentCandidate.storeName}
+            </button>
+          )}
           {trailer?.embedUrl && (
             <button
               type="button"
@@ -237,7 +275,7 @@ export function TvMovieDetailStage({
           )}
         </div>
 
-        {showWhereToWatch && webLaunchCandidate?.linkType === "title" && (
+        {showWhereToWatch && (webLaunchCandidate?.linkType === "title" || offersRent) && (
           <ProviderLinksAttribution tv />
         )}
 
@@ -285,7 +323,9 @@ export function TvRevealScreen({
   showTrailer,
   isDialogOpen,
   webLaunchCandidate,
+  rentCandidate,
   providerLaunchMessage,
+  providerLaunchFailedUrl,
   onProviderLaunch,
   onCloseTrailer,
   onToggleTrailer,
@@ -318,7 +358,9 @@ export function TvRevealScreen({
           noteLabel={noteLabel}
           historyMetadata={historyMetadata}
           webLaunchCandidate={webLaunchCandidate}
+          rentCandidate={rentCandidate}
           providerLaunchMessage={providerLaunchMessage}
+          providerLaunchFailedUrl={providerLaunchFailedUrl}
           onProviderLaunch={onProviderLaunch}
           onToggleTrailer={onToggleTrailer}
         >

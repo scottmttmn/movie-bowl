@@ -52,6 +52,9 @@ const mocks = vi.hoisted(() => ({
   poolStatus: "unfiltered",
   eligibleMovieIds: null,
   removeFromBowlsOnSoloDraw: false,
+  preferencesLoading: false,
+  preferencesLoadError: null,
+  providerLinks: [],
   streamingServices: ["Netflix"],
   streamingMatch: { matchCount: 0, topService: null, topServiceCount: 0 },
   drawSettings: null,
@@ -97,7 +100,8 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
       includeUnknownRuntime: true,
     },
     removeFromBowlsOnSoloDraw: mocks.removeFromBowlsOnSoloDraw,
-    loading: false,
+    loading: mocks.preferencesLoading,
+    loadError: mocks.preferencesLoadError,
   }),
 }));
 
@@ -141,7 +145,7 @@ vi.mock("../../hooks/useDrawPoolCount", () => ({
 
 vi.mock("../../hooks/useDrawProviderLinks", () => ({
   default: () => ({
-    providerLinks: [],
+    providerLinks: mocks.providerLinks,
     startLookup: mocks.startProviderLookup,
   }),
 }));
@@ -178,8 +182,8 @@ vi.mock("../components/TvTheaterPreroll", () => ({
 import TvSoloDrawScreen from "../screens/TvSoloDrawScreen";
 import { getSoloDrawReveal } from "../../utils/soloDrawReveal";
 
-function renderSolo() {
-  return render(
+function soloTree() {
+  return (
     <MemoryRouter initialEntries={["/tv/solo"]}>
       <Routes>
         <Route path="/tv/solo" element={<TvSoloDrawScreen userId="user-1" />} />
@@ -187,6 +191,10 @@ function renderSolo() {
       </Routes>
     </MemoryRouter>
   );
+}
+
+function renderSolo() {
+  return render(soloTree());
 }
 
 async function revealMovie() {
@@ -224,6 +232,9 @@ describe("TV solo draw", () => {
     mocks.poolStatus = "unfiltered";
     mocks.eligibleMovieIds = null;
     mocks.removeFromBowlsOnSoloDraw = false;
+    mocks.preferencesLoading = false;
+    mocks.preferencesLoadError = null;
+    mocks.providerLinks = [];
     mocks.rows.forEach((row) => { delete row.is_pinned; });
     mocks.streamingServices = ["Netflix"];
     mocks.streamingMatch = { matchCount: 0, topService: null, topServiceCount: 0 };
@@ -352,6 +363,29 @@ describe("TV solo draw", () => {
   // The television reads the pool once, so a draw that empties bowls has to say
   // so here too -- otherwise the next draw of the night can pick a copy the
   // server has already taken.
+  it("offers a rental only once the account's services and rental choice have loaded", async () => {
+    mocks.providerLinks = [{ service: "Apple TV", type: "rent", webUrl: "https://tv.apple.com/us/movie/arrival/1" }];
+    mocks.draw.mockResolvedValue({ ...mocks.rows[0], streamingProviders: ["Max"], watchEventId: "watch-1" });
+    mocks.fetchStreamingProviders.mockResolvedValue({ providers: ["Max"], providerLogos: {}, region: "US", fetchedAt: null });
+    const { rerender } = renderSolo();
+    await revealMovie();
+
+    expect(screen.getByRole("link", { name: /Rent on Apple TV/ })).toHaveAttribute(
+      "href",
+      "https://tv.apple.com/us/movie/arrival/1"
+    );
+
+    // A restored reveal can render before the profile read answers, or after it fails.
+    mocks.preferencesLoading = true;
+    rerender(soloTree());
+    expect(screen.queryByRole("link", { name: /Rent on/ })).not.toBeInTheDocument();
+
+    mocks.preferencesLoading = false;
+    mocks.preferencesLoadError = new Error("profile read failed");
+    rerender(soloTree());
+    expect(screen.queryByRole("link", { name: /Rent on/ })).not.toBeInTheDocument();
+  });
+
   it("drops the copies a draw removed from the pool it holds", async () => {
     mocks.draw.mockResolvedValue({
       ...mocks.rows[0],

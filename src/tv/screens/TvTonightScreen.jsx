@@ -27,7 +27,9 @@ import {
   getAutoStartMode,
   getAutoStartSurface,
   resolvePreferredLaunchTarget,
+  resolveRentTarget,
 } from "../../utils/webLaunch";
+import { isTvAppRentalLink } from "../../utils/rentalStores";
 import { canReturnDrawToBowl } from "../../utils/watchHistory";
 import useDrawProviderLinks from "../../hooks/useDrawProviderLinks";
 import TvBrand from "../components/TvBrand";
@@ -45,6 +47,7 @@ import TvTheaterPreroll from "../components/TvTheaterPreroll";
 import TvFullscreenTrailer from "../components/TvFullscreenTrailer";
 import { useTvBowlAccess } from "../hooks/useTvBowls";
 import useDeviceDrawSettings from "../../hooks/useDeviceDrawSettings";
+import useProviderLaunchError from "../hooks/useProviderLaunchError";
 import useTvSpatialNavigation from "../hooks/useTvSpatialNavigation";
 import {
   buildTrailerQueue,
@@ -465,6 +468,7 @@ export default function TvTonightScreen({ userId }) {
     streamingServices,
     defaultDrawSettings: accountDrawSettings,
     loading: isPreferencesLoading,
+    loadError: preferencesLoadError,
   } = useUserStreamingServices();
   // Everything below reads the merged view, so a television's overrides reach
   // the draw, the readout, and the pre-roll without any of them knowing that
@@ -507,7 +511,8 @@ export default function TvTonightScreen({ userId }) {
   const [isTheaterPending, setIsTheaterPending] = useState(false);
   const [isTheaterPlaying, setIsTheaterPlaying] = useState(false);
   const theaterRef = useRef(null);
-  const [providerLaunchMessage, setProviderLaunchMessage] = useState(null);
+  const { launchError, clearLaunchError, noteLaunch } = useProviderLaunchError();
+  const providerLaunchMessage = launchError?.message || null;
   const drawInFlightRef = useRef(false);
   const drawBowlRef = useRef(null);
   const revealRunRef = useRef(null);
@@ -658,6 +663,28 @@ export default function TvTonightScreen({ userId }) {
       title: drawnMovie.title || "",
     });
   }, [drawnMovie, streamingServices, providerLinks]);
+  // Until the account's services and "Rent from" choice have actually loaded,
+  // the defaults would offer a paid rental to someone who streams the movie or
+  // turned rentals off, so the TV offers none.
+  const rentCandidate = useMemo(() => {
+    if (!drawnMovie || isPreferencesLoading || preferencesLoadError) return null;
+
+    return resolveRentTarget({
+      providerLinks,
+      rentFrom: accountDrawSettings?.rentFrom,
+      userServices: streamingServices,
+      movieProviders: drawnMovie.streamingProviders || [],
+      availabilityStatus: drawnMovie.streamingProviderStatus,
+      acceptLink: isTvAppRentalLink,
+    });
+  }, [
+    drawnMovie,
+    isPreferencesLoading,
+    preferencesLoadError,
+    providerLinks,
+    streamingServices,
+    accountDrawSettings?.rentFrom,
+  ]);
 
   const chooseAnotherBowl = () => {
     clearExternalReturn();
@@ -669,8 +696,8 @@ export default function TvTonightScreen({ userId }) {
     setSelectedHistoryMovie(null);
     setIsHistoryEnriching(false);
     setShowTrailer(false);
-    setProviderLaunchMessage(null);
-  }, []);
+    clearLaunchError();
+  }, [clearLaunchError]);
 
   const openHistoryDetails = useCallback(
     (movie) => {
@@ -683,7 +710,7 @@ export default function TvTonightScreen({ userId }) {
       setPendingReturn(null);
       setReturnErrorMessage(null);
       setShowTrailer(false);
-      setProviderLaunchMessage(null);
+      clearLaunchError();
       setIsHistoryEnriching(true);
 
       enrichHistoryMovie(movie)
@@ -698,21 +725,8 @@ export default function TvTonightScreen({ userId }) {
           }
         });
     },
-    []
+    [clearLaunchError]
   );
-
-  useEffect(() => {
-    const handleProviderLaunchError = (event) => {
-      setProviderLaunchMessage(
-        event?.detail?.message || "That streaming app could not be opened on this TV."
-      );
-    };
-
-    window.addEventListener("moviebowl:provider-launch-error", handleProviderLaunchError);
-    return () => {
-      window.removeEventListener("moviebowl:provider-launch-error", handleProviderLaunchError);
-    };
-  }, []);
 
   useEffect(() => {
     if (!selectedHistoryMovie || isReturningMovie) return;
@@ -802,9 +816,9 @@ export default function TvTonightScreen({ userId }) {
   }, [trailerQueue]);
 
   const beginProviderLaunch = useCallback(() => {
-    setProviderLaunchMessage(null);
+    clearLaunchError();
     rememberExternalReturn({ bowlId, movie: drawnMovie });
-  }, [bowlId, drawnMovie]);
+  }, [bowlId, clearLaunchError, drawnMovie]);
 
   // Only the Google TV app auto-starts from this route: its shell hands a new
   // window to the provider app and keeps Movie Bowl behind it. A laptop on /tv
@@ -829,8 +843,9 @@ export default function TvTonightScreen({ userId }) {
       return;
     }
     beginProviderLaunch();
+    noteLaunch(autoStartCandidate.url);
     window.open(autoStartCandidate.url, "_blank", "noopener,noreferrer");
-  }, [endTheater, autoStartCandidate, beginProviderLaunch]);
+  }, [endTheater, autoStartCandidate, beginProviderLaunch, noteLaunch]);
 
   useTvSpatialNavigation({
     scopeKey: [
@@ -956,7 +971,7 @@ export default function TvTonightScreen({ userId }) {
       setIsTheaterPending(isTheaterModeEnabled);
       setIsTheaterPlaying(false);
       setShowTrailer(false);
-      setProviderLaunchMessage(null);
+      clearLaunchError();
     } finally {
       drawInFlightRef.current = false;
       setIsDrawing(false);
@@ -1044,7 +1059,9 @@ export default function TvTonightScreen({ userId }) {
           showTrailer={showTrailer}
           isDialogOpen={Boolean(pendingReturn) || isTheaterPlaying}
           webLaunchCandidate={preferredWebLaunchCandidate}
+          rentCandidate={rentCandidate}
           providerLaunchMessage={providerLaunchMessage}
+          providerLaunchFailedUrl={launchError?.url}
           onProviderLaunch={beginProviderLaunch}
           onCloseTrailer={() => setShowTrailer(false)}
           onToggleTrailer={() => setShowTrailer((current) => !current)}

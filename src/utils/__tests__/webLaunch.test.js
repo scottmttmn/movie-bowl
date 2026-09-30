@@ -3,10 +3,12 @@ import {
   AUTO_START_SURFACE,
   getAutoStartMode,
   getAutoStartSurface,
+  isFailedLaunchUrl,
   resolvePreferredLaunchTarget,
   resolvePreferredWebLaunchCandidate,
   resolveRentTarget,
 } from "../webLaunch";
+import { isTvAppRentalLink } from "../rentalStores";
 
 describe("resolvePreferredWebLaunchCandidate", () => {
   it("picks the highest-ranked matching provider with a known web mapping", () => {
@@ -207,10 +209,34 @@ describe("resolveRentTarget", () => {
     })).toBeNull();
   });
 
+  it("keeps to the stores the Google TV app can open when asked", () => {
+    const tvLinks = [
+      { service: "Fandango at Home", type: "rent", webUrl: "https://athome.fandango.com/1" },
+      // Filed under Apple TV, but a store page no television app claims.
+      { service: "iTunes", type: "rent", webUrl: "https://itunes.apple.com/us/movie/1" },
+      { service: "Amazon", type: "rent", webUrl: "https://www.amazon.com/gp/video/detail/1" },
+    ];
+    expect(resolveRentTarget({
+      providerLinks: tvLinks,
+      rentFrom: "Fandango at Home",
+      acceptLink: isTvAppRentalLink,
+    })).toEqual({ storeName: "Prime Video", url: "https://www.amazon.com/gp/video/detail/1", linkType: "rent" });
+    expect(resolveRentTarget({ providerLinks: tvLinks.slice(0, 2), acceptLink: isTvAppRentalLink })).toBeNull();
+  });
+
   it("never starts a rental on its own after the pre-roll", () => {
     const target = resolveRentTarget({ providerLinks: links });
     for (const surface of Object.values(AUTO_START_SURFACE)) {
       expect(getAutoStartMode({ surface, launchCandidate: target })).toBeNull();
     }
+  });
+});
+
+describe("isFailedLaunchUrl", () => {
+  it("matches the destination that failed, and assumes a failure with none is this one", () => {
+    expect(isFailedLaunchUrl("https://tv.apple.com/us/movie/heat/1", "https://tv.apple.com/us/movie/heat/1")).toBe(true);
+    expect(isFailedLaunchUrl("https://www.watchmode.com/", "https://tv.apple.com/us/movie/heat/1")).toBe(false);
+    expect(isFailedLaunchUrl(null, "https://tv.apple.com/us/movie/heat/1")).toBe(true);
+    expect(isFailedLaunchUrl("https://www.watchmode.com/", null)).toBe(false);
   });
 });
