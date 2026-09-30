@@ -1644,7 +1644,11 @@ return (
                 }
                 rentCandidate={drawnMovieRentCandidate}
                 tonight={{ bowlName: displayBowlName }}
-                onAddService={(service) => saveStreamingServices([...userStreamingServices, service])}
+                onAddService={
+                  !isLoadingUserPreferences && !preferencesLoadError
+                    ? (service) => saveStreamingServices([...userStreamingServices, service])
+                    : null
+                }
                 onClose={closeReveal}
               />
             )}

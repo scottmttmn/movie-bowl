@@ -74,7 +74,7 @@ completion branch includes the latest `origin/main` and these two changes:
 ### Item 14 completion
 
 - Local gate passed: lint with zero warnings, production build, 182 Vitest
-  files / 1746 tests, and 112 Playwright tests (100 passed, 12 skipped). Both
+  files / 1748 tests, and 112 Playwright tests (100 passed, 12 skipped). Both
   count checks pass. Browser captures confirm the phone form and service pills.
 - First-run tests now cover naming, creation and direct navigation, one inline
   error, and the normal directory when a bowl or pending invitation exists.
@@ -84,6 +84,7 @@ completion branch includes the latest `origin/main` and these two changes:
 - Service + tests cover normalization, unmatched subscriptions, passive free
   providers and stores, persistence, folding after saving, and retry after an
   error. Saving disables the service choices until the request finishes.
+  The dashboard offers additions only after preferences load successfully.
 - The member journey uses the inline first-run form. A second journey verifies
   that adding Max from a draw writes `profiles.streaming_services`, then checks
   that it is still selected in Settings after a reload, on desktop and phone.
