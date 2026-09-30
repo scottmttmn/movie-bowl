@@ -18,9 +18,10 @@ by reverting a commit.
 - **Never use production credentials.** You do not need them to run the tests,
   and you should not need them to run the app. In particular never hold the
   production `SUPABASE_SECRET_KEY`: it bypasses every row-level security policy.
-- **Never run `supabase db push` or `supabase link` against production.** Schema
-  reaches the hosted database only through Scott, and only before the app change
-  that depends on it is merged (see "Database changes" below).
+- **Never run `supabase db push` or `supabase link` against production.** You
+  will use both on a Supabase project of your own (Day 2). Schema reaches the
+  production database only through Scott, and only before the app change that
+  depends on it is merged (see "Database changes" below).
 - **Never commit `.env`.** It is gitignored; keep it that way.
 - **This repository is public.** No secrets, no customer data, and no write-ups
   of unfixed bugs in any file, commit message or pull request. If you find
@@ -56,7 +57,7 @@ Everything today works with no accounts and no secrets.
    npm run lint          # zero warnings expected
    npm run test:run      # unit and component tests (Vitest), ~2 minutes
    npm run build         # production build
-   npx playwright install chromium   # once
+   npx playwright install chromium   # once; on Linux add --with-deps
    npm run test:e2e      # browser tests (Playwright), ~2 minutes
    npm run test:counts   # compares the counts above with CLAUDE.md
    ```
@@ -91,16 +92,20 @@ walked end to end by a newcomer; expect to fix a step or two and write down
 what you changed.
 
 1. **A personal Supabase project** (free tier, [supabase.com](https://supabase.com)).
-   Build its schema from this repository with its connection string (Project
-   Settings, Database). Skip `supabase/baseline/00_platform.sql`: it imitates
-   what a real Supabase project already has, for plain PostgreSQL.
+   Build its schema in two steps: the pre-migration baseline by hand, then the
+   migrations with the Supabase CLI, which records each one as applied so a
+   later `db push` of your own migration does not replay them all. Skip
+   `supabase/baseline/00_platform.sql`: it imitates what a real Supabase
+   project already has, for plain PostgreSQL. The connection string and project
+   ref are under Project Settings. Install the Supabase CLI first
+   ([supabase.com/docs/guides/cli](https://supabase.com/docs/guides/cli)).
 
    ```bash
    export DB="postgresql://postgres:...@db.<ref>.supabase.co:5432/postgres"
    psql "$DB" -v ON_ERROR_STOP=1 -f supabase/baseline/01_schema.sql
-   for f in supabase/migrations/*.sql; do
-     psql "$DB" -v ON_ERROR_STOP=1 -f "$f" || break
-   done
+   supabase login
+   supabase link --project-ref <your project ref>   # yours, never production's
+   supabase db push
    ```
 
    In Authentication, URL Configuration, add `http://localhost:3000` and
