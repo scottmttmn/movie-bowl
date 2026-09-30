@@ -150,7 +150,7 @@ async function renderDashboard() {
 
 function selectOnlyGenre(genre) {
   fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
-  fireEvent.click(screen.getByRole("button", { name: /edit genres/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^Genre\b/ }));
   const genreControls = screen.getByRole("region", { name: /draw genre controls/i });
   fireEvent.click(within(genreControls).getByRole("button", { name: new RegExp(`only ${genre}`, "i") }));
 }

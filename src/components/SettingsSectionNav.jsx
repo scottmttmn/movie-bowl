@@ -42,8 +42,11 @@ export default function SettingsSectionNav({
           key={item.href}
           href={item.href}
           onClick={jumpToSection}
-          className="surface-card block min-w-0 px-3.5 py-3 transition hover:border-slate-600 hover:bg-slate-900/60"
+          className="surface-card group relative block min-w-0 py-3 pl-3.5 pr-10 transition hover:border-slate-600 hover:bg-slate-900/60"
         >
+          {/* An arrow, not a chevron: a chevron would say the tile expands, and it
+              jumps down the page to its section instead. */}
+          <svg aria-hidden="true" viewBox="0 0 24 24" className="absolute right-3 top-1/2 h-5 w-5 -translate-y-1/2 text-slate-500 transition group-hover:translate-y-[-35%] group-hover:text-slate-300" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M12 5v14M6 13l6 6 6-6" /></svg>
           <span className="eyebrow block text-[0.65rem]">{item.label}</span>
           {/* A value can be one unbroken word -- the Account tile's is an email
               address -- and a grid item will not shrink below that on its own,

@@ -56,6 +56,9 @@ import { fetchOwnDrawWatchEntry, updateOwnWatchComment } from "../lib/watchComme
 import { notifyBowlChange } from "../lib/bowlChanges";
 import GearGlyph from "../components/GearGlyph";
 import HomeGlyph from "../components/HomeGlyph";
+import FilterRow from "../components/FilterRow";
+import StreamingPreferenceRows from "../components/StreamingPreferenceRows";
+import { describeGenres, describeRatings, describeRuntime } from "../utils/filterSummaries";
 import {
   DEFAULT_DRAW_SETTINGS,
   RUNTIME_FILTER_MAX_MINUTES,
@@ -328,38 +331,9 @@ export default function BowlDashboard() {
         selectedRatings.filter((rating) => MPAA_RATING_OPTIONS.includes(rating)),
       [selectedRatings]
     );
-    const ratingSummary = useMemo(() => {
-      const selectedCount = selectedRatings.length;
-      if (selectedCount === MPAA_RATING_OPTIONS.length && includeUnknownRatings) return "All ratings";
-      if (selectedCount === 0 && !includeUnknownRatings) return "No ratings selected";
-      const parts = [];
-      if (selectedCount === MPAA_RATING_OPTIONS.length) {
-        parts.push("All rated");
-      } else if (selectedCount > 0) {
-        parts.push(selectedRatings.join(", "));
-      }
-      if (includeUnknownRatings) parts.push("Unknown");
-      return parts.join(" • ");
-    }, [selectedRatings, includeUnknownRatings]);
-    const genreSummary = useMemo(() => {
-      const activeGenres = Array.isArray(selectedGenres) ? selectedGenres : availableDrawGenres;
-      if (activeGenres.length === 0 && !includeUnknownGenres) return "No genres selected";
-      if (!Array.isArray(selectedGenres) && includeUnknownGenres) return "All genres";
-      const parts = [];
-      if (!Array.isArray(selectedGenres)) {
-        parts.push("All listed genres");
-      } else if (activeGenres.length <= 3) {
-        parts.push(activeGenres.join(", "));
-      } else {
-        parts.push(`${activeGenres.length} genres`);
-      }
-      if (includeUnknownGenres) parts.push("Unknown");
-      return parts.filter(Boolean).join(" • ");
-    }, [selectedGenres, availableDrawGenres, includeUnknownGenres]);
-    const runtimeSummary = useMemo(() => {
-      const base = `${runtimeMinMinutes}-${runtimeMaxMinutes} min`;
-      return includeUnknownRuntime ? `${base} • Unknown` : base;
-    }, [runtimeMinMinutes, runtimeMaxMinutes, includeUnknownRuntime]);
+    const ratingSummary = describeRatings(selectedRatings, includeUnknownRatings);
+    const genreSummary = describeGenres(selectedGenres, availableDrawGenres, includeUnknownGenres);
+    const runtimeSummary = describeRuntime(runtimeMinMinutes, runtimeMaxMinutes, includeUnknownRuntime);
     // One filter object for both the pool count and the draw itself, so the
     // number on screen cannot drift from what the draw actually applies.
     const drawFilters = useMemo(
@@ -1294,78 +1268,26 @@ return (
                       disabled={!didApplyDefaultDrawSettings || isLoadingUserPreferences || Boolean(preferencesLoadError)}
                       aria-label="Draw filters"
                     >
-                      <div className="flex items-center justify-between gap-3">
-                        <div className="text-left">
-                          <p className="text-base font-semibold text-slate-100">Streaming Match Preferences</p>
-                          <p className="text-sm text-slate-300">
-                            Favor titles available on your selected services.
-                          </p>
-                        </div>
-                        <label htmlFor="prioritize-streaming-draw" className="relative inline-flex items-center cursor-pointer">
-                          <input
-                            id="prioritize-streaming-draw"
-                            name="prioritize_streaming_draw"
-                            aria-label="Prioritize streaming services"
-                            type="checkbox"
-                            className="peer sr-only"
-                            checked={prioritizeStreaming}
-                            onChange={(e) => {
-                              const checked = e.target.checked;
-                              setPrioritizeStreaming(checked);
-                              if (checked) setUseStreamingRank(true);
-                            }}
-                            disabled={userStreamingServices.length === 0}
-                          />
-                          <span className="h-6 w-11 rounded-full bg-slate-700 transition peer-checked:bg-rose-600 peer-disabled:bg-slate-800" />
-                          <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-slate-900 shadow transition peer-checked:translate-x-5" />
-                        </label>
-                      </div>
-                      {prioritizeStreaming && userStreamingServices.length > 0 && (
-                        <div className="mt-3 flex items-center justify-between gap-3 border-t border-slate-700/70 pt-2.5">
-                          <div className="text-left">
-                            <p className="text-base font-semibold text-slate-100">Use my service ranking</p>
-                            <p className="text-sm text-slate-300">If off, draw randomly from any matching service.</p>
-                          </div>
-                          <label htmlFor="use-streaming-rank-draw" className="relative inline-flex items-center cursor-pointer">
-                            <input
-                              id="use-streaming-rank-draw"
-                              name="use_streaming_rank_draw"
-                              aria-label="Use streaming service ranking"
-                              type="checkbox"
-                              className="peer sr-only"
-                              checked={useStreamingRank}
-                              onChange={(e) => setUseStreamingRank(e.target.checked)}
-                            />
-                            <span className="h-6 w-11 rounded-full bg-slate-700 transition peer-checked:bg-rose-600" />
-                            <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-slate-900 shadow transition peer-checked:translate-x-5" />
-                          </label>
-                        </div>
-                      )}
-                      <div className="mt-2 text-left">
-                        <button
-                          type="button"
-                          className="text-sm font-medium text-rose-300 hover:text-rose-200"
-                          onClick={() => navigate("/settings#streaming-services")}
-                        >
-                          {userStreamingServices.length > 0 ? "Edit streaming service ranking" : "Choose streaming services"}
-                        </button>
-                      </div>
-                      <div className="mt-3 border-t border-slate-700/70 pt-2.5 text-left">
-                        <button
-                          type="button"
-                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-left"
-                          onClick={() => setShowRatingFilters((prev) => !prev)}
-                          aria-expanded={showRatingFilters}
-                          aria-controls="draw-rating-filter-panel"
-                        >
-                          <div>
-                            <p className="text-base font-semibold text-slate-100">Rating filter</p>
-                            <p className="mt-0.5 text-sm text-slate-300">{ratingSummary}</p>
-                          </div>
-                          <span className="text-sm font-medium text-rose-300">
-                            {showRatingFilters ? "Hide ratings" : "Edit ratings"}
-                          </span>
-                        </button>
+                      <StreamingPreferenceRows
+                        idSuffix="draw"
+                        services={userStreamingServices}
+                        prioritize={prioritizeStreaming}
+                        useRank={useStreamingRank}
+                        onPrioritizeChange={(checked) => {
+                          setPrioritizeStreaming(checked);
+                          if (checked) setUseStreamingRank(true);
+                        }}
+                        onUseRankChange={setUseStreamingRank}
+                        onChangeServices={() => navigate("/settings#streaming-services")}
+                      />
+                      <div className="filter-row text-left">
+                        <FilterRow
+                          label="Rating"
+                          value={ratingSummary}
+                          isOpen={showRatingFilters}
+                          onToggle={() => setShowRatingFilters((prev) => !prev)}
+                          controls="draw-rating-filter-panel"
+                        />
                         {showRatingFilters && (
                           <div id="draw-rating-filter-panel" className="mt-2">
                             <FilterChipSelect
@@ -1390,22 +1312,14 @@ return (
                           </div>
                         )}
                       </div>
-                      <div className="mt-3 border-t border-slate-700/70 pt-2.5 text-left">
-                        <button
-                          type="button"
-                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-left"
-                          onClick={() => setShowGenreFilters((prev) => !prev)}
-                          aria-expanded={showGenreFilters}
-                          aria-controls="draw-genre-filter-panel"
-                        >
-                          <div>
-                            <p className="text-base font-semibold text-slate-100">Genre filter</p>
-                            <p className="mt-0.5 text-sm text-slate-300">{genreSummary}</p>
-                          </div>
-                          <span className="text-sm font-medium text-rose-300">
-                            {showGenreFilters ? "Hide genres" : "Edit genres"}
-                          </span>
-                        </button>
+                      <div className="filter-row text-left">
+                        <FilterRow
+                          label="Genre"
+                          value={genreSummary}
+                          isOpen={showGenreFilters}
+                          onToggle={() => setShowGenreFilters((prev) => !prev)}
+                          controls="draw-genre-filter-panel"
+                        />
                         {showGenreFilters && (
                           <div id="draw-genre-filter-panel" className="mt-2">
                             {drawGenreOptions.length > 0 ? (
@@ -1435,28 +1349,17 @@ return (
                           </div>
                         )}
                       </div>
-                      <div className="mt-3 border-t border-slate-700/70 pt-2.5 text-left">
-                        <button
-                          type="button"
-                          className="flex w-full items-center justify-between gap-3 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-left"
-                          onClick={() => setShowRuntimeFilters((prev) => !prev)}
-                          aria-expanded={showRuntimeFilters}
-                          aria-controls="draw-runtime-filter-panel"
-                        >
-                          <div>
-                            <p className="text-base font-semibold text-slate-100">Runtime filter</p>
-                            <p className="mt-0.5 text-sm text-slate-300">{runtimeSummary}</p>
-                          </div>
-                          <span className="text-sm font-medium text-rose-300">
-                            {showRuntimeFilters ? "Hide runtime" : "Edit runtime"}
-                          </span>
-                        </button>
+                      <div className="filter-row text-left">
+                        <FilterRow
+                          label="Length"
+                          value={runtimeSummary}
+                          isOpen={showRuntimeFilters}
+                          onToggle={() => setShowRuntimeFilters((prev) => !prev)}
+                          controls="draw-runtime-filter-panel"
+                        />
                         {showRuntimeFilters && (
                           <div id="draw-runtime-filter-panel" className="mt-2 rounded-lg border border-slate-700 bg-slate-900 p-3">
-                            <p className="text-sm text-slate-300">
-                              Set the acceptable runtime range.
-                            </p>
-                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                            <div className="grid gap-3 sm:grid-cols-2">
                               <label htmlFor="draw-runtime-min" className="text-sm text-slate-300">
                                 Minimum minutes
                                 <input
@@ -1554,11 +1457,6 @@ return (
                           </div>
                         )}
                       </div>
-                      {userStreamingServices.length === 0 && (
-                        <p className="mt-3 text-xs text-slate-400">
-                          Add services in Settings to enable prioritized draw.
-                        </p>
-                      )}
                     </fieldset>
                   </div>
                   <div className="shrink-0 border-t border-slate-800 px-4 py-3 sm:px-5">
@@ -1573,13 +1471,11 @@ return (
                       ) : (
                         <>
                           <AutosaveStatus status={filterSaveStatus} />
-                          {filterSaveStatus === "error" ? (
+                          {filterSaveStatus === "error" && (
                             <div role="alert" className="mt-1 text-sm text-rose-300">
                               These filters still work for this draw. Retry to remember them.
                               <button type="button" className="ml-2 underline" onClick={retryFilterSave}>Retry</button>
                             </div>
-                          ) : (
-                            <p className="mt-0.5 text-xs text-slate-400">Remembered across your bowls and TV.</p>
                           )}
                         </>
                       )}
