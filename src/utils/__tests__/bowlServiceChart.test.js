@@ -96,7 +96,10 @@ describe("buildBowlServiceChart", () => {
       userServices: ["Netflix"],
     });
 
-    expect(chart.rows[0]).toEqual({ service: "Peacock", count: 3, isMine: false });
+    expect(chart.rows[0]).toEqual({ service: "Peacock", count: 3, unwatchableCount: 1, isMine: false });
+    expect(chart.rows.find((row) => row.service === "Netflix")).toEqual({
+      service: "Netflix", count: 2, unwatchableCount: 0, isMine: true,
+    });
     expect(chart.bestAddition).toEqual({ service: "Max", count: 2 });
   });
 
@@ -123,9 +126,8 @@ describe("buildBowlServiceChart", () => {
     expect(chart.bestAddition).toEqual({ service: "Max", count: 1 });
     // The first title is free on Tubi and the third is on Netflix.
     expect(chart.coveredCount).toBe(2);
-    // Netflix's only title is on Tubi too, and Tubi itself never gets a bar.
-    expect(chart.idleServices).toEqual(["Netflix"]);
-    expect(chart.rows.map((row) => row.service)).toEqual(["Max", "Netflix"]);
+    // Tubi itself never gets a bar.
+    expect(chart.rows.map((row) => [row.service, row.unwatchableCount])).toEqual([["Max", 1], ["Netflix", 0]]);
   });
 
   it("treats a viewer with only free services as having services", () => {
@@ -136,16 +138,6 @@ describe("buildBowlServiceChart", () => {
 
     expect(chart.hasServices).toBe(true);
     expect(chart.bestAddition).toEqual({ service: "Max", count: 1 });
-  });
-
-  it("lists the viewer's services that add nothing beyond their others", () => {
-    const chart = buildBowlServiceChart({
-      metadataByTmdbId: metadata([title(["Netflix", "Hulu"]), title(["Netflix"])]),
-      userServices: ["Netflix", "Hulu", "Max"],
-    });
-
-    // Hulu's one title is on Netflix too; Max carries nothing, which its zero bar already says.
-    expect(chart.idleServices).toEqual(["Hulu"]);
   });
 
   it("normalizes provider names and falls back to the flat list on older cache rows", () => {

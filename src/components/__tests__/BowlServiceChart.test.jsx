@@ -63,18 +63,26 @@ describe("BowlServiceChart", () => {
 
     const list = await screen.findByRole("list", { name: "Movies in this bowl by service" });
     expect(within(list).getAllByRole("listitem").map((item) => item.textContent)).toEqual([
-      "Max3 movies",
+      "Max3 movies, 2 you can't watch yet",
       "Netflix✓(one of your services)1 movie",
-      "Peacock1 movie",
+      "Peacock1 movie, 1 you can't watch yet",
       "Hulu✓(one of your services)0 movies",
     ]);
-    expect(screen.getByText(/Max would add 2 movies/)).toBeInTheDocument();
+    // Max's bar splits: two it would bring, one already on Netflix.
+    const [maxRow] = within(list).getAllByRole("listitem");
+    expect(within(maxRow).getByTestId("bar-unwatchable")).toHaveStyle({ width: `${(2 / 3) * 100}%` });
+    expect(within(maxRow).getByTestId("bar-watchable")).toHaveStyle({ width: `${(1 / 3) * 100}%` });
+    expect(screen.getByText("You can watch")).toBeInTheDocument();
+    expect(screen.getByText("Can't watch yet")).toBeInTheDocument();
+    expect(screen.getByText(/has the most you can't watch/).textContent).toBe(
+      "Max has the most you can't watch yet: 2 movies."
+    );
     expect(screen.getByText(/1 movie hasn't been checked yet/)).toBeInTheDocument();
     expect(screen.getByText(/Counts movies, not chances of being drawn/)).toBeInTheDocument();
     expect(screen.queryByText(/Tubi/)).not.toBeInTheDocument();
     // The summary is reported from an effect, which can land after the text.
     // It counts what the viewer can stream, not the tallest bar, which is Max's.
-    await vi.waitFor(() => expect(onSummaryChange).toHaveBeenLastCalledWith("1 of 4 on your services"));
+    await vi.waitFor(() => expect(onSummaryChange).toHaveBeenLastCalledWith("You can watch 1 of 4"));
   });
 
   it("names the service carrying the most when the viewer has none", async () => {
@@ -84,17 +92,19 @@ describe("BowlServiceChart", () => {
     render(<BowlServiceChart bowlId="bowl-1" onSummaryChange={onSummaryChange} />);
 
     expect(await screen.findByText(/Max carries the most/)).toBeInTheDocument();
+    // Nothing to tell apart without services, so no legend.
+    expect(screen.queryByText("You can watch")).not.toBeInTheDocument();
     await vi.waitFor(() => expect(onSummaryChange).toHaveBeenLastCalledWith("Most on Max"));
   });
 
-  it("says which of your services add nothing you can't already stream", async () => {
+  it("says so when you can already watch everything", async () => {
     mocks.state.services = ["Netflix", "Hulu"];
     mocks.state.rows = [row(1, ["Netflix", "Hulu"]), row(2, ["Netflix"])];
 
     render(<BowlServiceChart bowlId="bowl-1" />);
 
-    expect(await screen.findByText(/Your services already carry everything/)).toBeInTheDocument();
-    expect(screen.getByText(/Hulu carries nothing here you can't already stream/)).toBeInTheDocument();
+    expect(await screen.findByText(/You can already watch everything/)).toBeInTheDocument();
+    expect(screen.queryByTestId("bar-unwatchable")).not.toBeInTheDocument();
   });
 
   it("says so when the bowl has nothing to check", async () => {
