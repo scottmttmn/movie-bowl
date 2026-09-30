@@ -58,6 +58,19 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   client sees at once, shareable ticket stubs and bowl recaps, a composable
   house-rules layer over the draw method registry, and curation for bowls that
   have outgrown their own memory. Brainstorm only — no specs, no commitments.
+- Movie spend tracking: **planned September 30, 2026, parked while Scott thinks
+  it over.** A private, per-person monthly and yearly summary of what you pay
+  for rentals and subscriptions, beside how many movies you watched from each.
+  It is forward-looking only: tracking starts when you turn it on, and past
+  draws never count. A Rent press counts as a rental on its own, at Watchmode's
+  listed price, once per title per month, with no confirm step. It lands only
+  on the entry of whoever is signed in on that device, TV included. The month's
+  list offers Edit price and Didn't rent, and anyone can add a rental to their
+  own entry. Subscription prices are typed in; there is no price catalog. It
+  never touches the draw, and nothing shows on a bowl or the TV. An optional
+  rental budget comes only later, if the summary is not enough. It needs the
+  rent price kept in `api/_lib/providerLinks.js` (dropped today) and a
+  `watched_via` fact on `user_watch_events`, which records no service now.
   See `output/designs/future-ideas.md`.
 - TV Theater mode: trailer pre-roll (phase 1) and provider title links
   (phase 2) are implemented; the voice card that shipped alongside them was
