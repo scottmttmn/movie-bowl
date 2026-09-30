@@ -787,6 +787,77 @@ describe("AddMovieModal tonight", () => {
     );
   }
 
+  it("offers normalized subscription services with + and starts Streaming on open for an empty profile", async () => {
+    const onAddService = vi.fn(async () => ({ error: null }));
+    renderPick({ userStreamingServices: [], onAddService, webLaunchCandidate: null });
+    const logos = screen.getByRole("button", { name: "Where else to watch: 4 options" });
+    expect(logos).not.toHaveTextContent(/\+\d/);
+    expect(logos.querySelector("svg")).not.toBeNull();
+    fireEvent.click(logos);
+    expect(screen.getByRole("button", { name: "Streaming on Netflix, Hulu and Max" })).toHaveAttribute("aria-expanded", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Add Max to your services" }));
+    await waitFor(() => expect(onAddService).toHaveBeenCalledExactlyOnceWith("Max"));
+  });
+
+  it("adds only unmatched subscription services, with no actions for free providers or stores", async () => {
+    const onAddService = vi.fn(async () => ({ error: null }));
+    renderPick({ onAddService, movie: { ...pick, streamingAvailability: {
+      subscription: [{ id: 8, name: "Netflix" }, { id: 1899, name: "HBO Max" }],
+      free: [{ id: 9, name: "Kanopy" }],
+      ads: [{ id: 73, name: "Tubi" }],
+      rent: [{ id: 2, name: "Apple TV" }],
+    } } });
+    fireEvent.click(screen.getByRole("button", { name: /where else to watch/i }));
+    expect(screen.queryByRole("button", { name: "Add Netflix to your services", hidden: true })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /Add (Kanopy|Tubi|Apple TV) to your services/, hidden: true })).not.toBeInTheDocument();
+    const streaming = screen.getByRole("button", { name: /also streaming on/i });
+    expect(streaming).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(streaming);
+    fireEvent.click(screen.getByRole("button", { name: "Add Max to your services" }));
+    await waitFor(() => expect(onAddService).toHaveBeenCalledExactlyOnceWith("Max"));
+  });
+
+  it("keeps services passive without a save callback, even for an empty profile", () => {
+    renderPick({ userStreamingServices: [], webLaunchCandidate: null });
+    fireEvent.click(screen.getByRole("button", { name: /where else to watch/i }));
+    const streaming = screen.getByRole("button", { name: /streaming on/i });
+    expect(streaming).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(streaming);
+    expect(screen.queryByRole("button", { name: /add .* to your services/i })).not.toBeInTheDocument();
+  });
+
+  it("shows the saved service as yours and folds the remaining choices", async () => {
+    function SavedPick() {
+      const [services, setServices] = useState([]);
+      return <AddMovieModal movie={pick} tonight={{ bowlName: "Friday Night" }} userStreamingServices={services}
+        onAddService={async (name) => { setServices([name]); return { error: null }; }} />;
+    }
+    render(<SavedPick />);
+    fireEvent.click(screen.getByRole("button", { name: /where else to watch/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Max to your services" }));
+    await waitFor(() => expect(screen.getByText("Max").closest("li")).toHaveTextContent("(in your services)"));
+    expect(screen.queryByRole("button", { name: "Add Max to your services", hidden: true })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Also streaming on Netflix and Hulu" })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  it("prevents overlapping service saves and leaves a failed choice available to retry", async () => {
+    let finishSave;
+    const onAddService = vi.fn(() => new Promise((resolve) => { finishSave = resolve; }));
+    renderPick({ userStreamingServices: [], onAddService });
+    fireEvent.click(screen.getByRole("button", { name: /where else to watch/i }));
+    const max = screen.getByRole("button", { name: "Add Max to your services" });
+    fireEvent.click(max);
+    expect(max).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add Hulu to your services" })).toBeDisabled();
+    await act(async () => finishSave({ error: new Error("network") }));
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not add this service. Please try again.");
+    expect(max).toBeEnabled();
+    fireEvent.click(max);
+    await act(async () => finishSave({ error: null }));
+    expect(screen.queryByRole("alert")).not.toBeInTheDocument();
+    expect(onAddService).toHaveBeenCalledTimes(2);
+  });
+
   it("leads with the contributor's slip and one way to start watching", () => {
     renderPick();
 

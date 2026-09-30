@@ -16,6 +16,8 @@ const mocks = vi.hoisted(() => {
     handleDeleteMovie: vi.fn(async () => true),
     handleReaddMovie: vi.fn(async () => true),
     streamingServices: [],
+    preferencesLoading: false,
+    preferencesLoadError: null,
     defaultDrawSettings: {
       prioritizeStreaming: false,
       useStreamingRank: true,
@@ -61,6 +63,7 @@ const mocks = vi.hoisted(() => {
     getTmdbMovieDetails: vi.fn(async () => ({})),
     fetchStreamingProviders: vi.fn(async () => ({ providers: [], region: "US", fetchedAt: null })),
     fetchProviderLinks: vi.fn(),
+    saveStreamingServices: vi.fn(async () => ({ error: null })),
   };
 });
 
@@ -92,8 +95,10 @@ vi.mock("../../hooks/useBowl", () => ({
 vi.mock("../../hooks/useUserStreamingServices", () => ({
   default: () => ({
     streamingServices: mocks.state.streamingServices,
+    saveStreamingServices: mocks.saveStreamingServices,
     defaultDrawSettings: mocks.state.defaultDrawSettings,
-    loading: false,
+    loading: mocks.state.preferencesLoading,
+    loadError: mocks.state.preferencesLoadError,
     saveDefaultDrawSettings: vi.fn(async () => ({ error: null })),
   }),
 }));
@@ -150,6 +155,9 @@ describe("BowlDashboard draw flow", () => {
     mocks.state.handleReaddMovie.mockClear();
     mocks.state.handleDraw.mockReset();
     mocks.state.streamingServices = [];
+    mocks.state.preferencesLoading = false;
+    mocks.state.preferencesLoadError = null;
+    mocks.saveStreamingServices.mockClear();
     mocks.state.defaultDrawSettings = {
       prioritizeStreaming: false,
       useStreamingRank: true,
@@ -414,6 +422,45 @@ describe("BowlDashboard draw flow", () => {
     expect(screen.queryByText(/drawing a title from the bowl/i)).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /^close$/i })).not.toBeInTheDocument();
     vi.useRealTimers();
+  });
+
+  it("saves a service chosen on the drawn movie through the profile hook", async () => {
+    mocks.state.streamingServices = ["Hulu"];
+    mocks.state.handleDraw.mockResolvedValue({ id: "m1", tmdb_id: 101, title: "Movie A" });
+    fetchStreamingProviders.mockResolvedValue({ providers: ["Max"], availability: {
+      subscription: [{ id: 1899, name: "HBO Max", logoPath: null }],
+    } });
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    vi.useFakeTimers();
+    confirmDraw();
+    await act(async () => { vi.advanceTimersByTime(1500); await Promise.resolve(); });
+    vi.useRealTimers();
+    fireEvent.click(await screen.findByRole("button", { name: /where else to watch/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Streaming on Max" }));
+    fireEvent.click(screen.getByRole("button", { name: "Add Max to your services" }));
+    await waitFor(() => expect(mocks.saveStreamingServices).toHaveBeenCalledExactlyOnceWith(["Hulu", "Max"]));
+  });
+
+  it.each(["loading", "failed"])("withholds service additions when preferences are %s while the pick is open", async (status) => {
+    mocks.state.handleDraw.mockResolvedValue({ id: "m1", tmdb_id: 101, title: "Movie A" });
+    fetchStreamingProviders.mockResolvedValue({ providers: ["Max"], availability: {
+      subscription: [{ id: 1899, name: "Max", logoPath: null }],
+    } });
+    const { rerender } = renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    vi.useFakeTimers();
+    confirmDraw();
+    await act(async () => { vi.advanceTimersByTime(1500); await Promise.resolve(); });
+    vi.useRealTimers();
+    fireEvent.click(await screen.findByRole("button", { name: /where else to watch/i }));
+    expect(screen.getByRole("button", { name: "Add Max to your services" })).toBeInTheDocument();
+    mocks.state.preferencesLoading = status === "loading";
+    mocks.state.preferencesLoadError = status === "failed" ? new Error("network") : null;
+    rerender(<BowlDashboard />);
+    expect(screen.queryByRole("button", { name: /add .* to your services/i, hidden: true })).not.toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Where to watch" })).toBeInTheDocument();
+    expect(mocks.saveStreamingServices).not.toHaveBeenCalled();
   });
 
   it("shows a secure provider link in the drawn modal", async () => {

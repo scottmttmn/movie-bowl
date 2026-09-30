@@ -149,6 +149,7 @@ export default function BowlDashboard() {
       loadError: preferencesLoadError,
       reloadStreamingServices: reloadUserPreferences,
       saveDefaultDrawSettings,
+      saveStreamingServices,
     } = useUserStreamingServices();
 
     const rememberedFilters = useMemo(() => ({
@@ -1643,6 +1644,11 @@ return (
                 }
                 rentCandidate={drawnMovieRentCandidate}
                 tonight={{ bowlName: displayBowlName }}
+                onAddService={
+                  !isLoadingUserPreferences && !preferencesLoadError
+                    ? (service) => saveStreamingServices([...userStreamingServices, service])
+                    : null
+                }
                 onClose={closeReveal}
               />
             )}

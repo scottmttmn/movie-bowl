@@ -4,6 +4,13 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## UX / UI Polish
 
+- UX pass: items 01–13 are merged; item 14's approved first-run and service
+  discovery changes are implemented on `codex/finish-first-run`. Next is a TV
+  mockup: simplify `DrawRevealStage` by removing the copy near its top on every
+  device, and redraw `TvDrawMethodMark` as an unframed slip. Delight ideas remain
+  proposals, each requiring its own mockup and sign-off. See
+  `output/designs/ux-pass/HANDOFF.md`.
+
 - Offline read cache: connectivity is now detected and explained (global banner, honest error copy, draw/add refused up front, reload on reconnect), but nothing is cached, so reloading a bowl with no connection still shows an empty bowl behind the banner rather than the last known movies. Caching the last-loaded bowl read-only would close that, and needs a decision on staleness copy and invalidation before any code.
 - Invite inbox polish: state handling for accepted, declined, and stale invites. Visibility is covered by the top nav badge and `/invites` page.
 - Draw filter UX follow-up: keep evaluating whether runtime, genre, and rating controls still feel too dense after recent cleanup.

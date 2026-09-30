@@ -153,8 +153,8 @@ test("losing the destination preserves the draft and requires an explicit replac
   expect(backend.state.bowl_movies[0].bowl_id).toBe("default-bowl-1");
 });
 
-test("an account with no bowls gets a clear create-or-join path", async ({ page, backend }) => {
-  await backend.authenticate(page); await page.goto("/bowls");
+test("an account with no bowls gets a clear create-or-join path away from first run", async ({ page, backend }) => {
+  await backend.authenticate(page); await page.goto("/settings");
   await page.getByRole("button", { name: "Add a movie", exact: true }).click();
   await expect(page.getByText("Create or join a bowl to add movies.")).toBeVisible();
   await expect(page.getByPlaceholder("Movie, actor or director")).toHaveCount(0);

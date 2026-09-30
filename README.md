@@ -23,12 +23,14 @@ count, or to a rotation that gives the next turn to whoever has waited longest.
 **Bowls**
 
 - Create bowls, invite people by email, and manage members.
+- On a first run, name your bowl and create it directly from My Bowls. The new
+  bowl opens immediately, with starter packs available to get it going.
 - Land in your **home bowl** on arrival. Move it with `Make [bowl] home` in the
   bowl picker on the dashboard header — a home bowl can be moved but never
   unset, so nothing toggles it off. The bowl directory marks which one is home
   and offers no control to change it.
-- Add movies from the navigation with the plus/filmstrip button. The dialog
-  starts at your home bowl; “Add to this bowl” uses the bowl you're viewing.
+- Add movies with the header +. On a bowl page it uses that bowl; elsewhere it
+  uses your home bowl. On the first-run card, it focuses the bowl name field.
 - Manage who is allowed to draw, per bowl (everyone, or a selected allow-list).
 - Create public add links so people without accounts can add a fixed number of
   titles.
@@ -61,6 +63,8 @@ count, or to a rotation that gives the next turn to whoever has waited longest.
 - Optionally prioritize titles on your streaming services. With service ranking
   on, the draw keeps only the highest-ranked service that actually matched, so
   an unmatched service falls through to the next one.
+- Add a subscription service from the drawn movie's Where to watch list by
+  tapping its + pill. It saves to your account's streaming preferences.
 - See the bowl's active draw method explained without surfacing competitive odds.
 - Put a drawn movie back for two hours after the draw, for when the group did
   not end up watching it. That window bounds the action, not just the cleanup:
