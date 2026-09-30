@@ -46,6 +46,19 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Future Product Concepts
 
+- Streaming-aware search: **planned September 30, 2026; not built.** Start in
+  a chosen person's filmography with an explicit **On my services first**
+  control: verified subscription/free/ad-supported matches rise as a settled
+  batch, while unchecked, failed, rental-only, and nonmatching titles remain
+  visible. A later strict **On my services** filter uses OR semantics across
+  the profile's services and ships only when the server can answer for the
+  complete person/role result set; filtering today's partially enriched rows
+  would create false empty states. Do not add catalog-volatility copy, and
+  never remove a bowl title when its provider changes -- search informs the
+  add, while draw time checks availability again. Person results are the first
+  scope; ordinary title results may follow. Plan:
+  `output/designs/streaming-aware-search.md`.
+
 - Assistant voice capture: **failed feasibility gate, closed September 4,
   2026.** The Play-distributed App Actions probe could not be invoked by Gemini
   or Google Assistant, and App Actions Support confirmed that new integrations
