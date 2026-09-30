@@ -1,0 +1,95 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>First Run Mockup</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;600;700;800&display=swap">
+<style>
+/* Layout: a dark studio page (the app is dark-only) showing today vs the prototype side by side, notes beneath. */
+:root {
+  color-scheme: dark;
+  --page: #070a12; --surface: #0c1220; --border: rgba(148,163,184,0.18);
+  --fg: #e2e8f0; --muted: #94a3b8; --accent: #fb7185;
+  --ui: "Manrope", "Avenir Next", "Segoe UI", system-ui, sans-serif;
+}
+* { box-sizing: border-box; }
+body { background: var(--page); color: var(--fg); font: 400 16px/1.55 var(--ui); padding-inline: 18px; padding-block: 36px 72px; }
+main { max-width: 1040px; margin: 0 auto; display: grid; gap: 48px; }
+h1, h2 { margin: 0; text-wrap: balance; line-height: 1.15; }
+h1 { font-size: clamp(1.9rem, 4.5vw, 2.6rem); font-weight: 800; letter-spacing: -0.02em; }
+h2 { font-size: 1.45rem; font-weight: 800; }
+p { margin: 0; max-width: 66ch; }
+.eyebrow { font-size: 0.72rem; font-weight: 700; letter-spacing: 0.16em; text-transform: uppercase; color: var(--accent); }
+.muted { color: var(--muted); }
+header, section { display: grid; gap: 16px; }
+.row { display: flex; flex-wrap: wrap; gap: 28px; align-items: flex-start; }
+figure { margin: 0; display: grid; gap: 8px; min-width: 0; }
+figcaption { font-size: 0.85rem; color: var(--muted); max-width: 40ch; }
+figcaption b { color: var(--fg); }
+img { display: block; max-width: 100%; border-radius: 18px; border: 1px solid var(--border); background: #000; }
+.phone { width: 300px; max-width: 100%; }
+.pair { display: flex; flex-wrap: wrap; gap: 20px; align-items: flex-start; }
+.notes { display: grid; gap: 10px; color: var(--muted); font-size: 0.95rem; max-width: 62ch; min-width: 0; flex: 1 1 300px; }
+.notes b { color: var(--fg); }
+.notes ul { margin: 0; padding-left: 1.1em; display: grid; gap: 8px; }
+.words { border-collapse: collapse; font-size: 0.92rem; }
+.words td { padding: 6px 14px 6px 0; border-bottom: 1px solid var(--border); vertical-align: top; }
+.words td:first-child { color: var(--muted); text-decoration: line-through; text-decoration-color: rgba(148,163,184,0.5); }
+.scroll { overflow-x: auto; }
+</style>
+<main>
+<header>
+  <span class="eyebrow">Prototype · UX pass item 14</span>
+  <h1>A first run is one thing to do</h1>
+  <p class="muted">Captured from the real app on a branch at phone size, signed in as a brand new account with no bowls and no invitations.</p>
+</header>
+
+<section>
+  <span class="eyebrow">My Bowls, before any bowl exists</span>
+  <h2>Name a bowl, and you're in it</h2>
+  <div class="row">
+    <div class="pair">
+      <figure class="phone"><img src="before-bowls.jpg" alt="Today: a First steps hero and two step cards, five buttons"><figcaption><b>Today.</b> Three panels and five buttons: pick streaming services, then open a modal to create a bowl.</figcaption></figure>
+      <figure class="phone"><img src="after-bowls.jpg" alt="Prototype: the bowl illustration, a Name your bowl field and a Create bowl button"><figcaption><b>Proposed.</b> The bowl, a name field, one button.</figcaption></figure>
+      <figure class="phone"><img src="after-typed.jpg" alt="Prototype with Friday Night typed in"><figcaption>Typing a name wakes the button. Enter works too.</figcaption></figure>
+    </div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Straight after Create</span>
+  <h2>The empty bowl takes it from there</h2>
+  <div class="row">
+    <figure class="phone"><img src="after-bowl.jpg" alt="The new Friday Night bowl, empty, offering starter packs"><figcaption><b>Proposed.</b> Create opens the new bowl directly. This page is unchanged: it already offers a starter pack and Add to this bowl.</figcaption></figure>
+    <div class="notes">
+      <p><b>What changes</b></p>
+      <ul>
+        <li>The guided setup's two step cards and its "First steps" copy go. The page subtitle goes too.</li>
+        <li>Streaming services leave the first run. The filter sheet's "Choose your services" row already asks for them at the moment they matter.</li>
+        <li>No modal on a first run, and no invite field. Inviting people lives in the bowl's settings, as it does today for every later bowl.</li>
+        <li>Once you have a bowl, or a pending invitation, My Bowls looks exactly as it does now, with New bowl in the header.</li>
+      </ul>
+    </div>
+  </div>
+</section>
+
+<section>
+  <span class="eyebrow">Finding streaming services later</span>
+  <h2>The first draw offers them</h2>
+  <p class="muted">The first run no longer asks for services, so the drawn movie does. This is an account with no services, drawing a title that streams on Max and Netflix. The grey squares stand in for service logos, which the test backend does not have.</p>
+  <div class="row">
+    <div class="pair">
+      <figure class="phone"><img src="before-where.jpg" alt="Today: Where to watch with Streaming on Max and Netflix folded"><figcaption><b>Today.</b> The services are folded into a line of text, and nothing says they could be yours.</figcaption></figure>
+      <figure class="phone"><img src="after-result.jpg" alt="Prototype: the drawn movie's logo row ends in a plus"><figcaption><b>Proposed.</b> The logo row under the button ends in a + instead of a count.</figcaption></figure>
+      <figure class="phone"><img src="after-where.jpg" alt="Prototype: Max and Netflix as dashed pills each with a plus"><figcaption>Tapping it opens Where to watch with the services already showing, each one a dashed pill with a +.</figcaption></figure>
+      <figure class="phone"><img src="after-added.jpg" alt="Prototype: Max is now a green checked service"><figcaption>Tap Max and it's yours: green, ticked, first in the list. Your filters can favor it from then on.</figcaption></figure>
+    </div>
+  </div>
+  <div class="notes">
+    <ul>
+      <li>Once you have any service, the other services stay folded as they are today, but each one still carries its + when opened.</li>
+      <li>In the last frame the rent button goes away, because the title is now on your service. Nothing replaces it because Settings' "Open the service's website for a drawn movie" is off for a new account. Every account with that setting off already sees the same thing today, and this change leaves it alone.</li>
+    </ul>
+  </div>
+</section>
+</main>
