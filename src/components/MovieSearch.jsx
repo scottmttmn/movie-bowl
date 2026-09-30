@@ -12,6 +12,8 @@ import { getSearchReleaseLabel } from "../utils/movieReleaseStatus";
 import { createEmptyStreamingProviderData } from "../utils/tmdbWatchProviders";
 import usePersonDiscovery from "../hooks/usePersonDiscovery";
 import { queryMatchesName } from "../utils/peopleMatch";
+import { formatWatchedSpoken, formatWatchedStub } from "../utils/searchMarks";
+import bowlImage from "../assets/movie-bowl.webp";
 
 const PROVIDER_ENRICHMENT_LIMIT = 8;
 // How long title results wait for the people lookup that started with them.
@@ -108,6 +110,8 @@ export default function MovieSearch({
     detailActionLabel = "Add Movie",
     userStreamingServices = [],
     includeComment = true,
+    // (movie) => mark from utils/searchMarks, or null when nothing is known.
+    getResultMark = null,
 }) {
     // Controlled input state for the search field
     const [searchTerm, setSearchTerm] = useState("");
@@ -503,6 +507,12 @@ export default function MovieSearch({
     // Other consumers keep their existing hydrated-movie callback contract.
     const addMovie = async (movie) => {
         if (isAdding || submittingRef.current) return;
+        // Already in the bowl: there is no + to press, and Enter opens the
+        // movie instead of an add that would only be refused.
+        if (getResultMark?.(movie)?.blocksAdd) {
+            await openDetails(movie);
+            return;
+        }
         submittingRef.current = true;
         setIsAdding(true);
         setAddingMovieId(movie?.id ?? null);
@@ -1062,6 +1072,8 @@ export default function MovieSearch({
                         userStreamingServices
                     );
                     const isAddingThis = isSubmitting && addingMovieId === movie.id;
+                    const mark = getResultMark?.(movie) || null;
+                    const inBowl = mark?.kind === "in_bowl";
 
                     return (
                         <div
@@ -1085,16 +1097,31 @@ export default function MovieSearch({
                                     aria-describedby={`movie-meta-${movie.id}`}
                                     disabled={isAdding}
                                 >
-                                    <img
-                                        src={getPosterUrl(movie)}
-                                        alt=""
-                                        className="h-[66px] w-11 flex-shrink-0 rounded-lg object-cover shadow-md shadow-black/30"
-                                    />
+                                    <span className="relative flex-shrink-0">
+                                        <img
+                                            src={getPosterUrl(movie)}
+                                            alt=""
+                                            className={`h-[66px] w-11 rounded-lg object-cover shadow-md shadow-black/30 ${inBowl ? "opacity-45 saturate-50" : ""}`}
+                                        />
+                                        {mark?.kind === "watched" && (
+                                            <span className="search-watched-stub" aria-hidden="true">{formatWatchedStub(mark.watchedOn)}</span>
+                                        )}
+                                    </span>
                                     <span className="flex min-w-0 flex-col gap-px">
-                                        <span className="font-semibold leading-snug text-slate-100">{movie.title}</span>
+                                        <span className={`font-semibold leading-snug ${inBowl ? "text-slate-400" : "text-slate-100"}`}>{movie.title}</span>
                                         <span id={`movie-meta-${movie.id}`} className="flex min-w-0 flex-col gap-px">
                                             {metaLabel && (
                                                 <span className="truncate text-sm text-slate-400">{metaLabel}</span>
+                                            )}
+                                            {mark?.kind === "watched" && (
+                                                <span className="sr-only">Watched {formatWatchedSpoken(mark.watchedOn)}</span>
+                                            )}
+                                            {mark?.kind === "other_bowl" && (
+                                                <span className="mt-0.5 flex min-w-0 items-center gap-1.5 text-xs text-amber-200/90">
+                                                    <img src={bowlImage} alt="" className="h-3.5 w-3.5 flex-shrink-0 object-contain" />
+                                                    <span className="sr-only">In </span>
+                                                    <span className="truncate">{mark.bowl.name}</span>
+                                                </span>
                                             )}
                                             {availability?.tone === "loading" && (
                                                 <span className="mt-1 block">
@@ -1116,6 +1143,12 @@ export default function MovieSearch({
                                 </button>
                             </div>
                             <div role="gridcell" className="flex-shrink-0">
+                                {mark?.blocksAdd ? (
+                                    <span className="search-in-bowl" role="img" aria-label={`${movie.title} is already in ${mark.bowl?.name || "this bowl"}`}>
+                                        <img src={bowlImage} alt="" />
+                                        <svg viewBox="0 0 16 16" aria-hidden="true"><path d="M3.5 8.5l3 3 6-7" /></svg>
+                                    </span>
+                                ) : (
                                 <button
                                     type="button"
                                     onClick={async () => {
@@ -1131,6 +1164,7 @@ export default function MovieSearch({
                                         <span aria-hidden="true">+</span>
                                     )}
                                 </button>
+                                )}
                             </div>
                         </div>
                     );
@@ -1277,7 +1311,9 @@ export default function MovieSearch({
             </div>
             {!hideResults && alternateBody && <div className="bowl-add-scroll">{alternateBody}</div>}
           </div>
-            {detailMovie && (
+            {detailMovie && (() => {
+              const detailMark = getResultMark?.(detailMovie) || null;
+              return (
               <AddMovieModal
                 inline={inlineDetails}
                 inlineBackLabel={personView ? `Back to ${possessive(personView.name)} movies` : "Back to search"}
@@ -1285,7 +1321,16 @@ export default function MovieSearch({
                 userStreamingServices={userStreamingServices}
                 detailPrimaryActionLabel={detailActionLabel}
                 detailPrimaryActionError={detailActionError}
-                detailPrimaryActionFields={includeComment ? (
+                detailPrimaryActionNote={detailMark?.blocksAdd ? (
+                  <span className="flex items-center gap-2 text-slate-300">
+                    <span className="search-in-bowl" aria-hidden="true">
+                      <img src={bowlImage} alt="" />
+                      <svg viewBox="0 0 16 16"><path d="M3.5 8.5l3 3 6-7" /></svg>
+                    </span>
+                    <span><span className="sr-only">Already in </span>{detailMark.bowl?.name || "this bowl"}</span>
+                  </span>
+                ) : null}
+                detailPrimaryActionFields={includeComment && !detailMark?.blocksAdd ? (
                   <label className="block text-sm font-medium text-slate-200">
                     Comment (optional)
                     <textarea
@@ -1310,7 +1355,7 @@ export default function MovieSearch({
                 ) : null}
                 isDetailPrimaryActionLoading={isSubmitting}
                 isDetailPrimaryActionDisabled={disabled}
-                onDetailPrimaryAction={async (selectedMovie) => {
+                onDetailPrimaryAction={detailMark?.blocksAdd ? null : async (selectedMovie) => {
                   if (isAdding || submittingRef.current) return;
                   submittingRef.current = true;
                   setIsAdding(true);
@@ -1337,7 +1382,8 @@ export default function MovieSearch({
                   setFocusRequest((request) => request + 1);
                 }}
               />
-            )}
+              );
+            })()}
         </div>
     );
 }

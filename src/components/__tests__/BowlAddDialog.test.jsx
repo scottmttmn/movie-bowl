@@ -10,6 +10,7 @@ vi.mock("../../lib/addBowlMovie", () => ({ bowlMovieService: { add: mocks.add },
 vi.mock("../../lib/bowlMovieActions", () => ({ bowlMovieActions: { updateNote: mocks.updateNote, remove: mocks.remove } }));
 vi.mock("../../lib/tmdbApi", () => ({ searchTmdbPeople: vi.fn(async () => ({ people: [] })), suggestTmdbQuery: vi.fn(async () => null), searchTmdbMovies: vi.fn(async () => ({ results: [] })), getTmdbMovieDetails: vi.fn() }));
 vi.mock("../../lib/streamingProviders", () => ({ fetchStreamingProviders: vi.fn() }));
+vi.mock("../../lib/searchMarkSources", () => ({ fetchSearchMarkSources: vi.fn(async () => ({ slips: [], watchEvents: [] })) }));
 
 import useBowlAdd, { BowlAddProvider } from "../../hooks/useBowlAdd";
 import BowlAddDialog from "../BowlAddDialog";

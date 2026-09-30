@@ -6,6 +6,7 @@ import { isUnsettledAddCode } from "../lib/addBowlMovie";
 import useUserBowls from "../hooks/useUserBowls";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import useModalFocus from "../hooks/useModalFocus";
+import useSearchMarks from "../hooks/useSearchMarks";
 import MovieSearch from "./MovieSearch";
 import AddedMoviesList from "./AddedMoviesList";
 
@@ -20,7 +21,7 @@ function choiceDescription(bowl, bowls) {
 export default function BowlAddDialog() {
   const add = useBowlAdd();
   const location = useLocation();
-  const { bowls, defaultBowlId } = useUserBowls();
+  const { userId, bowls, defaultBowlId } = useUserBowls();
   const { streamingServices } = useUserStreamingServices();
   const dialog = useRef(null);
   const search = useRef(null);
@@ -34,6 +35,8 @@ export default function BowlAddDialog() {
   const [announcement, setAnnouncement] = useState("");
   const [viewport, setViewport] = useState(() => ({ height: window.visualViewport?.height || window.innerHeight, top: window.visualViewport?.offsetTop || 0 }));
   const destination = add.destination;
+  const getResultMark = useSearchMarks({ sessionKey: add.id, open: add.open, userId, bowls,
+    bowlId: destination?.id, additions: add.additions });
   const closeAddDialog = add.close;
   const lost = destination && !bowls.some((bowl) => bowl.id === destination.id);
   // An unfinished add no longer blocks the dialog; it keeps its own notice and
@@ -184,7 +187,7 @@ export default function BowlAddDialog() {
           userStreamingServices={streamingServices} onDetailChange={setDetails}
           onSearchFocus={() => setSessionView(false)}
           onDraftChange={() => { setSessionView(false); add.clearFeedback(); }}
-          detailActionLabel={`Add to ${destination.name}`} onSubmitMovie={add.submit} /> : null}
+          detailActionLabel={`Add to ${destination.name}`} onSubmitMovie={add.submit} getResultMark={getResultMark} /> : null}
         {details && feedback}
       </>}
     </div>

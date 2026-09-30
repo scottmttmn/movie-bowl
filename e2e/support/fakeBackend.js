@@ -171,6 +171,9 @@ function matchesFilter(row, key, expression) {
   if (expression.startsWith("is.")) {
     return valuesEqual(row[key], decodeFilterValue(expression.slice(3)));
   }
+  if (expression.startsWith("gt.")) {
+    return row[key] != null && Number(row[key]) > Number(expression.slice(3));
+  }
   if (expression.startsWith("ilike.")) {
     const pattern = expression.slice(6).replace(/[.*+?^${}()|[\]\\]/g, "\\$&").replace(/%/g, ".*");
     return new RegExp(`^${pattern}$`, "i").test(String(row[key] ?? ""));
