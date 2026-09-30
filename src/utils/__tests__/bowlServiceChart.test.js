@@ -109,6 +109,23 @@ describe("buildBowlServiceChart", () => {
     expect(chart.bestAddition).toBeNull();
   });
 
+  it("counts a free service the viewer has as already covering a title", () => {
+    const chart = buildBowlServiceChart({
+      metadataByTmdbId: metadata([
+        { providers: ["Max", "Tubi"], availability: { subscription: [{ name: "Max" }], free: [{ name: "Tubi" }] } },
+        title(["Max"]),
+        title(["Netflix"], { ads: ["Tubi"] }),
+      ]),
+      userServices: ["Netflix", "Tubi"],
+    });
+
+    // Max carries two, but one of them is already free on Tubi.
+    expect(chart.bestAddition).toEqual({ service: "Max", count: 1 });
+    // Netflix's only title is on Tubi too, and Tubi itself never gets a bar.
+    expect(chart.idleServices).toEqual(["Netflix"]);
+    expect(chart.rows.map((row) => row.service)).toEqual(["Max", "Netflix"]);
+  });
+
   it("lists the viewer's services that add nothing beyond their others", () => {
     const chart = buildBowlServiceChart({
       metadataByTmdbId: metadata([title(["Netflix", "Hulu"]), title(["Netflix"])]),
