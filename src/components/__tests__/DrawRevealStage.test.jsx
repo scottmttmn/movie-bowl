@@ -67,13 +67,11 @@ describe("DrawRevealStage", () => {
     vi.useRealTimers();
   });
 
-  it("names the method's steps and what it is doing while the draw is in flight", async () => {
+  it("lets the scene show the draw without top commentary", async () => {
     renderStage({ methodId: "rotation" });
     expect(stage()).toHaveAttribute("aria-hidden", "true");
-    expect(stage()).toHaveTextContent("Whoever has waited longest");
-    expect(stage()).toHaveTextContent("One of their movies");
-    expect(stage()).toHaveTextContent("Rotation draw");
-    expect(stage()).toHaveTextContent("Finding whoever has waited longest…");
+    expect(document.querySelector(".draw-reveal-header")).toBeEmptyDOMElement();
+    expect(document.querySelector(".draw-reveal-steps")).toBeNull();
     await advance(500);
     expect(stage()).toHaveAttribute("data-phase", "rise");
   });
@@ -96,7 +94,6 @@ describe("DrawRevealStage", () => {
     expect(document.querySelector(".draw-reveal-card.is-chosen")).toBeNull();
     await advance(1);
     expect(cardTexts(".draw-reveal-card.is-chosen")).toEqual(["Alex"]);
-    expect(stage()).toHaveTextContent("Alex, at random");
   });
 
   it("gives every person one identical tag, however many movies they added", async () => {
@@ -137,7 +134,6 @@ describe("DrawRevealStage", () => {
     await advance(600);
     expect(stage()).toHaveAttribute("data-phase", "turn");
     expect(cardTexts(".draw-reveal-card.is-chosen")).toEqual(["AlexNever drawn"]);
-    expect(stage()).toHaveTextContent("Alex's turn");
   });
 
   it("raises title-first as one crowd with no names, then plucks one slip", async () => {
@@ -152,13 +148,12 @@ describe("DrawRevealStage", () => {
     });
     await advance(1000);
     expect(document.querySelector(".draw-reveal-card")).toBeNull();
-    expect(document.querySelector(".draw-reveal-count")).toHaveTextContent("14 movies");
+    expect(document.querySelector(".draw-reveal-count")).toBeNull();
     expect(document.querySelectorAll(".draw-reveal-slip")).toHaveLength(14);
 
     await advance(1900);
     expect(stage()).toHaveAttribute("data-phase", "pluck");
     expect(document.querySelectorAll(".draw-reveal-slip.is-lit")).toHaveLength(1);
-    expect(stage()).toHaveTextContent("1 of 14 movies in the bowl");
 
     await advance(500);
     expect(document.querySelector(".draw-reveal-hero-title")).toHaveTextContent("Paddington 2");
@@ -176,7 +171,7 @@ describe("DrawRevealStage", () => {
 
     await advance(2350);
     expect(stage()).toHaveAttribute("data-phase", "pinlift");
-    expect(stage()).toHaveTextContent("Sam's favorite");
+    expect(document.querySelector(".draw-reveal-slip.is-lit .draw-reveal-pin")).not.toBeNull();
   });
 
   it("folds a long roster into a +N pile and names the person when that pile is drawn", async () => {

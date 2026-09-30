@@ -266,7 +266,7 @@ describe("BowlDashboard draw flow", () => {
     // Portaled out of the page, so no header's containing block can trap it.
     expect(stage.parentElement).toBe(document.body);
     expect(stage).toHaveAttribute("aria-hidden", "true");
-    expect(stage).toHaveTextContent("Picking a person at random…");
+    expect(stage.querySelector(".draw-reveal-header")).toBeEmptyDOMElement();
 
     // The piles sort and the light sweeps, but nothing lands before its time.
     await act(async () => {
@@ -280,7 +280,6 @@ describe("BowlDashboard draw flow", () => {
       await vi.advanceTimersByTimeAsync(1);
     });
     expect(document.querySelector(".draw-reveal-card.is-chosen")).toHaveTextContent("Owner");
-    expect(stage).toHaveTextContent("Owner, at random");
     expect(screen.getByRole("status")).toHaveTextContent("Owner, at random.");
     expect(screen.getByRole("status")).not.toHaveTextContent("1 of Owner's 2 movies");
 

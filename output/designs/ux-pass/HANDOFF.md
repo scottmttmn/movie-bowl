@@ -1,8 +1,8 @@
 # UX pass handoff
 
-Status: item 14 is implemented on `codex/finish-first-run`, following the
-signed-off prototype. Items 01–13 are merged. The remaining work begins with
-the TV mockup described below.
+Status: items 01–14 are merged; #247 completes first-run and service discovery.
+Scott approved the TV mockup on September 30, 2026. The reveal cleanup is
+implemented on `codex/quiet-draw-reveal`; the method mark follows separately.
 
 ## How Scott wants this built
 
@@ -138,3 +138,16 @@ npm run test:counts
 
 Playwright starts and stops its own Vite server. Let it finish before starting
 another server on port 4173.
+
+## Approved TV pass
+
+Mockup: [`tv-pass/mockup.html`](tv-pass/mockup.html), captured from the real
+app with fabricated accounts on TV and phone. Scott approved both changes.
+
+- The reveal has no step pills, method sentence, running commentary or title
+  count near the top, on web, phone, TV and solo draws. The names, rotation
+  lineup, favorites and drawn title remain part of the scene.
+- Scene framing and animation timing are preserved. The empty header boundary
+  keeps the same space above the bowl; screen-reader phase announcements remain.
+- The warm paper method mark follows in a separate PR, using the same printed
+  person, title and rotation glyphs shown in the approved mockup.

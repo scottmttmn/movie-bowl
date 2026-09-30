@@ -324,7 +324,7 @@ describe("TV solo draw", () => {
     await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
     const stage = document.querySelector(".tv-draw-reveal-stage");
     expect(stage).toHaveAttribute("data-method", "solo");
-    expect(stage).toHaveTextContent("2 titles");
+    expect(stage.querySelectorAll(".draw-reveal-slip")).toHaveLength(2);
     expect(stage.querySelectorAll(".draw-reveal-card")).toHaveLength(0);
     fireEvent.keyDown(window, { key: "Escape" });
     await act(async () => { await vi.advanceTimersByTimeAsync(3099); });
@@ -348,7 +348,7 @@ describe("TV solo draw", () => {
     fireEvent.click(screen.getByRole("button", { name: /draw for myself/i }));
     fireEvent.click(screen.getByRole("button", { name: /reveal one/i }));
     await act(async () => { await vi.advanceTimersByTimeAsync(150); });
-    expect(document.querySelector(".draw-reveal-count")).toHaveTextContent("1 title");
+    expect(document.querySelectorAll(".draw-reveal-slip")).toHaveLength(1);
     expect(document.querySelectorAll(".draw-reveal-slip")).toHaveLength(1);
     expect(document.querySelectorAll(".draw-reveal-pin")).toHaveLength(1);
     await act(async () => { await vi.advanceTimersByTimeAsync(950); });

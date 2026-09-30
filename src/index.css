@@ -1279,141 +1279,10 @@
   animation: draw-reveal-in 400ms ease-out both;
 }
 
-.draw-reveal-count {
-  position: absolute;
-  left: 50%;
-  z-index: 20;
-  margin: 0;
-  padding: 0.3rem 0.9rem;
-  border: 1px solid var(--color-border-strong);
-  border-radius: 999px;
-  background: rgba(2, 4, 10, 0.8);
-  color: #e2e8f0;
-  font-size: 0.8rem;
-  font-weight: 800;
-  transform: translateX(-50%);
-  animation: draw-reveal-in 300ms ease-out both;
-}
-
 .draw-reveal-header {
   position: absolute;
   inset: 0 0 auto;
-  z-index: 25;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 0.6rem;
-  padding: max(1.25rem, env(safe-area-inset-top)) 1.25rem 0;
-  text-align: center;
-  opacity: 0;
-  transition: opacity 360ms ease 200ms;
-}
-
-.draw-reveal-stage.is-entered .draw-reveal-header {
-  opacity: 1;
-}
-
-.draw-reveal-steps {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: 0.4rem;
-  margin: 0 0 0.35rem;
-  padding: 0;
-  list-style: none;
-}
-
-.draw-reveal-step {
-  display: flex;
-  align-items: center;
-  gap: 0.45rem;
-  padding: 0.3rem 0.75rem 0.3rem 0.3rem;
-  border: 1px solid var(--color-border-strong);
-  border-radius: 999px;
-  color: #94a3b8;
-  font-size: 0.78rem;
-  font-weight: 800;
-  white-space: nowrap;
-  transition: background-color 300ms ease, border-color 300ms ease, color 300ms ease, box-shadow 300ms ease;
-}
-
-.draw-reveal-step-num {
-  display: grid;
-  width: 1.4rem;
-  height: 1.4rem;
-  place-items: center;
-  border-radius: 999px;
-  background: rgba(148, 163, 184, 0.16);
-  color: #cbd5e1;
-  font-size: 0.7rem;
-}
-
-.draw-reveal-step.now {
-  border-color: var(--color-accent-bright);
-  color: #fff;
-  box-shadow: 0 0 0 4px rgba(244, 63, 94, 0.14);
-}
-
-.draw-reveal-step.now .draw-reveal-step-num,
-.draw-reveal-step.done .draw-reveal-step-num {
-  background: var(--color-accent);
-  color: #fff;
-}
-
-.draw-reveal-step.done {
-  border-color: rgba(251, 113, 133, 0.45);
-  background: rgba(225, 29, 72, 0.16);
-  color: #fecdd3;
-}
-
-.draw-reveal-eyebrow {
-  margin: 0;
-  color: var(--color-accent-bright);
-  font-size: 0.72rem;
-  font-weight: 800;
-  letter-spacing: 0.16em;
-  text-transform: uppercase;
-}
-
-.draw-reveal-lead {
-  margin: 0;
-  max-width: 40rem;
-  color: #fff;
-  font-size: clamp(1.6rem, 5vw, 2.5rem);
-  font-weight: 800;
-  letter-spacing: -0.02em;
-  line-height: 1.12;
-  text-wrap: balance;
-}
-
-.draw-reveal-lead.is-pending {
-  color: rgba(226, 232, 240, 0.72);
-  animation: draw-reveal-pending 1s ease-in-out infinite alternate;
-}
-
-.draw-reveal-follow {
-  min-height: 1.6rem;
-  margin: 0;
-  color: #fda4af;
-  font-size: clamp(1.05rem, 3vw, 1.35rem);
-  font-weight: 700;
-}
-
-.draw-reveal-stage.is-short .draw-reveal-header {
-  gap: 0.3rem;
-  padding: max(0.75rem, env(safe-area-inset-top)) 0.75rem 0;
-}
-
-.draw-reveal-stage.is-short .draw-reveal-steps {
-  margin-bottom: 0;
-}
-
-.draw-reveal-stage.is-short .draw-reveal-lead {
-  font-size: clamp(1.2rem, 4vw, 1.6rem);
-}
-
-.draw-reveal-stage.is-short .draw-reveal-follow {
-  font-size: 1rem;
+  pointer-events: none;
 }
 
 /* The drawn slip, opened: the same two folds as the dashboard's slip. */
@@ -1510,11 +1379,6 @@
   to { opacity: 1; transform: translateY(0); }
 }
 
-@keyframes draw-reveal-pending {
-  from { opacity: 0.6; }
-  to { opacity: 1; }
-}
-
 /* Reduced motion keeps every stage and drops the flight: the global rule above
    already makes transitions instant, so each stage simply appears in place. */
 @media (prefers-reduced-motion: reduce) {
@@ -1526,9 +1390,7 @@
   .draw-reveal-hero-right,
   .draw-reveal-hero-title,
   .draw-reveal-card.is-chosen .draw-reveal-card-name,
-  .draw-reveal-lead.is-pending,
-  .draw-reveal-axis,
-  .draw-reveal-count {
+  .draw-reveal-axis {
     animation: none;
   }
 

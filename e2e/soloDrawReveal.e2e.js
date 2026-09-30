@@ -75,10 +75,10 @@ for (const scenario of [
     await page.keyboard.press("Enter");
     await expect(stage).toHaveAttribute("data-phase", "arrange");
     expect(await page.evaluate(() => window.scrollY), "focusing the reveal must preserve the source page").toBe(scrollBefore);
-    await expect(stage.locator(".draw-reveal-count")).toHaveText(scenario.pinned ? "1 title" : "3 titles");
+    await expect(stage.locator(".draw-reveal-slip")).toHaveCount(scenario.pinned ? 1 : 3);
     await expect(stage.locator(".draw-reveal-card")).toHaveCount(0);
     await expect(stage.locator(".draw-reveal-pin")).toHaveCount(scenario.pinned ? 1 : 0);
-    await expect(stage.locator(".draw-reveal-steps li")).toHaveCount(1);
+    await expect(stage.locator(".draw-reveal-header")).toBeEmpty();
     if (scenario.tv) await expect(stage).toHaveClass(/tv-draw-reveal-stage/);
 
     await expect(page.getByRole("heading", { name: title, exact: true })).toBeVisible({ timeout: 15_000 });

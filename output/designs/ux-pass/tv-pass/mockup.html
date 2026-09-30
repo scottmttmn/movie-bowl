@@ -1,0 +1,27 @@
+<!doctype html>
+<html lang="en">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Movie Bowl · TV pass proposal</title>
+<style>
+:root{color-scheme:dark;font:16px/1.5 system-ui,sans-serif;background:#080b13;color:#e2e8f0}*{box-sizing:border-box}body{margin:0;padding:32px 24px 64px}main{max-width:1360px;margin:auto}h1{font-size:32px;letter-spacing:-.025em;margin:8px 0 16px}h2{font-size:23px;margin:40px 0 10px}p{max-width:68ch;color:#a5b2c5}small{color:#fb7185;text-transform:uppercase;letter-spacing:.12em}figure{margin:0;min-width:0}figcaption{color:#a5b2c5;padding:8px 0 12px}img{display:block;width:100%;border:1px solid #263145;border-radius:12px}.pair{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:20px}.phone{max-width:810px}.phone img{max-width:393px}.toggle{display:flex;gap:8px;margin:12px 0}button{font:inherit;border:1px solid #364155;border-radius:8px;padding:8px 18px;background:#152033;color:#dbe4f0;cursor:pointer}button[aria-pressed=true]{background:#6b1635;border-color:#ad345d}.comparison{max-width:1200px}.comparison img{width:100%}.hidden{display:none}@media(max-width:650px){.pair{grid-template-columns:1fr}body{padding:24px 16px}h1{font-size:27px}}
+</style>
+<main>
+<small>Approved · September 30, 2026</small>
+<h1>Let the slips show the draw</h1>
+<p>Real app captures with fabricated accounts, at 1920 × 1080 for TV and 393 × 851 for phone. The reveal is held at the same moment in both views.</p>
+<h2>The reveal, without the top copy</h2>
+<p>Remove the step labels, method sentence and running commentary. Keep the people’s names on their slips and preserve the animation and its framing.</p>
+<div class="toggle"><button aria-pressed="false" data-image="tv-before.png">Current</button><button aria-pressed="true" data-image="tv-after.png">Proposed</button></div>
+<figure class="comparison"><img id="tv-view" src="tv-after.png" alt="Proposed full-screen TV draw: people’s piles and the bowl, with no top commentary"><figcaption>The same scene on TV. Use the buttons to compare.</figcaption></figure>
+<h2>A loose slip beside the bowl’s name</h2>
+<p>The current outlined rectangle and person can read as a profile button. The proposal uses a slightly tilted paper silhouette, with a fold and the same method mark printed on it.</p>
+<div class="toggle"><button aria-pressed="false" data-method="method-before.png">Current</button><button aria-pressed="true" data-method="method-after.png">Proposed</button></div>
+<figure class="comparison"><img id="method-view" src="method-after.png" alt="Proposed TV method mark: a small loose paper slip beside Friday Night"><figcaption>The mark remains context about the bowl, with no remote action.</figcaption></figure>
+<h2>The same reveal cleanup on a phone</h2>
+<div class="pair phone"><figure><img src="phone-before.png" alt="Current phone reveal with top copy"><figcaption>Current</figcaption></figure><figure><img src="phone-after.png" alt="Proposed phone reveal without top copy"><figcaption>Proposed</figcaption></figure></div>
+</main>
+<script>
+for(const button of document.querySelectorAll('[data-image],[data-method]'))button.addEventListener('click',()=>{const key=button.dataset.image?'image':'method';document.querySelector(key==='image'?'#tv-view':'#method-view').src=button.dataset[key];for(const sibling of button.parentElement.querySelectorAll('button'))sibling.setAttribute('aria-pressed',String(sibling===button));});
+</script>
+</html>

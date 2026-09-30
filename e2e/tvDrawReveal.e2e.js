@@ -74,7 +74,7 @@ for (const method of ["person_first", "rotation", "title_first"]) {
     await expect(stage).toHaveAttribute("data-phase", "arrange");
     if (method === "title_first") {
       await expect(stage.locator(".draw-reveal-card")).toHaveCount(0);
-      await expect(stage.locator(".draw-reveal-count")).toHaveText("20 movies");
+      await expect(stage.locator(".draw-reveal-slip")).toHaveCount(18);
     } else {
       await expect(stage.locator(".draw-reveal-card")).toHaveCount(8);
       await expect(stage.locator(".draw-reveal-card-name").last()).toHaveText("+3");
