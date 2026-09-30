@@ -111,7 +111,14 @@ function AppShell({ children }) {
   const viewedBowlId = matchPath("/bowl/:bowlId/*", location.pathname)?.params.bowlId || null;
   const { openBowlAdd, openGlobalAdd } = bowlAdd;
   const handleAddMovie = useCallback(
-    () => (viewedBowlId ? openBowlAdd(viewedBowlId) : openGlobalAdd()),
+    () => {
+      const firstBowlName = document.getElementById("first-bowl-name");
+      if (firstBowlName) {
+        firstBowlName.focus();
+        return;
+      }
+      return viewedBowlId ? openBowlAdd(viewedBowlId) : openGlobalAdd();
+    },
     [viewedBowlId, openBowlAdd, openGlobalAdd]
   );
   usePrefetchLikelyRoutes(session, location.pathname);

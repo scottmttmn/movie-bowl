@@ -1,8 +1,8 @@
 # UX pass handoff
 
-Status: in progress. Items 01–13 are merged, and item 14 (first run) is
-prototyped and signed off but not built. This note is for whoever picks the pass
-up next.
+Status: item 14 is implemented on `codex/finish-first-run`, following the
+signed-off prototype. Items 01–13 are merged. The remaining work begins with
+the TV mockup described below.
 
 ## How Scott wants this built
 
@@ -32,13 +32,13 @@ up next.
 | 13 | Filter and settings rows read as rows (`FilterRow`, `StreamingPreferenceRows`, `filterSummaries.js`); settings tiles use an arrow, because a chevron reads as "expand" | #244 |
 | — | The bowl picker shows counts with My Bowls' film-strip and people marks | #245 |
 
-## Item 14, the first run: signed off, not built
+## Item 14, the first run: implemented from the approved mockup
 
 Mockup: [`first-run/mockup.html`](first-run/mockup.html). Open it locally; the
 images sit beside it.
 
-The prototype is on branch `claude/project-thread-qhn3w7`, in two commits on top
-of `main`:
+The original prototype is preserved on `claude/project-thread-qhn3w7`. The
+completion branch includes the latest `origin/main` and these two changes:
 
 1. **One-field first run** (`src/screens/MyBowlsScreen.jsx`). A signed-in
    account with no bowls, no pending invitations and no load error sees one
@@ -71,33 +71,24 @@ of `main`:
      a drawn movie" is off by default, and every account with that setting off
      already sees the same today. Leave it.
 
-### To finish item 14
+### Item 14 completion
 
-- **Unit tests.** `src/screens/__tests__/MyBowlsScreen.test.jsx` has 11
-  failures against the prototype, all from the removed guided setup ("Create
-  your first bowl", "Set up streaming services", "Start your first movie
-  bowl").
-  - Rewrite them for the one-field card: create-and-navigate, the error shown
-    in place, and the card gone once a bowl or pending invite exists.
-  - The invite-related cases need a bowl or an invite in state so that they
-    reach the normal list and modal.
-- **New tests for the service +.**
-  - In `AddMovieModal`: the + pill appears only with `onAddService` and only
-    for unmatched subscription services; it calls back with the normalized
-    name; "Streaming on" starts open when there are no services; the tonight
-    row shows + instead of a count.
-  - In a `BowlDashboard` draw-flow test: tapping + saves the profile's
-    `streaming_services`.
-- **E2E.** `e2e/memberJourney.e2e.js:11-17` still creates the bowl through
-  "Create your first bowl", the modal and the bowl card. Change it to fill
-  "Name your bowl", press "Create bowl", and expect the `/bowl/:id` URL
-  directly.
-- **Check one open detail.** With no bowls, the header + still shows. Decide
-  whether it should open the first-run field or simply stay as it is. It was not
-  looked at.
-- **The rest of the gate.** Run it as CLAUDE.md says, refresh the count
-  sentence, and update `ONBOARDING.md` or `README.md` if either describes the
-  old guided setup.
+- Local gate passed: lint with zero warnings, production build, 182 Vitest
+  files / 1746 tests, and 112 Playwright tests (100 passed, 12 skipped). Both
+  count checks pass. Browser captures confirm the phone form and service pills.
+- First-run tests now cover naming, creation and direct navigation, one inline
+  error, and the normal directory when a bowl or pending invitation exists.
+- The first-run screen no longer reads streaming preferences or waits for them.
+- The header + focuses "Name your bowl" while the first-run card is showing,
+  as Scott confirmed on September 30, 2026.
+- Service + tests cover normalization, unmatched subscriptions, passive free
+  providers and stores, persistence, folding after saving, and retry after an
+  error. Saving disables the service choices until the request finishes.
+- The member journey uses the inline first-run form. A second journey verifies
+  that adding Max from a draw writes `profiles.streaming_services`, then checks
+  that it is still selected in Settings after a reload, on desktop and phone.
+- README now describes the first-run and service discovery paths. ONBOARDING
+  describes contributor setup and does not contain the removed guided setup.
 
 ## What is left after item 14
 
@@ -126,6 +117,23 @@ Captures come from the real app using the Playwright fake backend.
 - Use a small Node script that imports `e2e/support/captureSetup.js` for a
   seeded account (bowl `evolution-bowl`). For an empty account, use a temporary
   spec with `backend.authenticate(page)`.
-- Stop the server by port (`fuser -k 4173/tcp`), not with `pkill -f`, which can
-  match the shell running it.
+- On the Mac, stop the server through its terminal session. If that session
+  is unavailable, identify the listener with `lsof -nP -iTCP:4173 -sTCP:LISTEN`
+  and stop that specific PID. `fuser -k` is a Linux command.
 - Delete the temporary scripts before committing.
+
+### Local verification on Scott's Mac
+
+Node 24 and the dependencies are already installed. Local checks exclude the
+separate checkout under `.claude/worktrees` so its tests do not run twice:
+
+```sh
+npm run lint -- --ignore-pattern '.claude/**'
+npm run test:run -- --exclude '**/.claude/**'
+npm run build
+npm run test:e2e
+npm run test:counts
+```
+
+Playwright starts and stops its own Vite server. Let it finish before starting
+another server on port 4173.

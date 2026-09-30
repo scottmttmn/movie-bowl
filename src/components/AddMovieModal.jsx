@@ -26,7 +26,7 @@ const AVAILABILITY_GROUPS = [
   { key: "buy", label: "Buy", eligible: false },
 ];
 
-function ProviderPills({ providers, providerLogos, userStreamingServices, eligible, onAddService }) {
+function ProviderPills({ providers, providerLogos, userStreamingServices, eligible, onAddService, isAddingService }) {
   return (
     <ul className="flex flex-wrap gap-2">
       {providers.map((provider) => {
@@ -47,6 +47,7 @@ function ProviderPills({ providers, providerLogos, userStreamingServices, eligib
               <button
                 type="button"
                 aria-label={`Add ${normalizedName} to your services`}
+                disabled={isAddingService}
                 className={`flex items-center gap-2 rounded-lg border border-dashed border-slate-600 py-1.5 text-sm text-slate-300 transition hover:border-emerald-700 hover:text-emerald-200 ${logoUrl ? "pl-1.5 pr-3" : "px-3"}`}
                 onClick={() => onAddService(normalizedName)}
               >
@@ -93,7 +94,7 @@ function uniqueProvidersByName(providers) {
 
 // A folded row of provider groups. The list stays mounted and hidden, so the
 // button's aria-controls always names something that exists.
-function ProviderDisclosure({ id, label, isOpen, onToggle, groups, providerLogos, userStreamingServices, onAddService }) {
+function ProviderDisclosure({ id, label, isOpen, onToggle, groups, providerLogos, userStreamingServices, onAddService, isAddingService }) {
   return (
     <div className="border-t border-slate-700/60">
       <button
@@ -119,7 +120,8 @@ function ProviderDisclosure({ id, label, isOpen, onToggle, groups, providerLogos
               providerLogos={providerLogos}
               userStreamingServices={userStreamingServices}
               eligible={group.eligible}
-              onAddService={onAddService}
+              onAddService={group.key === "subscription" ? onAddService : null}
+              isAddingService={isAddingService}
             />
           </div>
         ))}
@@ -185,6 +187,9 @@ export default function AddMovieModal({
   const [pinError, setPinError] = useState("");
   const [isTrailerVisible, setIsTrailerVisible] = useState(false);
   const [isOtherStreamingOpen, setIsOtherStreamingOpen] = useState(null);
+  const [isAddingService, setIsAddingService] = useState(false);
+  const [addServiceError, setAddServiceError] = useState("");
+  const addServiceInFlight = useRef(false);
   const [isStoresOpen, setIsStoresOpen] = useState(false);
   const [failedPosterUrl, setFailedPosterUrl] = useState(null);
   const [isWhereOpen, setIsWhereOpen] = useState(false);
@@ -234,6 +239,7 @@ export default function AddMovieModal({
   }
 
   if (trailerSubjectChanged) {
+    setAddServiceError("");
     setIsTrailerVisible(false);
     setIsOtherStreamingOpen(null);
     setIsStoresOpen(false);
@@ -402,6 +408,24 @@ export default function AddMovieModal({
   const hasNoServices = normalizeStreamingServices(userStreamingServices).length === 0;
   const canAddServices = Boolean(onAddService) && hasNoServices;
   const isOtherStreamingShown = isOtherStreamingOpen ?? canAddServices;
+
+  const addService = async (name) => {
+    if (addServiceInFlight.current) return;
+    addServiceInFlight.current = true;
+    setIsAddingService(true);
+    setAddServiceError("");
+    try {
+      const result = await onAddService(name);
+      if (result?.error || result === false || result?.ok === false) {
+        setAddServiceError("Could not add this service. Please try again.");
+      }
+    } catch {
+      setAddServiceError("Could not add this service. Please try again.");
+    } finally {
+      addServiceInFlight.current = false;
+      setIsAddingService(false);
+    }
+  };
 
   const personalCommentSection = personalComment ? (
     <PersonalCommentSection
@@ -691,7 +715,8 @@ export default function AddMovieModal({
                           groups={otherStreamingGroups}
                           providerLogos={providerLogos}
                           userStreamingServices={userStreamingServices}
-                          onAddService={onAddService}
+                          onAddService={onAddService ? addService : null}
+                          isAddingService={isAddingService}
                         />
                       )}
                       {storeGroups.length > 0 && (
@@ -707,6 +732,7 @@ export default function AddMovieModal({
                       )}
                     </div>
                   )}
+                  {addServiceError && <p className="status-error" role="alert">{addServiceError}</p>}
                 </div>
               )}
               {(hasStructuredAvailability || movie.streamingWatchUrl) && (

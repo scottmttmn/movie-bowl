@@ -8,13 +8,13 @@ test("a member can create a bowl, add and draw a title, see history, and return 
   await page.goto("/bowls");
 
   await expect(page.getByRole("heading", { name: "My Bowls" })).toBeVisible();
-  await page.getByRole("button", { name: /create your first bowl/i }).click();
-  await page.getByPlaceholder("Bowl Name").fill("Smoke Night");
-  await page.getByRole("button", { name: "Create", exact: true }).click();
-
-  const bowlCard = page.getByRole("button", { name: /^Smoke Night, (home bowl, )?0 titles to draw, 1 member$/ });
-  await expect(bowlCard).toBeVisible();
-  await bowlCard.click();
+  await expect(page.getByPlaceholder("Name your bowl")).toBeVisible();
+  await page.screenshot({ path: test.info().outputPath("first-run.png") });
+  await page.getByRole("button", { name: "Add a movie", exact: true }).click();
+  await expect(page.getByPlaceholder("Name your bowl")).toBeFocused();
+  await expect(page.getByRole("dialog")).toHaveCount(0);
+  await page.getByPlaceholder("Name your bowl").fill("Smoke Night");
+  await page.getByRole("button", { name: "Create bowl", exact: true }).click();
 
   // The client names a new bowl itself, so the id is a fresh UUID.
   await expect(page).toHaveURL(/\/bowl\/[0-9a-f-]{36}$/);
@@ -138,4 +138,38 @@ test("an owner removes a draw nobody watched from the bowl's history, and person
 
   await page.goto("/watch-list");
   await expect(page.getByRole("heading", { name: "Nobody Watched This" })).toBeVisible();
+});
+
+
+test("a first draw adds a subscription service to the profile and remembers it after reload", async ({ page, backend }) => {
+  const consoleErrors = [];
+  page.on("pageerror", (error) => consoleErrors.push(error.message));
+  backend.state.bowls.push({ id: "services-bowl", name: "Service Night", owner_id: "user-smoke", draw_access_mode: "all_members", draw_method: "person_first" });
+  backend.state.bowl_members.push({ id: "services-owner", bowl_id: "services-bowl", user_id: "user-smoke", role: "Owner" });
+  backend.state.bowl_movies.push({ id: "services-movie", bowl_id: "services-bowl", tmdb_id: 101, title: "First Feature", added_by: "user-smoke", drawn_at: null });
+  await backend.authenticate(page);
+  await page.route("**/api/tmdb/movie/providers**", (route) => route.fulfill({
+    contentType: "application/json",
+    body: JSON.stringify({ results: { US: {
+      flatrate: [{ provider_id: 1899, provider_name: "HBO Max", logo_path: null }, { provider_id: 8, provider_name: "Netflix", logo_path: null }],
+      rent: [{ provider_id: 2, provider_name: "Apple TV", logo_path: null }],
+    } } }),
+  }));
+  await page.goto("/bowl/services-bowl");
+  await expect(page.getByRole("button", { name: /Drawing from 1 title/ })).toBeVisible();
+  await page.getByRole("button", { name: /Draw movie from bowl\. Press and hold to draw\./ }).press("Enter");
+  await page.getByRole("button", { name: "Reveal Movie" }).click();
+  await expect(page.getByRole("heading", { name: "First Feature", exact: true })).toBeVisible({ timeout: 10_000 });
+  await page.getByRole("button", { name: /Where else to watch/ }).click();
+  await expect(page.getByRole("button", { name: "Streaming on Max and Netflix" })).toHaveAttribute("aria-expanded", "true");
+  await page.screenshot({ path: test.info().outputPath("add-services.png") });
+  await page.getByRole("button", { name: "Add Max to your services" }).click();
+  await expect(page.getByRole("listitem").filter({ hasText: "HBO Max (in your services)" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Also streaming on Netflix" })).toHaveAttribute("aria-expanded", "false");
+  expect(backend.state.profiles.find((profile) => profile.id === "user-smoke").streaming_services).toEqual(["Max"]);
+  await page.screenshot({ path: test.info().outputPath("saved-service.png") });
+  await page.goto("/settings#streaming-services");
+  await page.reload();
+  await expect(page.getByRole("combobox", { name: "Position of Max", exact: true })).toHaveValue("0");
+  expect(consoleErrors).toEqual([]);
 });

@@ -8,13 +8,11 @@ import useCreateBowl from "../hooks/useCreateBowl";
 import useUserBowls from "../hooks/useUserBowls";
 import { sortBowlsByRecentActivity } from "../utils/bowlOrdering";
 import usePendingInvites from "../hooks/usePendingInvites";
-import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import { MAX_BOWLS_PER_USER } from "../utils/appLimits";
 
 export default function MyBowlsScreen() {
   const { bowls, defaultBowlId, loading: isLoading, error: loadError, refresh } = useUserBowls();
   const navigate = useNavigate();
-  const { loading: isStreamingServicesLoading } = useUserStreamingServices();
   const {
     invites: pendingInvites,
     isLoading: isInvitesLoading,
@@ -41,10 +39,9 @@ export default function MyBowlsScreen() {
   const hasNoTrustworthyList =
     bowls.length === 0
     && !loadError
-    && (isLoading || isStreamingServicesLoading || isInvitesLoading);
-  const shouldShowGuidedSetup =
+    && (isLoading || isInvitesLoading);
+  const shouldShowFirstRun =
     !isLoading &&
-    !isStreamingServicesLoading &&
     !isInvitesLoading &&
     !loadError &&
     bowls.length === 0 &&
@@ -61,7 +58,7 @@ export default function MyBowlsScreen() {
     <div className="my-bowls-screen page-container py-6 sm:py-8">
       <header className="mb-8">
         <div className="mb-4 space-y-2" aria-live="polite">
-          {createErrorMessage && !isModalOpen && <div className="status-error" role="alert">{createErrorMessage}</div>}
+          {createErrorMessage && !isModalOpen && !shouldShowFirstRun && <div className="status-error" role="alert">{createErrorMessage}</div>}
           {createActionMessage && <div className="status-success">{createActionMessage}</div>}
         </div>
         <div className="page-hero flex flex-col gap-5 md:flex-row md:items-center md:justify-between">
@@ -70,7 +67,7 @@ export default function MyBowlsScreen() {
                 word now names one specific bowl. */}
             <h1 className="text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">My Bowls</h1>
           </div>
-          {!shouldShowGuidedSetup && (
+          {!shouldShowFirstRun && (
             <div className="flex justify-start md:justify-end">
               <NewBowlButton onClick={handleNewBowl} disabled={isCreateBowlLimitReached || isCreating} />
             </div>
@@ -101,7 +98,7 @@ export default function MyBowlsScreen() {
           <div className="status-error" role="alert">
             {loadError} <button className="btn btn-secondary mt-3" onClick={() => refresh()}>Retry</button>
           </div>
-        ) : shouldShowGuidedSetup ? (
+        ) : shouldShowFirstRun ? (
           // A first run is one thing to do: name a bowl. Services can wait for
           // the filters, and the empty bowl offers a starter pack itself.
           <section className="page-hero flex flex-col items-center py-8 text-center">
