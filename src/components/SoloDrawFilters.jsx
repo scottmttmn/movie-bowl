@@ -1,6 +1,8 @@
 import { useState } from "react";
 import { Link } from "react-router-dom";
 import FilterChipSelect from "./FilterChipSelect";
+import FilterRow from "./FilterRow";
+import { describeGenres, describeRatings, describeRuntime } from "../utils/filterSummaries";
 import SoloDrawDialog from "./SoloDrawDialog";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 import { DEFAULT_DRAW_SETTINGS } from "../utils/drawSettings";
@@ -19,10 +21,10 @@ export default function SoloDrawFilters({ settings, setOverride, setOverrides, s
   };
   return <SoloDrawDialog title="Narrow the draw" onClose={onClose} className="solo-filters">
     <p className="mt-2 text-sm text-slate-400" role="status">{readout}</p>
-    <fieldset disabled={disabled} className="solo-filter-controls mt-4 space-y-4 disabled:opacity-50">
-      <FilterSection title="Rating filter"><div className="mt-3">{chips("selectedRatings", MPAA_RATING_OPTIONS, "includeUnknownRatings", "Draw rating")}</div></FilterSection>
-      <FilterSection title="Genre filter"><div className="mt-3">{chips("selectedGenres", availableGenres, "includeUnknownGenres", "Draw genre")}</div></FilterSection>
-      <FilterSection title="Runtime filter">
+    <fieldset disabled={disabled} className="solo-filter-controls mt-4 disabled:opacity-50">
+      <FilterSection title="Rating" value={describeRatings(settings.selectedRatings ?? MPAA_RATING_OPTIONS, settings.includeUnknownRatings)}><div className="mt-3">{chips("selectedRatings", MPAA_RATING_OPTIONS, "includeUnknownRatings", "Draw rating")}</div></FilterSection>
+      <FilterSection title="Genre" value={describeGenres(settings.selectedGenres, availableGenres, settings.includeUnknownGenres)}><div className="mt-3">{chips("selectedGenres", availableGenres, "includeUnknownGenres", "Draw genre")}</div></FilterSection>
+      <FilterSection title="Length" value={describeRuntime(settings.runtimeMinMinutes, settings.runtimeMaxMinutes)}>
         <div className="mt-3 grid grid-cols-2 gap-3">
           <label className="text-sm">Minimum minutes<input type="number" min="0" max={settings.runtimeMaxMinutes} value={settings.runtimeMinMinutes} className="input-field mt-1 w-full text-sm"
             onChange={(event) => setOverride("runtimeMinMinutes", Math.min(settings.runtimeMaxMinutes, Math.max(0, Number(event.target.value))))} /></label>
@@ -31,9 +33,9 @@ export default function SoloDrawFilters({ settings, setOverride, setOverrides, s
         </div>
         <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.includeUnknownRuntime} onChange={(event) => setOverride("includeUnknownRuntime", event.target.checked)} />Include unknown runtime</label>
       </FilterSection>
-      <label className="flex items-center justify-between gap-3 text-sm font-semibold">Prioritize streaming services<input type="checkbox" checked={settings.prioritizeStreaming} disabled={!streamingServices.length} onChange={(event) => setOverrides({ prioritizeStreaming: event.target.checked, useStreamingRank: true })} /></label>
-      {settings.prioritizeStreaming && streamingServices.length > 0 && <label className="flex items-center justify-between gap-3 text-sm">Use streaming service ranking<input type="checkbox" checked={settings.useStreamingRank} onChange={(event) => setOverride("useStreamingRank", event.target.checked)} /></label>}
-      <Link to="/settings#streaming-services" className="block text-sm text-violet-300">{streamingServices.length ? "Edit streaming services" : "Choose streaming services"}</Link>
+      <label className="filter-row flex min-h-14 items-center justify-between gap-3 text-base font-semibold">Favor my services<input type="checkbox" checked={settings.prioritizeStreaming} disabled={!streamingServices.length} onChange={(event) => setOverrides({ prioritizeStreaming: event.target.checked, useStreamingRank: true })} /></label>
+      {settings.prioritizeStreaming && streamingServices.length > 0 && <label className="flex min-h-12 items-center justify-between gap-3 pl-4 text-sm">Top service first<input type="checkbox" checked={settings.useStreamingRank} onChange={(event) => setOverride("useStreamingRank", event.target.checked)} /></label>}
+      <Link to="/settings#streaming-services" className="block pb-2 text-sm text-violet-300">{streamingServices.length ? "Change your services" : "Choose your services"}</Link>
       {!isPersisted && <p className="text-sm text-amber-300" role="status">Filters apply for this session, but could not be saved on this device.</p>}
     </fieldset>
     {saveStatus === "error" && <p className="mt-3 text-sm text-amber-300" role="alert">Could not save your filters. <button type="button" className="underline" onClick={onRetry}>Retry filters</button></p>}
@@ -41,7 +43,7 @@ export default function SoloDrawFilters({ settings, setOverride, setOverrides, s
   </SoloDrawDialog>;
 }
 
-function FilterSection({ title, children }) {
+function FilterSection({ title, value, children }) {
   const [isOpen, setIsOpen] = useState(false);
-  return <div><button type="button" className="solo-filter-section" aria-expanded={isOpen} onClick={() => setIsOpen((value) => !value)}>{title}<span aria-hidden="true">{isOpen ? "−" : "+"}</span></button>{isOpen && children}</div>;
+  return <div className="filter-row"><FilterRow label={title} value={value} isOpen={isOpen} onToggle={() => setIsOpen((open) => !open)} />{isOpen && <div className="pb-3">{children}</div>}</div>;
 }
