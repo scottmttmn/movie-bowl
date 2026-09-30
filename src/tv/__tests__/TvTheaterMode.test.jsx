@@ -497,6 +497,35 @@ describe("TV theater mode", () => {
     expect(screen.getByText(/tonight's pick/i)).toBeInTheDocument();
   });
 
+  // Fullscreen shows only the overlay, so fading it early fades to black.
+  it("waits for fullscreen to let go before the lights come up", async () => {
+    await drawWithTheaterMode();
+    const overlay = await screen.findByRole("dialog", { name: /previews before arrival/i });
+
+    let releaseFullscreen;
+    const exitFullscreen = vi.fn(
+      () => new Promise((resolve) => {
+        releaseFullscreen = resolve;
+      })
+    );
+    Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => overlay });
+    Object.defineProperty(document, "exitFullscreen", { configurable: true, value: exitFullscreen });
+    try {
+      fireEvent.keyDown(window, { key: "Escape" });
+
+      expect(exitFullscreen).toHaveBeenCalledTimes(1);
+      expect(overlay).not.toHaveAttribute("data-lights", "raising");
+
+      await act(async () => {
+        releaseFullscreen();
+      });
+      expect(overlay).toHaveAttribute("data-lights", "raising");
+    } finally {
+      delete document.fullscreenElement;
+      delete document.exitFullscreen;
+    }
+  });
+
   it("skips the lights on a second Back", async () => {
     await drawWithTheaterMode();
     await screen.findByRole("dialog", { name: /previews before arrival/i });

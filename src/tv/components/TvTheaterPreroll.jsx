@@ -31,6 +31,9 @@ const MAX_COVER_MS = 4000;
 // installed" message when the launch fails.
 const HANDOFF_HOLD_MS = 1500;
 
+// The longest the lights wait for native fullscreen to let go.
+const FULLSCREEN_EXIT_WAIT_MS = 400;
+
 // onFinish is every way out; onComplete is only the feature card running its
 // course. They differ because the natural end may open the provider app, and an
 // exit never should.
@@ -65,6 +68,7 @@ export default function TvTheaterPreroll({
   const leaveTimerRef = useRef(null);
   const leavingRef = useRef(false);
   const fullscreenRequestedRef = useRef(false);
+  const raiseIdRef = useRef(0);
 
   const [timing] = useState(() => getHouseLightsTiming(prefersReducedMotion()));
   // lowering -> down -> raising. Only "down" shows the screen.
@@ -235,14 +239,28 @@ export default function TvTheaterPreroll({
   const raiseLights = useCallback((ms, then) => {
     leavingRef.current = true;
     playerRef.current?.pauseVideo?.();
+    const raiseId = ++raiseIdRef.current;
+    const start = () => {
+      // A second Back may have ended the overlay while fullscreen let go.
+      if (raiseId !== raiseIdRef.current) return;
+      setRaiseMs(ms);
+      setLights("raising");
+      leaveTimerRef.current = window.setTimeout(then, ms);
+    };
+
+    // Fullscreen shows only the overlay, so fading it before fullscreen has
+    // actually let go fades to black and then snaps to the page. Wait for it,
+    // but not for long: a WebView that never settles still gets its lights.
     const fullscreenElement = document.fullscreenElement || document.webkitFullscreenElement;
-    if (fullscreenElement && fullscreenElement === overlayRef.current) {
-      const exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen;
-      Promise.resolve(exitFullscreen?.call(document)).catch(() => {});
+    const exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen;
+    if (!fullscreenElement || fullscreenElement !== overlayRef.current || !exitFullscreen) {
+      start();
+      return;
     }
-    setRaiseMs(ms);
-    setLights("raising");
-    leaveTimerRef.current = window.setTimeout(then, ms);
+    Promise.race([
+      Promise.resolve(exitFullscreen.call(document)).catch(() => {}),
+      new Promise((resolve) => window.setTimeout(resolve, FULLSCREEN_EXIT_WAIT_MS)),
+    ]).then(start);
   }, []);
 
   // Every way out. A second Back while the lights come up skips the rest; one
@@ -250,6 +268,7 @@ export default function TvTheaterPreroll({
   const leave = useCallback(() => {
     window.clearTimeout(leaveTimerRef.current);
     if (leavingRef.current) {
+      raiseIdRef.current += 1;
       finishRef.current();
       return true;
     }
