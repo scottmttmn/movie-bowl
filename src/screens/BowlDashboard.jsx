@@ -1729,6 +1729,7 @@ return (
                 queue={trailerQueue}
                 featureTitle={drawnMovie.title || ""}
                 featureServiceName={autoStartCandidate?.serviceName}
+                handsOff={Boolean(autoStartCandidate)}
                 captions={Boolean(deviceDrawSettings.prerollCaptionsEnabled)}
                 onFinish={endTheater}
                 onComplete={completeTheater}

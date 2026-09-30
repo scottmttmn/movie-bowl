@@ -50,6 +50,34 @@ and a preview of possible future movie nights.
 - Preserve a simple remote experience with clear pause, skip, and exit behavior.
 - Captions and predictable volume should be supported where trailer sources allow.
 
+## House Lights
+
+Built September 30, 2026, on the web and the television alike, through
+`utils/houseLights.js`. The pre-roll used to cut to black over the drawn movie
+and cut straight back. Now it moves like the room it borrows from:
+
+- **In.** The pick dims to half, holds a beat, then goes to black, and only then
+  does the screen appear. That is at most 1.9 seconds, spent while YouTube loads
+  the first preview anyway. It is a ceiling rather than a wait: the first
+  preview playing, or the web's tap-to-start card after a refused autoplay,
+  ends it at once, so the lights never hold a trailer back.
+- **Out, at the natural end.** After Feature Presentation the lights come up
+  on the pick over 1.6 seconds with a warm wash from above.
+- **Out, with a hand-off.** The lights stay down. A desktop tab goes from the
+  dark room to the provider's page. The Google TV app opens the provider app
+  first, holds the dark for 1.5 seconds, then brings the lights up behind it,
+  or onto the reveal and its "isn't installed" message when the launch fails.
+- **Out, asked for.** Back, Escape or Exit brings the lights up in 0.55
+  seconds. Asking again during that skips it. On the television Back reaches
+  the overlay through the screen's own handler, which asks the pre-roll's ref
+  to leave rather than unmounting it.
+- **Reduced motion.** Every step is one 250 ms fade.
+
+Everything moves by opacity alone, and the cards lost their backdrop blur, so
+the onn box never repaints over the trailer it is decoding. Native fullscreen
+shows only the overlay on black, so the television asks for it once the room
+is dark and leaves it before the lights come up.
+
 ## Possible Settings
 
 - Theater mode on/off

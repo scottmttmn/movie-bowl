@@ -1825,16 +1825,94 @@ html.tv-root {
   font-size: 0.8rem;
 }
 
+/* House lights, shared with the web pre-roll through utils/houseLights.js.
+   The overlay is clear; the black is a layer that dims over the pick in two
+   steps, and the screen appears once the room is dark. Everything here moves
+   by opacity alone, because the onn box is decoding the trailer underneath and
+   a repaint per frame is what it cannot spare. */
 .tv-theater-overlay {
   position: fixed;
   z-index: 190;
   inset: 0;
-  display: grid;
   width: 100vw;
   height: 100vh;
+  overflow: hidden;
+}
+
+.tv-theater-house {
+  position: absolute;
+  inset: 0;
+  background: black;
+  opacity: 1;
+  transition: opacity 300ms ease-out;
+}
+
+.tv-theater-overlay[data-lights="lowering"] .tv-theater-house {
+  animation: tv-house-lights-down var(--house-down-ms, 1900ms) ease-in both;
+}
+
+.tv-theater-house::after {
+  content: "";
+  position: absolute;
+  inset: 0;
+  opacity: 0;
+  background: radial-gradient(ellipse at 50% 0%, rgba(243, 201, 139, 0.5), rgba(243, 160, 90, 0.1) 55%, transparent 80%);
+}
+
+.tv-theater-overlay[data-lights="raising"] {
+  animation: tv-house-lights-up var(--house-up-ms, 550ms) ease-in-out both;
+}
+
+.tv-theater-overlay[data-lights="raising"] .tv-theater-house::after {
+  animation: tv-house-lights-warm var(--house-up-ms, 550ms) ease-in-out both;
+}
+
+.tv-theater-stage {
+  position: absolute;
+  inset: 0;
+  display: grid;
   place-items: center;
   overflow: hidden;
-  background: black;
+  opacity: 0;
+  transition: opacity 300ms ease;
+}
+
+.tv-theater-overlay[data-lights="down"] .tv-theater-stage {
+  opacity: 1;
+}
+
+.tv-theater-overlay[data-lights="down"] .tv-theater-announcement,
+.tv-theater-overlay[data-lights="down"] .tv-theater-feature {
+  animation: tv-theater-card-rise 800ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@keyframes tv-house-lights-down {
+  0% { opacity: 0; }
+  35% { opacity: 0.5; }
+  53% { opacity: 0.5; }
+  100% { opacity: 1; }
+}
+
+@keyframes tv-house-lights-up {
+  0% { opacity: 1; }
+  45% { opacity: 0.4; }
+  100% { opacity: 0; }
+}
+
+@keyframes tv-house-lights-warm {
+  0% { opacity: 0; }
+  40% { opacity: 0.7; }
+  100% { opacity: 0; }
+}
+
+@keyframes tv-house-lights-fade-in {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes tv-theater-card-rise {
+  from { opacity: 0; transform: translateY(0.75rem); }
+  to { opacity: 1; transform: none; }
 }
 
 .tv-theater-cover {
@@ -1868,10 +1946,11 @@ html.tv-root {
   justify-items: center;
   padding: clamp(1.5rem, 3vw, 2.75rem) clamp(2rem, 4vw, 4rem);
   border-radius: 28px;
-  background: rgba(2, 6, 23, 0.82);
+  /* Solid rather than frosted: a backdrop blur re-blurs the playing trailer
+     on every frame, the most expensive thing this screen could ask for. */
+  background: rgba(2, 6, 23, 0.9);
   color: #f8fafc;
   text-align: center;
-  backdrop-filter: blur(14px);
 }
 
 .tv-theater-announcement {
@@ -1894,13 +1973,15 @@ html.tv-root {
   color: rgba(226, 232, 240, 0.82);
 }
 
+/* The feature card sits on the cover: type on black, like the title a cinema
+   projects, with no card around it. */
 .tv-theater-feature {
-  border: 1px solid rgba(251, 113, 133, 0.34);
-  background: rgba(2, 6, 23, 0.94);
+  background: transparent;
 }
 
 .tv-theater-feature h1 {
-  font-size: clamp(2.4rem, 5vw, 4.5rem);
+  font-size: clamp(3rem, 7vw, 6.5rem);
+  letter-spacing: 0.04em;
   text-transform: uppercase;
 }
 
@@ -2215,6 +2296,29 @@ html.tv-root {
 @media (prefers-reduced-motion: reduce) {
   .tv-loading-dot {
     animation: none;
+  }
+
+  /* The house lights become one short fade each way. */
+  .tv-theater-overlay[data-lights="lowering"] .tv-theater-house {
+    animation-name: tv-house-lights-fade-in;
+    animation-timing-function: linear;
+  }
+
+  .tv-theater-overlay[data-lights="raising"] {
+    animation-name: tv-house-lights-fade-in;
+    animation-direction: reverse;
+    animation-timing-function: linear;
+  }
+
+  .tv-theater-overlay[data-lights="raising"] .tv-theater-house::after,
+  .tv-theater-overlay[data-lights="down"] .tv-theater-announcement,
+  .tv-theater-overlay[data-lights="down"] .tv-theater-feature {
+    animation: none;
+  }
+
+  .tv-theater-house,
+  .tv-theater-stage {
+    transition: none;
   }
 }
 

@@ -242,20 +242,39 @@ describe("TheaterPreroll", () => {
       expect(screen.queryByRole("button", { name: /next preview/i })).not.toBeInTheDocument();
     });
 
-    it("leaves when the exit is pressed", async () => {
+    it("leaves when the exit is pressed, once the lights are up", async () => {
       const { onFinish } = await renderPreroll();
+      ready();
 
       fireEvent.click(screen.getByRole("button", { name: /exit previews/i }));
 
-      expect(onFinish).toHaveBeenCalled();
+      expect(screen.getByRole("dialog")).toHaveAttribute("data-lights", "raising");
+      expect(player.pauseVideo).toHaveBeenCalled();
+      expect(onFinish).not.toHaveBeenCalled();
+
+      act(() => vi.advanceTimersByTime(550));
+      expect(onFinish).toHaveBeenCalledTimes(1);
     });
 
     it("leaves on Escape, which a laptop reaches for first", async () => {
       const { onFinish } = await renderPreroll();
 
       fireEvent.keyDown(window, { key: "Escape" });
+      act(() => vi.advanceTimersByTime(550));
 
-      expect(onFinish).toHaveBeenCalled();
+      expect(onFinish).toHaveBeenCalledTimes(1);
+    });
+
+    // Somebody who asks twice wants out now, not the rest of the fade.
+    it("skips the lights when asked again", async () => {
+      const { onFinish } = await renderPreroll();
+
+      fireEvent.keyDown(window, { key: "Escape" });
+      fireEvent.keyDown(window, { key: "Escape" });
+      expect(onFinish).toHaveBeenCalledTimes(1);
+
+      act(() => vi.advanceTimersByTime(2000));
+      expect(onFinish).toHaveBeenCalledTimes(1);
     });
 
     // The overlay's Enter/Space shortcut listens on the window, so without a
@@ -295,7 +314,7 @@ describe("TheaterPreroll", () => {
     expect(player.playVideo).toHaveBeenCalledTimes(2);
   });
 
-  it("ends on the feature card and then hands back the reveal", async () => {
+  it("ends on the feature card and then brings the lights up on the reveal", async () => {
     const { onFinish } = await renderPreroll({ queue: [QUEUE[0]] });
     ready();
 
@@ -303,7 +322,87 @@ describe("TheaterPreroll", () => {
     expect(screen.getByText(/feature presentation/i)).toBeInTheDocument();
     expect(player.stopVideo).toHaveBeenCalled();
 
-    act(() => vi.advanceTimersByTime(4000));
-    expect(onFinish).toHaveBeenCalled();
+    act(() => vi.advanceTimersByTime(3600));
+    expect(screen.getByRole("dialog")).toHaveAttribute("data-lights", "raising");
+    expect(onFinish).not.toHaveBeenCalled();
+
+    act(() => vi.advanceTimersByTime(1600));
+    expect(onFinish).toHaveBeenCalledTimes(1);
+  });
+
+  // The tab goes to the provider's page from a dark room. Lifting the lights
+  // first would flash the reveal for as long as that page took to arrive.
+  it("keeps the lights down for a hand-off", async () => {
+    const onFinish = vi.fn();
+    const onComplete = vi.fn();
+    await renderPreroll({ queue: [QUEUE[0]], handsOff: true, onFinish, onComplete });
+    ready();
+    act(() => playerOptions.events.onStateChange({ data: 1 }));
+
+    act(() => playerOptions.events.onStateChange({ data: 0 }));
+    act(() => vi.advanceTimersByTime(3600));
+
+    expect(onComplete).toHaveBeenCalledTimes(1);
+    expect(screen.getByRole("dialog")).toHaveAttribute("data-lights", "down");
+
+    act(() => vi.advanceTimersByTime(5000));
+    expect(onFinish).not.toHaveBeenCalled();
+    expect(screen.getByRole("dialog")).toHaveAttribute("data-lights", "down");
+  });
+
+  describe("the house lights", () => {
+    const lights = () => screen.getByRole("dialog").getAttribute("data-lights");
+
+    it("dim over the pick before the screen shows", async () => {
+      await renderPreroll();
+
+      expect(lights()).toBe("lowering");
+      // The announcement waits in the dark rather than timing out unseen.
+      act(() => vi.advanceTimersByTime(1700));
+      expect(lights()).toBe("lowering");
+      act(() => vi.advanceTimersByTime(200));
+      expect(lights()).toBe("down");
+      act(() => vi.advanceTimersByTime(4000));
+      expect(screen.getByText(/2 previews/i)).toBeInTheDocument();
+      act(() => vi.advanceTimersByTime(300));
+      expect(screen.queryByText(/2 previews/i)).toBeNull();
+    });
+
+    // Autoplay decides when the first preview starts, never the lights.
+    it("go straight down when the first preview starts", async () => {
+      await renderPreroll();
+      ready();
+      expect(player.playVideo).toHaveBeenCalledTimes(1);
+
+      act(() => playerOptions.events.onStateChange({ data: 1 }));
+
+      expect(lights()).toBe("down");
+    });
+
+    it("go down for the tap a refused autoplay needs", async () => {
+      await renderPreroll();
+      ready();
+
+      act(() => vi.advanceTimersByTime(1200));
+
+      expect(lights()).toBe("down");
+      expect(screen.getByRole("button", { name: /start previews/i })).toBeInTheDocument();
+    });
+
+    it("become one short fade with reduced motion", async () => {
+      vi.stubGlobal("matchMedia", (query) => ({ matches: query.includes("prefers-reduced-motion") }));
+      try {
+        const { onFinish } = await renderPreroll();
+
+        act(() => vi.advanceTimersByTime(250));
+        expect(lights()).toBe("down");
+
+        fireEvent.keyDown(window, { key: "Escape" });
+        act(() => vi.advanceTimersByTime(250));
+        expect(onFinish).toHaveBeenCalledTimes(1);
+      } finally {
+        vi.unstubAllGlobals();
+      }
+    });
   });
 });
