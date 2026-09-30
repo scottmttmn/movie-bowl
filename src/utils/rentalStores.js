@@ -44,3 +44,24 @@ export function normalizeRentFrom(value) {
   if (value === RENT_FROM_OFF) return RENT_FROM_OFF;
   return RENTAL_STORES.includes(value) ? value : RENT_FROM_ANY;
 }
+
+// The Google TV app hands a link to an installed app only for the hosts it
+// knows (getProviderPackageName in tv-android's MainActivity). Of these stores
+// that is Apple TV and Prime Video; any other link would go looking for a
+// browser a television does not have. Adding a store here needs the shell to
+// learn its app first.
+const TV_APP_RENTAL_HOSTS = {
+  "Apple TV": "tv.apple.com",
+  "Prime Video": "amazon.com",
+};
+
+export function isTvAppRentalLink({ storeName, url }) {
+  const host = TV_APP_RENTAL_HOSTS[storeName];
+  if (!host) return false;
+  try {
+    const { hostname } = new URL(url);
+    return hostname === host || hostname.endsWith(`.${host}`);
+  } catch {
+    return false;
+  }
+}

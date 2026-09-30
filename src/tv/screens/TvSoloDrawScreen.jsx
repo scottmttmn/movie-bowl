@@ -32,7 +32,9 @@ import {
   getAutoStartMode,
   getAutoStartSurface,
   resolvePreferredLaunchTarget,
+  resolveRentTarget,
 } from "../../utils/webLaunch";
+import { isTvAppRentalLink } from "../../utils/rentalStores";
 import TvBrand from "../components/TvBrand";
 import TvSoloScopeSheet from "../components/TvSoloScopeSheet";
 import { TvRevealScreen } from "../components/TvDrawExperience";
@@ -263,6 +265,18 @@ export default function TvSoloDrawScreen({ userId }) {
       title: drawnMovie.title || "",
     });
   }, [drawnMovie, providerLinks, streamingServices]);
+  const rentCandidate = useMemo(() => {
+    if (!drawnMovie) return null;
+
+    return resolveRentTarget({
+      providerLinks,
+      rentFrom: accountDrawSettings?.rentFrom,
+      userServices: streamingServices,
+      movieProviders: drawnMovie.streamingProviders || [],
+      availabilityStatus: drawnMovie.streamingProviderStatus,
+      acceptLink: isTvAppRentalLink,
+    });
+  }, [drawnMovie, providerLinks, streamingServices, accountDrawSettings?.rentFrom]);
 
   const leaveSolo = useCallback(() => {
     clearExternalReturn();
@@ -486,6 +500,7 @@ export default function TvSoloDrawScreen({ userId }) {
           showTrailer={showTrailer}
           isDialogOpen={isTheaterPlaying}
           webLaunchCandidate={preferredWebLaunchCandidate}
+          rentCandidate={rentCandidate}
           providerLaunchMessage={providerLaunchMessage}
           onProviderLaunch={beginProviderLaunch}
           onCloseTrailer={() => setShowTrailer(false)}

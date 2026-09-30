@@ -27,7 +27,9 @@ import {
   getAutoStartMode,
   getAutoStartSurface,
   resolvePreferredLaunchTarget,
+  resolveRentTarget,
 } from "../../utils/webLaunch";
+import { isTvAppRentalLink } from "../../utils/rentalStores";
 import { canReturnDrawToBowl } from "../../utils/watchHistory";
 import useDrawProviderLinks from "../../hooks/useDrawProviderLinks";
 import TvBrand from "../components/TvBrand";
@@ -657,6 +659,18 @@ export default function TvTonightScreen({ userId }) {
       title: drawnMovie.title || "",
     });
   }, [drawnMovie, streamingServices, providerLinks]);
+  const rentCandidate = useMemo(() => {
+    if (!drawnMovie) return null;
+
+    return resolveRentTarget({
+      providerLinks,
+      rentFrom: accountDrawSettings?.rentFrom,
+      userServices: streamingServices,
+      movieProviders: drawnMovie.streamingProviders || [],
+      availabilityStatus: drawnMovie.streamingProviderStatus,
+      acceptLink: isTvAppRentalLink,
+    });
+  }, [drawnMovie, providerLinks, streamingServices, accountDrawSettings?.rentFrom]);
 
   const chooseAnotherBowl = () => {
     clearExternalReturn();
@@ -1038,6 +1052,7 @@ export default function TvTonightScreen({ userId }) {
           showTrailer={showTrailer}
           isDialogOpen={Boolean(pendingReturn) || isTheaterPlaying}
           webLaunchCandidate={preferredWebLaunchCandidate}
+          rentCandidate={rentCandidate}
           providerLaunchMessage={providerLaunchMessage}
           onProviderLaunch={beginProviderLaunch}
           onCloseTrailer={() => setShowTrailer(false)}

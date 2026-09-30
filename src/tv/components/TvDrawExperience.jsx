@@ -93,6 +93,7 @@ export function TvMovieDetailStage({
   noteLabel = "Bowl note",
   historyMetadata = [],
   webLaunchCandidate,
+  rentCandidate,
   providerLaunchMessage,
   onProviderLaunch,
   onToggleTrailer,
@@ -120,6 +121,9 @@ export function TvMovieDetailStage({
   const trailer = movie.trailer;
   const canOfferLaunch = showWhereToWatch && Boolean(webLaunchCandidate?.url);
   const canLaunch = canOfferLaunch && !providerLaunchMessage;
+  // Only when there is nothing of yours to open, and only a store's own title
+  // page: the TV has no browser to show a list of stores in.
+  const offersRent = showWhereToWatch && !canOfferLaunch && rentCandidate?.linkType === "rent";
 
   return (
     <section className="tv-reveal is-kept">
@@ -185,7 +189,7 @@ export function TvMovieDetailStage({
           </div>
         )}
 
-        {showWhereToWatch && hasTransactionalAvailability && (
+        {showWhereToWatch && hasTransactionalAvailability && !offersRent && (
           <p className="tv-transactional-availability">Rent or buy options available</p>
         )}
 
@@ -223,6 +227,34 @@ export function TvMovieDetailStage({
               Open {webLaunchCandidate.serviceName}
             </button>
           )}
+          {/* Never autofocused and never auto-started: spending money is the
+              one press the room should have to go looking for. */}
+          {offersRent && !providerLaunchMessage && (
+            <a
+              className="tv-button tv-button-secondary"
+              data-tv-focusable
+              data-tv-nav-group="reveal-actions"
+              href={rentCandidate.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={onProviderLaunch}
+            >
+              <ServiceLogo service={rentCandidate.storeName} className="tv-launch-logo" />
+              Rent on {rentCandidate.storeName}
+            </a>
+          )}
+          {offersRent && providerLaunchMessage && (
+            <button
+              type="button"
+              className="tv-button tv-button-secondary"
+              data-tv-focusable
+              data-tv-nav-group="reveal-actions"
+              disabled
+            >
+              <ServiceLogo service={rentCandidate.storeName} className="tv-launch-logo" />
+              Rent on {rentCandidate.storeName}
+            </button>
+          )}
           {trailer?.embedUrl && (
             <button
               type="button"
@@ -237,7 +269,7 @@ export function TvMovieDetailStage({
           )}
         </div>
 
-        {showWhereToWatch && webLaunchCandidate?.linkType === "title" && (
+        {showWhereToWatch && (webLaunchCandidate?.linkType === "title" || offersRent) && (
           <ProviderLinksAttribution tv />
         )}
 
@@ -285,6 +317,7 @@ export function TvRevealScreen({
   showTrailer,
   isDialogOpen,
   webLaunchCandidate,
+  rentCandidate,
   providerLaunchMessage,
   onProviderLaunch,
   onCloseTrailer,
@@ -318,6 +351,7 @@ export function TvRevealScreen({
           noteLabel={noteLabel}
           historyMetadata={historyMetadata}
           webLaunchCandidate={webLaunchCandidate}
+          rentCandidate={rentCandidate}
           providerLaunchMessage={providerLaunchMessage}
           onProviderLaunch={onProviderLaunch}
           onToggleTrailer={onToggleTrailer}

@@ -90,4 +90,51 @@ describe("TvRevealScreen", () => {
     expect(screen.getByRole("link", { name: "JustWatch" })).toBeInTheDocument();
     expect(screen.queryByText("Apple TV")).not.toBeInTheDocument();
   });
+
+  describe("renting a movie none of your services carry", () => {
+    const movie = {
+      title: "Heat",
+      release_date: "1995-12-15",
+      streamingProviders: [],
+      streamingAvailability: { subscription: [], free: [], ads: [], rent: [{ id: 2, name: "Apple TV" }], buy: [] },
+      streamingWatchUrl: "https://www.themoviedb.org/movie/949/watch",
+    };
+    const rentCandidate = { storeName: "Apple TV", url: "https://tv.apple.com/us/movie/heat/1", linkType: "rent" };
+
+    it("offers the store in place of the bare rent-or-buy line, without taking focus", () => {
+      const onProviderLaunch = vi.fn();
+      renderReveal(movie, { rentCandidate, onProviderLaunch });
+
+      const rent = screen.getByRole("link", { name: /Rent on Apple TV/ });
+      expect(rent).toHaveAttribute("href", rentCandidate.url);
+      expect(rent).toHaveAttribute("data-tv-focusable");
+      expect(rent).not.toHaveAttribute("data-tv-autofocus");
+      expect(screen.queryByText("Rent or buy options available")).not.toBeInTheDocument();
+      expect(screen.getByRole("link", { name: "Watchmode" })).toBeInTheDocument();
+
+      rent.click();
+      expect(onProviderLaunch).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps the line when there is only a list of stores, or one of yours to open", () => {
+      renderReveal(movie, { rentCandidate: { ...rentCandidate, storeName: null, linkType: "rent-options" } });
+      expect(screen.queryByRole("link", { name: /Rent on/ })).not.toBeInTheDocument();
+      expect(screen.getByText("Rent or buy options available")).toBeInTheDocument();
+      cleanup();
+
+      renderReveal(movie, {
+        rentCandidate,
+        webLaunchCandidate: { serviceName: "Netflix", url: "https://www.netflix.com/title/1", linkType: "title" },
+      });
+      expect(screen.getByRole("link", { name: /Open Netflix/ })).toBeInTheDocument();
+      expect(screen.queryByRole("link", { name: /Rent on/ })).not.toBeInTheDocument();
+    });
+
+    it("disables the rental after the TV reports it could not open the store", () => {
+      renderReveal(movie, { rentCandidate, providerLaunchMessage: "Apple TV isn't installed on this TV." });
+
+      expect(screen.getByRole("button", { name: /Rent on Apple TV/ })).toBeDisabled();
+      expect(screen.getByRole("status")).toHaveTextContent("Apple TV isn't installed on this TV.");
+    });
+  });
 });

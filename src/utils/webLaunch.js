@@ -85,6 +85,8 @@ export function resolveRentTarget({
   userServices = [],
   movieProviders = [],
   availabilityStatus = "ready",
+  // Narrows which store links count; the TV passes isTvAppRentalLink.
+  acceptLink = () => true,
 }) {
   const preference = normalizeRentFrom(rentFrom);
   if (preference === RENT_FROM_OFF) return null;
@@ -104,7 +106,7 @@ export function resolveRentTarget({
     if (entry?.type !== "rent") return [];
     const storeName = normalizeRentalStore(entry.service);
     const url = safeProviderUrl(entry.webUrl);
-    return storeName && url ? [{ storeName, url }] : [];
+    return storeName && url && acceptLink({ storeName, url }) ? [{ storeName, url }] : [];
   });
   const order = RENTAL_STORES.includes(preference)
     ? [preference, ...RENTAL_STORES.filter((store) => store !== preference)]
