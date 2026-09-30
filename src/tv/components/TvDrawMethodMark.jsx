@@ -53,8 +53,11 @@ export default function TvDrawMethodMark({ drawMethod }) {
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <rect x="3" y="4.5" width="18" height="15" rx="2" />
-      {mark}
+      <path d="M3.8 6.1L18.5 3.9L20.7 18.2L6 20.4Z" fill="#e7dfd1" stroke="none" />
+      <path d="M4.9 13.2L19.6 11" stroke="#c5b9a7" strokeWidth="0.55" />
+      <g transform="rotate(-8 12 12)" stroke="#624c43" color="#624c43">
+        {mark}
+      </g>
     </svg>
   );
 }
