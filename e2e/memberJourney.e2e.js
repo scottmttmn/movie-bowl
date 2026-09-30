@@ -12,7 +12,7 @@ test("a member can create a bowl, add and draw a title, see history, and return 
   await page.getByPlaceholder("Bowl Name").fill("Smoke Night");
   await page.getByRole("button", { name: "Create", exact: true }).click();
 
-  const bowlCard = page.getByRole("button", { name: /Owner Smoke Night Remaining 0 Members 1/ });
+  const bowlCard = page.getByRole("button", { name: /^Smoke Night, (home bowl, )?0 titles to draw, 1 member$/ });
   await expect(bowlCard).toBeVisible();
   await bowlCard.click();
 
@@ -56,7 +56,7 @@ test("a member can create a bowl, add and draw a title, see history, and return 
   await expect(page.getByRole("dialog", { name: "Put movie back in bowl?" })).toBeVisible();
   await page.getByRole("button", { name: "Put movie back in bowl" }).click();
 
-  await expect(page.getByText("0 watched", { exact: true })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Nothing watched yet" })).toBeVisible();
   await expect(
     page.getByRole("button", { name: /Drawing from 1 title\b/i })
   ).toBeVisible();
@@ -131,7 +131,7 @@ test("an owner removes a draw nobody watched from the bowl's history, and person
   await expect(confirm).toBeVisible();
   await confirm.getByRole("button", { name: "Remove from watched" }).click();
 
-  await expect(page.getByText("0 watched", { exact: true })).toBeVisible();
+  await expect(page.getByRole("img", { name: "Nothing watched yet" })).toBeVisible();
   expect(backend.state.bowl_draw_events[0].removed_at).not.toBeNull();
   expect(backend.state.bowl_draw_events[0].returned_at).toBeNull();
   expect(backend.state.user_watch_events).toHaveLength(1);

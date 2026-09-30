@@ -8,8 +8,6 @@ import MoviePosterPin from "./MoviePosterPin";
 // delete in the details that opens.
 export default function MovieActionCard({
   movie,
-  dateLabelPrefix,
-  dateValue,
   onViewDetails,
   disableWhileSyncing = true,
   isFilterExcluded = false,
@@ -17,7 +15,6 @@ export default function MovieActionCard({
   onTogglePin,
   pinDisabled = false,
 }) {
-  const dateLabel = dateValue ? new Date(dateValue).toLocaleDateString() : null;
   const isCustomEntry = Boolean(
     movie.isCustomEntry || movie.tmdb_id == null || Number(movie.tmdb_id) <= 0
   );
@@ -64,6 +61,11 @@ export default function MovieActionCard({
             </div>
           )}
         </div>
+        <div className={dimmed}>
+          <p className="mt-1 line-clamp-2 min-h-[2rem] text-xs font-medium leading-tight text-slate-200">
+            {movie.title}
+          </p>
+        </div>
       </button>
 
       {/* A sibling of the poster button rather than a child of it: an
@@ -76,18 +78,10 @@ export default function MovieActionCard({
       />
 
       <div className={dimmed}>
-        <p className="mt-1 line-clamp-2 min-h-[2rem] text-xs font-medium leading-tight text-slate-200">
-          {movie.title}
-        </p>
         {isCustomEntry && (
           <span className="inline-flex rounded-full border border-amber-700/70 bg-amber-950/50 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
             Custom
           </span>
-        )}
-        {dateLabel && dateLabelPrefix && (
-          <p className="text-[11px] text-slate-400">
-            {dateLabelPrefix}: {dateLabel}
-          </p>
         )}
         {isFilterExcluded && <span className="sr-only">Outside current filters</span>}
       </div>

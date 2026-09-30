@@ -65,8 +65,6 @@ export default function MyMoviesStrip({
             <MovieActionCard
               key={`${movie.source}:${movie.id}`}
               movie={movie}
-              dateLabelPrefix="Added"
-              dateValue={movie.added_at}
               onViewDetails={onViewMovie}
               disableWhileSyncing
               isFilterExcluded={isFilterExcluded}

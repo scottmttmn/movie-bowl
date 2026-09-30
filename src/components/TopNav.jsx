@@ -7,6 +7,7 @@ export default function TopNav({
   isSettingsRoute,
   isWatchListRoute = false,
   isInvitesRoute = false,
+  isSoloDrawRoute = false,
   onSignOut,
   onAddMovie,
   homeBowlId = null,
@@ -79,11 +80,10 @@ export default function TopNav({
           </Link>
         )}
         <div className="flex shrink-0 items-center gap-2">
-          {isAuthenticated && onAddMovie && <button type="button" className="btn btn-secondary h-11 w-16 gap-1.5 px-2"
+          {isAuthenticated && onAddMovie && <button type="button" className="btn btn-secondary h-11 w-11 px-0"
             aria-label="Add a movie" title="Add a movie" disabled={blockingOverlay}
             onClick={() => { setIsMenuOpen(false); onAddMovie(); }}>
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinejoin="round"><rect x="3" y="4" width="18" height="16" rx="2" /><path d="M7 4v16M17 4v16M3 9h4m-4 6h4M17 9h4m-4 6h4" /></svg>
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
           </button>}
         <div className="relative" ref={menuRef}>
           <button
@@ -142,6 +142,16 @@ export default function TopNav({
                         {badgeCount}
                       </span>
                     )}
+                  </Link>
+                  <Link
+                    to="/solo-draw"
+                    role="menuitem"
+                    onClick={() => setIsMenuOpen(false)}
+                    className={`flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white ${
+                      isSoloDrawRoute ? "pointer-events-none bg-slate-800 text-slate-400" : ""
+                    }`}
+                  >
+                    Solo draw
                   </Link>
                   <Link
                     to="/watch-list"

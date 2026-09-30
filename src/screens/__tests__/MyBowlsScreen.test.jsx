@@ -397,11 +397,11 @@ describe("MyBowlsScreen", () => {
     const ownedSection = screen.getByRole("heading", { name: /owned by you/i }).closest("section");
     const sharedSection = screen.getByRole("heading", { name: /shared with you/i }).closest("section");
 
-    expect(Array.from(ownedSection.querySelectorAll(".bowl-card h3")).map((el) => el.textContent)).toEqual([
+    expect(Array.from(ownedSection.querySelectorAll(".bowl-card-name")).map((el) => el.textContent)).toEqual([
       "Owned New",
       "Owned Old",
     ]);
-    expect(Array.from(sharedSection.querySelectorAll(".bowl-card h3")).map((el) => el.textContent)).toEqual([
+    expect(Array.from(sharedSection.querySelectorAll(".bowl-card-name")).map((el) => el.textContent)).toEqual([
       "Shared New",
       "Shared Old",
     ]);
@@ -433,7 +433,7 @@ describe("MyBowlsScreen", () => {
     await waitFor(() => expect(screen.getByText("Alpha Bowl")).toBeInTheDocument());
 
     const ownedSection = screen.getByRole("heading", { name: /owned by you/i }).closest("section");
-    expect(Array.from(ownedSection.querySelectorAll(".bowl-card h3")).map((el) => el.textContent)).toEqual([
+    expect(Array.from(ownedSection.querySelectorAll(".bowl-card-name")).map((el) => el.textContent)).toEqual([
       "Alpha Bowl",
       "Zulu Bowl",
     ]);
@@ -645,7 +645,7 @@ describe("MyBowlsScreen", () => {
     renderMyBowls();
 
     await waitFor(() => expect(screen.getByText("Friday Bowl")).toBeInTheDocument());
-    expect(screen.getByText("Home")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^Friday Bowl, home bowl,/ })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /my home bowl/i })).not.toBeInTheDocument();
     expect(document.querySelector("[aria-pressed]")).toBeNull();
   });
