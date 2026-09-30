@@ -3,11 +3,6 @@ import useBowlServiceChart from "../hooks/useBowlServiceChart";
 import AvailabilityAttribution from "./AvailabilityAttribution";
 import ServiceLogo from "./ServiceLogo";
 
-function formatServiceList(services) {
-  if (services.length <= 1) return services[0] || "";
-  return `${services.slice(0, -1).join(", ")} and ${services[services.length - 1]}`;
-}
-
 function plural(count, one, many) {
   return `${count} ${count === 1 ? one : many}`;
 }
@@ -19,6 +14,7 @@ function plural(count, one, many) {
 export default function BowlServiceChart({ bowlId, onSummaryChange }) {
   const { status, chart, totalCount, uncheckedCount } = useBowlServiceChart(bowlId);
   const topRow = chart?.rows.find((row) => row.count > 0) || null;
+  const barWidth = (count) => `${chart?.maxCount > 0 ? (count / chart.maxCount) * 100 : 0}%`;
   const isAllUnchecked = Boolean(chart) && totalCount > 0 && chart.titleCount === 0;
   // The nav tile keeps the page's placeholder until there is an answer.
   let summary = status === "error" ? "Unavailable" : "…";
@@ -27,7 +23,7 @@ export default function BowlServiceChart({ bowlId, onSummaryChange }) {
   if (status === "ready") {
     if (isAllUnchecked) summary = "Not checked yet";
     else if (chart.hasServices && chart.titleCount > 0) {
-      summary = `${chart.coveredCount} of ${chart.titleCount} on your services`;
+      summary = `You can watch ${chart.coveredCount} of ${chart.titleCount}`;
     } else if (topRow) summary = `Most on ${topRow.service}`;
     else summary = "None on paid services";
   }
@@ -40,10 +36,8 @@ export default function BowlServiceChart({ bowlId, onSummaryChange }) {
   if (chart?.bestAddition && chart.hasServices) {
     headline = (
       <>
-        <strong className="font-semibold">
-          {chart.bestAddition.service} would add {plural(chart.bestAddition.count, "movie", "movies")}
-        </strong>{" "}
-        you can&apos;t stream on your services today.
+        <strong className="font-semibold">{chart.bestAddition.service}</strong> has the most you can&apos;t watch
+        yet: <strong className="font-semibold">{plural(chart.bestAddition.count, "movie", "movies")}</strong>.
       </>
     );
   } else if (chart?.bestAddition) {
@@ -54,7 +48,7 @@ export default function BowlServiceChart({ bowlId, onSummaryChange }) {
       </>
     );
   } else if (chart?.streamingCount > 0) {
-    headline = "Your services already carry everything here that's on a paid service.";
+    headline = "You can already watch everything here that's on a paid service.";
   }
 
   return (
@@ -85,7 +79,19 @@ export default function BowlServiceChart({ bowlId, onSummaryChange }) {
               {headline && (
                 <p className="surface-card mt-4 px-4 py-3 text-sm text-slate-100">{headline}</p>
               )}
-              <ul className="mt-4 space-y-2.5" aria-label="Movies in this bowl by service">
+              {chart.hasServices && (
+                <div className="mt-4 flex flex-wrap gap-x-4 gap-y-1 text-xs text-slate-300" aria-hidden="true">
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-3.5 rounded-sm bg-emerald-400" />
+                    You can watch
+                  </span>
+                  <span className="flex items-center gap-1.5">
+                    <span className="h-2.5 w-3.5 rounded-sm bg-slate-300" />
+                    Can&apos;t watch yet
+                  </span>
+                </div>
+              )}
+              <ul className="mt-3 space-y-2.5" aria-label="Movies in this bowl by service">
                 {chart.rows.map((row) => (
                   <li key={row.service} className="flex min-h-8 items-center gap-3">
                     <span className={`flex w-32 shrink-0 items-center gap-2 text-sm ${row.isMine ? "text-emerald-300" : "text-slate-300"}`}>
@@ -98,28 +104,39 @@ export default function BowlServiceChart({ bowlId, onSummaryChange }) {
                         </>
                       )}
                     </span>
+                    {/* Green is what the viewer can watch, as on their own
+                        services' labels; the plain part is what they can't yet. */}
                     <span
-                      className={`h-4 flex-1 rounded ${row.isMine && row.count === 0 ? "bg-emerald-400/15" : ""}`}
+                      className={`flex h-4 flex-1 rounded ${row.isMine && row.count === 0 ? "bg-emerald-400/15" : ""}`}
                       aria-hidden="true"
                     >
-                      <span
-                        className={`block h-full rounded ${row.isMine ? "bg-emerald-400" : "bg-slate-400"}`}
-                        style={{ width: `${chart.maxCount > 0 ? (row.count / chart.maxCount) * 100 : 0}%` }}
-                      />
+                      {row.unwatchableCount > 0 && (
+                        <span
+                          className="block h-full rounded-l bg-slate-300 last:rounded-r"
+                          style={{ width: barWidth(row.unwatchableCount) }}
+                          data-testid="bar-unwatchable"
+                        />
+                      )}
+                      {row.count > row.unwatchableCount && (
+                        <span
+                          className={`block h-full rounded-r first:rounded-l ${row.isMine ? "bg-emerald-400" : "bg-emerald-400/35"}`}
+                          style={{ width: barWidth(row.count - row.unwatchableCount) }}
+                          data-testid="bar-watchable"
+                        />
+                      )}
                     </span>
                     <span className="w-7 shrink-0 text-right text-sm font-semibold tabular-nums text-slate-100">
                       {row.count}
-                      <span className="sr-only"> {row.count === 1 ? "movie" : "movies"}</span>
+                      <span className="sr-only">
+                        {" "}{row.count === 1 ? "movie" : "movies"}
+                        {row.unwatchableCount > 0
+                          ? `, ${row.unwatchableCount} you can't watch yet`
+                          : ""}
+                      </span>
                     </span>
                   </li>
                 ))}
               </ul>
-              {chart.idleServices.length > 0 && (
-                <p className="mt-4 text-sm text-slate-400">
-                  {formatServiceList(chart.idleServices)} {chart.idleServices.length === 1 ? "carries" : "carry"} nothing
-                  here you can&apos;t already stream on your other services.
-                </p>
-              )}
             </>
           )}
           <p className="mt-4 text-xs text-slate-400">

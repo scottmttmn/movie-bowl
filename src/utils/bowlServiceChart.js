@@ -39,21 +39,23 @@ export function buildBowlServiceChart({ metadataByTmdbId, userServices = [] }) {
   const mineSet = new Set(mine);
 
   const counts = new Map(PAID_STREAMING_SERVICES.map((service) => [service, 0]));
-  // What a service adds: titles on it that none of the viewer's other
-  // services carry, free ones included. For a service they lack, that is what
-  // subscribing gains; for one they have, it is what cancelling would lose.
-  const adds = new Map(PAID_STREAMING_SERVICES.map((service) => [service, 0]));
+  // Titles on a service that none of the viewer's services carry, free ones
+  // included: for a service they lack, these are what they can't watch yet.
+  const unwatchable = new Map(PAID_STREAMING_SERVICES.map((service) => [service, 0]));
   titles.forEach((services) => {
-    const ownedPresent = services.filter((service) => ownedKeys.has(service.toLowerCase()));
+    const canWatch = services.some((service) => ownedKeys.has(service.toLowerCase()));
     toPaid(services).forEach((service) => {
       counts.set(service, counts.get(service) + 1);
-      const others = ownedPresent.filter((owned) => owned !== service);
-      if (others.length === 0) adds.set(service, adds.get(service) + 1);
+      if (!canWatch) unwatchable.set(service, unwatchable.get(service) + 1);
     });
   });
 
   const byCount = (a, b) => b.count - a.count || a.service.localeCompare(b.service);
-  const toRow = (service) => ({ service, count: counts.get(service), isMine: mineSet.has(service) });
+  // Everything on one of the viewer's own services they can watch.
+  const toRow = (service) => {
+    const isMine = mineSet.has(service);
+    return { service, count: counts.get(service), unwatchableCount: isMine ? 0 : unwatchable.get(service), isMine };
+  };
   const mineRows = mine.map(toRow);
   const otherRows = PAID_STREAMING_SERVICES.filter((service) => !mineSet.has(service))
     .map(toRow)
@@ -63,10 +65,9 @@ export function buildBowlServiceChart({ metadataByTmdbId, userServices = [] }) {
   const rows = [...mineRows, ...otherRows].sort(byCount);
 
   const bestAddition = PAID_STREAMING_SERVICES.filter((service) => !mineSet.has(service))
-    .map((service) => ({ service, count: adds.get(service) }))
+    .map((service) => ({ service, count: unwatchable.get(service) }))
     .filter((entry) => entry.count > 0)
     .sort(byCount)[0] || null;
-  const idleServices = mine.filter((service) => counts.get(service) > 0 && adds.get(service) === 0);
 
   return {
     titleCount: titles.length,
@@ -76,7 +77,6 @@ export function buildBowlServiceChart({ metadataByTmdbId, userServices = [] }) {
     maxCount: Math.max(0, ...rows.map((row) => row.count)),
     rows,
     bestAddition,
-    idleServices,
     // Any service counts here, free ones too, so the headline's wording
     // matches the coverage the additions were measured against.
     hasServices: ownedKeys.size > 0,
