@@ -84,7 +84,7 @@ describe("groupSoloCandidatesByTitle", () => {
 });
 
 describe("getSoloDrawGroups", () => {
-  it("narrows to the pinned titles when any are eligible", () => {
+  it("narrows to the favorites when any are eligible", () => {
     const groups = getSoloDrawGroups([
       row("a", { tmdb_id: 1, is_pinned: true }),
       row("b", { tmdb_id: 2 }),
@@ -149,7 +149,7 @@ describe("buildSoloPreviewPool", () => {
     expect(preview.eligibleMovieIds).toEqual(["a", "b", "c"]);
   });
 
-  it("still ranks the streaming pool after drawing the only pinned title", () => {
+  it("still ranks the streaming pool after drawing the only favorite", () => {
     const feature = row("pinned", { tmdb_id: 100, is_pinned: true });
     const preview = buildSoloPreviewPool(
       [feature, row("on-service", { tmdb_id: 200 }), row("elsewhere", { tmdb_id: 300 })],
@@ -175,7 +175,7 @@ describe("selectSoloDrawCandidate", () => {
     expect(picks.map((pick) => pick.tmdb_id)).toEqual([500, 500, 900, 900]);
   });
 
-  it("gives each pinned title the same chance, and duplicate pins no extra weight", () => {
+  it("gives each favorite the same chance, and duplicate pins no extra weight", () => {
     const candidates = [
       row("a", { bowl_id: "bowl-1", tmdb_id: 500, is_pinned: true }),
       row("b", { bowl_id: "bowl-2", tmdb_id: 500, is_pinned: true }),
@@ -188,7 +188,7 @@ describe("selectSoloDrawCandidate", () => {
     expect(picks.map((pick) => pick.tmdb_id)).toEqual([500, 500, 900, 900]);
   });
 
-  it("keeps choosing the only eligible pinned title", () => {
+  it("keeps choosing the only eligible favorite", () => {
     const candidates = [
       row("a", { tmdb_id: 500, is_pinned: true }),
       row("b", { tmdb_id: 900 }),

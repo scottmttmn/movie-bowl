@@ -425,10 +425,10 @@ export default function AddMovieModal({
     try {
       const result = await onTogglePin(!movie.is_pinned);
       if (result === false || result?.ok === false) {
-        setPinError(result?.message || "Could not update this pin. Please try again.");
+        setPinError(result?.message || "Could not update your favorite. Please try again.");
       }
     } catch {
-      setPinError("Could not update this pin. Please try again.");
+      setPinError("Could not update your favorite. Please try again.");
     } finally {
       setIsSavingPin(false);
     }
@@ -459,7 +459,7 @@ export default function AddMovieModal({
               <div
                 className="relative"
                 role={onTogglePin ? "group" : undefined}
-                aria-label={onTogglePin ? "Movie pin" : undefined}
+                aria-label={onTogglePin ? "Favorite" : undefined}
               >
                 {posterUrl && failedPosterUrl !== posterUrl ? (
                   <img
@@ -480,7 +480,7 @@ export default function AddMovieModal({
                 {onTogglePin && (
                   <MoviePosterPin
                     isPinned={movie.is_pinned}
-                    label={isSavingPin ? "Saving pin..." : movie.is_pinned ? "Unpin movie" : "Pin movie"}
+                    label={isSavingPin ? "Saving favorite..." : movie.is_pinned ? "Remove from favorites" : "Make this your favorite"}
                     describedBy="movie-pin-explanation"
                     disabled={Boolean(pinDisabledReason)}
                     isSaving={isSavingPin}
@@ -554,7 +554,7 @@ export default function AddMovieModal({
             {onTogglePin && (
               <div className="mt-3">
                 <p id="movie-pin-explanation" className="text-xs leading-relaxed text-slate-400">
-                  {pinDisabledReason || "One pin per bowl. Up first when you're picked, if filters match."}
+                  {pinDisabledReason || "One favorite per bowl. Up first when you're picked, if filters match."}
                 </p>
                 {pinError && <p className="mt-2 text-sm text-rose-300" role="alert">{pinError}</p>}
               </div>

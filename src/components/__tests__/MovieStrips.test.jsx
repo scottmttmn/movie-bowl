@@ -187,27 +187,27 @@ describe("movie strip components", () => {
       expect.stringContaining("Excluded"),
       expect.stringContaining("Syncing"),
     ]);
-    expect(screen.queryByText("Pinned", { exact: true })).not.toBeInTheDocument();
+    expect(screen.queryByText("Favorite", { exact: true })).not.toBeInTheDocument();
     expect(screen.queryByText(/Up first when you're picked/i)).not.toBeInTheDocument();
     expect(cards[2]).toHaveAttribute("data-filter-excluded", "true");
-    expect(cards[2]).toContainElement(screen.getByRole("img", { name: "Pinned", exact: true }));
+    expect(cards[2]).toContainElement(screen.getByRole("img", { name: "Favorite", exact: true }));
     expect(screen.queryByText(/Outside tonight's filters/i)).not.toBeInTheDocument();
 
     const pressedPins = screen.getAllByRole("button", { pressed: true });
     expect(pressedPins).toHaveLength(1);
     expect(
-      screen.queryByRole("button", { name: /unpin "excluded pinned"/i })
+      screen.queryByRole("button", { name: /remove "excluded pinned" from favorites/i })
     ).not.toBeInTheDocument();
     expect(
-      screen.queryByRole("button", { name: /pin "excluded"/i })
+      screen.queryByRole("button", { name: /favorite "excluded"/i })
     ).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /pin "eligible"/i })).toHaveAttribute(
+    expect(screen.getByRole("button", { name: /favorite "eligible"/i })).toHaveAttribute(
       "aria-pressed",
       "false"
     );
-    expect(screen.getByRole("button", { name: /pin "syncing"/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: /favorite "syncing"/i })).toBeDisabled();
 
-    fireEvent.click(screen.getByRole("button", { name: /pin "eligible"/i }));
+    fireEvent.click(screen.getByRole("button", { name: /favorite "eligible"/i }));
     expect(onTogglePin).toHaveBeenCalledWith(
       expect.objectContaining({ id: "eligible" }),
       true
@@ -224,9 +224,9 @@ describe("movie strip components", () => {
       />
     );
 
-    expect(screen.getByText(/title-first, so pins don't change anything/i)).toBeInTheDocument();
-    expect(screen.getByRole("img", { name: "Pinned", exact: true })).toBeInTheDocument();
-    expect(screen.queryByText("Pinned", { exact: true })).not.toBeInTheDocument();
+    expect(screen.getByText(/title-first, so favorites don't change anything/i)).toBeInTheDocument();
+    expect(screen.getByRole("img", { name: "Favorite", exact: true })).toBeInTheDocument();
+    expect(screen.queryByText("Favorite", { exact: true })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /unpin/i })).not.toBeInTheDocument();
   });
 
@@ -238,7 +238,7 @@ describe("movie strip components", () => {
       />
     );
 
-    expect(screen.queryByRole("button", { name: /pin "movie"/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /favorite "movie"/i })).not.toBeInTheDocument();
   });
 
   it("labels a watched starter pack pick with its pack", () => {

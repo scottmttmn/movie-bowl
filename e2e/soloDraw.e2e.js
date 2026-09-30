@@ -183,7 +183,7 @@ test("solo redesign keeps scope counts, filters and dialog focus usable", async 
   await page.reload();
   await expect(page.getByText("Drawing from 1 of 2 of your titles")).toBeVisible();
   await page.getByRole("button", { name: "How solo draw picks" }).click();
-  await expect(page.getByRole("dialog")).toContainText("Your pinned movies go first");
+  await expect(page.getByRole("dialog")).toContainText("Your favorites go first");
   await page.keyboard.press("Escape");
   await expect(page.getByRole("button", { name: "How solo draw picks" })).toBeFocused();
 

@@ -8,8 +8,8 @@ const SOLO_METHOD = {
 };
 const PINNED_METHOD = {
   ...SOLO_METHOD,
-  steps: [{ title: "One pinned title, at random" }],
-  revealPending: "Picking one of your pinned titles",
+  steps: [{ title: "One favorite, at random" }],
+  revealPending: "Picking one of your favorites",
 };
 
 // The same grouping as selection: copies get one slip, and eligible pins

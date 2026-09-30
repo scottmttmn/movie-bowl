@@ -229,7 +229,8 @@ Tables the app touches: `profiles`, `bowls`, `bowl_members`, `bowl_movies`,
 `bowl_invites`, `bowl_draw_permissions`, `bowl_add_links`, `bowl_draw_events`,
 `user_watch_events`, `user_bowl_defaults`, `solo_draw_removed_copies`. `bowl_movie_queue` is legacy and is not written to.
 
-The interface says **home bowl**; the database says **default**. That drift is
+The interface says **home bowl**; the database says **default**, and likewise
+a **favorite** is a pin underneath. That drift is
 deliberate — do not rename deployed database objects to match the UI term:
 
 | User-facing term | Database object |
@@ -237,6 +238,7 @@ deliberate — do not rename deployed database objects to match the UI term:
 | Home bowl | the account's `user_bowl_defaults` row |
 | Resolving Home | `get_my_bowl_context` → `default_bowl_id` |
 | `Make [bowl] home` | `set_my_default_bowl` |
+| Favorite (the ribbon on a poster) | `bowl_movies.is_pinned`, `set_own_bowl_movie_pin` |
 
 The bowl-history split matters: a draw writes one immutable `bowl_draw_events`
 row (bowl activity) plus one `user_watch_events` row per participant (personal

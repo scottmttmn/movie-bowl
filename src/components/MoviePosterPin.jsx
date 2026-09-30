@@ -14,7 +14,7 @@ export default function MoviePosterPin({
   );
 
   if (!onClick) {
-    return isPinned ? <span role="img" aria-label="Pinned" title="Pinned" className={className}>{icon}</span> : null;
+    return isPinned ? <span role="img" aria-label="Favorite" title="Favorite" className={className}>{icon}</span> : null;
   }
 
   return (

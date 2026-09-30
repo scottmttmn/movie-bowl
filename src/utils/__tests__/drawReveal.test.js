@@ -35,8 +35,8 @@ describe("solo reveal", () => {
     ];
     const preview = getSoloDrawRevealPreview(pool);
     expect(preview).toMatchObject({ total: 1, pinnedPool: true });
-    expect(getSoloDrawRevealMethod(preview).revealPending).toContain("pinned titles");
-    expect(getDrawRevealCopy(getSoloDrawReveal(pool)).announcement).toBe("Your only eligible pinned title");
+    expect(getSoloDrawRevealMethod(preview).revealPending).toContain("favorites");
+    expect(getDrawRevealCopy(getSoloDrawReveal(pool)).announcement).toBe("Your only eligible favorite");
   });
 
   it("does not invent a preview for an empty pool", () => {
@@ -106,7 +106,7 @@ describe("getDrawReveal", () => {
       turnBucketKey: "user:sam",
     });
     expect(reveal.title.mode).toBe("pinned");
-    expect(getDrawRevealCopy(reveal).title).toBe("Sam's pinned movie");
+    expect(getDrawRevealCopy(reveal).title).toBe("Sam's favorite");
   });
 
   it("draws title-first from the whole bowl with no person stage, and ignores pins", () => {

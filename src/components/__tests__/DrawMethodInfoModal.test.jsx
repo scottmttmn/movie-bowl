@@ -19,8 +19,8 @@ describe("DrawMethodInfoModal", () => {
     expect(steps[1]).toHaveTextContent("One of their movies");
     // Pins live under step two, which is what makes "pinning never changes who
     // is selected" visible without a sentence saying so.
-    expect(steps[0]).not.toHaveTextContent(/pinned/i);
-    expect(steps[1]).toHaveTextContent(/pinned/i);
+    expect(steps[0]).not.toHaveTextContent(/favorite/i);
+    expect(steps[1]).toHaveTextContent(/favorite/i);
   });
 
   it("carries a footnote only where the method needs one", () => {

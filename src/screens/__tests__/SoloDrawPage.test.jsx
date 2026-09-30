@@ -678,7 +678,7 @@ describe("SoloDrawPage", () => {
 
 
 describe("Solo draw redesign readouts", () => {
-  it("counts distinct eligible pinned titles after filters, not duplicate slips", () => {
+  it("counts distinct eligible favorites after filters, not duplicate slips", () => {
     mocks.state.pool.rows = [
       { ...movie("m1", "bowl-1"), is_pinned: true },
       movie("m2", "bowl-2"),

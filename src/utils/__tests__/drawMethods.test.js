@@ -96,7 +96,7 @@ describe("person_first", () => {
     expect(counts.get("user-2")).toBe(1);
   });
 
-  it("prefers the pinned title only after choosing its contributor bucket", () => {
+  it("prefers the favorite only after choosing its contributor bucket", () => {
     const pool = LOPSIDED_POOL.map((movie) => ({
       ...movie,
       is_pinned: movie.id === "u1-3",

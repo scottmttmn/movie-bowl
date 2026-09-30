@@ -61,7 +61,7 @@ const PERSON_FIRST = {
   // pins appear only under step two, so they visibly cannot change who is picked.
   steps: [
     { title: "A person, at random", note: "Everyone equally likely, however many movies they added" },
-    { title: "One of their movies", note: "Their pinned movie if they picked one" },
+    { title: "One of their movies", note: "Their favorite if they picked one" },
   ],
   // Equal odds are a promise about people, so a filter that removes everything
   // one person added quietly removes them from the draw. Say so.
@@ -89,12 +89,12 @@ const TITLE_FIRST = {
   steps: [
     { title: "One title, at random", note: "From the whole bowl, so more movies means more chances" },
   ],
-  footnote: "Pins do nothing here — there is no per-person step to apply them to.",
+  footnote: "Favorites do nothing here — there is no per-person step to apply them to.",
   revealPending: "Picking one title from the whole bowl",
   bucketsByContributor: false,
   reachCaveat: "",
   honorsPin: false,
-  pinNote: "This bowl draws title-first, so pins don't change anything here.",
+  pinNote: "This bowl draws title-first, so favorites don't change anything here.",
   selectionMode: "client",
   pick(pool, { randomFn = Math.random } = {}) {
     return pickUniform(pool, randomFn);
@@ -109,7 +109,7 @@ const ROTATION = {
     "Picks someone who has waited longest, then randomly chooses one of their eligible movies.",
   steps: [
     { title: "Whoever has waited longest", note: "Never drawn goes first, then least recently drawn. Ties are random." },
-    { title: "One of their movies", note: "Their pinned movie if they picked one" },
+    { title: "One of their movies", note: "Their favorite if they picked one" },
   ],
   footnote: "Returning a movie does not reset the turn.",
   revealPending: "Finding whoever has waited longest",

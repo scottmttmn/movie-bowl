@@ -433,7 +433,7 @@ export default function BowlDashboard() {
     const detailPinDisabledReason = !getDrawMethod(drawMethod).honorsPin
       ? getDrawMethod(drawMethod).pinNote
       : detailPinExcluded
-        ? "This movie is outside tonight's filters, so its pin won't affect this draw. Change the filters to pin or unpin it."
+        ? "This movie is outside tonight's filters, so favoriting it won't affect this draw. Change the filters to change your favorite."
         : "";
     const hasResolvedPrioritizedPool =
       isDrawFilteredByServices &&

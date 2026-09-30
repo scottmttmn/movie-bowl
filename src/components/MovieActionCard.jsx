@@ -26,8 +26,8 @@ export default function MovieActionCard({
   const showPinControl = typeof onTogglePin === "function";
   const pinControlDisabled = pinDisabled || isSyncing;
   const pinLabel = isPinned
-    ? `Unpin "${movie.title}"`
-    : `Pin "${movie.title}" so it comes up first when you're picked`;
+    ? `Remove "${movie.title}" from favorites`
+    : `Favorite "${movie.title}" so it comes up first when you're picked`;
   const dimmed = isFilterExcluded ? "opacity-45 grayscale" : "";
 
   return (
