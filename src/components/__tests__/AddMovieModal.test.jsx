@@ -32,10 +32,10 @@ describe("AddMovieModal", () => {
     expect(screen.getByText("Dad")).toBeInTheDocument();
     expect(screen.getByRole("region", { name: "Where to watch" })).toBeInTheDocument();
     expect(screen.getByText("✓ Your services")).toBeInTheDocument();
-    expect(screen.getByText("Netflix")).toBeInTheDocument();
     expect(screen.getAllByText("Netflix")).toHaveLength(1);
-    expect(screen.getByText("Netflix")).toHaveTextContent("(in your services)");
-    expect(screen.getByText("Prime Video")).not.toHaveTextContent("(in your services)");
+    expect(screen.getByText("Netflix").closest("li")).toHaveTextContent("(in your services)");
+    expect(screen.getByRole("button", { name: "Also streaming on Prime Video" })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("Prime Video").closest("li")).not.toBeVisible();
     expect(screen.queryByRole("group", { name: "Movie pin" })).not.toBeInTheDocument();
   });
 
@@ -60,18 +60,32 @@ describe("AddMovieModal", () => {
     expect(screen.queryByText("No US streaming providers found right now.")).not.toBeInTheDocument();
   });
 
-  it("groups provider types without treating rent and buy as saved-service matches", () => {
+  it("shows only your services open and folds other streaming and every store", () => {
     const movie = {
       title: "Dune",
       release_date: "2021-10-22",
       streamingProviders: ["Netflix", "Kanopy", "Tubi"],
       streamingProviderLogos: { Netflix: "/netflix.jpg" },
       streamingAvailability: {
-        subscription: [{ id: 8, name: "Netflix", logoPath: "/netflix.jpg" }],
+        subscription: [
+          { id: 8, name: "Netflix", logoPath: "/netflix.jpg" },
+          { id: 1899, name: "Max", logoPath: null },
+          { id: 15, name: "Hulu", logoPath: null },
+          { id: 386, name: "Peacock", logoPath: null },
+        ],
         free: [{ id: 9, name: "Kanopy", logoPath: null }],
-        ads: [{ id: 10, name: "Tubi", logoPath: null }],
-        rent: [{ id: 2, name: "Apple TV", logoPath: "/apple.jpg" }],
-        buy: [{ id: 3, name: "Amazon Video", logoPath: null }],
+        ads: [
+          { id: 1796, name: "Netflix basic with Ads", logoPath: null },
+          { id: 73, name: "Tubi", logoPath: null },
+        ],
+        rent: [
+          { id: 2, name: "Apple TV", logoPath: "/apple.jpg" },
+          { id: 10, name: "Amazon Video", logoPath: null },
+        ],
+        buy: [
+          { id: 2, name: "Apple TV", logoPath: "/apple.jpg" },
+          { id: 3, name: "Google Play Movies", logoPath: null },
+        ],
       },
       streamingWatchUrl: "https://www.themoviedb.org/movie/438631/watch",
       streamingProviderStatus: "ready",
@@ -85,18 +99,96 @@ describe("AddMovieModal", () => {
       />
     );
 
-    expect(screen.getByText("Included with subscription")).toBeInTheDocument();
-    expect(screen.getByText("Free")).toBeInTheDocument();
-    expect(screen.getByText("Free with ads")).toBeInTheDocument();
-    expect(screen.getByText("Rent")).toBeInTheDocument();
-    expect(screen.getByText("Buy")).toBeInTheDocument();
+    expect(screen.getByText("Netflix").closest("li")).toBeVisible();
     expect(screen.getByText("Netflix").closest("li")).toHaveTextContent("(in your services)");
-    expect(screen.getByText("Apple TV").closest("li")).not.toHaveTextContent("(in your services)");
-    expect(screen.getByRole("link", { name: /see all watch options/i })).toHaveAttribute(
-      "href",
-      movie.streamingWatchUrl
-    );
+
+    const others = screen.getByRole("button", { name: "Also streaming on Max, Hulu and 4 more" });
+    const stores = screen.getByRole("button", { name: "Rent or buy from 3 stores" });
+    expect(others).toHaveAttribute("aria-expanded", "false");
+    expect(stores).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByText("Max").closest("li")).not.toBeVisible();
+    expect(screen.getAllByText("Apple TV")[0].closest("li")).not.toBeVisible();
+
+    fireEvent.click(others);
+    expect(others).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByText("Max").closest("li")).toBeVisible();
+    expect(screen.getByText("Included with subscription")).toBeVisible();
+    expect(screen.getByText("Free")).toBeVisible();
+    expect(screen.getByText("Free with ads")).toBeVisible();
+    expect(screen.getByText("Max").closest("li")).not.toHaveTextContent("(in your services)");
+
+    fireEvent.click(stores);
+    expect(screen.getByText("Rent")).toBeVisible();
+    expect(screen.getByText("Buy")).toBeVisible();
+    // A store sharing a name with a saved service is still not that service.
+    expect(screen.getAllByText("Apple TV")[0].closest("li")).not.toHaveTextContent("(in your services)");
+    expect(screen.queryByRole("link", { name: /see all watch options/i })).not.toBeInTheDocument();
     expect(screen.getByRole("link", { name: "JustWatch" })).toBeInTheDocument();
+  });
+
+  it("says when a title is on none of your services, or streaming nowhere", () => {
+    const { rerender } = render(
+      <AddMovieModal
+        movie={{
+          id: 1,
+          title: "Dune",
+          streamingProviders: ["Max"],
+          streamingAvailability: {
+            subscription: [{ id: 1899, name: "Max", logoPath: null }],
+            rent: [{ id: 2, name: "Apple TV", logoPath: null }],
+          },
+        }}
+        onClose={vi.fn()}
+        userStreamingServices={["Netflix"]}
+      />
+    );
+
+    expect(screen.getByText("Not on any of your services.")).toBeInTheDocument();
+    expect(screen.queryByText("✓ Your services")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Streaming on Max" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Rent or buy from 1 store" })).toBeInTheDocument();
+
+    rerender(
+      <AddMovieModal
+        movie={{
+          id: 2,
+          title: "Arrival",
+          streamingProviders: [],
+          streamingAvailability: { rent: [{ id: 2, name: "Apple TV", logoPath: null }] },
+        }}
+        onClose={vi.fn()}
+        userStreamingServices={["Netflix"]}
+      />
+    );
+
+    expect(screen.getByText("Not streaming on any service right now.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /streaming on/i })).not.toBeInTheDocument();
+  });
+
+  it("folds the rows back up when the pane moves to another movie", () => {
+    const availability = {
+      subscription: [{ id: 1899, name: "Max", logoPath: null }],
+    };
+    const { rerender } = render(
+      <AddMovieModal
+        movie={{ id: 1, tmdb_id: 1, title: "Dune", streamingAvailability: availability }}
+        onClose={vi.fn()}
+        userStreamingServices={[]}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Streaming on Max" }));
+    expect(screen.getByRole("button", { name: "Streaming on Max" })).toHaveAttribute("aria-expanded", "true");
+
+    rerender(
+      <AddMovieModal
+        movie={{ id: 2, tmdb_id: 2, title: "Arrival", streamingAvailability: availability }}
+        onClose={vi.fn()}
+        userStreamingServices={[]}
+      />
+    );
+
+    expect(screen.getByRole("button", { name: "Streaming on Max" })).toHaveAttribute("aria-expanded", "false");
   });
 
   it("distinguishes a provider failure from confirmed empty availability", () => {

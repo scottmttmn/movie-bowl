@@ -56,6 +56,59 @@ function ProviderPills({ providers, providerLogos, userStreamingServices, eligib
   );
 }
 
+// "Max", "Max and Hulu", "Max, Hulu and Peacock", then "Max, Hulu and 3 more".
+function describeProviderNames(names) {
+  if (names.length <= 1) return names[0] || "";
+  if (names.length <= 3) return `${names.slice(0, -1).join(", ")} and ${names[names.length - 1]}`;
+  return `${names[0]}, ${names[1]} and ${names.length - 2} more`;
+}
+
+function uniqueProvidersByName(providers) {
+  const seen = new Set();
+  return providers.filter((provider) => {
+    const [key] = normalizeStreamingServices([provider.name]);
+    if (!key || seen.has(key.toLowerCase())) return false;
+    seen.add(key.toLowerCase());
+    return true;
+  });
+}
+
+// A folded row of provider groups. The list stays mounted and hidden, so the
+// button's aria-controls always names something that exists.
+function ProviderDisclosure({ id, label, isOpen, onToggle, groups, providerLogos, userStreamingServices }) {
+  return (
+    <div className="border-t border-slate-700/60">
+      <button
+        type="button"
+        className="flex min-h-11 w-full items-center justify-between gap-3 text-left text-sm text-slate-300 hover:text-slate-100"
+        aria-expanded={isOpen}
+        aria-controls={id}
+        onClick={onToggle}
+      >
+        <span>{label}</span>
+        <span aria-hidden="true" className="text-slate-400">{isOpen ? "▾" : "▸"}</span>
+      </button>
+      <div id={id} hidden={!isOpen} className="space-y-3 pb-3">
+        {groups.map((group) => (
+          <div key={group.key}>
+            {groups.length > 1 && (
+              <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
+                {group.label}
+              </h4>
+            )}
+            <ProviderPills
+              providers={group.providers}
+              providerLogos={providerLogos}
+              userStreamingServices={userStreamingServices}
+              eligible={group.eligible}
+            />
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 // The same contract as an effect dependency array, read during render instead
 // of after the commit. See the resets it guards for why that matters.
 function useChangedDeps(deps) {
@@ -109,6 +162,8 @@ export default function AddMovieModal({
   const [isSavingPin, setIsSavingPin] = useState(false);
   const [pinError, setPinError] = useState("");
   const [isTrailerVisible, setIsTrailerVisible] = useState(false);
+  const [isOtherStreamingOpen, setIsOtherStreamingOpen] = useState(false);
+  const [isStoresOpen, setIsStoresOpen] = useState(false);
   const [failedPosterUrl, setFailedPosterUrl] = useState(null);
   const backButton = useRef(null);
 
@@ -157,6 +212,8 @@ export default function AddMovieModal({
 
   if (trailerSubjectChanged) {
     setIsTrailerVisible(false);
+    setIsOtherStreamingOpen(false);
+    setIsStoresOpen(false);
   }
 
   // This modal is used in two contexts:
@@ -212,7 +269,6 @@ export default function AddMovieModal({
   const watchedDateLabel = formatDisplayDate(watchedAt);
   const addedByLabel = getMovieAttributionLabel(movie);
   const availableProviders = normalizeStreamingServices(movie.streamingProviders || []);
-  const matchingProviders = matchUserServices(availableProviders, userStreamingServices);
   const providerLogos = movie.streamingProviderLogos || {};
   const availability = movie.streamingAvailability || {};
   const availabilityGroups = AVAILABILITY_GROUPS.map((group) => ({
@@ -220,6 +276,41 @@ export default function AddMovieModal({
     providers: Array.isArray(availability[group.key]) ? availability[group.key] : [],
   })).filter((group) => group.providers.length > 0);
   const hasStructuredAvailability = availabilityGroups.length > 0;
+  // Only the viewer's own services are shown open. Every other way to stream
+  // it, and every store, folds into a row that says how many there are: a
+  // title is often on twenty services at once, and the list buried the one
+  // answer people open this for.
+  const streamingGroups = hasStructuredAvailability
+    ? availabilityGroups.filter((group) => group.eligible)
+    : availableProviders.length > 0
+      ? [{ key: "subscription", label: "Streaming", eligible: true, providers: availableProviders.map((name) => ({ name })) }]
+      : [];
+  const storeGroups = availabilityGroups.filter((group) => !group.eligible);
+  const isUserService = (name) => matchUserServices([name], userStreamingServices).length > 0;
+  const userServiceProviders = uniqueProvidersByName(
+    streamingGroups.flatMap((group) => group.providers).filter((provider) => isUserService(provider.name))
+  );
+  const otherStreamingGroups = streamingGroups
+    .map((group) => ({ ...group, providers: group.providers.filter((provider) => !isUserService(provider.name)) }))
+    .filter((group) => group.providers.length > 0);
+  const otherStreamingNames = normalizeStreamingServices(
+    otherStreamingGroups.flatMap((group) => group.providers.map((provider) => provider.name))
+  );
+  const storeCount = new Set(
+    storeGroups.flatMap((group) => group.providers.map((provider) => provider.name.toLowerCase()))
+  ).size;
+  const hasAnyAvailability = streamingGroups.length > 0 || storeGroups.length > 0;
+  const launchButton = webLaunchCandidate ? (
+    <div>
+      {/* Native links avoid mistaking a secure window.open result for a blocked popup. */}
+      <a href={webLaunchCandidate.url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary w-full text-sm sm:w-auto">
+        <ServiceLogo service={webLaunchCandidate.serviceName} className="h-5 w-5" />
+        {`Open on Web in ${webLaunchCandidate.serviceName}`}
+        <span className="sr-only"> (opens in a new tab)</span>
+      </a>
+      {webLaunchCandidate.linkType === "title" && <div className="mt-2"><ProviderLinksAttribution /></div>}
+    </div>
+  ) : null;
   const providerStatus = movie.streamingProviderStatus || "ready";
   const releaseStatus = movie.releaseStatus || getMovieReleaseStatus(movie);
   const hasTrailer = movie?.trailer?.site === "YouTube" && Boolean(movie?.trailer?.key);
@@ -418,79 +509,62 @@ export default function AddMovieModal({
             <section className="border-t border-slate-700/60 pt-5" aria-labelledby="movie-streaming-title">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h3 id="movie-streaming-title" className="text-sm font-semibold text-slate-200">Where to watch</h3>
-                {matchingProviders.length > 0 && <p className="text-xs text-emerald-300">✓ Your services</p>}
+                {userServiceProviders.length > 0 && <p className="text-xs text-emerald-300">✓ Your services</p>}
               </div>
-              {providerStatus === "failed" ? (
-                <p className="text-sm text-slate-400">
-                  Availability could not be loaded right now. Try again later.
-                </p>
-              ) : hasStructuredAvailability ? (
+              {providerStatus === "failed" || !hasAnyAvailability ? (
                 <div className="space-y-4">
-                  {availabilityGroups.map((group) => (
-                    <div key={group.key}>
-                      <h4 className="mb-2 text-xs font-medium uppercase tracking-wide text-slate-400">
-                        {group.label}
-                      </h4>
-                      <ProviderPills
-                        providers={group.providers}
-                        providerLogos={providerLogos}
-                        userStreamingServices={userStreamingServices}
-                        eligible={group.eligible}
-                      />
-                    </div>
-                  ))}
+                  <p className="text-sm text-slate-400">
+                    {providerStatus === "failed"
+                      ? "Availability could not be loaded right now. Try again later."
+                      : "No US streaming providers found right now."}
+                  </p>
+                  {launchButton}
                 </div>
-              ) : availableProviders.length > 0 ? (
-                <ul className="flex flex-wrap gap-2" aria-label="Streaming services">
-                  {availableProviders.map((provider) => {
-                    const isMatch = matchingProviders.includes(provider);
-                    const logoUrl = getProviderLogoUrl(providerLogos[provider]);
-                    return (
-                      <li key={provider} className={`flex items-center gap-2 rounded-lg border py-1.5 text-sm ${logoUrl ? "pl-1.5 pr-3" : "px-3"} ${isMatch ? "border-emerald-800/60 bg-emerald-950/30 text-emerald-300" : "border-slate-700/70 text-slate-300"}`}>
-                        {isMatch && <span aria-hidden="true" className="ml-1">✓</span>}
-                        {logoUrl ? (
-                          <>
-                            <img src={logoUrl} alt="" className="h-7 w-7 rounded-md" loading="lazy" />
-                            <span>{provider}</span>
-                          </>
-                        ) : (
-                          provider
-                        )}
-                        {isMatch && <span className="sr-only"> (in your services)</span>}
-                      </li>
-                    );
-                  })}
-                </ul>
               ) : (
-                <p className="text-sm text-slate-400">No US streaming providers found right now.</p>
-              )}
-              {availableProviders.length > 0 && matchingProviders.length === 0 && (
-                <p className="mt-2 text-xs text-slate-400">None of your saved services match this title.</p>
-              )}
-              {movie.streamingWatchUrl && (
-                <a
-                  href={movie.streamingWatchUrl}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="btn btn-ghost mt-4 w-full text-sm sm:w-auto"
-                >
-                  See all watch options
-                  <span className="sr-only"> (opens in a new tab)</span>
-                </a>
+                <div className="space-y-4">
+                  {userServiceProviders.length > 0 ? (
+                    <ProviderPills
+                      providers={userServiceProviders}
+                      providerLogos={providerLogos}
+                      userStreamingServices={userStreamingServices}
+                      eligible
+                    />
+                  ) : streamingGroups.length === 0 ? (
+                    <p className="text-sm text-slate-300">Not streaming on any service right now.</p>
+                  ) : normalizeStreamingServices(userStreamingServices).length > 0 ? (
+                    <p className="text-sm text-slate-300">Not on any of your services.</p>
+                  ) : null}
+                  {launchButton}
+                  {(otherStreamingGroups.length > 0 || storeGroups.length > 0) && (
+                    <div className="border-b border-slate-700/60">
+                      {otherStreamingGroups.length > 0 && (
+                        <ProviderDisclosure
+                          id="movie-other-streaming"
+                          label={`${userServiceProviders.length > 0 ? "Also streaming" : "Streaming"} on ${describeProviderNames(otherStreamingNames)}`}
+                          isOpen={isOtherStreamingOpen}
+                          onToggle={() => setIsOtherStreamingOpen((open) => !open)}
+                          groups={otherStreamingGroups}
+                          providerLogos={providerLogos}
+                          userStreamingServices={userStreamingServices}
+                        />
+                      )}
+                      {storeGroups.length > 0 && (
+                        <ProviderDisclosure
+                          id="movie-rent-buy"
+                          label={`Rent or buy from ${storeCount} ${storeCount === 1 ? "store" : "stores"}`}
+                          isOpen={isStoresOpen}
+                          onToggle={() => setIsStoresOpen((open) => !open)}
+                          groups={storeGroups}
+                          providerLogos={providerLogos}
+                          userStreamingServices={userStreamingServices}
+                        />
+                      )}
+                    </div>
+                  )}
+                </div>
               )}
               {(hasStructuredAvailability || movie.streamingWatchUrl) && (
-                <div className="mt-2"><AvailabilityAttribution /></div>
-              )}
-              {webLaunchCandidate && (
-                <div className="mt-4">
-                  {/* Native links avoid mistaking a secure window.open result for a blocked popup. */}
-                  <a href={webLaunchCandidate.url} target="_blank" rel="noopener noreferrer" className="btn btn-secondary w-full text-sm sm:w-auto">
-                    <ServiceLogo service={webLaunchCandidate.serviceName} className="h-5 w-5" />
-                    {`Open on Web in ${webLaunchCandidate.serviceName}`}
-                    <span className="sr-only"> (opens in a new tab)</span>
-                  </a>
-                  {webLaunchCandidate.linkType === "title" && <div className="mt-2"><ProviderLinksAttribution /></div>}
-                </div>
+                <div className="mt-3"><AvailabilityAttribution /></div>
               )}
             </section>
           )}
