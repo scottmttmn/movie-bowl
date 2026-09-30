@@ -1912,3 +1912,45 @@
     padding: 20px 16px 24px;
   }
 }
+
+/* Search result marks. The in-bowl mark stands where the + would be, the
+   watched stub hangs off the poster like the torn half of a ticket. */
+@layer components {
+  .search-in-bowl {
+    @apply relative flex h-11 w-11 flex-shrink-0 items-center justify-center;
+  }
+  .search-in-bowl img {
+    @apply h-9 w-9 object-contain;
+  }
+  .search-in-bowl svg {
+    @apply absolute bottom-0.5 right-0 h-[1.1rem] w-[1.1rem] rounded-full p-0.5;
+    background: #10b981;
+    color: #052e1c;
+    fill: none;
+    stroke: currentColor;
+    stroke-width: 2.2;
+    stroke-linecap: round;
+    stroke-linejoin: round;
+    box-shadow: 0 0 0 2px #0f172a;
+  }
+  .search-watched-stub {
+    position: absolute;
+    left: 50%;
+    bottom: -6px;
+    transform: translateX(-50%) rotate(-4deg);
+    padding: 3px 5px;
+    border-radius: 2px;
+    background: #fbf8f1;
+    color: #3b2f2a;
+    font-size: 9px;
+    font-weight: 700;
+    line-height: 1;
+    white-space: nowrap;
+    box-shadow: 0 2px 4px rgb(0 0 0 / 0.45);
+    /* Notches either side, so it reads as a stub rather than a label. */
+    -webkit-mask: radial-gradient(circle 3px at 0 50%, transparent 97%, #000) left / 51% 100% no-repeat,
+      radial-gradient(circle 3px at 100% 50%, transparent 97%, #000) right / 51% 100% no-repeat;
+    mask: radial-gradient(circle 3px at 0 50%, transparent 97%, #000) left / 51% 100% no-repeat,
+      radial-gradient(circle 3px at 100% 50%, transparent 97%, #000) right / 51% 100% no-repeat;
+  }
+}

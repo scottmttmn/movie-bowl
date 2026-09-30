@@ -131,6 +131,9 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   double-counting and making sibling retirement visible. Analysed under
   "Edge Case: Somebody Else Already Added It" in
   `output/designs/pinned-movie.md`; needs its own design before any code.
+  The add sheet's search marks already tell your slip from someone else's;
+  when this lands, `ONE_SLIP_PER_TITLE` in `utils/searchMarks.js` goes false
+  and someone else's copy gets its + back.
 - Guest night: make sharing episodic instead of persistent. A visiting friend's
   titles join one evening's draw, the movie lands in both watch histories but
   only the host bowl's strip, and nothing permanent is created. Three separable
