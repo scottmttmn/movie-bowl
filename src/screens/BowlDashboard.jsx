@@ -57,7 +57,7 @@ import { notifyBowlChange } from "../lib/bowlChanges";
 import GearGlyph from "../components/GearGlyph";
 import HomeGlyph from "../components/HomeGlyph";
 import FilterRow from "../components/FilterRow";
-import ServiceLogo from "../components/ServiceLogo";
+import StreamingPreferenceRows from "../components/StreamingPreferenceRows";
 import { describeGenres, describeRatings, describeRuntime } from "../utils/filterSummaries";
 import {
   DEFAULT_DRAW_SETTINGS,
@@ -1268,75 +1268,18 @@ return (
                       disabled={!didApplyDefaultDrawSettings || isLoadingUserPreferences || Boolean(preferencesLoadError)}
                       aria-label="Draw filters"
                     >
-                      <div className="filter-row text-left">
-                        {userStreamingServices.length > 0 ? (
-                          <div className="flex min-h-14 items-center gap-3 py-2.5">
-                            <div className="min-w-0 flex-1">
-                              <p className="text-base font-semibold text-slate-100">Favor my services</p>
-                              {/* The services themselves say which ones, and
-                                  tapping them is how you change the list. */}
-                              <button
-                                type="button"
-                                aria-label="Change your streaming services"
-                                className="mt-1 flex max-w-full items-center gap-1.5 rounded-md py-0.5 text-slate-500 hover:text-slate-300"
-                                onClick={() => navigate("/settings#streaming-services")}
-                              >
-                                {userStreamingServices.slice(0, 6).map((service) => (
-                                  <ServiceLogo key={service} service={service} className="h-6 w-6" />
-                                ))}
-                                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
-                              </button>
-                            </div>
-                            <label htmlFor="prioritize-streaming-draw" className="relative inline-flex cursor-pointer items-center">
-                              <input
-                                id="prioritize-streaming-draw"
-                                name="prioritize_streaming_draw"
-                                aria-label="Favor my services"
-                                type="checkbox"
-                                className="peer sr-only"
-                                checked={prioritizeStreaming}
-                                onChange={(e) => {
-                                  const checked = e.target.checked;
-                                  setPrioritizeStreaming(checked);
-                                  if (checked) setUseStreamingRank(true);
-                                }}
-                              />
-                              <span className="h-6 w-11 rounded-full bg-slate-700 transition peer-checked:bg-rose-600" />
-                              <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-slate-900 shadow transition peer-checked:translate-x-5" />
-                            </label>
-                          </div>
-                        ) : (
-                          <button
-                            type="button"
-                            className="filter-row-button"
-                            onClick={() => navigate("/settings#streaming-services")}
-                          >
-                            <span className="min-w-0 flex-1">
-                              <span className="block text-base font-semibold text-slate-100">Favor my services</span>
-                              <span className="mt-0.5 block text-sm text-slate-400">Choose your services</span>
-                            </span>
-                            <svg aria-hidden="true" viewBox="0 0 24 24" className="filter-row-chevron" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9 6l6 6-6 6" /></svg>
-                          </button>
-                        )}
-                        {prioritizeStreaming && userStreamingServices.length > 0 && (
-                          <div className="flex min-h-12 items-center gap-3 border-t border-slate-800 py-2 pl-4">
-                            <p className="min-w-0 flex-1 text-sm font-medium text-slate-200">Top service first</p>
-                            <label htmlFor="use-streaming-rank-draw" className="relative inline-flex cursor-pointer items-center">
-                              <input
-                                id="use-streaming-rank-draw"
-                                name="use_streaming_rank_draw"
-                                aria-label="Top service first"
-                                type="checkbox"
-                                className="peer sr-only"
-                                checked={useStreamingRank}
-                                onChange={(e) => setUseStreamingRank(e.target.checked)}
-                              />
-                              <span className="h-6 w-11 rounded-full bg-slate-700 transition peer-checked:bg-rose-600" />
-                              <span className="pointer-events-none absolute left-0.5 top-0.5 h-5 w-5 rounded-full bg-slate-900 shadow transition peer-checked:translate-x-5" />
-                            </label>
-                          </div>
-                        )}
-                      </div>
+                      <StreamingPreferenceRows
+                        idSuffix="draw"
+                        services={userStreamingServices}
+                        prioritize={prioritizeStreaming}
+                        useRank={useStreamingRank}
+                        onPrioritizeChange={(checked) => {
+                          setPrioritizeStreaming(checked);
+                          if (checked) setUseStreamingRank(true);
+                        }}
+                        onUseRankChange={setUseStreamingRank}
+                        onChangeServices={() => navigate("/settings#streaming-services")}
+                      />
                       <div className="filter-row text-left">
                         <FilterRow
                           label="Rating"
@@ -1416,10 +1359,7 @@ return (
                         />
                         {showRuntimeFilters && (
                           <div id="draw-runtime-filter-panel" className="mt-2 rounded-lg border border-slate-700 bg-slate-900 p-3">
-                            <p className="text-sm text-slate-300">
-                              Set the acceptable runtime range.
-                            </p>
-                            <div className="mt-3 grid gap-3 sm:grid-cols-2">
+                            <div className="grid gap-3 sm:grid-cols-2">
                               <label htmlFor="draw-runtime-min" className="text-sm text-slate-300">
                                 Minimum minutes
                                 <input

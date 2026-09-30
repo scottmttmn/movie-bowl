@@ -1,13 +1,15 @@
 import { useState } from "react";
-import { Link } from "react-router-dom";
+import { useNavigate } from "react-router-dom";
 import FilterChipSelect from "./FilterChipSelect";
 import FilterRow from "./FilterRow";
+import StreamingPreferenceRows from "./StreamingPreferenceRows";
 import { describeGenres, describeRatings, describeRuntime } from "../utils/filterSummaries";
 import SoloDrawDialog from "./SoloDrawDialog";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 import { DEFAULT_DRAW_SETTINGS } from "../utils/drawSettings";
 
 export default function SoloDrawFilters({ settings, setOverride, setOverrides, streamingServices, availableGenres, isPersisted, disabled, saveStatus, onRetry, readout, onClose }) {
+  const navigate = useNavigate();
   const chips = (key, options, unknownKey, label) => {
     const selected = settings[key] ?? options;
     return <FilterChipSelect options={options} selectedValues={selected} ariaLabel={`${label} controls`} optionAriaLabelPrefix={label}
@@ -33,9 +35,10 @@ export default function SoloDrawFilters({ settings, setOverride, setOverrides, s
         </div>
         <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.includeUnknownRuntime} onChange={(event) => setOverride("includeUnknownRuntime", event.target.checked)} />Include unknown runtime</label>
       </FilterSection>
-      <label className="filter-row flex min-h-14 items-center justify-between gap-3 text-base font-semibold">Favor my services<input type="checkbox" checked={settings.prioritizeStreaming} disabled={!streamingServices.length} onChange={(event) => setOverrides({ prioritizeStreaming: event.target.checked, useStreamingRank: true })} /></label>
-      {settings.prioritizeStreaming && streamingServices.length > 0 && <label className="flex min-h-12 items-center justify-between gap-3 pl-4 text-sm">Top service first<input type="checkbox" checked={settings.useStreamingRank} onChange={(event) => setOverride("useStreamingRank", event.target.checked)} /></label>}
-      <Link to="/settings#streaming-services" className="block pb-2 text-sm text-violet-300">{streamingServices.length ? "Change your services" : "Choose your services"}</Link>
+      <StreamingPreferenceRows idSuffix="solo" services={streamingServices} prioritize={settings.prioritizeStreaming} useRank={settings.useStreamingRank}
+        onPrioritizeChange={(checked) => setOverrides({ prioritizeStreaming: checked, useStreamingRank: true })}
+        onUseRankChange={(checked) => setOverride("useStreamingRank", checked)}
+        onChangeServices={() => navigate("/settings#streaming-services")} disabled={disabled} />
       {!isPersisted && <p className="text-sm text-amber-300" role="status">Filters apply for this session, but could not be saved on this device.</p>}
     </fieldset>
     {saveStatus === "error" && <p className="mt-3 text-sm text-amber-300" role="alert">Could not save your filters. <button type="button" className="underline" onClick={onRetry}>Retry filters</button></p>}

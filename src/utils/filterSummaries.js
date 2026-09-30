@@ -24,10 +24,11 @@ export function describeRatings(selected = MPAA_RATING_OPTIONS, includeUnknown =
 export function describeGenres(selected, available = [], includeUnknown = true) {
   if (!Array.isArray(selected)) return includeUnknown ? "Any genre" : "Listed genres only";
   if (selected.length === 0) return includeUnknown ? "Uncategorized only" : "None";
-  const ordered = available.length ? available.filter((genre) => selected.includes(genre)) : selected;
-  const shown = ordered.length || selected.length;
-  const list = shown <= 3 ? (ordered.length ? ordered : selected).join(", ") : `${shown} genres`;
-  return list;
+  // In the sheet's own order where it knows the genres, so the summary does
+  // not reshuffle as chips are tapped.
+  const ordered = available.filter((genre) => selected.includes(genre));
+  const names = ordered.length ? ordered : selected;
+  return names.length <= 3 ? names.join(", ") : `${names.length} genres`;
 }
 
 export function describeRuntime(min = RUNTIME_FILTER_MIN_MINUTES, max = RUNTIME_FILTER_MAX_MINUTES) {
