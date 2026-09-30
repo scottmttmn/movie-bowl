@@ -649,6 +649,32 @@ describe("BowlDashboard guards", () => {
     confirmSpy.mockRestore();
   });
 
+  it("asks to put a claimed pack title back in the pack while that pack is installed", async () => {
+    const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
+    mocks.state.bowlRow = { ...mocks.state.bowlRow, starter_pack: "nolan-2000s" };
+    mocks.state.bowlData = {
+      remaining: [
+        { id: "claimed", title: "Memento", added_by: "u1", claimed_from_starter_pack: "nolan-2000s", claimed_from_starter_pack_name: "Nolan: The '00s" },
+        { id: "claimed-elsewhere", title: "Heat", added_by: "u1", claimed_from_starter_pack: "mann-1990s", claimed_from_starter_pack_name: "Mann: The '90s" },
+      ],
+      watched: [],
+    };
+    renderDashboard();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Details for Memento" }));
+    fireEvent.click(await screen.findByRole("button", { name: 'Delete "Memento" from this bowl' }));
+    expect(confirmSpy).toHaveBeenLastCalledWith(
+      'Put "Memento" back in the Nolan: The \'00s pack? Anyone can claim it again.'
+    );
+    await waitFor(() => expect(mocks.state.handleDeleteMovie).toHaveBeenCalledWith("claimed"));
+
+    // Claimed from a pack the bowl no longer has: deleting really deletes.
+    fireEvent.click(await screen.findByRole("button", { name: "Details for Heat" }));
+    fireEvent.click(await screen.findByRole("button", { name: 'Delete "Heat" from this bowl' }));
+    expect(confirmSpy).toHaveBeenLastCalledWith('Delete "Heat" from this bowl?');
+    confirmSpy.mockRestore();
+  });
+
   it("leaves the details open and says so when the delete does not land", async () => {
     const confirmSpy = vi.spyOn(window, "confirm").mockReturnValue(true);
     mocks.state.handleDeleteMovie.mockResolvedValueOnce(false);

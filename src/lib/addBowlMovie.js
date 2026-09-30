@@ -7,7 +7,7 @@ import { getMovieNoteValidationError, normalizeMovieNote } from "../utils/movieN
 import { getMovieAttributionLabel, isStarterPackMovie } from "../utils/drawBuckets";
 import { OFFLINE_MESSAGE, describeNetworkError, isOffline, isOfflineError } from "../utils/networkErrors";
 
-export const BOWL_MOVIE_FIELDS = "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, is_pinned, added_by, added_by_name, starter_pack, added_at, drawn_at, drawn_by, snapshot_at";
+export const BOWL_MOVIE_FIELDS = "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, is_pinned, added_by, added_by_name, starter_pack, claimed_from_starter_pack, claimed_from_starter_pack_name, added_at, drawn_at, drawn_by, snapshot_at";
 export const addResult = (ok, code = null, message = null) => ({ ok, code, message });
 export function getPositiveTmdbId(movie) {
   const id = Number(movie?.tmdb_id ?? movie?.id);

@@ -832,21 +832,18 @@ describe("useBowl handleDraw integration", () => {
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.bowl.remaining).toHaveLength(1);
 
+    mocks.rpcResponses.push({ data: { id: "m1", returned_to_pack: false, movie: null }, error: null });
     let deleted;
     await act(async () => {
       deleted = await result.current.handleDeleteMovie("m1");
     });
 
     expect(deleted).toBe(true);
-    expect(mocks.deleteCalled).toBe(true);
-    expect(mocks.deleteEqFilters).toEqual(
-      expect.arrayContaining([
-        { key: "id", value: "m1" },
-        { key: "bowl_id", value: "bowl-1" },
-        { key: "added_by", value: "user-1" },
-        { key: "drawn_at", value: null },
-      ])
-    );
+    expect(mocks.rpcCalls).toContainEqual({
+      name: "remove_own_bowl_movie",
+      params: { p_bowl_id: "bowl-1", p_bowl_movie_id: "m1" },
+    });
+    expect(mocks.deleteCalled).toBe(false);
 
     await waitFor(() => {
       expect(result.current.bowl.remaining).toHaveLength(0);

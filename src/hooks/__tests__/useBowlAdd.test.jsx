@@ -78,6 +78,15 @@ describe("shared add session", () => {
     expect(result.current.actionAnnouncement).toBe("Removed Wildcard from Friday Night");
   });
 
+  it("says a removed pack claim went back to its pack", async () => {
+    const { result } = await open();
+    await act(async () => { await result.current.submit(custom); });
+    mocks.remove.mockResolvedValue({ ok: true, returnedToPack: true, movie: { id: "saved", added_by_name: "Nolan: The '00s" } });
+    await act(async () => { await result.current.removeAddedMovie("saved"); });
+    expect(result.current.additions).toEqual([]);
+    expect(result.current.actionAnnouncement).toBe("Put Wildcard back in the Nolan: The '00s pack");
+  });
+
   it("disposes pending row actions when the account provider unmounts", async () => {
     let finish;
     mocks.updateNote.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));

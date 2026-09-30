@@ -171,7 +171,9 @@ export function BowlAddProvider({ children }) {
     if (!current()) return result;
     if (result.ok && action === "remove") {
       update({ additions: latest.current.additions.filter((item) => item.movie.id !== movieId),
-        actionAnnouncement: `Removed ${entry.movie.title} from ${entry.bowlName}`,
+        actionAnnouncement: result.returnedToPack
+          ? `Put ${entry.movie.title} back in the ${result.movie?.added_by_name || "starter"} pack`
+          : `Removed ${entry.movie.title} from ${entry.bowlName}`,
         ...(latest.current.operation?.submissionId === movieId ? { result: null } : {}) });
     } else {
       patchEntry({ pending: null, error: result.ok ? null : result,

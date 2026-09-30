@@ -70,6 +70,7 @@ export default function BowlDashboard() {
     
     const { bowlId } = useParams();
     const [drawMethod, setDrawMethod] = useState(DEFAULT_DRAW_METHOD);
+    const [installedStarterPack, setInstalledStarterPack] = useState(null);
     const {
       bowl,
       isLoading,
@@ -679,7 +680,7 @@ export default function BowlDashboard() {
         // the screen thinks can draw.
         let { data, error } = await supabase
           .from("bowls")
-          .select("name, owner_id, draw_access_mode, draw_method")
+          .select("name, owner_id, draw_access_mode, draw_method, starter_pack")
           .eq("id", bowlId)
           .single();
 
@@ -751,6 +752,7 @@ export default function BowlDashboard() {
             : DRAW_ACCESS_MODE_ALL
         );
         setDrawMethod(normalizeDrawMethod(data?.draw_method));
+        setInstalledStarterPack(data?.starter_pack || null);
       };
 
       loadBowlName();
@@ -764,7 +766,13 @@ export default function BowlDashboard() {
     // the thing it was describing is gone.
     const confirmAndDeleteMovie = async (movie) => {
       setMyMoviesErrorMessage(null);
-      const shouldDelete = window.confirm(`Delete "${movie.title}" from this bowl?`);
+      // A title claimed from the pack still installed here goes back to it
+      // rather than leaving the bowl, so the question has to say so.
+      const returnsToPack = Boolean(movie.claimed_from_starter_pack)
+        && movie.claimed_from_starter_pack === installedStarterPack;
+      const shouldDelete = window.confirm(returnsToPack
+        ? `Put "${movie.title}" back in the ${movie.claimed_from_starter_pack_name} pack? Anyone can claim it again.`
+        : `Delete "${movie.title}" from this bowl?`);
       if (!shouldDelete) return;
       const deleted = await handleDeleteMovie(movie.id);
       if (deleted) {

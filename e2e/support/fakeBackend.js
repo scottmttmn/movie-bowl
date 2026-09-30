@@ -867,6 +867,41 @@ export class FakeBackend {
       return;
     }
 
+    if (rpcName === "remove_own_bowl_movie") {
+      const movie = this.state.bowl_movies.find(
+        (row) =>
+          row.id === args.p_bowl_movie_id &&
+          row.bowl_id === args.p_bowl_id &&
+          row.added_by === this.state.currentUser.id &&
+          !row.drawn_at
+      );
+      if (!movie) {
+        await fulfillJson(
+          route,
+          { message: "This movie is no longer available to remove.", code: "P0001" },
+          400
+        );
+        return;
+      }
+      const bowl = this.state.bowls.find((row) => row.id === movie.bowl_id);
+      if (movie.claimed_from_starter_pack && movie.claimed_from_starter_pack === bowl?.starter_pack) {
+        Object.assign(movie, {
+          added_by: null,
+          added_by_name: movie.claimed_from_starter_pack_name,
+          starter_pack: movie.claimed_from_starter_pack,
+          claimed_from_starter_pack: null,
+          claimed_from_starter_pack_name: null,
+          note: null,
+          is_pinned: false,
+        });
+        await fulfillJson(route, { id: movie.id, returned_to_pack: true, movie });
+        return;
+      }
+      this.state.bowl_movies = this.state.bowl_movies.filter((row) => row !== movie);
+      await fulfillJson(route, { id: movie.id, returned_to_pack: false, movie: null });
+      return;
+    }
+
     if (rpcName === "update_own_bowl_movie_note") {
       const movie = this.state.bowl_movies.find(
         (row) =>
