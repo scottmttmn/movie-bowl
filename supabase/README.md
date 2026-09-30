@@ -57,9 +57,9 @@ Set `DATABASE_URL` to a superuser connection if the server is not
 `.github/workflows/ci.yml` runs, against a PostgreSQL that exists for the length
 of the job.
 
-A clean run is **34 suites / 839 assertions, all passing**. If yours is not
-green, that is your change. `npm run test:counts -- pgtap` holds those numbers
-to the sentence in `CLAUDE.md`.
+A clean run passes every suite; the expected suite and assertion counts are the
+sentence in `CLAUDE.md`, which `npm run test:counts -- pgtap` holds to the run.
+If yours is not green, that is your change.
 
 ## The baseline
 

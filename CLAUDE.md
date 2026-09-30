@@ -5,7 +5,9 @@ Guidance for AI assistants working in this repository.
 Movie Bowl is a collaborative app for keeping a shared movie list and randomly
 drawing what to watch next. Read `README.md` for the product overview and env
 setup, and `STABILITY.md` for the reliability guardrails — this file covers how
-the code is put together and what to do when changing it.
+the code is put together and what to do when changing it. `ONBOARDING.md` is
+the first-week path for a new human contributor; keep it true when setup or the
+workflow it describes changes.
 
 ## Commands
 

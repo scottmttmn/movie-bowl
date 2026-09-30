@@ -30,7 +30,6 @@ Before merging meaningful product changes, make sure these flows still work:
 - invite accept
 - add movie
 - draw movie
-- queue + auto-promotion
 - public add links
 - watch list
 
@@ -79,7 +78,7 @@ can tell those apart from a real regression once they have accumulated.
 
 ### 3. Treat permissions as a first-class test surface
 
-Whenever a feature touches ownership, membership, public access, or queue/add-link behavior, make sure the test coverage includes the relevant boundary:
+Whenever a feature touches ownership, membership, public access, or add-link behavior, make sure the test coverage includes the relevant boundary:
 
 - owner vs member
 - authenticated vs public

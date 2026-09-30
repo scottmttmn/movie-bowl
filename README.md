@@ -101,6 +101,10 @@ count, or to a rotation that gives the next turn to whoever has waited longest.
 
 ## Local Setup
 
+New to the project? Start with [ONBOARDING.md](ONBOARDING.md): it covers a
+first week, a local backend of your own, and what not to touch yet. The steps
+below are the full production configuration.
+
 Provider title links are optional and off until configured; production has them
 enabled. See [Provider title links](#provider-title-links) for activation and
 cache maintenance.
@@ -163,6 +167,7 @@ simply be removed.
 - `npm run test` - start Vitest in watch mode
 - `npm run test:run` - run tests once
 - `npm run test:failures` - name what failed in the last `test:run`
+- `npm run test:counts` - check the last runs against the counts in `CLAUDE.md`
 - `npm run test:coverage` - run tests with coverage
 - `npm run test:e2e` - run the local Playwright smoke suite
 - `node scripts/refresh-provider-logos.mjs` - regenerate `src/utils/providerLogos.js`
