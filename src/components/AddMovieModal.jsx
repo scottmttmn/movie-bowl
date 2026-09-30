@@ -448,13 +448,11 @@ export default function AddMovieModal({
                   </p>
                 )}
                 {/* A pack pick names no person, so where a name would go it
-                    shows the slip the pack put in -- the same paper the shelf
-                    writes its decades on. */}
+                    names the pack, in the same quiet line. The paper slip used
+                    to stand here and sat in the trailer button's row. */}
                 {addedByLabel && isStarterPackMovie(movie) && (
-                  <p className="starter-pack-slip mt-4 inline-flex max-w-full flex-col break-words">
-                    <span className="text-sm font-semibold">From the</span>{" "}
-                    <span>{addedByLabel}</span>{" "}
-                    <span className="text-sm font-semibold">pack</span>
+                  <p className="mt-3 break-words text-sm text-slate-400">
+                    <span>From the</span>{" "}<span className="text-slate-200">{addedByLabel}</span>{" "}<span>pack</span>
                   </p>
                 )}
                 {addedByLabel && !isStarterPackMovie(movie) && (
