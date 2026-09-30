@@ -193,6 +193,20 @@ describe("resolveRentTarget", () => {
     expect(resolveRentTarget({ providerLinks: [], watchUrl: null, canRent: true })).toBeNull();
   });
 
+  it("offers no rental unless it is sure none of your services carry the movie", () => {
+    const rental = [{ service: "Apple TV", type: "rent", webUrl: "https://tv.apple.com/movie/1" }];
+    const base = { providerLinks: rental, userServices: ["Netflix"], movieProviders: ["Max"] };
+    expect(resolveRentTarget(base)).toMatchObject({ storeName: "Apple TV" });
+    // A failed read came back empty; that is not proof it is on nothing you have.
+    expect(resolveRentTarget({ ...base, movieProviders: [], availabilityStatus: "failed" })).toBeNull();
+    expect(resolveRentTarget({ ...base, movieProviders: ["Max", "Netflix"] })).toBeNull();
+    expect(resolveRentTarget({
+      ...base,
+      movieProviders: [],
+      providerLinks: [...rental, { service: "Netflix", type: "sub", webUrl: "https://www.netflix.com/title/1" }],
+    })).toBeNull();
+  });
+
   it("never starts a rental on its own after the pre-roll", () => {
     const target = resolveRentTarget({ providerLinks: links });
     for (const surface of Object.values(AUTO_START_SURFACE)) {

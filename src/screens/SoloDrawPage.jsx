@@ -194,14 +194,17 @@ export default function SoloDrawPage() {
   ]);
 
   const revealedMovieRentCandidate = useMemo(() => {
-    if (!revealedMovie || revealedMovieMatchingProviders.length > 0) return null;
+    if (!revealedMovie) return null;
     return resolveRentTarget({
       providerLinks,
       rentFrom: settings.rentFrom,
       watchUrl: revealedMovie.streamingWatchUrl,
       canRent: (revealedMovie.streamingAvailability?.rent || []).length > 0,
+      userServices: streamingServices,
+      movieProviders: revealedMovie.streamingProviders || [],
+      availabilityStatus: revealedMovie.streamingProviderStatus,
     });
-  }, [revealedMovie, revealedMovieMatchingProviders, providerLinks, settings.rentFrom]);
+  }, [revealedMovie, streamingServices, providerLinks, settings.rentFrom]);
 
   const toggleBowl = (bowlId) => {
     setScopeOverride((previous) => {

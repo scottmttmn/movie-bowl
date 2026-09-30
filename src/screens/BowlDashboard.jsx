@@ -605,14 +605,17 @@ export default function BowlDashboard() {
     ]);
 
     const drawnMovieRentCandidate = useMemo(() => {
-      if (!drawnMovie || drawnMovieMatchingProviders.length > 0) return null;
+      if (!drawnMovie) return null;
       return resolveRentTarget({
         providerLinks,
         rentFrom: defaultDrawSettings.rentFrom,
         watchUrl: drawnMovie.streamingWatchUrl,
         canRent: (drawnMovie.streamingAvailability?.rent || []).length > 0,
+        userServices: userStreamingServices,
+        movieProviders: drawnMovie.streamingProviders || [],
+        availabilityStatus: drawnMovie.streamingProviderStatus,
       });
-    }, [drawnMovie, drawnMovieMatchingProviders, providerLinks, defaultDrawSettings.rentFrom]);
+    }, [drawnMovie, userStreamingServices, providerLinks, defaultDrawSettings.rentFrom]);
 
     useEffect(() => {
       if (didApplyDefaultDrawSettings || isLoadingUserPreferences || preferencesLoadError) return;
