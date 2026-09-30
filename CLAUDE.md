@@ -35,7 +35,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (171 test files / 1649 tests, 110 Playwright tests with 12 skipped,
+fully green (173 test files / 1671 tests, 110 Playwright tests with 12 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -434,6 +434,11 @@ post-rank pool, including the fallback behavior for manual titles. Movie
 ratings are cached in-module for an hour; providers for ten minutes
 with in-flight dedupe (`lib/streamingProviders.js`). Both expose a
 `clear*Cache()` for tests.
+
+Bowl Settings' Streaming card (`BowlServiceChart`, `utils/bowlServiceChart.js`)
+charts which paid services carry the bowl's remaining titles, read from the same
+daily cache as the filters so it costs no TMDB calls. It counts titles, never
+chances of being drawn, and stays off the bowl page on purpose.
 
 Draw access is per bowl: `bowls.draw_access_mode` is `"all_members"` or
 `"selected_members"`, with the allow-list in `bowl_draw_permissions`, saved

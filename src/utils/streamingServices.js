@@ -19,6 +19,14 @@ export const AVAILABLE_STREAMING_SERVICES = [
   "Kanopy",
 ];
 
+// Free and library services. They cost nothing to have, so the bowl's service
+// chart, which is about what is worth paying for, leaves them out.
+export const FREE_STREAMING_SERVICES = ["Tubi", "Pluto TV", "The Roku Channel", "Kanopy"];
+
+export const PAID_STREAMING_SERVICES = AVAILABLE_STREAMING_SERVICES.filter(
+  (service) => !FREE_STREAMING_SERVICES.includes(service)
+);
+
 const SERVICE_ALIASES = {
   "amazon prime video": "Prime Video",
   "prime video": "Prime Video",

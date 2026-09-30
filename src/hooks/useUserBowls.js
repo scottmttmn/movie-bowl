@@ -104,6 +104,8 @@ export function UserBowlsProvider({ children, userId, enabled = true }) {
     document.addEventListener("visibilitychange", foreground);
     const unsubscribe = subscribeBowlChanges((change) => {
       if (change.type === "add" && change.phase !== "success") return;
+      // A warmed cache row changes no bowl's membership or counts.
+      if (change.type === "metadata") return;
       if (!change.userId || change.userId === userId) void refresh({ force: true });
     });
     return () => {

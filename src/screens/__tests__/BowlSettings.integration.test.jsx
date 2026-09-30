@@ -1031,7 +1031,10 @@ describe("BowlSettings integration", () => {
         }),
       ])
     );
-    expect(mocks.supabase.rpc).toHaveBeenCalledTimes(1);
+    // The only other call is the Streaming card's availability read.
+    expect(
+      mocks.supabase.rpc.mock.calls.filter(([name]) => name !== "get_bowl_filter_metadata")
+    ).toHaveLength(1);
     expect(mocks.supabase.rpc).toHaveBeenCalledWith(
       "get_bowl_profile_directory",
       { p_bowl_id: "bowl-1" }
@@ -1429,14 +1432,16 @@ describe("BowlSettings integration", () => {
     expect(links.map((link) => link.getAttribute("href"))).toEqual([
       "#drawing",
       "#starter-pack",
+      "#streaming",
       "#people",
       "#add-links",
     ]);
     // Owner is always allowed, plus the one selected member.
     expect(links[0]).toHaveTextContent("Rotation • 2 can draw");
     await waitFor(() => expect(links[1]).toHaveTextContent("None"));
-    expect(links[2]).toHaveTextContent("2 members • 1 pending");
-    expect(links[3]).toHaveTextContent("0 active of 1");
+    await waitFor(() => expect(links[2]).toHaveTextContent("None on paid services"));
+    expect(links[3]).toHaveTextContent("2 members • 1 pending");
+    expect(links[4]).toHaveTextContent("0 active of 1");
   });
 
   it("keeps owner-only state out of a member's header nav", async () => {
@@ -1474,8 +1479,8 @@ describe("BowlSettings integration", () => {
     ).getAllByRole("link");
     expect(links[0]).toHaveTextContent("Rotation");
     expect(links[0]).not.toHaveTextContent("can draw");
-    expect(links[2]).toHaveTextContent("2 members");
-    expect(links[2]).not.toHaveTextContent("pending");
+    expect(links[3]).toHaveTextContent("2 members");
+    expect(links[3]).not.toHaveTextContent("pending");
   });
 
   it("confirms on the copy button itself, not only in the page banner", async () => {
