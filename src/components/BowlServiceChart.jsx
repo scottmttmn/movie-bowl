@@ -20,7 +20,8 @@ export default function BowlServiceChart({ bowlId, onSummaryChange }) {
   const { status, chart, totalCount, uncheckedCount } = useBowlServiceChart(bowlId);
   const topRow = chart?.rows.find((row) => row.count > 0) || null;
   const isAllUnchecked = Boolean(chart) && totalCount > 0 && chart.titleCount === 0;
-  let summary = null;
+  // The nav tile keeps the page's placeholder until there is an answer.
+  let summary = status === "error" ? "Unavailable" : "…";
   if (status === "ready") {
     if (topRow) summary = `${topRow.service} carries ${topRow.count}`;
     else if (isAllUnchecked) summary = "Not checked yet";

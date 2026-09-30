@@ -105,12 +105,17 @@ describe("BowlServiceChart", () => {
 
   it("reports a failed read rather than an empty chart", async () => {
     vi.spyOn(console, "error").mockImplementation(() => {});
+    const onSummaryChange = vi.fn();
     mocks.state.rpcError = { message: "boom" };
     mocks.state.rows = [row(1, ["Max"])];
 
-    render(<BowlServiceChart bowlId="bowl-1" />);
+    render(<BowlServiceChart bowlId="bowl-1" onSummaryChange={onSummaryChange} />);
 
     expect(await screen.findByText(/couldn't be loaded right now/)).toBeInTheDocument();
+    await vi.waitFor(() => expect(onSummaryChange).toHaveBeenLastCalledWith("Unavailable"));
+    // Never blank while loading: the tile holds the placeholder until an answer.
+    expect(onSummaryChange).not.toHaveBeenCalledWith(null);
+    expect(onSummaryChange).toHaveBeenCalledWith("…");
     expect(screen.queryByRole("list")).not.toBeInTheDocument();
   });
 
