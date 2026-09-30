@@ -26,6 +26,17 @@ describe("StreamingPreferenceRows", () => {
     expect(handlers.onChangeServices).toHaveBeenCalledTimes(1);
   });
 
+  it("names a service that has no logo and counts services past six", () => {
+    renderRows({ services: ["Netflix", "Max", "Hulu", "Disney+", "Peacock", "Paramount+", "Apple TV+", "Showtime"] });
+    const services = screen.getByRole("button", { name: "Change your streaming services" });
+    expect(services.querySelectorAll("img")).toHaveLength(6);
+    expect(services).toHaveTextContent("+2");
+
+    cleanup();
+    renderRows({ services: ["Showtime"] });
+    expect(screen.getByRole("button", { name: "Change your streaming services" })).toHaveTextContent("Showtime");
+  });
+
   it("hides ranking while services are not favored", () => {
     renderRows({ prioritize: false });
     expect(screen.queryByRole("checkbox", { name: "Top service first" })).toBeNull();

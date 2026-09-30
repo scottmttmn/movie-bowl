@@ -1,4 +1,6 @@
 import ServiceLogo from "./ServiceLogo";
+import { getProviderLogoUrl } from "../utils/getProviderLogoUrl";
+import { getServiceLogoPath } from "../utils/providerLogos";
 
 function Switch({ id, label, checked, onChange, disabled }) {
   return (
@@ -18,6 +20,7 @@ function Switch({ id, label, checked, onChange, disabled }) {
   );
 }
 
+const MAX_LOGOS = 6;
 const ARROW = <path d="M9 6l6 6-6 6" />;
 
 // The streaming rows of a filter sheet, shared by the bowl and solo draw so
@@ -57,13 +60,21 @@ export default function StreamingPreferenceRows({
           <button
             type="button"
             aria-label="Change your streaming services"
-            className="mt-1 flex max-w-full items-center gap-1.5 rounded-md py-0.5 text-slate-500 hover:text-slate-300"
+            className="mt-1 flex max-w-full flex-wrap items-center gap-1.5 rounded-md py-0.5 text-slate-500 hover:text-slate-300"
             onClick={onChangeServices}
             disabled={disabled}
           >
-            {services.slice(0, 6).map((service) => (
-              <ServiceLogo key={service} service={service} className="h-6 w-6" />
+            {/* A service with no logo is named instead, and any past six are
+                counted, so the row never looks like fewer services than the
+                draw is using. */}
+            {services.slice(0, MAX_LOGOS).map((service) => (
+              getProviderLogoUrl(getServiceLogoPath(service), "w92")
+                ? <ServiceLogo key={service} service={service} className="h-6 w-6" />
+                : <span key={service} className="shrink-0 rounded-md border border-slate-700/70 bg-slate-800/60 px-1.5 py-0.5 text-xs font-semibold text-slate-300">{service}</span>
             ))}
+            {services.length > MAX_LOGOS && (
+              <span className="shrink-0 text-xs font-semibold tabular-nums text-slate-400">+{services.length - MAX_LOGOS}</span>
+            )}
             <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4 shrink-0" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">{ARROW}</svg>
           </button>
         </div>
