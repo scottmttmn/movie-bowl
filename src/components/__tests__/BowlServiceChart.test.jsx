@@ -73,15 +73,18 @@ describe("BowlServiceChart", () => {
     expect(screen.getByText(/Counts movies, not chances of being drawn/)).toBeInTheDocument();
     expect(screen.queryByText(/Tubi/)).not.toBeInTheDocument();
     // The summary is reported from an effect, which can land after the text.
-    await vi.waitFor(() => expect(onSummaryChange).toHaveBeenLastCalledWith("Max carries 3"));
+    // It counts what the viewer can stream, not the tallest bar, which is Max's.
+    await vi.waitFor(() => expect(onSummaryChange).toHaveBeenLastCalledWith("1 of 4 on your services"));
   });
 
   it("names the service carrying the most when the viewer has none", async () => {
     mocks.state.rows = [row(1, ["Max"]), row(2, ["Max", "Netflix"])];
 
-    render(<BowlServiceChart bowlId="bowl-1" />);
+    const onSummaryChange = vi.fn();
+    render(<BowlServiceChart bowlId="bowl-1" onSummaryChange={onSummaryChange} />);
 
     expect(await screen.findByText(/Max carries the most/)).toBeInTheDocument();
+    await vi.waitFor(() => expect(onSummaryChange).toHaveBeenLastCalledWith("Most on Max"));
   });
 
   it("says which of your services add nothing you can't already stream", async () => {

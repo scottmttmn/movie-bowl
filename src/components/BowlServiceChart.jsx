@@ -22,9 +22,13 @@ export default function BowlServiceChart({ bowlId, onSummaryChange }) {
   const isAllUnchecked = Boolean(chart) && totalCount > 0 && chart.titleCount === 0;
   // The nav tile keeps the page's placeholder until there is an answer.
   let summary = status === "error" ? "Unavailable" : "…";
+  // Told from the viewer's side, like the headline: the tallest bar is often a
+  // service they don't have, and naming it alone reads as if it were theirs.
   if (status === "ready") {
-    if (topRow) summary = `${topRow.service} carries ${topRow.count}`;
-    else if (isAllUnchecked) summary = "Not checked yet";
+    if (isAllUnchecked) summary = "Not checked yet";
+    else if (chart.hasServices && chart.titleCount > 0) {
+      summary = `${chart.coveredCount} of ${chart.titleCount} on your services`;
+    } else if (topRow) summary = `Most on ${topRow.service}`;
     else summary = "None on paid services";
   }
 

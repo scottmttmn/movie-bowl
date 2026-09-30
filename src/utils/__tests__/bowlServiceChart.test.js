@@ -121,6 +121,8 @@ describe("buildBowlServiceChart", () => {
 
     // Max carries two, but one of them is already free on Tubi.
     expect(chart.bestAddition).toEqual({ service: "Max", count: 1 });
+    // The first title is free on Tubi and the third is on Netflix.
+    expect(chart.coveredCount).toBe(2);
     // Netflix's only title is on Tubi too, and Tubi itself never gets a bar.
     expect(chart.idleServices).toEqual(["Netflix"]);
     expect(chart.rows.map((row) => row.service)).toEqual(["Max", "Netflix"]);

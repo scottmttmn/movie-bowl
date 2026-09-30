@@ -71,6 +71,8 @@ export function buildBowlServiceChart({ metadataByTmdbId, userServices = [] }) {
   return {
     titleCount: titles.length,
     streamingCount: titles.filter((services) => toPaid(services).length > 0).length,
+    // Titles the viewer can already stream, free services included.
+    coveredCount: titles.filter((services) => services.some((service) => ownedKeys.has(service.toLowerCase()))).length,
     maxCount: Math.max(0, ...rows.map((row) => row.count)),
     rows,
     bestAddition,
