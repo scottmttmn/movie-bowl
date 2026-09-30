@@ -26,7 +26,7 @@ export default function SoloDrawFilters({ settings, setOverride, setOverrides, s
     <fieldset disabled={disabled} className="solo-filter-controls mt-4 disabled:opacity-50">
       <FilterSection title="Rating" value={describeRatings(settings.selectedRatings ?? MPAA_RATING_OPTIONS, settings.includeUnknownRatings)}><div className="mt-3">{chips("selectedRatings", MPAA_RATING_OPTIONS, "includeUnknownRatings", "Draw rating")}</div></FilterSection>
       <FilterSection title="Genre" value={describeGenres(settings.selectedGenres, availableGenres, settings.includeUnknownGenres)}><div className="mt-3">{chips("selectedGenres", availableGenres, "includeUnknownGenres", "Draw genre")}</div></FilterSection>
-      <FilterSection title="Length" value={describeRuntime(settings.runtimeMinMinutes, settings.runtimeMaxMinutes)}>
+      <FilterSection title="Length" value={describeRuntime(settings.runtimeMinMinutes, settings.runtimeMaxMinutes, settings.includeUnknownRuntime)}>
         <div className="mt-3 grid grid-cols-2 gap-3">
           <label className="text-sm">Minimum minutes<input type="number" min="0" max={settings.runtimeMaxMinutes} value={settings.runtimeMinMinutes} className="input-field mt-1 w-full text-sm"
             onChange={(event) => setOverride("runtimeMinMinutes", Math.min(settings.runtimeMaxMinutes, Math.max(0, Number(event.target.value))))} /></label>

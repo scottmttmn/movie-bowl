@@ -28,14 +28,16 @@ export function describeGenres(selected, available = [], includeUnknown = true) 
   // not reshuffle as chips are tapped.
   const ordered = available.filter((genre) => selected.includes(genre));
   const names = ordered.length ? ordered : selected;
-  return names.length <= 3 ? names.join(", ") : `${names.length} genres`;
+  const list = names.length <= 3 ? names.join(", ") : `${names.length} genres`;
+  return includeUnknown ? `${list} or uncategorized` : list;
 }
 
-export function describeRuntime(min = RUNTIME_FILTER_MIN_MINUTES, max = RUNTIME_FILTER_MAX_MINUTES) {
+export function describeRuntime(min = RUNTIME_FILTER_MIN_MINUTES, max = RUNTIME_FILTER_MAX_MINUTES, includeUnknown = true) {
   const hasMin = min > RUNTIME_FILTER_MIN_MINUTES;
   const hasMax = max < RUNTIME_FILTER_MAX_MINUTES;
-  if (!hasMin && !hasMax) return "Any length";
-  if (!hasMin) return `Up to ${formatMinutes(max)}`;
-  if (!hasMax) return `At least ${formatMinutes(min)}`;
-  return `${formatMinutes(min)} to ${formatMinutes(max)}`;
+  if (!hasMin && !hasMax) return includeUnknown ? "Any length" : "Known lengths only";
+  let range = `${formatMinutes(min)} to ${formatMinutes(max)}`;
+  if (!hasMin) range = `Up to ${formatMinutes(max)}`;
+  else if (!hasMax) range = `At least ${formatMinutes(min)}`;
+  return includeUnknown ? `${range} or unknown` : range;
 }

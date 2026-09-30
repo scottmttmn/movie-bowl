@@ -333,7 +333,7 @@ export default function BowlDashboard() {
     );
     const ratingSummary = describeRatings(selectedRatings, includeUnknownRatings);
     const genreSummary = describeGenres(selectedGenres, availableDrawGenres, includeUnknownGenres);
-    const runtimeSummary = describeRuntime(runtimeMinMinutes, runtimeMaxMinutes);
+    const runtimeSummary = describeRuntime(runtimeMinMinutes, runtimeMaxMinutes, includeUnknownRuntime);
     // One filter object for both the pool count and the draw itself, so the
     // number on screen cannot drift from what the draw actually applies.
     const drawFilters = useMemo(
