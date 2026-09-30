@@ -510,6 +510,7 @@ export default function TvTonightScreen({ userId }) {
   const [trailerQueueStatus, setTrailerQueueStatus] = useState("idle");
   const [isTheaterPending, setIsTheaterPending] = useState(false);
   const [isTheaterPlaying, setIsTheaterPlaying] = useState(false);
+  const theaterRef = useRef(null);
   const { launchError, clearLaunchError, noteLaunch } = useProviderLaunchError();
   const providerLaunchMessage = launchError?.message || null;
   const drawInFlightRef = useRef(false);
@@ -833,10 +834,14 @@ export default function TvTonightScreen({ userId }) {
 
   // The feature card ran its course. Previews only play after a fresh draw,
   // never on a reveal restored from a provider handoff, so coming back from
-  // the app cannot send the room straight back into it.
+  // the app cannot send the room straight back into it. The lights stay down
+  // through a hand-off: the preroll lifts them behind the provider app a
+  // moment later and ends through onFinish.
   const completeTheater = useCallback(() => {
-    endTheater();
-    if (!autoStartCandidate) return;
+    if (!autoStartCandidate) {
+      endTheater();
+      return;
+    }
     beginProviderLaunch();
     noteLaunch(autoStartCandidate.url);
     window.open(autoStartCandidate.url, "_blank", "noopener,noreferrer");
@@ -862,7 +867,8 @@ export default function TvTonightScreen({ userId }) {
     onBack: () => {
       if (isDrawing) return;
       if (isTheaterPlaying) {
-        endTheater();
+        // The lights come up on the way out; with no overlay to ask, just end.
+        if (!theaterRef.current?.leave?.()) endTheater();
         return;
       }
       if (pendingReturn) {
@@ -1065,7 +1071,9 @@ export default function TvTonightScreen({ userId }) {
             queue={trailerQueue}
             featureTitle={drawnMovie.title}
             featureServiceName={autoStartCandidate?.serviceName}
+            handsOff={Boolean(autoStartCandidate)}
             captions={Boolean(defaultDrawSettings.prerollCaptionsEnabled)}
+            ref={theaterRef}
             onFinish={endTheater}
             onComplete={completeTheater}
           />

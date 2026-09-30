@@ -163,6 +163,7 @@ export default function TvSoloDrawScreen({ userId }) {
   const [trailerQueue, setTrailerQueue] = useState([]);
   const [isTheaterPending, setIsTheaterPending] = useState(false);
   const [isTheaterPlaying, setIsTheaterPlaying] = useState(false);
+  const theaterRef = useRef(null);
   const { launchError, clearLaunchError, noteLaunch } = useProviderLaunchError();
   const providerLaunchMessage = launchError?.message || null;
   const drawBowlRef = useRef(null);
@@ -334,9 +335,13 @@ export default function TvSoloDrawScreen({ userId }) {
       ? preferredWebLaunchCandidate
       : null;
 
+  // The lights stay down through a hand-off: the preroll lifts them behind
+  // the provider app a moment later and ends through onFinish.
   const completeTheater = useCallback(() => {
-    endTheater();
-    if (!autoStartCandidate) return;
+    if (!autoStartCandidate) {
+      endTheater();
+      return;
+    }
     beginProviderLaunch();
     noteLaunch(autoStartCandidate.url);
     window.open(autoStartCandidate.url, "_blank", "noopener,noreferrer");
@@ -452,7 +457,8 @@ export default function TvSoloDrawScreen({ userId }) {
     onBack: () => {
       if (isBusy) return;
       if (isTheaterPlaying) {
-        endTheater();
+        // The lights come up on the way out; with no overlay to ask, just end.
+        if (!theaterRef.current?.leave?.()) endTheater();
         return;
       }
       if (showScopeSheet) {
@@ -517,7 +523,9 @@ export default function TvSoloDrawScreen({ userId }) {
             queue={trailerQueue}
             featureTitle={drawnMovie.title}
             featureServiceName={autoStartCandidate?.serviceName}
+            handsOff={Boolean(autoStartCandidate)}
             captions={Boolean(settings.prerollCaptionsEnabled)}
+            ref={theaterRef}
             onFinish={endTheater}
             onComplete={completeTheater}
           />

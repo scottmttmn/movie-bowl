@@ -122,6 +122,9 @@ The dashboard's auto-start calls `location.assign` with the same
 `preferredWebLaunchCandidate` its "Open on Web" link renders, so the two can
 never point at different pages. Both anchors keep their `href`.
 
+Since September 30, 2026 the lights stay down through the hand-off rather
+than coming up on the reveal first; see "House Lights" in `tv-theater-mode.md`.
+
 **Two exits from each pre-roll, not one.** Both components currently route
 every ending through the same `onFinish`: the timer after the feature card, and
 the exits — Back on the television, Escape and the Exit button on the web.

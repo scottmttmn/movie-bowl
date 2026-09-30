@@ -242,6 +242,12 @@ describe("TV theater mode", () => {
     await act(async () => {
       await vi.advanceTimersByTimeAsync(3600);
     });
+    // With nothing to hand off to, the lights come up on the pick first.
+    const overlayAfterCard = screen.getByRole("dialog", { name: /previews before arrival/i });
+    expect(overlayAfterCard).toHaveAttribute("data-lights", "raising");
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1600);
+    });
     vi.useRealTimers();
 
     expect(
@@ -471,14 +477,65 @@ describe("TV theater mode", () => {
 
   it("exits the previews on the remote back button", async () => {
     await drawWithTheaterMode();
-    await screen.findByRole("dialog", { name: /previews before arrival/i });
+    const overlay = await screen.findByRole("dialog", { name: /previews before arrival/i });
+    await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
 
+    vi.useFakeTimers();
     fireEvent.keyDown(window, { key: "Escape" });
+
+    // Back brings the lights up briefly rather than cutting to the reveal.
+    expect(overlay).toHaveAttribute("data-lights", "raising");
+    expect(player.pauseVideo).toHaveBeenCalled();
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(550);
+    });
+    vi.useRealTimers();
 
     expect(
       screen.queryByRole("dialog", { name: /previews before arrival/i })
     ).not.toBeInTheDocument();
     expect(screen.getByText(/tonight's pick/i)).toBeInTheDocument();
+  });
+
+  // Fullscreen shows only the overlay, so fading it early fades to black.
+  it("waits for fullscreen to let go before the lights come up", async () => {
+    await drawWithTheaterMode();
+    const overlay = await screen.findByRole("dialog", { name: /previews before arrival/i });
+
+    let releaseFullscreen;
+    const exitFullscreen = vi.fn(
+      () => new Promise((resolve) => {
+        releaseFullscreen = resolve;
+      })
+    );
+    Object.defineProperty(document, "fullscreenElement", { configurable: true, get: () => overlay });
+    Object.defineProperty(document, "exitFullscreen", { configurable: true, value: exitFullscreen });
+    try {
+      fireEvent.keyDown(window, { key: "Escape" });
+
+      expect(exitFullscreen).toHaveBeenCalledTimes(1);
+      expect(overlay).not.toHaveAttribute("data-lights", "raising");
+
+      await act(async () => {
+        releaseFullscreen();
+      });
+      expect(overlay).toHaveAttribute("data-lights", "raising");
+    } finally {
+      delete document.fullscreenElement;
+      delete document.exitFullscreen;
+    }
+  });
+
+  it("skips the lights on a second Back", async () => {
+    await drawWithTheaterMode();
+    await screen.findByRole("dialog", { name: /previews before arrival/i });
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    fireEvent.keyDown(window, { key: "Escape" });
+
+    expect(
+      screen.queryByRole("dialog", { name: /previews before arrival/i })
+    ).not.toBeInTheDocument();
   });
 
   it("waits for a slow preview lookup instead of dropping the previews", async () => {
@@ -597,9 +654,10 @@ describe("TV theater mode", () => {
       expect(screen.getByRole("heading", { name: /feature presentation/i })).toBeInTheDocument();
     }
 
+    // The card, then a hand-off's hold in the dark, then the lights coming up.
     async function finishFeatureCard() {
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(3600);
+        await vi.advanceTimersByTimeAsync(3600 + 1500 + 1600);
       });
       vi.useRealTimers();
     }
@@ -618,8 +676,20 @@ describe("TV theater mode", () => {
       expect(document.querySelector(".tv-theater-feature-logo")).not.toBeNull();
       expect(openSpy).not.toHaveBeenCalled();
 
+      // The app opens while the room is still dark, so the lit reveal never
+      // flashes up before it.
+      await act(async () => {
+        await vi.advanceTimersByTimeAsync(3600);
+      });
+      expect(openSpy).toHaveBeenCalledTimes(1);
+      expect(screen.getByRole("dialog", { name: /previews before arrival/i })).not.toHaveAttribute(
+        "data-lights",
+        "raising"
+      );
+
       await finishFeatureCard();
 
+      expect(screen.queryByRole("dialog", { name: /previews before arrival/i })).toBeNull();
       expect(openSpy).toHaveBeenCalledTimes(1);
       expect(openSpy).toHaveBeenCalledWith(NETFLIX_TITLE_URL, "_blank", "noopener,noreferrer");
       // The same bookkeeping as a press, so Back from the app finds the reveal.
