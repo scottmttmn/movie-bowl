@@ -72,7 +72,8 @@ describe("BowlServiceChart", () => {
     expect(screen.getByText(/1 movie hasn't been checked yet/)).toBeInTheDocument();
     expect(screen.getByText(/Counts movies, not chances of being drawn/)).toBeInTheDocument();
     expect(screen.queryByText(/Tubi/)).not.toBeInTheDocument();
-    expect(onSummaryChange).toHaveBeenLastCalledWith("Max carries 3");
+    // The summary is reported from an effect, which can land after the text.
+    await vi.waitFor(() => expect(onSummaryChange).toHaveBeenLastCalledWith("Max carries 3"));
   });
 
   it("names the service carrying the most when the viewer has none", async () => {
@@ -99,7 +100,7 @@ describe("BowlServiceChart", () => {
     render(<BowlServiceChart bowlId="bowl-1" onSummaryChange={onSummaryChange} />);
 
     expect(await screen.findByText("No movies left in this bowl to check yet.")).toBeInTheDocument();
-    expect(onSummaryChange).toHaveBeenLastCalledWith("None on paid services");
+    await vi.waitFor(() => expect(onSummaryChange).toHaveBeenLastCalledWith("None on paid services"));
   });
 
   it("reports a failed read rather than an empty chart", async () => {
@@ -123,7 +124,7 @@ describe("BowlServiceChart", () => {
     expect(screen.getByText(/How many of the 2 movies left/)).toBeInTheDocument();
     expect(screen.getByText(/2 movies haven't been checked yet/)).toBeInTheDocument();
     expect(screen.queryByText(/No movies left/)).not.toBeInTheDocument();
-    expect(onSummaryChange).toHaveBeenLastCalledWith("Not checked yet");
+    await vi.waitFor(() => expect(onSummaryChange).toHaveBeenLastCalledWith("Not checked yet"));
   });
 
   it("describes the whole bowl when only some of it has been checked", async () => {

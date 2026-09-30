@@ -43,6 +43,9 @@ export function getDuplicateMovieMessage(movie, existingMovie) {
 // pending row is what normally supplies one, so a claim names its adder the
 // same way that row does.
 const OWN_PROFILE = { display_name: "You" };
+// Long enough for a refresh already running elsewhere to finish writing one
+// title, which is TMDB plus a provider read.
+const METADATA_SETTLE_MS = 15000;
 
 export function createBowlMovieService({ client = supabase, offline = isOffline,
   publish = notifyBowlChange, warmProviders = fetchProviderLinks,
@@ -190,8 +193,14 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
         Promise.resolve().then(() => warmProviders(tmdbId, bowlId)).catch(() => {});
         // The cache row lands only when this returns, after the add's success
         // event has gone out, so anything that read on that event reads again.
+        // "current" can also mean another refresh holds the title right now
+        // and has yet to write it, so that answer gets one later look too.
+        const announce = () => publish({ type: "metadata", bowlId, tmdbId });
         Promise.resolve().then(() => warmMetadata(tmdbId, bowlId, accessToken))
-          .then(() => publish({ type: "metadata", bowlId, tmdbId })).catch(() => {});
+          .then((response) => {
+            announce();
+            if (response?.status === "current") setTimeout(announce, METADATA_SETTLE_MS);
+          }).catch(() => {});
       }
       return settled;
     };

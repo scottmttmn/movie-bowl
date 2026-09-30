@@ -75,6 +75,8 @@ export function buildBowlServiceChart({ metadataByTmdbId, userServices = [] }) {
     rows,
     bestAddition,
     idleServices,
-    hasServices: mine.length > 0,
+    // Any service counts here, free ones too, so the headline's wording
+    // matches the coverage the additions were measured against.
+    hasServices: ownedKeys.size > 0,
   };
 }

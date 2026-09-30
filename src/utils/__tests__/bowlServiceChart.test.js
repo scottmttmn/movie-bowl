@@ -126,6 +126,16 @@ describe("buildBowlServiceChart", () => {
     expect(chart.rows.map((row) => row.service)).toEqual(["Max", "Netflix"]);
   });
 
+  it("treats a viewer with only free services as having services", () => {
+    const chart = buildBowlServiceChart({
+      metadataByTmdbId: metadata([title(["Max"], { ads: ["Tubi"] }), title(["Max"])]),
+      userServices: ["Tubi"],
+    });
+
+    expect(chart.hasServices).toBe(true);
+    expect(chart.bestAddition).toEqual({ service: "Max", count: 1 });
+  });
+
   it("lists the viewer's services that add nothing beyond their others", () => {
     const chart = buildBowlServiceChart({
       metadataByTmdbId: metadata([title(["Netflix", "Hulu"]), title(["Netflix"])]),

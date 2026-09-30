@@ -80,6 +80,22 @@ describe("shared bowl add service", () => {
     finishWarm({});
     await vi.waitFor(() => expect(h.publish).toHaveBeenCalledWith({ type: "metadata", bowlId: "a", tmdbId: 101 }));
   });
+  it("looks again later when another refresh already holds the title", async () => {
+    vi.useFakeTimers();
+    try {
+      const h = harness();
+      const warmMetadata = vi.fn(async () => ({ status: "current" }));
+      const service = createBowlMovieService({ client: h.client, publish: h.publish, offline: h.offline, warmProviders: vi.fn(), warmMetadata });
+      await service.add(h.operation());
+      await vi.waitFor(() => expect(h.publish).toHaveBeenCalledWith({ type: "metadata", bowlId: "a", tmdbId: 101 }));
+      const announced = () => h.publish.mock.calls.filter(([change]) => change.type === "metadata").length;
+      expect(announced()).toBe(1);
+      await vi.advanceTimersByTimeAsync(15000);
+      expect(announced()).toBe(2);
+    } finally {
+      vi.useRealTimers();
+    }
+  });
   // A starter pack title belongs to nobody. Adding it makes it yours, in place.
   it("claims a starter pack slip instead of reporting a duplicate, and skips the warm", async () => {
     const warmProviders = vi.fn(); const warmMetadata = vi.fn();
