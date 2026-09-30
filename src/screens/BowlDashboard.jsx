@@ -1145,7 +1145,12 @@ return (
                   <StarterPackOffer
                     bowlId={bowlId}
                     onSeeAll={() => navigate(`/bowl/${bowlId}/settings${STARTER_PACK_SHELF_HASH}`)}
-                    onInstalled={reloadBowl}
+                    onInstalled={(slug) => {
+                      // The bowl's own read ran while it was empty, so the
+                      // pack it now has is only known from here.
+                      setInstalledStarterPack(slug);
+                      return reloadBowl();
+                    }}
                   />
                 )}
 

@@ -504,8 +504,12 @@ go, it belongs to nobody again, and anyone can claim it.
 - A return does not check the 15-title cap. The cap limits what an install
   pours in, and this slip was already in the bowl.
 - The dashboard's confirmation says "Put ... back in the ... pack?" when the
-  title will return. Removal of your own copies after watching a title
-  elsewhere, and the owner's removals, are unchanged.
+  title will return. Watch History's "take it out of your bowls" goes through
+  the same RPC, so a claimed copy removed there goes back to the pack too.
+- Only the claim writes the origin: an ordinary insert that carries one is
+  refused. And claimed rows leave the bowl only through the RPC: a direct
+  delete, which a tab opened before this change still sends, removes nothing
+  and that tab reports the title as no longer available.
 
 ## Still Open
 
