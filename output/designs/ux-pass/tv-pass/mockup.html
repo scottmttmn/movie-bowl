@@ -22,6 +22,6 @@
 <div class="pair phone"><figure><img src="phone-before.png" alt="Current phone reveal with top copy"><figcaption>Current</figcaption></figure><figure><img src="phone-after.png" alt="Proposed phone reveal without top copy"><figcaption>Proposed</figcaption></figure></div>
 </main>
 <script>
-for(const button of document.querySelectorAll('[data-image],[data-method]'))button.addEventListener('click',()=>{const key=button.dataset.image?'image':'method';document.querySelector(key==='image'?'#tv-view':'#method-view').src=button.dataset[key];for(const sibling of button.parentElement.querySelectorAll('button'))sibling.setAttribute('aria-pressed',String(sibling===button));});
+for(const button of document.querySelectorAll('[data-image],[data-method]'))button.addEventListener('click',()=>{const key=button.dataset.image?'image':'method';const img=document.querySelector(key==='image'?'#tv-view':'#method-view');img.src=button.dataset[key];const current=button.dataset[key].endsWith('-before.png');img.alt=key==='image'?(current?'Current full-screen TV draw with top commentary':'Proposed full-screen TV draw: people’s piles and the bowl, with no top commentary'):(current?'Current TV method mark in an outlined frame beside Friday Night':'Proposed TV method mark: a small loose paper slip beside Friday Night');for(const sibling of button.parentElement.querySelectorAll('button'))sibling.setAttribute('aria-pressed',String(sibling===button));});
 </script>
 </html>
