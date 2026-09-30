@@ -17,15 +17,15 @@ test("movie details can move and remove a saved pin while cards show only poster
 
   const firstCard = page.getByRole("article").filter({ hasText: "First Movie" });
   const secondCard = page.getByRole("article").filter({ hasText: "Second Movie" });
-  await expect(firstCard.getByRole("button", { name: 'Unpin "First Movie"' })).toHaveAttribute("aria-pressed", "true");
-  await expect(page.getByText("Pinned", { exact: true })).toHaveCount(0);
+  await expect(firstCard.getByRole("button", { name: 'Remove "First Movie" from favorites' })).toHaveAttribute("aria-pressed", "true");
+  await expect(page.getByText("Favorite", { exact: true })).toHaveCount(0);
   await expect(page.getByText("Up first when you're picked", { exact: true })).toHaveCount(0);
 
   await secondCard.getByRole("button", { name: "Details" }).click();
   const dialog = page.getByRole("dialog");
-  await expect(dialog.getByText(/One pin per bowl/)).toBeVisible();
-  await dialog.getByRole("button", { name: "Pin movie", exact: true }).click();
-  await expect(dialog.getByRole("button", { name: "Unpin movie", exact: true })).toHaveAttribute("aria-pressed", "true");
+  await expect(dialog.getByText(/One favorite per bowl/)).toBeVisible();
+  await dialog.getByRole("button", { name: "Make this your favorite", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Remove from favorites", exact: true })).toHaveAttribute("aria-pressed", "true");
   await dialog.getByRole("button", { name: "Edit Comment", exact: true }).click();
   await dialog.getByRole("textbox", { name: "Comment (optional)", exact: true }).fill("Remember this recommendation.");
   await dialog.getByRole("button", { name: "Save Comment", exact: true }).click();
@@ -33,17 +33,17 @@ test("movie details can move and remove a saved pin while cards show only poster
   const closeButton = dialog.getByRole("button", { name: "Close", exact: true });
   await expect(closeButton).toBeInViewport();
   await closeButton.click();
-  await expect(secondCard.getByRole("button", { name: 'Unpin "Second Movie"' })).toBeVisible();
-  await expect(firstCard.getByRole("button", { name: /Pin "First Movie" so/ })).toHaveAttribute("aria-pressed", "false");
+  await expect(secondCard.getByRole("button", { name: 'Remove "Second Movie" from favorites' })).toBeVisible();
+  await expect(firstCard.getByRole("button", { name: /Favorite "First Movie" so/ })).toHaveAttribute("aria-pressed", "false");
 
   await page.reload();
-  await expect(secondCard.getByRole("button", { name: 'Unpin "Second Movie"' })).toHaveAttribute("aria-pressed", "true");
+  await expect(secondCard.getByRole("button", { name: 'Remove "Second Movie" from favorites' })).toHaveAttribute("aria-pressed", "true");
   await secondCard.getByRole("button", { name: "Details" }).click();
   await expect(dialog.getByText("Remember this recommendation.", { exact: true })).toBeVisible();
-  await dialog.getByRole("button", { name: "Unpin movie", exact: true }).click();
-  await expect(dialog.getByRole("button", { name: "Pin movie", exact: true })).toHaveAttribute("aria-pressed", "false");
+  await dialog.getByRole("button", { name: "Remove from favorites", exact: true }).click();
+  await expect(dialog.getByRole("button", { name: "Make this your favorite", exact: true })).toHaveAttribute("aria-pressed", "false");
   await dialog.getByRole("button", { name: "Close", exact: true }).first().click();
   await page.reload();
-  await expect(secondCard.getByRole("button", { name: /Pin "Second Movie" so/ })).toHaveAttribute("aria-pressed", "false");
+  await expect(secondCard.getByRole("button", { name: /Favorite "Second Movie" so/ })).toHaveAttribute("aria-pressed", "false");
   expect(backend.state.bowl_movies.filter((movie) => movie.is_pinned)).toHaveLength(0);
 });

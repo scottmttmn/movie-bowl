@@ -997,11 +997,11 @@ describe("useBowl handleDraw integration", () => {
   it.each([
     [
       { code: "42501", message: "permission denied" },
-      "You don't have permission to pin this movie.",
+      "You don't have permission to favorite this movie.",
     ],
     [
-      { code: "P0001", message: "This movie is no longer available to pin." },
-      "This movie is no longer available to pin.",
+      { code: "P0001", message: "This movie is no longer available to favorite." },
+      "This movie is no longer available to favorite.",
     ],
   ])("returns a mapped pin failure without throwing", async (rpcError, expectedMessage) => {
     const movie = {

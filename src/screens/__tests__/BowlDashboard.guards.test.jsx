@@ -542,9 +542,9 @@ describe("BowlDashboard guards", () => {
 
     expect(within(myMoviesSection).getAllByRole("button", { name: /^details for/i })[1]).toBeEnabled();
     fireEvent.click(within(myMoviesSection).getAllByRole("button", { name: /^details for/i })[1]);
-    const pinGroup = await screen.findByRole("group", { name: "Movie pin" });
-    expect(within(pinGroup).getByRole("button", { name: "Pin movie" })).toBeDisabled();
-    expect(within(pinGroup).getByRole("button", { name: "Pin movie" })).toHaveAccessibleDescription(/This movie is outside tonight's filters/);
+    const pinGroup = await screen.findByRole("group", { name: "Favorite" });
+    expect(within(pinGroup).getByRole("button", { name: "Make this your favorite" })).toBeDisabled();
+    expect(within(pinGroup).getByRole("button", { name: "Make this your favorite" })).toHaveAccessibleDescription(/This movie is outside tonight's filters/);
   });
 
   it("routes a My Movies pin through the bowl mutation handler", async () => {
@@ -568,7 +568,7 @@ describe("BowlDashboard guards", () => {
     const myMoviesSection = screen.getByRole("heading", { name: /my movies/i }).closest("section");
     fireEvent.click(
       within(myMoviesSection).getByRole("button", {
-        name: /pin "pin me" so it comes up first/i,
+        name: /favorite "pin me" so it comes up first/i,
       })
     );
 
@@ -620,12 +620,12 @@ describe("BowlDashboard guards", () => {
     };
     renderDashboard();
     fireEvent.click(await screen.findByRole("button", { name: "Details for Pin Me" }));
-    fireEvent.click(await screen.findByRole("button", { name: "Pin movie" }));
+    fireEvent.click(await screen.findByRole("button", { name: "Make this your favorite" }));
     await waitFor(() => expect(mocks.state.handleSetMoviePin).toHaveBeenCalledWith("detail-pin", true));
-    expect(await screen.findByRole("button", { name: "Unpin movie" })).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", { name: "Unpin movie" }));
+    expect(await screen.findByRole("button", { name: "Remove from favorites" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Remove from favorites" }));
     await waitFor(() => expect(mocks.state.handleSetMoviePin).toHaveBeenLastCalledWith("detail-pin", false));
-    expect(await screen.findByRole("button", { name: "Pin movie" })).toHaveAttribute("aria-pressed", "false");
+    expect(await screen.findByRole("button", { name: "Make this your favorite" })).toHaveAttribute("aria-pressed", "false");
   });
 
   // The card shortcut can hide because this exists. If it stops existing, a
@@ -743,9 +743,9 @@ describe("BowlDashboard guards", () => {
     };
     renderDashboard();
     fireEvent.click(await screen.findByRole("button", { name: "Details for Pin Me" }));
-    const pinGroup = await screen.findByRole("group", { name: "Movie pin" });
-    expect(within(pinGroup).getByRole("button", { name: "Unpin movie" })).toBeDisabled();
-    expect(within(pinGroup).getByRole("button", { name: "Unpin movie" })).toHaveAccessibleDescription("This bowl draws title-first, so pins don't change anything here.");
+    const pinGroup = await screen.findByRole("group", { name: "Favorite" });
+    expect(within(pinGroup).getByRole("button", { name: "Remove from favorites" })).toBeDisabled();
+    expect(within(pinGroup).getByRole("button", { name: "Remove from favorites" })).toHaveAccessibleDescription("This bowl draws title-first, so favorites don't change anything here.");
     expect(mocks.state.handleSetMoviePin).not.toHaveBeenCalled();
   });
 
@@ -892,7 +892,7 @@ describe("BowlDashboard guards", () => {
     fireEvent.click(within(watchedSection).getByRole("button", { name: /^show$/i }));
     fireEvent.click(screen.getByRole("button", { name: /movie a/i }));
     await waitFor(() => expect(screen.getByRole("button", { name: /move to bowl/i })).toBeInTheDocument());
-    expect(screen.queryByRole("group", { name: "Movie pin" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Favorite" })).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /move to bowl/i }));
 
     expect(screen.getByText(/put movie back in bowl\?/i)).toBeInTheDocument();

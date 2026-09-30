@@ -71,15 +71,15 @@ function getPinUpdateFailureMessage(error) {
     (errorMessageText.includes("set_own_bowl_movie_pin") &&
       (errorMessageText.includes("could not find") || errorMessageText.includes("does not exist")))
   ) {
-    return "Pinning requires the latest database migration. Please run it and try again.";
+    return "Favorites require the latest database migration. Please run it and try again.";
   }
   if (errorCode === "42501" || errorMessageText.includes("permission denied")) {
-    return "You don't have permission to pin this movie.";
+    return "You don't have permission to favorite this movie.";
   }
   if (errorMessageText.includes("no longer available")) {
-    return "This movie is no longer available to pin.";
+    return "This movie is no longer available to favorite.";
   }
-  return "Could not pin this movie. Please try again.";
+  return "Could not favorite this movie. Please try again.";
 }
 
 function createProfileByUserId(profileRows = []) {
@@ -515,7 +515,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
   const handleSetMoviePin = useCallback(
     async (movieId, pinned) => {
       if (!bowlId || !movieId) {
-        return addResult(false, "invalid_movie", "Choose a movie to pin.");
+        return addResult(false, "invalid_movie", "Choose a movie to favorite.");
       }
       if (isOffline()) {
         return addResult(false, "offline", OFFLINE_MESSAGE);
@@ -528,7 +528,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         return addResult(
           false,
           "pin_update_failed",
-          "This movie is no longer available to pin."
+          "This movie is no longer available to favorite."
         );
       }
 

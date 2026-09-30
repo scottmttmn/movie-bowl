@@ -176,7 +176,7 @@ describe("DrawRevealStage", () => {
 
     await advance(2350);
     expect(stage()).toHaveAttribute("data-phase", "pinlift");
-    expect(stage()).toHaveTextContent("Sam's pinned movie");
+    expect(stage()).toHaveTextContent("Sam's favorite");
   });
 
   it("folds a long roster into a +N pile and names the person when that pile is drawn", async () => {

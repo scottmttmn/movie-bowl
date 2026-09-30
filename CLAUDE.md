@@ -37,7 +37,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (179 test files / 1730 tests, 110 Playwright tests with 12 skipped,
+fully green (180 test files / 1732 tests, 110 Playwright tests with 12 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -176,9 +176,11 @@ Everything except `/login`, `/about`, `/accept-invite/:token`, and
 `/` resolves the account's saved home bowl through `get_my_bowl_context`, or
 opens `/bowls` when there are no accessible bowls. A failed read shows Retry.
 Explicit `/bowl/:bowlId` links never change it. `useUserBowls` shares the
-account context and is the only writer, through `set_my_default_bowl`. Global
-Add uses the home bowl, while “Add to this bowl” captures the viewed bowl. Both
-use the same `BowlAddProvider` and `bowlMovieService`; keep pending operations
+account context and is the only writer, through `set_my_default_bowl`. The
+header + adds to the bowl on screen (any `/bowl/:bowlId` route, settings
+included), so on a bowl page it and “Add to this bowl” agree; away from a bowl
+there is no bowl on screen, and it uses the home bowl. Both use the same
+`BowlAddProvider` and `bowlMovieService`; keep pending operations
 above routes and retain uncertain outcomes for status checks without
 reinserting.
 
@@ -227,7 +229,8 @@ Tables the app touches: `profiles`, `bowls`, `bowl_members`, `bowl_movies`,
 `bowl_invites`, `bowl_draw_permissions`, `bowl_add_links`, `bowl_draw_events`,
 `user_watch_events`, `user_bowl_defaults`, `solo_draw_removed_copies`. `bowl_movie_queue` is legacy and is not written to.
 
-The interface says **home bowl**; the database says **default**. That drift is
+The interface says **home bowl**; the database says **default**, and likewise
+a **favorite** is a pin underneath. That drift is
 deliberate — do not rename deployed database objects to match the UI term:
 
 | User-facing term | Database object |
@@ -235,6 +238,7 @@ deliberate — do not rename deployed database objects to match the UI term:
 | Home bowl | the account's `user_bowl_defaults` row |
 | Resolving Home | `get_my_bowl_context` → `default_bowl_id` |
 | `Make [bowl] home` | `set_my_default_bowl` |
+| Favorite (the ribbon on a poster) | `bowl_movies.is_pinned`, `set_own_bowl_movie_pin` |
 
 The bowl-history split matters: a draw writes one immutable `bowl_draw_events`
 row (bowl activity) plus one `user_watch_events` row per participant (personal

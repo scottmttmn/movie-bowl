@@ -337,7 +337,7 @@ describe("TV solo draw", () => {
     expect(mocks.draw).toHaveBeenCalledTimes(1);
   });
 
-  it("shows one pinned title and honors reduced motion before returning remote focus", async () => {
+  it("shows one favorite and honors reduced motion before returning remote focus", async () => {
     vi.stubGlobal("matchMedia", (query) => ({ matches: query.includes("prefers-reduced-motion") }));
     mocks.rows[1].is_pinned = true;
     mocks.draw.mockImplementation(async (_pool, _options, callbacks) => {
@@ -352,7 +352,7 @@ describe("TV solo draw", () => {
     expect(document.querySelectorAll(".draw-reveal-slip")).toHaveLength(1);
     expect(document.querySelectorAll(".draw-reveal-pin")).toHaveLength(1);
     await act(async () => { await vi.advanceTimersByTimeAsync(950); });
-    expect(screen.getByRole("status")).toHaveTextContent("Your only eligible pinned title");
+    expect(screen.getByRole("status")).toHaveTextContent("Your only eligible favorite");
     await act(async () => { await vi.advanceTimersByTimeAsync(700); });
     expect(screen.getByRole("heading", { name: "Arrival (2016)" })).toBeInTheDocument();
     fireEvent.keyDown(window, { key: "Escape" });

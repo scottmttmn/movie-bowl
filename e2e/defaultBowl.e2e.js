@@ -30,12 +30,17 @@ test("stars persist while global and contextual adds use their intended destinat
   await page.keyboard.press("Escape");
   await page.getByRole("link", { name: "Go to your home bowl" }).click();
   await expect(page).toHaveURL(/\/bowl\/default-bowl-1$/);
-  await page.goto("/bowl/default-bowl-0");
+  // Away from a bowl the header + adds to home; on a bowl, to that bowl.
+  await page.goto("/watch-list");
   await page.getByRole("button", { name: "Add a movie", exact: true }).click();
   await expect(chooseButton(page)).toHaveText(/Family Movies/);
   await addCustom(page, "Global Feature");
   await page.getByRole("button", { name: "Close add movie" }).click();
   await expect(page.getByRole("button", { name: "Add a movie", exact: true })).toBeFocused();
+  await page.goto("/bowl/default-bowl-0");
+  await page.getByRole("button", { name: "Add a movie", exact: true }).click();
+  await expect(chooseButton(page)).toHaveText(/Friday Night/);
+  await page.getByRole("button", { name: "Close add movie" }).click();
   await page.getByRole("button", { name: "Add to this bowl" }).click();
   await expect(chooseButton(page)).toHaveText(/Friday Night/);
   await addCustom(page, "Context Feature");

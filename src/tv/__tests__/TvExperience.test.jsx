@@ -970,11 +970,11 @@ describe("Movie Bowl TV experience", () => {
       expect(screen.getByRole("heading", { name: "Alex's pick" })).toBeInTheDocument();
     });
 
-    it("lifts the pinned title without a fan and still completes the unfolded slip", async () => {
+    it("lifts the favorite without a fan and still completes the unfolded slip", async () => {
       await startDraw({ pinned: true });
       await advance(3350);
       expect(stage()).toHaveAttribute("data-phase", "pinlift");
-      expect(screen.getByRole("status")).toHaveTextContent("Alex's pinned movie");
+      expect(screen.getByRole("status")).toHaveTextContent("Alex's favorite");
       await advance(1199);
       expect(stage()).toHaveAttribute("data-phase", "unfold");
       await advance(1);

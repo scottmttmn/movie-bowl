@@ -178,7 +178,7 @@ export function getDrawRevealCopy(reveal) {
 
   let titleLine = "";
   if (title.scope === "solo") {
-    const noun = title.pinnedPool ? "pinned title" : "title";
+    const noun = title.pinnedPool ? "favorite" : "title";
     titleLine = title.count === 1 ? `Your only eligible ${noun}` : `1 of your ${title.count} ${noun}s`;
   } else if (title.scope === "bowl") {
     titleLine = title.count === 1 ? "The only movie in the bowl" : `1 of ${pluralMovies(title.count)} in the bowl`;
@@ -186,7 +186,7 @@ export function getDrawRevealCopy(reveal) {
     titleLine =
       title.count > 1 ? `1 of ${pluralMovies(title.count)} from the starter pack` : "From the starter pack";
   } else if (title.mode === "pinned") {
-    titleLine = `${title.personLabel}'s pinned movie`;
+    titleLine = `${title.personLabel}'s favorite`;
   } else if (title.count === 1) {
     titleLine = `${title.personLabel}'s only movie`;
   } else {

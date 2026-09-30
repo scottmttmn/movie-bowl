@@ -12,7 +12,7 @@ describe("AddMovieModal", () => {
     render(<AddMovieModal onClose={vi.fn()} onAddMovie={vi.fn()} userStreamingServices={["Netflix"]} />);
     expect(screen.getByText("Search Movies")).toBeInTheDocument();
     expect(screen.getByPlaceholderText("Movie, actor or director")).toBeInTheDocument();
-    expect(screen.queryByRole("group", { name: "Movie pin" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Favorite" })).not.toBeInTheDocument();
   });
 
   it("renders detail mode with movie metadata", () => {
@@ -36,7 +36,7 @@ describe("AddMovieModal", () => {
     expect(screen.getByText("Netflix").closest("li")).toHaveTextContent("(in your services)");
     expect(screen.getByRole("button", { name: "Also streaming on Prime Video" })).toHaveAttribute("aria-expanded", "false");
     expect(screen.getByText("Prime Video").closest("li")).not.toBeVisible();
-    expect(screen.queryByRole("group", { name: "Movie pin" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("group", { name: "Favorite" })).not.toBeInTheDocument();
   });
 
   it("hides where to watch when the caller opts out", () => {
@@ -243,21 +243,21 @@ describe("AddMovieModal", () => {
       <AddMovieModal movie={movie} onClose={vi.fn()} onTogglePin={onTogglePin} />
     );
 
-    expect(screen.getByText(/One pin per bowl/i)).toBeInTheDocument();
-    expect(screen.getByRole("group", { name: "Movie pin" })).toContainElement(screen.getByRole("button", { name: "Pin movie" }));
+    expect(screen.getByText(/One favorite per bowl/i)).toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Favorite" })).toContainElement(screen.getByRole("button", { name: "Make this your favorite" }));
     expect(screen.queryByText("Your pin")).not.toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Pin movie" }));
-    expect(screen.getByRole("button", { name: "Saving pin..." })).toBeDisabled();
-    fireEvent.click(screen.getByRole("button", { name: "Saving pin..." }));
+    fireEvent.click(screen.getByRole("button", { name: "Make this your favorite" }));
+    expect(screen.getByRole("button", { name: "Saving favorite..." })).toBeDisabled();
+    fireEvent.click(screen.getByRole("button", { name: "Saving favorite..." }));
     expect(onTogglePin).toHaveBeenCalledExactlyOnceWith(true);
 
     await act(async () => resolvePin({ ok: true }));
     rerender(
       <AddMovieModal movie={{ ...movie, is_pinned: true }} onClose={vi.fn()} onTogglePin={onTogglePin} />
     );
-    expect(screen.getByRole("button", { name: "Unpin movie" })).toHaveAttribute("aria-pressed", "true");
+    expect(screen.getByRole("button", { name: "Remove from favorites" })).toHaveAttribute("aria-pressed", "true");
     onTogglePin.mockResolvedValue({ ok: true });
-    fireEvent.click(screen.getByRole("button", { name: "Unpin movie" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove from favorites" }));
     await waitFor(() => expect(onTogglePin).toHaveBeenLastCalledWith(false));
   });
 
@@ -268,23 +268,23 @@ describe("AddMovieModal", () => {
     onTogglePin.mockResolvedValue({ ok: true });
     render(<AddMovieModal movie={{ id: "movie-1", title: "Dune", is_pinned: true }} onClose={vi.fn()} onTogglePin={onTogglePin} />);
 
-    fireEvent.click(screen.getByRole("button", { name: "Unpin movie" }));
+    fireEvent.click(screen.getByRole("button", { name: "Remove from favorites" }));
     expect(await screen.findByRole("alert")).toHaveTextContent(
-      failure === "rejection" ? "Could not update this pin. Please try again." : "Your pin could not be saved."
+      failure === "rejection" ? "Could not update your favorite. Please try again." : "Your pin could not be saved."
     );
-    expect(screen.getByRole("button", { name: "Unpin movie" })).toBeEnabled();
-    expect(screen.getByRole("button", { name: "Unpin movie" })).toHaveAttribute("aria-pressed", "true");
-    fireEvent.click(screen.getByRole("button", { name: "Unpin movie" }));
+    expect(screen.getByRole("button", { name: "Remove from favorites" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Remove from favorites" })).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(screen.getByRole("button", { name: "Remove from favorites" }));
     await waitFor(() => expect(onTogglePin).toHaveBeenCalledTimes(2));
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
   });
 
   it("explains why a pin cannot be changed and prevents saving", () => {
     const onTogglePin = vi.fn();
-    const reason = "This bowl draws title-first, so pins don't change anything here.";
+    const reason = "This bowl draws title-first, so favorites don't change anything here.";
     render(<AddMovieModal movie={{ title: "Dune", is_pinned: true }} onClose={vi.fn()} onTogglePin={onTogglePin} pinDisabledReason={reason} />);
 
-    const button = screen.getByRole("button", { name: "Unpin movie" });
+    const button = screen.getByRole("button", { name: "Remove from favorites" });
     expect(button).toBeDisabled();
     expect(button).toHaveAccessibleDescription(reason);
     fireEvent.click(button);
@@ -468,7 +468,7 @@ describe("AddMovieModal", () => {
     const { rerender } = render(<AddMovieModal {...props} movie={{ id: 1, title: "Dune", poster_path: "/dune.jpg" }} />);
     fireEvent.error(screen.getByRole("img", { name: "Dune" }));
     expect(screen.getByRole("img", { name: "No poster for Dune" })).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Pin movie" })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Make this your favorite" })).toBeEnabled();
     rerender(<AddMovieModal {...props} movie={{ id: 2, title: "Arrival", poster_path: "/arrival.jpg" }} />);
     expect(screen.getByRole("img", { name: "Arrival" })).toHaveAttribute("src", "https://image.tmdb.org/t/p/w500/arrival.jpg");
     expect(screen.queryByRole("img", { name: "No poster for Dune" })).not.toBeInTheDocument();
