@@ -1,4 +1,13 @@
-import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
+import {
+  useCallback,
+  useEffect,
+  useId,
+  useImperativeHandle,
+  useLayoutEffect,
+  useMemo,
+  useRef,
+  useState,
+} from "react";
 import {
   getAutoplayTrailerUrl,
   getPlayerZoomStyle,
@@ -6,6 +15,7 @@ import {
   loadYouTubeIframeApi,
 } from "../../lib/youtubePlayer";
 import ServiceLogo from "../../components/ServiceLogo";
+import { getHouseLightsTiming, prefersReducedMotion } from "../../utils/houseLights";
 
 const ANNOUNCEMENT_MS = 4200;
 const FEATURE_CARD_MS = 3600;
@@ -16,14 +26,25 @@ const PLAYING = 1;
 // black screen.
 const MAX_COVER_MS = 4000;
 
+// A hand-off keeps the room dark while the provider app opens over Movie Bowl.
+// The lights then come up behind it, or onto the reveal and its "isn't
+// installed" message when the launch fails.
+const HANDOFF_HOLD_MS = 1500;
+
 // onFinish is every way out; onComplete is only the feature card running its
 // course. They differ because the natural end may open the provider app, and an
 // exit never should.
+//
+// The house lights (utils/houseLights.js) dim the pick on the way in and come
+// up on it on the way out. Back reaches this through the screen's own handler,
+// so the screen asks the ref to leave rather than unmounting the overlay.
 export default function TvTheaterPreroll({
+  ref,
   queue,
   featureTitle,
   featureServiceName = null,
   captions = false,
+  handsOff = false,
   onFinish,
   onComplete = onFinish,
 }) {
@@ -40,6 +61,15 @@ export default function TvTheaterPreroll({
   const finishRef = useRef(onFinish);
   const completeRef = useRef(onComplete);
   const coverTimerRef = useRef(null);
+  const handsOffRef = useRef(handsOff);
+  const leaveTimerRef = useRef(null);
+  const leavingRef = useRef(false);
+  const fullscreenRequestedRef = useRef(false);
+
+  const [timing] = useState(() => getHouseLightsTiming(prefersReducedMotion()));
+  // lowering -> down -> raising. Only "down" shows the screen.
+  const [lights, setLights] = useState("lowering");
+  const [raiseMs, setRaiseMs] = useState(timing.exit);
 
   const [isPaused, setIsPaused] = useState(false);
   const [phase, setPhase] = useState("trailers");
@@ -60,7 +90,8 @@ export default function TvTheaterPreroll({
   useEffect(() => {
     finishRef.current = onFinish;
     completeRef.current = onComplete;
-  }, [onFinish, onComplete]);
+    handsOffRef.current = handsOff;
+  }, [onFinish, onComplete, handsOff]);
 
   const coverUntilPlaying = useCallback(() => {
     setIsCovered(true);
@@ -71,6 +102,8 @@ export default function TvTheaterPreroll({
   const reveal = useCallback(() => {
     window.clearTimeout(coverTimerRef.current);
     setIsCovered(false);
+    // The lights answer the projector: a preview playing ends the dimming.
+    setLights((current) => (current === "lowering" ? "down" : current));
   }, []);
 
   // The cover starts up, so the first preview only needs its safety timer.
@@ -129,6 +162,16 @@ export default function TvTheaterPreroll({
     // mid-preview. Holding focus on the overlay itself also means Select has
     // no default action to fight with.
     overlay.focus({ preventScroll: true });
+  }, []);
+
+  // Native fullscreen shows only the overlay, on black, so the room dims in the
+  // page first and goes fullscreen once it is dark. Coming up, it leaves
+  // fullscreen before the lights move, or they would rise over nothing.
+  const isDark = lights === "down";
+  useEffect(() => {
+    const overlay = overlayRef.current;
+    if (!isDark || !overlay || fullscreenRequestedRef.current) return;
+    fullscreenRequestedRef.current = true;
 
     const requestFullscreen =
       overlay.requestFullscreen || overlay.webkitRequestFullscreen;
@@ -138,7 +181,7 @@ export default function TvTheaterPreroll({
         // fullscreen is unavailable or blocked by the television browser.
       });
     }
-  }, []);
+  }, [isDark]);
 
   useEffect(() => {
     let cancelled = false;
@@ -179,18 +222,68 @@ export default function TvTheaterPreroll({
   }, [playerId]);
 
   useEffect(() => {
-    if (!showAnnouncement) return undefined;
+    const timer = window.setTimeout(
+      () => setLights((current) => (current === "lowering" ? "down" : current)),
+      timing.down
+    );
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(leaveTimerRef.current);
+    };
+  }, [timing.down]);
+
+  const raiseLights = useCallback((ms, then) => {
+    leavingRef.current = true;
+    playerRef.current?.pauseVideo?.();
+    const fullscreenElement = document.fullscreenElement || document.webkitFullscreenElement;
+    if (fullscreenElement && fullscreenElement === overlayRef.current) {
+      const exitFullscreen = document.exitFullscreen || document.webkitExitFullscreen;
+      Promise.resolve(exitFullscreen?.call(document)).catch(() => {});
+    }
+    setRaiseMs(ms);
+    setLights("raising");
+    leaveTimerRef.current = window.setTimeout(then, ms);
+  }, []);
+
+  // Every way out. A second Back while the lights come up skips the rest; one
+  // during a hand-off's hold cuts the hold short.
+  const leave = useCallback(() => {
+    window.clearTimeout(leaveTimerRef.current);
+    if (leavingRef.current) {
+      finishRef.current();
+      return true;
+    }
+    raiseLights(timing.exit, () => finishRef.current());
+    return true;
+  }, [raiseLights, timing.exit]);
+
+  useImperativeHandle(ref, () => ({ leave }), [leave]);
+
+  // The announcement's time starts when the room is dark enough to read it.
+  useEffect(() => {
+    if (!showAnnouncement || lights !== "down") return undefined;
     const timer = window.setTimeout(() => setShowAnnouncement(false), ANNOUNCEMENT_MS);
     return () => window.clearTimeout(timer);
-  }, [showAnnouncement]);
+  }, [showAnnouncement, lights]);
 
   useEffect(() => {
     if (phase !== "feature") return undefined;
 
     playerRef.current?.stopVideo?.();
-    const timer = window.setTimeout(() => completeRef.current(), FEATURE_CARD_MS);
+    const timer = window.setTimeout(() => {
+      if (leavingRef.current) return;
+      if (!handsOffRef.current) {
+        raiseLights(timing.up, () => completeRef.current());
+        return;
+      }
+      completeRef.current();
+      leaveTimerRef.current = window.setTimeout(
+        () => raiseLights(timing.up, () => finishRef.current()),
+        HANDOFF_HOLD_MS
+      );
+    }, FEATURE_CARD_MS);
     return () => window.clearTimeout(timer);
-  }, [phase]);
+  }, [phase, raiseLights, timing.up]);
 
   // The player takes focus when it starts and again on each loadVideoById, and
   // from inside the iframe our Select handler never sees the key. That is why
@@ -241,6 +334,7 @@ export default function TvTheaterPreroll({
         Number(event.keyCode) === 13;
       if (!isSelect) return;
       event.preventDefault();
+      if (leavingRef.current) return;
       togglePause();
     };
 
@@ -255,53 +349,58 @@ export default function TvTheaterPreroll({
     <section
       ref={overlayRef}
       className="tv-theater-overlay"
+      data-lights={lights}
+      style={{ "--house-down-ms": `${timing.down}ms`, "--house-up-ms": `${raiseMs}ms` }}
       tabIndex={-1}
       role="dialog"
       aria-modal="true"
       aria-label={`Previews before ${featureTitle}`}
     >
-      <iframe
-        ref={iframeRef}
-        id={playerId}
-        src={firstTrailerUrl}
-        title="Movie Bowl previews"
-        style={playerZoomStyle}
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
-        allowFullScreen
-      />
+      <div className="tv-theater-house" aria-hidden="true" />
+      <div className="tv-theater-stage">
+        <iframe
+          ref={iframeRef}
+          id={playerId}
+          src={firstTrailerUrl}
+          title="Movie Bowl previews"
+          style={playerZoomStyle}
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; fullscreen"
+          allowFullScreen
+        />
 
-      {/* Also drawn behind the feature card, where the stopped player would
-          otherwise leave its last frame. */}
-      {(isCovered || phase === "feature") && (
-        <div className="tv-theater-cover" aria-hidden="true" />
-      )}
+        {/* Also drawn behind the feature card, where the stopped player would
+            otherwise leave its last frame. */}
+        {(isCovered || phase === "feature") && (
+          <div className="tv-theater-cover" aria-hidden="true" />
+        )}
 
-      {phase === "feature" ? (
-        <div className="tv-theater-feature" role="status">
-          <p className="tv-kicker">And now</p>
-          <h1>Feature Presentation</h1>
-          <p className="tv-theater-feature-title">{featureTitle}</p>
-          {featureServiceName && (
-            <ServiceLogo service={featureServiceName} className="tv-theater-feature-logo" />
-          )}
-        </div>
-      ) : (
-        <>
-          {showAnnouncement && (
-            <div className="tv-theater-announcement" role="status">
-              <p className="tv-kicker">Before the feature</p>
-              <h2>{previewLabel}</h2>
-              <p>Then {featureTitle}</p>
-            </div>
-          )}
+        {phase === "feature" ? (
+          <div className="tv-theater-feature" role="status">
+            <p className="tv-kicker">And now</p>
+            <h1>Feature Presentation</h1>
+            <p className="tv-theater-feature-title">{featureTitle}</p>
+            {featureServiceName && (
+              <ServiceLogo service={featureServiceName} className="tv-theater-feature-logo" />
+            )}
+          </div>
+        ) : (
+          <>
+            {showAnnouncement && (
+              <div className="tv-theater-announcement" role="status">
+                <p className="tv-kicker">Before the feature</p>
+                <h2>{previewLabel}</h2>
+                <p>Then {featureTitle}</p>
+              </div>
+            )}
 
-          {isPaused && (
-            <p className="tv-theater-paused" role="status">
-              Paused
-            </p>
-          )}
-        </>
-      )}
+            {isPaused && (
+              <p className="tv-theater-paused" role="status">
+                Paused
+              </p>
+            )}
+          </>
+        )}
+      </div>
     </section>
   );
 }

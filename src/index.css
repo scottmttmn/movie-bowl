@@ -374,9 +374,51 @@
 
   /* The pre-roll. Fixed rather than natively fullscreen on purpose -- see the
      component -- so it must sit above every modal, the reveal included, because
-     it plays over the drawn movie the way the television plays over its. */
+     it plays over the drawn movie the way the television plays over its.
+
+     House lights: the overlay itself is clear, and the black is a layer that
+     dims in two steps over the pick, the way a cinema goes to half and then
+     out. The screen -- player, cover and cards -- only shows once the room is
+     dark. Only opacity moves, so none of it repaints over a playing video.
+     Durations come from utils/houseLights.js. */
   .theater-preroll {
-    @apply fixed inset-0 z-[100] flex items-center justify-center bg-black;
+    @apply fixed inset-0 z-[100] flex items-center justify-center;
+  }
+
+  .theater-preroll-house {
+    @apply absolute inset-0 bg-black;
+    opacity: 1;
+    transition: opacity 300ms ease-out;
+  }
+
+  .theater-preroll[data-lights="lowering"] .theater-preroll-house {
+    animation: house-lights-down var(--house-down-ms, 1900ms) ease-in both;
+  }
+
+  /* A warm wash from above as the lights come back. */
+  .theater-preroll-house::after {
+    @apply absolute inset-0;
+    content: "";
+    opacity: 0;
+    background: radial-gradient(ellipse at 50% 0%, rgba(243, 201, 139, 0.5), rgba(243, 160, 90, 0.1) 55%, transparent 80%);
+  }
+
+  .theater-preroll[data-lights="raising"] {
+    animation: house-lights-up var(--house-up-ms, 550ms) ease-in-out both;
+  }
+
+  .theater-preroll[data-lights="raising"] .theater-preroll-house::after {
+    animation: house-lights-warm var(--house-up-ms, 550ms) ease-in-out both;
+  }
+
+  .theater-preroll-stage {
+    @apply absolute inset-0 flex items-center justify-center;
+    opacity: 0;
+    transition: opacity 300ms ease;
+  }
+
+  .theater-preroll[data-lights="down"] .theater-preroll-stage {
+    opacity: 1;
   }
 
   .theater-preroll iframe {
@@ -392,8 +434,27 @@
     @apply absolute inset-0 h-full w-full cursor-default border-0 bg-transparent;
   }
 
+  /* No backdrop blur: it would re-blur the trailer underneath on every frame. */
   .theater-preroll-card {
-    @apply pointer-events-none relative mx-4 max-w-lg rounded-2xl bg-slate-950/80 px-6 py-5 text-center backdrop-blur-sm;
+    @apply pointer-events-none relative mx-4 max-w-lg rounded-2xl bg-slate-950/90 px-6 py-5 text-center;
+  }
+
+  .theater-preroll[data-lights="down"] .theater-preroll-card {
+    animation: preroll-card-rise 800ms cubic-bezier(0.2, 0.7, 0.2, 1) both;
+  }
+
+  /* The feature card sits on the cover, so it needs no card at all: type on
+     black, like the title a cinema projects. */
+  .theater-preroll-card-feature {
+    @apply max-w-2xl bg-transparent;
+  }
+
+  .theater-preroll-card-feature .theater-preroll-title {
+    @apply text-4xl font-extrabold uppercase tracking-wide sm:text-6xl;
+  }
+
+  .theater-preroll-card-feature .theater-preroll-feature {
+    @apply mt-2 text-base font-semibold text-rose-300 sm:text-lg;
   }
 
   .theater-preroll-title {
@@ -406,6 +467,54 @@
 
   .theater-preroll-logo {
     @apply mx-auto mt-3 h-9 w-9;
+  }
+
+  @keyframes house-lights-down {
+    0% { opacity: 0; }
+    35% { opacity: 0.5; }
+    53% { opacity: 0.5; }
+    100% { opacity: 1; }
+  }
+
+  @keyframes house-lights-up {
+    0% { opacity: 1; }
+    45% { opacity: 0.4; }
+    100% { opacity: 0; }
+  }
+
+  @keyframes house-lights-warm {
+    0% { opacity: 0; }
+    40% { opacity: 0.7; }
+    100% { opacity: 0; }
+  }
+
+  @keyframes house-lights-fade-in {
+    from { opacity: 0; }
+    to { opacity: 1; }
+  }
+
+  @keyframes preroll-card-rise {
+    from { opacity: 0; transform: translateY(0.75rem); }
+    to { opacity: 1; transform: none; }
+  }
+
+  /* The same lights, as one short fade each way. */
+  @media (prefers-reduced-motion: reduce) {
+    .theater-preroll[data-lights="lowering"] .theater-preroll-house {
+      animation-name: house-lights-fade-in;
+      animation-timing-function: linear;
+    }
+
+    .theater-preroll[data-lights="raising"] {
+      animation-name: house-lights-fade-in;
+      animation-direction: reverse;
+      animation-timing-function: linear;
+    }
+
+    .theater-preroll[data-lights="raising"] .theater-preroll-house::after,
+    .theater-preroll[data-lights="down"] .theater-preroll-card {
+      animation: none;
+    }
   }
 
   .theater-preroll-paused {

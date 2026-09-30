@@ -801,9 +801,10 @@ describe("BowlDashboard draw preferences", () => {
       expect(screen.getByRole("heading", { name: /feature presentation/i })).toBeInTheDocument();
     }
 
+    // The card, then the lights coming up when there is nothing to hand off to.
     async function finishFeatureCard() {
       await act(async () => {
-        await vi.advanceTimersByTimeAsync(3600);
+        await vi.advanceTimersByTimeAsync(3600 + 1600);
       });
       vi.useRealTimers();
     }
@@ -885,7 +886,9 @@ describe("BowlDashboard draw preferences", () => {
 
       fireEvent.click(screen.getByRole("button", { name: /exit previews/i }));
 
-      expect(screen.queryByRole("dialog", { name: /previews before/i })).not.toBeInTheDocument();
+      await waitFor(() =>
+        expect(screen.queryByRole("dialog", { name: /previews before/i })).not.toBeInTheDocument()
+      );
       expect(assign).toHaveBeenCalledTimes(1);
     });
 

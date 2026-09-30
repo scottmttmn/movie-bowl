@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { getAutoplayTrailerUrl, getTrailerSequence, loadYouTubeIframeApi } from "../lib/youtubePlayer";
 import ServiceLogo from "./ServiceLogo";
+import { getHouseLightsTiming, prefersReducedMotion } from "../utils/houseLights";
 
 const ANNOUNCEMENT_MS = 4200;
 const FEATURE_CARD_MS = 3600;
@@ -31,12 +32,21 @@ const ENDED = 0;
  *   the queue resolves through TMDB lookups first, so by the time a player
  *   exists the browser may no longer count it. Rather than predict which
  *   browsers refuse, ask for playback and watch whether it starts.
+ *
+ * Both rooms share the house lights (`utils/houseLights.js`): the page dims to
+ * black on the way in and the lights come up on the pick on the way out. The
+ * way in never delays a preview -- the first one playing, or the tap it needs,
+ * ends it early -- and a hand-off never lifts them, so a desktop tab goes from a
+ * dark room straight to the provider's page.
  */
 export default function TheaterPreroll({
   queue,
   featureTitle,
   featureServiceName = null,
   captions = false,
+  // The natural end leaves for the provider. The lights stay down for it, and
+  // the page that replaces this one is what ends the overlay.
+  handsOff = false,
   onFinish,
   // Only the feature card running its course. Escape and Exit stay on onFinish,
   // because the natural end may leave for the provider and an exit never should.
@@ -51,7 +61,15 @@ export default function TheaterPreroll({
   const refusedRef = useRef(() => {});
   const finishRef = useRef(onFinish);
   const completeRef = useRef(onComplete);
+  const handsOffRef = useRef(handsOff);
   const graceTimerRef = useRef(null);
+  const leaveTimerRef = useRef(null);
+  const leavingRef = useRef(false);
+
+  const [timing] = useState(() => getHouseLightsTiming(prefersReducedMotion()));
+  // lowering -> down -> raising. Only "down" shows the screen.
+  const [lights, setLights] = useState("lowering");
+  const [raiseMs, setRaiseMs] = useState(timing.exit);
 
   const [isPaused, setIsPaused] = useState(false);
   const [needsTap, setNeedsTap] = useState(false);
@@ -73,7 +91,8 @@ export default function TheaterPreroll({
   useEffect(() => {
     finishRef.current = onFinish;
     completeRef.current = onComplete;
-  }, [onFinish, onComplete]);
+    handsOffRef.current = handsOff;
+  }, [onFinish, onComplete, handsOff]);
 
   const clearGrace = useCallback(() => {
     if (graceTimerRef.current) window.clearTimeout(graceTimerRef.current);
@@ -86,7 +105,11 @@ export default function TheaterPreroll({
   // as a dialog in front of it.
   const armAutoplayCheck = useCallback(() => {
     clearGrace();
-    graceTimerRef.current = window.setTimeout(() => setNeedsTap(true), AUTOPLAY_GRACE_MS);
+    graceTimerRef.current = window.setTimeout(() => {
+      setNeedsTap(true);
+      // The card asking for a tap has to be seen, so the room stops dimming.
+      setLights((current) => (current === "lowering" ? "down" : current));
+    }, AUTOPLAY_GRACE_MS);
   }, [clearGrace]);
 
   const advance = useCallback(() => {
@@ -152,6 +175,7 @@ export default function TheaterPreroll({
                 clearGrace();
                 setNeedsTap(false);
                 setIsCovered(false);
+                setLights((current) => (current === "lowering" ? "down" : current));
                 return;
               }
               if (event.data === ENDED) advanceRef.current();
@@ -177,18 +201,52 @@ export default function TheaterPreroll({
   useEffect(() => clearGrace, [clearGrace]);
 
   useEffect(() => {
-    if (!showAnnouncement) return undefined;
+    const timer = window.setTimeout(
+      () => setLights((current) => (current === "lowering" ? "down" : current)),
+      timing.down
+    );
+    return () => {
+      window.clearTimeout(timer);
+      window.clearTimeout(leaveTimerRef.current);
+    };
+  }, [timing.down]);
+
+  const raiseLights = useCallback((ms, then) => {
+    leavingRef.current = true;
+    playerRef.current?.pauseVideo?.();
+    setRaiseMs(ms);
+    setLights("raising");
+    leaveTimerRef.current = window.setTimeout(then, ms);
+  }, []);
+
+  // Every way out. Asking again while the lights come up skips the rest.
+  const leave = useCallback(() => {
+    if (leavingRef.current) {
+      window.clearTimeout(leaveTimerRef.current);
+      finishRef.current();
+      return;
+    }
+    raiseLights(timing.exit, () => finishRef.current());
+  }, [raiseLights, timing.exit]);
+
+  // The announcement's time starts when the room is dark enough to read it.
+  useEffect(() => {
+    if (!showAnnouncement || lights !== "down") return undefined;
     const timer = window.setTimeout(() => setShowAnnouncement(false), ANNOUNCEMENT_MS);
     return () => window.clearTimeout(timer);
-  }, [showAnnouncement]);
+  }, [showAnnouncement, lights]);
 
   useEffect(() => {
     if (phase !== "feature") return undefined;
 
     playerRef.current?.stopVideo?.();
-    const timer = window.setTimeout(() => completeRef.current(), FEATURE_CARD_MS);
+    const timer = window.setTimeout(() => {
+      if (leavingRef.current) return;
+      if (handsOffRef.current) completeRef.current();
+      else raiseLights(timing.up, () => completeRef.current());
+    }, FEATURE_CARD_MS);
     return () => window.clearTimeout(timer);
-  }, [phase]);
+  }, [phase, raiseLights, timing.up]);
 
   const startAfterRefusal = useCallback(() => {
     clearGrace();
@@ -212,9 +270,10 @@ export default function TheaterPreroll({
     const onKeyDown = (event) => {
       if (event.key === "Escape") {
         event.preventDefault();
-        finishRef.current();
+        leave();
         return;
       }
+      if (leavingRef.current) return;
       if (event.key === " " || event.key === "Enter") {
         // A focused control already owns these keys. Claiming them here would
         // turn Enter on Exit into a pause, and the surface button reaches the
@@ -230,7 +289,7 @@ export default function TheaterPreroll({
 
     window.addEventListener("keydown", onKeyDown);
     return () => window.removeEventListener("keydown", onKeyDown);
-  }, [togglePause, needsTap, startAfterRefusal]);
+  }, [togglePause, needsTap, startAfterRefusal, leave]);
 
   const previewLabel = queue.length === 1 ? "One preview" : `${queue.length} previews`;
 
@@ -238,69 +297,74 @@ export default function TheaterPreroll({
     <section
       ref={overlayRef}
       className="theater-preroll"
+      data-lights={lights}
+      style={{ "--house-down-ms": `${timing.down}ms`, "--house-up-ms": `${raiseMs}ms` }}
       tabIndex={-1}
       role="dialog"
       aria-modal="true"
       aria-label={`Previews before ${featureTitle}`}
     >
-      <iframe
-        id={playerId}
-        src={firstTrailerUrl}
-        title="Movie Bowl previews"
-        allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
-      />
-
-      {/* Also drawn behind the feature card, where the stopped player would
-          otherwise leave its last frame. */}
-      {(isCovered || phase === "feature") && (
-        <div className="theater-preroll-cover" data-testid="preroll-cover" aria-hidden="true" />
-      )}
-
-      {/* Covers the player so a click lands here rather than inside the iframe,
-          where our handlers can never see it. */}
-      {phase === "trailers" && (
-        <button
-          type="button"
-          className="theater-preroll-surface"
-          aria-label={needsTap ? "Start previews" : isPaused ? "Resume previews" : "Pause previews"}
-          onClick={needsTap ? startAfterRefusal : togglePause}
+      <div className="theater-preroll-house" aria-hidden="true" />
+      <div className="theater-preroll-stage">
+        <iframe
+          id={playerId}
+          src={firstTrailerUrl}
+          title="Movie Bowl previews"
+          allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture"
         />
-      )}
 
-      {phase === "feature" ? (
-        <div className="theater-preroll-card" role="status">
-          <p className="eyebrow">And now</p>
-          <h2 className="theater-preroll-title">Feature Presentation</h2>
-          <p className="theater-preroll-feature">{featureTitle}</p>
-          {featureServiceName && (
-            <ServiceLogo service={featureServiceName} className="theater-preroll-logo" />
-          )}
-        </div>
-      ) : (
-        <>
-          {showAnnouncement && !needsTap && (
-            <div className="theater-preroll-card" role="status">
-              <p className="eyebrow">Before the feature</p>
-              <h2 className="theater-preroll-title">{previewLabel}</h2>
-              <p className="theater-preroll-feature">Then {featureTitle}</p>
-            </div>
-          )}
+        {/* Also drawn behind the feature card, where the stopped player would
+            otherwise leave its last frame. */}
+        {(isCovered || phase === "feature") && (
+          <div className="theater-preroll-cover" data-testid="preroll-cover" aria-hidden="true" />
+        )}
 
-          {needsTap && (
-            <div className="theater-preroll-card" role="status">
-              <p className="eyebrow">Before the feature</p>
-              <h2 className="theater-preroll-title">{previewLabel}</h2>
-              <p className="theater-preroll-feature">Tap to start · then {featureTitle}</p>
-            </div>
-          )}
+        {/* Covers the player so a click lands here rather than inside the iframe,
+            where our handlers can never see it. */}
+        {phase === "trailers" && lights === "down" && (
+          <button
+            type="button"
+            className="theater-preroll-surface"
+            aria-label={needsTap ? "Start previews" : isPaused ? "Resume previews" : "Pause previews"}
+            onClick={needsTap ? startAfterRefusal : togglePause}
+          />
+        )}
 
-          {isPaused && !needsTap && (
-            <p className="theater-preroll-paused" role="status">
-              Paused
-            </p>
-          )}
-        </>
-      )}
+        {phase === "feature" ? (
+          <div className="theater-preroll-card theater-preroll-card-feature" role="status">
+            <p className="eyebrow">And now</p>
+            <h2 className="theater-preroll-title">Feature Presentation</h2>
+            <p className="theater-preroll-feature">{featureTitle}</p>
+            {featureServiceName && (
+              <ServiceLogo service={featureServiceName} className="theater-preroll-logo" />
+            )}
+          </div>
+        ) : (
+          <>
+            {showAnnouncement && !needsTap && (
+              <div className="theater-preroll-card" role="status">
+                <p className="eyebrow">Before the feature</p>
+                <h2 className="theater-preroll-title">{previewLabel}</h2>
+                <p className="theater-preroll-feature">Then {featureTitle}</p>
+              </div>
+            )}
+
+            {needsTap && (
+              <div className="theater-preroll-card" role="status">
+                <p className="eyebrow">Before the feature</p>
+                <h2 className="theater-preroll-title">{previewLabel}</h2>
+                <p className="theater-preroll-feature">Tap to start · then {featureTitle}</p>
+              </div>
+            )}
+
+            {isPaused && !needsTap && (
+              <p className="theater-preroll-paused" role="status">
+                Paused
+              </p>
+            )}
+          </>
+        )}
+      </div>
 
       {/* An exit, not a skip. The television dropped its "Skip to movie" button
           because naming it invited the room to treat the previews as a queue to
@@ -311,7 +375,7 @@ export default function TheaterPreroll({
         type="button"
         className="theater-preroll-exit"
         aria-label="Exit previews"
-        onClick={() => finishRef.current()}
+        onClick={leave}
       >
         <span aria-hidden="true">&times;</span>
       </button>
