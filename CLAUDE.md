@@ -35,7 +35,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (171 test files / 1638 tests, 110 Playwright tests with 12 skipped,
+fully green (171 test files / 1648 tests, 110 Playwright tests with 12 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -454,6 +454,9 @@ then a generic 500. They run in Node and are excluded from coverage; they are
   back to the service's search page. `PROVIDER_LINKS_MONTHLY_BUDGET` is enforced
   atomically in Supabase (default 500 HTTP requests, currently 1,000 Watchmode
   credits). Add and draw events warm the private cache; public adds do not.
+  Rent and buy links are filed under the store that sells them
+  (`utils/rentalStores.js`), not under a streaming service, and feed only the
+  rent button a drawn movie offers when none of your services carry it.
 - `api/cron/refresh-filter-metadata` maintains the private daily certification
   and provider cache. It requires `CRON_SECRET`, uses the service role, and must
   remain compatible with Vercel Hobby's once-daily schedule and 60-second cap.

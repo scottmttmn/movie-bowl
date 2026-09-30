@@ -1,4 +1,5 @@
 import { MPAA_RATING_OPTIONS } from "./movieRatings";
+import { RENT_FROM_ANY, normalizeRentFrom } from "./rentalStores";
 
 export const RUNTIME_FILTER_MIN_MINUTES = 0;
 export const RUNTIME_FILTER_MAX_MINUTES = 500;
@@ -38,6 +39,7 @@ export const DEFAULT_DRAW_SETTINGS = {
   prioritizeStreaming: false,
   useStreamingRank: true,
   enablePreferredWebLaunch: false,
+  rentFrom: RENT_FROM_ANY,
   theaterModeEnabled: false,
   prerollCaptionsEnabled: false,
   selectedRatings: MPAA_RATING_OPTIONS,
@@ -112,6 +114,7 @@ export function normalizeDefaultDrawSettings(value) {
       source.enablePreferredWebLaunch === undefined
         ? DEFAULT_DRAW_SETTINGS.enablePreferredWebLaunch
         : Boolean(source.enablePreferredWebLaunch),
+    rentFrom: normalizeRentFrom(source.rentFrom),
     theaterModeEnabled: Boolean(source.theaterModeEnabled),
     prerollCaptionsEnabled: Boolean(source.prerollCaptionsEnabled),
     selectedRatings: normalizeSelectedRatings(source.selectedRatings),

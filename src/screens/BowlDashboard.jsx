@@ -50,7 +50,7 @@ import { describeStatLine } from "../utils/drawReadout";
 import { getRememberedValueFor, readRememberedReadout, rememberReadout } from "../utils/rememberedReadouts";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 import { matchUserServices } from "../utils/streamingServices";
-import { getAutoStartMode, getAutoStartSurface, resolvePreferredLaunchTarget } from "../utils/webLaunch";
+import { getAutoStartMode, getAutoStartSurface, resolvePreferredLaunchTarget, resolveRentTarget } from "../utils/webLaunch";
 import useBowlAdd from "../hooks/useBowlAdd";
 import { fetchOwnDrawWatchEntry, updateOwnWatchComment } from "../lib/watchComments";
 import { notifyBowlChange } from "../lib/bowlChanges";
@@ -603,6 +603,16 @@ export default function BowlDashboard() {
       userStreamingServices,
       providerLinks,
     ]);
+
+    const drawnMovieRentCandidate = useMemo(() => {
+      if (!drawnMovie || drawnMovieMatchingProviders.length > 0) return null;
+      return resolveRentTarget({
+        providerLinks,
+        rentFrom: defaultDrawSettings.rentFrom,
+        watchUrl: drawnMovie.streamingWatchUrl,
+        canRent: (drawnMovie.streamingAvailability?.rent || []).length > 0,
+      });
+    }, [drawnMovie, drawnMovieMatchingProviders, providerLinks, defaultDrawSettings.rentFrom]);
 
     useEffect(() => {
       if (didApplyDefaultDrawSettings || isLoadingUserPreferences || preferencesLoadError) return;
@@ -1731,6 +1741,7 @@ return (
                     ? preferredWebLaunchCandidate
                     : null
                 }
+                rentCandidate={drawnMovieRentCandidate}
                 onClose={closeReveal}
               />
             )}

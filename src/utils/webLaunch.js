@@ -1,4 +1,5 @@
 import { normalizeServiceName, normalizeStreamingServices } from "./streamingServices.js";
+import { RENTAL_STORES, RENT_FROM_OFF, normalizeRentFrom, normalizeRentalStore } from "./rentalStores.js";
 
 const STREAMING_SERVICE_WEB_SEARCH_URLS = {
   Netflix: (query) => `https://www.netflix.com/search?q=${query}`,
@@ -70,6 +71,33 @@ export function resolvePreferredLaunchTarget({ providerLinks = [], ...options })
       android: link ? safeProviderUrl(link.androidUrl, { native: true }) : null,
     },
   };
+}
+
+// For a movie none of your services carry: one store's rental page, or the
+// watch page listing every store when no direct link came back. The caller
+// decides that no service matched; this only picks where to rent. Its
+// linkType is never "title", so getAutoStartMode leaves it alone -- spending
+// money always takes a tap.
+export function resolveRentTarget({ providerLinks = [], rentFrom, watchUrl = null, canRent = false }) {
+  const preference = normalizeRentFrom(rentFrom);
+  if (preference === RENT_FROM_OFF) return null;
+
+  const rentLinks = (Array.isArray(providerLinks) ? providerLinks : []).flatMap((entry) => {
+    if (entry?.type !== "rent") return [];
+    const storeName = normalizeRentalStore(entry.service);
+    const url = safeProviderUrl(entry.webUrl);
+    return storeName && url ? [{ storeName, url }] : [];
+  });
+  const order = RENTAL_STORES.includes(preference)
+    ? [preference, ...RENTAL_STORES.filter((store) => store !== preference)]
+    : RENTAL_STORES;
+  for (const storeName of order) {
+    const link = rentLinks.find((entry) => entry.storeName === storeName);
+    if (link) return { storeName, url: link.url, linkType: "rent" };
+  }
+
+  const fallbackUrl = safeProviderUrl(watchUrl);
+  return canRent && fallbackUrl ? { storeName: null, url: fallbackUrl, linkType: "rent-options" } : null;
 }
 
 export const AUTO_START_SURFACE = {
