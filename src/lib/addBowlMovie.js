@@ -188,7 +188,10 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
     const warm = (settled) => {
       if (settled?.ok && tmdbId && accessToken && current()) {
         Promise.resolve().then(() => warmProviders(tmdbId, bowlId)).catch(() => {});
-        Promise.resolve().then(() => warmMetadata(tmdbId, bowlId, accessToken)).catch(() => {});
+        // The cache row lands only when this returns, after the add's success
+        // event has gone out, so anything that read on that event reads again.
+        Promise.resolve().then(() => warmMetadata(tmdbId, bowlId, accessToken))
+          .then(() => publish({ type: "metadata", bowlId, tmdbId })).catch(() => {});
       }
       return settled;
     };

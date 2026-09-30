@@ -148,5 +148,14 @@ describe("BowlServiceChart", () => {
 
     act(() => notifyBowlChange({ type: "context", bowlId: "bowl-1" }));
     expect(await screen.findByText(/How many of the 3 movies left/)).toBeInTheDocument();
+
+    // A movie added elsewhere is read on its add, before its cache row is
+    // warmed; the warm-up's own event brings its providers in.
+    mocks.state.rows = [...mocks.state.rows, row(4, ["Peacock"], { fetched: false })];
+    act(() => notifyBowlChange({ type: "add", phase: "success", bowlId: "bowl-1" }));
+    expect(await screen.findByText(/1 movie hasn't been checked yet/)).toBeInTheDocument();
+    mocks.state.rows = [...mocks.state.rows.slice(0, 3), row(4, ["Peacock"])];
+    act(() => notifyBowlChange({ type: "metadata", bowlId: "bowl-1", tmdbId: 4 }));
+    await vi.waitFor(() => expect(screen.queryByText(/hasn't been checked yet/)).not.toBeInTheDocument());
   });
 });

@@ -67,6 +67,19 @@ describe("shared bowl add service", () => {
     expect(await h.service.add(h.operation())).toMatchObject({ ok: false, code: "duplicate_movie", message: expect.stringContaining("Friend added it") });
     expect(h.insert).not.toHaveBeenCalled();
   });
+  it("announces the warmed metadata only once the warm-up has finished", async () => {
+    const h = harness();
+    let finishWarm;
+    const warmMetadata = vi.fn(() => new Promise((resolve) => { finishWarm = resolve; }));
+    const service = createBowlMovieService({ client: h.client, publish: h.publish, offline: h.offline, warmProviders: vi.fn(), warmMetadata });
+
+    expect(await service.add(h.operation())).toMatchObject({ ok: true });
+    await vi.waitFor(() => expect(warmMetadata).toHaveBeenCalledWith(101, "a", "token"));
+    expect(h.publish).not.toHaveBeenCalledWith(expect.objectContaining({ type: "metadata" }));
+
+    finishWarm({});
+    await vi.waitFor(() => expect(h.publish).toHaveBeenCalledWith({ type: "metadata", bowlId: "a", tmdbId: 101 }));
+  });
   // A starter pack title belongs to nobody. Adding it makes it yours, in place.
   it("claims a starter pack slip instead of reporting a duplicate, and skips the warm", async () => {
     const warmProviders = vi.fn(); const warmMetadata = vi.fn();
