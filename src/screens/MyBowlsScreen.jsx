@@ -1,5 +1,6 @@
 import { useEffect } from "react";
 import { Link, useNavigate } from "react-router-dom";
+import bowlImage from "../assets/movie-bowl.webp";
 import BowlCard from "../components/BowlCard";
 import NewBowlButton from "../components/NewBowlButton";
 import CreateBowlModal from "../components/CreateBowlModal";
@@ -13,10 +14,7 @@ import { MAX_BOWLS_PER_USER } from "../utils/appLimits";
 export default function MyBowlsScreen() {
   const { bowls, defaultBowlId, loading: isLoading, error: loadError, refresh } = useUserBowls();
   const navigate = useNavigate();
-  const {
-    streamingServices,
-    loading: isStreamingServicesLoading,
-  } = useUserStreamingServices();
+  const { loading: isStreamingServicesLoading } = useUserStreamingServices();
   const {
     invites: pendingInvites,
     isLoading: isInvitesLoading,
@@ -38,7 +36,6 @@ export default function MyBowlsScreen() {
   } = useCreateBowl({ ownedBowlCount, refresh });
   const ownedBowls = sortBowlsByRecentActivity(bowls.filter((b) => b.role === "Owner"));
   const sharedBowls = sortBowlsByRecentActivity(bowls.filter((b) => b.role !== "Owner"));
-  const hasStreamingServices = streamingServices.length > 0;
   // Only a first load with nothing to show is a loading state. A refresh over
   // rows we already have must not blank them.
   const hasNoTrustworthyList =
@@ -60,10 +57,6 @@ export default function MyBowlsScreen() {
     navigate(`/bowl/${bowlId}`);
   };
 
-  const handleGoToStreamingServices = () => {
-    navigate("/settings#streaming-services");
-  };
-
   return (
     <div className="my-bowls-screen page-container py-6 sm:py-8">
       <header className="mb-8">
@@ -76,13 +69,12 @@ export default function MyBowlsScreen() {
             {/* This page stopped being Home when / became the resolver, and the
                 word now names one specific bowl. */}
             <h1 className="text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">My Bowls</h1>
-            <p className="mt-2 max-w-xl text-sm text-slate-400 sm:text-base">
-              Open an existing bowl or start a new one.
-            </p>
           </div>
-          <div className="flex justify-start md:justify-end">
-            <NewBowlButton onClick={handleNewBowl} disabled={isCreateBowlLimitReached || isCreating} />
-          </div>
+          {!shouldShowGuidedSetup && (
+            <div className="flex justify-start md:justify-end">
+              <NewBowlButton onClick={handleNewBowl} disabled={isCreateBowlLimitReached || isCreating} />
+            </div>
+          )}
         </div>
         {isCreateBowlLimitReached && (
           <div className="status-warning mt-3">
@@ -110,95 +102,35 @@ export default function MyBowlsScreen() {
             {loadError} <button className="btn btn-secondary mt-3" onClick={() => refresh()}>Retry</button>
           </div>
         ) : shouldShowGuidedSetup ? (
-          <div className="space-y-4">
-            <section className="page-hero">
-              <div className="max-w-2xl">
-                <p className="eyebrow">
-                  First steps
-                </p>
-                <h2 className="mt-2 text-2xl font-semibold tracking-tight text-slate-50 sm:text-3xl">
-                  Start your first movie bowl
-                </h2>
-                <p className="mt-3 text-sm text-slate-400 sm:text-base">
-                  Pick your streaming services, then create a bowl for yourself or your group.
-                </p>
-              </div>
-              <div className="mt-5 flex flex-col gap-2.5 sm:flex-row sm:items-center">
-                <button className="btn btn-primary" onClick={handleNewBowl} disabled={isCreating}>
-                  Create your first bowl
-                </button>
-                <button className="btn btn-ghost px-3 py-2 text-sm" onClick={handleGoToStreamingServices}>
-                  Set up streaming services
-                </button>
-              </div>
-            </section>
-
-            <section className="panel-muted">
-              <h3 className="eyebrow">
-                Guided setup
-              </h3>
-              <div className="mt-4 space-y-3">
-                <article className="surface-card p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                        Step 1
-                      </p>
-                      <h4 className="mt-1 text-base font-semibold text-slate-100">
-                        Set up your streaming services
-                      </h4>
-                      <p className="mt-1 text-sm text-slate-400">
-                        This helps prioritize movies you can actually watch.
-                      </p>
-                    </div>
-                    <span
-                      className={[
-                        "inline-flex shrink-0 rounded-full px-2.5 py-1 text-xs font-semibold",
-                        hasStreamingServices
-                          ? "bg-emerald-100 text-emerald-300"
-                          : "bg-slate-700 text-slate-400",
-                      ].join(" ")}
-                    >
-                      {hasStreamingServices ? "Done" : "Recommended"}
-                    </span>
-                  </div>
-                  <div className="mt-4">
-                    <button
-                      type="button"
-                      onClick={handleGoToStreamingServices}
-                      className={hasStreamingServices ? "text-sm font-medium text-rose-300 hover:text-rose-300" : "btn btn-secondary"}
-                    >
-                      {hasStreamingServices ? "Edit" : "Set up services"}
-                    </button>
-                  </div>
-                </article>
-
-                <article className="surface-card p-4">
-                  <div className="flex items-start justify-between gap-4">
-                    <div>
-                      <p className="text-xs font-semibold uppercase tracking-[0.2em] text-slate-400">
-                        Step 2
-                      </p>
-                      <h4 className="mt-1 text-base font-semibold text-slate-100">
-                        Create your first bowl
-                      </h4>
-                      <p className="mt-1 text-sm text-slate-400">
-                        Add a bowl now and start collecting movies to draw from.
-                      </p>
-                    </div>
-                    <span className="inline-flex shrink-0 rounded-full bg-slate-700 px-2.5 py-1 text-xs font-semibold text-slate-400">
-                      Next
-                    </span>
-                  </div>
-                  <div className="mt-4">
-                    <button type="button" onClick={handleNewBowl} className="btn btn-secondary" disabled={isCreating}>
-                      Create bowl
-                    </button>
-                  </div>
-                </article>
-              </div>
-            </section>
-          </div>
+          // A first run is one thing to do: name a bowl. Services can wait for
+          // the filters, and the empty bowl offers a starter pack itself.
+          <section className="page-hero flex flex-col items-center py-8 text-center">
+            <img src={bowlImage} alt="" aria-hidden="true" className="h-28 w-28 object-contain sm:h-36 sm:w-36" />
+            <form
+              className="mt-6 flex w-full max-w-md flex-col gap-3 sm:flex-row"
+              onSubmit={async (event) => {
+                event.preventDefault();
+                if (!newBowlName.trim() || isCreating) return;
+                const result = await handleCreateBowl();
+                if (result?.ok && result.bowl?.id) navigate(`/bowl/${result.bowl.id}`);
+              }}
+            >
+              <label htmlFor="first-bowl-name" className="sr-only">Bowl name</label>
+              <input
+                id="first-bowl-name"
+                type="text"
+                className="input-field flex-1 text-center sm:text-left"
+                placeholder="Name your bowl"
+                value={newBowlName}
+                disabled={isCreating}
+                onChange={(event) => setNewBowlName(event.target.value)}
+              />
+              <button type="submit" className="btn btn-primary" disabled={isCreating || !newBowlName.trim()}>
+                {isCreating ? "Creating…" : "Create bowl"}
+              </button>
+            </form>
+            {createErrorMessage && <div className="status-error mt-3" role="alert">{createErrorMessage}</div>}
+          </section>
         ) : (
           <>
             {pendingInvites.length > 0 && (
