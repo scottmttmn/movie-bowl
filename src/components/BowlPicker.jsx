@@ -1,5 +1,7 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
 import bowlImage from "../assets/movie-bowl.webp";
+import FilmStripGlyph from "./FilmStripGlyph";
+import PeopleGlyph from "./PeopleGlyph";
 import { findNeighborIndex, getAnchoredPanelLayout } from "../utils/pickerPlacement";
 
 const HOUSE_PATH = "M3 10.5 12 3l9 7.5V20a1 1 0 0 1-1 1h-5v-6h-6v6H4a1 1 0 0 1-1-1z";
@@ -192,7 +194,11 @@ export default function BowlPicker({
             <span aria-hidden="true" className="mb-0.5 block text-[10.5px] font-extrabold uppercase tracking-wider text-rose-300">Viewing</span>
           )}
           <span className="line-clamp-2 break-words text-[15px] font-semibold leading-snug text-slate-100">{bowl.name}</span>
-          <span className="mt-1 block text-xs text-slate-400">{describeCounts(bowl)}</span>
+          {/* The same marks as My Bowls; the row's label still says them in words. */}
+          <span className="mt-1 flex items-center gap-3 text-xs tabular-nums text-slate-400">
+            <span className="inline-flex items-center gap-1"><FilmStripGlyph className="h-3.5 w-3.5" />{bowl.remainingCount}</span>
+            <span className="inline-flex items-center gap-1"><PeopleGlyph className="h-3.5 w-3.5" />{bowl.memberCount}</span>
+          </span>
         </span>
       </button>
     );
