@@ -25,7 +25,12 @@ export default function StarterPackPhoto({ profilePath, className = "" }) {
           loading="lazy"
           decoding="async"
           onError={() => setFailed(true)}
-          className="h-full w-full object-cover object-top"
+          // TMDB headshots are 2:3 portraits, and most of the cards showing
+          // them are wide, so a cover crop keeps only a band about a quarter of
+          // the photo tall. Pinned to the top that band is hair and forehead;
+          // at 30% it runs from the brow to the chin, and a tall frame like the
+          // installed pack's still starts near the crown.
+          className="h-full w-full object-cover object-[50%_30%]"
         />
       ) : (
         <PersonSilhouette className="absolute inset-x-0 top-[6%] mx-auto h-[78%]" />
