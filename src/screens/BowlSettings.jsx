@@ -4,6 +4,7 @@ import AutosaveStatus from "../components/AutosaveStatus";
 import CopyButton from "../components/CopyButton";
 import SettingsSectionNav from "../components/SettingsSectionNav";
 import StarterPackSection from "../components/StarterPackSection";
+import BowlServiceChart from "../components/BowlServiceChart";
 import useAutosave, { valuesAreEqual } from "../hooks/useAutosave";
 import { supabase } from "../lib/supabase";
 import { startRead } from "../utils/startRead";
@@ -47,6 +48,7 @@ export default function BowlSettings() {
 
   const [members, setMembers] = useState([]);
   const [starterPackSummary, setStarterPackSummary] = useState("…");
+  const [streamingSummary, setStreamingSummary] = useState("…");
   const [pendingInviteCount, setPendingInviteCount] = useState(0);
   const [addLinks, setAddLinks] = useState([]);
 
@@ -768,6 +770,7 @@ export default function BowlSettings() {
               items={[
                 { href: "#drawing", label: "Drawing", value: drawingSummary },
                 { href: "#starter-pack", label: "Starter pack", value: starterPackSummary },
+                { href: "#streaming", label: "Streaming", value: streamingSummary },
                 { href: "#people", label: "People", value: peopleSummary },
                 { href: "#add-links", label: "Add links", value: addLinkSummary },
               ]}
@@ -942,6 +945,7 @@ export default function BowlSettings() {
             </section>
 
             <StarterPackSection bowlId={bowlId} isOwner={isOwner} onSummaryChange={setStarterPackSummary} />
+            <BowlServiceChart bowlId={bowlId} onSummaryChange={setStreamingSummary} />
 
             <section id="people" tabIndex={-1} className="panel scroll-mt-24" aria-labelledby="people-heading">
               <div className="flex items-start justify-between gap-3">

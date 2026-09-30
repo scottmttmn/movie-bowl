@@ -66,7 +66,7 @@ function normalizeCacheRows(rows) {
 // about than a stale one.
 const OPENING_READ_MAX_AGE_MS = 15000;
 
-function readBowlMetadata(supabaseClient, bowlId) {
+export function readBowlMetadata(supabaseClient, bowlId) {
   return supabaseClient
     .rpc("get_bowl_filter_metadata", {
       p_bowl_id: bowlId,
