@@ -338,11 +338,15 @@ describe("BowlDashboard draw flow", () => {
 
     vi.useFakeTimers();
     const button = screen.getByRole("button", { name: /draw movie/i });
+    const bowl = document.querySelector(".bowl-illustration-stage");
     fireEvent.pointerDown(button);
+    // The bowl shakes with the hold, and settles when it is let go.
+    expect(bowl).toHaveClass("is-holding");
     await act(async () => {
       vi.advanceTimersByTime(HOLD_TO_DRAW_MS - 1);
     });
     fireEvent.pointerUp(button);
+    expect(bowl).not.toHaveClass("is-holding");
     await act(async () => {
       vi.advanceTimersByTime(HOLD_TO_DRAW_MS);
     });
@@ -441,7 +445,7 @@ describe("BowlDashboard draw flow", () => {
     });
     vi.useRealTimers();
 
-    const webLink = await screen.findByRole("link", { name: /open on web in netflix/i });
+    const webLink = await screen.findByRole("link", { name: /watch on netflix/i });
     expect(webLink).toHaveAttribute("href", "https://www.netflix.com/search?q=Movie%20A");
     expect(webLink).toHaveAttribute("target", "_blank");
     expect(webLink).toHaveAttribute("rel", "noopener noreferrer");
@@ -460,11 +464,11 @@ describe("BowlDashboard draw flow", () => {
     confirmDraw();
     await act(async () => { await vi.advanceTimersByTimeAsync(1500); });
     vi.useRealTimers();
-    const link = await screen.findByRole("link", { name: /open on web in netflix/i });
+    const link = await screen.findByRole("link", { name: /watch on netflix/i });
     expect(mocks.fetchProviderLinks).toHaveBeenCalledExactlyOnceWith(101, "bowl-1");
     expect(link).toHaveAttribute("href", "https://www.netflix.com/search?q=Arrival");
     await act(async () => { finishLookup({ links: [{ service: "Netflix", type: "sub", webUrl: "https://www.netflix.com/title/123" }] }); });
-    expect(screen.getByRole("link", { name: /open on web in netflix/i })).toBe(link);
+    expect(screen.getByRole("link", { name: /watch on netflix/i })).toBe(link);
     expect(link).toHaveAttribute("href", "https://www.netflix.com/title/123");
     expect(screen.getByRole("link", { name: "Watchmode" })).toBeInTheDocument();
   });
@@ -544,7 +548,7 @@ describe("BowlDashboard draw flow", () => {
     });
     vi.useRealTimers();
 
-    fireEvent.click(await screen.findByRole("link", { name: /open on web in netflix/i }));
+    fireEvent.click(await screen.findByRole("link", { name: /watch on netflix/i }));
     expect(openSpy).not.toHaveBeenCalled();
     expect(screen.queryByText(/blocked opening the streaming site|allow pop-ups/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/opened netflix in a new tab/i)).not.toBeInTheDocument();

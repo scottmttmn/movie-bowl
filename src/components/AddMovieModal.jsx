@@ -154,6 +154,7 @@ export default function AddMovieModal({
   onTogglePin = null,
   pinDisabledReason = "",
   isObscured = false,
+  tonight = null,
 }) {
   const [displayedNote, setDisplayedNote] = useState(() => normalizeMovieNote(movie?.note));
   const [noteDraft, setNoteDraft] = useState(() => movie?.note || "");
@@ -167,6 +168,7 @@ export default function AddMovieModal({
   const [isOtherStreamingOpen, setIsOtherStreamingOpen] = useState(false);
   const [isStoresOpen, setIsStoresOpen] = useState(false);
   const [failedPosterUrl, setFailedPosterUrl] = useState(null);
+  const [isWhereOpen, setIsWhereOpen] = useState(false);
   const backButton = useRef(null);
 
   useEffect(() => {
@@ -216,6 +218,7 @@ export default function AddMovieModal({
     setIsTrailerVisible(false);
     setIsOtherStreamingOpen(false);
     setIsStoresOpen(false);
+    setIsWhereOpen(false);
   }
 
   // This modal is used in two contexts:
@@ -337,6 +340,38 @@ export default function AddMovieModal({
     : "movie-trailer";
   const resolvedNoteHeading = noteHeading || "Why it’s in the bowl";
 
+  // The drawn movie, as tonight's pick rather than a lookup. Everything it
+  // says is shown, not written: the contributor's slip for the why, one
+  // button for the next step.
+  const tonightSlipNote = tonight && !isEditingNote ? displayedNote : null;
+  const contributorInitial = (addedByLabel || "").trim().charAt(0).toUpperCase();
+  const tonightPrimary = !tonight
+    ? null
+    : webLaunchCandidate
+      ? {
+        url: webLaunchCandidate.url,
+        label: `Watch on ${webLaunchCandidate.serviceName}`,
+        logo: <ServiceLogo service={webLaunchCandidate.serviceName} className="h-5 w-5" />,
+        linksAttribution: webLaunchCandidate.linkType === "title",
+      }
+      : rentCandidate
+        ? {
+          url: rentCandidate.url,
+          label: rentCandidate.linkType === "rent" ? `Rent on ${rentCandidate.storeName}` : "See rent options",
+          logo: rentStoreLogoUrl ? <img src={rentStoreLogoUrl} alt="" className="h-5 w-5 rounded" loading="lazy" /> : null,
+          linksAttribution: rentCandidate.linkType === "rent",
+        }
+        : null;
+  const tonightProviders = tonight
+    ? uniqueProvidersByName([...streamingGroups, ...storeGroups].flatMap((group) => group.providers))
+      .filter((provider) => normalizeStreamingServices([provider.name])[0] !== webLaunchCandidate?.serviceName)
+    : [];
+  const tonightProviderLogos = tonightProviders
+    .map((provider) => getProviderLogoUrl(provider.logoPath || providerLogos[normalizeStreamingServices([provider.name])[0]]))
+    .filter(Boolean)
+    .slice(0, 3);
+  const showWhereSection = showWhereToWatch && (!tonight || isWhereOpen);
+
   const personalCommentSection = personalComment ? (
     <PersonalCommentSection
       key={`${resolvedMovieId ?? ""}:${personalComment.entryId ?? ""}`}
@@ -406,7 +441,8 @@ export default function AddMovieModal({
     >
       <div className={inline ? "flex min-h-0 flex-1 flex-col overflow-hidden" : "modal-surface flex max-h-[92dvh] max-w-3xl flex-col overflow-clip"} role={inline ? undefined : "dialog"} aria-modal={inline ? undefined : "true"} aria-labelledby="movie-detail-title">
         <div className={inline ? "mb-3 shrink-0" : "flex shrink-0 items-center justify-between gap-4 px-5 py-3 sm:px-7 sm:py-4"}>
-          {!inline && <p className="eyebrow">Movie details</p>}
+          {/* Tonight's pick needs no heading: the reveal just said what it is. */}
+          {!inline && (tonight ? <span aria-hidden="true" /> : <p className="eyebrow">Movie details</p>)}
           <button ref={backButton} type="button" onClick={onClose} className={inline ? "btn btn-ghost whitespace-nowrap px-0 text-sm" : "icon-btn shrink-0"} aria-label={inline ? inlineBackLabel : "Close"}>{inline ? `← ${inlineBackLabel}` : "✕"}</button>
         </div>
 
@@ -473,13 +509,20 @@ export default function AddMovieModal({
                     <span>From the</span>{" "}<span className="text-slate-200">{addedByLabel}</span>{" "}<span>pack</span>
                   </p>
                 )}
-                {addedByLabel && !isStarterPackMovie(movie) && (
+                {tonightSlipNote && (
+                  <figure className="tonight-slip mt-3">
+                    {contributorInitial && <span className="tonight-slip-avatar" title={addedByLabel}>{contributorInitial}</span>}
+                    <blockquote>{tonightSlipNote}</blockquote>
+                    <figcaption className="sr-only">From {addedByLabel}</figcaption>
+                  </figure>
+                )}
+                {addedByLabel && !isStarterPackMovie(movie) && !tonightSlipNote && (
                   <p className="mt-3 break-words text-sm text-slate-400">
                     <span>Added by</span>{" "}<span className="text-slate-200">{addedByLabel}</span>
                   </p>
                 )}
                 {watchedDateLabel && <p className="mt-2 text-sm text-slate-400">Watched on: {watchedDateLabel}</p>}
-                {hasTrailer && (
+                {hasTrailer && !tonight && (
                   <button
                     type="button"
                     className="btn btn-primary mt-5 w-full px-3 text-sm sm:w-auto sm:px-5"
@@ -511,6 +554,57 @@ export default function AddMovieModal({
             )}
           </div>
 
+          {tonight && (
+            <div className="space-y-3">
+              {tonightPrimary && (
+                <div>
+                  <a href={tonightPrimary.url} target="_blank" rel="noopener noreferrer" className="btn btn-primary w-full">
+                    {tonightPrimary.logo}
+                    {tonightPrimary.label}
+                    <span className="sr-only"> (opens in a new tab)</span>
+                  </a>
+                  {tonightPrimary.linksAttribution && <div className="mt-2"><ProviderLinksAttribution /></div>}
+                </div>
+              )}
+              {(hasTrailer || tonightProviders.length > 0) && (
+                <div className="flex items-center gap-2">
+                  {hasTrailer && (
+                    <button
+                      type="button"
+                      className="icon-btn"
+                      aria-label={isTrailerVisible ? "Hide trailer" : "Watch trailer"}
+                      aria-expanded={isTrailerVisible}
+                      aria-controls={trailerRegionId}
+                      onClick={() => setIsTrailerVisible((prev) => !prev)}
+                    >
+                      <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="currentColor"><path d="M8 4.5v15l12-7.5z" /></svg>
+                    </button>
+                  )}
+                  {tonightProviders.length > 0 && (
+                    <button
+                      type="button"
+                      className="tonight-logos"
+                      aria-label={`Where else to watch: ${tonightProviders.length} ${tonightProviders.length === 1 ? "option" : "options"}`}
+                      aria-expanded={isWhereOpen}
+                      aria-controls="movie-streaming-section"
+                      onClick={() => setIsWhereOpen((open) => !open)}
+                    >
+                      {tonightProviderLogos.map((url) => <img key={url} src={url} alt="" loading="lazy" />)}
+                      {tonightProviders.length > tonightProviderLogos.length && (
+                        <span>+{tonightProviders.length - tonightProviderLogos.length}</span>
+                      )}
+                    </button>
+                  )}
+                </div>
+              )}
+              {/* The logos are availability data too, so they carry its credit
+                  whenever the list they stand for is folded away. */}
+              {tonightProviders.length > 0 && !isWhereOpen && (hasStructuredAvailability || movie.streamingWatchUrl) && (
+                <AvailabilityAttribution />
+              )}
+            </div>
+          )}
+
           {hasTrailer && isTrailerVisible && (
             <div id={trailerRegionId} className="surface-card aspect-video overflow-hidden">
               <TrailerEmbed
@@ -521,8 +615,8 @@ export default function AddMovieModal({
             </div>
           )}
 
-          {showWhereToWatch && (
-            <section className="border-t border-slate-700/60 pt-5" aria-labelledby="movie-streaming-title">
+          {showWhereSection && (
+            <section id="movie-streaming-section" className="border-t border-slate-700/60 pt-5" aria-labelledby="movie-streaming-title">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">
                 <h3 id="movie-streaming-title" className="text-sm font-semibold text-slate-200">Where to watch</h3>
                 {userServiceProviders.length > 0 && <p className="text-xs text-emerald-300">✓ Your services</p>}
@@ -534,8 +628,8 @@ export default function AddMovieModal({
                       ? "Availability could not be loaded right now. Try again later."
                       : "No US streaming providers found right now."}
                   </p>
-                  {launchButton}
-                  {rentButton}
+                  {!tonight && launchButton}
+                  {!tonight && rentButton}
                 </div>
               ) : (
                 <div className="space-y-4">
@@ -551,8 +645,8 @@ export default function AddMovieModal({
                   ) : normalizeStreamingServices(userStreamingServices).length > 0 ? (
                     <p className="text-sm text-slate-300">Not on any of your services.</p>
                   ) : null}
-                  {launchButton}
-                  {rentButton}
+                  {!tonight && launchButton}
+                  {!tonight && rentButton}
                   {(otherStreamingGroups.length > 0 || storeGroups.length > 0) && (
                     <div className="border-b border-slate-700/60">
                       {otherStreamingGroups.length > 0 && (
@@ -590,7 +684,7 @@ export default function AddMovieModal({
           {/* The comment this page is about comes first; the other one follows,
               folded away. */}
           {personalComment && !personalComment.collapsed && personalCommentSection}
-          {displayedNote && !isEditingNote && !isNoteOpen ? (
+          {tonightSlipNote ? null : displayedNote && !isEditingNote && !isNoteOpen ? (
             <button
               type="button"
               className="btn btn-ghost -ml-3 px-3 text-sm"

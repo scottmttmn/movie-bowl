@@ -146,6 +146,7 @@ export default function SoloDrawPage() {
   } = useSoloDraw();
   const [showFilters, setShowFilters] = useState(false);
   const [showInfo, setShowInfo] = useState(false);
+  const [holdState, setHoldState] = useState("idle");
   const [isConfirmingDraw, setIsConfirmingDraw] = useState(false);
   const { revealRun, isRevealing: isPreparingReveal, revealCommittedDraw } = useSoloDrawReveal();
   const drawBowlRef = useRef(null);
@@ -459,6 +460,7 @@ export default function SoloDrawPage() {
             <div className="solo-bowl-stage" ref={drawBowlRef}>
               <BowlIllustration
                 className="h-full w-full"
+                holdState={holdState}
               />
               <span className="solo-avatar solo-bowl-avatar" aria-hidden="true">{shownInitial}</span>
             </div>
@@ -491,7 +493,7 @@ export default function SoloDrawPage() {
             )}
             <div className="solo-draw-action mt-5 w-full max-w-sm" ref={drawActionRef}>
               <HoldToDrawButton label="Hold to draw for yourself" ariaLabel="Draw a movie for yourself. Press and hold to draw."
-                onHoldComplete={runDraw} onKeyboardActivate={() => { if (canDraw) setIsConfirmingDraw(true); }}
+                onHoldComplete={runDraw} onHoldStateChange={setHoldState} onKeyboardActivate={() => { if (canDraw) setIsConfirmingDraw(true); }}
                 disabled={!canDraw} isLoading={isDrawInProgress} />
             </div>
             <div className="mt-3 flex justify-center">
