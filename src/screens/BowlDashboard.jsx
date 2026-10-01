@@ -21,7 +21,8 @@ import useBowlPeople from "../hooks/useBowlPeople";
 import useDrawProviderLinks from "../hooks/useDrawProviderLinks";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import useDeviceDrawSettings from "../hooks/useDeviceDrawSettings";
-import TheaterTicket from "../components/TheaterTicket";
+import TheaterCurtains from "../components/TheaterCurtains";
+import TheaterModeToggle from "../components/TheaterModeToggle";
 import TheaterPreroll from "../components/TheaterPreroll";
 import { buildTrailerQueue, readRecentTrailerKeys, rememberTrailerKeys } from "../utils/theaterQueue";
 import { fetchMovieTrailer, resolveEligiblePreviewIds } from "../lib/theaterPreviews";
@@ -560,8 +561,8 @@ export default function BowlDashboard() {
     if (isMyMoviesSettled && myMoviesShownBowlId !== bowlId) setMyMoviesShownBowlId(bowlId);
     const isHoldingMyMovies = myMoviesShownBowlId !== bowlId && !isMyMoviesSettled;
     // Optimistic until the access read answers: most people in a bowl can
-    // draw, and the ticket arriving late pushed everything under it down.
-    const showsTheaterTicket = isAccessKnown ? canCurrentUserDraw : heldBowlView?.canDraw ?? true;
+    // draw, and the toggle arriving late pushed everything under it down.
+    const showsTheaterToggle = isAccessKnown ? canCurrentUserDraw : heldBowlView?.canDraw ?? true;
     // Only theaterModeEnabled comes from the device layer. prioritizeStreaming
     // and useStreamingRank are overridable too, but on this screen they are
     // local state that the filter panel saves back to the account -- a device
@@ -1003,8 +1004,8 @@ export default function BowlDashboard() {
         if (movie) {
           const detailMovie = await buildDetailMovie(movie);
           setDrawnMovie(detailMovie);
-          // Armed on this device, so no confirmation: the ticket beside the
-          // draw button already answered that question. The reveal is set
+          // Armed on this device, so no confirmation: the curtain toggle under
+          // the draw button already answered that question. The reveal is set
           // first and the previews play over it, which is the order the
           // television runs and the order a cinema runs.
           if (isTheaterModeEnabled) startTheater(detailMovie);
@@ -1110,6 +1111,11 @@ return (
                     className={`mx-auto h-44 w-full max-w-2xl drop-shadow-2xl sm:h-48 md:h-52 ${isDrawing ? "invisible" : ""}`}
                     holdState={holdState}
                   />
+                  <TheaterCurtains
+                    enabled={showsTheaterToggle && isTheaterModeEnabled}
+                    holdState={holdState}
+                    isDrawing={isDrawing}
+                  />
                 </div>
 
                 <BowlStatLine
@@ -1173,11 +1179,11 @@ return (
                     member who cannot draw, which is the opposite of the draw
                     button above -- a greyed draw button explains why they
                     cannot draw, with drawGuardMessage beside it, while a greyed
-                    ticket explains nothing and advertises a ceremony they can
+                    toggle explains nothing and advertises a ceremony they can
                     never start. */}
-                {showsTheaterTicket && (
+                {showsTheaterToggle && (
                   <div className="mt-3 flex justify-center">
-                    <TheaterTicket
+                    <TheaterModeToggle
                       enabled={isTheaterModeEnabled}
                       previewCount={theaterTrailerCount}
                       onToggle={(next) => setDeviceDrawSetting("theaterModeEnabled", next)}
