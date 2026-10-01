@@ -64,6 +64,22 @@ describe("TheaterCurtains", () => {
     }
   });
 
+  // Turning it back on mid-close interrupts the close; the lift that was queued
+  // behind it must not run anyway and take the curtains off a switch that is on.
+  it("keeps the curtains when turned back on before they finish closing", async () => {
+    vi.useFakeTimers();
+    try {
+      const { container, rerender } = render(<TheaterCurtains enabled />);
+      rerender(<TheaterCurtains enabled={false} />);
+      await act(async () => { await vi.advanceTimersByTimeAsync(300); });
+      rerender(<TheaterCurtains enabled />);
+      await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
+      expect(container.querySelector(".theater-curtains svg")).not.toBeNull();
+    } finally {
+      vi.useRealTimers();
+    }
+  });
+
   // The television swaps the page for its draw screen, so the page's own pair
   // is gone by then; the screen-wide pair has to stand on its own.
   it("draws the screen-wide pair on its own for the television", () => {

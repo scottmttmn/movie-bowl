@@ -18,7 +18,9 @@ function prefersReducedMotion() {
 
 // A number that moves toward wherever it is told to, one frame at a time.
 // Telling it somewhere new mid-flight starts from where it is, so a hold let go
-// halfway reopens from halfway rather than jumping.
+// halfway reopens from halfway rather than jumping. Each move resolves true when
+// it arrives and false when something interrupted it, so a step chained behind
+// a move that never finished does not run.
 function useTween(initial) {
   const [value, setValue] = useState(initial);
   const current = useRef(initial);
@@ -28,7 +30,7 @@ function useTween(initial) {
   const stop = useCallback(() => {
     if (frame.current) window.cancelAnimationFrame(frame.current);
     frame.current = null;
-    settle.current?.();
+    settle.current?.(false);
     settle.current = null;
   }, []);
 
@@ -38,7 +40,7 @@ function useTween(initial) {
     if (!ms || from === to) {
       current.current = to;
       setValue(to);
-      return Promise.resolve();
+      return Promise.resolve(true);
     }
     return new Promise((resolve) => {
       settle.current = resolve;
@@ -51,7 +53,7 @@ function useTween(initial) {
         else {
           frame.current = null;
           settle.current = null;
-          resolve();
+          resolve(true);
         }
       };
       frame.current = window.requestAnimationFrame(step);
@@ -213,9 +215,9 @@ export default function TheaterCurtains({ enabled, holdState = "idle", isDrawing
     const ms = (value) => (reducedMotion ? 0 : value);
     if (enabled) {
       animateOpenness(0, 0);
-      animateDrop(0, ms(DROP_MS)).then(() => animateOpenness(1, ms(PART_MS)));
+      animateDrop(0, ms(DROP_MS)).then((done) => done && animateOpenness(1, ms(PART_MS)));
     } else {
-      animateOpenness(0, ms(CLOSE_MS)).then(() => animateDrop(1, ms(DROP_MS)));
+      animateOpenness(0, ms(CLOSE_MS)).then((done) => done && animateDrop(1, ms(DROP_MS)));
     }
   }, [enabled, reducedMotion, animateDrop, animateOpenness]);
 
@@ -287,16 +289,9 @@ export function TheaterRevealCurtains({ origin, closeFirst = false }) {
 
   useEffect(() => {
     if (reducedMotion) return undefined;
-    // Unmounting settles a tween early, so a parting queued behind the growth
-    // must check it still belongs to a mounted pair before it starts.
-    let cancelled = false;
     if (closeFirst) animateOpenness(0, CLOSE_MS);
-    animateSpread(1, closeFirst ? CLOSE_MS : GROW_MS).then(() => {
-      if (!cancelled) animateOpenness(1, REVEAL_PART_MS);
-    });
-    return () => {
-      cancelled = true;
-    };
+    animateSpread(1, closeFirst ? CLOSE_MS : GROW_MS).then((done) => done && animateOpenness(1, REVEAL_PART_MS));
+    return undefined;
   }, [closeFirst, reducedMotion, animateSpread, animateOpenness]);
 
   if (reducedMotion) return null;
