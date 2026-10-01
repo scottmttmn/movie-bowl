@@ -40,7 +40,9 @@ import {
   TvRevealScreen,
 } from "../components/TvDrawExperience";
 import TvStreamingRail from "../components/TvStreamingRail";
-import TvDrawMethodMark from "../components/TvDrawMethodMark";
+import DrawMethodMark from "../../components/DrawMethodMark";
+import FilmStripGlyph from "../../components/FilmStripGlyph";
+import PeopleGlyph from "../../components/PeopleGlyph";
 import TvTheaterTicket from "../components/TvTheaterTicket";
 import { getStreamingMode, getStreamingModeSettings } from "../utils/streamingMode";
 import TvTheaterPreroll from "../components/TvTheaterPreroll";
@@ -211,7 +213,7 @@ function TvErrorScreen({ message, onBack }) {
 // The phone's stat line, in the one place a television can put it: under the
 // button it describes. Static text, because a D-pad landing on a control that
 // opens nothing is worse than a mouse doing it.
-function TvDrawReadout({ readout, isApproximate, contributorReach, excludedContributorCount }) {
+function TvDrawReadout({ readout, isApproximate, contributorReach, excludedContributorCount, memberCount }) {
   if (readout.count === 0) {
     return (
       <p className="tv-draw-readout" data-tone={STREAMING_MATCH_TONE.warning}>
@@ -220,32 +222,35 @@ function TvDrawReadout({ readout, isApproximate, contributorReach, excludedContr
     );
   }
 
+  // The bowl list's two marks: the film strip counts what the draw chooses
+  // among, the people count the bowl's members -- until filters leave someone
+  // out, when they turn into the ratio that should stop someone.
   return (
     <p className="tv-draw-readout" data-tone={readout.tone}>
-      <span>
-        Drawing from {isApproximate ? "up to " : ""}
+      <span className="tv-draw-readout-stat">
+        <FilmStripGlyph className="" />
+        <span className="sr-only">Drawing from </span>
+        {isApproximate ? <span aria-hidden="true">≤</span> : null}
         <strong>{readout.count}</strong>
         {readout.service ? ` on ${readout.service}` : ""}
       </span>
-      {excludedContributorCount > 0 && (
-        <>
-          <span aria-hidden="true">·</span>
-          <span className="tv-draw-readout-reach">
-            <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
-              <circle cx="9" cy="8" r="3.2" />
-              <path d="M3 20c0-3.3 2.7-5.4 6-5.4s6 2.1 6 5.4Z" />
-              <circle cx="17.5" cy="9" r="2.6" />
-              <path d="M15.4 14.9c2.9-.5 5.6 1.2 5.6 4.1v1h-4.6c0-1.9-.4-3.6-1-5.1Z" />
-            </svg>
-            <span aria-hidden="true">
-              <strong>{contributorReach.reachedCount}</strong>/{contributorReach.totalCount}
-            </span>
-            <span className="sr-only">
-              {`Only ${contributorReach.reachedCount} of ${contributorReach.totalCount} people have a movie in the draw.`}
-            </span>
+      {excludedContributorCount > 0 ? (
+        <span className="tv-draw-readout-stat tv-draw-readout-reach">
+          <PeopleGlyph className="" />
+          <span aria-hidden="true">
+            <strong>{contributorReach.reachedCount}</strong>/{contributorReach.totalCount}
           </span>
-        </>
-      )}
+          <span className="sr-only">
+            {`Only ${contributorReach.reachedCount} of ${contributorReach.totalCount} people have a movie in the draw.`}
+          </span>
+        </span>
+      ) : memberCount ? (
+        <span className="tv-draw-readout-stat" data-tone="idle">
+          <PeopleGlyph className="" />
+          <strong>{memberCount}</strong>
+          <span className="sr-only">{memberCount === 1 ? " member" : " members"}</span>
+        </span>
+      ) : null}
     </p>
   );
 }
@@ -1143,7 +1148,7 @@ export default function TvTonightScreen({ userId }) {
                 about this draw's pool. */}
             <div className="tv-tonight-heading">
               <h1 className="tv-tonight-title">{bowlMeta.name}</h1>
-              <TvDrawMethodMark drawMethod={bowlMeta.drawMethod} />
+              <DrawMethodMark drawMethod={bowlMeta.drawMethod} className="tv-method-mark" />
             </div>
 
             <div className="tv-tonight-mid">
@@ -1174,6 +1179,7 @@ export default function TvTonightScreen({ userId }) {
                   readout={shownDrawReadout.readout}
                   isApproximate={shownDrawReadout.isApproximate}
                   contributorReach={shownDrawReadout.reach}
+                  memberCount={bowlMeta.memberCount}
                   excludedContributorCount={
                     shownDrawReadout.reach
                       ? shownDrawReadout.reach.totalCount - shownDrawReadout.reach.reachedCount

@@ -1,5 +1,7 @@
 import { Fragment } from "react";
 import { describeStatLine } from "../utils/drawReadout";
+import FilmStripGlyph from "./FilmStripGlyph";
+import PeopleGlyph from "./PeopleGlyph";
 
 // One quiet sentence under the bowl instead of a row of chips. Each segment is
 // still a readout of what the draw is about to do, so the chip tone vocabulary
@@ -64,29 +66,40 @@ function PoolSegment({ count, service, tone, onOpenFilters }) {
     : `Drawing from ${titles}. Open draw filters.`;
   return (
     <Segment as="button" tone={tone} onClick={onOpenFilters} ariaLabel={label}>
-      Drawing from <Count tone={tone}>{count}</Count>{service ? ` on ${service}` : ""}
+      <span className="inline-flex items-center gap-1">
+        <FilmStripGlyph className="h-4 w-4" />
+        <Count tone={tone}>{count}</Count>
+        {service ? <span>on {service}</span> : null}
+      </span>
     </Segment>
   );
 }
 
-// The people readout is the one fact here that should stop someone, so it keeps
-// its own segment -- but as a ratio behind a glyph rather than a clause.
-function ReachSegment({ reachedCount, totalCount, onOpenMethodInfo }) {
+// The bowl's people, with the same mark the picker and My Bowls count them
+// with. When filters leave someone with nothing in the draw it turns amber and
+// becomes a ratio: the one fact here that should stop someone.
+function PeopleSegment({ memberCount, reach, onOpenMethodInfo }) {
+  if (reach) {
+    return (
+      <Segment
+        as="button"
+        tone="warning"
+        onClick={onOpenMethodInfo}
+        ariaLabel={`Only ${reach.reachedCount} of ${reach.totalCount} people have a movie in the draw. How this bowl picks.`}
+      >
+        <span className="inline-flex items-center gap-1">
+          <PeopleGlyph className="h-4 w-4" />
+          <span><Count tone="warning">{reach.reachedCount}</Count>/{reach.totalCount}</span>
+        </span>
+      </Segment>
+    );
+  }
+  if (!memberCount) return null;
   return (
-    <Segment
-      as="button"
-      tone="warning"
-      onClick={onOpenMethodInfo}
-      ariaLabel={`Only ${reachedCount} of ${totalCount} people have a movie in the draw. How this bowl picks.`}
-    >
-      <svg aria-hidden="true" viewBox="0 0 24 24" className="mr-1 inline h-3.5 w-3.5 -translate-y-px" fill="currentColor">
-        <circle cx="9" cy="8" r="3.2" />
-        <path d="M3 20c0-3.3 2.7-5.4 6-5.4s6 2.1 6 5.4Z" />
-        <circle cx="17.5" cy="9" r="2.6" />
-        <path d="M15.4 14.9c2.9-.5 5.6 1.2 5.6 4.1v1h-4.6c0-1.9-.4-3.6-1-5.1Z" />
-      </svg>
-      <Count tone="warning">{reachedCount}</Count>/{totalCount}
-    </Segment>
+    <span className="inline-flex items-center gap-1 text-slate-400" aria-label={memberCount === 1 ? "1 member" : `${memberCount} members`}>
+      <PeopleGlyph className="h-4 w-4" />
+      <Count>{memberCount}</Count>
+    </span>
   );
 }
 
@@ -96,6 +109,7 @@ export default function BowlStatLine({
   onRunPoolLookups,
   onOpenFilters,
   onOpenMethodInfo,
+  memberCount = null,
   ...readoutInputs
 }) {
   // While the answer is still being worked out, the line shows what it said
@@ -127,17 +141,11 @@ export default function BowlStatLine({
     );
   }
 
-  if (hasExcludedContributors) {
+  if (description && (hasExcludedContributors || memberCount)) {
     segments.push(
-      <ReachSegment
-        key="reach"
-        reachedCount={reach.reachedCount}
-        totalCount={reach.totalCount}
-        onOpenMethodInfo={onOpenMethodInfo}
-      />
+      <PeopleSegment key="people" memberCount={memberCount} reach={reach} onOpenMethodInfo={onOpenMethodInfo} />
     );
   }
-
 
   return (
     <p
@@ -146,26 +154,10 @@ export default function BowlStatLine({
     >
       {segments.map((segment, index) => (
         <Fragment key={segment.key}>
-          {index > 0 && <span aria-hidden="true">·</span>}
+          {index > 0 && <span aria-hidden="true" className="w-2" />}
           {segment}
         </Fragment>
       ))}
-      <button
-        type="button"
-        onClick={onOpenMethodInfo}
-        aria-label={
-          hasExcludedContributors
-            ? "How this bowl picks — some people are filtered out"
-            : "How this bowl picks"
-        }
-        className={`rounded px-0.5 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60 ${
-          hasExcludedContributors
-            ? "text-amber-400 hover:text-amber-200"
-            : "text-slate-500 hover:text-slate-200"
-        }`}
-      >
-        ⓘ
-      </button>
     </p>
   );
 }

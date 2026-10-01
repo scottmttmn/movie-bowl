@@ -10,6 +10,7 @@ import AddMovieButton from "../components/AddMovieButton";
 import FilterChipSelect from "../components/FilterChipSelect";
 import BowlIllustration from "../components/BowlIllustration";
 import DrawMethodInfoModal from "../components/DrawMethodInfoModal";
+import DrawMethodMark from "../components/DrawMethodMark";
 import BowlPicker from "../components/BowlPicker";
 import CreateBowlModal from "../components/CreateBowlModal";
 import useCreateBowl from "../hooks/useCreateBowl";
@@ -221,6 +222,7 @@ export default function BowlDashboard() {
     const pickerTriggerRef = useRef(null);
     const [homeMessage, setHomeMessage] = useState(null);
     const [homeError, setHomeError] = useState(null);
+    const currentBowlMemberCount = accountBowls.find((entry) => entry.id === bowlId)?.memberCount ?? null;
     const ownedBowlCount = accountBowls.filter((entry) => entry.role === "Owner").length;
     const {
       actionMessage: createActionMessage,
@@ -1002,7 +1004,7 @@ export default function BowlDashboard() {
 return (
     <div className="bowl-dashboard page-container overflow-hidden pb-12 pt-5 sm:pt-7">
         <header className="mb-5 flex min-w-0 items-center justify-between gap-3">
-                <div className="min-w-0 flex-1">
+                <div className="flex min-w-0 flex-1 items-center justify-center gap-1">
                   <h1 className="min-w-0">
                     <button
                       type="button"
@@ -1032,6 +1034,18 @@ return (
                       </svg>
                     </button>
                   </h1>
+                  {/* How this bowl picks, as the television shows it: the same
+                      slip beside the name, because the method belongs to the
+                      bowl rather than to tonight. Here it is also the way in to
+                      the explanation. */}
+                  <button
+                    type="button"
+                    onClick={() => setShowMethodInfo(true)}
+                    className="shrink-0 rounded-lg p-1 transition hover:bg-slate-800/60 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60"
+                    aria-label={`How this bowl picks: ${getDrawMethod(drawMethod).tvLabel}`}
+                  >
+                    <DrawMethodMark drawMethod={drawMethod} className="h-9 w-9 sm:h-10 sm:w-10" />
+                  </button>
                   {isCurrentBowlHome && <p className="sr-only">Home bowl</p>}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
@@ -1096,6 +1110,7 @@ return (
                   onRunPoolLookups={runDrawPoolLookups}
                   onOpenFilters={() => setShowDrawFilters(true)}
                   onOpenMethodInfo={() => setShowMethodInfo(true)}
+                  memberCount={currentBowlMemberCount}
                 />
 
                 <div className="mx-auto mt-4 flex w-full max-w-sm flex-col items-stretch gap-2.5">

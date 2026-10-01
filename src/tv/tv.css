@@ -718,8 +718,8 @@ html.tv-root {
 /* Quieter than the name beside it: context about the bowl, not a second
    title. */
 .tv-method-mark {
-  width: 2rem;
-  height: 2rem;
+  width: 2.4rem;
+  height: 2.4rem;
   flex: 0 0 auto;
   color: #94a3b8;
 }
@@ -847,16 +847,28 @@ html.tv-root {
   color: #fef3c7;
 }
 
-.tv-draw-readout-reach {
+.tv-draw-readout-stat {
   display: inline-flex;
   align-items: center;
   white-space: nowrap;
 }
 
+.tv-draw-readout-stat + .tv-draw-readout-stat {
+  margin-left: 1.1rem;
+}
+
+.tv-draw-readout-reach {
+  color: #fcd34d;
+}
+
+.tv-draw-readout-reach strong {
+  color: #fef3c7;
+}
+
 .tv-draw-readout svg {
-  width: 1.05em;
-  height: 1.05em;
-  margin-right: 0.3rem;
+  width: 1.15em;
+  height: 1.15em;
+  margin-right: 0.35rem;
 }
 
 .tv-draw-guard {
