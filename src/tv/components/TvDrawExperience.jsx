@@ -217,10 +217,27 @@ function TvTonightPick({
   const primary = canOfferLaunch
     ? { url: webLaunchCandidate.url, service: webLaunchCandidate.serviceName, label: `Watch on ${webLaunchCandidate.serviceName}`, enabled: canLaunch, autofocus: playbackAutofocus }
     : offersRent
-      // Never focused first: spending money is the one press the room should
-      // have to go looking for.
-      ? { url: rentCandidate.url, service: rentCandidate.storeName, label: `Rent on ${rentCandidate.storeName}`, enabled: canRent, autofocus: false }
+      // Pressing it only opens the store's page, where buying takes another
+      // confirmation, so it is the next step like any other. The $ on its logo
+      // is what says this one costs money.
+      ? { url: rentCandidate.url, service: rentCandidate.storeName, label: `Rent on ${rentCandidate.storeName}`, enabled: canRent, autofocus: playbackAutofocus, rent: true }
       : null;
+  // A store is not a streaming service, so its logo comes from the title's
+  // own rent listing, as on the phone. Without one the $ stands alone.
+  const rentLogoUrl = primary?.rent
+    ? getProviderLogoUrl(
+      (availability.rent || []).find((provider) => normalizeRentalStore(provider.name) === primary.service)?.logoPath,
+      "w92"
+    )
+    : null;
+  const primaryLogo = !primary ? null : !primary.rent ? (
+    <ServiceLogo service={primary.service} className="tv-launch-logo" />
+  ) : (
+    <span className={`tv-launch-logo-wrap${rentLogoUrl ? "" : " is-bare"}`}>
+      {rentLogoUrl && <img className="tv-launch-logo tv-launch-logo-plate" src={rentLogoUrl} alt="" />}
+      <span className="tv-rent-mark" aria-hidden="true">$</span>
+    </span>
+  );
 
   return (
     <section className="tv-reveal is-kept is-tonight">
@@ -270,13 +287,12 @@ function TvTonightPick({
               data-tv-focusable
               data-tv-nav-group="reveal-actions"
               data-tv-autofocus={primary.autofocus ? "true" : undefined}
-              data-tv-no-initial-focus={primary.autofocus ? undefined : "true"}
               href={primary.url}
               target="_blank"
               rel="noopener noreferrer"
               onClick={onProviderLaunch}
             >
-              <ServiceLogo service={primary.service} className="tv-launch-logo" />
+              {primaryLogo}
               {primary.label}
             </a>
           )}
@@ -288,7 +304,7 @@ function TvTonightPick({
               data-tv-nav-group="reveal-actions"
               disabled
             >
-              <ServiceLogo service={primary.service} className="tv-launch-logo" />
+              {primaryLogo}
               {primary.label}
             </button>
           )}
@@ -298,7 +314,7 @@ function TvTonightPick({
               className="tv-button tv-button-secondary tv-trailer-button"
               data-tv-focusable
               data-tv-nav-group="reveal-actions"
-              data-tv-autofocus={playbackAutofocus && !canLaunch ? "true" : undefined}
+              data-tv-autofocus={playbackAutofocus && !primary?.enabled ? "true" : undefined}
               onClick={onToggleTrailer}
             >
               {PLAY_ICON}

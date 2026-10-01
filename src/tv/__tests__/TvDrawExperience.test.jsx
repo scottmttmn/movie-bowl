@@ -134,19 +134,19 @@ describe("TvRevealScreen", () => {
       title: "Heat",
       release_date: "1995-12-15",
       streamingProviders: [],
-      streamingAvailability: { subscription: [], free: [], ads: [], rent: [{ id: 2, name: "Apple TV" }], buy: [] },
+      streamingAvailability: { subscription: [], free: [], ads: [], rent: [{ id: 2, name: "Apple TV", logoPath: "/apple-tv.jpg" }], buy: [] },
       streamingWatchUrl: "https://www.themoviedb.org/movie/949/watch",
     };
     const rentCandidate = { storeName: "Apple TV", url: "https://tv.apple.com/us/movie/heat/1", linkType: "rent" };
 
-    it("offers the store in place of the bare rent-or-buy line, without taking focus", () => {
+    it("offers the store in place of the bare rent-or-buy line, marked as costing money", () => {
       const onProviderLaunch = vi.fn();
       renderReveal(movie, { rentCandidate, onProviderLaunch });
 
       const rent = screen.getByRole("link", { name: /Rent on Apple TV/ });
       expect(rent).toHaveAttribute("href", rentCandidate.url);
       expect(rent).toHaveAttribute("data-tv-focusable");
-      expect(rent).not.toHaveAttribute("data-tv-autofocus");
+      expect(rent.querySelector(".tv-rent-mark")).toHaveTextContent("$");
       expect(screen.queryByText("Rent or buy options available")).not.toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Watchmode" })).toBeInTheDocument();
 
@@ -168,12 +168,12 @@ describe("TvRevealScreen", () => {
       expect(screen.queryByRole("link", { name: /Rent on/ })).not.toBeInTheDocument();
     });
 
-    it("is never where the remote starts, even as the first control on screen", async () => {
+    it("is where the remote starts, ahead of the trailer, with the store's logo", async () => {
       render(
         <Navigable>
           <TvRevealScreen
             bowlName="Family Night"
-            movie={movie}
+            movie={{ ...movie, trailer: { embedUrl: "https://www.youtube-nocookie.com/embed/abc" } }}
             streamingServices={["Netflix"]}
             isPreparingPreviews={false}
             showTrailer={false}
@@ -188,9 +188,12 @@ describe("TvRevealScreen", () => {
         </Navigable>
       );
 
-      // Focus goes where it would have with no rental on offer at all.
-      await vi.waitFor(() => expect(screen.getByRole("link", { name: "Watchmode" })).toHaveFocus());
-      expect(screen.getByRole("link", { name: /Rent on Apple TV/ })).not.toHaveFocus();
+      // Pressing it only opens the store's page, so it is the next step like
+      // any other; the $ is what says it costs money.
+      const rent = screen.getByRole("link", { name: /Rent on Apple TV/ });
+      await vi.waitFor(() => expect(rent).toHaveFocus());
+      expect(screen.getByRole("button", { name: /Trailer/ })).not.toHaveFocus();
+      expect(rent.querySelector("img")).toHaveAttribute("src", expect.stringContaining("/apple-tv.jpg"));
     });
 
     it("keeps the rental when what failed to open was something else", () => {
