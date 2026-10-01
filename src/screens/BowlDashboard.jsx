@@ -1617,6 +1617,7 @@ return (
                 memberCount={currentBowlMemberCount}
                 reach={drawMethodBucketsByContributor ? drawPoolContributorReach : null}
                 showLeftOut={drawMethodBucketsByContributor}
+                showCounts={drawPoolStatus === DRAW_POOL_STATUS.ready || drawPoolStatus === DRAW_POOL_STATUS.unfiltered}
                 isOwner={isCurrentUserOwner}
                 onInvite={() => navigate(`/invites?bowl=${bowlId}#invite-people`)}
                 onClose={() => setShowPeople(false)}

@@ -36,9 +36,10 @@ function Initial({ children, dashed = false, tone = "idle", badge = null }) {
   );
 }
 
-function describeRow(row, showLeftOut) {
+function describeRow(row, showLeftOut, showCounts) {
   const role = row.isOwner ? ", owner" : "";
   const you = row.isYou ? " (you)" : "";
+  if (!showCounts) return `${row.name}${you}${role}`;
   const movies = row.count === 1 ? "1 movie" : `${row.count} movies`;
   const leftOut = showLeftOut && row.isLeftOut ? ", left out by tonight's filters" : "";
   return `${row.name}${you}${role}: ${movies} in the draw${leftOut}`;
@@ -49,6 +50,8 @@ function describeRow(row, showLeftOut) {
  * their movies are in tonight's draw, and for the owner, who is still invited
  * and the way to invite more. When filters leave someone out the count turns
  * into a reached/total ratio and that person is dimmed with an amber zero.
+ * Until the filters' pool is known the counts are left off, the way the stat
+ * line offers "Preview filter matches" instead of a number.
  */
 export default function BowlPeopleSheet({
   rows = [],
@@ -57,6 +60,7 @@ export default function BowlPeopleSheet({
   memberCount = null,
   reach = null,
   showLeftOut = false,
+  showCounts = true,
   isOwner = false,
   onInvite,
   onClose,
@@ -111,7 +115,7 @@ export default function BowlPeopleSheet({
                 <li
                   key={row.key}
                   className="flex items-center gap-3 py-2.5"
-                  aria-label={describeRow(row, showLeftOut)}
+                  aria-label={describeRow(row, showLeftOut, showCounts)}
                   data-left-out={isLeftOut || undefined}
                 >
                   <span className={isLeftOut ? "opacity-50" : undefined}>
@@ -121,13 +125,15 @@ export default function BowlPeopleSheet({
                     {row.name}
                     {row.isYou && <span className="font-normal text-slate-500"> (you)</span>}
                   </span>
-                  <span
-                    aria-hidden="true"
-                    className={`inline-flex items-center gap-1 text-sm font-semibold ${isLeftOut ? "text-amber-300" : "text-slate-400"}`}
-                  >
-                    <FilmStripGlyph className="h-4 w-4" />
-                    {row.count}
-                  </span>
+                  {showCounts && (
+                    <span
+                      aria-hidden="true"
+                      className={`inline-flex items-center gap-1 text-sm font-semibold ${isLeftOut ? "text-amber-300" : "text-slate-400"}`}
+                    >
+                      <FilmStripGlyph className="h-4 w-4" />
+                      {row.count}
+                    </span>
+                  )}
                 </li>
               );
             })}

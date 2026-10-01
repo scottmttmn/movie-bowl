@@ -69,6 +69,13 @@ describe("BowlPeopleSheet", () => {
     opener.remove();
   });
 
+  it("leaves the counts off until the filters' pool is known", () => {
+    renderSheet({ showCounts: false, showLeftOut: true, reach: null });
+
+    const alex = screen.getByRole("listitem", { name: "Alex (you), owner" });
+    expect(within(alex).queryByText("2")).not.toBeInTheDocument();
+  });
+
   it("says so when the people cannot be read, and still closes", () => {
     const { onClose } = renderSheet({ rows: [], status: "error" });
 
