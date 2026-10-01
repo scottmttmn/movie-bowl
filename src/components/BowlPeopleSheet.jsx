@@ -1,3 +1,5 @@
+import { useCallback, useRef } from "react";
+import useModalFocus from "../hooks/useModalFocus";
 import FilmStripGlyph from "./FilmStripGlyph";
 import PeopleGlyph from "./PeopleGlyph";
 
@@ -62,11 +64,17 @@ export default function BowlPeopleSheet({
   const leftOutCount = reach ? reach.totalCount - reach.reachedCount : 0;
   const showReach = showLeftOut && leftOutCount > 0;
   const shownCount = memberCount ?? rows.filter((row) => row.key.startsWith("user:")).length;
+  const dialog = useRef(null);
+  const invoker = useRef(document.activeElement);
+  const getInvoker = useCallback(() => invoker.current, []);
+  useModalFocus(dialog, { onEscape: onClose, getInvoker });
 
   return (
     <div className="modal-overlay z-[70]" role="presentation" onClick={onClose}>
       <div
-        className="modal-surface max-w-md p-5 sm:p-6"
+        ref={dialog}
+        tabIndex={-1}
+        className="modal-surface max-h-[92dvh] max-w-md overflow-y-auto p-5 sm:p-6"
         role="dialog"
         aria-modal="true"
         aria-labelledby="bowl-people-title"

@@ -52,6 +52,23 @@ describe("BowlPeopleSheet", () => {
       .not.toHaveAttribute("data-left-out");
   });
 
+  it("takes focus, keeps it, closes on Escape and hands focus back", () => {
+    const opener = document.createElement("button");
+    document.body.appendChild(opener);
+    opener.focus();
+    const handlers = { onClose: vi.fn(), onInvite: vi.fn() };
+    const { rerender } = render(<BowlPeopleSheet rows={ROWS} invites={INVITES} memberCount={2} isOwner {...handlers} />);
+    const dialog = screen.getByRole("dialog");
+    expect(dialog.contains(document.activeElement)).toBe(true);
+
+    fireEvent.keyDown(window, { key: "Escape" });
+    expect(handlers.onClose).toHaveBeenCalledTimes(1);
+
+    rerender(<div />);
+    expect(document.activeElement).toBe(opener);
+    opener.remove();
+  });
+
   it("says so when the people cannot be read, and still closes", () => {
     const { onClose } = renderSheet({ rows: [], status: "error" });
 
