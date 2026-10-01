@@ -24,7 +24,11 @@ brings the television level with it.
   the note on the contributor's paper slip with their initial, one primary
   "Watch on …" button, and the other services and stores as logos. The TV has
   no browser to unfold the logos into, so they are a glance, not a control. A
-  rental can be the primary button but never takes first focus.
+  rental is the primary button like any other and takes first focus too
+  (Scott, October 1): it only opens the store's page, where buying takes the
+  store's own confirmation. A gold $ coin on the store's logo is what says it
+  costs money. Beside a logo the button says only "Watch" or "Rent", since
+  the logo already names the service; without one it keeps the name.
 - **The trailer keeps its word.** A bare play button beside Watch, or on the
   poster, read as playing the film itself (Scott's call), so it is a "▶ Trailer"
   button.
