@@ -577,32 +577,29 @@ test("TV Watch History opens details and applies the bounded return cleanup", as
 
   await expect(page.getByRole("heading", { name: "Recent History Feature" })).toBeVisible();
   await expect(page.getByText("The recent bowl note.")).toBeVisible();
-  await expect(page.getByText("Didn't watch it?")).toBeVisible();
-  await expect(
-    page.getByText(/removes this pick from everyone's Watch History/i)
-  ).toBeVisible();
-  await expect(page.locator(".tv-history-detail-page .tv-kept-badge")).toHaveCount(0);
+  await expect(page.locator(".tv-watched-on")).toBeVisible();
   // Signed in as the bowl's owner, and still no way to erase the bowl's history:
   // whoever holds the remote is not necessarily the owner.
   await expect(page.getByRole("button", { name: /remove/i })).toHaveCount(0);
-  const detailClose = page.getByRole("button", { name: "Close", exact: true });
-  await expect(detailClose).toBeFocused();
+  // A hand-added title has no trailer, so the one control is where focus lands.
+  const moveToBowl = page.getByRole("button", { name: "Move to Bowl", exact: true });
+  await expect(moveToBowl).toBeFocused();
   expect(backend.state.bowl_draw_events[0].returned_at).toBeNull();
   expect(backend.state.user_watch_events).toHaveLength(2);
 
-  await detailClose.press("Enter");
+  // Back closes it, as it does the drawn movie.
+  await page.keyboard.press("Escape");
   await expect(recentCard).toBeFocused();
   await recentCard.press("Enter");
-  // Wait for the page's own autofocus, as on the first visit. It lands on Close
-  // from a timer, and press() focuses then types in two steps, so on a slow
-  // runner the timer can take focus in between and the Enter closes the page.
-  await expect(page.getByRole("button", { name: "Close", exact: true })).toBeFocused();
-  await page.getByRole("button", { name: "Put movie back in bowl" }).press("Enter");
-  await expect(
-    page.getByRole("dialog", { name: "Put “Recent History Feature” back in the bowl?" })
-  ).toBeVisible();
-  await expect(page.getByRole("button", { name: "Close", exact: true })).toBeFocused();
-  await page.getByRole("button", { name: "Put movie back in bowl" }).press("Enter");
+  // Wait for the page's own autofocus, as on the first visit. It lands from a
+  // timer, and press() focuses then types in two steps, so on a slow runner
+  // the timer can take focus in between.
+  await expect(moveToBowl).toBeFocused();
+  await moveToBowl.press("Enter");
+  const confirm = page.getByRole("dialog", { name: "Put Recent History Feature back?" });
+  await expect(confirm).toBeVisible();
+  await expect(confirm.getByRole("button", { name: "Not yet", exact: true })).toBeFocused();
+  await confirm.getByRole("button", { name: "Move to Bowl", exact: true }).press("Enter");
 
   await expect(page.getByText("Recent History Feature is back in the bowl.")).toBeVisible();
   expect(
@@ -619,14 +616,11 @@ test("TV Watch History opens details and applies the bounded return cleanup", as
     name: "View details for Older History Feature in Watch History",
   });
   await olderCard.press("Enter");
+  await expect(page.getByRole("heading", { name: "Older History Feature" })).toBeVisible();
   await expect(
-    page.getByText(/available for two hours after the draw/i)
-  ).toBeVisible();
-  await expect(page.getByText("Didn't watch it?")).toHaveCount(0);
-  await expect(
-    page.getByRole("button", { name: "Put movie back in bowl" })
+    page.getByRole("button", { name: "Move to Bowl", exact: true })
   ).toHaveCount(0);
-  await expect(page.getByText(/back in bowl/i)).toHaveCount(0);
+  await expect(page.getByText(/two hours/i)).toHaveCount(0);
   expect(
     backend.state.user_watch_events.some(
       (event) => event.source_draw_event_id === "draw-tv-older"

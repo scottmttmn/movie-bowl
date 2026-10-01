@@ -1470,12 +1470,6 @@ html.tv-root {
   position: fixed;
 }
 
-.tv-history-detail-header-actions {
-  display: flex;
-  gap: 1.5rem;
-  align-items: center;
-}
-
 .tv-history-detail-page .tv-reveal {
   margin-top: clamp(22px, 3vh, 44px);
 }
@@ -1523,22 +1517,6 @@ html.tv-root {
   box-shadow: 0 36px 80px -32px rgba(0, 0, 0, 0.98);
 }
 
-.tv-kept-badge {
-  position: absolute;
-  right: -1rem;
-  bottom: 2rem;
-  padding: 0.65rem 1rem;
-  border: 1px solid rgba(253, 164, 175, 0.58);
-  border-radius: 999px;
-  background: #be123c;
-  color: white;
-  font-size: 0.7rem;
-  font-weight: 830;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  box-shadow: 0 16px 36px -18px rgba(244, 63, 94, 0.95);
-}
-
 .tv-reveal-copy {
   max-width: 54rem;
 }
@@ -1565,6 +1543,21 @@ html.tv-root {
   font-weight: 680;
 }
 
+.tv-watched-on {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  margin: 0.7rem 0 0;
+  color: #6ee7b7;
+  font-size: 0.86rem;
+  font-weight: 680;
+}
+
+.tv-watched-on svg {
+  width: 1.05em;
+  height: 1.05em;
+}
+
 .tv-release-status {
   width: fit-content;
   margin: 0.7rem 0 0;
@@ -1583,13 +1576,6 @@ html.tv-root {
   color: #fecdd3;
 }
 
-.tv-history-metadata {
-  margin: 0.65rem 0 0;
-  color: #7dd3fc;
-  font-size: 0.75rem;
-  font-weight: 700;
-}
-
 .tv-overview {
   display: -webkit-box;
   max-width: 52rem;
@@ -1602,79 +1588,10 @@ html.tv-root {
   -webkit-line-clamp: 4;
 }
 
-.tv-movie-note {
-  max-width: 52rem;
-  margin-top: 1.15rem;
-  padding-left: 1rem;
-  border-left: 3px solid rgba(251, 113, 133, 0.72);
-}
-
-.tv-movie-note span {
-  display: block;
-  color: #fda4af;
-  font-size: 0.68rem;
-  font-weight: 780;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
-.tv-movie-note p {
-  display: -webkit-box;
-  margin: 0.4rem 0 0;
-  overflow-wrap: anywhere;
-  overflow: hidden;
-  color: #e2e8f0;
-  font-size: clamp(0.8rem, 0.95vw, 1rem);
-  line-height: 1.45;
-  white-space: pre-wrap;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 6;
-}
-
-.tv-provider-row {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.55rem;
-  align-items: center;
-  margin-top: 1.4rem;
-}
-
-.tv-provider-row span {
-  margin-right: 0.25rem;
-  color: #64748b;
-  font-size: 0.68rem;
-  font-weight: 750;
-  letter-spacing: 0.1em;
-  text-transform: uppercase;
-}
-
 .tv-launch-logo {
   width: 1.9rem;
   height: 1.9rem;
   margin-right: 0.15rem;
-}
-
-.tv-provider-logo {
-  width: 2.6rem;
-  height: 2.6rem;
-  border-radius: 10px;
-  object-fit: contain;
-}
-
-.tv-provider-row strong {
-  padding: 0.5rem 0.75rem;
-  border: 1px solid rgba(148, 163, 184, 0.2);
-  border-radius: 999px;
-  background: rgba(30, 41, 59, 0.78);
-  color: #e2e8f0;
-  font-size: 0.7rem;
-}
-
-.tv-transactional-availability {
-  margin: 0.55rem 0 0;
-  color: #94a3b8;
-  font-size: 0.68rem;
-  font-weight: 650;
 }
 
 .tv-reveal-actions {
@@ -1772,47 +1689,6 @@ html.tv-root {
 
 .tv-tonight-logos span {
   margin-left: 0.5rem;
-}
-
-.tv-history-return-action {
-  display: flex;
-  gap: 1.5rem;
-  align-items: center;
-  justify-content: space-between;
-  max-width: 52rem;
-  margin-top: 1.5rem;
-  padding-top: 1.35rem;
-  border-top: 1px solid rgba(148, 163, 184, 0.18);
-}
-
-.tv-history-return-action > div {
-  display: grid;
-  gap: 0.25rem;
-}
-
-.tv-history-return-action strong {
-  color: #e2e8f0;
-  font-size: 0.78rem;
-}
-
-.tv-history-return-action span {
-  color: #64748b;
-  font-size: 0.68rem;
-}
-
-.tv-history-return-action .tv-button {
-  flex: 0 0 auto;
-}
-
-/* Shown in place of the return action once the undo window has closed. Quiet on
-   purpose: it explains why an action is absent, it is not an action itself. */
-.tv-history-return-closed {
-  max-width: 52rem;
-  margin-top: 1.5rem;
-  padding-top: 1.35rem;
-  border-top: 1px solid rgba(148, 163, 184, 0.18);
-  color: #64748b;
-  font-size: 0.68rem;
 }
 
 .tv-trailer-overlay {
@@ -2313,22 +2189,12 @@ html.tv-root {
     max-width: 100%;
   }
 
-  .tv-provider-row,
   .tv-reveal-actions {
     justify-content: center;
   }
 
   .tv-release-status {
     margin-inline: auto;
-  }
-
-  .tv-history-return-action {
-    flex-direction: column;
-  }
-
-  .tv-movie-note {
-    padding-left: 0;
-    border-left: 0;
   }
 
   .tv-dialog-actions {

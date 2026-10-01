@@ -1211,7 +1211,7 @@ describe("Movie Bowl TV experience", () => {
     expect(screen.getByText("Bowl picker route")).toBeInTheDocument();
   });
 
-  it("opens a Watch History detail page before offering the secondary return action", async () => {
+  it("opens a watched movie as its slip, with the trailer first and Move to Bowl beside it", async () => {
     mocks.bowlData.watched[0].drawn_at = new Date(
       Date.now() - 60 * 60 * 1000
     ).toISOString();
@@ -1252,43 +1252,42 @@ describe("Movie Bowl TV experience", () => {
 
     fireEvent.keyDown(window, { key: "Enter" });
     expect(screen.getByRole("heading", { name: /arrival/i })).toBeInTheDocument();
-    expect(screen.getByText("Smart science fiction for movie night.")).toBeInTheDocument();
-    expect(screen.getByText(/added by alex/i)).toBeInTheDocument();
-    expect(screen.getByText("Didn't watch it?")).toBeInTheDocument();
-    expect(
-      screen.getByText(/removes this pick from everyone.s watch history/i)
-    ).toBeInTheDocument();
-    expect(
-      document.querySelector(".tv-history-detail-page .tv-kept-badge")
-    ).toBeNull();
+    // The drawn movie's sheet a night later: the slip, and when it was watched.
+    const slip = screen.getByText("Smart science fiction for movie night.").closest("figure");
+    expect(slip).toHaveTextContent("A");
+    expect(screen.getByText("From Alex")).toBeInTheDocument();
+    expect(document.querySelector(".tv-watched-on")).toHaveTextContent(/^Watched /);
+    expect(screen.queryByText(/previously picked/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/didn.t watch it/i)).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /^close$/i })).not.toBeInTheDocument();
+    // Undoing the night for everyone is never where the remote starts: the
+    // trailer is, once the details bring it.
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /^close$/i })).toHaveFocus();
+      expect(screen.getByRole("button", { name: /^trailer$/i })).toHaveFocus();
     });
     expect(mocks.getTmdbMovieDetails).toHaveBeenCalledWith(101);
     // A movie in Watch History has been watched, so the page neither shows nor
     // looks up where to stream it.
-    expect(document.querySelector(".tv-history-detail-page .tv-provider-row")).toBeNull();
+    expect(document.querySelector(".tv-history-detail-page .tv-tonight-logos")).toBeNull();
     expect(screen.queryByRole("link", { name: /watch on netflix/i })).not.toBeInTheDocument();
     expect(mocks.fetchStreamingProviders).not.toHaveBeenCalled();
     expect(mocks.fetchProviderLinks).not.toHaveBeenCalled();
     expect(mocks.handleReaddMovie).not.toHaveBeenCalled();
 
-    fireEvent.click(
-      screen.getByRole("button", { name: /^put movie back in bowl$/i })
-    );
+    fireEvent.click(screen.getByRole("button", { name: /^move to bowl$/i }));
     expect(
-      screen.getByRole("dialog", { name: /put “arrival” back in the bowl/i })
+      screen.getByRole("dialog", { name: /put arrival back/i })
     ).toBeInTheDocument();
     expect(
-      screen.getByText(/removes the watch history entries this pick created/i)
+      screen.getByText(/comes off everyone.s watch history/i)
     ).toBeInTheDocument();
     await waitFor(() => {
-      expect(screen.getByRole("button", { name: /^close$/i })).toHaveFocus();
+      expect(screen.getByRole("button", { name: /^not yet$/i })).toHaveFocus();
     });
     expect(mocks.handleReaddMovie).not.toHaveBeenCalled();
 
     fireEvent.click(
-      screen.getByRole("button", { name: /^put movie back in bowl$/i })
+      within(screen.getByRole("dialog")).getByRole("button", { name: /^move to bowl$/i })
     );
 
     await waitFor(() => {
@@ -1350,14 +1349,13 @@ describe("Movie Bowl TV experience", () => {
       })
     );
 
-    // The database refuses a late return, so the screen explains rather than
-    // offering an action that would fail.
+    // The database refuses a late return, so there is no button to press, and
+    // no paragraph explaining the missing one.
+    expect(screen.getByRole("heading", { name: /arrival/i })).toBeInTheDocument();
     expect(
-      screen.getByText(/available for two hours after the draw/i)
-    ).toBeInTheDocument();
-    expect(
-      screen.queryByRole("button", { name: /^put movie back in bowl$/i })
+      screen.queryByRole("button", { name: /^move to bowl$/i })
     ).not.toBeInTheDocument();
+    expect(screen.queryByText(/two hours/i)).not.toBeInTheDocument();
     expect(mocks.handleReaddMovie).not.toHaveBeenCalled();
     // Past the window is when an owner would want to remove it, and the
     // television still does not offer that: whoever holds the remote is not
@@ -1374,8 +1372,8 @@ describe("Movie Bowl TV experience", () => {
     });
     fireEvent.click(historyButton);
 
-    const closeButton = screen.getByRole("button", { name: /^close$/i });
-    await waitFor(() => expect(closeButton).toHaveFocus());
+    // Back is the way out, as it is from the drawn movie.
+    await waitFor(() => expect(screen.getByRole("heading", { name: /arrival/i })).toBeInTheDocument());
     fireEvent.keyDown(window, { key: "Escape" });
 
     await waitFor(() => {

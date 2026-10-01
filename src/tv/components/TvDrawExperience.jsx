@@ -12,7 +12,6 @@ import { getProviderLogoUrl } from "../../utils/getProviderLogoUrl";
 import { getMovieAttributionLabel, isStarterPackMovie } from "../../utils/drawBuckets";
 import { getMovieReleaseStatus } from "../../utils/movieReleaseStatus";
 import { normalizeRentalStore } from "../../utils/rentalStores";
-import { matchUserServices } from "../../utils/streamingServices";
 import { isFailedLaunchUrl } from "../../utils/webLaunch";
 import TvBrand from "./TvBrand";
 import TvFullscreenTrailer from "./TvFullscreenTrailer";
@@ -89,12 +88,7 @@ export function TvDrawingScreen({
 
 export function TvMovieDetailStage({
   movie,
-  streamingServices,
   showWhereToWatch = true,
-  kicker,
-  badgeLabel,
-  noteLabel = "Bowl note",
-  historyMetadata = [],
   webLaunchCandidate,
   rentCandidate,
   providerLaunchMessage,
@@ -102,29 +96,19 @@ export function TvMovieDetailStage({
   onProviderLaunch,
   onToggleTrailer,
   playbackAutofocus = true,
-  tonight = false,
   noteAuthor = null,
+  watchedOn = null,
+  extraActions = null,
   children,
 }) {
   const year = getYear(movie);
   const genres = getGenreNames(movie);
-  const matchingServices = matchUserServices(
-    movie.streamingProviders || [],
-    streamingServices
-  );
-  const providerNames =
-    matchingServices.length > 0
-      ? matchingServices
-      : movie.streamingProviders || [];
   const providerLogos = movie.streamingProviderLogos || {};
   const runtimeLabel = movie.runtime ? `${movie.runtime} min` : null;
   const releaseStatus = movie.releaseStatus || getMovieReleaseStatus(movie);
   const availability = movie.streamingAvailability || {};
   const hasStructuredAvailability = ["subscription", "free", "ads", "rent", "buy"]
     .some((group) => Array.isArray(availability[group]) && availability[group].length > 0);
-  const hasTransactionalAvailability = ["rent", "buy"]
-    .some((group) => Array.isArray(availability[group]) && availability[group].length > 0);
-  const trailer = movie.trailer;
   const canOfferLaunch = showWhereToWatch && Boolean(webLaunchCandidate?.url);
   const launchFailed = (url) =>
     Boolean(providerLaunchMessage) && isFailedLaunchUrl(providerLaunchFailedUrl, url);
@@ -134,203 +118,45 @@ export function TvMovieDetailStage({
   const offersRent = showWhereToWatch && !canOfferLaunch && rentCandidate?.linkType === "rent";
   const canRent = offersRent && !launchFailed(rentCandidate.url);
 
-  if (tonight) {
-    return (
-      <TvTonightPick
-        movie={movie}
-        year={year}
-        facts={[runtimeLabel, ...genres.slice(0, 3)].filter(Boolean)}
-        releaseStatus={releaseStatus}
-        providerNames={movie.streamingProviders || []}
-        providerLogos={providerLogos}
-        availability={availability}
-        showWhereToWatch={showWhereToWatch}
-        hasStructuredAvailability={hasStructuredAvailability}
-        webLaunchCandidate={webLaunchCandidate}
-        canOfferLaunch={canOfferLaunch}
-        canLaunch={canLaunch}
-        rentCandidate={rentCandidate}
-        offersRent={offersRent}
-        canRent={canRent}
-        providerLaunchMessage={providerLaunchMessage}
-        onProviderLaunch={onProviderLaunch}
-        onToggleTrailer={onToggleTrailer}
-        playbackAutofocus={playbackAutofocus}
-        noteAuthor={noteAuthor}
-      >
-        {children}
-      </TvTonightPick>
-    );
-  }
-
   return (
-    <section className="tv-reveal is-kept">
-      <div className="tv-poster-wrap">
-        <img
-          className="tv-reveal-poster"
-          src={getPosterUrl(movie, "w500")}
-          alt={`${movie.title} poster`}
-        />
-        {badgeLabel && <span className="tv-kept-badge">{badgeLabel}</span>}
-      </div>
-
-      <div className="tv-reveal-copy">
-        <p className="tv-kicker">{kicker}</p>
-        <h1>
-          {movie.title}
-          {year && <span> ({year})</span>}
-        </h1>
-
-        {(runtimeLabel || genres.length > 0) && (
-          <p className="tv-movie-facts">
-            {[runtimeLabel, ...genres.slice(0, 3)].filter(Boolean).join(" • ")}
-          </p>
-        )}
-
-        {releaseStatus.isExceptional && releaseStatus.label && (
-          <p className={`tv-release-status${releaseStatus.state === "canceled" ? " is-canceled" : ""}`}>
-            {releaseStatus.label}
-          </p>
-        )}
-
-        {historyMetadata.length > 0 && (
-          <p className="tv-history-metadata">
-            {historyMetadata.filter(Boolean).join(" • ")}
-          </p>
-        )}
-
-        {movie.overview && <p className="tv-overview">{movie.overview}</p>}
-
-        {movie.note && (
-          <div className="tv-movie-note">
-            <span>{noteLabel}</span>
-            <p>{movie.note}</p>
-          </div>
-        )}
-
-        {showWhereToWatch && providerNames.length > 0 && (
-          <div className="tv-provider-row">
-            <span>Available on</span>
-            {providerNames.slice(0, 4).map((provider) => {
-              const logoUrl = getProviderLogoUrl(providerLogos[provider], "w92");
-              return logoUrl ? (
-                <img
-                  key={provider}
-                  className="tv-provider-logo"
-                  src={logoUrl}
-                  alt={provider}
-                />
-              ) : (
-                <strong key={provider}>{provider}</strong>
-              );
-            })}
-          </div>
-        )}
-
-        {showWhereToWatch && hasTransactionalAvailability && !offersRent && (
-          <p className="tv-transactional-availability">Rent or buy options available</p>
-        )}
-
-        <div className="tv-reveal-actions">
-          {canLaunch && (
-            <a
-              className="tv-button tv-button-secondary"
-              data-tv-focusable
-              data-tv-nav-group="reveal-actions"
-              data-tv-autofocus={playbackAutofocus ? "true" : undefined}
-              href={webLaunchCandidate.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={onProviderLaunch}
-            >
-              <ServiceLogo
-                service={webLaunchCandidate.serviceName}
-                className="tv-launch-logo"
-              />
-              Open {webLaunchCandidate.serviceName}
-            </a>
-          )}
-          {canOfferLaunch && !canLaunch && (
-            <button
-              type="button"
-              className="tv-button tv-button-secondary"
-              data-tv-focusable
-              data-tv-nav-group="reveal-actions"
-              disabled
-            >
-              <ServiceLogo
-                service={webLaunchCandidate.serviceName}
-                className="tv-launch-logo"
-              />
-              Open {webLaunchCandidate.serviceName}
-            </button>
-          )}
-          {/* Never focused first and never auto-started: spending money is the
-              one press the room should have to go looking for. */}
-          {canRent && (
-            <a
-              className="tv-button tv-button-secondary"
-              data-tv-focusable
-              data-tv-nav-group="reveal-actions"
-              data-tv-no-initial-focus="true"
-              href={rentCandidate.url}
-              target="_blank"
-              rel="noopener noreferrer"
-              onClick={onProviderLaunch}
-            >
-              <ServiceLogo service={rentCandidate.storeName} className="tv-launch-logo" />
-              Rent on {rentCandidate.storeName}
-            </a>
-          )}
-          {offersRent && !canRent && (
-            <button
-              type="button"
-              className="tv-button tv-button-secondary"
-              data-tv-focusable
-              data-tv-nav-group="reveal-actions"
-              disabled
-            >
-              <ServiceLogo service={rentCandidate.storeName} className="tv-launch-logo" />
-              Rent on {rentCandidate.storeName}
-            </button>
-          )}
-          {trailer?.embedUrl && (
-            <button
-              type="button"
-              className="tv-button tv-button-secondary"
-              data-tv-focusable
-              data-tv-nav-group="reveal-actions"
-              data-tv-autofocus={playbackAutofocus && !canLaunch ? "true" : undefined}
-              onClick={onToggleTrailer}
-            >
-              Watch trailer
-            </button>
-          )}
-        </div>
-
-        {showWhereToWatch && (webLaunchCandidate?.linkType === "title" || offersRent) && (
-          <ProviderLinksAttribution tv />
-        )}
-
-        {showWhereToWatch && (hasStructuredAvailability || movie.streamingWatchUrl) && (
-          <AvailabilityAttribution tv />
-        )}
-
-        {showWhereToWatch && providerLaunchMessage && (
-          <p className="tv-provider-launch-message" role="status">
-            {providerLaunchMessage}
-          </p>
-        )}
-
-        {children}
-      </div>
-    </section>
+    <TvTonightPick
+      movie={movie}
+      year={year}
+      facts={[runtimeLabel, ...genres.slice(0, 3)].filter(Boolean)}
+      releaseStatus={releaseStatus}
+      providerNames={movie.streamingProviders || []}
+      providerLogos={providerLogos}
+      availability={availability}
+      showWhereToWatch={showWhereToWatch}
+      hasStructuredAvailability={hasStructuredAvailability}
+      webLaunchCandidate={webLaunchCandidate}
+      canOfferLaunch={canOfferLaunch}
+      canLaunch={canLaunch}
+      rentCandidate={rentCandidate}
+      offersRent={offersRent}
+      canRent={canRent}
+      providerLaunchMessage={providerLaunchMessage}
+      onProviderLaunch={onProviderLaunch}
+      onToggleTrailer={onToggleTrailer}
+      playbackAutofocus={playbackAutofocus}
+      noteAuthor={noteAuthor}
+      watchedOn={watchedOn}
+      extraActions={extraActions}
+    >
+      {children}
+    </TvTonightPick>
   );
 }
 
 const PLAY_ICON = (
   <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
     <path d="M8 4.5v15l12-7.5z" />
+  </svg>
+);
+
+const CHECK_ICON = (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.4" strokeLinecap="round" strokeLinejoin="round">
+    <path d="M5 12.5l4.5 4.5L19 7.5" />
   </svg>
 );
 
@@ -360,6 +186,8 @@ function TvTonightPick({
   onToggleTrailer,
   playbackAutofocus,
   noteAuthor,
+  watchedOn,
+  extraActions,
   children,
 }) {
   const trailer = movie.trailer;
@@ -411,6 +239,13 @@ function TvTonightPick({
         </h1>
 
         {facts.length > 0 && <p className="tv-movie-facts">{facts.join(" • ")}</p>}
+
+        {watchedOn && (
+          <p className="tv-watched-on">
+            {CHECK_ICON}
+            Watched {watchedOn}
+          </p>
+        )}
 
         {releaseStatus.isExceptional && releaseStatus.label && (
           <p className={`tv-release-status${releaseStatus.state === "canceled" ? " is-canceled" : ""}`}>
@@ -470,6 +305,7 @@ function TvTonightPick({
               Trailer
             </button>
           )}
+          {extraActions}
           {otherLogos.length > 0 && (
             <span
               className="tv-tonight-logos"
@@ -525,7 +361,6 @@ export function TvRevealBackdrop({ movie }) {
 export function TvRevealScreen({
   bowlName,
   movie,
-  streamingServices,
   isPreparingPreviews,
   showTrailer,
   isDialogOpen,
@@ -558,14 +393,12 @@ export function TvRevealScreen({
 
         <TvMovieDetailStage
           movie={movie}
-          streamingServices={streamingServices}
           webLaunchCandidate={webLaunchCandidate}
           rentCandidate={rentCandidate}
           providerLaunchMessage={providerLaunchMessage}
           providerLaunchFailedUrl={providerLaunchFailedUrl}
           onProviderLaunch={onProviderLaunch}
           onToggleTrailer={onToggleTrailer}
-          tonight
           noteAuthor={noteAuthor}
         >
           {isPreparingPreviews && (

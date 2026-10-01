@@ -24,8 +24,7 @@ brings the television level with it.
   the note on the contributor's paper slip with their initial, one primary
   "Watch on …" button, and the other services and stores as logos. The TV has
   no browser to unfold the logos into, so they are a glance, not a control. A
-  rental can be the primary button but never takes first focus. Watch History
-  details keep their own layout.
+  rental can be the primary button but never takes first focus.
 - **The trailer keeps its word.** A bare play button beside Watch, or on the
   poster, read as playing the film itself (Scott's call), so it is a "▶ Trailer"
   button.
@@ -33,3 +32,13 @@ brings the television level with it.
   where a bowl shows its method, the draw button, and the pool as the film strip
   and a small bowl. The line still opens the sheet that changes them.
 - **The watched strip** is headed "Watched", the web's word.
+- **A watched movie** (pressing a poster in that strip) is the same sheet a
+  night later, signed off on the same day after a third mockup
+  (`/mnt/project-files/ux-pass/tv-watched/`). The slip is there, a green check
+  says "Watched" and the date, and "▶ Trailer" is where the remote starts. For
+  two hours after the draw "Move to Bowl", the phone's words, sits beside it;
+  after that it is simply absent, with no paragraph explaining why. Its confirm
+  has the draw confirm's shape and keeps one line, because the one consequence
+  the screen cannot show is that the pick leaves everyone's Watch History. No
+  streaming logos, since nobody is choosing how to watch it any more, and no
+  Close: Back on the remote closes it, as it does the drawn movie.
