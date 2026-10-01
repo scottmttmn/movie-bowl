@@ -27,7 +27,7 @@ for (const scenario of [
     const draw = page.getByRole("button", { name: scenario.tv ? /draw for myself/i : /Press and hold to draw/i });
     await expect(draw).toBeEnabled();
     await draw.press("Enter");
-    await expect(page.getByRole("dialog", { name: scenario.tv ? "Pick one of your movies?" : "Draw a movie for yourself?" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: scenario.tv ? "Draw for myself?" : "Draw a movie for yourself?" })).toBeVisible();
 
     // Observe the readable window every frame, including the final fold and
     // ink animation. Assertion polling can miss a short, completed reveal.
@@ -67,7 +67,7 @@ for (const scenario of [
       window.scrollTo({ left: window.scrollX, top: window.scrollY, behavior: "instant" });
       return window.scrollY;
     });
-    await page.getByRole("button", { name: scenario.tv ? "Reveal one" : "Draw", exact: true }).click();
+    await page.getByRole("button", { name: "Draw", exact: true }).click();
     const stage = page.locator(".draw-reveal-stage");
     await expect(stage).toHaveAttribute("data-method", "solo");
     await page.keyboard.press("Escape");
