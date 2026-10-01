@@ -535,7 +535,7 @@ describe("BowlDashboard draw preferences", () => {
   // The dashboard reads theaterModeEnabled through the device layer, which is
   // the point: the account flag means "on the television," and a laptop that
   // inherited it would start playing previews at someone who never asked.
-  describe("theater ticket", () => {
+  describe("theater mode toggle", () => {
     beforeEach(() => {
       window.localStorage.clear();
     });
@@ -571,7 +571,7 @@ describe("BowlDashboard draw preferences", () => {
         )
       );
       // Disarming here must never reach across and change a television, so the
-      // ticket writes the device store and nothing else.
+      // toggle writes the device store and nothing else.
       expect(
         JSON.parse(window.localStorage.getItem("movie-bowl:tv:draw-settings:u1"))
       ).toEqual({ theaterModeEnabled: true });
@@ -580,15 +580,16 @@ describe("BowlDashboard draw preferences", () => {
       );
     });
 
-    // The count is on the stub now, and it is a device override like the switch
-    // beside it: changing it on a laptop must not reach a television.
+    // The count is the row of dots beside the switch, and it is a device
+    // override like the switch: changing it on a laptop must not reach a
+    // television.
     it("sets the preview count on this device alone", async () => {
       window.localStorage.setItem(
         "movie-bowl:tv:draw-settings:u1",
         JSON.stringify({ theaterModeEnabled: true })
       );
-      // A number left on the profile from before the count moved onto the
-      // ticket. The device has no opinion yet, so the stub starts at the
+      // A number left on the profile from before the count moved beside the
+      // switch. The device has no opinion yet, so the dots start at the
       // default rather than inheriting one nothing can change.
       mocks.state.defaultDrawSettings = {
         ...mocks.state.defaultDrawSettings,
@@ -597,10 +598,11 @@ describe("BowlDashboard draw preferences", () => {
       renderDashboard();
       await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-      fireEvent.click(screen.getByRole("button", { name: "Up to 3 previews, change" }));
+      expect(screen.getByRole("radio", { name: "Up to 3 previews" })).toHaveAttribute("aria-checked", "true");
+      fireEvent.click(screen.getByRole("radio", { name: "Up to 4 previews" }));
 
       await waitFor(() =>
-        expect(screen.getByRole("button", { name: "Up to 4 previews, change" })).toBeInTheDocument()
+        expect(screen.getByRole("radio", { name: "Up to 4 previews" })).toHaveAttribute("aria-checked", "true")
       );
       expect(
         JSON.parse(window.localStorage.getItem("movie-bowl:tv:draw-settings:u1"))
@@ -611,7 +613,7 @@ describe("BowlDashboard draw preferences", () => {
     });
 
     // Armed, the web behaves as the television does: the pick is revealed and
-    // the previews play over it, with no prompt in between. The ticket beside
+    // the previews play over it, with no prompt in between. The toggle under
     // the draw button already answered that question.
     it("plays previews over the reveal once an armed draw lands", async () => {
       window.YT = {
@@ -699,7 +701,7 @@ describe("BowlDashboard draw preferences", () => {
 
     // The queue resolves after the reveal is up. Dismissing the reveal before
     // it lands must drop it, or the next draw opens on a stale pre-roll --
-    // even with the ticket switched off in between.
+    // even with theater mode switched off in between.
     it("drops previews that resolve after the reveal was closed", async () => {
       window.YT = {
         Player: vi.fn(() => ({ playVideo: vi.fn(), destroy: vi.fn() })),
@@ -746,7 +748,7 @@ describe("BowlDashboard draw preferences", () => {
       }
     });
 
-    it("shows no previews when this device never armed the ticket", async () => {
+    it("shows no previews when this device never turned theater mode on", async () => {
       mocks.state.bowlData = {
         remaining: [
           { id: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A" },

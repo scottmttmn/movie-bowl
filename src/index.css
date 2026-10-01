@@ -288,88 +288,37 @@
       0 24px 60px -42px rgba(0, 0, 0, 0.95);
   }
 
-  /* Theater mode, as a ticket -- the same object the television wears, in this
-     surface's own vocabulary. It is the only control beside the draw button
-     about the occasion rather than about the pool, and a torn paper stub is how
-     it says so without a label explaining it. The bowl is full of paper slips;
-     this is the same paper. */
-  .theater-ticket {
-    @apply inline-flex rounded-xl border border-transparent bg-transparent p-0 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/70;
+  /* Theater mode: a curtain button under the draw button, and while it is on,
+     one dot per preview. The curtains around the bowl say the rest. */
+  .theater-toggle {
+    @apply inline-flex items-center gap-1;
   }
 
-  /* The perforations are a mask, and a mask clips everything the element paints
-     -- an outer focus ring included. Masking a face inside the button leaves
-     the button itself free to wear the ring every other control wears. */
-  .theater-ticket-face {
-    @apply flex min-h-11 items-center gap-2.5 rounded-lg px-3 text-[0.7rem] font-bold uppercase text-slate-200 transition;
-    background: rgba(148, 163, 184, 0.2);
-    letter-spacing: 0.06em;
-    -webkit-mask:
-      radial-gradient(circle 8px at 0 50%, transparent 99%, #000 100%),
-      radial-gradient(circle 8px at 100% 50%, transparent 99%, #000 100%);
-    -webkit-mask-composite: source-in;
-    mask:
-      radial-gradient(circle 8px at 0 50%, transparent 99%, #000 100%),
-      radial-gradient(circle 8px at 100% 50%, transparent 99%, #000 100%);
-    mask-composite: intersect;
+  .theater-toggle-switch {
+    @apply inline-flex h-11 w-11 items-center justify-center rounded-full border border-slate-700 bg-slate-900/60 text-slate-400 transition hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/70;
   }
 
-  .theater-ticket-stub {
-    @apply pr-2.5 text-slate-300;
-    border-right: 2px dashed rgba(148, 163, 184, 0.4);
+  .theater-toggle-switch[data-on] {
+    @apply border-rose-500/60 bg-rose-600/25 text-rose-200;
   }
 
-  /* On, the stub tears off into its own button for the preview count, so the
-     ticket becomes two buttons that read as one: each keeps the perforation on
-     its outer edge, and the tear between them is the dashed line the stub used
-     to carry on its own. Two buttons rather than one, because a switch cannot
-     hold a button inside it. */
-  .theater-ticket-group {
-    @apply inline-flex items-stretch;
+  .theater-toggle-count {
+    @apply inline-flex items-center;
   }
 
-  .theater-ticket-face-stub {
-    @apply rounded-r-none;
-    border-right: 2px dashed rgba(148, 163, 184, 0.4);
-    -webkit-mask: radial-gradient(circle 8px at 0 50%, transparent 99%, #000 100%);
-    mask: radial-gradient(circle 8px at 0 50%, transparent 99%, #000 100%);
+  /* The dot is small; the button around it is a full-height tap target. */
+  .theater-toggle-dot {
+    @apply grid h-11 w-6 place-items-center rounded-full focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/70;
   }
 
-  .theater-ticket-face-body {
-    @apply rounded-l-none;
-    -webkit-mask: radial-gradient(circle 8px at 100% 50%, transparent 99%, #000 100%);
-    mask: radial-gradient(circle 8px at 100% 50%, transparent 99%, #000 100%);
+  .theater-toggle-dot > span {
+    @apply h-2.5 w-2.5 rounded-full;
+    box-shadow: inset 0 0 0 1.5px rgba(251, 113, 133, 0.55);
   }
 
-  .theater-ticket-count {
-    @apply text-slate-500 tabular-nums;
-  }
-
-  .theater-ticket[data-on] .theater-ticket-count {
-    @apply text-rose-300;
-  }
-
-  .theater-ticket[data-on] .theater-ticket-face-stub {
-    border-right-color: rgba(244, 63, 94, 0.5);
-  }
-
-  .theater-ticket[data-on] .theater-ticket-face {
-    @apply text-rose-100;
-    background: rgba(225, 29, 72, 0.22);
-  }
-
-  .theater-ticket[data-on] .theater-ticket-stub {
-    @apply text-rose-300;
-    border-right-color: rgba(244, 63, 94, 0.5);
-  }
-
-  .theater-ticket:hover:not(:disabled) .theater-ticket-face {
-    @apply text-slate-50;
-    background: rgba(148, 163, 184, 0.28);
-  }
-
-  .theater-ticket[data-on]:hover:not(:disabled) .theater-ticket-face {
-    background: rgba(225, 29, 72, 0.3);
+  .theater-toggle-dot[data-filled] > span {
+    @apply bg-rose-400;
+    box-shadow: none;
   }
 
   /* The contributor's note, on the paper it was written on. */
@@ -1888,4 +1837,32 @@
   .filter-row-button[aria-expanded="true"] .filter-row-chevron {
     @apply rotate-180 text-slate-300;
   }
+}
+
+/* Theater mode's curtains: around the bowl while it is on, and over the whole
+   screen while a draw is revealed. Both are decoration and never take a tap. */
+.theater-curtains {
+  position: absolute;
+  inset: -0.75rem 0 0;
+  margin: 0 auto;
+  max-width: 42rem;
+  overflow: hidden;
+  border-radius: 22px 22px 0 0;
+  pointer-events: none;
+}
+
+/* The solo bowl's stage is narrow, so its curtains hang wider than it. */
+.solo-bowl-stage .theater-curtains {
+  inset: -0.75rem -4.5rem 0;
+}
+
+.theater-curtains > svg {
+  display: block;
+}
+
+.theater-curtains-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 71;
+  pointer-events: none;
 }

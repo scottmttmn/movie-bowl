@@ -42,7 +42,8 @@ import TvBrand from "../components/TvBrand";
 import TvSoloScopeSheet from "../components/TvSoloScopeSheet";
 import { TvRevealScreen } from "../components/TvDrawExperience";
 import TvTheaterPreroll from "../components/TvTheaterPreroll";
-import TvTheaterTicket from "../components/TvTheaterTicket";
+import TvTheaterToggle from "../components/TvTheaterToggle";
+import TheaterCurtains, { TheaterRevealCurtains } from "../../components/TheaterCurtains";
 import useProviderLaunchError from "../hooks/useProviderLaunchError";
 import useTvSpatialNavigation from "../hooks/useTvSpatialNavigation";
 import {
@@ -161,6 +162,9 @@ export default function TvSoloDrawScreen({ userId }) {
   const [scopeOverride, setScopeOverride] = useState(null);
   const [showDrawConfirm, setShowDrawConfirm] = useState(false);
   const { revealRun, isRevealing: isPreparingReveal, revealCommittedDraw } = useSoloDrawReveal({ minimumMs: 1800 });
+  // Where the curtains around the draw stood when it began, so the screen-wide
+  // pair can grow out of them.
+  const [curtainOrigin, setCurtainOrigin] = useState(null);
   const [drawnMovie, setDrawnMovie] = useState(() => readExternalReturn(SOLO_RETURN_KEY));
   const [showTrailer, setShowTrailer] = useState(false);
   const [trailerQueue, setTrailerQueue] = useState([]);
@@ -395,6 +399,9 @@ export default function TvSoloDrawScreen({ userId }) {
   };
 
   const revealSoloDraw = async (drawAction, drawPool, options) => {
+    setCurtainOrigin(
+      drawBowlRef.current?.closest(".tv-solo-action")?.querySelector(".theater-curtains")?.getBoundingClientRect() || null
+    );
     clearExternalReturn();
     setShowDrawConfirm(false);
     clearLaunchError();
@@ -488,7 +495,10 @@ export default function TvSoloDrawScreen({ userId }) {
 
   if (isBusy) {
     return (
-      <main>{revealRun && <SoloDrawReveal run={revealRun} presentation="tv" />}</main>
+      <main>
+        {isTheaterModeEnabled && <TheaterRevealCurtains origin={curtainOrigin} closeFirst />}
+        {revealRun && <SoloDrawReveal run={revealRun} presentation="tv" />}
+      </main>
     );
   }
 
@@ -566,6 +576,7 @@ export default function TvSoloDrawScreen({ userId }) {
           </div>
 
           <div className="tv-solo-action" data-tv-nav-region="solo-stage">
+            {!isPreferencesLoading && <TheaterCurtains enabled={isTheaterModeEnabled} />}
             <button
               ref={drawBowlRef}
               type="button"
@@ -691,7 +702,7 @@ export default function TvSoloDrawScreen({ userId }) {
             )}
 
             {!isPreferencesLoading && (
-              <TvTheaterTicket
+              <TvTheaterToggle
                 enabled={isTheaterModeEnabled}
                 previewCount={theaterTrailerCount}
                 isOverridden={Object.prototype.hasOwnProperty.call(

@@ -642,7 +642,7 @@ html.tv-root {
   color: #fda4af;
 }
 
-.tv-solo-action .tv-ticket {
+.tv-solo-action .tv-theater-toggle {
   margin-top: 1.25rem;
 }
 
@@ -1001,118 +1001,92 @@ html.tv-root {
 }
 
 /* Theater mode is the one setting here about the occasion rather than about
-   filtering. A ticket is the bowl's own material -- the bowl is full of paper
-   slips and this is the same paper, torn -- so it reads as unlike the controls
-   around it without a label saying so. */
-.tv-ticket {
-  display: flex;
-  padding: 0;
-  border: 1px solid transparent;
-  border-radius: 14px;
-  background: transparent;
+   filtering, so it is a curtain rather than another pill: the same switch the
+   phone has, and the curtains around the bowl are what it looks like on. The
+   dots beside it are the preview count, one press per step. */
+.tv-theater-toggle {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.6rem;
+}
+
+.tv-theater-switch,
+.tv-theater-count {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.55rem;
+  min-height: 64px;
+  border: 1px solid rgba(148, 163, 184, 0.28);
+  border-radius: 999px;
+  background: rgba(148, 163, 184, 0.14);
   color: var(--tv-muted);
   cursor: pointer;
   font: inherit;
+  transition: background 160ms ease, color 160ms ease;
 }
 
-/* The perforated face. It carries the mask so the button above it can still
-   paint the shared focus ring, which an outer box-shadow cannot survive being
-   masked. */
-.tv-ticket-face {
-  position: relative;
-  display: flex;
-  align-items: center;
-  gap: 0.72rem;
-  min-height: 78px;
-  padding: 0 1.1rem;
-  border-radius: 12px;
-  background: rgba(148, 163, 184, 0.16);
-  font-size: 0.75rem;
-  font-weight: 760;
-  letter-spacing: 0.06em;
-  text-transform: uppercase;
-  -webkit-mask:
-    radial-gradient(circle 11px at 0 50%, transparent 99%, #000 100%),
-    radial-gradient(circle 11px at 100% 50%, transparent 99%, #000 100%);
-  -webkit-mask-composite: source-in;
-  mask:
-    radial-gradient(circle 11px at 0 50%, transparent 99%, #000 100%),
-    radial-gradient(circle 11px at 100% 50%, transparent 99%, #000 100%);
-  mask-composite: intersect;
-  transition: background 160ms ease;
+.tv-theater-switch {
+  justify-content: center;
+  min-width: 64px;
+  padding: 0 1rem;
 }
 
-.tv-ticket-stub {
-  padding-right: 0.72rem;
-  border-right: 2px dashed rgba(148, 163, 184, 0.45);
-  color: #cbd5e1;
-  font-size: 0.81rem;
-  font-weight: 850;
-  letter-spacing: 0;
+.tv-theater-count {
+  padding: 0 1.25rem;
 }
 
-/* On, the stub tears off into its own focusable for the preview count. The two
-   buttons read as one ticket: each keeps the perforation on its outer edge, and
-   the tear between them is the dashed line the stub used to carry alone. They
-   are deliberately not a nav group -- the switch is how you get back out of the
-   count, and a group would hold the pair together at its ends. */
-.tv-ticket-group {
-  display: inline-flex;
-  align-items: stretch;
+.tv-theater-glyph {
+  width: 2rem;
+  height: 2rem;
 }
 
-.tv-ticket-face-stub {
-  border-top-right-radius: 0;
-  border-bottom-right-radius: 0;
-  border-right: 2px dashed rgba(148, 163, 184, 0.45);
-  -webkit-mask: radial-gradient(circle 11px at 0 50%, transparent 99%, #000 100%);
-  mask: radial-gradient(circle 11px at 0 50%, transparent 99%, #000 100%);
-}
-
-.tv-ticket-face-body {
-  border-top-left-radius: 0;
-  border-bottom-left-radius: 0;
-  -webkit-mask: radial-gradient(circle 11px at 100% 50%, transparent 99%, #000 100%);
-  mask: radial-gradient(circle 11px at 100% 50%, transparent 99%, #000 100%);
-}
-
-.tv-ticket-count {
-  color: #cbd5e1;
-  font-size: 0.81rem;
-  font-weight: 850;
-  letter-spacing: 0;
-  font-variant-numeric: tabular-nums;
-}
-
-.tv-ticket[data-on] .tv-ticket-count {
-  color: #fff;
-}
-
-.tv-ticket[data-on] .tv-ticket-face-stub {
-  border-right-color: rgba(255, 228, 230, 0.55);
-}
-
-.tv-ticket[data-on] .tv-ticket-face {
+.tv-theater-switch[data-on] {
+  border-color: rgba(251, 113, 133, 0.7);
   background: linear-gradient(100deg, rgba(190, 18, 60, 0.85), rgba(225, 29, 72, 0.7));
   color: #ffe4e6;
 }
 
-/* The rail can corner the dot because it is a tall panel. The ticket is a
-   single row, so cornering it drops it on the label; it sits after the name
-   instead, where the row already has somewhere to put it. */
-.tv-ticket .tv-rail-diverged {
+.tv-theater-dot {
+  width: 0.8rem;
+  height: 0.8rem;
+  border: 2px solid rgba(253, 164, 175, 0.6);
+  border-radius: 50%;
+}
+
+.tv-theater-dot[data-filled] {
+  border-color: #fb7185;
+  background: #fb7185;
+}
+
+/* The rail can corner the dot because it is a tall panel. These are single
+   pills, so it sits after the contents instead. */
+.tv-theater-toggle .tv-rail-diverged {
   position: static;
   flex: 0 0 auto;
 }
 
-.tv-ticket[data-on] .tv-ticket-stub {
-  border-right-color: rgba(255, 228, 230, 0.55);
-  color: #fff;
+/* The stage the curtains hang on. The draw column is its own box, so the
+   curtains frame the bowl and its readout rather than the whole screen. */
+.tv-draw-cta,
+.tv-solo-action {
+  position: relative;
 }
 
-/* House lights. Arming the ticket drops the stage a notch, so the screen
+.tv-draw-cta > *:not(.theater-curtains),
+.tv-solo-action > *:not(.theater-curtains) {
+  position: relative;
+  z-index: 1;
+}
+
+.tv-app .theater-curtains {
+  inset: 0;
+  max-width: none;
+  z-index: 0;
+}
+
+/* House lights. Arming theater mode drops the stage a notch, so the screen
    answers as well as the control. Dimming alone would read as disabled on a
-   screen where things do get disabled -- the lit ticket in the middle of it
+   screen where things do get disabled -- the lit switch in the middle of it
    and the card keeping its full brightness are what say otherwise. */
 .tv-tonight-stage[data-theater] {
   background:
@@ -2495,7 +2469,7 @@ html.tv-root {
 
 /* A horizontal rail has no empty corner to pin to: the top right of it is the
    last service's tile, which makes a marker about the whole control look like a
-   badge about that one service. The theater ticket solves this the same way. */
+   badge about that one service. The theater toggle solves this the same way. */
 .tv-solo-sheet-streaming .tv-rail-diverged {
   position: static;
   flex: 0 0 auto;

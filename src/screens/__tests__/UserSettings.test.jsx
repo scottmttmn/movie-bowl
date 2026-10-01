@@ -337,9 +337,9 @@ describe("UserSettings", () => {
     expect(screen.queryByLabelText(/default prioritize streaming services/i)).not.toBeInTheDocument();
   });
 
-  // The count moved onto the theater mode ticket, where tonight is decided, and
+  // The count moved beside the theater mode switch, where tonight is decided, and
   // it is a per-device override now. Leaving a second control here would write
-  // the account value and quietly disagree with every ticket.
+  // the account value and quietly disagree with every device.
   it("no longer carries a preview count control", () => {
     mocks.hook.defaultDrawSettings = {
       ...mocks.hook.defaultDrawSettings,
