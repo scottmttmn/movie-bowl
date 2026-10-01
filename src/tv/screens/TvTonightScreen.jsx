@@ -228,15 +228,15 @@ function TvDrawReadout({ readout, isApproximate, contributorReach, excludedContr
   return (
     <p className="tv-draw-readout" data-tone={readout.tone}>
       <span className="tv-draw-readout-stat">
-        <FilmStripGlyph className="" />
-        <span className="sr-only">Drawing from </span>
+        <FilmStripGlyph className="tv-draw-readout-glyph" />
+        <span className="sr-only">{isApproximate ? "Drawing from up to " : "Drawing from "}</span>
         {isApproximate ? <span aria-hidden="true">≤</span> : null}
         <strong>{readout.count}</strong>
         {readout.service ? ` on ${readout.service}` : ""}
       </span>
       {excludedContributorCount > 0 ? (
         <span className="tv-draw-readout-stat tv-draw-readout-reach">
-          <PeopleGlyph className="" />
+          <PeopleGlyph className="tv-draw-readout-glyph" />
           <span aria-hidden="true">
             <strong>{contributorReach.reachedCount}</strong>/{contributorReach.totalCount}
           </span>
@@ -245,8 +245,8 @@ function TvDrawReadout({ readout, isApproximate, contributorReach, excludedContr
           </span>
         </span>
       ) : memberCount ? (
-        <span className="tv-draw-readout-stat" data-tone="idle">
-          <PeopleGlyph className="" />
+        <span className="tv-draw-readout-stat tv-draw-readout-members">
+          <PeopleGlyph className="tv-draw-readout-glyph" />
           <strong>{memberCount}</strong>
           <span className="sr-only">{memberCount === 1 ? " member" : " members"}</span>
         </span>

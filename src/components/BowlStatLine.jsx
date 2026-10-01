@@ -70,8 +70,10 @@ function PoolSegment({ count, service, tone, onOpenFilters }) {
     <Segment as="button" tone={tone} onClick={onOpenFilters} ariaLabel={label}>
       <span className="inline-flex items-center gap-1 leading-none">
         <FilmStripGlyph className="block h-4 w-4" />
-        <Count tone={tone}>{count}</Count>
-        {service ? <span>on {service}</span> : null}
+        <span>
+          <Count tone={tone}>{count}</Count>
+          {service ? ` on ${service}` : ""}
+        </span>
       </span>
     </Segment>
   );
@@ -98,9 +100,10 @@ function PeopleSegment({ memberCount, reach, onOpenMethodInfo }) {
   }
   if (!memberCount) return null;
   return (
-    <span className="inline-flex items-center gap-1 leading-none text-slate-400" aria-label={memberCount === 1 ? "1 member" : `${memberCount} members`}>
+    <span className="inline-flex items-center gap-1 leading-none text-slate-400" data-member-count={memberCount}>
       <PeopleGlyph className="block h-4 w-4" />
-      <Count>{memberCount}</Count>
+      <span aria-hidden="true"><Count>{memberCount}</Count></span>
+      <span className="sr-only">{memberCount === 1 ? "1 member" : `${memberCount} members`}</span>
     </span>
   );
 }
@@ -166,7 +169,9 @@ export default function BowlStatLine({
       <button
         type="button"
         onClick={onOpenMethodInfo}
-        aria-label={`How this bowl picks: ${getDrawMethod(drawMethod).tvLabel}`}
+        aria-label={`How this bowl picks: ${getDrawMethod(drawMethod).tvLabel}${
+          hasExcludedContributors ? " — some people are filtered out" : ""
+        }`}
         className="ml-1 rounded-md transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60"
       >
         <DrawMethodMark drawMethod={drawMethod} className="block h-7 w-7" />

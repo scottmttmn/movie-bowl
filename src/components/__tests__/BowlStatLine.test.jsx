@@ -35,7 +35,7 @@ describe("BowlStatLine", () => {
   it("states the whole bowl when nothing is narrowing the draw", () => {
     const { onOpenFilters } = renderLine();
 
-    expect(pool()).toHaveTextContent("Drawing from 5");
+    expect(pool()).toHaveTextContent(/^5$/);
     expect(pool()).toHaveAttribute("data-tone", "idle");
     fireEvent.click(pool());
     expect(onOpenFilters).toHaveBeenCalled();
@@ -44,7 +44,7 @@ describe("BowlStatLine", () => {
   it("states the narrowed pool without making the reader do the arithmetic", () => {
     renderLine({ poolStatus: DRAW_POOL_STATUS.ready, poolCount: 3 });
 
-    expect(pool()).toHaveTextContent("Drawing from 3");
+    expect(pool()).toHaveTextContent(/^3$/);
     // The denominator lives behind the filters panel this segment opens.
     expect(screen.queryByText(/of 5/)).not.toBeInTheDocument();
     expect(pool()).toHaveAttribute("data-tone", "active");
@@ -64,7 +64,7 @@ describe("BowlStatLine", () => {
 
     // The eligible count and the streaming tally were the same number printed
     // twice; prioritization owns it, so it appears once.
-    expect(pool()).toHaveTextContent("Drawing from 2 on Netflix");
+    expect(pool()).toHaveTextContent(/^2 on Netflix$/);
     expect(screen.queryByText(/favoring/i)).not.toBeInTheDocument();
   });
 
@@ -98,7 +98,7 @@ describe("BowlStatLine", () => {
       useServiceRank: false,
     });
 
-    expect(pool()).toHaveTextContent("Drawing from 3");
+    expect(pool()).toHaveTextContent(/^3$/);
     expect(pool()).not.toHaveTextContent("Netflix");
   });
 
@@ -111,7 +111,7 @@ describe("BowlStatLine", () => {
       isPrioritized: true,
     });
 
-    expect(pool()).toHaveTextContent("Drawing from 4");
+    expect(pool()).toHaveTextContent(/^4$/);
   });
 
   it("ignores an unprioritized streaming tally, which narrows nothing", () => {
@@ -123,7 +123,7 @@ describe("BowlStatLine", () => {
       isPrioritized: false,
     });
 
-    expect(pool()).toHaveTextContent("Drawing from 4");
+    expect(pool()).toHaveTextContent(/^4$/);
     expect(screen.queryByText(/on your services/i)).not.toBeInTheDocument();
   });
 
@@ -193,7 +193,7 @@ describe("BowlStatLine", () => {
       },
     });
 
-    expect(pool()).toHaveTextContent("Drawing from 2 on Netflix");
+    expect(pool()).toHaveTextContent(/^2 on Netflix$/);
     expect(screen.getByRole("button", { name: /only 1 of 2 people/i })).toHaveTextContent("1/2");
   });
 
@@ -201,6 +201,33 @@ describe("BowlStatLine", () => {
     const { onOpenMethodInfo } = renderLine();
 
     fireEvent.click(screen.getByRole("button", { name: /how this bowl picks/i }));
+    expect(onOpenMethodInfo).toHaveBeenCalled();
+  });
+
+  it("counts the bowl's members beside the pool and swaps to the ratio when someone is left out", () => {
+    renderLine({ memberCount: 3 });
+    expect(screen.getByText("3 members")).toHaveClass("sr-only");
+    expect(screen.getByText("3 members").parentElement).toHaveAttribute("data-member-count", "3");
+
+    cleanup();
+    renderLine({
+      memberCount: 3,
+      poolStatus: DRAW_POOL_STATUS.ready,
+      poolCount: 3,
+      showContributorReach: true,
+      contributorReach: SHORT_REACH,
+    });
+    // One people readout at a time: the warning replaces the member count.
+    expect(screen.queryByText("3 members")).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /only 1 of 2 people/i })).toBeInTheDocument();
+  });
+
+  it("puts the bowl's method slip where the explanation opens", () => {
+    const { onOpenMethodInfo } = renderLine({ drawMethod: "rotation" });
+
+    const slip = screen.getByRole("button", { name: "How this bowl picks: Contributor rotation" });
+    expect(slip.querySelector("svg")).toHaveAttribute("data-method", "rotation");
+    fireEvent.click(slip);
     expect(onOpenMethodInfo).toHaveBeenCalled();
   });
 });

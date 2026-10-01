@@ -861,7 +861,17 @@ html.tv-root {
   color: #fcd34d;
 }
 
-.tv-draw-readout-reach strong {
+/* The member count describes the bowl, not the draw, so it keeps the quiet
+   colour whatever tone the pool beside it takes. */
+.tv-draw-readout-members {
+  color: #94a3b8;
+}
+
+.tv-draw-readout .tv-draw-readout-members strong {
+  color: #f1f5f9;
+}
+
+.tv-draw-readout .tv-draw-readout-reach strong {
   color: #fef3c7;
 }
 

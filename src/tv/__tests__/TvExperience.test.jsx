@@ -59,6 +59,7 @@ const mocks = vi.hoisted(() => ({
   providersByTmdbId: { 101: ["Netflix"] },
   providerLogosByTmdbId: {},
   drawMethod: "person_first",
+  memberCount: null,
 }));
 
 vi.mock("../hooks/useTvBowls", () => ({
@@ -74,6 +75,7 @@ vi.mock("../hooks/useTvBowls", () => ({
       ownerId: "user-1",
       canDraw: true,
       drawMethod: mocks.drawMethod,
+      memberCount: mocks.memberCount,
     },
     isLoading: false,
     errorMessage: null,
@@ -194,6 +196,7 @@ function setElementRect(element, { left, top, width, height }) {
 
 describe("Movie Bowl TV experience", () => {
   beforeEach(() => {
+    mocks.memberCount = null;
     mocks.fetchProviderLinks.mockReset().mockResolvedValue({ links: [] });
     window.localStorage.clear();
     window.sessionStorage.clear();
@@ -857,6 +860,18 @@ describe("Movie Bowl TV experience", () => {
     expect(readout).toHaveTextContent(
       /only 1 of 3 people have a movie in the draw/i
     );
+  });
+
+  it("counts the bowl's members beside the pool, with the phone's marks", async () => {
+    mocks.prioritizeStreaming = false;
+    mocks.memberCount = 3;
+
+    renderTonight();
+
+    await waitFor(() => expect(getDrawReadout()).toHaveTextContent(/^Drawing from 13 members$/));
+    // The method slip beside the name wears the person badge for person-first.
+    const slip = screen.getByRole("img", { name: "Person-first random draw" });
+    expect(slip.querySelector("[data-person-badge]")).not.toBeNull();
   });
 
   it("does not calculate unused service matches when prioritizing is off", async () => {

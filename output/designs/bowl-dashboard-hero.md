@@ -42,12 +42,15 @@ became one quiet sentence under the bowl (`BowlStatLine`). The design's static
 
 ### Draw-method affordance (implemented)
 
-"How this bowl picks" as standing disclosure copy is gone. In its place a ⓘ
-glyph at the end of the stat line opens `DrawMethodInfoModal`, which renders
+"How this bowl picks" as standing disclosure copy is gone. In its place the
+bowl's method slip (`DrawMethodMark`, the same one the television shows; it
+replaced a ⓘ glyph on October 1, 2026) at the end of the stat line opens
+`DrawMethodInfoModal`, which renders
 the method's registry copy (`utils/drawMethods.js` stays the single source of
 truth). The contributor-reach warning kept a persistent surface: when any draw
-setting shuts someone out of a person-first bowl, the pool segment and the ⓘ
-turn amber, and the modal names who is excluded.
+setting shuts someone out of a person-first bowl, the pool segment and the
+people ratio turn amber, the slip's accessible name says so, and the modal
+names who is excluded.
 
 ### Filters overlay (implemented)
 

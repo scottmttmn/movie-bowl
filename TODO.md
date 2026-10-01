@@ -5,10 +5,10 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 ## UX / UI Polish
 
 - UX pass: items 01–14 are merged (#247 finishes first-run and service
-  discovery). Scott approved the TV mockup on September 30, 2026. The reveal
-  top-copy cleanup is implemented on `codex/quiet-draw-reveal`; the unframed
-  `TvDrawMethodMark` follows in its own PR. Delight ideas remain proposals,
-  each requiring its own mockup and sign-off. See
+  discovery), as are the reveal top-copy cleanup (#248) and the TV paper
+  method slip (#249). The bowl page now counts with My Bowls' marks and shows
+  the method slip too (`output/designs/ux-pass/bowl-page-marks.md`). Delight
+  ideas remain proposals, each requiring its own mockup and sign-off. See
   `output/designs/ux-pass/HANDOFF.md`.
 
 - Offline read cache: connectivity is now detected and explained (global banner, honest error copy, draw/add refused up front, reload on reconnect), but nothing is cached, so reloading a bowl with no connection still shows an empty bowl behind the banner rather than the last known movies. Caching the last-loaded bowl read-only would close that, and needs a decision on staleness copy and invalidation before any code.

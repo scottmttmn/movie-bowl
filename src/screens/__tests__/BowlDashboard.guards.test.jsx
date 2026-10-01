@@ -329,7 +329,7 @@ describe("BowlDashboard guards", () => {
 
     expect(screen.queryByText(/everyone equally likely/i)).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks:/i }));
 
     expect(screen.getByText(/everyone equally likely/i)).toBeInTheDocument();
     expect(mocks.state.useBowlOptions).toEqual({ drawMethod: "person_first" });
@@ -350,7 +350,7 @@ describe("BowlDashboard guards", () => {
       expect(mocks.state.useBowlOptions).toEqual({ drawMethod: "title_first" })
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks:/i }));
 
     expect(screen.getByText(/one title, at random/i)).toBeInTheDocument();
     expect(screen.queryByText(/everyone equally likely/i)).not.toBeInTheDocument();
@@ -371,7 +371,7 @@ describe("BowlDashboard guards", () => {
       expect(mocks.state.useBowlOptions).toEqual({ drawMethod: "rotation" })
     );
 
-    fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks:/i }));
 
     expect(screen.getByText(/whoever has waited longest/i)).toBeInTheDocument();
     expect(screen.getByText(/returning a movie does not reset the turn/i)).toBeInTheDocument();
@@ -389,7 +389,7 @@ describe("BowlDashboard guards", () => {
     expect(mocks.state.navigate).not.toHaveBeenCalled();
     expect(mocks.state.useBowlOptions).toEqual({ drawMethod: "person_first" });
 
-    fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks:/i }));
 
     expect(screen.getByText(/everyone equally likely/i)).toBeInTheDocument();
   });

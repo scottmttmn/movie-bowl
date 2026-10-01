@@ -37,7 +37,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (182 test files / 1748 tests, 112 Playwright tests with 12 skipped,
+fully green (184 test files / 1757 tests, 112 Playwright tests with 12 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -401,11 +401,17 @@ Method copy has one source of truth. Bowl Settings reads `label`/`description`
 off the registry, and `DrawMethodInfoModal` renders `steps` — the method as
 ordered choices rather than a paragraph, which is what lets the pinning promise
 show rather than be asserted. Do not hardcode a sentence about odds anywhere
-else. The television indicates the method rather than naming it —
-`TvDrawMethodMark` draws one slip with one mark on it, beside the bowl name,
-because the method belongs to the bowl and not to tonight. `tvLabel` is that
-mark's accessible name, so a method added to the registry needs a mark here
-too or it renders nothing at all.
+else. Every surface indicates the method rather than naming it --
+`DrawMethodMark` draws one paper slip with a music player's button on it:
+shuffle for chance, repeat for rotation, and a person badge on the corner for
+the two methods that pick a person before a title. The television puts it
+beside the bowl name, because the method belongs to the bowl and not to
+tonight; the bowl page puts it at the end of the stat line, where it opens
+`DrawMethodInfoModal`. `tvLabel` is the mark's accessible name, so a method
+added to the registry needs a mark there too or it renders nothing at all.
+The stat line and the TV readout count with My Bowls' marks: the film strip
+for the eligible pool, the people for the bowl's members, turning into the
+amber reached/total ratio when filters leave someone out.
 
 The dashboard and television draw reveals show the method working, full screen:
 `DrawRevealStage` lifts the bowl out of the page, sorts the pool into one pile
