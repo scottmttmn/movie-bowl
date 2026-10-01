@@ -24,6 +24,8 @@ const mocks = vi.hoisted(() => {
       const query = {
         select: vi.fn(() => query),
         eq: vi.fn(() => query),
+        is: vi.fn(() => query),
+        order: vi.fn(() => query),
         maybeSingle: vi.fn(async () => ({ data: { user_id: state.authUserId }, error: null })),
         single: vi.fn(async () => {
           if (table === "bowls") return { data: state.bowlRow, error: null };
@@ -38,6 +40,9 @@ const mocks = vi.hoisted(() => {
       };
       return query;
     }),
+    rpc: vi.fn(async (name) => (name === "get_bowl_profile_directory"
+      ? { data: [{ user_id: "u1", display_name: "Alex" }, { user_id: "u2", display_name: "Sam" }], error: null }
+      : { data: null, error: null })),
   };
 
   return { state, supabase };
@@ -160,6 +165,7 @@ describe("BowlDashboard draw pool count", () => {
     mocks.state.navigate.mockReset();
     mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1", draw_method: "person_first" };
     mocks.state.bowlData = { remaining: TWO_CONTRIBUTORS, watched: [] };
+    mocks.state.memberRows = [{ user_id: "u1" }];
     mocks.state.selectedRatings = ["G", "PG", "PG-13", "R", "NC-17"];
     clearDrawSelectionCache();
     getTmdbMovieDetails.mockReset();
@@ -263,6 +269,23 @@ describe("BowlDashboard draw pool count", () => {
       screen.getByRole("button", { name: /how this bowl picks: .* — some people are filtered out/i })
     );
     expect(screen.getByText(/Alex is left out — your filters removed every movie they added\./)).toBeInTheDocument();
+  });
+
+  it("opens the bowl's people from the warning, with the one left out dimmed", async () => {
+    mocks.state.memberRows = [{ user_id: "u1", role: "Owner" }, { user_id: "u2", role: "Member" }];
+    await renderDashboard();
+    selectOnlyGenre("Comedy");
+
+    fireEvent.click(await screen.findByRole("button", { name: /1 of 2 people have a movie in the draw/i }));
+
+    const sheet = await screen.findByRole("dialog", { name: /1\/2/ });
+    expect(await within(sheet).findByRole("listitem", {
+      name: "Alex (you), owner: 0 movies in the draw, left out by tonight's filters",
+    })).toHaveAttribute("data-left-out", "true");
+    expect(within(sheet).getByRole("listitem", { name: "Sam: 1 movie in the draw" })).toBeInTheDocument();
+
+    fireEvent.click(within(sheet).getByRole("button", { name: "Invite people" }));
+    expect(mocks.state.navigate).toHaveBeenCalledWith("/invites?bowl=bowl-1#invite-people");
   });
 
   it("counts a one-title bowl in the singular in the filters overlay", async () => {

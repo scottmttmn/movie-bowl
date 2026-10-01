@@ -10,11 +10,14 @@ import AddMovieButton from "../components/AddMovieButton";
 import FilterChipSelect from "../components/FilterChipSelect";
 import BowlIllustration from "../components/BowlIllustration";
 import DrawMethodInfoModal from "../components/DrawMethodInfoModal";
+import BowlPeopleSheet from "../components/BowlPeopleSheet";
+import { buildBowlPeopleRows } from "../utils/bowlPeople";
 import BowlPicker from "../components/BowlPicker";
 import CreateBowlModal from "../components/CreateBowlModal";
 import useCreateBowl from "../hooks/useCreateBowl";
 import useUserBowls from "../hooks/useUserBowls";
 import useBowl from "../hooks/useBowl";
+import useBowlPeople from "../hooks/useBowlPeople";
 import useDrawProviderLinks from "../hooks/useDrawProviderLinks";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import useDeviceDrawSettings from "../hooks/useDeviceDrawSettings";
@@ -123,6 +126,7 @@ export default function BowlDashboard() {
     const drawBowlRef = useRef(null);
     const [showDrawConfirm, setShowDrawConfirm] = useState(false);
     const [showMethodInfo, setShowMethodInfo] = useState(false);
+    const [showPeople, setShowPeople] = useState(false);
     const [bowlName, setBowlName] = useState("");
     const [bowlOwnerId, setBowlOwnerId] = useState(null);
     const [drawAccessMode, setDrawAccessMode] = useState(DRAW_ACCESS_MODE_ALL);
@@ -467,6 +471,24 @@ export default function BowlDashboard() {
     // its settled isLoading until the new read starts, and those rows are not
     // this bowl's.
     const isFirstLoad = bowlRowsBowlId !== bowlId;
+
+    // Read only while the sheet is open; the counts reuse the pool the stat
+    // line already resolved, so the sheet costs no lookups of its own.
+    const bowlPeople = useBowlPeople(bowlId, { enabled: showPeople, includeInvites: isCurrentUserOwner });
+    const bowlPeopleRows = useMemo(
+      () => (bowlPeople.status === "ready"
+        ? buildBowlPeopleRows({
+          members: bowlPeople.members,
+          movies: bowl.remaining,
+          eligibleMovieIds: drawPoolStatus === DRAW_POOL_STATUS.ready ? drawPoolEligibleMovieIds : null,
+          ownerId: bowlOwnerId,
+          ownerName: bowlPeople.names[bowlOwnerId] || null,
+          names: bowlPeople.names,
+          currentUserId,
+        })
+        : []),
+      [bowlPeople, bowl.remaining, drawPoolStatus, drawPoolEligibleMovieIds, bowlOwnerId, currentUserId]
+    );
 
     const statLineInputs = {
       poolStatus: drawPoolStatus,
@@ -1097,6 +1119,7 @@ return (
                   onRunPoolLookups={runDrawPoolLookups}
                   onOpenFilters={() => setShowDrawFilters(true)}
                   onOpenMethodInfo={() => setShowMethodInfo(true)}
+                  onOpenPeople={() => setShowPeople(true)}
                   memberCount={currentBowlMemberCount}
                   drawMethod={drawMethod}
                 />
@@ -1586,6 +1609,20 @@ return (
             </section>
             
 
+            {showPeople && (
+              <BowlPeopleSheet
+                rows={bowlPeopleRows}
+                invites={bowlPeople.invites}
+                status={bowlPeople.status}
+                memberCount={currentBowlMemberCount}
+                reach={drawMethodBucketsByContributor ? drawPoolContributorReach : null}
+                showLeftOut={drawMethodBucketsByContributor}
+                showCounts={drawPoolStatus === DRAW_POOL_STATUS.ready || drawPoolStatus === DRAW_POOL_STATUS.unfiltered}
+                isOwner={isCurrentUserOwner}
+                onInvite={() => navigate(`/invites?bowl=${bowlId}#invite-people`)}
+                onClose={() => setShowPeople(false)}
+              />
+            )}
             {showMethodInfo && (
               <DrawMethodInfoModal
                 drawMethod={drawMethod}
