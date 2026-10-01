@@ -1,7 +1,9 @@
 import { Fragment } from "react";
 import { describeStatLine } from "../utils/drawReadout";
+import { getDrawMethod } from "../utils/drawMethods";
 import FilmStripGlyph from "./FilmStripGlyph";
 import PeopleGlyph from "./PeopleGlyph";
+import DrawMethodMark from "./DrawMethodMark";
 
 // One quiet sentence under the bowl instead of a row of chips. Each segment is
 // still a readout of what the draw is about to do, so the chip tone vocabulary
@@ -39,14 +41,14 @@ function Segment({ as = "span", tone = "idle", onClick, ariaLabel, children }) {
         data-tone={tone}
         onClick={onClick}
         aria-label={ariaLabel}
-        className={`rounded transition ${TEXT_CLASSES[tone]} ${HOVER_CLASSES[tone]} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60`}
+        className={`inline-flex items-center rounded transition ${TEXT_CLASSES[tone]} ${HOVER_CLASSES[tone]} focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60`}
       >
         {children}
       </button>
     );
   }
   return (
-    <span data-tone={tone} className={TEXT_CLASSES[tone]}>
+    <span data-tone={tone} className={`inline-flex items-center ${TEXT_CLASSES[tone]}`}>
       {children}
     </span>
   );
@@ -66,8 +68,8 @@ function PoolSegment({ count, service, tone, onOpenFilters }) {
     : `Drawing from ${titles}. Open draw filters.`;
   return (
     <Segment as="button" tone={tone} onClick={onOpenFilters} ariaLabel={label}>
-      <span className="inline-flex items-center gap-1">
-        <FilmStripGlyph className="h-4 w-4" />
+      <span className="inline-flex items-center gap-1 leading-none">
+        <FilmStripGlyph className="block h-4 w-4" />
         <Count tone={tone}>{count}</Count>
         {service ? <span>on {service}</span> : null}
       </span>
@@ -87,8 +89,8 @@ function PeopleSegment({ memberCount, reach, onOpenMethodInfo }) {
         onClick={onOpenMethodInfo}
         ariaLabel={`Only ${reach.reachedCount} of ${reach.totalCount} people have a movie in the draw. How this bowl picks.`}
       >
-        <span className="inline-flex items-center gap-1">
-          <PeopleGlyph className="h-4 w-4" />
+        <span className="inline-flex items-center gap-1 leading-none">
+          <PeopleGlyph className="block h-4 w-4" />
           <span><Count tone="warning">{reach.reachedCount}</Count>/{reach.totalCount}</span>
         </span>
       </Segment>
@@ -96,8 +98,8 @@ function PeopleSegment({ memberCount, reach, onOpenMethodInfo }) {
   }
   if (!memberCount) return null;
   return (
-    <span className="inline-flex items-center gap-1 text-slate-400" aria-label={memberCount === 1 ? "1 member" : `${memberCount} members`}>
-      <PeopleGlyph className="h-4 w-4" />
+    <span className="inline-flex items-center gap-1 leading-none text-slate-400" aria-label={memberCount === 1 ? "1 member" : `${memberCount} members`}>
+      <PeopleGlyph className="block h-4 w-4" />
       <Count>{memberCount}</Count>
     </span>
   );
@@ -110,6 +112,7 @@ export default function BowlStatLine({
   onOpenFilters,
   onOpenMethodInfo,
   memberCount = null,
+  drawMethod,
   ...readoutInputs
 }) {
   // While the answer is still being worked out, the line shows what it said
@@ -158,6 +161,16 @@ export default function BowlStatLine({
           {segment}
         </Fragment>
       ))}
+      {/* How this bowl picks, as the television shows it: the same slip, here
+          in the place the explanation opens from. */}
+      <button
+        type="button"
+        onClick={onOpenMethodInfo}
+        aria-label={`How this bowl picks: ${getDrawMethod(drawMethod).tvLabel}`}
+        className="ml-1 rounded-md transition hover:scale-110 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60"
+      >
+        <DrawMethodMark drawMethod={drawMethod} className="block h-7 w-7" />
+      </button>
     </p>
   );
 }

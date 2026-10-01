@@ -35,8 +35,25 @@ const withHead = (glyph) => (
   </>
 );
 
+// The button with a small person set low beside it, like a subscript: this
+// method picks a person first, and the button says how.
+const withPerson = (glyph) => (
+  <>
+    <g transform="translate(10.2 10.4) scale(0.72) translate(-12 -12)" strokeWidth="2.3">{glyph}</g>
+    <circle cx="17" cy="14.4" r="1.3" fill="currentColor" stroke="none" />
+    <path d="M15 17.8a2 2 0 0 1 4 0" strokeWidth="1.6" />
+  </>
+);
+
 function playerSets() {
   return {
+    // Sub: shuffle and repeat with a person subscript; title-first is the
+    // bare shuffle.
+    player_sub: {
+      person_first: withPerson(SHUFFLE),
+      rotation: withPerson(REPEAT),
+      title_first: SHUFFLE,
+    },
     // X: the head rides on the button. Both people-first methods wear it, so
     // the head means "a person first" and the button means "how".
     player_x: {
