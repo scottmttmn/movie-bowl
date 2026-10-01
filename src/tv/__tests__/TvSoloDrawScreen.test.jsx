@@ -199,7 +199,7 @@ function renderSolo() {
 
 async function revealMovie() {
   fireEvent.click(screen.getByRole("button", { name: /draw for myself/i }));
-  fireEvent.click(screen.getByRole("button", { name: /reveal one/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^draw$/i }));
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1800);
   });
@@ -274,7 +274,7 @@ describe("TV solo draw", () => {
   it("keeps the idle screen focused on the draw instead of reproducing the busy mockup", () => {
     renderSolo();
 
-    expect(screen.getByRole("heading", { name: "Pick one of yours." })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Solo Draw" })).toBeInTheDocument();
     expect(
       screen.getByText((_content, element) =>
         Boolean(element?.classList?.contains("tv-solo-pool-summary"))
@@ -291,9 +291,9 @@ describe("TV solo draw", () => {
     renderSolo();
 
     fireEvent.click(screen.getByRole("button", { name: /draw for myself/i }));
-    expect(screen.getByRole("dialog", { name: /pick one of your movies/i })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: /draw for myself\?/i })).toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /reveal one/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^draw$/i }));
     expect(screen.getByRole("status")).toHaveTextContent("Picking one of your titles");
 
     await act(async () => {
@@ -301,7 +301,6 @@ describe("TV solo draw", () => {
     });
 
     expect(screen.getByRole("heading", { name: "Arrival (2016)" })).toBeInTheDocument();
-    expect(screen.getByText("From Family Night • Saved to your Watch History")).toBeInTheDocument();
     expect(mocks.draw).toHaveBeenCalledWith(
       mocks.rows,
       expect.objectContaining({ prioritizeByServices: false }),
@@ -320,7 +319,7 @@ describe("TV solo draw", () => {
     });
     renderSolo();
     fireEvent.click(screen.getByRole("button", { name: /draw for myself/i }));
-    fireEvent.click(screen.getByRole("button", { name: /reveal one/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^draw$/i }));
     await act(async () => { await vi.advanceTimersByTimeAsync(1000); });
     const stage = document.querySelector(".tv-draw-reveal-stage");
     expect(stage).toHaveAttribute("data-method", "solo");
@@ -346,7 +345,7 @@ describe("TV solo draw", () => {
     });
     renderSolo();
     fireEvent.click(screen.getByRole("button", { name: /draw for myself/i }));
-    fireEvent.click(screen.getByRole("button", { name: /reveal one/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^draw$/i }));
     await act(async () => { await vi.advanceTimersByTimeAsync(150); });
     expect(document.querySelectorAll(".draw-reveal-slip")).toHaveLength(1);
     expect(document.querySelectorAll(".draw-reveal-slip")).toHaveLength(1);
@@ -397,7 +396,7 @@ describe("TV solo draw", () => {
     renderSolo();
 
     fireEvent.click(screen.getByRole("button", { name: /draw for myself/i }));
-    fireEvent.click(screen.getByRole("button", { name: /reveal one/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^draw$/i }));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1800);
     });
@@ -525,17 +524,18 @@ describe("TV solo draw", () => {
     ).toHaveTextContent("1 of 2 titles across 2 bowls");
   });
 
-  // The stage promised shared bowls kept their copies while the account was
-  // set to empty them.
-  it("promises the bowls keep their copies only while they do", () => {
-    renderSolo();
-    expect(screen.getByText(/shared bowls keep their copies/i)).toBeInTheDocument();
-
-    cleanup();
-    mocks.removeFromBowlsOnSoloDraw = true;
-    renderSolo();
-    expect(screen.queryByText(/keep their copies/i)).toBeNull();
-    expect(screen.getByText(/your copies leave those bowls/i)).toBeInTheDocument();
+  // The stage and the confirm once promised shared bowls kept their copies
+  // while the account was set to empty them. Neither says anything now, so
+  // neither can say the wrong thing.
+  it("makes no promise about the bowls' copies either way", () => {
+    for (const removes of [false, true]) {
+      mocks.removeFromBowlsOnSoloDraw = removes;
+      renderSolo();
+      fireEvent.click(screen.getByRole("button", { name: /draw for myself/i }));
+      expect(screen.getByRole("dialog", { name: /draw for myself\?/i })).toBeInTheDocument();
+      expect(screen.queryByText(/copies|shared bowl/i)).toBeNull();
+      cleanup();
+    }
   });
 
   it("keeps the plain count while the filters are still being checked", () => {
@@ -571,7 +571,7 @@ describe("TV solo draw", () => {
     fireEvent.keyDown(window, { key: "Backspace" });
 
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
-    expect(screen.getByRole("heading", { name: "Pick one of yours." })).toBeInTheDocument();
+    expect(screen.getByRole("heading", { name: "Solo Draw" })).toBeInTheDocument();
   });
 
   it("names no service while streaming priority is off", () => {

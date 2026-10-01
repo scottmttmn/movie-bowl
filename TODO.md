@@ -7,7 +7,8 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 - UX pass: items 01–14 are merged (#247 finishes first-run and service
   discovery), as are the reveal top-copy cleanup (#248) and the TV paper
   method slip (#249). The bowl page now counts with My Bowls' marks and shows
-  the method slip too (`output/designs/ux-pass/bowl-page-marks.md`). Delight
+  the method slip too (`output/designs/ux-pass/bowl-page-marks.md`), and the
+  television has caught up with the pass (`output/designs/ux-pass/tv-catch-up.md`). Delight
   ideas remain proposals, each requiring its own mockup and sign-off. See
   `output/designs/ux-pass/HANDOFF.md`.
 

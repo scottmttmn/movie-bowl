@@ -92,8 +92,8 @@ test("a paired TV can use remote selection to open a bowl", async ({ page, backe
   await expect(page.getByRole("heading", { level: 1, name: "Smoke TV" })).toBeVisible();
   await expect(page.getByText("OK to select", { exact: true })).toHaveCount(0);
   await page.getByRole("button", { name: /Draw a movie/ }).press("Enter");
-  await expect(page.getByRole("dialog", { name: "Reveal one movie?" })).toBeVisible();
-  await page.getByRole("button", { name: "Reveal a movie" }).press("Enter");
+  await expect(page.getByRole("dialog", { name: "Draw a movie?" })).toBeVisible();
+  await page.getByRole("button", { name: "Draw", exact: true }).press("Enter");
   await expect(page.getByRole("heading", { name: "TV Smoke Feature" })).toBeVisible({
     timeout: 15_000,
   });
@@ -172,8 +172,8 @@ test("a paired TV can make a private solo draw without the busy bowl controls", 
   await page.getByRole("button", { name: /draw from my movies/i }).press("Enter");
 
   await expect(page).toHaveURL(/\/tv\/solo$/);
-  await expect(page.getByRole("heading", { name: "Pick one of yours." })).toBeVisible();
-  await expect(page.getByText(/2 titles across 2 bowls/i)).toBeVisible();
+  await expect(page.getByRole("heading", { name: "Solo Draw" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /2 titles across 2 bowls/i })).toBeVisible();
   // The streaming control is a press away, never on the resting stage.
   await expect(page.getByRole("radiogroup")).toHaveCount(0);
   await page.screenshot({ path: testInfo.outputPath("tv-solo-idle.png") });
@@ -186,21 +186,20 @@ test("a paired TV can make a private solo draw without the busy bowl controls", 
 
   await page.getByRole("button", { name: /Solo Source B/ }).press("Enter");
   await page.getByRole("button", { name: /^Done$/ }).press("Enter");
-  await expect(page.getByText(/1 title across 1 bowl/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: /1 title across 1 bowl/i })).toBeVisible();
 
   // Back to everything, so the draw below can land on either title.
   await page.getByRole("button", { name: /change bowls and streaming/i }).press("Enter");
   await page.getByRole("button", { name: /^All bowls$/ }).press("Enter");
   await page.getByRole("button", { name: /^Done$/ }).press("Enter");
-  await expect(page.getByText(/2 titles across 2 bowls/i)).toBeVisible();
+  await expect(page.getByRole("button", { name: /2 titles across 2 bowls/i })).toBeVisible();
 
   await page.getByRole("button", { name: /draw for myself/i }).press("Enter");
-  await page.getByRole("button", { name: /reveal one/i }).press("Enter");
+  await page.getByRole("button", { name: /^draw$/i }).press("Enter");
 
   await expect(
     page.getByRole("heading", { name: /Quiet Solo Feature|Second Solo Feature/ })
   ).toBeVisible({ timeout: 15_000 });
-  await expect(page.getByText(/Saved to your Watch History/)).toBeVisible();
   expect(backend.state.user_watch_events).toHaveLength(1);
   expect(backend.state.user_watch_events[0]).toEqual(
     expect.objectContaining({ source_kind: "solo_draw", user_id: "user-smoke" })

@@ -33,7 +33,7 @@ for (const method of ["person_first", "rotation", "title_first"]) {
     await expect(draw).toBeEnabled();
     await expect(draw).toBeFocused();
     await draw.press("Enter");
-    await expect(page.getByRole("dialog", { name: "Reveal one movie?" })).toBeVisible();
+    await expect(page.getByRole("dialog", { name: "Draw a movie?" })).toBeVisible();
     // Sample each browser frame: the fully opened title is intentionally brief,
     // so Playwright's assertion polling can skip its readable window.
     await page.evaluate(() => {
@@ -66,7 +66,7 @@ for (const method of ["person_first", "rotation", "title_first"]) {
       };
       requestAnimationFrame(sample);
     });
-    await page.getByRole("button", { name: "Reveal a movie" }).press("Enter");
+    await page.getByRole("button", { name: "Draw", exact: true }).press("Enter");
     const stage = page.locator(".tv-draw-reveal-stage");
     await expect(stage).toHaveAttribute("data-method", method);
     await page.keyboard.press("Escape");

@@ -603,10 +603,11 @@ html.tv-root {
   color: #a8b3c5;
 }
 
-.tv-solo-summary-counts img {
+.tv-solo-summary-bowl {
   display: block;
   width: 1.4em;
-  height: auto;
+  height: 1em;
+  background: center / contain no-repeat;
 }
 
 .tv-solo-summary-total {
@@ -1740,60 +1741,6 @@ html.tv-root {
 .tv-tonight-primary {
   min-width: 22rem;
   font-size: 1.05rem;
-}
-
-.tv-icon-button {
-  display: grid;
-  width: 58px;
-  height: 58px;
-  place-items: center;
-  border: 1px solid rgba(148, 163, 184, 0.34);
-  border-radius: 50%;
-  background: #1e293b;
-  color: #f8fafc;
-  cursor: pointer;
-  transition: transform 160ms ease;
-}
-
-.tv-icon-button:hover,
-.tv-icon-button:focus {
-  transform: translateY(-2px);
-}
-
-.tv-icon-button svg {
-  width: 1.4rem;
-  height: 1.4rem;
-  margin-left: 0.15rem;
-}
-
-.tv-poster-play {
-  position: absolute;
-  top: 50%;
-  left: 50%;
-  display: grid;
-  width: 6.5rem;
-  height: 6.5rem;
-  place-items: center;
-  border: 2px solid rgba(255, 255, 255, 0.75);
-  border-radius: 50%;
-  background: rgba(2, 6, 23, 0.55);
-  color: white;
-  cursor: pointer;
-  transform: translate(-50%, -50%);
-  backdrop-filter: blur(4px);
-  transition: transform 160ms ease, background 160ms ease;
-}
-
-.tv-poster-play:hover,
-.tv-poster-play:focus {
-  background: rgba(225, 29, 72, 0.85);
-  transform: translate(-50%, -50%) scale(1.06);
-}
-
-.tv-poster-play svg {
-  width: 2.6rem;
-  height: 2.6rem;
-  margin-left: 0.3rem;
 }
 
 .tv-trailer-button svg {

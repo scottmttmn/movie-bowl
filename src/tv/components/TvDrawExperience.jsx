@@ -326,19 +326,16 @@ export function TvMovieDetailStage({
   );
 }
 
-// Prototype switch for the mockup only.
-const TRAILER_PLACEMENT = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("trailer") === "label" ? "label" : "poster";
-
 const PLAY_ICON = (
   <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
     <path d="M8 4.5v15l12-7.5z" />
   </svg>
 );
 
-// The drawn movie as the phone's tonight sheet shows it, at television size.
-// Nothing on it is a label: the slip is why it was in the bowl, the one big
-// button is what to do next, the play button is the trailer, and the logos are
-// where else it is. The television has no browser to unfold those logos into a
+// The drawn movie as the phone's tonight sheet shows it, at television size:
+// the slip is why it was in the bowl, the one big button is what to do next,
+// and the logos are where else it is. The trailer keeps its word, because a
+// bare play button beside the title reads as playing the film itself. The television has no browser to unfold those logos into a
 // list, so they are a glance rather than a control.
 function TvTonightPick({
   movie,
@@ -402,19 +399,6 @@ function TvTonightPick({
           src={getPosterUrl(movie, "w500")}
           alt={`${movie.title} poster`}
         />
-        {/* Where a video player puts it: the play button on the picture. */}
-        {trailer?.embedUrl && TRAILER_PLACEMENT === "poster" && (
-          <button
-            type="button"
-            className="tv-poster-play"
-            aria-label="Watch trailer"
-            data-tv-focusable
-            data-tv-autofocus={playbackAutofocus && !canLaunch ? "true" : undefined}
-            onClick={onToggleTrailer}
-          >
-            {PLAY_ICON}
-          </button>
-        )}
       </div>
 
       <div className="tv-reveal-copy">
@@ -470,7 +454,7 @@ function TvTonightPick({
               {primary.label}
             </button>
           )}
-          {trailer?.embedUrl && TRAILER_PLACEMENT === "label" && (
+          {trailer?.embedUrl && (
             <button
               type="button"
               className="tv-button tv-button-secondary tv-trailer-button"
@@ -549,11 +533,6 @@ export function TvRevealScreen({
   onProviderLaunch,
   onCloseTrailer,
   onToggleTrailer,
-  kicker = "Decision made",
-  badgeLabel = "Tonight's pick",
-  noteLabel = "Why it’s in the bowl",
-  historyMetadata = [],
-  tonight = true,
 }) {
   const trailer = movie.trailer;
   const isCoveredByOverlay = isDialogOpen || showTrailer;
@@ -574,17 +553,13 @@ export function TvRevealScreen({
         <TvMovieDetailStage
           movie={movie}
           streamingServices={streamingServices}
-          kicker={kicker}
-          badgeLabel={badgeLabel}
-          noteLabel={noteLabel}
-          historyMetadata={historyMetadata}
           webLaunchCandidate={webLaunchCandidate}
           rentCandidate={rentCandidate}
           providerLaunchMessage={providerLaunchMessage}
           providerLaunchFailedUrl={providerLaunchFailedUrl}
           onProviderLaunch={onProviderLaunch}
           onToggleTrailer={onToggleTrailer}
-          tonight={tonight}
+          tonight
         >
           {isPreparingPreviews && (
             <p className="tv-preview-status" role="status">

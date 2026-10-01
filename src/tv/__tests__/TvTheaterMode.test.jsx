@@ -109,7 +109,7 @@ async function drawWithTheaterMode() {
   fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
 
   vi.useFakeTimers();
-  fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+  fireEvent.click(screen.getByRole("button", { name: /^draw$/i }));
   await act(async () => {
     await vi.advanceTimersByTimeAsync(1800);
   });
@@ -196,7 +196,7 @@ describe("TV theater mode", () => {
     renderTonight();
     fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
     vi.useFakeTimers();
-    fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^draw$/i }));
     await act(async () => { await vi.advanceTimersByTimeAsync(4949); });
     expect(document.querySelector(".tv-draw-reveal-stage")).toHaveAttribute("data-phase", "unfold");
     expect(window.YT.Player).not.toHaveBeenCalled();
@@ -253,9 +253,9 @@ describe("TV theater mode", () => {
     expect(
       screen.queryByRole("dialog", { name: /previews before arrival/i })
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/tonight's pick/i)).toBeInTheDocument();
+    expect(document.querySelector(".tv-reveal.is-tonight")).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /^open netflix$/i })
+      screen.getByRole("link", { name: /^watch on netflix$/i })
     ).toBeInTheDocument();
     expect(
       JSON.parse(window.localStorage.getItem("movie-bowl:tv:recent-trailers"))
@@ -418,7 +418,7 @@ describe("TV theater mode", () => {
     const reveal = document.querySelector(".tv-reveal-page");
     expect(reveal).toHaveAttribute("inert");
     expect(reveal).toContainElement(
-      screen.getByRole("link", { name: /open netflix/i, hidden: true })
+      screen.getByRole("link", { name: /watch on netflix/i, hidden: true })
     );
 
     fireEvent.keyDown(window, { key: "ArrowRight" });
@@ -494,7 +494,7 @@ describe("TV theater mode", () => {
     expect(
       screen.queryByRole("dialog", { name: /previews before arrival/i })
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/tonight's pick/i)).toBeInTheDocument();
+    expect(document.querySelector(".tv-reveal.is-tonight")).toBeInTheDocument();
   });
 
   // Fullscreen shows only the overlay, so fading it early fades to black.
@@ -553,7 +553,7 @@ describe("TV theater mode", () => {
     fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
 
     vi.useFakeTimers();
-    fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^draw$/i }));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1800);
     });
@@ -585,7 +585,7 @@ describe("TV theater mode", () => {
     fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
 
     vi.useFakeTimers();
-    fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^draw$/i }));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1800);
     });
@@ -601,7 +601,7 @@ describe("TV theater mode", () => {
     expect(
       screen.queryByRole("dialog", { name: /previews before arrival/i })
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/tonight's pick/i)).toBeInTheDocument();
+    expect(document.querySelector(".tv-reveal.is-tonight")).toBeInTheDocument();
   });
 
   it("keeps the plain reveal flow when theater mode is off", async () => {
@@ -617,7 +617,7 @@ describe("TV theater mode", () => {
     fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
 
     vi.useFakeTimers();
-    fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^draw$/i }));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1800);
     });
@@ -626,7 +626,7 @@ describe("TV theater mode", () => {
     expect(
       screen.queryByRole("dialog", { name: /previews before arrival/i })
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/tonight's pick/i)).toBeInTheDocument();
+    expect(document.querySelector(".tv-reveal.is-tonight")).toBeInTheDocument();
     // Only the drawn movie is enriched; no preview lookups are made.
     expect(mocks.getTmdbMovieDetails).toHaveBeenCalledTimes(1);
   });
@@ -694,7 +694,7 @@ describe("TV theater mode", () => {
       expect(openSpy).toHaveBeenCalledWith(NETFLIX_TITLE_URL, "_blank", "noopener,noreferrer");
       // The same bookkeeping as a press, so Back from the app finds the reveal.
       expect(readExternalReturn("family")).toEqual(expect.objectContaining({ id: "movie-1" }));
-      expect(screen.getByRole("link", { name: /^open netflix$/i })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /^watch on netflix$/i })).toBeInTheDocument();
     });
 
     it("does not open anything when Back ends the previews", async () => {
@@ -717,7 +717,7 @@ describe("TV theater mode", () => {
       await finishFeatureCard();
 
       expect(openSpy).not.toHaveBeenCalled();
-      expect(screen.getByRole("link", { name: /^open netflix$/i })).toHaveAttribute(
+      expect(screen.getByRole("link", { name: /^watch on netflix$/i })).toHaveAttribute(
         "href",
         expect.stringContaining("/search")
       );

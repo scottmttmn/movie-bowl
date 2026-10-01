@@ -260,8 +260,6 @@ export default function TvSoloDrawScreen({ userId }) {
     providerBowlId,
     providerMovie
   );
-  const sourceBowlName =
-    bowls.find((bowl) => String(bowl.id) === String(drawnMovie?.bowl_id))?.name || null;
   const preferredWebLaunchCandidate = useMemo(() => {
     if (!drawnMovie) return null;
 
@@ -495,15 +493,10 @@ export default function TvSoloDrawScreen({ userId }) {
   }
 
   if (drawnMovie) {
-    const historyMetadata = [
-      sourceBowlName ? `From ${sourceBowlName}` : null,
-      "Saved to your Watch History",
-    ].filter(Boolean);
-
     return (
       <>
         <TvRevealScreen
-          bowlName="Solo draw"
+          bowlName="Solo Draw"
           movie={drawnMovie}
           streamingServices={streamingServices}
           isPreparingPreviews={isTheaterPending}
@@ -516,10 +509,6 @@ export default function TvSoloDrawScreen({ userId }) {
           onProviderLaunch={beginProviderLaunch}
           onCloseTrailer={() => setShowTrailer(false)}
           onToggleTrailer={() => setShowTrailer((current) => !current)}
-          kicker="Picked for you"
-          badgeLabel="Your pick"
-          noteLabel="Your note"
-          historyMetadata={historyMetadata}
         />
         {isTheaterPlaying && (
           <TvTheaterPreroll
@@ -615,7 +604,7 @@ export default function TvSoloDrawScreen({ userId }) {
                     )}
                   </span>
                   <span>
-                    <img src={bowlImage} alt="" />
+                    <span className="tv-solo-summary-bowl" style={{ backgroundImage: `url(${bowlImage})` }} />
                     <strong>{selectedBowlIds.length}</strong>
                   </span>
                 </span>
