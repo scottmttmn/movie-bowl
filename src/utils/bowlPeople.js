@@ -20,6 +20,7 @@ export function buildBowlPeopleRows({
   eligibleMovieIds = null,
   ownerId = null,
   ownerName = null,
+  names = {},
   currentUserId = null,
 }) {
   const eligible = eligibleMovieIds ? new Set(eligibleMovieIds.map(String)) : null;
@@ -68,8 +69,21 @@ export function buildBowlPeopleRows({
     )
     .sort((a, b) => Number(b.isOwner) - Number(a.isOwner) || a.name.localeCompare(b.name));
 
+  // Someone who left keeps their undrawn movies in the bowl, and the draw still
+  // reaches them, so they are listed after the members like a link guest.
+  const rosterKeys = new Set(memberRows.map((row) => row.key));
+  const formerRows = [...totals.keys()]
+    .filter((key) => key.startsWith("user:") && !rosterKeys.has(key))
+    .map((key) => {
+      const userId = key.slice("user:".length);
+      return describe(key, getProfileDisplayName({ display_name: names[userId] || null }, userId), {
+        isYou: userId === currentUserId,
+      });
+    });
+
   const guestRows = [...guestLabels.entries()]
     .map(([key, label]) => describe(key, label))
+    .concat(formerRows)
     .sort((a, b) => a.name.localeCompare(b.name));
 
   return [...memberRows, ...guestRows];

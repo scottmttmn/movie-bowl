@@ -39,6 +39,20 @@ describe("buildBowlPeopleRows", () => {
     expect(rows.filter((row) => row.key === "user:u1")).toHaveLength(1);
   });
 
+  it("lists someone who left but still has movies in the bowl, after the members", () => {
+    const movies = [...MOVIES, { id: "m7", added_by: "u9" }];
+    const rows = buildBowlPeopleRows({
+      members: MEMBERS,
+      movies,
+      eligibleMovieIds: ["m3", "m4"],
+      ownerId: "u1",
+      names: { u9: "Jo" },
+    });
+
+    expect(rows.map((row) => row.name)).toEqual(["Alex", "Ana", "Sam", "Jo", "Robin"]);
+    expect(rows[3]).toMatchObject({ key: "user:u9", count: 0, isLeftOut: true, isOwner: false });
+  });
+
   it("counts only the filtered pool and marks someone whose every movie it removed", () => {
     const rows = buildBowlPeopleRows({ members: MEMBERS, movies: MOVIES, eligibleMovieIds: ["m3", "m4"], ownerId: "u1" });
     const byName = Object.fromEntries(rows.map((row) => [row.name, row]));
