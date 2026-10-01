@@ -80,7 +80,7 @@ export default function TopNav({
           </Link>
         )}
         <div className="flex shrink-0 items-center gap-2">
-          {isAuthenticated && onAddMovie && <button type="button" className="btn btn-secondary h-11 w-11 px-0"
+          {isAuthenticated && onAddMovie && <button type="button" className="icon-btn h-11 w-11 disabled:opacity-45"
             aria-label="Add a movie" title="Add a movie" disabled={blockingOverlay}
             onClick={() => { setIsMenuOpen(false); onAddMovie(); }}>
             <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round"><path d="M12 5v14M5 12h14" /></svg>
@@ -95,7 +95,7 @@ export default function TopNav({
                 ? `Navigation menu (${pendingInviteLabel})`
                 : "Navigation menu"
             }
-            className="icon-btn relative h-10 w-10"
+            className="icon-btn relative h-11 w-11"
             onClick={() => setIsMenuOpen((prev) => !prev)}
           >
             <svg viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
