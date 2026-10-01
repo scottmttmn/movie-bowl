@@ -246,6 +246,9 @@ function TvDrawReadout({ readout, isApproximate, contributorReach, excludedContr
         </span>
       ) : memberCount ? (
         <span className="tv-draw-readout-stat tv-draw-readout-members">
+          {/* Spoken as its own sentence, or a reader runs the two numbers
+              together into one. */}
+          <span className="sr-only">. </span>
           <PeopleGlyph className="tv-draw-readout-glyph" />
           <strong>{memberCount}</strong>
           <span className="sr-only">{memberCount === 1 ? " member" : " members"}</span>
