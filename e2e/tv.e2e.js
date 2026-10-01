@@ -364,10 +364,10 @@ test("TV sign-out can retry a failure, revokes only this session, and returns to
     .toEqual({ theaterModeEnabled: true });
 });
 
-// The count lives on the ticket's stub and is walked, not typed, because a
-// remote has one gesture. Only a real browser can say the stub is reachable
-// from the switch beside it.
-test("the remote can walk the preview count on the ticket", async ({ page, backend }, testInfo) => {
+// The count is the dots beside the curtain switch and is walked, not typed,
+// because a remote has one gesture. Only a real browser can say the dots are
+// reachable from the switch beside them.
+test("the remote can walk the preview count beside the theater switch", async ({ page, backend }, testInfo) => {
   test.skip(testInfo.project.name === "mobile-chromium", "TV smoke coverage uses the desktop viewport.");
 
   await page.setViewportSize({ width: 1920, height: 1080 });
@@ -388,9 +388,9 @@ test("the remote can walk the preview count on the ticket", async ({ page, backe
 
   await page.goto("/tv/bowl/bowl-tv-count");
 
-  const ticket = page.getByRole("switch", { name: /theater mode/i });
-  await ticket.focus();
-  await ticket.press("Enter");
+  const toggle = page.getByRole("switch", { name: /theater mode/i });
+  await toggle.focus();
+  await toggle.press("Enter");
 
   const count = page.getByRole("button", { name: "Up to 3 previews, change" });
   await expect(count).toBeVisible();
@@ -398,9 +398,10 @@ test("the remote can walk the preview count on the ticket", async ({ page, backe
   await count.press("Enter");
   await expect(page.getByRole("button", { name: "Up to 4 previews, change" })).toBeFocused();
 
-  // The stub is left the way it was reached: the switch is its neighbour, so
-  // the pair never becomes somewhere you can arrow into and not back out of.
-  await page.keyboard.press("ArrowRight");
+  // The dots are left the way they were reached: the switch is their
+  // neighbour, so the pair never becomes somewhere you can arrow into and not
+  // back out of.
+  await page.keyboard.press("ArrowLeft");
   // Armed here rather than inherited, so the switch's own name carries the
   // divergence the mark beside it shows.
   await expect(page.getByRole("switch", { name: "Theater mode on, set on this TV" })).toBeFocused();
@@ -409,11 +410,10 @@ test("the remote can walk the preview count on the ticket", async ({ page, backe
     .toEqual({ theaterModeEnabled: true, theaterTrailerCount: 4 });
 });
 
-// A mask clips everything the element paints, and this app's focus ring is an
-// outer box-shadow -- so masking the ticket itself made it the one control on
-// the screen with no visible focus at all. The mask belongs on a face inside
-// the button, and only a real browser can tell you it moved.
-test("the theater ticket can show a focus ring", async ({ page, backend }, testInfo) => {
+// This app's focus ring is an outer box-shadow, and the old ticket's mask once
+// clipped it away entirely. The curtain switch has no mask, and this keeps it
+// that way.
+test("the theater switch can show a focus ring", async ({ page, backend }, testInfo) => {
   test.skip(testInfo.project.name === "mobile-chromium", "TV smoke coverage uses the desktop viewport.");
 
   await page.setViewportSize({ width: 1920, height: 1080 });
@@ -434,10 +434,10 @@ test("the theater ticket can show a focus ring", async ({ page, backend }, testI
 
   await page.goto("/tv/bowl/bowl-tv-focus");
 
-  const ticket = page.getByRole("switch", { name: /theater mode/i });
-  await ticket.focus();
+  const toggle = page.getByRole("switch", { name: /theater mode/i });
+  await toggle.focus();
 
-  const painted = await ticket.evaluate((el) => {
+  const painted = await toggle.evaluate((el) => {
     const cs = getComputedStyle(el);
     return {
       masked: (cs.maskImage || cs.webkitMaskImage || "none") !== "none",
@@ -563,7 +563,7 @@ test("TV Watch History opens details and applies the bounded return cleanup", as
   await expect(drawButton).toBeFocused();
 
   // Theater mode sits between the draw control and the strip, so down passes
-  // through it. Where it lands in the strip is geometry, not order: the ticket
+  // through it. Where it lands in the strip is geometry, not order: the switch
   // is centred under the stage, so the card beneath it is not the first one.
   await drawButton.press("ArrowDown");
   await expect(page.getByRole("switch", { name: /theater mode/i })).toBeFocused();

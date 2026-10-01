@@ -260,21 +260,47 @@ export default function TheaterCurtains({ enabled, holdState = "idle", isDrawing
 // grown to the screen's edges, then parted on the reveal.
 function ScreenCurtains({ stageRef }) {
   const [origin, setOrigin] = useState(null);
-  const [viewport] = useState(() => ({ width: window.innerWidth || 390, height: window.innerHeight || 844 }));
-  const [spread, animateSpread] = useTween(0);
-  const [openness, animateOpenness] = useTween(0);
 
   // Measured on the next frame, where the page's own pair stood a moment ago.
   useEffect(() => {
     const frame = window.requestAnimationFrame(() => {
       setOrigin(stageRef.current?.getBoundingClientRect?.() || { left: 0, top: 0, width: 0, height: 0 });
-      animateSpread(1, GROW_MS).then(() => animateOpenness(1, REVEAL_PART_MS));
     });
     return () => window.cancelAnimationFrame(frame);
-  }, [stageRef, animateSpread, animateOpenness]);
+  }, [stageRef]);
 
-  if (!origin) return null;
-  const from = origin;
+  return origin ? <TheaterRevealCurtains origin={origin} /> : null;
+}
+
+/**
+ * The screen-wide curtains on their own, for a surface that swaps the page for
+ * its draw screen and so cannot keep the page's pair alive through it -- the
+ * television. `origin` is where the page's curtains stood. They were open
+ * there, since nothing on a remote holds them shut, so `closeFirst` draws them
+ * together while they grow, and they part on the reveal as on the phone.
+ */
+export function TheaterRevealCurtains({ origin, closeFirst = false }) {
+  const [viewport] = useState(() => ({ width: window.innerWidth || 390, height: window.innerHeight || 844 }));
+  const [spread, animateSpread] = useTween(0);
+  const [openness, animateOpenness] = useTween(closeFirst ? 1 : 0);
+  const reducedMotion = prefersReducedMotion();
+
+  useEffect(() => {
+    if (reducedMotion) return undefined;
+    // Unmounting settles a tween early, so a parting queued behind the growth
+    // must check it still belongs to a mounted pair before it starts.
+    let cancelled = false;
+    if (closeFirst) animateOpenness(0, CLOSE_MS);
+    animateSpread(1, closeFirst ? CLOSE_MS : GROW_MS).then(() => {
+      if (!cancelled) animateOpenness(1, REVEAL_PART_MS);
+    });
+    return () => {
+      cancelled = true;
+    };
+  }, [closeFirst, reducedMotion, animateSpread, animateOpenness]);
+
+  if (reducedMotion) return null;
+  const from = origin || { left: 0, top: 0, width: viewport.width, height: viewport.height };
   const rect = {
     x: from.left * (1 - spread),
     y: from.top * (1 - spread),

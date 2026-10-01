@@ -42,7 +42,8 @@ import TvStreamingRail from "../components/TvStreamingRail";
 import DrawMethodMark from "../../components/DrawMethodMark";
 import FilmStripGlyph from "../../components/FilmStripGlyph";
 import PeopleGlyph from "../../components/PeopleGlyph";
-import TvTheaterTicket from "../components/TvTheaterTicket";
+import TvTheaterToggle from "../components/TvTheaterToggle";
+import TheaterCurtains, { TheaterRevealCurtains } from "../../components/TheaterCurtains";
 import { getStreamingMode, getStreamingModeSettings } from "../utils/streamingMode";
 import TvTheaterPreroll from "../components/TvTheaterPreroll";
 import TvFullscreenTrailer from "../components/TvFullscreenTrailer";
@@ -466,6 +467,9 @@ export default function TvTonightScreen({ userId }) {
 
   const [showDrawConfirm, setShowDrawConfirm] = useState(false);
   const [isDrawing, setIsDrawing] = useState(false);
+  // Where the curtains around the bowl stood when the draw began, so the
+  // screen-wide pair can grow out of them.
+  const [curtainOrigin, setCurtainOrigin] = useState(null);
   const [revealRun, setRevealRun] = useState(null);
   const [drawnMovie, setDrawnMovie] = useState(() => readExternalReturn(bowlId));
   const [selectedHistoryMovie, setSelectedHistoryMovie] = useState(null);
@@ -894,6 +898,9 @@ export default function TvTonightScreen({ userId }) {
     clearExternalReturn();
     setShowDrawConfirm(false);
     setTonightMessage(null);
+    setCurtainOrigin(
+      drawBowlRef.current?.closest(".tv-draw-cta")?.querySelector(".theater-curtains")?.getBoundingClientRect() || null
+    );
     const startedAt = Date.now();
     const run = {
       startedAt,
@@ -1017,6 +1024,8 @@ export default function TvTonightScreen({ userId }) {
 
   if (isDrawing) {
     return (
+      <>
+      {defaultDrawSettings.theaterModeEnabled && <TheaterRevealCurtains origin={curtainOrigin} closeFirst />}
       <TvDrawingScreen
         bowlName={bowlMeta.name}
         revealRun={revealRun}
@@ -1024,6 +1033,7 @@ export default function TvTonightScreen({ userId }) {
         totalCount={drawPoolTotalCount}
         contributorReach={drawPoolContributorReach}
       />
+      </>
     );
   }
 
@@ -1123,6 +1133,7 @@ export default function TvTonightScreen({ userId }) {
             <div className="tv-tonight-mid">
               <div className="tv-tonight-left">
               <div className="tv-draw-cta">
+              {!isPreferencesLoading && <TheaterCurtains enabled={Boolean(defaultDrawSettings.theaterModeEnabled)} />}
               {/* The bowl is the control. Left beside the button it was an
                   ornament holding the best space on the screen and giving
                   nothing back; inside it, the largest thing here and the only
@@ -1183,7 +1194,7 @@ export default function TvTonightScreen({ userId }) {
                 </p>
               )}
                 {!isPreferencesLoading && (
-                  <TvTheaterTicket
+                  <TvTheaterToggle
                     enabled={Boolean(defaultDrawSettings.theaterModeEnabled)}
                     previewCount={theaterTrailerCount}
                     isOverridden={isTvOverridden("theaterModeEnabled")}

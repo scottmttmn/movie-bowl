@@ -1,7 +1,7 @@
 import { act, cleanup, render, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
-import TheaterCurtains from "../TheaterCurtains";
+import TheaterCurtains, { TheaterRevealCurtains } from "../TheaterCurtains";
 
 // jsdom lays nothing out, so the stage is given a size to paint into.
 beforeEach(() => {
@@ -62,5 +62,18 @@ describe("TheaterCurtains", () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  // The television swaps the page for its draw screen, so the page's own pair
+  // is gone by then; the screen-wide pair has to stand on its own.
+  it("draws the screen-wide pair on its own for the television", () => {
+    const { unmount } = render(
+      <TheaterRevealCurtains origin={{ left: 100, top: 200, width: 600, height: 300 }} closeFirst />
+    );
+
+    expect(screenCurtains()).not.toBeNull();
+    expect(screenCurtains()).toHaveAttribute("aria-hidden", "true");
+    unmount();
+    expect(screenCurtains()).toBeNull();
   });
 });
