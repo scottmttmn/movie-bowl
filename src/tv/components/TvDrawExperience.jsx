@@ -326,6 +326,9 @@ export function TvMovieDetailStage({
   );
 }
 
+// Prototype switch for the mockup only.
+const TRAILER_PLACEMENT = typeof window !== "undefined" && new URLSearchParams(window.location.search).get("trailer") === "label" ? "label" : "poster";
+
 const PLAY_ICON = (
   <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
     <path d="M8 4.5v15l12-7.5z" />
@@ -399,6 +402,19 @@ function TvTonightPick({
           src={getPosterUrl(movie, "w500")}
           alt={`${movie.title} poster`}
         />
+        {/* Where a video player puts it: the play button on the picture. */}
+        {trailer?.embedUrl && TRAILER_PLACEMENT === "poster" && (
+          <button
+            type="button"
+            className="tv-poster-play"
+            aria-label="Watch trailer"
+            data-tv-focusable
+            data-tv-autofocus={playbackAutofocus && !canLaunch ? "true" : undefined}
+            onClick={onToggleTrailer}
+          >
+            {PLAY_ICON}
+          </button>
+        )}
       </div>
 
       <div className="tv-reveal-copy">
@@ -454,17 +470,17 @@ function TvTonightPick({
               {primary.label}
             </button>
           )}
-          {trailer?.embedUrl && (
+          {trailer?.embedUrl && TRAILER_PLACEMENT === "label" && (
             <button
               type="button"
-              className="tv-icon-button"
-              aria-label="Watch trailer"
+              className="tv-button tv-button-secondary tv-trailer-button"
               data-tv-focusable
               data-tv-nav-group="reveal-actions"
               data-tv-autofocus={playbackAutofocus && !canLaunch ? "true" : undefined}
               onClick={onToggleTrailer}
             >
               {PLAY_ICON}
+              Trailer
             </button>
           )}
           {otherLogos.length > 0 && (
