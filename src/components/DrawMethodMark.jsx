@@ -15,6 +15,64 @@ import { getDrawMethod } from "../utils/drawMethods";
 
 // PROTOTYPE: three directions for Scott to pick from. Only the chosen set
 // survives sign-off.
+const SHUFFLE = (
+  <>
+    <path d="M6.5 9h2.2c3.7 0 3.4 6 7.2 6h1.6M6.5 15h2.2c1.4 0 2.2-.8 2.8-1.8M13.3 10.8c.6-1 1.4-1.8 2.6-1.8h1.6" />
+    <path d="M16.3 7.7l1.5 1.3-1.5 1.3M16.3 13.7l1.5 1.3-1.5 1.3" />
+  </>
+);
+const REPEAT = (
+  <>
+    <path d="M7.2 12V10.6c0-.9.7-1.6 1.6-1.6h7.6M16.8 12v1.4c0 .9-.7 1.6-1.6 1.6H7.6" />
+    <path d="M15 7.6l1.5 1.4-1.5 1.4M9 13.6L7.5 15 9 16.4" />
+  </>
+);
+// A head above a shrunken button: this method picks a person first.
+const withHead = (glyph) => (
+  <>
+    <circle cx="12" cy="7.6" r="1.9" fill="currentColor" stroke="none" />
+    <g transform="translate(12 14.4) scale(0.66) translate(-12 -12)" strokeWidth="2.3">{glyph}</g>
+  </>
+);
+
+function playerSets() {
+  return {
+    // X: the head rides on the button. Both people-first methods wear it, so
+    // the head means "a person first" and the button means "how".
+    player_x: {
+      person_first: withHead(SHUFFLE),
+      rotation: withHead(REPEAT),
+      title_first: SHUFFLE,
+    },
+    // Y: three heads, one chosen -- people, picked by chance.
+    player_y: {
+      person_first: (
+        <>
+          <circle cx="6.6" cy="12.6" r="1.3" />
+          <circle cx="17.4" cy="12.6" r="1.3" />
+          <circle cx="12" cy="9.6" r="2.1" fill="currentColor" />
+          <path d="M9.4 16.4a2.6 2.6 0 0 1 5.2 0" />
+        </>
+      ),
+      rotation: REPEAT,
+      title_first: SHUFFLE,
+    },
+    // Z: the two steps, in order: a person, then one of their slips.
+    player_z: {
+      person_first: (
+        <>
+          <circle cx="7.6" cy="10" r="1.7" fill="currentColor" stroke="none" />
+          <path d="M5.2 15.6a2.4 2.4 0 0 1 4.8 0" />
+          <path d="M11 12.6h2.2M12.4 11.5l1.1 1.1-1.1 1.1" strokeWidth="1.4" />
+          <path d="M15.3 8.2l3 .5-1.1 7.4-3-.5z" />
+        </>
+      ),
+      rotation: REPEAT,
+      title_first: SHUFFLE,
+    },
+  };
+}
+
 const MARK_SETS = {
   current: {
     person_first: (
@@ -75,23 +133,10 @@ const MARK_SETS = {
       </>
     ),
   },
-  // A music player's two buttons, which everyone already reads: shuffle means
-  // chance, repeat means everyone in turn. Title-first stays a plain list.
-  player: {
-    person_first: (
-      <>
-        <path d="M6.5 9h2.2c3.7 0 3.4 6 7.2 6h1.6M6.5 15h2.2c1.4 0 2.2-.8 2.8-1.8M13.3 10.8c.6-1 1.4-1.8 2.6-1.8h1.6" />
-        <path d="M16.3 7.7l1.5 1.3-1.5 1.3M16.3 13.7l1.5 1.3-1.5 1.3" />
-      </>
-    ),
-    title_first: <path d="M7 9.5h10M7 12.5h10M7 15.5h6" />,
-    rotation: (
-      <>
-        <path d="M7.2 12V10.6c0-.9.7-1.6 1.6-1.6h7.6M16.8 12v1.4c0 .9-.7 1.6-1.6 1.6H7.6" />
-        <path d="M15 7.6l1.5 1.4-1.5 1.4M9 13.6L7.5 15 9 16.4" />
-      </>
-    ),
-  },
+  // A music player's buttons, which everyone already reads. Shuffle is a flat
+  // raffle over every title; repeat is everyone in turn. The three variants
+  // differ only in how person-first says "a person, then one of theirs".
+  ...playerSets(),
 };
 
 export const DRAW_METHOD_MARK_SETS = Object.keys(MARK_SETS);
