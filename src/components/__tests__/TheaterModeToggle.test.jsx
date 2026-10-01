@@ -49,4 +49,22 @@ describe("TheaterModeToggle", () => {
 
     expect(screen.queryByRole("radiogroup")).not.toBeInTheDocument();
   });
+
+  // role="radio" promises one Tab stop and arrow keys between the options.
+  it("is one tab stop whose arrows move the count", () => {
+    const onPreviewCountChange = vi.fn();
+    render(
+      <TheaterModeToggle enabled previewCount={2} onToggle={vi.fn()} onPreviewCountChange={onPreviewCountChange} />
+    );
+
+    const radios = screen.getAllByRole("radio");
+    expect(radios.map((radio) => radio.tabIndex)).toEqual([-1, 0, -1, -1]);
+
+    fireEvent.keyDown(radios[1], { key: "ArrowRight" });
+    expect(onPreviewCountChange).toHaveBeenLastCalledWith(3);
+    expect(radios[2]).toHaveFocus();
+
+    fireEvent.keyDown(radios[1], { key: "ArrowLeft" });
+    expect(onPreviewCountChange).toHaveBeenLastCalledWith(1);
+  });
 });

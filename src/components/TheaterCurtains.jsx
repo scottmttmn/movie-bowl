@@ -253,15 +253,19 @@ export default function TheaterCurtains({ enabled, holdState = "idle", isDrawing
           </svg>
         )}
       </div>
-      {enabled && isDrawing && !reducedMotion && <ScreenCurtains stageRef={stageRef} />}
+      {enabled && isDrawing && !reducedMotion && <ScreenCurtains stageRef={stageRef} wasOpen={openness > 0.05} />}
     </>
   );
 }
 
 // The same curtains over the whole screen for the draw: shut where the bowl was,
 // grown to the screen's edges, then parted on the reveal.
-function ScreenCurtains({ stageRef }) {
+function ScreenCurtains({ stageRef, wasOpen }) {
   const [origin, setOrigin] = useState(null);
+  // A draw started without a hold -- the keyboard's confirm, say -- finds the
+  // stage pair still open, so they close as they grow rather than snapping
+  // shut. Read once: the stage pair reopens behind this one straight after.
+  const [closeFirst] = useState(wasOpen);
 
   // Measured on the next frame, where the page's own pair stood a moment ago.
   useEffect(() => {
@@ -271,7 +275,7 @@ function ScreenCurtains({ stageRef }) {
     return () => window.cancelAnimationFrame(frame);
   }, [stageRef]);
 
-  return origin ? <TheaterRevealCurtains origin={origin} /> : null;
+  return origin ? <TheaterRevealCurtains origin={origin} closeFirst={closeFirst} /> : null;
 }
 
 /**

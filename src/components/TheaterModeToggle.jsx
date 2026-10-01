@@ -1,3 +1,4 @@
+import { useRef } from "react";
 import { clampTheaterTrailerCount, THEATER_TRAILER_COUNT_OPTIONS } from "../utils/drawSettings";
 
 function CurtainGlyph() {
@@ -28,6 +29,18 @@ function CurtainGlyph() {
  */
 export default function TheaterModeToggle({ enabled, previewCount, onToggle, onPreviewCountChange }) {
   const count = clampTheaterTrailerCount(previewCount);
+  const group = useRef(null);
+
+  // A radio group is one stop for Tab, and the arrows move the choice within it.
+  const handleKeyDown = (event) => {
+    const step = { ArrowRight: 1, ArrowDown: 1, ArrowLeft: -1, ArrowUp: -1 }[event.key];
+    if (!step) return;
+    event.preventDefault();
+    const options = THEATER_TRAILER_COUNT_OPTIONS;
+    const next = options[(options.indexOf(count) + step + options.length) % options.length];
+    onPreviewCountChange(next);
+    group.current?.querySelector(`[data-option="${next}"]`)?.focus();
+  };
 
   return (
     <span className="theater-toggle">
@@ -43,13 +56,21 @@ export default function TheaterModeToggle({ enabled, previewCount, onToggle, onP
         <CurtainGlyph />
       </button>
       {enabled && (
-        <span role="radiogroup" aria-label="Previews before the movie" className="theater-toggle-count">
+        <span
+          ref={group}
+          role="radiogroup"
+          aria-label="Previews before the movie"
+          className="theater-toggle-count"
+          onKeyDown={handleKeyDown}
+        >
           {THEATER_TRAILER_COUNT_OPTIONS.map((option) => (
             <button
               key={option}
               type="button"
               role="radio"
               aria-checked={option === count}
+              tabIndex={option === count ? 0 : -1}
+              data-option={option}
               aria-label={option === 1 ? "Up to 1 preview" : `Up to ${option} previews`}
               className="theater-toggle-dot"
               data-filled={option <= count ? "true" : undefined}
