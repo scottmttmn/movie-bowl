@@ -60,11 +60,13 @@ const mocks = vi.hoisted(() => ({
   providerLogosByTmdbId: {},
   drawMethod: "person_first",
   memberCount: null,
+  homeBowlId: "family",
 }));
 
 vi.mock("../hooks/useTvBowls", () => ({
   useTvBowls: () => ({
     bowls: mocks.bowls,
+    homeBowlId: mocks.homeBowlId,
     isLoading: false,
     errorMessage: null,
     reload: mocks.reloadBowls,
@@ -310,10 +312,24 @@ describe("Movie Bowl TV experience", () => {
     expect(await screen.findByText("Viewer")).toBeInTheDocument();
     expect(screen.queryByText(/viewer@example\.com/i)).not.toBeInTheDocument();
     const solo = await screen.findByRole("button", { name: /draw from my movies/i });
-    expect(solo).toHaveTextContent("One private pick from all of your bowls");
+    expect(solo).toHaveTextContent(/^.?Draw from my movies.?$/);
 
     fireEvent.click(solo);
     expect(screen.getByText("Solo route")).toBeInTheDocument();
+  });
+
+  it("draws each bowl as My Bowls does: the house on home, then its counts", async () => {
+    renderPicker();
+
+    const family = await screen.findByRole("button", {
+      name: "Family Night, home bowl, 12 titles to draw, 4 members",
+    });
+    const friends = screen.getByRole("button", {
+      name: "Friday Friends, 8 titles to draw, 6 members",
+    });
+    expect(family.querySelectorAll("svg")).toHaveLength(3);
+    expect(friends.querySelectorAll("svg")).toHaveLength(2);
+    expect(screen.queryByText(/owner|member$|open tonight/i)).not.toBeInTheDocument();
   });
 
   it("remembers the last bowl as a focus preference on the bowl picker", async () => {
@@ -322,7 +338,6 @@ describe("Movie Bowl TV experience", () => {
     renderPicker();
 
     expect(screen.getByRole("heading", { name: "Choose a bowl" })).toBeInTheDocument();
-    expect(screen.getByText("Last opened")).toBeInTheDocument();
 
     const familyButton = screen.getByRole("button", { name: /family night/i });
     const friendsButton = screen.getByRole("button", { name: /friday friends/i });
@@ -926,7 +941,7 @@ describe("Movie Bowl TV experience", () => {
       const view = renderTonight();
       fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
       vi.useFakeTimers();
-      fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+      fireEvent.click(screen.getByRole("button", { name: /^draw$/i }));
       await act(async () => { await vi.advanceTimersByTimeAsync(0); });
       return { ...view, finish: () => resolve({ ...drawn, drawReveal }) };
     }
@@ -1016,7 +1031,7 @@ describe("Movie Bowl TV experience", () => {
       const view = renderTonight();
       fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
       vi.useFakeTimers();
-      fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+      fireEvent.click(screen.getByRole("button", { name: /^draw$/i }));
       await advance(1800);
       expect(stage()).toBeNull();
       expect(screen.getByRole("button", { name: /draw a movie/i })).toBeEnabled();
@@ -1045,12 +1060,13 @@ describe("Movie Bowl TV experience", () => {
 
     renderTonight();
     fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
-    fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^draw$/i }));
 
-    const logo = await screen.findByAltText("Netflix");
-    expect(logo).toHaveAttribute("src", "https://image.tmdb.org/t/p/w92/netflix.jpg");
-    expect(screen.getByText("Tubi")).toBeInTheDocument();
-    expect(screen.queryByAltText("Tubi")).not.toBeInTheDocument();
+    // The row is named in full; a service with no logo is counted, not drawn.
+    const logos = await screen.findByRole("img", { name: "Also on Netflix, Tubi" });
+    expect(logos.querySelector("img")).toHaveAttribute("src", "https://image.tmdb.org/t/p/w92/netflix.jpg");
+    expect(logos.querySelectorAll("img")).toHaveLength(1);
+    expect(logos).toHaveTextContent("+1");
   });
 
   it("draws once with saved preferences and offers no immediate return path", async () => {
@@ -1082,10 +1098,10 @@ describe("Movie Bowl TV experience", () => {
     ).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
 
-    expect(screen.getByRole("dialog", { name: /reveal one movie/i })).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: /draw a movie\?/i })).toBeInTheDocument();
 
     vi.useFakeTimers();
-    const revealButton = screen.getByRole("button", { name: /reveal a movie/i });
+    const revealButton = screen.getByRole("button", { name: /^draw$/i });
     act(() => {
       revealButton.click();
       revealButton.click();
@@ -1135,11 +1151,10 @@ describe("Movie Bowl TV experience", () => {
       })
     );
     expect(mocks.handleDraw).toHaveBeenCalledTimes(1);
-    expect(screen.getByText("Why it’s in the bowl")).toBeInTheDocument();
-    expect(screen.getByText(/Recommended by Tim after dinner/).closest(".tv-movie-note"))
+    expect(screen.getByText(/Recommended by Tim after dinner/).closest(".tv-tonight-slip"))
       .toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /^open netflix$/i })
+      screen.getByRole("link", { name: /^watch on netflix$/i })
     ).toHaveAttribute(
       "href",
       "https://www.netflix.com/search?q=Arrival"
@@ -1153,7 +1168,7 @@ describe("Movie Bowl TV experience", () => {
       PlayerState: { ENDED: 0 },
     };
 
-    fireEvent.click(screen.getByRole("button", { name: /watch trailer/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^trailer$/i }));
 
     const trailerDialog = screen.getByRole("dialog", {
       name: /arrival trailer/i,
@@ -1209,7 +1224,7 @@ describe("Movie Bowl TV experience", () => {
     renderTonight();
 
     expect(
-      screen.getByRole("heading", { name: "Watch History" })
+      screen.getByRole("heading", { name: "Watched" })
     ).toBeInTheDocument();
     const drawButton = screen.getByRole("button", { name: /draw a movie/i });
     const historyButton = screen.getByRole("button", {
@@ -1249,7 +1264,7 @@ describe("Movie Bowl TV experience", () => {
     // A movie in Watch History has been watched, so the page neither shows nor
     // looks up where to stream it.
     expect(document.querySelector(".tv-history-detail-page .tv-provider-row")).toBeNull();
-    expect(screen.queryByRole("link", { name: /open netflix/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /watch on netflix/i })).not.toBeInTheDocument();
     expect(mocks.fetchStreamingProviders).not.toHaveBeenCalled();
     expect(mocks.fetchProviderLinks).not.toHaveBeenCalled();
     expect(mocks.handleReaddMovie).not.toHaveBeenCalled();
@@ -1390,17 +1405,17 @@ describe("Movie Bowl TV experience", () => {
     fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
 
     vi.useFakeTimers();
-    fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^draw$/i }));
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1800);
     });
     vi.useRealTimers();
 
-    expect(await screen.findByText(/tonight's pick/i)).toBeInTheDocument();
+    await waitFor(() => expect(document.querySelector(".tv-reveal.is-tonight")).toBeInTheDocument());
     expect(
       screen.queryByRole("button", { name: /that's the one/i })
     ).not.toBeInTheDocument();
-    expect(screen.getByText(/tonight's pick/i)).toBeInTheDocument();
+    expect(document.querySelector(".tv-reveal.is-tonight")).toBeInTheDocument();
     expect(
       screen.queryByRole("button", { name: /choose another bowl/i })
     ).not.toBeInTheDocument();
@@ -1417,14 +1432,14 @@ describe("Movie Bowl TV experience", () => {
     renderTonight();
     fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
     vi.useFakeTimers();
-    fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^draw$/i }));
     await act(async () => { await vi.advanceTimersByTimeAsync(1800); });
     vi.useRealTimers();
-    const link = await screen.findByRole("link", { name: /^open netflix$/i });
+    const link = await screen.findByRole("link", { name: /^watch on netflix$/i });
     expect(link).toHaveAttribute("href", "https://www.netflix.com/search?q=Arrival");
     link.focus();
     await act(async () => { finishLookup({ links: [{ service: "Netflix", type: "sub", webUrl: "https://www.netflix.com/title/123" }] }); });
-    expect(screen.getByRole("link", { name: /^open netflix$/i })).toBe(link);
+    expect(screen.getByRole("link", { name: /^watch on netflix$/i })).toBe(link);
     expect(link).toHaveAttribute("href", "https://www.netflix.com/title/123");
     expect(link).toHaveFocus();
     expect(screen.getByRole("link", { name: "Watchmode" })).toBeInTheDocument();
@@ -1446,9 +1461,9 @@ describe("Movie Bowl TV experience", () => {
 
     renderTonight();
     fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
-    fireEvent.click(screen.getByRole("button", { name: /reveal a movie/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^draw$/i }));
 
-    const launch = await screen.findByRole("link", { name: /^open netflix$/i });
+    const launch = await screen.findByRole("link", { name: /^watch on netflix$/i });
     expect(launch.querySelector("img")).toHaveAttribute(
       "src",
       "https://image.tmdb.org/t/p/w92/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg"
@@ -1476,7 +1491,7 @@ describe("Movie Bowl TV experience", () => {
       await screen.findByRole("heading", { name: /arrival/i })
     ).toBeInTheDocument();
     expect(
-      screen.getByRole("link", { name: /^open netflix$/i })
+      screen.getByRole("link", { name: /^watch on netflix$/i })
     ).toBeInTheDocument();
 
     fireEvent.keyDown(window, { key: "Escape" });
@@ -1530,7 +1545,7 @@ describe("Movie Bowl TV experience", () => {
     );
 
     renderTonight();
-    const openLink = await screen.findByRole("link", { name: /^open netflix$/i });
+    const openLink = await screen.findByRole("link", { name: /^watch on netflix$/i });
     await waitFor(() => expect(openLink).toHaveFocus());
 
     act(() => {
@@ -1541,10 +1556,10 @@ describe("Movie Bowl TV experience", () => {
       );
     });
 
-    expect(screen.queryByRole("link", { name: /^open netflix$/i })).not.toBeInTheDocument();
-    expect(screen.getByRole("button", { name: /^open netflix$/i })).toBeDisabled();
+    expect(screen.queryByRole("link", { name: /^watch on netflix$/i })).not.toBeInTheDocument();
+    expect(screen.getByRole("button", { name: /^watch on netflix$/i })).toBeDisabled();
     await waitFor(() =>
-      expect(screen.getByRole("button", { name: /watch trailer/i })).toHaveFocus()
+      expect(screen.getByRole("button", { name: /^trailer$/i })).toHaveFocus()
     );
   });
 });

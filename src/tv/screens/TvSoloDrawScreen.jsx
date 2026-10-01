@@ -1,6 +1,8 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { useNavigate } from "react-router-dom";
+import bowlImage from "../../assets/movie-bowl.webp";
 import BowlIllustration from "../../components/BowlIllustration";
+import FilmStripGlyph from "../../components/FilmStripGlyph";
 import useDeviceDrawSettings from "../../hooks/useDeviceDrawSettings";
 import useDrawPoolCount, { DRAW_POOL_STATUS } from "../../hooks/useDrawPoolCount";
 import useDrawProviderLinks from "../../hooks/useDrawProviderLinks";
@@ -16,6 +18,7 @@ import { getTmdbMovieDetails } from "../../lib/tmdbApi";
 import { clampTheaterTrailerCount } from "../../utils/drawSettings";
 import { getProviderLogoUrl } from "../../utils/getProviderLogoUrl";
 import { getServiceLogoPath } from "../../utils/providerLogos";
+import { getDisplayInitial, getProfileDisplayName } from "../../utils/profileIdentity";
 import { getStreamingMode, getStreamingModeSettings } from "../utils/streamingMode";
 import {
   buildSoloPreviewPool,
@@ -128,8 +131,8 @@ export default function TvSoloDrawScreen({ userId }) {
   } = useSoloDrawPool(userId);
   const {
     streamingServices,
+    displayName,
     defaultDrawSettings: accountDrawSettings,
-    removeFromBowlsOnSoloDraw,
     loading: isPreferencesLoading,
     loadError: preferencesLoadError,
   } = useUserStreamingServices();
@@ -257,8 +260,6 @@ export default function TvSoloDrawScreen({ userId }) {
     providerBowlId,
     providerMovie
   );
-  const sourceBowlName =
-    bowls.find((bowl) => String(bowl.id) === String(drawnMovie?.bowl_id))?.name || null;
   const preferredWebLaunchCandidate = useMemo(() => {
     if (!drawnMovie) return null;
 
@@ -492,15 +493,10 @@ export default function TvSoloDrawScreen({ userId }) {
   }
 
   if (drawnMovie) {
-    const historyMetadata = [
-      sourceBowlName ? `From ${sourceBowlName}` : null,
-      "Saved to your Watch History",
-    ].filter(Boolean);
-
     return (
       <>
         <TvRevealScreen
-          bowlName="Solo draw"
+          bowlName="Solo Draw"
           movie={drawnMovie}
           streamingServices={streamingServices}
           isPreparingPreviews={isTheaterPending}
@@ -513,10 +509,7 @@ export default function TvSoloDrawScreen({ userId }) {
           onProviderLaunch={beginProviderLaunch}
           onCloseTrailer={() => setShowTrailer(false)}
           onToggleTrailer={() => setShowTrailer((current) => !current)}
-          kicker="Picked for you"
-          badgeLabel="Your pick"
-          noteLabel="Your note"
-          historyMetadata={historyMetadata}
+          noteAuthor={getProfileDisplayName({ display_name: displayName }, userId)}
         />
         {isTheaterPlaying && (
           <TvTheaterPreroll
@@ -564,15 +557,13 @@ export default function TvSoloDrawScreen({ userId }) {
           data-theater={isTheaterModeEnabled ? "true" : undefined}
           aria-labelledby="tv-solo-title"
         >
-          <div className="tv-solo-copy">
-            <p className="tv-kicker">Solo draw</p>
-            <h1 id="tv-solo-title">Pick one of yours.</h1>
-            <p>
-              One private pick from your movies across every bowl.{" "}
-              {removeFromBowlsOnSoloDraw
-                ? "Your copies leave those bowls."
-                : "Shared bowls keep their copies."}
-            </p>
+          {/* Laid out like a bowl's own page: the name, then the person
+              this draw is for where a bowl shows how it picks. */}
+          <div className="tv-tonight-heading">
+            <h1 id="tv-solo-title" className="tv-tonight-title">Solo Draw</h1>
+            <span className="tv-solo-entry-mark" aria-hidden="true">
+              {getDisplayInitial(getProfileDisplayName({ display_name: displayName }, userId))}
+            </span>
           </div>
 
           <div className="tv-solo-action" data-tv-nav-region="solo-stage">
@@ -605,7 +596,20 @@ export default function TvSoloDrawScreen({ userId }) {
                 data-tv-nav-group="solo-draw"
                 onClick={() => setShowScopeSheet(true)}
               >
-                <span>
+                <span className="tv-solo-summary-counts" aria-hidden="true">
+                  <span className="tv-solo-summary-titles">
+                    <FilmStripGlyph />
+                    <strong>{isFilteredCountReady ? drawableTitleCount : distinctTitleCount}</strong>
+                    {isFilteredCountReady && drawableTitleCount < distinctTitleCount && (
+                      <span className="tv-solo-summary-total">/{distinctTitleCount}</span>
+                    )}
+                  </span>
+                  <span>
+                    <span className="tv-solo-summary-bowl" style={{ backgroundImage: `url(${bowlImage})` }} />
+                    <strong>{selectedBowlIds.length}</strong>
+                  </span>
+                </span>
+                <span className="sr-only">
                   {isFilteredCountReady ? (
                     <>
                       <strong>{drawableTitleCount}</strong> of{" "}
@@ -745,12 +749,8 @@ export default function TvSoloDrawScreen({ userId }) {
             aria-modal="true"
             aria-labelledby="tv-solo-confirm-title"
           >
-            <p className="tv-kicker">Just for you</p>
-            <h2 id="tv-solo-confirm-title">Pick one of your movies?</h2>
-            <p>
-              The result goes straight to your Watch History. It does not remove
-              anything from a shared bowl.
-            </p>
+            <BowlIllustration className="tv-dialog-bowl" />
+            <h2 id="tv-solo-confirm-title">Draw for myself?</h2>
             <div className="tv-dialog-actions">
               <button
                 type="button"
@@ -769,7 +769,7 @@ export default function TvSoloDrawScreen({ userId }) {
                 data-tv-autofocus="true"
                 onClick={performDraw}
               >
-                Reveal one
+                Draw
               </button>
             </div>
           </section>

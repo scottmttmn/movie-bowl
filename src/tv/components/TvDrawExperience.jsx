@@ -9,7 +9,9 @@ import ServiceLogo from "../../components/ServiceLogo";
 import { getBackdropUrl } from "../../utils/getBackdropUrl";
 import { getPosterUrl } from "../../utils/getPosterUrl";
 import { getProviderLogoUrl } from "../../utils/getProviderLogoUrl";
+import { getMovieAttributionLabel, isStarterPackMovie } from "../../utils/drawBuckets";
 import { getMovieReleaseStatus } from "../../utils/movieReleaseStatus";
+import { normalizeRentalStore } from "../../utils/rentalStores";
 import { matchUserServices } from "../../utils/streamingServices";
 import { isFailedLaunchUrl } from "../../utils/webLaunch";
 import TvBrand from "./TvBrand";
@@ -100,6 +102,8 @@ export function TvMovieDetailStage({
   onProviderLaunch,
   onToggleTrailer,
   playbackAutofocus = true,
+  tonight = false,
+  noteAuthor = null,
   children,
 }) {
   const year = getYear(movie);
@@ -129,6 +133,35 @@ export function TvMovieDetailStage({
   // page: the TV has no browser to show a list of stores in.
   const offersRent = showWhereToWatch && !canOfferLaunch && rentCandidate?.linkType === "rent";
   const canRent = offersRent && !launchFailed(rentCandidate.url);
+
+  if (tonight) {
+    return (
+      <TvTonightPick
+        movie={movie}
+        year={year}
+        facts={[runtimeLabel, ...genres.slice(0, 3)].filter(Boolean)}
+        releaseStatus={releaseStatus}
+        providerNames={movie.streamingProviders || []}
+        providerLogos={providerLogos}
+        availability={availability}
+        showWhereToWatch={showWhereToWatch}
+        hasStructuredAvailability={hasStructuredAvailability}
+        webLaunchCandidate={webLaunchCandidate}
+        canOfferLaunch={canOfferLaunch}
+        canLaunch={canLaunch}
+        rentCandidate={rentCandidate}
+        offersRent={offersRent}
+        canRent={canRent}
+        providerLaunchMessage={providerLaunchMessage}
+        onProviderLaunch={onProviderLaunch}
+        onToggleTrailer={onToggleTrailer}
+        playbackAutofocus={playbackAutofocus}
+        noteAuthor={noteAuthor}
+      >
+        {children}
+      </TvTonightPick>
+    );
+  }
 
   return (
     <section className="tv-reveal is-kept">
@@ -295,6 +328,180 @@ export function TvMovieDetailStage({
   );
 }
 
+const PLAY_ICON = (
+  <svg aria-hidden="true" viewBox="0 0 24 24" fill="currentColor">
+    <path d="M8 4.5v15l12-7.5z" />
+  </svg>
+);
+
+// The drawn movie as the phone's tonight sheet shows it, at television size:
+// the slip is why it was in the bowl, the one big button is what to do next,
+// and the logos are where else it is. The trailer keeps its word, because a
+// bare play button beside the title reads as playing the film itself. The television has no browser to unfold those logos into a
+// list, so they are a glance rather than a control.
+function TvTonightPick({
+  movie,
+  year,
+  facts,
+  releaseStatus,
+  providerNames,
+  providerLogos,
+  availability,
+  showWhereToWatch,
+  hasStructuredAvailability,
+  webLaunchCandidate,
+  canOfferLaunch,
+  canLaunch,
+  rentCandidate,
+  offersRent,
+  canRent,
+  providerLaunchMessage,
+  onProviderLaunch,
+  onToggleTrailer,
+  playbackAutofocus,
+  noteAuthor,
+  children,
+}) {
+  const trailer = movie.trailer;
+  const author = noteAuthor || (isStarterPackMovie(movie) ? null : getMovieAttributionLabel(movie));
+  const authorInitial = String(author || "").trim().charAt(0).toUpperCase();
+  const primaryStore = offersRent ? rentCandidate.storeName : null;
+  const otherLogos = [];
+  const seen = new Set([webLaunchCandidate?.serviceName, primaryStore].filter(Boolean));
+  if (showWhereToWatch) {
+    providerNames.forEach((name) => {
+      if (seen.has(name)) return;
+      seen.add(name);
+      otherLogos.push({ name, url: getProviderLogoUrl(providerLogos[name], "w92") });
+    });
+    ["rent", "buy"].forEach((group) => {
+      (availability[group] || []).forEach((provider) => {
+        const name = normalizeRentalStore(provider.name) || provider.name;
+        if (seen.has(name)) return;
+        seen.add(name);
+        otherLogos.push({ name, url: getProviderLogoUrl(provider.logoPath, "w92") });
+      });
+    });
+  }
+  const shownLogos = otherLogos.filter((logo) => logo.url).slice(0, 4);
+  const hiddenLogoCount = otherLogos.length - shownLogos.length;
+
+  const primary = canOfferLaunch
+    ? { url: webLaunchCandidate.url, service: webLaunchCandidate.serviceName, label: `Watch on ${webLaunchCandidate.serviceName}`, enabled: canLaunch, autofocus: playbackAutofocus }
+    : offersRent
+      // Never focused first: spending money is the one press the room should
+      // have to go looking for.
+      ? { url: rentCandidate.url, service: rentCandidate.storeName, label: `Rent on ${rentCandidate.storeName}`, enabled: canRent, autofocus: false }
+      : null;
+
+  return (
+    <section className="tv-reveal is-kept is-tonight">
+      <div className="tv-poster-wrap">
+        <img
+          className="tv-reveal-poster"
+          src={getPosterUrl(movie, "w500")}
+          alt={`${movie.title} poster`}
+        />
+      </div>
+
+      <div className="tv-reveal-copy">
+        <h1>
+          {movie.title}
+          {year && <span> ({year})</span>}
+        </h1>
+
+        {facts.length > 0 && <p className="tv-movie-facts">{facts.join(" • ")}</p>}
+
+        {releaseStatus.isExceptional && releaseStatus.label && (
+          <p className={`tv-release-status${releaseStatus.state === "canceled" ? " is-canceled" : ""}`}>
+            {releaseStatus.label}
+          </p>
+        )}
+
+        {movie.overview && <p className="tv-overview">{movie.overview}</p>}
+
+        {movie.note && (
+          <figure className="tv-tonight-slip">
+            {authorInitial && <span className="tv-tonight-slip-avatar" aria-hidden="true">{authorInitial}</span>}
+            <blockquote>{movie.note}</blockquote>
+            {author && <figcaption className="sr-only">From {author}</figcaption>}
+          </figure>
+        )}
+
+        <div className="tv-reveal-actions tv-tonight-actions">
+          {primary && primary.enabled && (
+            <a
+              className="tv-button tv-button-primary tv-tonight-primary"
+              data-tv-focusable
+              data-tv-nav-group="reveal-actions"
+              data-tv-autofocus={primary.autofocus ? "true" : undefined}
+              data-tv-no-initial-focus={primary.autofocus ? undefined : "true"}
+              href={primary.url}
+              target="_blank"
+              rel="noopener noreferrer"
+              onClick={onProviderLaunch}
+            >
+              <ServiceLogo service={primary.service} className="tv-launch-logo" />
+              {primary.label}
+            </a>
+          )}
+          {primary && !primary.enabled && (
+            <button
+              type="button"
+              className="tv-button tv-button-primary tv-tonight-primary"
+              data-tv-focusable
+              data-tv-nav-group="reveal-actions"
+              disabled
+            >
+              <ServiceLogo service={primary.service} className="tv-launch-logo" />
+              {primary.label}
+            </button>
+          )}
+          {trailer?.embedUrl && (
+            <button
+              type="button"
+              className="tv-button tv-button-secondary tv-trailer-button"
+              data-tv-focusable
+              data-tv-nav-group="reveal-actions"
+              data-tv-autofocus={playbackAutofocus && !canLaunch ? "true" : undefined}
+              onClick={onToggleTrailer}
+            >
+              {PLAY_ICON}
+              Trailer
+            </button>
+          )}
+          {otherLogos.length > 0 && (
+            <span
+              className="tv-tonight-logos"
+              role="img"
+              aria-label={`Also on ${otherLogos.map((logo) => logo.name).join(", ")}`}
+            >
+              {shownLogos.map((logo) => <img key={logo.name} src={logo.url} alt="" />)}
+              {hiddenLogoCount > 0 && <span>+{hiddenLogoCount}</span>}
+            </span>
+          )}
+        </div>
+
+        {showWhereToWatch && (webLaunchCandidate?.linkType === "title" || offersRent) && (
+          <ProviderLinksAttribution tv />
+        )}
+
+        {showWhereToWatch && (hasStructuredAvailability || movie.streamingWatchUrl) && (
+          <AvailabilityAttribution tv />
+        )}
+
+        {showWhereToWatch && providerLaunchMessage && (
+          <p className="tv-provider-launch-message" role="status">
+            {providerLaunchMessage}
+          </p>
+        )}
+
+        {children}
+      </div>
+    </section>
+  );
+}
+
 // Decorative, so a title without a still (custom slips, or TMDB never had one)
 // simply keeps the plain page, and one that fails to load hides itself.
 export function TvRevealBackdrop({ movie }) {
@@ -329,10 +536,9 @@ export function TvRevealScreen({
   onProviderLaunch,
   onCloseTrailer,
   onToggleTrailer,
-  kicker = "Decision made",
-  badgeLabel = "Tonight's pick",
-  noteLabel = "Why it’s in the bowl",
-  historyMetadata = [],
+  // Who wrote the slip, when the movie row cannot say: a solo pick is always
+  // the viewer's own, and its row carries no profile to name them by.
+  noteAuthor = null,
 }) {
   const trailer = movie.trailer;
   const isCoveredByOverlay = isDialogOpen || showTrailer;
@@ -353,16 +559,14 @@ export function TvRevealScreen({
         <TvMovieDetailStage
           movie={movie}
           streamingServices={streamingServices}
-          kicker={kicker}
-          badgeLabel={badgeLabel}
-          noteLabel={noteLabel}
-          historyMetadata={historyMetadata}
           webLaunchCandidate={webLaunchCandidate}
           rentCandidate={rentCandidate}
           providerLaunchMessage={providerLaunchMessage}
           providerLaunchFailedUrl={providerLaunchFailedUrl}
           onProviderLaunch={onProviderLaunch}
           onToggleTrailer={onToggleTrailer}
+          tonight
+          noteAuthor={noteAuthor}
         >
           {isPreparingPreviews && (
             <p className="tv-preview-status" role="status">

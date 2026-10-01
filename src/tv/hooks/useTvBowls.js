@@ -17,6 +17,7 @@ function sortBowlsByActivity(bowls) {
 
 export function useTvBowls(userId) {
   const [bowls, setBowls] = useState([]);
+  const [homeBowlId, setHomeBowlId] = useState(null);
   const [isLoading, setIsLoading] = useState(Boolean(userId));
   const [errorMessage, setErrorMessage] = useState(null);
 
@@ -53,8 +54,20 @@ export function useTvBowls(userId) {
         return;
       }
 
-      const { data: rows, error } = await supabase.rpc("get_my_bowls_with_counts");
+      const [{ data: rows, error }, homeResult] = await Promise.all([
+        supabase.rpc("get_my_bowls_with_counts"),
+        // The house is a mark, not a route: a failed read leaves every card
+        // unmarked rather than failing the list.
+        supabase.rpc("get_my_bowl_context").then(
+          (result) => result,
+          (homeError) => ({ error: homeError })
+        ),
+      ]);
       if (error) throw error;
+      if (homeResult?.error) {
+        console.error("[useTvBowls] Failed to load the home bowl", homeResult.error);
+      }
+      setHomeBowlId(homeResult?.error ? null : homeResult?.data?.default_bowl_id || null);
 
       setBowls(
         sortBowlsByActivity(
@@ -86,6 +99,7 @@ export function useTvBowls(userId) {
 
   return {
     bowls,
+    homeBowlId,
     isLoading,
     errorMessage,
     reload: loadBowls,

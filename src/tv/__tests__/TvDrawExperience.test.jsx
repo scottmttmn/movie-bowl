@@ -92,9 +92,41 @@ describe("TvRevealScreen", () => {
     });
 
     expect(screen.getByText("Post-production")).toBeInTheDocument();
-    expect(screen.getByText("Rent or buy options available")).toBeInTheDocument();
+    // The stores are a glance, not a sentence: the TV has nowhere to list them.
+    expect(screen.getByRole("img", { name: "Also on Netflix, Apple TV" })).toBeInTheDocument();
     expect(screen.getByRole("link", { name: "JustWatch" })).toBeInTheDocument();
     expect(screen.queryByText("Apple TV")).not.toBeInTheDocument();
+  });
+
+  it("shows the drawn movie as tonight's pick: the slip, one watch button and a labelled trailer", () => {
+    const onToggleTrailer = vi.fn();
+    renderReveal(
+      {
+        title: "Moonstruck",
+        release_date: "1987-12-16",
+        note: "Cher slaps Nic Cage.",
+        added_by_name: "Casey",
+        streamingProviders: ["Netflix", "Max"],
+        streamingAvailability: { subscription: [{ id: 8, name: "Netflix" }, { id: 1899, name: "Max" }], free: [], ads: [], rent: [], buy: [] },
+        trailer: { embedUrl: "https://www.youtube-nocookie.com/embed/abc" },
+      },
+      {
+        onToggleTrailer,
+        webLaunchCandidate: { serviceName: "Netflix", url: "https://www.netflix.com/search?q=Moonstruck" },
+      }
+    );
+
+    expect(screen.queryByText(/decision made/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/tonight's pick/i)).not.toBeInTheDocument();
+    expect(screen.queryByText(/why it’s in the bowl/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Cher slaps Nic Cage.").closest("figure")).toHaveTextContent("C");
+    expect(screen.getByText("From Casey")).toBeInTheDocument();
+    expect(screen.getByRole("link", { name: "Watch on Netflix" })).toHaveAttribute("data-tv-autofocus", "true");
+    // The service on the button is not repeated behind the logos.
+    expect(screen.getByRole("img", { name: "Also on Max" })).toBeInTheDocument();
+
+    screen.getByRole("button", { name: "Trailer" }).click();
+    expect(onToggleTrailer).toHaveBeenCalledTimes(1);
   });
 
   describe("renting a movie none of your services carry", () => {
@@ -122,17 +154,17 @@ describe("TvRevealScreen", () => {
       expect(onProviderLaunch).toHaveBeenCalledTimes(1);
     });
 
-    it("keeps the line when there is only a list of stores, or one of yours to open", () => {
+    it("keeps the store as a logo when there is only a list of stores, or one of yours to open", () => {
       renderReveal(movie, { rentCandidate: { ...rentCandidate, storeName: null, linkType: "rent-options" } });
       expect(screen.queryByRole("link", { name: /Rent on/ })).not.toBeInTheDocument();
-      expect(screen.getByText("Rent or buy options available")).toBeInTheDocument();
+      expect(screen.getByRole("img", { name: "Also on Apple TV" })).toBeInTheDocument();
       cleanup();
 
       renderReveal(movie, {
         rentCandidate,
         webLaunchCandidate: { serviceName: "Netflix", url: "https://www.netflix.com/title/1", linkType: "title" },
       });
-      expect(screen.getByRole("link", { name: /Open Netflix/ })).toBeInTheDocument();
+      expect(screen.getByRole("link", { name: /Watch on Netflix/ })).toBeInTheDocument();
       expect(screen.queryByRole("link", { name: /Rent on/ })).not.toBeInTheDocument();
     });
 
