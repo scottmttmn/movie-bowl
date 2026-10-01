@@ -232,7 +232,9 @@ function TvDrawReadout({ readout, isApproximate, contributorReach, excludedContr
         <span className="sr-only">{isApproximate ? "Drawing from up to " : "Drawing from "}</span>
         {isApproximate ? <span aria-hidden="true">≤</span> : null}
         <strong>{readout.count}</strong>
-        {readout.service ? ` on ${readout.service}` : ""}
+        {/* A non-breaking space, because the flex row trims an ordinary one
+            off the front of loose text and the count runs into the name. */}
+        {readout.service ? `\u00a0on ${readout.service}` : ""}
       </span>
       {excludedContributorCount > 0 ? (
         <span className="tv-draw-readout-stat tv-draw-readout-reach">

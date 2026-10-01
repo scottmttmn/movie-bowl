@@ -374,6 +374,10 @@ describe("Movie Bowl TV experience", () => {
     await waitFor(() =>
       expect(getDrawReadout()).toHaveTextContent(/^Drawing from 1 on Netflix$/)
     );
+    // The readout is a flex row, which trims an ordinary leading space off the
+    // service text: on a television it read "1on Netflix". jsdom has no
+    // layout to show that, so hold the space that survives it.
+    expect(getDrawReadout().textContent).toContain("1\u00a0on Netflix");
   });
 
   // The count this television runs itself used to show as "up to" first. Until
