@@ -11,7 +11,6 @@ import useBowl from "../../hooks/useBowl";
 import useUserStreamingServices from "../../hooks/useUserStreamingServices";
 import { getTmdbMovieDetails } from "../../lib/tmdbApi";
 import { fetchMovieTrailer, resolveEligiblePreviewIds } from "../../lib/theaterPreviews";
-import { getMovieAttributionLine } from "../../utils/drawBuckets";
 import { getDrawReadout } from "../../utils/drawReadout";
 import { normalizeDrawMethod } from "../../utils/drawMethods";
 import { getDrawRevealPreview, getDrawRevealTimeline } from "../../utils/drawReveal";
@@ -306,23 +305,19 @@ function TvHistoryDetailScreen({
   bowlName,
   movie,
   canReturn,
-  returnWindowClosed,
   isEnriching,
   showTrailer,
   isDialogOpen,
-  onClose,
   onCloseTrailer,
   onToggleTrailer,
   onRequestReturn,
 }) {
   const trailer = movie.trailer;
-  const pickedDate = formatPickedDate(movie.drawn_at || movie.drawnAt);
-  const historyMetadata = [
-    pickedDate ? `Picked ${pickedDate}` : null,
-    getMovieAttributionLine(movie),
-  ].filter(Boolean);
   const isCoveredByOverlay = isDialogOpen || showTrailer;
 
+  // The tonight sheet again, a night later: the slip still says why it was in
+  // the bowl, and the date says when it came out. Where it was streaming is
+  // left off, because nobody is choosing how to watch it any more.
   return (
     <>
       <main
@@ -332,59 +327,35 @@ function TvHistoryDetailScreen({
       >
         <TvRevealBackdrop movie={movie} />
         <header className="tv-topbar">
-          <TvBrand context="Watch History" />
-          <div className="tv-history-detail-header-actions">
-            <div className="tv-reveal-bowl-name">{bowlName}</div>
-            <button
-              type="button"
-              className="tv-text-button"
-              data-tv-focusable
-              data-tv-nav-group="history-header"
-              data-tv-autofocus="true"
-              onClick={onClose}
-            >
-              Close
-            </button>
-          </div>
+          <TvBrand />
+          <div className="tv-reveal-bowl-name">{bowlName}</div>
         </header>
 
         <TvMovieDetailStage
           movie={movie}
           showWhereToWatch={false}
-          kicker="Previously picked"
-          historyMetadata={historyMetadata}
           onToggleTrailer={onToggleTrailer}
-          playbackAutofocus={false}
+          tonight
+          watchedOn={formatPickedDate(movie.drawn_at || movie.drawnAt)}
+          extraActions={canReturn ? (
+            // The trailer is where the remote starts. A title without one still
+            // needs somewhere to land, and the confirm behind this button
+            // starts on Not yet, so one stray press undoes nothing.
+            <button
+              type="button"
+              className="tv-button tv-button-quiet"
+              data-tv-focusable
+              data-tv-nav-group="reveal-actions"
+              onClick={onRequestReturn}
+            >
+              Move to Bowl
+            </button>
+          ) : null}
         >
           {isEnriching && (
             <p className="tv-preview-status" role="status">
               Loading trailer…
             </p>
-          )}
-          {!canReturn && returnWindowClosed && (
-            <p className="tv-history-return-closed">
-              Putting a pick back is available for two hours after the draw. Add the
-              movie again from your phone to watch it another night.
-            </p>
-          )}
-          {canReturn && (
-            <div className="tv-history-return-action">
-              <div>
-                <strong>Didn&apos;t watch it?</strong>
-                <span>
-                  Putting it back removes this pick from everyone&apos;s Watch History.
-                </span>
-              </div>
-              <button
-                type="button"
-                className="tv-button tv-button-quiet"
-                data-tv-focusable
-                data-tv-nav-group="history-return"
-                onClick={onRequestReturn}
-              >
-                Put movie back in bowl
-              </button>
-            </div>
           )}
         </TvMovieDetailStage>
 
@@ -420,12 +391,11 @@ function TvReturnDialog({
         aria-modal="true"
         aria-labelledby="tv-return-title"
       >
-        <p className="tv-kicker">Watch History</p>
-        <h2 id="tv-return-title">Put “{title}” back in the bowl?</h2>
-        <p>
-          Putting it back removes the Watch History entries this pick created, for
-          everyone.
-        </p>
+        <BowlIllustration className="tv-dialog-bowl" />
+        <h2 id="tv-return-title">Put {title} back?</h2>
+        {/* The one consequence nothing on screen can show: it is undone for
+            everyone, not just this room. */}
+        <p>It comes off everyone&apos;s Watch History.</p>
         {errorMessage && (
           <p className="tv-dialog-error" role="alert">
             {errorMessage}
@@ -440,7 +410,7 @@ function TvReturnDialog({
             data-tv-autofocus="true"
             onClick={onCancel}
           >
-            Close
+            Not yet
           </button>
           <button
             type="button"
@@ -450,7 +420,7 @@ function TvReturnDialog({
             disabled={isReturning}
             onClick={onConfirm}
           >
-            {isReturning ? "Putting movie back…" : "Put movie back in bowl"}
+            {isReturning ? "Moving…" : "Move to Bowl"}
           </button>
         </div>
       </section>
@@ -864,6 +834,8 @@ export default function TvTonightScreen({ userId }) {
       isDrawing,
       drawnMovie?.id || "",
       selectedHistoryMovie?.drawEventId || selectedHistoryMovie?.id || "",
+      // The trailer arrives with the details, and is where focus belongs.
+      isHistoryEnriching,
       showTrailer,
       isTheaterPlaying,
       pendingReturn?.drawEventId || "",
@@ -1061,7 +1033,6 @@ export default function TvTonightScreen({ userId }) {
         <TvRevealScreen
           bowlName={bowlMeta.name}
           movie={drawnMovie}
-          streamingServices={streamingServices}
           isPreparingPreviews={isTheaterPending}
           showTrailer={showTrailer}
           isDialogOpen={Boolean(pendingReturn) || isTheaterPlaying}
@@ -1096,13 +1067,9 @@ export default function TvTonightScreen({ userId }) {
           bowlName={bowlMeta.name}
           movie={selectedHistoryMovie}
           canReturn={bowlMeta.canDraw && canReturnDrawToBowl(selectedHistoryMovie)}
-          returnWindowClosed={
-            bowlMeta.canDraw && !canReturnDrawToBowl(selectedHistoryMovie)
-          }
           isEnriching={isHistoryEnriching}
           showTrailer={showTrailer}
           isDialogOpen={Boolean(pendingReturn)}
-          onClose={closeHistoryDetails}
           onCloseTrailer={() => setShowTrailer(false)}
           onToggleTrailer={() => setShowTrailer((current) => !current)}
           onRequestReturn={() => requestReturnFromHistory(selectedHistoryMovie)}

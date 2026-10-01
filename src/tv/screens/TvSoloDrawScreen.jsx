@@ -498,7 +498,6 @@ export default function TvSoloDrawScreen({ userId }) {
         <TvRevealScreen
           bowlName="Solo Draw"
           movie={drawnMovie}
-          streamingServices={streamingServices}
           isPreparingPreviews={isTheaterPending}
           showTrailer={showTrailer}
           isDialogOpen={isTheaterPlaying}
