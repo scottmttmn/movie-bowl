@@ -6,6 +6,7 @@ import { getDrawRevealAnnouncement } from "../../utils/drawReveal";
 import ProviderLinksAttribution from "../../components/ProviderLinksAttribution";
 import AvailabilityAttribution from "../../components/AvailabilityAttribution";
 import ServiceLogo from "../../components/ServiceLogo";
+import { getServiceLogoPath } from "../../utils/providerLogos";
 import { getBackdropUrl } from "../../utils/getBackdropUrl";
 import { getPosterUrl } from "../../utils/getPosterUrl";
 import { getProviderLogoUrl } from "../../utils/getProviderLogoUrl";
@@ -230,6 +231,10 @@ function TvTonightPick({
       "w92"
     )
     : null;
+  const primaryHasLogo = primary?.rent ? Boolean(rentLogoUrl) : Boolean(getServiceLogoPath(primary?.service));
+  // The logo already names the service, so the button says only what pressing
+  // it does; the full sentence stays the accessible name.
+  const primaryText = primary && primaryHasLogo ? (primary.rent ? "Rent" : "Watch") : primary?.label;
   const primaryLogo = !primary ? null : !primary.rent ? (
     <ServiceLogo service={primary.service} className="tv-launch-logo" />
   ) : (
@@ -287,13 +292,14 @@ function TvTonightPick({
               data-tv-focusable
               data-tv-nav-group="reveal-actions"
               data-tv-autofocus={primary.autofocus ? "true" : undefined}
+              aria-label={primary.label}
               href={primary.url}
               target="_blank"
               rel="noopener noreferrer"
               onClick={onProviderLaunch}
             >
               {primaryLogo}
-              {primary.label}
+              {primaryText}
             </a>
           )}
           {primary && !primary.enabled && (
@@ -302,10 +308,11 @@ function TvTonightPick({
               className="tv-button tv-button-primary tv-tonight-primary"
               data-tv-focusable
               data-tv-nav-group="reveal-actions"
+              aria-label={primary.label}
               disabled
             >
               {primaryLogo}
-              {primary.label}
+              {primaryText}
             </button>
           )}
           {trailer?.embedUrl && (

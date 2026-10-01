@@ -27,7 +27,8 @@ brings the television level with it.
   rental is the primary button like any other and takes first focus too
   (Scott, October 1): it only opens the store's page, where buying takes the
   store's own confirmation. A gold $ coin on the store's logo is what says it
-  costs money.
+  costs money. Beside a logo the button says only "Watch" or "Rent", since
+  the logo already names the service; without one it keeps the name.
 - **The trailer keeps its word.** A bare play button beside Watch, or on the
   poster, read as playing the film itself (Scott's call), so it is a "▶ Trailer"
   button.

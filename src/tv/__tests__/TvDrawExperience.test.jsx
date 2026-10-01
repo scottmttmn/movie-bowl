@@ -147,6 +147,8 @@ describe("TvRevealScreen", () => {
       expect(rent).toHaveAttribute("href", rentCandidate.url);
       expect(rent).toHaveAttribute("data-tv-focusable");
       expect(rent.querySelector(".tv-rent-mark")).toHaveTextContent("$");
+      // The store's logo names it, so the words don't repeat it.
+      expect(rent.textContent).toBe("$Rent");
       expect(screen.queryByText("Rent or buy options available")).not.toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Watchmode" })).toBeInTheDocument();
 
