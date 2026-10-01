@@ -7,7 +7,7 @@ import { supabase } from "../lib/supabase";
 // details rather than an empty sheet; only the roster itself is required.
 export default function useBowlPeople(bowlId, { enabled = false, includeInvites = false } = {}) {
   const key = `${bowlId}|${includeInvites}`;
-  const [state, setState] = useState({ key: null, status: "idle", members: [], invites: [] });
+  const [state, setState] = useState({ key: null, status: "idle", members: [], invites: [], names: {} });
 
   useEffect(() => {
     if (!enabled || !bowlId) return undefined;
@@ -30,7 +30,7 @@ export default function useBowlPeople(bowlId, { enabled = false, includeInvites 
 
       if (membersResult.error) {
         console.error("[useBowlPeople] Failed to load members", membersResult.error);
-        setState({ key, status: "error", members: [], invites: [] });
+        setState({ key, status: "error", members: [], invites: [], names: {} });
         return;
       }
       if (profilesResult.error) {
@@ -54,6 +54,9 @@ export default function useBowlPeople(bowlId, { enabled = false, includeInvites 
             displayName: nameByUserId.get(row.user_id) || null,
           })),
         invites: (invitesResult.data || []).filter((row) => row?.invited_email),
+        // Older bowls can have an owner with no bowl_members row; the
+        // directory still names them, so the rows can add them back.
+        names: Object.fromEntries(nameByUserId),
       });
     };
 
@@ -65,6 +68,6 @@ export default function useBowlPeople(bowlId, { enabled = false, includeInvites 
 
   // Reopening shows what the last read found while the next one runs; another
   // bowl's people are never shown for this one.
-  if (state.key !== key) return { status: enabled ? "loading" : "idle", members: [], invites: [] };
+  if (state.key !== key) return { status: enabled ? "loading" : "idle", members: [], invites: [], names: {} };
   return state;
 }

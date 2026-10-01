@@ -482,6 +482,7 @@ export default function BowlDashboard() {
           movies: bowl.remaining,
           eligibleMovieIds: drawPoolStatus === DRAW_POOL_STATUS.ready ? drawPoolEligibleMovieIds : null,
           ownerId: bowlOwnerId,
+          ownerName: bowlPeople.names[bowlOwnerId] || null,
           currentUserId,
         })
         : []),

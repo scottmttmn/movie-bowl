@@ -31,6 +31,14 @@ describe("buildBowlPeopleRows", () => {
     expect(rows.some((row) => row.isLeftOut)).toBe(false);
   });
 
+  it("adds back an owner an older bowl never gave a membership row", () => {
+    const members = MEMBERS.filter((member) => member.userId !== "u1");
+    const rows = buildBowlPeopleRows({ members, movies: MOVIES, ownerId: "u1", ownerName: "Alex" });
+
+    expect(rows[0]).toMatchObject({ key: "user:u1", name: "Alex", isOwner: true, count: 2 });
+    expect(rows.filter((row) => row.key === "user:u1")).toHaveLength(1);
+  });
+
   it("counts only the filtered pool and marks someone whose every movie it removed", () => {
     const rows = buildBowlPeopleRows({ members: MEMBERS, movies: MOVIES, eligibleMovieIds: ["m3", "m4"], ownerId: "u1" });
     const byName = Object.fromEntries(rows.map((row) => [row.name, row]));

@@ -8,6 +8,9 @@ import { getDisplayInitial, getProfileDisplayName } from "./profileIdentity";
  * draw. Counts follow the same contributor buckets the draw uses, so a person
  * is "left out" exactly when the draw cannot reach them.
  *
+ * Older bowls can have an owner with no `bowl_members` row, which the member
+ * count already includes, so the owner is added from `ownerId` when missing.
+ *
  * `eligibleMovieIds` is the resolved pool after filters, or null when there is
  * none to compare against; then every movie counts and nobody is left out.
  */
@@ -16,6 +19,7 @@ export function buildBowlPeopleRows({
   movies = [],
   eligibleMovieIds = null,
   ownerId = null,
+  ownerName = null,
   currentUserId = null,
 }) {
   const eligible = eligibleMovieIds ? new Set(eligibleMovieIds.map(String)) : null;
@@ -51,7 +55,11 @@ export function buildBowlPeopleRows({
     };
   };
 
-  const memberRows = members
+  const roster = ownerId && !members.some((member) => member.userId === ownerId)
+    ? [{ userId: ownerId, role: "Owner", displayName: ownerName }, ...members]
+    : members;
+
+  const memberRows = roster
     .map((member) =>
       describe(`user:${member.userId}`, getProfileDisplayName({ display_name: member.displayName }, member.userId), {
         isOwner: member.userId === ownerId || member.role === "Owner",
