@@ -1627,12 +1627,13 @@ html.tv-root {
   font-size: 1rem;
 }
 
-/* ServiceLogo's plate, for the store logo the rent listing supplies. */
+/* ServiceLogo's plate, drawn here so the button can tell when the logo loads. */
 .tv-launch-logo-plate {
   border: 1px solid rgba(51, 65, 85, 0.7);
   border-radius: 0.375rem;
   background: rgba(30, 41, 59, 0.6);
   object-fit: contain;
+  flex-shrink: 0;
 }
 
 .tv-reveal-actions {

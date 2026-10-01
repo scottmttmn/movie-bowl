@@ -1,4 +1,4 @@
-import { cleanup, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import { TvRevealScreen } from "../components/TvDrawExperience";
 import useTvSpatialNavigation from "../hooks/useTvSpatialNavigation";
@@ -147,13 +147,24 @@ describe("TvRevealScreen", () => {
       expect(rent).toHaveAttribute("href", rentCandidate.url);
       expect(rent).toHaveAttribute("data-tv-focusable");
       expect(rent.querySelector(".tv-rent-mark")).toHaveTextContent("$");
-      // The store's logo names it, so the words don't repeat it.
+      // The store's logo names it, so once it shows the words don't repeat it.
+      expect(rent.textContent).toBe("$Rent on Apple TV");
+      fireEvent.load(rent.querySelector("img"));
       expect(rent.textContent).toBe("$Rent");
       expect(screen.queryByText("Rent or buy options available")).not.toBeInTheDocument();
       expect(screen.getByRole("link", { name: "Watchmode" })).toBeInTheDocument();
 
       rent.click();
       expect(onProviderLaunch).toHaveBeenCalledTimes(1);
+    });
+
+    it("keeps the store's name on the button when its logo fails to load", () => {
+      renderReveal(movie, { rentCandidate });
+
+      const rent = screen.getByRole("link", { name: /Rent on Apple TV/ });
+      fireEvent.error(rent.querySelector("img"));
+      expect(rent.querySelector("img")).toBeNull();
+      expect(rent.textContent).toBe("$Rent on Apple TV");
     });
 
     it("keeps the store as a logo when there is only a list of stores, or one of yours to open", () => {

@@ -5,7 +5,6 @@ import { getDrawMethod } from "../../utils/drawMethods";
 import { getDrawRevealAnnouncement } from "../../utils/drawReveal";
 import ProviderLinksAttribution from "../../components/ProviderLinksAttribution";
 import AvailabilityAttribution from "../../components/AvailabilityAttribution";
-import ServiceLogo from "../../components/ServiceLogo";
 import { getServiceLogoPath } from "../../utils/providerLogos";
 import { getBackdropUrl } from "../../utils/getBackdropUrl";
 import { getPosterUrl } from "../../utils/getPosterUrl";
@@ -191,6 +190,8 @@ function TvTonightPick({
   extraActions,
   children,
 }) {
+  const [loadedLogoUrl, setLoadedLogoUrl] = useState(null);
+  const [failedLogoUrl, setFailedLogoUrl] = useState(null);
   const trailer = movie.trailer;
   const author = noteAuthor || (isStarterPackMovie(movie) ? null : getMovieAttributionLabel(movie));
   const authorInitial = String(author || "").trim().charAt(0).toUpperCase();
@@ -231,15 +232,27 @@ function TvTonightPick({
       "w92"
     )
     : null;
-  const primaryHasLogo = primary?.rent ? Boolean(rentLogoUrl) : Boolean(getServiceLogoPath(primary?.service));
-  // The logo already names the service, so the button says only what pressing
-  // it does; the full sentence stays the accessible name.
-  const primaryText = primary && primaryHasLogo ? (primary.rent ? "Rent" : "Watch") : primary?.label;
-  const primaryLogo = !primary ? null : !primary.rent ? (
-    <ServiceLogo service={primary.service} className="tv-launch-logo" />
-  ) : (
-    <span className={`tv-launch-logo-wrap${rentLogoUrl ? "" : " is-bare"}`}>
-      {rentLogoUrl && <img className="tv-launch-logo tv-launch-logo-plate" src={rentLogoUrl} alt="" />}
+  const primaryLogoUrl = primary?.rent
+    ? rentLogoUrl
+    : primary ? getProviderLogoUrl(getServiceLogoPath(primary.service), "w92") : null;
+  // The logo names the service, so beside it the button says only what
+  // pressing it does. Until the logo has actually loaded, and for good if it
+  // fails, the button keeps the name; the full sentence is always the
+  // accessible name.
+  const logoShown = Boolean(primaryLogoUrl) && loadedLogoUrl === primaryLogoUrl;
+  const primaryText = primary && logoShown ? (primary.rent ? "Rent" : "Watch") : primary?.label;
+  const logoImage = primaryLogoUrl && failedLogoUrl !== primaryLogoUrl && (
+    <img
+      className="tv-launch-logo tv-launch-logo-plate"
+      src={primaryLogoUrl}
+      alt=""
+      onLoad={() => setLoadedLogoUrl(primaryLogoUrl)}
+      onError={() => setFailedLogoUrl(primaryLogoUrl)}
+    />
+  );
+  const primaryLogo = !primary ? null : !primary.rent ? logoImage : (
+    <span className={`tv-launch-logo-wrap${logoImage ? "" : " is-bare"}`}>
+      {logoImage}
       <span className="tv-rent-mark" aria-hidden="true">$</span>
     </span>
   );
