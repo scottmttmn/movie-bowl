@@ -103,6 +103,7 @@ export function TvMovieDetailStage({
   onToggleTrailer,
   playbackAutofocus = true,
   tonight = false,
+  noteAuthor = null,
   children,
 }) {
   const year = getYear(movie);
@@ -155,6 +156,7 @@ export function TvMovieDetailStage({
         onProviderLaunch={onProviderLaunch}
         onToggleTrailer={onToggleTrailer}
         playbackAutofocus={playbackAutofocus}
+        noteAuthor={noteAuthor}
       >
         {children}
       </TvTonightPick>
@@ -357,10 +359,11 @@ function TvTonightPick({
   onProviderLaunch,
   onToggleTrailer,
   playbackAutofocus,
+  noteAuthor,
   children,
 }) {
   const trailer = movie.trailer;
-  const author = isStarterPackMovie(movie) ? null : getMovieAttributionLabel(movie);
+  const author = noteAuthor || (isStarterPackMovie(movie) ? null : getMovieAttributionLabel(movie));
   const authorInitial = String(author || "").trim().charAt(0).toUpperCase();
   const primaryStore = offersRent ? rentCandidate.storeName : null;
   const otherLogos = [];
@@ -533,6 +536,9 @@ export function TvRevealScreen({
   onProviderLaunch,
   onCloseTrailer,
   onToggleTrailer,
+  // Who wrote the slip, when the movie row cannot say: a solo pick is always
+  // the viewer's own, and its row carries no profile to name them by.
+  noteAuthor = null,
 }) {
   const trailer = movie.trailer;
   const isCoveredByOverlay = isDialogOpen || showTrailer;
@@ -560,6 +566,7 @@ export function TvRevealScreen({
           onProviderLaunch={onProviderLaunch}
           onToggleTrailer={onToggleTrailer}
           tonight
+          noteAuthor={noteAuthor}
         >
           {isPreparingPreviews && (
             <p className="tv-preview-status" role="status">

@@ -509,6 +509,7 @@ export default function TvSoloDrawScreen({ userId }) {
           onProviderLaunch={beginProviderLaunch}
           onCloseTrailer={() => setShowTrailer(false)}
           onToggleTrailer={() => setShowTrailer((current) => !current)}
+          noteAuthor={getProfileDisplayName({ display_name: displayName }, userId)}
         />
         {isTheaterPlaying && (
           <TvTheaterPreroll

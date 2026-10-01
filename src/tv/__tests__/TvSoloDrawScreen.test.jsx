@@ -99,6 +99,7 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
       runtimeMaxMinutes: 500,
       includeUnknownRuntime: true,
     },
+    displayName: "Scott",
     removeFromBowlsOnSoloDraw: mocks.removeFromBowlsOnSoloDraw,
     loading: mocks.preferencesLoading,
     loadError: mocks.preferencesLoadError,
@@ -309,6 +310,23 @@ describe("TV solo draw", () => {
     expect(mocks.startProviderLookup).toHaveBeenCalledWith(
       expect.objectContaining({ id: "solo-feature" })
     );
+  });
+
+  // A solo row carries no profile, so the movie alone would name a generic
+  // member; the slip is always the viewer's own.
+  it("signs the slip with the viewer's own name", async () => {
+    mocks.draw.mockResolvedValue({ ...mocks.rows[0], note: "For a rainy night" });
+    renderSolo();
+
+    fireEvent.click(screen.getByRole("button", { name: /draw for myself/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^draw$/i }));
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(1800);
+    });
+
+    const slip = screen.getByText("For a rainy night").closest("figure");
+    expect(slip).toHaveTextContent(/^S/);
+    expect(screen.getByText("From Scott")).toBeInTheDocument();
   });
 
   it("finishes the full crowd reveal before starting TV theater previews", async () => {
