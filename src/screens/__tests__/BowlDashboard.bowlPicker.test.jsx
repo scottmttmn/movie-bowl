@@ -194,9 +194,8 @@ describe("BowlDashboard bowl picker", () => {
     await renderDashboard();
 
     // The same number the picker row shows for this bowl, from the same context.
-    await waitFor(() =>
-      expect(screen.getByText("3 members").parentElement).toHaveAttribute("data-member-count", "3")
-    );
+    const people = await screen.findByRole("button", { name: "3 people in this bowl. See who." });
+    expect(people.querySelector("[data-member-count]")).toHaveAttribute("data-member-count", "3");
   });
 
   it("marks the header with a non-interactive badge on the home bowl", async () => {

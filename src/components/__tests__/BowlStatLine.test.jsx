@@ -13,6 +13,7 @@ function renderLine(props = {}) {
     onScanStreaming: vi.fn(),
     onOpenFilters: vi.fn(),
     onOpenMethodInfo: vi.fn(),
+    onOpenPeople: vi.fn(),
   };
   render(
     <BowlStatLine
@@ -135,8 +136,8 @@ describe("BowlStatLine", () => {
     expect(segment).toHaveAttribute("data-tone", "warning");
   });
 
-  it("shows excluded people as a ratio that opens the explanation", () => {
-    const { onOpenMethodInfo } = renderLine({
+  it("shows excluded people as a ratio that opens the people", () => {
+    const { onOpenPeople } = renderLine({
       poolStatus: DRAW_POOL_STATUS.ready,
       poolCount: 3,
       showContributorReach: true,
@@ -150,7 +151,7 @@ describe("BowlStatLine", () => {
     // everyone, which is the thing worth stopping for.
     expect(pool()).toHaveAttribute("data-tone", "warning");
     fireEvent.click(reach);
-    expect(onOpenMethodInfo).toHaveBeenCalled();
+    expect(onOpenPeople).toHaveBeenCalled();
   });
 
   it("says nothing about people when everyone is represented", () => {
@@ -205,9 +206,12 @@ describe("BowlStatLine", () => {
   });
 
   it("counts the bowl's members beside the pool and swaps to the ratio when someone is left out", () => {
-    renderLine({ memberCount: 3 });
-    expect(screen.getByText("3 members")).toHaveClass("sr-only");
-    expect(screen.getByText("3 members").parentElement).toHaveAttribute("data-member-count", "3");
+    const { onOpenPeople } = renderLine({ memberCount: 3 });
+    const people = screen.getByRole("button", { name: "3 people in this bowl. See who." });
+    expect(people).toHaveTextContent(/^3$/);
+    expect(people.querySelector("[data-member-count]")).toHaveAttribute("data-member-count", "3");
+    fireEvent.click(people);
+    expect(onOpenPeople).toHaveBeenCalled();
 
     cleanup();
     renderLine({
@@ -218,7 +222,7 @@ describe("BowlStatLine", () => {
       contributorReach: SHORT_REACH,
     });
     // One people readout at a time: the warning replaces the member count.
-    expect(screen.queryByText("3 members")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /people in this bowl/i })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /only 1 of 2 people/i })).toBeInTheDocument();
   });
 

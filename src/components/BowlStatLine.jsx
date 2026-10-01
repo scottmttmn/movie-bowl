@@ -80,16 +80,17 @@ function PoolSegment({ count, service, tone, onOpenFilters }) {
 }
 
 // The bowl's people, with the same mark the picker and My Bowls count them
-// with. When filters leave someone with nothing in the draw it turns amber and
-// becomes a ratio: the one fact here that should stop someone.
-function PeopleSegment({ memberCount, reach, onOpenMethodInfo }) {
+// with, opening the list of who they are. When filters leave someone with
+// nothing in the draw it turns amber and becomes a ratio: the one fact here
+// that should stop someone.
+function PeopleSegment({ memberCount, reach, onOpenPeople }) {
   if (reach) {
     return (
       <Segment
         as="button"
         tone="warning"
-        onClick={onOpenMethodInfo}
-        ariaLabel={`Only ${reach.reachedCount} of ${reach.totalCount} people have a movie in the draw. How this bowl picks.`}
+        onClick={onOpenPeople}
+        ariaLabel={`Only ${reach.reachedCount} of ${reach.totalCount} people have a movie in the draw. See who.`}
       >
         <span className="inline-flex items-center gap-1 leading-none">
           <PeopleGlyph className="block h-4 w-4" />
@@ -100,11 +101,16 @@ function PeopleSegment({ memberCount, reach, onOpenMethodInfo }) {
   }
   if (!memberCount) return null;
   return (
-    <span className="inline-flex items-center gap-1 leading-none text-slate-400" data-member-count={memberCount}>
-      <PeopleGlyph className="block h-4 w-4" />
-      <span aria-hidden="true"><Count>{memberCount}</Count></span>
-      <span className="sr-only">{memberCount === 1 ? "1 member" : `${memberCount} members`}</span>
-    </span>
+    <Segment
+      as="button"
+      onClick={onOpenPeople}
+      ariaLabel={`${memberCount === 1 ? "1 person" : `${memberCount} people`} in this bowl. See who.`}
+    >
+      <span className="inline-flex items-center gap-1 leading-none" data-member-count={memberCount}>
+        <PeopleGlyph className="block h-4 w-4" />
+        <Count>{memberCount}</Count>
+      </span>
+    </Segment>
   );
 }
 
@@ -114,6 +120,7 @@ export default function BowlStatLine({
   onRunPoolLookups,
   onOpenFilters,
   onOpenMethodInfo,
+  onOpenPeople,
   memberCount = null,
   drawMethod,
   ...readoutInputs
@@ -149,7 +156,7 @@ export default function BowlStatLine({
 
   if (description && (hasExcludedContributors || memberCount)) {
     segments.push(
-      <PeopleSegment key="people" memberCount={memberCount} reach={reach} onOpenMethodInfo={onOpenMethodInfo} />
+      <PeopleSegment key="people" memberCount={memberCount} reach={reach} onOpenPeople={onOpenPeople} />
     );
   }
 
