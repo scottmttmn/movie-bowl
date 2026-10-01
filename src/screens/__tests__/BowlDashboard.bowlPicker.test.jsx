@@ -190,6 +190,15 @@ describe("BowlDashboard bowl picker", () => {
     expect(screen.queryByText("My Bowl")).not.toBeInTheDocument();
   });
 
+  it("counts the bowl's members under it with the picker's people mark", async () => {
+    await renderDashboard();
+
+    // The same number the picker row shows for this bowl, from the same context.
+    await waitFor(() =>
+      expect(screen.getByText("3 members").parentElement).toHaveAttribute("data-member-count", "3")
+    );
+  });
+
   it("marks the header with a non-interactive badge on the home bowl", async () => {
     mocks.state.defaultBowlId = "bowl-1";
 

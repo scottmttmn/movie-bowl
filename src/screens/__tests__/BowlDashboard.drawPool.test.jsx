@@ -189,9 +189,7 @@ describe("BowlDashboard draw pool count", () => {
     await renderDashboard();
     await waitFor(() => expect(getTmdbMovieDetails).toHaveBeenCalledTimes(3));
 
-    expect(screen.getByRole("button", { name: /drawing from 3 titles/i })).toHaveTextContent(
-      "Drawing from 3"
-    );
+    expect(screen.getByRole("button", { name: /drawing from 3 titles/i })).toHaveTextContent(/^3$/);
     expect(screen.queryByRole("progressbar", { name: /filter lookup progress/i })).not.toBeInTheDocument();
 
     // "Filter details" was a second button to the panel the pool segment already
@@ -245,13 +243,13 @@ describe("BowlDashboard draw pool count", () => {
     selectOnlyGenre("Action");
 
     const segment = await screen.findByRole("button", { name: /drawing from 3 titles/i });
-    expect(segment).toHaveTextContent("Drawing from 3");
+    expect(segment).toHaveTextContent(/^3$/);
     // The denominator moved behind the filters panel this segment opens.
     expect(segment).not.toHaveTextContent("of 4");
     expect(segment).toHaveAttribute("data-tone", "active");
   });
 
-  it("warns on the line and behind the ⓘ when a person is filtered out", async () => {
+  it("warns on the line and behind the method slip when a person is filtered out", async () => {
     await renderDashboard();
     selectOnlyGenre("Comedy");
 
@@ -262,7 +260,7 @@ describe("BowlDashboard draw pool count", () => {
     // The named exclusion lives in the method info dialog, whose trigger
     // carries the warning so it is findable before opening.
     fireEvent.click(
-      screen.getByRole("button", { name: /how this bowl picks — some people are filtered out/i })
+      screen.getByRole("button", { name: /how this bowl picks: .* — some people are filtered out/i })
     );
     expect(screen.getByText(/Alex is left out — your filters removed every movie they added\./)).toBeInTheDocument();
   });
@@ -340,7 +338,7 @@ describe("BowlDashboard draw pool count", () => {
     expect(segment).toHaveAttribute("data-tone", "active");
     expect(screen.queryByRole("button", { name: /people have a movie in the draw/i })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks$/i }));
+    fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks: title-first random draw$/i }));
     expect(screen.getByText(/Alex is left out — your filters removed every movie they added\./)).toBeInTheDocument();
   });
 });

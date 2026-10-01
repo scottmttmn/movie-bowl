@@ -197,8 +197,21 @@ export function useTvBowlAccess(bowlId, userId) {
           canDraw = Boolean(permissionRow);
         }
 
+        // The member count the bowl list and the phone show beside the people
+        // mark. Optional: the screen works without it, so a failure only drops
+        // the number.
+        let memberCount = null;
+        try {
+          const { data: countRows } = await supabase.rpc("get_my_bowls_with_counts");
+          const countRow = (countRows || []).find((row) => row.id === bowlId);
+          if (countRow) memberCount = Number(countRow.member_count || 0);
+        } catch (countError) {
+          console.error("[useTvBowlAccess] Failed to count members", countError);
+        }
+
         if (!cancelled) {
           setBowlMeta({
+            memberCount,
             name: bowlRow.name || "Movie Bowl",
             ownerId: bowlRow.owner_id,
             canDraw,

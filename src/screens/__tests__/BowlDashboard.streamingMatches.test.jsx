@@ -222,7 +222,7 @@ describe("BowlDashboard streaming match count", () => {
     expect(reach).toHaveTextContent("1/3");
 
     fireEvent.click(
-      screen.getByRole("button", { name: /how this bowl picks — some people are filtered out/i })
+      screen.getByRole("button", { name: /how this bowl picks: .* — some people are filtered out/i })
     );
     expect(screen.getByText(/Jo and Sam are left out — your filters removed every movie they added\./)).toBeInTheDocument();
     expect(fetchStreamingProviders).not.toHaveBeenCalledWith(-900);

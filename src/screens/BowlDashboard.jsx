@@ -221,6 +221,7 @@ export default function BowlDashboard() {
     const pickerTriggerRef = useRef(null);
     const [homeMessage, setHomeMessage] = useState(null);
     const [homeError, setHomeError] = useState(null);
+    const currentBowlMemberCount = accountBowls.find((entry) => entry.id === bowlId)?.memberCount ?? null;
     const ownedBowlCount = accountBowls.filter((entry) => entry.role === "Owner").length;
     const {
       actionMessage: createActionMessage,
@@ -1096,6 +1097,8 @@ return (
                   onRunPoolLookups={runDrawPoolLookups}
                   onOpenFilters={() => setShowDrawFilters(true)}
                   onOpenMethodInfo={() => setShowMethodInfo(true)}
+                  memberCount={currentBowlMemberCount}
+                  drawMethod={drawMethod}
                 />
 
                 <div className="mx-auto mt-4 flex w-full max-w-sm flex-col items-stretch gap-2.5">
