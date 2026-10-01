@@ -45,8 +45,29 @@ const withPerson = (glyph) => (
   </>
 );
 
+// A bigger subscript: a filled head and shoulders, the shape people already
+// read as "a person", with the button pushed up and left to make room.
+const withBigPerson = (glyph) => (
+  <>
+    <g transform="translate(9.4 9.2) scale(0.6) translate(-12 -12)" strokeWidth="2.6">{glyph}</g>
+    <circle cx="15.6" cy="13" r="2" fill="currentColor" stroke="none" />
+    <path d="M12.2 18.6a3.4 3.4 0 0 1 6.8 0z" fill="currentColor" stroke="none" />
+  </>
+);
+
 function playerSets() {
   return {
+    player_big: {
+      person_first: withBigPerson(SHUFFLE),
+      rotation: withBigPerson(REPEAT),
+      title_first: SHUFFLE,
+    },
+    // The badge set draws its person outside the slip; see BADGED below.
+    player_badge: {
+      person_first: SHUFFLE,
+      rotation: REPEAT,
+      title_first: SHUFFLE,
+    },
     // Sub: shuffle and repeat with a person subscript; title-first is the
     // bare shuffle.
     player_sub: {
@@ -156,6 +177,11 @@ const MARK_SETS = {
   ...playerSets(),
 };
 
+// PROTOTYPE: sets whose people-first marks wear a round person badge on the
+// slip's corner, like an avatar on a message.
+const BADGED = new Set(["player_badge"]);
+const PEOPLE_FIRST = new Set(["person_first", "rotation"]);
+
 export const DRAW_METHOD_MARK_SETS = Object.keys(MARK_SETS);
 
 function readPrototypeSet() {
@@ -172,7 +198,9 @@ function readPrototypeSet() {
 
 export default function DrawMethodMark({ drawMethod, className = "", markSet }) {
   const method = getDrawMethod(drawMethod);
-  const set = MARK_SETS[markSet || readPrototypeSet()] || MARK_SETS.current;
+  const setName = markSet || readPrototypeSet();
+  const set = MARK_SETS[setName] || MARK_SETS.current;
+  const hasBadge = BADGED.has(setName) && PEOPLE_FIRST.has(method.id);
   const mark = set[method.id];
   // A method the registry knows but this file has no mark for would otherwise
   // render an empty slip, which reads as a method rather than as a gap.
@@ -190,11 +218,20 @@ export default function DrawMethodMark({ drawMethod, className = "", markSet }) 
       strokeLinecap="round"
       strokeLinejoin="round"
     >
-      <path d="M3.8 6.1L18.5 3.9L20.7 18.2L6 20.4Z" fill="#e7dfd1" stroke="none" />
-      <path d="M4.9 13.2L19.6 11" stroke="#c5b9a7" strokeWidth="0.55" />
-      <g transform="rotate(-8 12 12)" stroke="#624c43" color="#624c43">
-        {mark}
+      <g transform={hasBadge ? "translate(-1.6 -1.6)" : undefined}>
+        <path d="M3.8 6.1L18.5 3.9L20.7 18.2L6 20.4Z" fill="#e7dfd1" stroke="none" />
+        <path d="M4.9 13.2L19.6 11" stroke="#c5b9a7" strokeWidth="0.55" />
+        <g transform="rotate(-8 12 12)" stroke="#624c43" color="#624c43">
+          {mark}
+        </g>
       </g>
+      {hasBadge && (
+        <g stroke="none">
+          <circle cx="18.6" cy="18.6" r="5.1" fill="#64748b" stroke="#0f172a" strokeWidth="0.8" />
+          <circle cx="18.6" cy="17" r="1.6" fill="#fff" />
+          <path d="M15.8 21.6a2.8 2.8 0 0 1 5.6 0z" fill="#fff" />
+        </g>
+      )}
     </svg>
   );
 }
