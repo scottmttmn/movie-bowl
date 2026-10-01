@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Navigate, useLocation, useNavigate } from "react-router-dom";
-import { formatRelativeDateLabel } from "../../utils/formatRelativeDate";
+import bowlImage from "../../assets/movie-bowl.webp";
+import FilmStripGlyph from "../../components/FilmStripGlyph";
+import HomeGlyph from "../../components/HomeGlyph";
+import PeopleGlyph from "../../components/PeopleGlyph";
 import useUserStreamingServices from "../../hooks/useUserStreamingServices";
 import { getDisplayInitial, getProfileDisplayName } from "../../utils/profileIdentity";
 import TvBrand from "../components/TvBrand";
@@ -36,7 +39,7 @@ export default function TvBowlPicker({
 }) {
   const navigate = useNavigate();
   const location = useLocation();
-  const { bowls, isLoading, errorMessage, reload } = useTvBowls(userId);
+  const { bowls, homeBowlId, isLoading, errorMessage, reload } = useTvBowls(userId);
   const { displayName } = useUserStreamingServices();
   const identityLabel = getProfileDisplayName({ display_name: displayName }, userId);
   const lastBowlId = useMemo(() => getLastBowlId(userId), [userId]);
@@ -109,8 +112,7 @@ export default function TvBowlPicker({
         <header className="tv-topbar" data-tv-nav-region="picker-header">
           <TvBrand context="TV" />
           <div className="tv-account">
-            <span className="tv-account-label">Watching as</span>
-            <span className="tv-account-value">{identityLabel}</span>
+            <span className="tv-account-value"><span className="sr-only">Watching as </span>{identityLabel}</span>
             <button
               type="button"
               className="tv-text-button tv-sign-out-button"
@@ -127,9 +129,7 @@ export default function TvBowlPicker({
         </header>
 
         <section className="tv-picker-intro" aria-labelledby="tv-picker-heading">
-          <p className="tv-kicker">Tonight starts here</p>
           <h1 id="tv-picker-heading">Choose a bowl</h1>
-          <p>Pick the group you&apos;re watching with. This TV remembers you, not just one bowl.</p>
         </section>
 
         {isLoading && (
@@ -180,9 +180,7 @@ export default function TvBowlPicker({
                 {getDisplayInitial(identityLabel)}
               </span>
               <span className="tv-solo-entry-copy">
-                <span className="tv-kicker">Watching on your own?</span>
                 <strong>Draw from my movies</strong>
-                <small>One private pick from all of your bowls</small>
               </span>
               <span className="tv-solo-entry-arrow" aria-hidden="true">→</span>
             </button>
@@ -193,15 +191,23 @@ export default function TvBowlPicker({
           <section className="tv-bowl-grid" aria-label="Your bowls" data-tv-nav-region="bowl-grid">
             {bowls.map((bowl, index) => {
               const isLastBowl = bowl.id === lastBowlId;
-              const activityLabel = bowl.lastActivityAt
-                ? formatRelativeDateLabel(bowl.lastActivityAt)
-                : "Ready when you are";
+              const isHome = bowl.id === homeBowlId;
+              // The same card My Bowls draws, at television size: the bowl,
+              // its name, and two counts as marks. Owner, date and "open"
+              // were words for things the card already shows by being one.
+              const label = [
+                bowl.name,
+                isHome ? "home bowl" : null,
+                `${bowl.remainingCount} ${bowl.remainingCount === 1 ? "title" : "titles"} to draw`,
+                `${bowl.memberCount} ${bowl.memberCount === 1 ? "member" : "members"}`,
+              ].filter(Boolean).join(", ");
 
               return (
                 <button
                   type="button"
                   key={bowl.id}
                   className="tv-bowl-card"
+                  aria-label={label}
                   data-tv-focusable
                   data-tv-nav-group="bowl-grid"
                   data-tv-autofocus={
@@ -211,24 +217,16 @@ export default function TvBowlPicker({
                   }
                   onClick={() => openBowl(bowl.id)}
                 >
-                  <span className="tv-bowl-card-topline">
-                    <span className="tv-bowl-role">{bowl.role}</span>
-                    {isLastBowl && <span className="tv-last-used">Last opened</span>}
-                  </span>
-                  <span className="tv-bowl-name">{bowl.name}</span>
-                  <span className="tv-bowl-card-meta">
-                    <span>
-                      <strong>{bowl.remainingCount}</strong>
-                      <small>{bowl.remainingCount === 1 ? "movie" : "movies"} ready</small>
+                  <img className="tv-bowl-card-bowl" src={bowlImage} alt="" aria-hidden="true" />
+                  <span className="tv-bowl-card-body" aria-hidden="true">
+                    <span className="tv-bowl-name">
+                      {isHome && <HomeGlyph className="tv-bowl-home" />}
+                      {bowl.name}
                     </span>
-                    <span>
-                      <strong>{bowl.memberCount}</strong>
-                      <small>{bowl.memberCount === 1 ? "member" : "members"}</small>
+                    <span className="tv-bowl-card-meta">
+                      <span><FilmStripGlyph />{bowl.remainingCount}</span>
+                      <span><PeopleGlyph />{bowl.memberCount}</span>
                     </span>
-                  </span>
-                  <span className="tv-bowl-activity">{activityLabel}</span>
-                  <span className="tv-card-action">
-                    Open tonight&apos;s bowl <span aria-hidden="true">→</span>
                   </span>
                 </button>
               );

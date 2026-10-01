@@ -268,10 +268,7 @@ function TvRecentDraws({ movies, restoreFocusId, onFocusRestored, onSelect }) {
       aria-labelledby="tv-recent-title"
       data-tv-nav-region="history"
     >
-      <div>
-        <p className="tv-kicker">From this bowl</p>
-        <h2 id="tv-recent-title">Watch History</h2>
-      </div>
+      <h2 id="tv-recent-title">Watched</h2>
       <div className="tv-recent-list">
         {recentMovies.map((movie) => {
           const focusId = movie.drawEventId || movie.id;
@@ -1273,11 +1270,8 @@ export default function TvTonightScreen({ userId }) {
             aria-modal="true"
             aria-labelledby="tv-confirm-title"
           >
-            <p className="tv-kicker">The room is ready</p>
-            <h2 id="tv-confirm-title">Reveal one movie?</h2>
-            <p>
-              The result will be recorded in this bowl&apos;s Watch History.
-            </p>
+            <BowlIllustration className="tv-dialog-bowl" />
+            <h2 id="tv-confirm-title">Draw a movie?</h2>
             <div className="tv-dialog-actions">
               <button
                 type="button"
@@ -1296,7 +1290,7 @@ export default function TvTonightScreen({ userId }) {
                 data-tv-autofocus="true"
                 onClick={performDraw}
               >
-                Reveal a movie
+                Draw
               </button>
             </div>
           </section>
