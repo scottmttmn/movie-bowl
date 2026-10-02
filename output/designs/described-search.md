@@ -49,13 +49,17 @@ nothing, not an outage.
 
 `api/_lib/describedSearch.js`, through the `describe` and `discover` actions
 on `api/tmdb/search` (the deployment has no function slots left). Both speak
-OpenAI's chat format and are tried in order, each with a four-second limit:
+OpenAI's chat format and are tried in order, each with a five-second limit:
 
 1. Groq, `openai/gpt-oss-20b` (`GROQ_API_KEY`): 1,000 requests a day free and
    fast enough to feel like search.
-2. Cloudflare Workers AI, `@cf/meta/llama-3.1-8b-instruct`
+2. Cloudflare Workers AI, `@cf/openai/gpt-oss-20b`
    (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_TOKEN`): 10,000 free neurons a day,
-   roughly a thousand short requests.
+   several hundred short requests. The same model as Groq's, so one prompt
+   serves both. The first choice here, Llama 3.1 8B, had been retired on
+   May 30, 2026 and answered 410 -- which the sheet shows as "resting", so a
+   retired model looks exactly like an outage. `CLOUDFLARE_AI_MODEL` overrides
+   it.
 
 Gemini's free tier was ruled out: Google may use and human-review what is
 sent, and its terms bar serving EU or UK users on it.
