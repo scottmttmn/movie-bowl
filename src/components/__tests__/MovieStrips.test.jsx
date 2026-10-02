@@ -49,6 +49,29 @@ describe("movie strip components", () => {
     expect(screen.getByRole("button", { name: "Details for Movie Pending" })).toBeDisabled();
   });
 
+  // jsdom has no hover, so this holds the structure that makes it work: the
+  // ribbon has to sit inside the element that lifts, or the card rises and
+  // leaves it hanging where the card used to be.
+  it("lifts the favorite ribbon with its poster, and neither while syncing", () => {
+    render(
+      <MyMoviesStrip
+        movies={[
+          { id: "1", source: "added", title: "Movie One", poster_path: "/one.jpg" },
+          { id: "temp:2", local_temp_id: "temp:2", local_status: "syncing", source: "added", title: "Movie Pending" },
+        ]}
+        onViewMovie={vi.fn()}
+        onTogglePin={vi.fn()}
+      />
+    );
+
+    const lift = screen.getByRole("button", { name: "Details for Movie One" }).parentElement;
+    expect(lift).toHaveClass("hover:-translate-y-1");
+    expect(lift).toContainElement(screen.getByRole("button", { name: /^Favorite "Movie One"/ }));
+
+    const pending = screen.getByRole("button", { name: "Details for Movie Pending" }).parentElement;
+    expect(pending).not.toHaveClass("hover:-translate-y-1");
+  });
+
   it("does not render pending badge for added items", () => {
     const movies = [
       { id: "a1", source: "added", title: "Added Title", added_at: "2026-03-06T00:00:00.000Z" },
