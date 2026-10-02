@@ -262,7 +262,7 @@ describe("api/tmdb/search suggest action", () => {
 
       mocks.getUser.mockResolvedValue({ data: { user: null }, error: new Error("bad token") });
       const forged = createRes();
-      await handler({ method: "GET", query: { type: "discover", terms: "[]" }, headers: signedIn }, forged);
+      await handler({ method: "GET", query: { type: "describe", query: "space movie with matt damon" }, headers: signedIn }, forged);
       expect(forged.statusCode).toBe(401);
       expect(mocks.tmdbFetch).not.toHaveBeenCalled();
     });
@@ -276,7 +276,7 @@ describe("api/tmdb/search suggest action", () => {
       expect(mocks.tmdbFetch).not.toHaveBeenCalled();
     });
 
-    it("returns the terms read and the movies TMDB found for them", async () => {
+    it("returns the titles the model named and the movies TMDB found for its terms", async () => {
       vi.stubEnv("GROQ_API_KEY", "key");
       vi.stubGlobal("fetch", vi.fn(async () => ({
         ok: true,
@@ -292,24 +292,16 @@ describe("api/tmdb/search suggest action", () => {
       await handler({ method: "GET", query: { type: "describe", query: "space movie with matt damon" }, headers: signedIn }, res);
       expect(res.body).toEqual({
         status: "ok",
-        terms: [{ kind: "person", id: 1892, label: "Matt Damon" }, { kind: "genre", id: 878, label: "Science Fiction" }],
         picks: [{ id: 286217, title: "The Martian", release_date: "2015-09-30" }],
         results: [{ id: 68724, title: "Elysium" }],
       });
     });
 
-    it("searches remaining terms without the model, and refuses malformed ones", async () => {
-      const fetchSpy = vi.fn();
-      vi.stubGlobal("fetch", fetchSpy);
-      mocks.tmdbFetch.mockResolvedValue({ results: [] });
+    it("no longer searches terms sent back from the client", async () => {
       const res = createRes();
-      await handler({ method: "GET", query: { type: "discover", terms: JSON.stringify([{ kind: "genre", id: 878, label: "Science Fiction" }]) }, headers: signedIn }, res);
-      expect(res.body).toEqual({ status: "empty" });
-      expect(fetchSpy).not.toHaveBeenCalled();
-
-      const bad = createRes();
-      await handler({ method: "GET", query: { type: "discover", terms: "[{\"kind\":\"genre\",\"id\":\"x\"}]" }, headers: signedIn }, bad);
-      expect(bad.statusCode).toBe(400);
+      await handler({ method: "GET", query: { type: "discover", terms: JSON.stringify([{ kind: "genre", id: 878 }]) }, headers: signedIn }, res);
+      expect(res.statusCode).toBe(400);
+      expect(mocks.tmdbFetch).not.toHaveBeenCalled();
     });
   });
 });

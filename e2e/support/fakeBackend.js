@@ -1053,7 +1053,7 @@ export class FakeBackend {
         await fulfillJson(route, { query: this.state.tmdbSuggestion });
         return;
       }
-      if (type === "describe" || type === "discover") {
+      if (type === "describe") {
         await fulfillJson(route, this.state.describedSearch || { status: "empty" });
         return;
       }

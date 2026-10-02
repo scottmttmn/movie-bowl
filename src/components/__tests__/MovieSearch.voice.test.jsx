@@ -119,11 +119,11 @@ describe("MovieSearch voice input", () => {
     await waitFor(() => {
       expect(mocks.searchTmdbMovies).toHaveBeenCalledWith("Jaws", { page: 1 });
     });
-    expect(screen.getByText('Searching for "Jaws"...')).toBeInTheDocument();
     expect(await screen.findByText("Jaws")).toBeInTheDocument();
+    // The field and the spinner say what is being searched; no line lingers after.
+    expect(screen.queryByText(/Searching for/)).not.toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Add Jaws" }));
     await waitFor(() => expect(screen.getByPlaceholderText("Movie, actor or director")).toHaveValue(""));
-    expect(screen.queryByText('Searching for "Jaws"...')).not.toBeInTheDocument();
   });
 
   it("auto-searches the final transcript when the user stops listening manually", async () => {
@@ -148,8 +148,8 @@ describe("MovieSearch voice input", () => {
     await waitFor(() => {
       expect(mocks.searchTmdbMovies).toHaveBeenCalledWith("Alien", { page: 1 });
     });
-    expect(screen.getByText('Searching for "Alien"...')).toBeInTheDocument();
     expect(await screen.findByText("Alien")).toBeInTheDocument();
+    expect(screen.queryByText(/Searching for/)).not.toBeInTheDocument();
   });
 
   it("still searches what is typed after saying what the field already held", async () => {

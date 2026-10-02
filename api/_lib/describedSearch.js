@@ -304,39 +304,6 @@ export async function resolveTerms(interpretation, fetchTmdb = tmdbFetch) {
   return terms;
 }
 
-// Terms back from the client after someone removes one. Ids only, so a
-// forged request can at most search TMDB.
-export function parseTermsParam(value) {
-  let parsed;
-  try {
-    parsed = JSON.parse(String(value || ""));
-  } catch {
-    return null;
-  }
-  if (!Array.isArray(parsed) || parsed.length > 8) return null;
-  const terms = [];
-  for (const term of parsed) {
-    const kind = term?.kind;
-    if (kind === "years") {
-      const from = cleanYear(term.from);
-      const to = cleanYear(term.to);
-      if (!from && !to) return null;
-      terms.push({ kind, from, to, label: decadeLabel(from, to) });
-    } else if (kind === "language") {
-      const code = cleanLanguage(term.code);
-      if (!code) return null;
-      terms.push({ kind, code, label: languageLabel(code) });
-    } else if (["person", "genre", "keyword"].includes(kind)) {
-      const id = Number(term.id);
-      if (!Number.isInteger(id) || id <= 0) return null;
-      terms.push({ kind, id, label: String(term.label || "").slice(0, 80) });
-    } else {
-      return null;
-    }
-  }
-  return terms;
-}
-
 // TMDB files Cantonese films (Chungking Express) under its own "cn" code,
 // beside Mandarin's "zh", and a model asked for Chinese names only "zh".
 const LANGUAGE_VARIANTS = { zh: ["zh", "cn"] };
@@ -377,8 +344,7 @@ export async function discoverMovies(terms, fetchTmdb = tmdbFetch) {
 
 // A description rarely matches TMDB's tags exactly, so when every term
 // together finds nothing, the guessiest terms go first: keywords, then
-// genres. The terms returned are the ones the results actually used, so the
-// chips never claim a filter that was dropped.
+// genres. The terms returned are the ones the results actually used.
 export async function discoverWithFallback(terms, fetchTmdb = tmdbFetch) {
   const attempts = [
     terms,

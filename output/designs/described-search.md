@@ -63,15 +63,13 @@ separate smart-search button on October 2, 2026.
 
 Show, don't tell:
 
-- **Read by the model:** the field's magnifier becomes a gold sparkle, and a
-  row of chips under the field shows what it read -- a person badge for a
-  person, then genres, keywords, a language and an era. The results are the
-  recognized titles first, then what the terms found in TMDB popularity
-  order, replacing the title results. Recognized titles have no chip: they
-  came from the words, not the terms.
-- **Removing a chip** searches the remaining terms through TMDB alone; the
-  model is not asked again, and the recognized titles stay first. Removing the last chip returns to the title
-  results for the words as typed.
+- **Read by the model:** the field's magnifier becomes a gold sparkle. The
+  results are the recognized titles first, then what the terms found in TMDB
+  popularity order, replacing the title results.
+- **No chips.** The first build showed what the model read as removable chips
+  under the field; removing one searched the remaining terms again. Scott took
+  them out on October 2, 2026: they added little, and someone whose search
+  missed changes the words rather than the filters.
 - **No model answered** (unconfigured, over the free limit, or down): the
   sparkle is struck through and dim, one line says "Smart search is resting.
   Try a title or a name.", and the results are exactly what title search found.
@@ -83,7 +81,7 @@ nothing, not an outage.
 
 ## Providers
 
-`api/_lib/describedSearch.js`, through the `describe` and `discover` actions
+`api/_lib/describedSearch.js`, through the `describe` action
 on `api/tmdb/search` (the deployment has no function slots left). Both speak
 OpenAI's chat format and are tried in order, each with a five-second limit:
 
@@ -127,5 +125,4 @@ model from a luckier day, which is why it exists.
 A description rarely matches TMDB's tags exactly. When every term together
 finds nothing, keywords are dropped first, then genres; people and the era
 stay, and so does a language. TMDB files Cantonese films under its own `cn`
-code beside Mandarin's `zh`, so "Chinese" searches both. The chips show the terms the results actually used, never one that was
-dropped.
+code beside Mandarin's `zh`, so "Chinese" searches both.

@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import MovieSearch from "../MovieSearch";
 
@@ -9,7 +9,6 @@ const mocks = vi.hoisted(() => ({
   getTmdbMovieDetails: vi.fn(),
   fetchStreamingProviders: vi.fn(),
   describeSearch: vi.fn(),
-  discoverByTerms: vi.fn(),
 }));
 
 vi.mock("../../lib/tmdbApi", () => ({
@@ -21,12 +20,9 @@ vi.mock("../../lib/tmdbApi", () => ({
 vi.mock("../../lib/streamingProviders", () => ({ fetchStreamingProviders: mocks.fetchStreamingProviders }));
 vi.mock("../../lib/describedSearch", () => ({
   describeSearch: mocks.describeSearch,
-  discoverByTerms: mocks.discoverByTerms,
 }));
 
 const DESCRIPTION = "space movie where matt damon is stranded";
-const damon = { kind: "person", id: 1892, label: "Matt Damon" };
-const scifi = { kind: "genre", id: 878, label: "Science Fiction" };
 const martian = { id: 286217, title: "The Martian", release_date: "2015-09-30" };
 const elysium = { id: 68724, title: "Elysium", release_date: "2013-08-07" };
 const stray = { id: 5, title: "Stranded", release_date: "2001-01-01" };
@@ -68,60 +64,34 @@ describe("MovieSearch described search", () => {
     expect(mocks.describeSearch).not.toHaveBeenCalled();
   });
 
-  it("replaces the title results with what the description found, and shows what it read", async () => {
+  it("replaces the title results with what the description found", async () => {
     titles({ page: 1, totalPages: 3, totalResults: 41, results: [stray] });
-    mocks.describeSearch.mockResolvedValue({ status: "ok", terms: [damon, scifi], results: [martian, elysium] });
+    mocks.describeSearch.mockResolvedValue({ status: "ok", results: [martian, elysium] });
     type(DESCRIPTION);
 
     await screen.findByRole("button", { name: "Details for The Martian" });
     expect(mocks.describeSearch).toHaveBeenCalledWith(DESCRIPTION);
     expect(screen.queryByRole("button", { name: "Details for Stranded" })).not.toBeInTheDocument();
     expect(screen.getByTestId("smart-search-ready")).toBeInTheDocument();
-    const chips = within(screen.getByRole("group", { name: "Searched for" })).getAllByRole("button");
-    expect(chips.map((chip) => chip.getAttribute("aria-label"))).toEqual(["Remove Matt Damon", "Remove Science Fiction"]);
+    expect(screen.queryByRole("group", { name: "Searched for" })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /more results/i })).not.toBeInTheDocument();
   });
 
-  it("searches the remaining terms when one is removed, and returns to the title results after the last", async () => {
-    titles({ page: 1, totalPages: 1, totalResults: 1, results: [stray] });
-    mocks.describeSearch.mockResolvedValue({ status: "ok", terms: [damon, scifi], results: [martian] });
-    mocks.discoverByTerms.mockResolvedValue({ status: "ok", terms: [damon], results: [martian, elysium] });
-    type(DESCRIPTION);
-    await screen.findByRole("button", { name: "Details for The Martian" });
-
-    fireEvent.click(screen.getByRole("button", { name: "Remove Science Fiction" }));
-    await screen.findByRole("button", { name: "Details for Elysium" });
-    expect(mocks.discoverByTerms).toHaveBeenCalledWith([damon]);
-    expect(mocks.describeSearch).toHaveBeenCalledTimes(1);
-
-    fireEvent.click(screen.getByRole("button", { name: "Remove Matt Damon" }));
-    await screen.findByRole("button", { name: "Details for Stranded" });
-    expect(screen.queryByRole("group", { name: "Searched for" })).not.toBeInTheDocument();
-    expect(screen.queryByTestId(/smart-search/)).not.toBeInTheDocument();
-  });
-
-  it("leads with the titles the model recognized, and keeps them while terms are removed", async () => {
+  it("leads with the titles the model recognized", async () => {
     const apocalypse = { id: 28, title: "Apocalypse Now", release_date: "1979-08-15" };
-    const war = { kind: "genre", id: 10752, label: "War" };
     titles({ page: 1, totalPages: 1, totalResults: 1, results: [stray] });
-    mocks.describeSearch.mockResolvedValue({ status: "ok", terms: [war, scifi], picks: [apocalypse], results: [martian] });
-    mocks.discoverByTerms.mockResolvedValue({ status: "ok", terms: [war], results: [apocalypse, elysium] });
+    mocks.describeSearch.mockResolvedValue({ status: "ok", picks: [apocalypse], results: [martian] });
     type("vietnam napalm in the morning");
 
     await screen.findByRole("button", { name: "Details for Apocalypse Now" });
     const order = () => screen.getAllByRole("button", { name: /^Details for / }).map((button) => button.getAttribute("aria-label"));
     expect(order()).toEqual(["Details for Apocalypse Now", "Details for The Martian"]);
-
-    fireEvent.click(screen.getByRole("button", { name: "Remove Science Fiction" }));
-    await screen.findByRole("button", { name: "Details for Elysium" });
-    expect(order()).toEqual(["Details for Apocalypse Now", "Details for Elysium"]);
   });
 
   it("asks about a short search only when title and people search find nothing at all", async () => {
-    const dicaprio = { kind: "person", id: 6193, label: "Leonardo DiCaprio" };
     const inception = { id: 27205, title: "Inception", release_date: "2010-07-15" };
     titles();
-    mocks.describeSearch.mockResolvedValue({ status: "ok", terms: [dicaprio], results: [inception] });
+    mocks.describeSearch.mockResolvedValue({ status: "ok", results: [inception] });
     type("leanardo decapiro");
     await screen.findByRole("button", { name: "Details for Inception" });
     expect(mocks.describeSearch).toHaveBeenCalledWith("leanardo decapiro");
@@ -135,11 +105,10 @@ describe("MovieSearch described search", () => {
   });
 
   it("asks the model before the spelling retry can drop words from a description", async () => {
-    const pitt = { kind: "person", id: 287, label: "Brad Pitt" };
     const moneyball = { id: 60308, title: "Moneyball", release_date: "2011-09-22" };
     titles();
     mocks.suggestTmdbQuery.mockResolvedValue("brad pitt");
-    mocks.describeSearch.mockResolvedValue({ status: "ok", terms: [pitt], picks: [moneyball], results: [] });
+    mocks.describeSearch.mockResolvedValue({ status: "ok", picks: [moneyball], results: [] });
     type("brad pitt baseball movie");
 
     await screen.findByRole("button", { name: "Details for Moneyball" });
