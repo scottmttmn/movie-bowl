@@ -32,8 +32,7 @@ Reply with JSON only, shaped exactly like:
 - genres: only from this list: ${Object.keys(TMDB_MOVIE_GENRES).join(", ")}.
 - keywords: at most two short plot words or themes (e.g. "heist", "time travel"), never a genre or a name.
 - yearFrom/yearTo: release years if the search gives an era ("90s" is 1990 to 1999), else null.
-- language: the two-letter ISO 639-1 code of the movie's language if the search gives one ("Korean thriller" is "ko"), else null.
-Leave a list empty rather than guess.`;
+- language: the two-letter ISO 639-1 code of the movie's language if the search gives one ("Korean thriller" is "ko"), else null.`;
 
 // Each provider speaks OpenAI's chat completions format. They are tried in
 // order, and one that is unconfigured, slow, over its free limit or down is
@@ -45,12 +44,14 @@ export function getModelProviders(env = process.env) {
       name: "groq",
       url: "https://api.groq.com/openai/v1/chat/completions",
       key: env.GROQ_API_KEY,
-      model: env.GROQ_MODEL || "openai/gpt-oss-20b",
+      // The larger model at medium effort: at low effort, or at 20B, it
+      // named the movie behind a scene ("two guys having dinner") only some
+      // of the time. Groq runs it fast enough that this still fits the
+      // timeout, and its reasoning stays out of the reply.
+      model: env.GROQ_MODEL || "openai/gpt-oss-120b",
       jsonMode: true,
-      // A reasoning model: low effort keeps it at search speed, and its
-      // reasoning stays out of the reply rather than spending the answer's
-      // token budget.
-      extra: { reasoning_effort: "low", include_reasoning: false },
+      maxTokens: 2000,
+      extra: { reasoning_effort: env.GROQ_REASONING_EFFORT || "medium", include_reasoning: false },
     });
   }
   if (env.CLOUDFLARE_ACCOUNT_ID && env.CLOUDFLARE_AI_TOKEN) {
@@ -64,6 +65,7 @@ export function getModelProviders(env = process.env) {
       // before choosing another.
       model: env.CLOUDFLARE_AI_MODEL || "@cf/openai/gpt-oss-20b",
       jsonMode: false,
+      maxTokens: 800,
       extra: { reasoning_effort: "low" },
     });
   }
@@ -159,7 +161,7 @@ export async function interpretDescription(query, { providers = getModelProvider
         body: JSON.stringify({
           model: provider.model,
           temperature: 0,
-          max_tokens: 800,
+          max_tokens: provider.maxTokens,
           ...(provider.jsonMode ? { response_format: { type: "json_object" } } : {}),
           ...provider.extra,
           messages: [

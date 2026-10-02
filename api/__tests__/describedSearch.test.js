@@ -33,6 +33,11 @@ describe("described search: reading the description", () => {
     const cloudflare = getModelProviders({ CLOUDFLARE_ACCOUNT_ID: "a", CLOUDFLARE_AI_TOKEN: "t" })[0];
     expect(cloudflare.model).toBe("@cf/openai/gpt-oss-20b");
     expect(cloudflare.extra).toEqual({ reasoning_effort: "low" });
+    // At low effort, or at 20B, Groq's model named a scene's movie only some of the time.
+    const groq = getModelProviders({ GROQ_API_KEY: "g" })[0];
+    expect(groq.model).toBe("openai/gpt-oss-120b");
+    expect(groq.extra.reasoning_effort).toBe("medium");
+    expect(getModelProviders({ GROQ_API_KEY: "g", GROQ_REASONING_EFFORT: "low" })[0].extra.reasoning_effort).toBe("low");
     expect(getModelProviders({ CLOUDFLARE_ACCOUNT_ID: "a", CLOUDFLARE_AI_TOKEN: "t", CLOUDFLARE_AI_MODEL: "@cf/x" })[0].model).toBe("@cf/x");
   });
 
