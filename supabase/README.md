@@ -57,8 +57,8 @@ Set `DATABASE_URL` to a superuser connection if the server is not
 `.github/workflows/ci.yml` runs, against a PostgreSQL that exists for the length
 of the job.
 
-A clean run passes every suite; the expected suite and assertion counts are the
-sentence in `CLAUDE.md`, which `npm run test:counts -- pgtap` holds to the run.
+A clean run passes every suite, and `npm run test:counts -- pgtap` checks that
+none went missing against the commit the branch grew from.
 If yours is not green, that is your change.
 
 ## The baseline

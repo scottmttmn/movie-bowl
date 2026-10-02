@@ -18,7 +18,7 @@ implemented on `codex/quiet-draw-reveal`; the method mark follows separately.
 - **Merging.** Once Scott has signed off the mockup, and the review is addressed
   and CI is green on the PR, merge it and move on to the next item without
   asking.
-- One item per PR. Follow CLAUDE.md for the gate, the test-count line, commit
+- One item per PR. Follow CLAUDE.md for the gate, the test-count check, commit
   style, and the rule on session links.
 
 ## What is done
