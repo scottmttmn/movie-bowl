@@ -27,3 +27,7 @@ mockups (`/mnt/project-files/ux-pass/bowl-page-marks/` in the project files).
   The badge sits outside the slip and is solid, like an avatar on a message.
 - The people count is the bowl's members, so it matches the picker.
 - The television keeps the slip beside the bowl name; it has no ⓘ to replace.
+  Reversed October 2, 2026: Scott had second thoughts about the slip up by the
+  name, and with the TV draw button rebuilt as the phone's bowl-and-button
+  stack, the slip moved to the end of the TV readout under it, where the phone
+  keeps it.

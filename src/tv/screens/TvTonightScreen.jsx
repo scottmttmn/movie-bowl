@@ -213,7 +213,7 @@ function TvErrorScreen({ message, onBack }) {
 // The phone's stat line, in the one place a television can put it: under the
 // button it describes. Static text, because a D-pad landing on a control that
 // opens nothing is worse than a mouse doing it.
-function TvDrawReadout({ readout, isApproximate, contributorReach, excludedContributorCount, memberCount }) {
+function TvDrawReadout({ readout, isApproximate, contributorReach, excludedContributorCount, memberCount, drawMethod }) {
   if (readout.count === 0) {
     return (
       <p className="tv-draw-readout" data-tone={STREAMING_MATCH_TONE.warning}>
@@ -224,7 +224,8 @@ function TvDrawReadout({ readout, isApproximate, contributorReach, excludedContr
 
   // The bowl list's two marks: the film strip counts what the draw chooses
   // among, the people count the bowl's members -- until filters leave someone
-  // out, when they turn into the ratio that should stop someone.
+  // out, when they turn into the ratio that should stop someone. The method's
+  // slip closes the line, as it does under the phone's bowl.
   return (
     <p className="tv-draw-readout" data-tone={readout.tone}>
       <span className="tv-draw-readout-stat">
@@ -256,6 +257,9 @@ function TvDrawReadout({ readout, isApproximate, contributorReach, excludedContr
           <span className="sr-only">{memberCount === 1 ? " member" : " members"}</span>
         </span>
       ) : null}
+      <span className="tv-draw-readout-stat">
+        <DrawMethodMark drawMethod={drawMethod} className="tv-method-mark" />
+      </span>
     </p>
   );
 }
@@ -1122,22 +1126,17 @@ export default function TvTonightScreen({ userId }) {
             data-tv-nav-region="stage"
             data-theater={defaultDrawSettings.theaterModeEnabled ? "true" : undefined}
           >
-            {/* The method belongs to the bowl rather than to tonight, so it
-                sits with the bowl's name and not in the readout, which is
-                about this draw's pool. */}
             <div className="tv-tonight-heading">
               <h1 className="tv-tonight-title">{bowlMeta.name}</h1>
-              <DrawMethodMark drawMethod={bowlMeta.drawMethod} className="tv-method-mark" />
             </div>
 
             <div className="tv-tonight-mid">
               <div className="tv-tonight-left">
               <div className="tv-draw-cta">
               {!isPreferencesLoading && <TheaterCurtains enabled={Boolean(defaultDrawSettings.theaterModeEnabled)} />}
-              {/* The bowl is the control. Left beside the button it was an
-                  ornament holding the best space on the screen and giving
-                  nothing back; inside it, the largest thing here and the only
-                  thing to do are the same object. */}
+              {/* The bowl is the control: the largest thing here and the only
+                  thing to do are the same object, with the label as the round
+                  button under it, the way the phone stacks them. */}
               <button
                 ref={drawBowlRef}
                 type="button"
@@ -1160,6 +1159,7 @@ export default function TvTonightScreen({ userId }) {
                   isApproximate={shownDrawReadout.isApproximate}
                   contributorReach={shownDrawReadout.reach}
                   memberCount={bowlMeta.memberCount}
+                  drawMethod={bowlMeta.drawMethod}
                   excludedContributorCount={
                     shownDrawReadout.reach
                       ? shownDrawReadout.reach.totalCount - shownDrawReadout.reach.reachedCount

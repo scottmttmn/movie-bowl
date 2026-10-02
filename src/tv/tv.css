@@ -528,46 +528,18 @@ html.tv-root {
   justify-content: center;
 }
 
+/* Solo draw's bowl and button, built like the bowl page's below and in
+   violet: the bowl stands free and the label is the round button under it. */
 .tv-solo-draw-button {
-  display: flex;
-  width: min(100%, 650px);
-  min-height: 280px;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 0.2rem;
-  padding: 1.35rem 2.6rem 1.6rem;
-  border: 1px solid rgba(167, 139, 250, 0.82);
-  border-radius: 32px;
-  background: linear-gradient(180deg, rgba(124, 92, 240, 0.2), rgba(91, 52, 216, 0.48));
-  color: white;
-  cursor: pointer;
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.22),
-    0 26px 58px -26px rgba(124, 92, 240, 0.95);
-  transition:
-    transform 160ms ease,
-    box-shadow 160ms ease;
-}
-
-.tv-solo-draw-button:hover,
-.tv-solo-draw-button:focus {
-  transform: translateY(-4px) scale(1.008);
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    0 30px 70px -24px rgba(124, 92, 240, 0.98),
-    0 0 90px -28px rgba(139, 124, 246, 0.72);
+  --tv-draw-pill: linear-gradient(180deg, #7c5cf0, #5b34d8);
+  --tv-draw-pill-edge: rgba(196, 181, 253, 0.8);
+  --tv-draw-glow: rgba(124, 92, 240, 0.9);
+  --tv-draw-ring: #c4b5fd;
 }
 
 .tv-solo-draw-bowl {
   width: auto;
-  height: 8rem;
-}
-
-.tv-solo-draw-button > span {
-  font-size: clamp(1.15rem, 1.65vw, 1.7rem);
-  font-weight: 830;
-  letter-spacing: -0.035em;
+  height: 9rem;
 }
 
 .tv-solo-pool-summary {
@@ -681,11 +653,10 @@ html.tv-root {
   gap: 0.9rem;
 }
 
-/* Quieter than the name beside it: context about the bowl, not a second
-   title. */
+/* The last mark on the readout line. */
 .tv-method-mark {
-  width: 2.4rem;
-  height: 2.4rem;
+  width: 2rem;
+  height: 2rem;
   flex: 0 0 auto;
   color: #94a3b8;
 }
@@ -733,43 +704,90 @@ html.tv-root {
   min-width: 0;
 }
 
-/* The bowl is inside the button rather than beside it. Two objects competing
-   for the middle of the screen is what left the dead space this replaces. */
-.tv-draw-button {
+/* The phone's stage, on a television: the bowl stands free and the label is
+   the round button under it. Both are one control, so one press of the remote
+   still draws, and focus shows on both -- the bowl lifts, the button rings.
+   A box around the pair fought the curtains for the middle of the stage. */
+.tv-draw-button,
+.tv-solo-draw-button {
   display: flex;
-  align-items: center;
-  gap: clamp(24px, 2vw, 60px);
   max-width: 100%;
-  min-height: 86px;
-  padding: 0.72rem 2.54rem;
-  border: 1px solid rgba(251, 113, 133, 0.78);
-  border-radius: 28px;
-  background: linear-gradient(180deg, rgba(225, 29, 72, 0.18), rgba(190, 18, 60, 0.46));
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 0;
+  border: 0;
+  background: none;
   color: white;
   cursor: pointer;
+}
+
+.tv-draw-button {
+  --tv-draw-pill: linear-gradient(180deg, #e11d48, #be123c);
+  --tv-draw-pill-edge: rgba(251, 113, 133, 0.8);
+  --tv-draw-glow: rgba(244, 63, 94, 0.9);
+  --tv-draw-ring: #fda4af;
+}
+
+/* The global focus ring would draw around the pair; the button carries it. */
+.tv-app .tv-draw-button[data-tv-focusable]:focus,
+.tv-app .tv-draw-button[data-tv-focusable]:focus-visible,
+.tv-app .tv-solo-draw-button[data-tv-focusable]:focus,
+.tv-app .tv-solo-draw-button[data-tv-focusable]:focus-visible {
+  border-color: transparent;
+  box-shadow: none;
+  outline: none;
+}
+
+.tv-draw-bowl,
+.tv-solo-draw-bowl {
+  flex: 0 0 auto;
+  filter: drop-shadow(0 24px 30px rgba(0, 0, 0, 0.55));
+  transition:
+    transform 220ms ease,
+    filter 220ms ease;
+}
+
+.tv-draw-bowl {
+  width: auto;
+  height: 10.5rem;
+}
+
+.tv-draw-button:focus .tv-draw-bowl,
+.tv-solo-draw-button:focus .tv-solo-draw-bowl {
+  transform: translateY(-8px) scale(1.04);
+  filter: drop-shadow(0 30px 40px var(--tv-draw-glow));
+}
+
+.tv-draw-button > span,
+.tv-solo-draw-button > span {
+  display: inline-flex;
+  min-width: 18rem;
+  min-height: 3.6rem;
+  align-items: center;
+  justify-content: center;
+  padding: 0 2.4rem;
+  border: 1px solid var(--tv-draw-pill-edge);
+  border-radius: 999px;
+  background: var(--tv-draw-pill);
   box-shadow:
     inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    0 20px 42px -22px rgba(244, 63, 94, 0.95);
+    0 18px 40px -18px var(--tv-draw-glow);
+  font-size: clamp(1.05rem, 1.5vw, 1.5rem);
+  font-weight: 820;
+  letter-spacing: -0.03em;
   transition:
     transform 160ms ease,
     box-shadow 160ms ease;
 }
 
-.tv-draw-button:hover,
-.tv-draw-button:focus {
-  transform: translateY(-3px) scale(1.006);
-}
-
-.tv-draw-bowl {
-  width: auto;
-  height: 7.9rem;
-  flex: 0 0 auto;
-}
-
-.tv-draw-button span {
-  font-size: clamp(1.05rem, 1.5vw, 1.5rem);
-  font-weight: 820;
-  letter-spacing: -0.03em;
+.tv-draw-button:focus > span,
+.tv-solo-draw-button:focus > span {
+  transform: scale(1.04);
+  box-shadow:
+    0 0 0 4px #0b0f1a,
+    0 0 0 7px var(--tv-draw-ring),
+    0 22px 50px -16px var(--tv-draw-glow);
 }
 
 .tv-stage-warning {
@@ -845,6 +863,13 @@ html.tv-root {
   width: 1.15em;
   height: 1.15em;
   margin-right: 0.35rem;
+}
+
+/* The slip is a picture rather than a glyph, so it gets its own size. */
+.tv-draw-readout .tv-method-mark {
+  width: 2rem;
+  height: 2rem;
+  margin-right: 0;
 }
 
 .tv-draw-guard {
@@ -1111,13 +1136,6 @@ html.tv-root {
 
 .tv-tonight-stage[data-theater] .tv-draw-readout {
   opacity: 0.75;
-}
-
-.tv-tonight-stage[data-theater] .tv-draw-button {
-  box-shadow:
-    inset 0 1px 0 rgba(255, 255, 255, 0.25),
-    0 26px 60px -20px rgba(244, 63, 94, 0.95),
-    0 0 90px -20px rgba(244, 63, 94, 0.5);
 }
 
 .tv-recent-section {
@@ -2165,23 +2183,13 @@ html.tv-root {
     padding: 36px 24px;
   }
 
-  .tv-solo-draw-button {
-    min-height: 230px;
-  }
-
   .tv-tonight-stage {
     text-align: center;
   }
 
-  /* The label stacks under the bowl rather than beside it: side by side there
-     is no longer room for either to be legible. */
-  .tv-draw-button {
-    flex-direction: column;
-    gap: 0.5rem;
-  }
-
-  .tv-draw-bowl {
-    height: 7rem;
+  .tv-draw-bowl,
+  .tv-solo-draw-bowl {
+    height: 7.5rem;
   }
 
   .tv-recent-section {
