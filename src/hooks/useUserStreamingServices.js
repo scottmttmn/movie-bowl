@@ -105,7 +105,12 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
         .eq("id", user.id);
 
       if (!error) {
-        setStreamingServicesState(normalized);
+        // A pick made while this was in flight stays. Writing the saved list
+        // over it made the settings page's autosave send that pick again, and
+        // the two lists traded places on every pass.
+        setStreamingServicesState((current) =>
+          valuesAreEqual(current, streamingServices) ? normalized : current
+        );
       }
 
       return { error };
@@ -162,12 +167,14 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
         .eq("id", user.id);
 
       if (!error) {
-        setRemoveFromBowlsOnSoloDrawState(next);
+        setRemoveFromBowlsOnSoloDrawState((current) =>
+          current === removeFromBowlsOnSoloDraw ? next : current
+        );
       }
 
       return { error };
     },
-    [loadError]
+    [loadError, removeFromBowlsOnSoloDraw]
   );
 
   const saveDisplayName = useCallback(async (value = displayName) => {
