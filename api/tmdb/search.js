@@ -3,7 +3,7 @@ import { normalizePersonMovieCredits } from "../_lib/personCredits.js";
 import { queryMatchesName, selectStrongPeopleMatches } from "../../src/utils/peopleMatch.js";
 import { suggestCorrection } from "../../src/utils/searchSuggestion.js";
 import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
-import { discoverWithFallback, interpretDescription, parseTermsParam, resolveTerms, verifyTitles } from "../_lib/describedSearch.js";
+import { discoverWithFallback, interpretDescription, resolveTerms, verifyTitles } from "../_lib/describedSearch.js";
 
 const MAX_QUERY_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 200;
@@ -77,25 +77,15 @@ async function describe(query, res) {
   // What the model read, without the words it read it from: the one way to
   // tell a description it did not recognize from a title TMDB did not match.
   console.info("[api/tmdb/search] described as", JSON.stringify(interpretation));
-  const [picks, { terms, results }] = await Promise.all([
+  const [picks, { results }] = await Promise.all([
     verifyTitles(interpretation.titles),
     resolveTerms(interpretation).then((resolved) => discoverWithFallback(resolved)),
   ]);
-  // The titles the model recognized lead, and the client keeps them while
-  // terms are removed; the filters' own results follow without repeating them.
+  // The titles the model recognized lead; the terms' own results follow
+  // without repeating them.
   const pickIds = new Set(picks.map((movie) => movie.id));
   const rest = results.filter((movie) => !pickIds.has(movie.id));
-  res.status(200).json(picks.length || rest.length ? { status: "ok", terms, picks, results: rest } : { status: "empty" });
-}
-
-async function discover(termsParam, res) {
-  const terms = parseTermsParam(termsParam);
-  if (!terms || terms.length === 0) {
-    res.status(400).json({ error: "Invalid query parameter: terms" });
-    return;
-  }
-  const { terms: used, results } = await discoverWithFallback(terms);
-  res.status(200).json(results.length ? { status: "ok", terms: used, results } : { status: "empty" });
+  res.status(200).json(picks.length || rest.length ? { status: "ok", picks, results: rest } : { status: "empty" });
 }
 
 export default async function handler(req, res) {
@@ -104,22 +94,18 @@ export default async function handler(req, res) {
     return;
   }
 
-  // One route, six actions, because the deployment is at Vercel Hobby's
+  // One route, five actions, because the deployment is at Vercel Hobby's
   // 12-function limit. A missing type is today's title search.
   const type = String(req.query?.type || "movie");
-  if (!["movie", "person", "person-movies", "suggest", "describe", "discover"].includes(type)) {
+  if (!["movie", "person", "person-movies", "suggest", "describe"].includes(type)) {
     res.status(400).json({ error: "Invalid query parameter: type" });
     return;
   }
 
-  if (type === "describe" || type === "discover") {
+  if (type === "describe") {
     try {
       if (!(await isSignedIn(req))) {
         res.status(401).json({ error: "Unauthorized" });
-        return;
-      }
-      if (type === "discover") {
-        await discover(req.query?.terms, res);
         return;
       }
       const description = String(req.query?.query || "").trim();

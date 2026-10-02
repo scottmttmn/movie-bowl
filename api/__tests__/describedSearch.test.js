@@ -6,7 +6,6 @@ import {
   interpretDescription,
   normalizeInterpretation,
   parseModelJson,
-  parseTermsParam,
   resolveTerms,
   verifyTitles,
 } from "../_lib/describedSearch.js";
@@ -205,17 +204,5 @@ describe("described search: finding the movies", () => {
 
     const nothing = await discoverWithFallback(terms, vi.fn(async () => ({ results: [] })));
     expect(nothing).toEqual({ terms: [], results: [] });
-  });
-
-  it("accepts only well-formed terms back from the client", () => {
-    expect(parseTermsParam(JSON.stringify([{ kind: "genre", id: 878, label: "Science Fiction" }, { kind: "years", from: 1990, to: 1999 }])))
-      .toEqual([{ kind: "genre", id: 878, label: "Science Fiction" }, { kind: "years", from: 1990, to: 1999, label: "1990s" }]);
-    expect(parseTermsParam(JSON.stringify([{ kind: "language", code: "fr", label: "<b>" }])))
-      .toEqual([{ kind: "language", code: "fr", label: "French" }]);
-    expect(parseTermsParam(JSON.stringify([{ kind: "language", code: "fr&x=1" }]))).toBeNull();
-    expect(parseTermsParam("not json")).toBeNull();
-    expect(parseTermsParam(JSON.stringify([{ kind: "genre", id: -1 }]))).toBeNull();
-    expect(parseTermsParam(JSON.stringify([{ kind: "sql", id: 1 }]))).toBeNull();
-    expect(parseTermsParam(JSON.stringify(Array(9).fill({ kind: "genre", id: 1 })))).toBeNull();
   });
 });
