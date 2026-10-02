@@ -37,7 +37,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (192 test files / 1806 tests, 116 Playwright tests with 12 skipped,
+fully green (192 test files / 1809 tests, 116 Playwright tests with 12 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -465,8 +465,9 @@ then a generic 500. They run in Node and are excluded from coverage; they are
 
 - `api/tmdb/*` proxies TMDB so `TMDB_READ_ACCESS_TOKEN` stays server-side.
   `api/tmdb/search`'s `describe` action is the one place a language model is
-  called: it reads a described search into TMDB terms and never names a movie
-  itself (`output/designs/described-search.md`). It is signed-in only and off
+  called: it reads a described search into TMDB terms, and any title it names
+  is shown only once TMDB has a movie by exactly those words
+  (`output/designs/described-search.md`). It is signed-in only and off
   without `GROQ_API_KEY` or the Cloudflare pair, and "no model answered" is a
   normal result the search sheet shows, never an error.
 - `api/provider-links/lookup` verifies the bearer token and bowl/title access
