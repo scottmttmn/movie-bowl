@@ -35,47 +35,51 @@ export default function MovieActionCard({
       className="relative inline-flex w-28 flex-shrink-0 flex-col text-center"
       data-filter-excluded={isFilterExcluded ? "true" : undefined}
     >
-      {/* The poster is the way in, exactly as it is in the watched strip, so the
-          two sections stop being different interactions as well as sizes. */}
-      <button
-        type="button"
-        onClick={() => onViewDetails?.(movie)}
-        disabled={disableActions}
-        aria-label={`Details for ${movie.title}`}
-        className={`group w-full rounded-xl border-0 bg-transparent p-0 transition hover:-translate-y-1 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/70 disabled:translate-y-0 ${
-          isSyncing ? "opacity-80" : ""
-        }`}
-      >
-        <div className={dimmed}>
-          {posterUrl ? (
-            <img
-              src={posterUrl}
-              alt={movie.title}
-              loading="lazy"
-              decoding="async"
-              className="h-40 w-28 rounded-xl border-2 border-transparent object-cover shadow-lg shadow-black/30 transition group-hover:shadow-xl group-hover:shadow-black/40"
-            />
-          ) : (
-            <div className="flex h-40 w-28 items-center justify-center rounded-xl border-2 border-slate-700 bg-slate-800 p-2">
-              <p className="text-center text-xs font-semibold text-slate-200">{movie.title}</p>
-            </div>
-          )}
-        </div>
-        <div className={dimmed}>
-          <p className="mt-1 line-clamp-2 min-h-[2rem] text-xs font-medium leading-tight text-slate-200">
-            {movie.title}
-          </p>
-        </div>
-      </button>
+      {/* The ribbon hangs off the poster, so the two lift as one: hovering
+          either raises both, and a syncing card stays put. */}
+      <div className={`group relative transition ${disableActions ? "" : "hover:-translate-y-1"}`}>
+        {/* The poster is the way in, exactly as it is in the watched strip, so the
+            two sections stop being different interactions as well as sizes. */}
+        <button
+          type="button"
+          onClick={() => onViewDetails?.(movie)}
+          disabled={disableActions}
+          aria-label={`Details for ${movie.title}`}
+          className={`w-full rounded-xl border-0 bg-transparent p-0 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/70 ${
+            isSyncing ? "opacity-80" : ""
+          }`}
+        >
+          <div className={dimmed}>
+            {posterUrl ? (
+              <img
+                src={posterUrl}
+                alt={movie.title}
+                loading="lazy"
+                decoding="async"
+                className="h-40 w-28 rounded-xl border-2 border-transparent object-cover shadow-lg shadow-black/30 transition group-hover:shadow-xl group-hover:shadow-black/40"
+              />
+            ) : (
+              <div className="flex h-40 w-28 items-center justify-center rounded-xl border-2 border-slate-700 bg-slate-800 p-2">
+                <p className="text-center text-xs font-semibold text-slate-200">{movie.title}</p>
+              </div>
+            )}
+          </div>
+          <div className={dimmed}>
+            <p className="mt-1 line-clamp-2 min-h-[2rem] text-xs font-medium leading-tight text-slate-200">
+              {movie.title}
+            </p>
+          </div>
+        </button>
 
-      {/* A sibling of the poster button rather than a child of it: an
-          interactive element inside another one is neither valid nor reachable. */}
-      <MoviePosterPin
-        isPinned={isPinned}
-        label={pinLabel}
-        disabled={pinControlDisabled}
-        onClick={showPinControl ? () => onTogglePin(movie, !isPinned) : undefined}
-      />
+        {/* A sibling of the poster button rather than a child of it: an
+            interactive element inside another one is neither valid nor reachable. */}
+        <MoviePosterPin
+          isPinned={isPinned}
+          label={pinLabel}
+          disabled={pinControlDisabled}
+          onClick={showPinControl ? () => onTogglePin(movie, !isPinned) : undefined}
+        />
+      </div>
 
       <div className={dimmed}>
         {isCustomEntry && (
