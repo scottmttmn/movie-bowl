@@ -107,6 +107,19 @@ sent, and its terms bar serving EU or UK users on it.
 Both actions require a signed-in session, so a public add link never spends
 the quota and never shows the sparkle.
 
+## Measuring it
+
+`npm run eval:search` sends the searches in
+`scripts/smart-search-eval/cases.json` (quotes, scenes, an actor and a topic,
+described or misspelled people, misspelled titles, and categories) through the
+same model call and TMDB lookups as the describe action, and scores where the
+known answer lands: a movie in the top three, a person named, or a category's
+terms read. It waits past the app's five seconds so a slow answer is measured,
+then counts it as one the app would not show. `--config 120b:medium,20b:low`
+compares settings and `--runs 3` shows how consistent one is. It spends the
+app's Groq quota. Trying the same five searches by hand could not tell a better
+model from a luckier day, which is why it exists.
+
 ## Relaxing
 
 A description rarely matches TMDB's tags exactly. When every term together
