@@ -83,7 +83,17 @@ describe("described search: reading the description", () => {
     expect(fetchImpl.mock.calls.map(([url]) => url)).toEqual(["https://groq.test", "https://cf.test"]);
     expect(JSON.parse(fetchImpl.mock.calls[0][1].body).response_format).toEqual({ type: "json_object" });
     expect(JSON.parse(fetchImpl.mock.calls[1][1].body).response_format).toBeUndefined();
+    // A misspelled or described person reaches the model too, so it is asked for them.
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body).messages[0].content).toMatch(/names, misspells or describes/);
     expect(warn).toHaveBeenCalledWith("[api/tmdb/search] groq answered 429", "model retired");
+
+    // An empty answer is no answer: the next provider is asked, and the raw
+    // text is logged.
+    const hollow = vi.fn()
+      .mockResolvedValueOnce(reply('{"titles":[],"people":[],"genres":[],"keywords":[]}'))
+      .mockResolvedValueOnce(reply('{"terms":{"people":["Brad Pitt"]}}'));
+    expect((await interpretDescription("brad pitt baseball movie", { providers: PROVIDERS, fetchImpl: hollow })).people).toEqual(["Brad Pitt"]);
+    expect(warn).toHaveBeenCalledWith("[api/tmdb/search] groq returned no usable terms", '{"titles":[],"people":[],"genres":[],"keywords":[]}');
 
     const down = vi.fn().mockRejectedValueOnce(new Error("timeout")).mockResolvedValueOnce(reply("not json"));
     expect(await interpretDescription("x y z", { providers: PROVIDERS, fetchImpl: down })).toBeNull();
