@@ -112,6 +112,7 @@ export default function MovieSearch({
     feedback = null,
     autoFocusSearch = true,
     controllerRef = null,
+    initialSearchTerm = "",
     onDetailChange,
     onDraftChange,
     onSearchFocus,
@@ -122,7 +123,7 @@ export default function MovieSearch({
     getResultMark = null,
 }) {
     // Controlled input state for the search field
-    const [searchTerm, setSearchTerm] = useState("");
+    const [searchTerm, setSearchTerm] = useState(initialSearchTerm);
     const [searchResults, setSearchResults] = useState([]);
     // What the results on screen were searched for. After a misspelling found
     // nothing, that is the suggestion rather than the words in the field,

@@ -38,7 +38,7 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (192 test files / 1809 tests, 116 Playwright tests with 12 skipped,
+fully green (194 test files / 1820 tests, 122 Playwright tests with 12 skipped,
 lint with zero warnings); if something fails, it is your change. Those counts
 are a tripwire, not trivia — refresh them in the same commit that adds or
 removes tests, or the next person cannot tell a stale number from a lost test.
@@ -165,9 +165,9 @@ The check is production-only; the dev server has HMR and no manifest to serve.
 
 ### Routes (`src/App.jsx`)
 
-`/` (HomeRedirect), `/bowls`, `/bowl/:bowlId`, `/bowl/:bowlId/settings`,
-`/settings`, `/watch-list`, `/solo-draw`, `/invites`, `/about`, `/login`,
-`/accept-invite/:token`, `/add-to-bowl/:token`, `/tv/*`.
+`/` (HomeRedirect), `/quick-add`, `/bowls`, `/bowl/:bowlId`,
+`/bowl/:bowlId/settings`, `/settings`, `/watch-list`, `/solo-draw`, `/invites`,
+`/about`, `/login`, `/accept-invite/:token`, `/add-to-bowl/:token`, `/tv/*`.
 
 Everything except `/login`, `/about`, `/accept-invite/:token`, and
 `/add-to-bowl/:token` is wrapped in `RequireAuth`. `/tv/*` and
@@ -184,6 +184,15 @@ there is no bowl on screen, and it uses the home bowl. Both use the same
 `BowlAddProvider` and `bowlMovieService`; keep pending operations
 above routes and retain uncertain outcomes for status checks without
 reinserting.
+
+`/quick-add` is the way in from outside the app, and only Android uses it:
+`public/manifest.webmanifest` points the home-screen icon's long-press
+"Add a movie" shortcut and its `share_target` there. It resolves the home bowl
+the way `/` does and opens the add sheet on it, already searching whatever was
+shared (`utils/sharedMovieQuery.js` strips the site name, year and link off;
+anything messier is left for smart search). The share target is a GET, so it
+needs no service worker and no serverless function. The sheet opens once only:
+the launch is dropped from the history entry so a reload is an ordinary visit.
 
 `/bowls` never redirects. `/` computes a destination; `/bowls` computes nothing
 and always renders, which is what makes it the recovery surface every resolution

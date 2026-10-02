@@ -75,6 +75,11 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   Android AppFunctions is generally available to third-party apps with a
   supported voice invocation path. Decision record and evidence:
   `output/designs/gemini-voice-capture.md` and `android-mobile/TEST_RESULTS.md`.
+  What shipped instead, October 2, 2026: on Android, long-pressing the
+  installed app's icon offers "Add a movie", and Movie Bowl appears in the
+  share sheet; both open the add sheet on the home bowl (`/quick-add`). A
+  "Say a movie" shortcut that opens with the mic listening was left out for
+  simplicity and could be added later.
 - Bigger swings, unscheduled: attendance-aware movie nights, a live draw every
   client sees at once, shareable ticket stubs and bowl recaps, a composable
   house-rules layer over the draw method registry, and curation for bowls that

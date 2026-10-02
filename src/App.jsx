@@ -1,4 +1,4 @@
-import React, { Suspense, useCallback, useEffect } from "react";
+import React, { Suspense, useCallback, useEffect, useRef } from "react";
 import { BrowserRouter as Router, Routes, Route, Navigate, matchPath, useLocation, useNavigate, useParams } from "react-router-dom";
 import useAuth from "./hooks/useAuth";
 import useAppUpdate from "./hooks/useAppUpdate";
@@ -70,6 +70,7 @@ const WatchListPage = lazyScreen(() => import("./screens/WatchListPage"));
 const SoloDrawPage = lazyScreen(() => import("./screens/SoloDrawPage"));
 const InvitesPage = lazyScreen(() => import("./screens/InvitesPage"));
 const HomeRedirect = lazyScreen(() => import("./screens/HomeRedirect"));
+const QuickAddRedirect = lazyScreen(() => import("./screens/QuickAddRedirect"));
 const TvApp = lazyScreen(() => import("./tv/TvApp"));
 const TvAuthGate = lazyScreen(() => import("./tv/TvAuthGate"));
 const TvActivationPage = lazyScreen(() => import("./screens/TvActivationPage"));
@@ -121,6 +122,25 @@ function AppShell({ children }) {
     },
     [viewedBowlId, openBowlAdd, openGlobalAdd]
   );
+  // /quick-add (the home-screen shortcut and Android's share sheet) lands on
+  // the home bowl carrying what to search for. The sheet opens here, once that
+  // route is current, because the dialog closes itself when the location
+  // changes under it.
+  const quickAdd = location.state?.quickAdd;
+  const { openQuickAdd } = bowlAdd;
+  const quickAddOpened = useRef(null);
+  useEffect(() => {
+    if (!quickAdd || !session || !viewedBowlId || quickAddOpened.current === location.key) return;
+    quickAddOpened.current = location.key;
+    // Dropped from the history entry too, so reloading the bowl later does not
+    // open the sheet again. React Router keeps its state under "usr".
+    try {
+      window.history.replaceState({ ...window.history.state, usr: null }, "");
+    } catch {
+      // A browser that refuses only reopens the sheet on reload.
+    }
+    void openQuickAdd(viewedBowlId, quickAdd.query || "");
+  }, [quickAdd, session, viewedBowlId, location.key, openQuickAdd]);
   usePrefetchLikelyRoutes(session, location.pathname);
 
   return (
@@ -332,6 +352,11 @@ function App() {
               <Route path="/" element={
                 <RequireAuth>
                   <HomeRedirect />
+                </RequireAuth>
+              } />
+              <Route path="/quick-add" element={
+                <RequireAuth>
+                  <QuickAddRedirect />
                 </RequireAuth>
               } />
               <Route path="/bowls" element={

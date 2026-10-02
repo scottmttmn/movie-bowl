@@ -179,7 +179,7 @@ export default function BowlAddDialog() {
       {add.initializing ? <p role="status">Loading your bowls…</p> : !destination && add.bowlsError ? <div role="alert" className="status-error">
         {add.bowlsError}<button className="btn btn-secondary mt-3" onClick={() => add.openGlobalAdd()}>Retry</button>
       </div> : <>
-        {destination ? <MovieSearch controllerRef={search} inlineDetails disabled={disabled} submissionPending={add.pending}
+        {destination ? <MovieSearch controllerRef={search} initialSearchTerm={add.query} inlineDetails disabled={disabled} submissionPending={add.pending}
           includeComment={false} autoFocusSearch={false}
           alternateBody={sessionView ? <AddedMoviesList add={add} bowls={bowls} controllerRef={additions}
             onRemoved={() => { setSessionView(false); search.current?.focusSearch(); }} /> : null}
