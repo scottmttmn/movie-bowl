@@ -33,6 +33,8 @@ describe("described search: reading the description", () => {
     const cloudflare = getModelProviders({ CLOUDFLARE_ACCOUNT_ID: "a", CLOUDFLARE_AI_TOKEN: "t" })[0];
     expect(cloudflare.model).toBe("@cf/openai/gpt-oss-20b");
     expect(cloudflare.extra).toEqual({ reasoning_effort: "low" });
+    // Cloudflare takes about three seconds and timed out at five in production.
+    expect(cloudflare.timeoutMs).toBe(8000);
     expect(getModelProviders({ CLOUDFLARE_ACCOUNT_ID: "a", CLOUDFLARE_AI_TOKEN: "t", CLOUDFLARE_AI_MODEL: "@cf/x" })[0].model).toBe("@cf/x");
   });
 

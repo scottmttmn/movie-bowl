@@ -22,7 +22,10 @@ const MAX_PEOPLE = 2;
 const MAX_GENRES = 2;
 const MAX_KEYWORDS = 2;
 const MAX_TITLES = 3;
-const MODEL_TIMEOUT_MS = 5000;
+// How long each provider gets before the next is tried. Groq answers in
+// about a second; Cloudflare runs the same model in about three, and five
+// cut off enough of its slow answers to read as "resting".
+const DEFAULT_MODEL_TIMEOUT_MS = 5000;
 
 const SYSTEM_PROMPT = `You turn a description of a movie into search terms for The Movie Database.
 Reply with JSON only, shaped exactly like:
@@ -64,6 +67,7 @@ export function getModelProviders(env = process.env) {
       // before choosing another.
       model: env.CLOUDFLARE_AI_MODEL || "@cf/openai/gpt-oss-20b",
       jsonMode: false,
+      timeoutMs: 8000,
       extra: { reasoning_effort: "low" },
     });
   }
@@ -155,7 +159,7 @@ export async function interpretDescription(query, { providers = getModelProvider
             { role: "user", content: query },
           ],
         }),
-        signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
+        signal: AbortSignal.timeout(provider.timeoutMs || DEFAULT_MODEL_TIMEOUT_MS),
       });
       if (!response.ok) {
         // The body says why (a retired model, a token without permission),

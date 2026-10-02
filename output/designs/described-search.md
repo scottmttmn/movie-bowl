@@ -61,7 +61,7 @@ nothing, not an outage.
 
 `api/_lib/describedSearch.js`, through the `describe` and `discover` actions
 on `api/tmdb/search` (the deployment has no function slots left). Both speak
-OpenAI's chat format and are tried in order, each with a five-second limit:
+OpenAI's chat format and are tried in order, Groq with a five-second limit and Cloudflare, which is slower, with eight:
 
 1. Groq, `openai/gpt-oss-20b` (`GROQ_API_KEY`): 1,000 requests a day free and
    fast enough to feel like search.

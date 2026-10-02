@@ -5,6 +5,10 @@ import { suggestCorrection } from "../../src/utils/searchSuggestion.js";
 import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { discoverWithFallback, interpretDescription, parseTermsParam, resolveTerms, verifyTitles } from "../_lib/describedSearch.js";
 
+// A described search can wait on Groq and then Cloudflare (5s + 8s) before
+// TMDB; the plan's default limit is not something to lean on for that.
+export const config = { maxDuration: 30 };
+
 const MAX_QUERY_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 200;
 
