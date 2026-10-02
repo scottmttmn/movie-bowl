@@ -945,7 +945,14 @@ export default function MovieSearch({
                 {feedback}
             </div>
 
-            <div ref={scrollRef} className={inlineDetails ? "bowl-add-scroll" : undefined} hidden={hideResults || Boolean(alternateBody)}>
+            {/* Dragging the results is done with typing, as in a native app:
+                the on-screen keyboard otherwise stays up over half of them.
+                Only a touch drag does it, so a mouse or keyboard never loses
+                the field. */}
+            <div ref={scrollRef} className={inlineDetails ? "bowl-add-scroll" : undefined} hidden={hideResults || Boolean(alternateBody)}
+                onTouchMove={() => {
+                    if (document.activeElement === inputRef.current) inputRef.current?.blur();
+                }}>
             {!personView && !isSearching && resultsQuery.correctedFrom && resultsQuery.correctedFrom === searchTerm.trim() && (
                 <p className="mt-2 text-sm text-slate-400" role="status">
                     No matches for &ldquo;{resultsQuery.correctedFrom}&rdquo;. Showing results for{" "}
