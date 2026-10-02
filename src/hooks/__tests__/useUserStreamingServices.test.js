@@ -1,6 +1,7 @@
 import { act, renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 import useUserStreamingServices from "../useUserStreamingServices";
+import useAutosave from "../useAutosave";
 import { DEFAULT_DRAW_SETTINGS } from "../../utils/drawSettings";
 import { resetPageLifecycleForTests } from "../../utils/pageLifecycle";
 
@@ -321,6 +322,74 @@ describe("useUserStreamingServices", () => {
     expect(mocks.state.updatedPayloads.at(-1).default_draw_settings).toEqual({
       ...withoutRetiredCount, runtimeMaxMinutes: 120, selectedRatings: ["PG"], theaterModeEnabled: false,
     });
+  });
+
+  it("does not let a slow save overwrite a service picked while it was in flight", async () => {
+    let finishSave;
+    mocks.state.updateWait = new Promise((resolve) => { finishSave = resolve; });
+    const { result } = renderHook(() => useUserStreamingServices());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    let pendingSave;
+    act(() => { pendingSave = result.current.saveStreamingServices(["Max", "Netflix", "Hulu"]); });
+    act(() => result.current.toggleService("Hulu"));
+    act(() => result.current.toggleService("Peacock"));
+    await act(async () => { finishSave(); await pendingSave; });
+    expect(result.current.streamingServices).toEqual(["Max", "Netflix", "Hulu", "Peacock"]);
+  });
+
+  it("settles when a service is picked while the previous pick is still saving", async () => {
+    // The settings page autosaves the list. A save that wrote its own value
+    // back over a newer pick made the next save write that pick again, and
+    // the two traded places on every pass: the page jumped and never stopped
+    // saving.
+    mocks.state.profileStreamingServices = [];
+    let finishSave;
+    mocks.state.updateWait = new Promise((resolve) => { finishSave = resolve; });
+    const { result } = renderHook(() => {
+      const services = useUserStreamingServices();
+      const autosave = useAutosave({
+        value: services.streamingServices,
+        save: (next) => services.saveStreamingServices(next),
+        enabled: !services.loading,
+        delay: 0,
+      });
+      return { services, autosave };
+    });
+    await waitFor(() => expect(result.current.services.loading).toBe(false));
+
+    act(() => result.current.services.toggleService("Hulu"));
+    await waitFor(() => expect(mocks.state.updatedPayloads).toHaveLength(1));
+    act(() => result.current.services.toggleService("Netflix"));
+    // Each save takes long enough for the page to render in between, as it
+    // does on a real network.
+    const finishFirstSave = finishSave;
+    mocks.state.updateWait = new Promise((resolve) => { finishSave = resolve; });
+    await act(async () => { finishFirstSave(); });
+    await waitFor(() => expect(mocks.state.updatedPayloads).toHaveLength(2));
+    mocks.state.updateWait = null;
+    await act(async () => { finishSave(); });
+
+    await waitFor(() => expect(result.current.autosave.status).toBe("saved"));
+    await act(async () => { await new Promise((resolve) => setTimeout(resolve, 20)); });
+    expect(result.current.services.streamingServices).toEqual(["Hulu", "Netflix"]);
+    expect(result.current.autosave.status).toBe("saved");
+    expect(mocks.state.updatedPayloads).toEqual([
+      { streaming_services: ["Hulu"] },
+      { streaming_services: ["Hulu", "Netflix"] },
+    ]);
+  });
+
+  it("does not let a slow automatic-removal save undo a newer toggle", async () => {
+    let finishSave;
+    mocks.state.updateWait = new Promise((resolve) => { finishSave = resolve; });
+    const { result } = renderHook(() => useUserStreamingServices());
+    await waitFor(() => expect(result.current.loading).toBe(false));
+    let pendingSave;
+    act(() => { result.current.setRemoveFromBowlsOnSoloDraw(false); });
+    act(() => { pendingSave = result.current.saveRemoveFromBowlsOnSoloDraw(false); });
+    act(() => { result.current.setRemoveFromBowlsOnSoloDraw(true); });
+    await act(async () => { finishSave(); await pendingSave; });
+    expect(result.current.removeFromBowlsOnSoloDraw).toBe(true);
   });
 
   it("does not let a slow save overwrite a newer local playback edit", async () => {
