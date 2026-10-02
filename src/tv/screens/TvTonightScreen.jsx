@@ -1029,7 +1029,7 @@ export default function TvTonightScreen({ userId }) {
   if (isDrawing) {
     return (
       <>
-      {defaultDrawSettings.theaterModeEnabled && <TheaterRevealCurtains origin={curtainOrigin} closeFirst />}
+      {defaultDrawSettings.theaterModeEnabled && <TheaterRevealCurtains origin={curtainOrigin} />}
       <TvDrawingScreen
         bowlName={bowlMeta.name}
         revealRun={revealRun}

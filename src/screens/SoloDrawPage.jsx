@@ -19,7 +19,6 @@ import SoloDrawDialog from "../components/SoloDrawDialog";
 import SoloDrawFilters from "../components/SoloDrawFilters";
 import ConfirmDialog from "../components/ConfirmDialog";
 import TheaterPreroll from "../components/TheaterPreroll";
-import TheaterCurtains from "../components/TheaterCurtains";
 import TheaterModeToggle from "../components/TheaterModeToggle";
 import GearGlyph from "../components/GearGlyph";
 import { WEB_SURFACE_DEFAULTS } from "../utils/deviceDrawSettings";
@@ -465,7 +464,6 @@ export default function SoloDrawPage() {
                 holdState={holdState}
               />
               <span className="solo-avatar solo-bowl-avatar" aria-hidden="true">{shownInitial}</span>
-              <TheaterCurtains enabled={isTheaterModeEnabled} holdState={holdState} isDrawing={isDrawInProgress} />
             </div>
             {poolErrorMessage ? (
               <div className="panel-muted status-error mt-4" role="alert">
@@ -495,7 +493,7 @@ export default function SoloDrawPage() {
                 onHoldComplete={runDraw} onHoldStateChange={setHoldState} onKeyboardActivate={() => { if (canDraw) setIsConfirmingDraw(true); }}
                 disabled={!canDraw} isLoading={isDrawInProgress} />
             </div>
-            <div className="mt-3 flex justify-center">
+            <div className="mt-3 w-full max-w-sm">
               <TheaterModeToggle
                 enabled={isTheaterModeEnabled}
                 previewCount={theaterTrailerCount}

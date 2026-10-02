@@ -5,9 +5,11 @@ about. The decision in "The Supported Surfaces" is settled, and so is the shape
 of the dashboard affordance — a theater mode switch beside the draw button,
 revised September 12, 2026 from an earlier offer-shaped proposal. The device
 override layer (`src/utils/deviceDrawSettings.js`), the switch (a ticket
-until October 1, 2026, now the curtain button in
-`src/components/TheaterModeToggle.jsx`, with curtains around the bowl from
-`src/components/TheaterCurtains.jsx`) and the web pre-roll
+until October 1, 2026, then a curtain button with curtains around the bowl,
+and since October 2, 2026 a plain "Previews first" switch in
+`src/components/TheaterModeToggle.jsx`; the curtains in
+`src/components/TheaterCurtains.jsx` hang on the television only, where the
+night is watched) and the web pre-roll
 (`src/components/TheaterPreroll.jsx`) are all built, the `TopNav` item is gone,
 and the pairing screen's type has been enlarged. Step 3, the Settings copy, is
 done as of September 19, 2026. Step 5 of "Sketch of the Work" is not, and the
