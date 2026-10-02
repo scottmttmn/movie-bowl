@@ -111,8 +111,9 @@ the quota and never shows the sparkle.
 ## Measuring it
 
 `npm run eval:search` sends the searches in
-`scripts/smart-search-eval/cases.json` (quotes, scenes, an actor and a topic,
-described or misspelled people, misspelled titles, and categories) through the
+`scripts/smart-search-eval/cases.json` (mostly half-remembered plots, an actor and
+a topic, described or misspelled people, misspelled titles and categories, with
+only three quotes: whoever remembers a quote remembers the title) through the
 same model call and TMDB lookups as the describe action, and scores where the
 known answer lands: a movie in the top three, a person named, or a category's
 terms read. It waits past the app's five seconds so a slow answer is measured,
