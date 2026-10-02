@@ -171,7 +171,7 @@ simply be removed.
 - `npm run test` - start Vitest in watch mode
 - `npm run test:run` - run tests once
 - `npm run test:failures` - name what failed in the last `test:run`
-- `npm run test:counts` - check the last runs against the counts in `CLAUDE.md`
+- `npm run test:counts` - check the last runs lost no test against `main`
 - `npm run test:coverage` - run tests with coverage
 - `npm run test:e2e` - run the local Playwright smoke suite
 - `node scripts/refresh-provider-logos.mjs` - regenerate `src/utils/providerLogos.js`
@@ -590,8 +590,9 @@ screenshot, and video in `test-results/`; the HTML report is written to
 
 A clean checkout is expected to be fully green, with lint reporting zero
 warnings. Run `npm run test:run`, `npm run test:e2e`, and `npm run build` before
-committing anything non-trivial. `CLAUDE.md` carries the expected test counts as
-a tripwire, so a lost test is visible rather than silent.
+committing anything non-trivial. `npm run test:counts` compares each suite's
+last run with the commit the branch grew from, so a lost test is visible rather
+than silent.
 
 The end-to-end suite is in that list rather than in a release checklist because
 leaving it out did not hold: it was red on a clean checkout through three

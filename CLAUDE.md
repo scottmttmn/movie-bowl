@@ -17,7 +17,7 @@ npm run dev          # Vite dev server, frontend only — /api/* routes will 404
 npm run dev:api      # full local behavior including /api/* serverless routes
 npm run test:run     # run the whole Vitest suite once (the pre-merge gate)
 npm run test:failures # name the tests that failed in the last test:run
-npm run test:counts  # hold CLAUDE.md's counts to the last run of each suite
+npm run test:counts  # check the last run of each suite lost no test against main
 npm run test         # Vitest watch mode
 npm run test:coverage
 npm run test:e2e     # Playwright smoke suite, part of the gate; no production credentials
@@ -38,23 +38,30 @@ ignores `has` in development and serves normally.
 Before committing anything non-trivial, run `npm run test:run` and `npm run build`.
 Run `npm run test:e2e` as well for any change a browser can see — UI, routing,
 navigation, or copy a test might assert on. A clean checkout is expected to be
-fully green (194 test files / 1829 tests, 124 Playwright tests with 12 skipped,
-lint with zero warnings); if something fails, it is your change. Those counts
-are a tripwire, not trivia — refresh them in the same commit that adds or
-removes tests, or the next person cannot tell a stale number from a lost test.
-`npm run test:counts` enforces that, reading the sentence above and comparing it
-to what each suite last reported. It exists because a lost test does not turn a
-suite red: the number simply gets smaller and the run stays green, which is the
-one thing a tripwire nobody reads cannot catch.
+fully green, lint with zero warnings included; if something fails, it is your
+change.
+
+`npm run test:counts` is the tripwire for the one failure a green run hides: a
+lost test does not turn a suite red, the number simply gets smaller. It compares
+the last run of each suite with the same suite on the commit the branch grew
+from (its merge base with `origin/main`, or `--base <ref>`), file by file, and
+fails when a file holds fewer tests than it did there or is gone. A test renamed
+inside its file is fine. Deleting tests, or moving them to another file, needs a
+commit on the branch carrying a `Tests-removed: <why>` line. A run of only some
+files counts the rest as gone, so check after a whole run.
+
+The totals used to be a sentence in this file, and every change that added a
+test edited it, so any two branches open at once collided on that one line and a
+merge from GitHub's button quietly kept main's number. Do not bring a stated
+count back: the base commit already knows its own tests.
 
 `.github/workflows/ci.yml` runs lint, build, the Vitest suite, the Playwright
 suite and the pgTAP database suites on every pull request and on `main`, each
-with that count check. The one exception is Playwright on a pull request that
-changes only Markdown, which it skips; `CLAUDE.md` does not count as Markdown
-there, because it carries the Playwright number. It is not a substitute for running the gate before you
-commit — it answers minutes later, and the Playwright suite is where a change
-you can see usually breaks — but it is what makes a green checkout a claim
-rather than a habit.
+with that check against the base. The one exception is Playwright on a pull
+request that changes only Markdown, which it skips. It is not a substitute for
+running the gate before you commit — it answers minutes later, and the
+Playwright suite is where a change you can see usually breaks — but it is what
+makes a green checkout a claim rather than a habit.
 
 The database suites were the last thing left out of it, because seeding them
 meant dumping the linked Supabase project and this repository is public. That is
@@ -332,8 +339,9 @@ on a PostgreSQL you already have, applies `supabase/baseline/` and then every
 migration in order, runs the suites and drops it again. It needs pgTAP and
 `pg_prove` beside that server (`apt-get install pgtap`, or `brew install pgtap`)
 and `DATABASE_URL` if the server is not the local default. Never against the
-hosted database: pgTAP writes rows. A clean run is 36 suites / 868 assertions,
-all passing, and `npm run test:counts -- pgtap` holds that sentence to the run.
+hosted database: pgTAP writes rows. A clean run passes every suite, and
+`npm run test:counts -- pgtap` builds the base's database too, to check no suite
+or assertion went missing; each suite's own `plan()` holds its count.
 
 `supabase/baseline/` is the pre-migration schema, not a migration. Movie Bowl's
 first tables were made in the dashboard, so `supabase/migrations/` opens in
@@ -622,14 +630,11 @@ Vitest + Testing Library, jsdom, setup in `src/test/setup.js`. Tests live in
   belongs in the register and cannot reach it, say so rather than writing it
   down here.
 - Branch from the remote, not from whatever `main` this checkout last saw:
-  `git fetch origin && git switch -c <branch> origin/main`. The count sentence
-  above makes this sharper than it looks -- every change that adds or removes a
-  test edits that one line, so two branches cut from different bases collide
-  there almost by construction. A stale base also costs more than a rebase: a
-  pull request GitHub cannot merge has no merge ref to build, so its
-  `pull_request` workflows never run at all. That reads as a slow queue rather
-  than a conflict, because a gate that never started looks exactly like a gate
-  that has not finished. Zero checks on a pull request means conflicts until
+  `git fetch origin && git switch -c <branch> origin/main`. A stale base costs
+  more than a rebase: a pull request GitHub cannot merge has no merge ref to
+  build, so its `pull_request` workflows never run at all. That reads as a slow
+  queue rather than a conflict, because a gate that never started looks exactly
+  like a gate that has not finished. Zero checks on a pull request means conflicts until
   proven otherwise; `gh pr view --json mergeable` answers it in one line.
 - Commit subjects are imperative and sentence-case, no prefixes or emoji
   ("Land returning users in their last opened bowl"). Bodies explain the
