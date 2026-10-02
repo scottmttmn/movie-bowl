@@ -1876,8 +1876,9 @@
   }
 }
 
-/* Theater mode's curtains: around the bowl while it is on, and over the whole
-   screen while a draw is revealed. Both are decoration and never take a tap. */
+/* Theater mode's curtains on the television: around the draw while it is on,
+   and over the whole screen while a draw is revealed. Both are decoration and
+   never take a press. tv.css sizes the stage pair. */
 .theater-curtains {
   position: absolute;
   inset: -0.75rem 0 0;
@@ -1886,11 +1887,6 @@
   overflow: hidden;
   border-radius: 22px 22px 0 0;
   pointer-events: none;
-}
-
-/* The solo bowl's stage is narrow, so its curtains hang wider than it. */
-.solo-bowl-stage .theater-curtains {
-  inset: -0.75rem -4.5rem 0;
 }
 
 .theater-curtains > svg {

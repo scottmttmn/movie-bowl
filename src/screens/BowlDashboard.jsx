@@ -1003,8 +1003,8 @@ export default function BowlDashboard() {
         if (movie) {
           const detailMovie = await buildDetailMovie(movie);
           setDrawnMovie(detailMovie);
-          // Armed on this device, so no confirmation: the curtain toggle under
-          // the draw button already answered that question. The reveal is set
+          // Armed on this device, so no confirmation: the Previews first
+          // switch under the draw button already answered that question. The reveal is set
           // first and the previews play over it, which is the order the
           // television runs and the order a cinema runs.
           if (isTheaterModeEnabled) startTheater(detailMovie);

@@ -30,9 +30,9 @@ export const THEATER_TRAILER_COUNT_OPTIONS = [1, 2, 3, 4];
 export const DEFAULT_THEATER_TRAILER_COUNT = 3;
 
 // The preview count is deliberately absent from the settings below. It is a
-// device setting now -- the ticket beside the draw button is its only control
+// device setting now -- the switch under the draw button is its only control
 // -- so the account carries no value for a device to inherit and every device
-// starts at DEFAULT_THEATER_TRAILER_COUNT until its own ticket says otherwise.
+// starts at DEFAULT_THEATER_TRAILER_COUNT until its own switch says otherwise.
 // `mergeDeviceDrawSettings` is where a device's stored count is applied.
 
 export const DEFAULT_DRAW_SETTINGS = {

@@ -542,12 +542,12 @@ describe("SoloDrawPage", () => {
     mocks.state.defaultDrawSettings = { theaterModeEnabled: true };
     renderPage();
 
-    const ticket = screen.getByRole("switch", { name: /theater mode/i });
+    const ticket = screen.getByRole("switch", { name: "Previews first" });
     expect(ticket).toHaveAttribute("aria-checked", "false");
     fireEvent.click(ticket);
 
     await waitFor(() =>
-      expect(screen.getByRole("switch", { name: /theater mode on/i })).toHaveAttribute(
+      expect(screen.getByRole("switch", { name: "Previews first" })).toHaveAttribute(
         "aria-checked",
         "true"
       )

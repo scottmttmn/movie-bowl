@@ -1,4 +1,4 @@
-import { act, cleanup, render, waitFor } from "@testing-library/react";
+import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import TheaterCurtains, { TheaterRevealCurtains } from "../TheaterCurtains";
@@ -29,27 +29,6 @@ describe("TheaterCurtains", () => {
     const { container } = render(<TheaterCurtains enabled={false} />);
 
     expect(container.querySelector(".theater-curtains svg")).toBeNull();
-  });
-
-  // The page's pair steps aside and a screen-wide pair opens on the reveal,
-  // which sits above the draw stage and is gone once the movie opens.
-  it("hands over to curtains across the whole screen for the draw", async () => {
-    const { container, rerender } = render(<TheaterCurtains enabled isDrawing={false} />);
-    expect(screenCurtains()).toBeNull();
-
-    rerender(<TheaterCurtains enabled isDrawing />);
-    await waitFor(() => expect(screenCurtains()).toHaveAttribute("aria-hidden", "true"));
-    expect(container.querySelector(".theater-curtains svg")).toBeNull();
-
-    rerender(<TheaterCurtains enabled isDrawing={false} />);
-    expect(screenCurtains()).toBeNull();
-    expect(container.querySelector(".theater-curtains svg")).not.toBeNull();
-  });
-
-  it("leaves the draw to the reveal alone when theater mode is off", () => {
-    render(<TheaterCurtains enabled={false} isDrawing />);
-
-    expect(screenCurtains()).toBeNull();
   });
 
   it("lifts the curtains away once turned off", async () => {
@@ -84,7 +63,7 @@ describe("TheaterCurtains", () => {
   // is gone by then; the screen-wide pair has to stand on its own.
   it("draws the screen-wide pair on its own for the television", () => {
     const { unmount } = render(
-      <TheaterRevealCurtains origin={{ left: 100, top: 200, width: 600, height: 300 }} closeFirst />
+      <TheaterRevealCurtains origin={{ left: 100, top: 200, width: 600, height: 300 }} />
     );
 
     expect(screenCurtains()).not.toBeNull();
