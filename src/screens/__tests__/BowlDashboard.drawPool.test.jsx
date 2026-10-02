@@ -288,6 +288,21 @@ describe("BowlDashboard draw pool count", () => {
     expect(mocks.state.navigate).toHaveBeenCalledWith("/invites?bowl=bowl-1#invite-people");
   });
 
+  it("gives the owner a share button that opens Invitations for this bowl", async () => {
+    await renderDashboard();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Invite people" }));
+    expect(mocks.state.navigate).toHaveBeenCalledWith("/invites?bowl=bowl-1#invite-people");
+  });
+
+  it("shows members no share button, because only the owner can invite", async () => {
+    mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u2", draw_method: "person_first" };
+    await renderDashboard();
+
+    await screen.findByRole("button", { name: /^filters$/i });
+    expect(screen.queryByRole("button", { name: "Invite people" })).not.toBeInTheDocument();
+  });
+
   it("counts a one-title bowl in the singular in the filters overlay", async () => {
     mocks.state.bowlData = { remaining: [TWO_CONTRIBUTORS[0]], watched: [] };
     await renderDashboard();
