@@ -13,6 +13,7 @@ const reply = (content, status = 200) => ({
   ok: status >= 200 && status < 300,
   status,
   json: async () => ({ choices: [{ message: { content } }] }),
+  text: async () => (status >= 400 ? "model retired" : content),
 });
 
 const PROVIDERS = [
@@ -26,6 +27,11 @@ describe("described search: reading the description", () => {
     expect(getModelProviders({ CLOUDFLARE_ACCOUNT_ID: "a" })).toEqual([]);
     expect(getModelProviders({ GROQ_API_KEY: "g", CLOUDFLARE_ACCOUNT_ID: "a", CLOUDFLARE_AI_TOKEN: "t" }).map((p) => p.name))
       .toEqual(["groq", "cloudflare"]);
+    // Llama 3.1 8B was retired on Cloudflare and answered 410.
+    const cloudflare = getModelProviders({ CLOUDFLARE_ACCOUNT_ID: "a", CLOUDFLARE_AI_TOKEN: "t" })[0];
+    expect(cloudflare.model).toBe("@cf/openai/gpt-oss-20b");
+    expect(cloudflare.extra).toEqual({ reasoning_effort: "low" });
+    expect(getModelProviders({ CLOUDFLARE_ACCOUNT_ID: "a", CLOUDFLARE_AI_TOKEN: "t", CLOUDFLARE_AI_MODEL: "@cf/x" })[0].model).toBe("@cf/x");
   });
 
   it("finds the JSON in a reply that wraps it in prose", () => {
@@ -53,6 +59,7 @@ describe("described search: reading the description", () => {
   });
 
   it("falls through to the next provider when one is over its limit, and reports none answering", async () => {
+    const warn = vi.spyOn(console, "warn").mockImplementation(() => {});
     const fetchImpl = vi.fn()
       .mockResolvedValueOnce(reply("", 429))
       .mockResolvedValueOnce(reply('{"people":["Matt Damon"],"genres":[],"keywords":[]}'));
@@ -61,6 +68,7 @@ describe("described search: reading the description", () => {
     expect(fetchImpl.mock.calls.map(([url]) => url)).toEqual(["https://groq.test", "https://cf.test"]);
     expect(JSON.parse(fetchImpl.mock.calls[0][1].body).response_format).toEqual({ type: "json_object" });
     expect(JSON.parse(fetchImpl.mock.calls[1][1].body).response_format).toBeUndefined();
+    expect(warn).toHaveBeenCalledWith("[api/tmdb/search] groq answered 429", "model retired");
 
     const down = vi.fn().mockRejectedValueOnce(new Error("timeout")).mockResolvedValueOnce(reply("not json"));
     expect(await interpretDescription("x y z", { providers: PROVIDERS, fetchImpl: down })).toBeNull();

@@ -19,7 +19,7 @@ export const TMDB_MOVIE_GENRES = {
 const MAX_PEOPLE = 2;
 const MAX_GENRES = 2;
 const MAX_KEYWORDS = 2;
-const MODEL_TIMEOUT_MS = 4000;
+const MODEL_TIMEOUT_MS = 5000;
 
 const SYSTEM_PROMPT = `You turn a description of a movie into search terms for The Movie Database.
 Reply with JSON only, shaped exactly like:
@@ -53,8 +53,13 @@ export function getModelProviders(env = process.env) {
       name: "cloudflare",
       url: `https://api.cloudflare.com/client/v4/accounts/${encodeURIComponent(env.CLOUDFLARE_ACCOUNT_ID)}/ai/v1/chat/completions`,
       key: env.CLOUDFLARE_AI_TOKEN,
-      model: env.CLOUDFLARE_AI_MODEL || "@cf/meta/llama-3.1-8b-instruct",
+      // The same open model as Groq's, so one prompt serves both. Cloudflare
+      // retired Llama 3.1 8B on May 30, 2026 and answers 410 for it: a
+      // retired model here reads as "resting", so check its deprecation list
+      // before choosing another.
+      model: env.CLOUDFLARE_AI_MODEL || "@cf/openai/gpt-oss-20b",
       jsonMode: false,
+      extra: { reasoning_effort: "low" },
     });
   }
   return providers;
@@ -126,7 +131,10 @@ export async function interpretDescription(query, { providers = getModelProvider
         signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
       });
       if (!response.ok) {
-        console.warn(`[api/tmdb/search] ${provider.name} answered ${response.status}`);
+        // The body says why (a retired model, a token without permission),
+        // which the status alone did not.
+        const detail = await response.text().catch(() => "");
+        console.warn(`[api/tmdb/search] ${provider.name} answered ${response.status}`, detail.slice(0, 300));
         continue;
       }
       const body = await response.json().catch(() => null);
