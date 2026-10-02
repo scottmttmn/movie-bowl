@@ -65,6 +65,16 @@ describe("MovieSearch search feedback", () => {
     expect(screen.queryByText("Searching movies…")).toBeNull();
   });
 
+  it("searches a term it was opened with, without anyone typing", async () => {
+    mocks.searchTmdbMovies.mockResolvedValue({ results: [{ id: 7, title: "Sinners", release_date: "2025-04-16" }] });
+
+    render(<MovieSearch onAddMovie={vi.fn(async () => ({ ok: true }))} initialSearchTerm="Sinners" />);
+
+    expect(screen.getByPlaceholderText("Movie, actor or director")).toHaveValue("Sinners");
+    await waitFor(() => expect(mocks.searchTmdbMovies).toHaveBeenCalledWith("Sinners", expect.anything()));
+    expect(await screen.findByText(/1 result below/i)).toBeInTheDocument();
+  });
+
   it("falls back to the empty-state copy once a search returns nothing", async () => {
     mocks.searchTmdbMovies.mockResolvedValue({ results: [] });
 
