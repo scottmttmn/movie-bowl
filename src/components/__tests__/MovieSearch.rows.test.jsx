@@ -72,6 +72,20 @@ describe("MovieSearch result rows", () => {
     expect(onAddMovie).not.toHaveBeenCalled();
   });
 
+  it("puts the on-screen keyboard away when the results are dragged", async () => {
+    await search("Cast", [{ id: 1, title: "Cast Away", release_date: "2000-12-22" }]);
+    const field = screen.getByRole("combobox");
+    field.focus();
+    expect(field).toHaveFocus();
+
+    // A mouse moving over the rows leaves the field alone.
+    fireEvent.mouseMove(screen.getByRole("grid", { name: "Search results" }));
+    expect(field).toHaveFocus();
+
+    fireEvent.touchMove(screen.getByRole("grid", { name: "Search results" }));
+    expect(field).not.toHaveFocus();
+  });
+
   it("still adds the highlighted row on Enter", async () => {
     const { onAddMovie } = await search("Cast", [
       { id: 1, title: "Cast Away", release_date: "2000-12-22" },
