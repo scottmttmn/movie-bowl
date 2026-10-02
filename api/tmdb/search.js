@@ -74,6 +74,9 @@ async function describe(query, res) {
     res.status(200).json({ status: "unavailable" });
     return;
   }
+  // What the model read, without the words it read it from: the one way to
+  // tell a description it did not recognize from a title TMDB did not match.
+  console.info("[api/tmdb/search] described as", JSON.stringify(interpretation));
   const [picks, { terms, results }] = await Promise.all([
     verifyTitles(interpretation.titles),
     resolveTerms(interpretation).then((resolved) => discoverWithFallback(resolved)),

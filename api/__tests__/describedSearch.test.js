@@ -112,7 +112,7 @@ describe("described search: finding the movies", () => {
     ]);
   });
 
-  it("keeps only the titles TMDB has, by those exact words and near that year", async () => {
+  it("keeps only the titles TMDB has, by those exact words, nearest that year", async () => {
     const fetchTmdb = vi.fn(async (path) => {
       if (path.includes("query=Apocalypse%20Now")) {
         return { results: [
@@ -121,22 +121,34 @@ describe("described search: finding the movies", () => {
         ] };
       }
       if (path.includes("query=Alien")) return { results: [{ id: 679, title: "Aliens", release_date: "1986-07-18", popularity: 50 }] };
-      if (path.includes("query=Chungking%20Express")) {
+      // TMDB finds it only once the model's hyphen is closed up.
+      if (path.includes("query=Chung-King")) return { results: [] };
+      if (path.includes("query=ChungKing%20Express") || path.includes("query=Chungking%20Express")) {
         return { results: [{ id: 11104, title: "Chungking Express", original_title: "重慶森林", release_date: "1994-07-14", popularity: 20 }] };
       }
       if (path.includes("query=Broken")) throw new Error("TMDB down");
-      if (path.includes("query=Heat")) return { results: [{ id: 949, title: "Heat", release_date: "1995-12-15", popularity: 40 }] };
+      if (path.includes("query=Heat")) {
+        return { results: [
+          { id: 949, title: "Heat", release_date: "1995-12-15", popularity: 40 },
+          { id: 10, title: "Heat", release_date: "1986-03-14", popularity: 5 },
+        ] };
+      }
+      if (path.includes("query=My%20Dinner")) return { results: [{ id: 25468, title: "My Dinner with Andre", release_date: "1981-10-11", popularity: 8 }] };
       return { results: [] };
     });
     const found = await verifyTitles([
       { title: "Apocalypse Now", year: 1979 },
       { title: "Alien", year: 1979 },
-      { title: "Chungking Express", year: 1994 },
+      { title: "Chung\u2011King Express", year: 1994 },
       { title: "Heat", year: 1986 },
+      { title: "My Dinner with Andre", year: 1978 },
       { title: "A Movie Nobody Made", year: null },
       { title: "Broken", year: null },
     ], fetchTmdb);
-    expect(found.map((movie) => movie.id)).toEqual([28, 11104]);
+    // A remake goes to the nearer year; a misremembered year drops nothing.
+    expect(found.map((movie) => movie.id)).toEqual([28, 11104, 10, 25468]);
+    expect(fetchTmdb.mock.calls.map(([path]) => path).filter((path) => path.includes("Chung")))
+      .toEqual(expect.arrayContaining([expect.stringContaining("query=Chung-King%20Express"), expect.stringContaining("query=ChungKing%20Express")]));
   });
 
   it("searches a language by every code TMDB files it under", async () => {
