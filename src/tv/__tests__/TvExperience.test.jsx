@@ -888,8 +888,9 @@ describe("Movie Bowl TV experience", () => {
     renderTonight();
 
     await waitFor(() => expect(getDrawReadout()).toHaveTextContent(/^Drawing from 1\. 3 members$/));
-    // The method slip beside the name wears the person badge for person-first.
-    const slip = screen.getByRole("img", { name: "Person-first random draw" });
+    // The method slip closes the line, as under the phone's bowl, and wears
+    // the person badge for person-first.
+    const slip = within(getDrawReadout()).getByRole("img", { name: "Person-first random draw" });
     expect(slip.querySelector("[data-person-badge]")).not.toBeNull();
   });
 

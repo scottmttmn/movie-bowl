@@ -404,10 +404,10 @@ show rather than be asserted. Do not hardcode a sentence about odds anywhere
 else. Every surface indicates the method rather than naming it --
 `DrawMethodMark` draws one paper slip with a music player's button on it:
 shuffle for chance, repeat for rotation, and a person badge on the corner for
-the two methods that pick a person before a title. The television puts it
-beside the bowl name, because the method belongs to the bowl and not to
-tonight; the bowl page puts it at the end of the stat line, where it opens
-`DrawMethodInfoModal`. `tvLabel` is the mark's accessible name, so a method
+the two methods that pick a person before a title. It ends the stat line
+under the bowl on every surface: on the bowl page it opens
+`DrawMethodInfoModal`, and on the television it closes the draw readout,
+static like the rest of that line. `tvLabel` is the mark's accessible name, so a method
 added to the registry needs a mark there too or it renders nothing at all.
 The stat line and the TV readout count with My Bowls' marks: the film strip
 for the eligible pool, the people for the bowl's members, turning into the
