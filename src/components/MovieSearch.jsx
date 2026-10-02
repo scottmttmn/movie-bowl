@@ -13,6 +13,8 @@ import { createEmptyStreamingProviderData } from "../utils/tmdbWatchProviders";
 import usePersonDiscovery from "../hooks/usePersonDiscovery";
 import { queryMatchesName } from "../utils/peopleMatch";
 import { formatWatchedSpoken, formatWatchedStub } from "../utils/searchMarks";
+import { shouldDescribe } from "../utils/describedSearch";
+import { describeSearch, discoverByTerms } from "../lib/describedSearch";
 import bowlImage from "../assets/movie-bowl.webp";
 
 const PROVIDER_ENRICHMENT_LIMIT = 8;
@@ -150,6 +152,10 @@ export default function MovieSearch({
     const isSubmitting = locallyAdding || submissionPending;
     const submittingRef = useRef(false);
     const [commentDraft, setCommentDraft] = useState("");
+    // Described search: null for an ordinary search; "ready" with the terms
+    // the model read and the title results it replaced; or "unavailable" when
+    // a description went unread because no model answered.
+    const [smartSearch, setSmartSearch] = useState(null);
     const inputRef = useRef(null);
     const scrollRef = useRef(null);
     const latestRequestRef = useRef(0);
@@ -275,6 +281,7 @@ export default function MovieSearch({
             setTotalResults(0);
             setHighlightedPerson(null);
             setResultsQuery({ query: trimmedQuery, correctedFrom: null });
+            setSmartSearch(null);
             closePerson();
         }
         // Fired beside the title search, never before it. A People row that
@@ -282,6 +289,7 @@ export default function MovieSearch({
         // person cannot depend on which request happened to win -- but the
         // titles give it a brief moment first, so it rarely pushes rows down.
         let peopleSettled = append ? null : searchPeople(trimmedQuery);
+        let spellingCorrected = false;
 
         try {
             let data = await searchTmdbMovies(trimmedQuery, { page });
@@ -303,6 +311,7 @@ export default function MovieSearch({
                             const corrected = await searchTmdbMovies(suggestion, { page: 1 });
                             if (requestId !== latestRequestRef.current) return;
                             setResultsQuery({ query: suggestion, correctedFrom: trimmedQuery });
+                            spellingCorrected = true;
                             data = { ...corrected, results: appendUniqueMovies(corrected.results || [], data.results || []) };
                         } catch (error) {
                             // The search that was asked for did succeed; a
@@ -315,10 +324,37 @@ export default function MovieSearch({
                 }
             }
 
+            // A description goes to the model only once title and people
+            // search have both missed it, and a corrected spelling never
+            // does. What it finds replaces the title results, which are kept
+            // for when every term it read has been removed.
+            let smart = null;
+            if (!append && !spellingCorrected && peopleSettled && shouldDescribe(trimmedQuery, data.results || []) && (await peopleSettled).length === 0) {
+                if (requestId !== latestRequestRef.current) return;
+                try {
+                    const described = await describeSearch(trimmedQuery);
+                    if (requestId !== latestRequestRef.current) return;
+                    if (described?.status === "ok") {
+                        smart = { status: "ready", terms: described.terms || [], plain: data };
+                        const found = described.results || [];
+                        data = { page: 1, totalPages: 1, totalResults: found.length, results: found };
+                    } else if (described?.status === "unavailable") {
+                        smart = { status: "unavailable" };
+                    }
+                } catch (error) {
+                    // The title search still answered; a description that
+                    // could not be searched is only that, not a failed search.
+                    if (requestId !== latestRequestRef.current) return;
+                    console.warn("[MovieSearch] Described search failed", error);
+                }
+            }
+
             if (peopleSettled) {
                 await Promise.race([peopleSettled, new Promise((resolve) => setTimeout(resolve, PEOPLE_SETTLE_MS))]);
                 if (requestId !== latestRequestRef.current) return;
             }
+
+            if (!append) setSmartSearch(smart);
 
             const results = data.results || [];
             setSearchResults((current) => appendUniqueMovies(append ? current : [], results));
@@ -420,6 +456,7 @@ export default function MovieSearch({
         latestRequestRef.current += 1;
         resetDiscovery();
         setResultsQuery(EMPTY_RESULTS_QUERY);
+        setSmartSearch(null);
         setHighlightedPerson(null);
         setSearchTerm("");
         setSearchResults([]);
@@ -488,6 +525,52 @@ export default function MovieSearch({
         openPerson(person);
         if (scrollRef.current) scrollRef.current.scrollTop = 0;
         if (gridRef.current) gridRef.current.scrollTop = 0;
+    };
+
+    // Removing a term searches again with the rest, through TMDB alone: the
+    // model already read the description once. Removing the last one goes
+    // back to what title search found for the words as typed.
+    const removeSmartTerm = async (index, activation = "keyboard") => {
+        if (smartSearch?.status !== "ready") return;
+        if (activation !== "touch") returnFocusToField();
+        const remaining = smartSearch.terms.filter((_, termIndex) => termIndex !== index);
+        const requestId = latestRequestRef.current + 1;
+        latestRequestRef.current = requestId;
+        setHighlightedIndex(0);
+        setSearchFailure(null);
+        if (scrollRef.current) scrollRef.current.scrollTop = 0;
+        if (remaining.length === 0) {
+            const plain = smartSearch.plain || {};
+            const results = plain.results || [];
+            setSmartSearch(null);
+            setSearchResults(results);
+            setSearchPage(Number(plain.page) || 1);
+            setTotalPages(Number(plain.totalPages) || (results.length > 0 ? 1 : 0));
+            setTotalResults(Number(plain.totalResults) || results.length);
+            await enrichProviders(results, requestId);
+            return;
+        }
+        setSmartSearch({ ...smartSearch, terms: remaining });
+        setIsSearching(true);
+        try {
+            const found = await discoverByTerms(remaining);
+            if (requestId !== latestRequestRef.current) return;
+            const results = found?.status === "ok" ? found.results || [] : [];
+            if (found?.status === "ok") setSmartSearch({ ...smartSearch, terms: found.terms || remaining });
+            setSearchResults(results);
+            setSearchPage(1);
+            setTotalPages(results.length > 0 ? 1 : 0);
+            setTotalResults(results.length);
+            setIsSearching(false);
+            await enrichProviders(results, requestId);
+        } catch (error) {
+            if (requestId !== latestRequestRef.current) return;
+            console.error("[MovieSearch] Failed to search the remaining terms", error);
+            setSearchResults([]);
+            setSearchFailure(describeNetworkError(error, "Movie service is unavailable right now. Please try again."));
+        } finally {
+            if (requestId === latestRequestRef.current) setIsSearching(false);
+        }
     };
 
     useImperativeHandle(controllerRef, () => ({
@@ -818,6 +901,18 @@ export default function MovieSearch({
                                     <span key={bar} className="voice-wave-bar" style={{ animationDelay: `${bar * 0.12}s` }} />
                                 ))}
                             </span>
+                        ) : smartSearch ? (
+                            // A sparkle when the model read this search; struck
+                            // through and dim when it should have and could not.
+                            <span className="relative flex h-5 w-5 items-center justify-center" data-testid={`smart-search-${smartSearch.status}`}>
+                                <svg viewBox="0 0 24 24" className={`h-[18px] w-[18px] ${smartSearch.status === "ready" ? "text-amber-300" : "text-slate-600"}`} fill="currentColor">
+                                    <path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9z" />
+                                    <path d="M19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2-2.2-.8 2.2-.8z" />
+                                </svg>
+                                {smartSearch.status === "unavailable" && (
+                                    <span className="absolute left-1/2 top-1/2 h-0.5 w-[22px] -translate-x-1/2 -translate-y-1/2 -rotate-45 rounded-full bg-slate-400 ring-[1.5px] ring-slate-900" />
+                                )}
+                            </span>
                         ) : (
                             <svg viewBox="0 0 24 24" className="h-[18px] w-[18px] text-slate-500" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round">
                                 <circle cx="11" cy="11" r="7" />
@@ -864,6 +959,7 @@ export default function MovieSearch({
                             if (!value.trim()) setIsSearching(false);
                             setSearchError(null);
                             setSearchFailure(null);
+                            setSmartSearch(null);
                         }}
                         onKeyDown={handleKeyDown}
                         aria-activedescendant={activeOptionId || undefined}
@@ -934,6 +1030,32 @@ export default function MovieSearch({
                 ) : !inlineDetails && isVoiceSupported && !voiceStatusMessage && !voiceError ? (
                     <p className="mt-2 text-sm text-slate-400">Say a title or someone in it, or type to search.</p>
                 ) : null}
+                {!isListening && !personView && smartSearch?.status === "ready" && smartSearch.terms.length > 0 && (
+                    <div className="mt-2 flex flex-wrap gap-1.5" role="group" aria-label="Searched for">
+                        {smartSearch.terms.map((term, index) => (
+                            <button
+                                key={`${term.kind}-${term.id ?? term.label}`}
+                                type="button"
+                                className="inline-flex min-h-8 items-center gap-1.5 rounded-full border border-amber-400/35 bg-amber-400/10 px-2.5 text-[13px] text-amber-100 transition hover:bg-amber-400/20"
+                                aria-label={`Remove ${term.label}`}
+                                onPointerDown={notePointer}
+                                onClick={(event) => removeSmartTerm(index, activatedBy(event))}
+                            >
+                                {term.kind === "person" && (
+                                    <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="currentColor" aria-hidden="true">
+                                        <circle cx="12" cy="8" r="4" />
+                                        <path d="M4 21a8 8 0 0 1 16 0z" />
+                                    </svg>
+                                )}
+                                <span>{term.label}</span>
+                                <span className="text-amber-200/60" aria-hidden="true">×</span>
+                            </button>
+                        ))}
+                    </div>
+                )}
+                {!isListening && smartSearch?.status === "unavailable" && (
+                    <p className="mt-2 text-sm text-slate-400" role="status">Smart search is resting. Try a title or a name.</p>
+                )}
                 {!isListening && !isSearching && voiceStatusMessage && !voiceError && (
                     <p className="mt-2 text-sm text-slate-300">{voiceStatusMessage}</p>
                 )}

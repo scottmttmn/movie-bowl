@@ -279,6 +279,9 @@ These are visible in the browser bundle by design.
 - `WATCHMODE_API_KEY`, `PROVIDER_LINKS_ENABLED`, `PROVIDER_LINKS_MONTHLY_BUDGET`
   — optional, and off unless set; production sets them. See
   [Provider title links](#provider-title-links).
+- `GROQ_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_TOKEN` — optional;
+  described search is off without them. See
+  [Described search](#described-search).
 - `EMAIL_DAILY_WARN_THRESHOLD` (optional; defaults to 80). See
   [Usage counters](#usage-counters).
 
@@ -595,6 +598,26 @@ leaving it out did not hold: it was red on a clean checkout through three
 separate merges, every failure a selector still describing an interface that had
 been deliberately replaced. A suite that is red by default cannot report a
 regression.
+
+## Described search
+
+A search that reads like a description ("space movie where Matt Damon is
+stranded") rather than a title or a name goes to a small language model, which
+turns it into TMDB terms; TMDB's discover endpoint finds the movies. Titles and
+names never reach the model. Both providers are free tiers, tried in order:
+
+```dotenv
+GROQ_API_KEY=...            # console.groq.com, free plan
+CLOUDFLARE_ACCOUNT_ID=...   # Workers AI, free daily allocation
+CLOUDFLARE_AI_TOKEN=...     # API token with Workers AI read permission
+```
+
+Either one is enough. With neither, or when both are over their daily limit or
+down, a described search shows ordinary title results with a struck-through
+sparkle and "Smart search is resting." It is offered to signed-in people only,
+so a public add link never spends the quota. Do not use Gemini's free tier
+here: Google may review what is sent, and its terms bar serving EU or UK users
+on it. See `output/designs/described-search.md`.
 
 ## Provider title links
 
