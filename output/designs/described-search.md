@@ -13,9 +13,13 @@ an era and a language -- and TMDB's discover endpoint returns real titles.
 A quote or a famous scene has no such terms: "Chinese movie with California
 Dreamin'" is *Chungking Express*, but nothing in it is a person, a genre or a
 keyword TMDB tags. So the model may also name up to three titles it
-recognizes. Each is kept only when TMDB has a movie by exactly those words
-(both ways round, so "Alien" never stands in for "Aliens"), released within a
-year of the one the model gave; anything else is dropped unseen. A result can
+recognizes. Each is kept only when TMDB has a movie whose title has exactly
+those letters and digits, so "Alien" never stands in for "Aliens" while a
+model's "Chung-King Express" still finds *Chungking Express*; anything else is
+dropped unseen. The model's year only chooses between remakes of one title.
+It is not a filter, because models misremember years: the first live test
+gave *My Dinner with Andre* as 1978 (it is 1981), and a one-year window
+dropped it. A result can
 therefore never be invented, though a recognized title can still be the wrong
 real movie. Scott chose this on October 2, 2026, after the first live tests
 showed terms alone missing every quote; until then the rule was that the model

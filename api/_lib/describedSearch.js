@@ -1,5 +1,5 @@
 import { tmdbFetch } from "./tmdb.js";
-import { queryMatchesName } from "../../src/utils/peopleMatch.js";
+import { nameWords, queryMatchesName } from "../../src/utils/peopleMatch.js";
 
 // Search by description ("space movie where Matt Damon is stranded"). A small
 // language model reads the description into TMDB's own terms -- people,
@@ -192,24 +192,43 @@ function languageLabel(code) {
   return code.toUpperCase();
 }
 
-// The model's titles, kept only where TMDB has a movie by that title -- the
-// same words in either direction, so "Alien" never stands in for "Aliens" --
-// released within a year of the one the model gave. Anything else was a
-// guess, and is dropped rather than shown.
-export async function verifyTitles(titles = [], fetchTmdb = tmdbFetch) {
-  const sameTitle = (a, b) => queryMatchesName(a, b) && queryMatchesName(b, a);
-  const found = await Promise.all(titles.map(async ({ title, year }) => {
+// The model's titles, kept only where TMDB has a movie by that title --
+// the same letters and digits, so "Alien" never stands in for "Aliens" but
+// "Chung-King Express", even with a typographic hyphen, is "Chungking
+// Express". The model's year only chooses between remakes: it misremembers
+// years (My Dinner with Andre is 1981, not the 1978 it gave), so a title
+// TMDB has is never dropped for one. Anything TMDB lacks was a guess, and is
+// dropped rather than shown.
+const titleKey = (value) => nameWords(value).join("");
+
+// TMDB's search splits on a hyphen the way the title is not always written,
+// so a miss is retried with the hyphens closed up and then opened out.
+function titleQueries(title) {
+  const plain = title.replace(/\p{Pd}/gu, "-");
+  return [...new Set([plain, plain.replace(/-/g, ""), plain.replace(/-/g, " ")])];
+}
+
+function yearDistance(movie, year) {
+  const released = Number(String(movie?.release_date || "").slice(0, 4));
+  return year && released ? Math.abs(released - year) : 0;
+}
+
+async function findTitle({ title, year }, fetchTmdb) {
+  for (const query of titleQueries(title)) {
     // A lookup that fails loses only its own title, not the search.
-    const data = await fetchTmdb(`/search/movie?query=${encodeURIComponent(title)}&page=1&language=en-US&include_adult=false`).catch(() => null);
-    return (data?.results || [])
+    const data = await fetchTmdb(`/search/movie?query=${encodeURIComponent(query)}&page=1&language=en-US&include_adult=false`).catch(() => null);
+    const match = (data?.results || [])
       .filter((movie) => movie?.adult !== true)
-      .filter((movie) => sameTitle(title, movie?.title) || sameTitle(title, movie?.original_title))
-      .filter((movie) => {
-        const released = Number(String(movie?.release_date || "").slice(0, 4));
-        return !year || !released || Math.abs(released - year) <= 1;
-      })
-      .sort((a, b) => (Number(b.popularity) || 0) - (Number(a.popularity) || 0))[0] || null;
-  }));
+      .filter((movie) => [movie?.title, movie?.original_title].some((name) => titleKey(name) === titleKey(title)))
+      .sort((a, b) => yearDistance(a, year) - yearDistance(b, year)
+        || (Number(b.popularity) || 0) - (Number(a.popularity) || 0))[0];
+    if (match) return match;
+  }
+  return null;
+}
+
+export async function verifyTitles(titles = [], fetchTmdb = tmdbFetch) {
+  const found = await Promise.all(titles.map((title) => findTitle(title, fetchTmdb)));
   const seen = new Set();
   return found.filter((movie) => movie && !seen.has(movie.id) && seen.add(movie.id));
 }
