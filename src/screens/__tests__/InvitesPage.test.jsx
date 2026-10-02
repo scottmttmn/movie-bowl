@@ -7,6 +7,7 @@ const mocks = vi.hoisted(() => ({
     search: "",
     accountEmail: "user@example.com",
     bowls: [],
+    defaultBowlId: null,
     received: [],
     isReceivedLoading: false,
     receivedLoadError: null,
@@ -38,6 +39,7 @@ vi.mock("../../hooks/useBowlPeople", () => ({
 vi.mock("../../hooks/useUserBowls", () => ({
   default: () => ({
     bowls: mocks.state.bowls,
+    defaultBowlId: mocks.state.defaultBowlId,
     loading: mocks.state.bowlsLoading,
     error: mocks.state.bowlsError,
     refresh: vi.fn(async () => null),
@@ -90,6 +92,7 @@ describe("InvitesPage", () => {
       search: "",
       accountEmail: "user@example.com",
       bowls: [OWNED, SHARED],
+      defaultBowlId: null,
       received: [],
       isReceivedLoading: false,
       sentInvitations: [],
@@ -177,17 +180,75 @@ describe("InvitesPage", () => {
     expect(screen.getByRole("button", { name: /accept invitation to Film Club/i })).toBeInTheDocument();
   });
 
-  function bowlChoices() {
-    return within(screen.getByRole("group", { name: "Invite to" })).getAllByRole("radio");
+  // The closed picker names the chosen bowl in its label, or asks for one.
+  function bowlPicker() {
+    return screen.getByRole("button", { name: /^(Invite to .*, change bowl|Choose a bowl to invite to)$/ });
   }
 
-  it("preselects the only owned bowl and offers shared bowls to nobody", () => {
+  function chooseBowl(name) {
+    fireEvent.click(bowlPicker());
+    fireEvent.click(screen.getByRole("option", { name: new RegExp(name) }));
+  }
+
+  it("names the only owned bowl without offering a choice, and never a shared bowl", () => {
     renderHub();
 
-    const choices = bowlChoices();
-    expect(choices).toHaveLength(1);
-    expect(screen.getByRole("radio", { name: /Friday Night/ })).toBeChecked();
-    expect(screen.queryByRole("radio", { name: /Work Crew/ })).not.toBeInTheDocument();
+    expect(screen.getByRole("group", { name: "Invite to Friday Night" })).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: /change bowl|choose a bowl/i })).not.toBeInTheDocument();
+    expect(screen.queryByText("Work Crew")).not.toBeInTheDocument();
+  });
+
+  it("drops the owned bowls down under the row and closes on a choice", () => {
+    mocks.state.bowls = [OWNED, OWNED_2, SHARED];
+    mocks.state.search = "bowl=bowl-1";
+    renderHub();
+
+    const picker = bowlPicker();
+    expect(picker).toHaveAccessibleName("Invite to Friday Night, change bowl");
+    fireEvent.click(picker);
+    expect(picker).toHaveAttribute("aria-expanded", "true");
+    const options = within(screen.getByRole("listbox", { name: "Invite to" })).getAllByRole("option");
+    expect(options.map((option) => option.textContent)).toEqual(["Friday Night", "Family Movies"]);
+    expect(screen.getByRole("option", { name: "Friday Night" })).toHaveAttribute("aria-selected", "true");
+    expect(document.activeElement).toBe(screen.getByRole("option", { name: "Friday Night" }));
+
+    fireEvent.keyDown(document.activeElement, { key: "ArrowDown" });
+    expect(document.activeElement).toBe(screen.getByRole("option", { name: "Family Movies" }));
+    fireEvent.click(document.activeElement);
+
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(bowlPicker()).toHaveAccessibleName("Invite to Family Movies, change bowl");
+    expect(document.activeElement).toBe(bowlPicker());
+    expect(mocks.state.peopleBowlIds.at(-1)).toBe("bowl-2");
+  });
+
+  it("closes the list on Escape without changing the bowl", () => {
+    mocks.state.bowls = [OWNED, OWNED_2];
+    mocks.state.search = "bowl=bowl-1";
+    renderHub();
+
+    fireEvent.click(bowlPicker());
+    fireEvent.keyDown(screen.getByRole("listbox"), { key: "Escape" });
+
+    expect(screen.queryByRole("listbox")).not.toBeInTheDocument();
+    expect(bowlPicker()).toHaveAccessibleName("Invite to Friday Night, change bowl");
+    expect(document.activeElement).toBe(bowlPicker());
+  });
+
+  it("starts on the home bowl when nothing on screen names one", () => {
+    mocks.state.bowls = [OWNED, OWNED_2];
+    mocks.state.defaultBowlId = "bowl-2";
+    renderHub();
+
+    expect(bowlPicker()).toHaveAccessibleName("Invite to Family Movies, change bowl");
+  });
+
+  it("does not start on a home bowl someone else owns", () => {
+    mocks.state.bowls = [OWNED, OWNED_2, SHARED];
+    mocks.state.defaultBowlId = "bowl-9";
+    renderHub();
+
+    expect(bowlPicker()).toHaveAccessibleName("Choose a bowl to invite to");
   });
 
   it("shows the chosen bowl's people: members, then who is still invited", () => {
@@ -255,13 +316,13 @@ describe("InvitesPage", () => {
 
     renderHub();
 
-    expect(bowlChoices().every((choice) => !choice.checked)).toBe(true);
+    expect(bowlPicker()).toHaveAccessibleName("Choose a bowl to invite to");
     fireEvent.change(screen.getByLabelText("Email addresses"), { target: { value: "one@example.com" } });
     fireEvent.click(screen.getByRole("button", { name: "Invite" }));
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Choose a bowl to invite people to."));
     expect(mocks.state.send).not.toHaveBeenCalled();
 
-    fireEvent.click(screen.getByRole("radio", { name: /Family Movies/ }));
+    chooseBowl("Family Movies");
     fireEvent.click(screen.getByRole("button", { name: "Invite" }));
     await waitFor(() => expect(mocks.state.send).toHaveBeenCalledWith(expect.objectContaining({ bowlId: "bowl-2" })));
   });
@@ -270,12 +331,12 @@ describe("InvitesPage", () => {
     mocks.state.bowls = [OWNED, OWNED_2];
     mocks.state.search = "bowl=bowl-2";
     const { unmount } = renderHub();
-    expect(screen.getByRole("radio", { name: /Family Movies/ })).toBeChecked();
+    expect(bowlPicker()).toHaveAccessibleName("Invite to Family Movies, change bowl");
     unmount();
 
     mocks.state.search = "bowl=bowl-9";
     renderHub();
-    expect(bowlChoices().every((choice) => !choice.checked)).toBe(true);
+    expect(bowlPicker()).toHaveAccessibleName("Choose a bowl to invite to");
   });
 
   it("sends the pending-count shortcut to sent, not to the form", () => {
@@ -293,7 +354,7 @@ describe("InvitesPage", () => {
 
     // The shortcut is bowl-specific: it picks that bowl and lands on the
     // people it is still waiting on.
-    expect(screen.getByRole("radio", { name: /Family Movies/ })).toBeChecked();
+    expect(bowlPicker()).toHaveAccessibleName("Invite to Family Movies, change bowl");
     expect(document.activeElement).toBe(screen.getByRole("heading", { level: 3, name: "Invited" }));
   });
 
@@ -333,7 +394,7 @@ describe("InvitesPage", () => {
       </MemoryRouter>
     );
 
-    expect(screen.getByRole("radio", { name: /Family Movies/ })).toBeChecked();
+    expect(bowlPicker()).toHaveAccessibleName("Invite to Family Movies, change bowl");
     expect(document.activeElement).toBe(screen.getByLabelText("Email addresses"));
   });
 

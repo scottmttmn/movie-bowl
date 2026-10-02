@@ -3,13 +3,13 @@ import { useLocation, useNavigate, useSearchParams } from "react-router-dom";
 import ConfirmDialog from "../components/ConfirmDialog";
 import CopyButton from "../components/CopyButton";
 import CreateBowlModal from "../components/CreateBowlModal";
+import InviteBowlPicker from "../components/InviteBowlPicker";
 import useAuth from "../hooks/useAuth";
 import useCreateBowl from "../hooks/useCreateBowl";
 import usePendingInvites from "../hooks/usePendingInvites";
 import useSentInvitations from "../hooks/useSentInvitations";
 import useUserBowls from "../hooks/useUserBowls";
 import useBowlPeople from "../hooks/useBowlPeople";
-import bowlImage from "../assets/movie-bowl.webp";
 import { buildBowlPeopleRows } from "../utils/bowlPeople";
 import { formatRelativeDateLabel } from "../utils/formatRelativeDate";
 import { getDisplayInitial } from "../utils/profileIdentity";
@@ -27,6 +27,7 @@ export default function InvitesPage() {
   const currentUserId = session?.user?.id || null;
   const {
     bowls,
+    defaultBowlId,
     loading: isBowlsLoading,
     error: bowlsError,
     refresh: refreshBowls,
@@ -82,10 +83,12 @@ export default function InvitesPage() {
       return ownedBowls.some((bowl) => bowl.id === bowlChoice) ? bowlChoice : "";
     }
     if (isRequestedBowlOwned) return requestedBowlId;
-    // One owned bowl has no ambiguity. Several do, and an invitation grants
-    // durable membership, so never guess between them.
-    return ownedBowls.length === 1 ? ownedBowls[0].id : "";
-  }, [bowlChoice, isRequestedBowlOwned, requestedBowlId, ownedBowls]);
+    if (ownedBowls.length === 1) return ownedBowls[0].id;
+    // Arriving from the menu there is no bowl on screen to go by. The home bowl
+    // is the one the person has already said they mean; any other owned bowl
+    // would be a guess, and an invitation grants durable membership.
+    return ownedBowls.some((bowl) => bowl.id === defaultBowlId) ? defaultBowlId : "";
+  }, [bowlChoice, isRequestedBowlOwned, requestedBowlId, ownedBowls, defaultBowlId]);
 
   const selectedPending = useMemo(
     () => sent.invitations.filter((invitation) => invitation.bowl_id === selectedBowlId),
@@ -358,24 +361,12 @@ export default function InvitesPage() {
             <form onSubmit={handleSend} className="mt-4 space-y-5">
               <fieldset disabled={sent.isSending}>
                 <legend className="sr-only">Invite to</legend>
-                <div className="grid grid-cols-2 gap-2">
-                  {ownedBowls.map((bowl) => (
-                    <label key={bowl.id} className="bowl-choice">
-                      <input
-                        type="radio"
-                        name="invite-bowl"
-                        className="sr-only"
-                        value={bowl.id}
-                        checked={selectedBowlId === bowl.id}
-                        onChange={() => setBowlChoice(bowl.id)}
-                      />
-                      <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-950/70">
-                        <img src={bowlImage} alt="" className="h-8 w-8 object-contain" />
-                      </span>
-                      <span className="line-clamp-2 min-w-0 break-words text-[15px] font-semibold leading-snug">{bowl.name}</span>
-                    </label>
-                  ))}
-                </div>
+                <InviteBowlPicker
+                  bowls={ownedBowls}
+                  selectedId={selectedBowlId}
+                  onSelect={setBowlChoice}
+                  disabled={sent.isSending}
+                />
               </fieldset>
 
               <div>

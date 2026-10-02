@@ -181,6 +181,13 @@ Invite people
   a contributor's note. ✕ declines (after the same confirm) and Join accepts.
 - Bowls are `.bowl-choice` tiles with the bowl image, like `BowlPicker`.
   Member counts are gone from them because the people are shown below.
+  Revised October 2, 2026: the grid is now one row, `InviteBowlPicker`,
+  naming the chosen bowl. Tapping it drops the other owned bowls down under it,
+  with a check on the current one. Five tiles pushed the email field down for a
+  choice made once. With one owned bowl the row is not a control. With no bowl
+  chosen it is dashed and reads "Choose a bowl". A `?bowl=` hint still wins;
+  without one the page starts on the home bowl when the caller owns it (Scott,
+  October 2), and otherwise chooses nothing.
 - The field and Invite share a row. The field's label is visually hidden and
   the hint appears only when a chip needs fixing. Invite is disabled only while
   the field is empty, so an invalid entry still gets its error on press.

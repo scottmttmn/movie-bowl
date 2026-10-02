@@ -249,7 +249,7 @@ test("the invitations hub shows what is waiting and checks addresses as they are
   await expect(slip.getByText(/^Priya/)).toBeVisible();
   await expect(slip.getByRole("button", { name: "Accept invitation to Sunday Double Feature" })).toBeVisible();
 
-  await expect(page.getByRole("radio", { name: /Friday Night/ })).toBeChecked();
+  await expect(page.getByRole("group", { name: "Invite to Friday Night" })).toBeVisible();
   const field = page.getByLabel("Email addresses");
   await field.fill("jordan@example.com, alex@exmaple sam@example.com");
   await expect(page.getByRole("button", { name: "Remove jordan@example.com" })).toBeVisible();
@@ -263,5 +263,39 @@ test("the invitations hub shows what is waiting and checks addresses as they are
 
   // The chips, the slip and the opened invitation are the widest things here;
   // none may push the page sideways on a phone.
+  expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
+});
+
+test("an owner of several bowls switches the invitation's bowl from one row", async ({ page, backend }) => {
+  await backend.authenticate(page);
+  const names = ["Friday Night", "Family Movies", "Horror Club", "Sunday Double Feature", "Work Crew"];
+  names.forEach((name, index) => {
+    backend.state.bowls.push({
+      id: `bowl-${index}`,
+      name,
+      owner_id: "user-smoke",
+      draw_access_mode: "all_members",
+      draw_method: "person_first",
+      created_at: `2026-08-2${index}T12:00:00.000Z`,
+    });
+    backend.state.bowl_members.push({ id: `member-${index}`, bowl_id: `bowl-${index}`, user_id: "user-smoke", role: "Owner" });
+  });
+
+  await page.goto("/invites?bowl=bowl-0#invite-people");
+  const picker = page.getByRole("button", { name: "Invite to Friday Night, change bowl" });
+  await expect(picker).toBeVisible();
+  // One row, not a grid of every bowl: the email field sits right under it.
+  await expect(page.getByRole("option")).toHaveCount(0);
+
+  await picker.click();
+  const list = page.getByRole("listbox", { name: "Invite to" });
+  await expect(list.getByRole("option")).toHaveCount(5);
+  const listBox = await list.boundingBox();
+  const viewport = page.viewportSize();
+  expect(listBox.y + listBox.height).toBeLessThanOrEqual(viewport.height);
+
+  await list.getByRole("option", { name: "Horror Club" }).click();
+  await expect(list).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Invite to Horror Club, change bowl" })).toBeFocused();
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });
