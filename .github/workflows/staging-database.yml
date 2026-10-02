@@ -61,7 +61,9 @@ jobs:
       # A new project has Supabase's own schemas but none of Movie Bowl's, and
       # the migrations open on a database that already had the dashboard-made
       # tables. The baseline supplies those once; 00_platform.sql is skipped
-      # because it imitates what a real Supabase project already has.
+      # because it imitates what a real Supabase project already has. It runs as
+      # one transaction: the check below reads `bowls` as "baseline done", so a
+      # half-applied baseline must leave nothing behind for the next run to see.
       - name: Apply the baseline to an empty project
         if: steps.configured.outputs.ready == 'true'
         run: |
@@ -70,7 +72,7 @@ jobs:
             echo "Staging already has the baseline."
           else
             echo "Empty staging project: applying supabase/baseline/01_schema.sql."
-            psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 -q -f supabase/baseline/01_schema.sql
+            psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 -q --single-transaction -f supabase/baseline/01_schema.sql
           fi
 
       - name: Push migrations
