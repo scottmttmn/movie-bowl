@@ -29,6 +29,11 @@ The prompt asks for a movie, an actor or a director, not only a movie: since
 an empty search reaches the model too, a misspelled name ("leanardo decapiro")
 or a described one ("the guy who played Gandalf") is as likely as a plot.
 
+It no longer ends "Leave a list empty rather than guess." That line made the
+model hold back the one title a scene points to ("just 2 guys having dinner"),
+and guessing a title costs nothing here: one TMDB does not have by those words
+is never shown.
+
 ## When it runs
 
 Never for a title or a name. Title and people search run first, as always.
@@ -82,8 +87,12 @@ nothing, not an outage.
 on `api/tmdb/search` (the deployment has no function slots left). Both speak
 OpenAI's chat format and are tried in order, each with a five-second limit:
 
-1. Groq, `openai/gpt-oss-20b` (`GROQ_API_KEY`): 1,000 requests a day free and
-   fast enough to feel like search.
+1. Groq, `openai/gpt-oss-120b` at medium reasoning (`GROQ_API_KEY`): free,
+   and fast enough to feel like search. It started as `gpt-oss-20b` at low
+   effort, which named the movie behind a scene ("just 2 guys having dinner")
+   only some of the time; Scott found 120B at medium reliable in Groq's
+   playground on October 2, 2026. `GROQ_MODEL` and `GROQ_REASONING_EFFORT`
+   override both without a deploy of code.
 2. Cloudflare Workers AI, `@cf/openai/gpt-oss-20b`
    (`CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_TOKEN`): 10,000 free neurons a day,
    several hundred short requests. The same model as Groq's, so one prompt
