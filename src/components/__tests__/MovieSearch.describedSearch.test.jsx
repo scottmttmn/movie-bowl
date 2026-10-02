@@ -100,6 +100,23 @@ describe("MovieSearch described search", () => {
     expect(screen.queryByTestId(/smart-search/)).not.toBeInTheDocument();
   });
 
+  it("leads with the titles the model recognized, and keeps them while terms are removed", async () => {
+    const apocalypse = { id: 28, title: "Apocalypse Now", release_date: "1979-08-15" };
+    const war = { kind: "genre", id: 10752, label: "War" };
+    titles({ page: 1, totalPages: 1, totalResults: 1, results: [stray] });
+    mocks.describeSearch.mockResolvedValue({ status: "ok", terms: [war, scifi], picks: [apocalypse], results: [martian] });
+    mocks.discoverByTerms.mockResolvedValue({ status: "ok", terms: [war], results: [apocalypse, elysium] });
+    type("vietnam napalm in the morning");
+
+    await screen.findByRole("button", { name: "Details for Apocalypse Now" });
+    const order = () => screen.getAllByRole("button", { name: /^Details for / }).map((button) => button.getAttribute("aria-label"));
+    expect(order()).toEqual(["Details for Apocalypse Now", "Details for The Martian"]);
+
+    fireEvent.click(screen.getByRole("button", { name: "Remove Science Fiction" }));
+    await screen.findByRole("button", { name: "Details for Elysium" });
+    expect(order()).toEqual(["Details for Apocalypse Now", "Details for Elysium"]);
+  });
+
   it("says smart search is resting and shows the title results when no model answers", async () => {
     titles({ page: 1, totalPages: 1, totalResults: 1, results: [stray] });
     mocks.describeSearch.mockResolvedValue({ status: "unavailable" });

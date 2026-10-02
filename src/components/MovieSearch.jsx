@@ -93,6 +93,12 @@ function describeResultAvailability(providerEntry, userStreamingServices) {
     return { tone: "quiet", text: "Not on free or included US services" };
 }
 
+// A described search's recognized titles, then whatever its terms found.
+function withPicksFirst(picks = [], results = []) {
+    const pickIds = new Set((picks || []).map((movie) => movie.id));
+    return [...(picks || []), ...(results || []).filter((movie) => !pickIds.has(movie.id))];
+}
+
 export default function MovieSearch({
     onAddMovie,
     onSubmitMovie,
@@ -335,8 +341,11 @@ export default function MovieSearch({
                     const described = await describeSearch(trimmedQuery);
                     if (requestId !== latestRequestRef.current) return;
                     if (described?.status === "ok") {
-                        smart = { status: "ready", terms: described.terms || [], plain: data };
-                        const found = described.results || [];
+                        // Titles the model recognized lead, and stay put while
+                        // terms are removed: they came from the words, not the terms.
+                        const picks = described.picks || [];
+                        smart = { status: "ready", terms: described.terms || [], picks, plain: data };
+                        const found = withPicksFirst(picks, described.results);
                         data = { page: 1, totalPages: 1, totalResults: found.length, results: found };
                     } else if (described?.status === "unavailable") {
                         smart = { status: "unavailable" };
@@ -555,7 +564,7 @@ export default function MovieSearch({
         try {
             const found = await discoverByTerms(remaining);
             if (requestId !== latestRequestRef.current) return;
-            const results = found?.status === "ok" ? found.results || [] : [];
+            const results = withPicksFirst(smartSearch.picks, found?.status === "ok" ? found.results : []);
             if (found?.status === "ok") setSmartSearch({ ...smartSearch, terms: found.terms || remaining });
             setSearchResults(results);
             setSearchPage(1);

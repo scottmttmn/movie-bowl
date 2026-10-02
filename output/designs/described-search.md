@@ -6,10 +6,20 @@ Status: built October 2, 2026. Signed off by Scott from a mockup the same day.
 
 The add sheet's one search field also understands a description: "space movie
 where Matt Damon is stranded", "90s heist movie with Denzel", "tom hanks
-movies". The model never names a movie. It only reads the description into
-TMDB's own terms -- people, genres from TMDB's fixed list, up to two plot
-keywords, and an era -- and TMDB's discover endpoint returns real titles. That
-is why a small free model is enough, and why a result can never be invented.
+movies", "napalm in the morning". The model reads the description into TMDB's
+own terms -- people, genres from TMDB's fixed list, up to two plot keywords,
+an era and a language -- and TMDB's discover endpoint returns real titles.
+
+A quote or a famous scene has no such terms: "Chinese movie with California
+Dreamin'" is *Chungking Express*, but nothing in it is a person, a genre or a
+keyword TMDB tags. So the model may also name up to three titles it
+recognizes. Each is kept only when TMDB has a movie by exactly those words
+(both ways round, so "Alien" never stands in for "Aliens"), released within a
+year of the one the model gave; anything else is dropped unseen. A result can
+therefore never be invented, though a recognized title can still be the wrong
+real movie. Scott chose this on October 2, 2026, after the first live tests
+showed terms alone missing every quote; until then the rule was that the model
+never names a movie.
 
 ## When it runs
 
@@ -31,10 +41,12 @@ Show, don't tell:
 
 - **Read by the model:** the field's magnifier becomes a gold sparkle, and a
   row of chips under the field shows what it read -- a person badge for a
-  person, then genres, keywords and an era. The results are what the terms
-  found, in TMDB popularity order, replacing the title results.
+  person, then genres, keywords, a language and an era. The results are the
+  recognized titles first, then what the terms found in TMDB popularity
+  order, replacing the title results. Recognized titles have no chip: they
+  came from the words, not the terms.
 - **Removing a chip** searches the remaining terms through TMDB alone; the
-  model is not asked again. Removing the last chip returns to the title
+  model is not asked again, and the recognized titles stay first. Removing the last chip returns to the title
   results for the words as typed.
 - **No model answered** (unconfigured, over the free limit, or down): the
   sparkle is struck through and dim, one line says "Smart search is resting.
@@ -71,5 +83,6 @@ the quota and never shows the sparkle.
 
 A description rarely matches TMDB's tags exactly. When every term together
 finds nothing, keywords are dropped first, then genres; people and the era
-stay. The chips show the terms the results actually used, never one that was
+stay, and so does a language. TMDB files Cantonese films under its own `cn`
+code beside Mandarin's `zh`, so "Chinese" searches both. The chips show the terms the results actually used, never one that was
 dropped.

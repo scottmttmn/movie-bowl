@@ -603,7 +603,9 @@ regression.
 
 A search that reads like a description ("space movie where Matt Damon is
 stranded") rather than a title or a name goes to a small language model, which
-turns it into TMDB terms; TMDB's discover endpoint finds the movies. Titles and
+turns it into TMDB terms and may name titles it recognizes from a quote or a
+scene; TMDB's discover endpoint finds the movies, and a named title is shown
+only when TMDB has a movie by exactly that name. Titles and
 names never reach the model. Both providers are free tiers, tried in order:
 
 ```dotenv

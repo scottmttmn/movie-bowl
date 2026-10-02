@@ -3,7 +3,7 @@ import { normalizePersonMovieCredits } from "../_lib/personCredits.js";
 import { queryMatchesName, selectStrongPeopleMatches } from "../../src/utils/peopleMatch.js";
 import { suggestCorrection } from "../../src/utils/searchSuggestion.js";
 import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
-import { discoverWithFallback, interpretDescription, parseTermsParam, resolveTerms } from "../_lib/describedSearch.js";
+import { discoverWithFallback, interpretDescription, parseTermsParam, resolveTerms, verifyTitles } from "../_lib/describedSearch.js";
 
 const MAX_QUERY_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 200;
@@ -74,8 +74,15 @@ async function describe(query, res) {
     res.status(200).json({ status: "unavailable" });
     return;
   }
-  const { terms, results } = await discoverWithFallback(await resolveTerms(interpretation));
-  res.status(200).json(results.length ? { status: "ok", terms, results } : { status: "empty" });
+  const [picks, { terms, results }] = await Promise.all([
+    verifyTitles(interpretation.titles),
+    resolveTerms(interpretation).then((resolved) => discoverWithFallback(resolved)),
+  ]);
+  // The titles the model recognized lead, and the client keeps them while
+  // terms are removed; the filters' own results follow without repeating them.
+  const pickIds = new Set(picks.map((movie) => movie.id));
+  const rest = results.filter((movie) => !pickIds.has(movie.id));
+  res.status(200).json(picks.length || rest.length ? { status: "ok", terms, picks, results: rest } : { status: "empty" });
 }
 
 async function discover(termsParam, res) {

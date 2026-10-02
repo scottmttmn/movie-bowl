@@ -2,9 +2,11 @@ import { tmdbFetch } from "./tmdb.js";
 import { queryMatchesName } from "../../src/utils/peopleMatch.js";
 
 // Search by description ("space movie where Matt Damon is stranded"). A small
-// language model only reads the description into TMDB's own terms -- people,
-// genres, keywords, years -- and TMDB's discover endpoint finds the movies, so
-// every result is a real title and a cheap model is plenty. See
+// language model reads the description into TMDB's own terms -- people,
+// genres, keywords, years, language -- and TMDB's discover endpoint finds the
+// movies. A quote or a famous scene has no such terms, so the model may also
+// name the titles it recognizes; each is shown only once TMDB finds a movie
+// by that exact title, so every result is still a real one. See
 // output/designs/described-search.md.
 
 // TMDB's movie genres. Fixed for years, and the model is told to pick from
@@ -19,15 +21,18 @@ export const TMDB_MOVIE_GENRES = {
 const MAX_PEOPLE = 2;
 const MAX_GENRES = 2;
 const MAX_KEYWORDS = 2;
+const MAX_TITLES = 3;
 const MODEL_TIMEOUT_MS = 5000;
 
 const SYSTEM_PROMPT = `You turn a description of a movie into search terms for The Movie Database.
 Reply with JSON only, shaped exactly like:
-{"people":[],"genres":[],"keywords":[],"yearFrom":null,"yearTo":null}
+{"titles":[],"people":[],"genres":[],"keywords":[],"yearFrom":null,"yearTo":null,"language":null}
+- titles: up to three movies you are confident the description points to (a quote, a scene, a plot), each as {"title":"...","year":1979}.
 - people: full names of actors or directors the description mentions, spelled correctly.
 - genres: only from this list: ${Object.keys(TMDB_MOVIE_GENRES).join(", ")}.
 - keywords: at most two short plot words or themes (e.g. "heist", "time travel"), never a genre or a name.
 - yearFrom/yearTo: release years if the description gives an era ("90s" is 1990 to 1999), else null.
+- language: the two-letter ISO 639-1 code of the movie's language if the description gives one ("Korean thriller" is "ko"), else null.
 Leave a list empty rather than guess.`;
 
 // Each provider speaks OpenAI's chat completions format. They are tried in
@@ -91,6 +96,26 @@ function cleanYear(value) {
   return Number.isInteger(year) && year >= 1890 && year <= 2100 ? year : null;
 }
 
+function cleanTitles(value) {
+  if (!Array.isArray(value)) return [];
+  const seen = new Set();
+  const titles = [];
+  for (const item of value) {
+    const title = String((typeof item === "string" ? item : item?.title) || "").trim();
+    const key = title.toLowerCase();
+    if (!title || title.length > 100 || seen.has(key)) continue;
+    seen.add(key);
+    titles.push({ title, year: cleanYear(item?.year) });
+    if (titles.length === MAX_TITLES) break;
+  }
+  return titles;
+}
+
+function cleanLanguage(value) {
+  const code = String(value || "").trim().toLowerCase();
+  return /^[a-z]{2}$/.test(code) ? code : null;
+}
+
 // Whatever the model said, only these shapes leave here.
 export function normalizeInterpretation(raw) {
   if (!raw || typeof raw !== "object") return null;
@@ -103,11 +128,13 @@ export function normalizeInterpretation(raw) {
   let yearTo = cleanYear(raw.yearTo);
   if (yearFrom && yearTo && yearFrom > yearTo) [yearFrom, yearTo] = [yearTo, yearFrom];
   return {
+    titles: cleanTitles(raw.titles),
     people: cleanList(raw.people, MAX_PEOPLE),
     genres,
     keywords: cleanList(raw.keywords, MAX_KEYWORDS),
     yearFrom,
     yearTo,
+    language: cleanLanguage(raw.language),
   };
 }
 
@@ -155,6 +182,38 @@ function decadeLabel(from, to) {
   return `Before ${to + 1}`;
 }
 
+function languageLabel(code) {
+  try {
+    const name = new Intl.DisplayNames(["en"], { type: "language" }).of(code);
+    if (name && name.toLowerCase() !== code) return name;
+  } catch {
+    // An unknown code still filters; it just reads as itself.
+  }
+  return code.toUpperCase();
+}
+
+// The model's titles, kept only where TMDB has a movie by that title -- the
+// same words in either direction, so "Alien" never stands in for "Aliens" --
+// released within a year of the one the model gave. Anything else was a
+// guess, and is dropped rather than shown.
+export async function verifyTitles(titles = [], fetchTmdb = tmdbFetch) {
+  const sameTitle = (a, b) => queryMatchesName(a, b) && queryMatchesName(b, a);
+  const found = await Promise.all(titles.map(async ({ title, year }) => {
+    // A lookup that fails loses only its own title, not the search.
+    const data = await fetchTmdb(`/search/movie?query=${encodeURIComponent(title)}&page=1&language=en-US&include_adult=false`).catch(() => null);
+    return (data?.results || [])
+      .filter((movie) => movie?.adult !== true)
+      .filter((movie) => sameTitle(title, movie?.title) || sameTitle(title, movie?.original_title))
+      .filter((movie) => {
+        const released = Number(String(movie?.release_date || "").slice(0, 4));
+        return !year || !released || Math.abs(released - year) <= 1;
+      })
+      .sort((a, b) => (Number(b.popularity) || 0) - (Number(a.popularity) || 0))[0] || null;
+  }));
+  const seen = new Set();
+  return found.filter((movie) => movie && !seen.has(movie.id) && seen.add(movie.id));
+}
+
 // Names into TMDB ids. A person must be someone the name actually names, and a
 // keyword TMDB does not know is dropped rather than shown as a term that did
 // nothing.
@@ -177,6 +236,9 @@ export async function resolveTerms(interpretation, fetchTmdb = tmdbFetch) {
     ...interpretation.genres.map((label) => ({ kind: "genre", id: TMDB_MOVIE_GENRES[label], label })),
     ...keywords.filter(Boolean),
   ];
+  if (interpretation.language) {
+    terms.push({ kind: "language", code: interpretation.language, label: languageLabel(interpretation.language) });
+  }
   if (interpretation.yearFrom || interpretation.yearTo) {
     terms.push({
       kind: "years",
@@ -206,6 +268,10 @@ export function parseTermsParam(value) {
       const to = cleanYear(term.to);
       if (!from && !to) return null;
       terms.push({ kind, from, to, label: decadeLabel(from, to) });
+    } else if (kind === "language") {
+      const code = cleanLanguage(term.code);
+      if (!code) return null;
+      terms.push({ kind, code, label: languageLabel(code) });
     } else if (["person", "genre", "keyword"].includes(kind)) {
       const id = Number(term.id);
       if (!Number.isInteger(id) || id <= 0) return null;
@@ -217,7 +283,11 @@ export function parseTermsParam(value) {
   return terms;
 }
 
-function discoverPath(terms) {
+// TMDB files Cantonese films (Chungking Express) under its own "cn" code,
+// beside Mandarin's "zh", and a model asked for Chinese names only "zh".
+const LANGUAGE_VARIANTS = { zh: ["zh", "cn"] };
+
+function discoverPath(terms, language) {
   const ids = (kind) => terms.filter((term) => term.kind === kind).map((term) => term.id);
   const params = new URLSearchParams({
     language: "en-US",
@@ -235,12 +305,20 @@ function discoverPath(terms) {
   const years = terms.find((term) => term.kind === "years");
   if (years?.from) params.set("primary_release_date.gte", `${years.from}-01-01`);
   if (years?.to) params.set("primary_release_date.lte", `${years.to}-12-31`);
+  if (language) params.set("with_original_language", language);
   return `/discover/movie?${params}`;
 }
 
 export async function discoverMovies(terms, fetchTmdb = tmdbFetch) {
-  const data = await fetchTmdb(discoverPath(terms));
-  return (data?.results || []).filter((movie) => movie?.adult !== true);
+  const code = terms.find((term) => term.kind === "language")?.code;
+  const languages = code ? LANGUAGE_VARIANTS[code] || [code] : [null];
+  const pages = await Promise.all(languages.map((language) => fetchTmdb(discoverPath(terms, language))));
+  const seen = new Set();
+  return pages
+    .flatMap((data) => data?.results || [])
+    .filter((movie) => movie?.adult !== true && !seen.has(movie.id) && seen.add(movie.id))
+    .sort((a, b) => (Number(b.popularity) || 0) - (Number(a.popularity) || 0))
+    .slice(0, 20);
 }
 
 // A description rarely matches TMDB's tags exactly, so when every term

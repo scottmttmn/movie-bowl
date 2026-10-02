@@ -281,19 +281,20 @@ describe("api/tmdb/search suggest action", () => {
       vi.stubGlobal("fetch", vi.fn(async () => ({
         ok: true,
         status: 200,
-        json: async () => ({ choices: [{ message: { content: '{"people":["Matt Damon"],"genres":["Science Fiction"],"keywords":[]}' } }] }),
+        json: async () => ({ choices: [{ message: { content: '{"titles":[{"title":"The Martian","year":2015}],"people":["Matt Damon"],"genres":["Science Fiction"],"keywords":[]}' } }] }),
       })));
-      mocks.tmdbFetch.mockImplementation(async (path) => (
-        path.startsWith("/search/person")
-          ? { results: [{ id: 1892, name: "Matt Damon", popularity: 40 }] }
-          : { results: [{ id: 286217, title: "The Martian" }] }
-      ));
+      mocks.tmdbFetch.mockImplementation(async (path) => {
+        if (path.startsWith("/search/person")) return { results: [{ id: 1892, name: "Matt Damon", popularity: 40 }] };
+        if (path.startsWith("/search/movie")) return { results: [{ id: 286217, title: "The Martian", release_date: "2015-09-30" }] };
+        return { results: [{ id: 286217, title: "The Martian" }, { id: 68724, title: "Elysium" }] };
+      });
       const res = createRes();
       await handler({ method: "GET", query: { type: "describe", query: "space movie with matt damon" }, headers: signedIn }, res);
       expect(res.body).toEqual({
         status: "ok",
         terms: [{ kind: "person", id: 1892, label: "Matt Damon" }, { kind: "genre", id: 878, label: "Science Fiction" }],
-        results: [{ id: 286217, title: "The Martian" }],
+        picks: [{ id: 286217, title: "The Martian", release_date: "2015-09-30" }],
+        results: [{ id: 68724, title: "Elysium" }],
       });
     });
 

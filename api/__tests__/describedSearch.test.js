@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from "vitest";
 import {
+  discoverMovies,
   discoverWithFallback,
   getModelProviders,
   interpretDescription,
@@ -7,6 +8,7 @@ import {
   parseModelJson,
   parseTermsParam,
   resolveTerms,
+  verifyTitles,
 } from "../_lib/describedSearch.js";
 
 const reply = (content, status = 200) => ({
@@ -48,13 +50,26 @@ describe("described search: reading the description", () => {
       yearFrom: 2019,
       yearTo: 2010,
     })).toEqual({
+      titles: [],
       people: ["Matt Damon", "Jessica Chastain"],
       genres: ["Science Fiction", "Drama"],
       keywords: ["stranded", "mars"],
       yearFrom: 2010,
       yearTo: 2019,
+      language: null,
     });
     expect(normalizeInterpretation({ yearFrom: "soon" }).yearFrom).toBeNull();
+    const named = normalizeInterpretation({
+      titles: [{ title: "Apocalypse Now", year: 1979 }, "apocalypse now", "Platoon", { title: "" }, { title: "Full Metal Jacket" }, { title: "Fourth" }],
+      language: "ZH",
+    });
+    expect(named.titles).toEqual([
+      { title: "Apocalypse Now", year: 1979 },
+      { title: "Platoon", year: null },
+      { title: "Full Metal Jacket", year: null },
+    ]);
+    expect(named.language).toBe("zh");
+    expect(normalizeInterpretation({ language: "Chinese" }).language).toBeNull();
     expect(normalizeInterpretation(null)).toBeNull();
   });
 
@@ -97,6 +112,50 @@ describe("described search: finding the movies", () => {
     ]);
   });
 
+  it("keeps only the titles TMDB has, by those exact words and near that year", async () => {
+    const fetchTmdb = vi.fn(async (path) => {
+      if (path.includes("query=Apocalypse%20Now")) {
+        return { results: [
+          { id: 1, title: "Apocalypse Now Redux", release_date: "2001-05-11", popularity: 90 },
+          { id: 28, title: "Apocalypse Now", release_date: "1979-08-15", popularity: 30 },
+        ] };
+      }
+      if (path.includes("query=Alien")) return { results: [{ id: 679, title: "Aliens", release_date: "1986-07-18", popularity: 50 }] };
+      if (path.includes("query=Chungking%20Express")) {
+        return { results: [{ id: 11104, title: "Chungking Express", original_title: "重慶森林", release_date: "1994-07-14", popularity: 20 }] };
+      }
+      if (path.includes("query=Broken")) throw new Error("TMDB down");
+      if (path.includes("query=Heat")) return { results: [{ id: 949, title: "Heat", release_date: "1995-12-15", popularity: 40 }] };
+      return { results: [] };
+    });
+    const found = await verifyTitles([
+      { title: "Apocalypse Now", year: 1979 },
+      { title: "Alien", year: 1979 },
+      { title: "Chungking Express", year: 1994 },
+      { title: "Heat", year: 1986 },
+      { title: "A Movie Nobody Made", year: null },
+      { title: "Broken", year: null },
+    ], fetchTmdb);
+    expect(found.map((movie) => movie.id)).toEqual([28, 11104]);
+  });
+
+  it("searches a language by every code TMDB files it under", async () => {
+    const terms = await resolveTerms({ people: [], genres: [], keywords: [], yearFrom: null, yearTo: null, language: "zh" }, vi.fn());
+    expect(terms).toEqual([{ kind: "language", code: "zh", label: "Chinese" }]);
+    const fetchTmdb = vi.fn(async (path) => (
+      path.includes("with_original_language=cn")
+        ? { results: [{ id: 11104, title: "Chungking Express", popularity: 20 }, { id: 2, title: "Both", popularity: 5 }] }
+        : { results: [{ id: 3, title: "Hero", popularity: 30 }, { id: 2, title: "Both", popularity: 5 }] }
+    ));
+    const found = await discoverMovies(terms, fetchTmdb);
+    expect(found.map((movie) => movie.id)).toEqual([3, 11104, 2]);
+    expect(fetchTmdb).toHaveBeenCalledTimes(2);
+
+    const korean = vi.fn(async () => ({ results: [] }));
+    await discoverMovies([{ kind: "language", code: "ko", label: "Korean" }], korean);
+    expect(korean.mock.calls.map(([path]) => path.match(/with_original_language=(\w+)/)[1])).toEqual(["ko"]);
+  });
+
   it("drops keywords, then genres, until something is found, and reports the terms it used", async () => {
     const terms = [
       { kind: "person", id: 1892, label: "Matt Damon" },
@@ -119,6 +178,9 @@ describe("described search: finding the movies", () => {
   it("accepts only well-formed terms back from the client", () => {
     expect(parseTermsParam(JSON.stringify([{ kind: "genre", id: 878, label: "Science Fiction" }, { kind: "years", from: 1990, to: 1999 }])))
       .toEqual([{ kind: "genre", id: 878, label: "Science Fiction" }, { kind: "years", from: 1990, to: 1999, label: "1990s" }]);
+    expect(parseTermsParam(JSON.stringify([{ kind: "language", code: "fr", label: "<b>" }])))
+      .toEqual([{ kind: "language", code: "fr", label: "French" }]);
+    expect(parseTermsParam(JSON.stringify([{ kind: "language", code: "fr&x=1" }]))).toBeNull();
     expect(parseTermsParam("not json")).toBeNull();
     expect(parseTermsParam(JSON.stringify([{ kind: "genre", id: -1 }]))).toBeNull();
     expect(parseTermsParam(JSON.stringify([{ kind: "sql", id: 1 }]))).toBeNull();
