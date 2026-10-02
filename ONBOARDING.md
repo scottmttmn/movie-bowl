@@ -59,12 +59,10 @@ Everything today works with no accounts and no secrets.
    npm run build         # production build
    npx playwright install chromium   # once; on Linux add --with-deps
    npm run test:e2e      # browser tests (Playwright), ~2 minutes
-   npm run test:counts   # compares the counts above with CLAUDE.md
+   npm run test:counts   # checks no test went missing against main
    ```
 
-   The expected numbers are in one sentence in `CLAUDE.md` under Commands
-   ("A clean checkout is expected to be fully green ..."). A fresh `main` should
-   match it exactly.
+   Every one of them should pass on a fresh `main`.
 
 Two things that look alarming and are not:
 

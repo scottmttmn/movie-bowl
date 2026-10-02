@@ -34,9 +34,8 @@ jobs:
   # change that is only prose, so a pull request touching nothing but Markdown
   # skips it. A skipped job reports as passing, which keeps it usable as a
   # required check where a workflow-level path filter would leave it pending
-  # forever. CLAUDE.md is not prose for this purpose: it carries the Playwright
-  # count, and this suite is the only job that holds that number to a run.
-  # Everything else still runs on every change, and main always runs it all.
+  # forever. Everything else still runs on every change, and main always runs
+  # it all.
   changes:
     name: Changes
     runs-on: ubuntu-latest
@@ -62,7 +61,6 @@ jobs:
               markdown_only=true
               while IFS= read -r file; do
                 case "$file" in
-                  CLAUDE.md) markdown_only=false ;;
                   *.md) ;;
                   *) markdown_only=false ;;
                 esac
@@ -110,6 +108,12 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          # The whole history, so the count check can check out the commit this
+          # one is compared with and read the branch's commit messages. HEAD^1
+          # is that commit both times: a pull request runs on GitHub's merge of
+          # it into its base, and a push to main on the squash of one.
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -117,8 +121,8 @@ jobs:
       - run: npm ci
       # No Supabase variables: vite.config.js pins unreachable ones for tests.
       - run: npm run test:run
-      - name: Check the counts in CLAUDE.md
-        run: npm run test:counts -- vitest
+      - name: Check no test was lost
+        run: npm run test:counts -- vitest --base HEAD^1
 
   e2e:
     name: Playwright
@@ -130,6 +134,8 @@ jobs:
     timeout-minutes: 20
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           node-version-file: .nvmrc
@@ -140,8 +146,8 @@ jobs:
       # matching build reports the app, and one without reports the mismatch.
       - run: npx playwright install --with-deps chromium
       - run: npm run test:e2e
-      - name: Check the counts in CLAUDE.md
-        run: npm run test:counts -- playwright
+      - name: Check no test was lost
+        run: npm run test:counts -- playwright --base HEAD^1
       # Only on a failure, and only for a week: the trace and video are large
       # and are worth nothing once the run is understood.
       - name: Keep the failure artifacts
@@ -160,6 +166,8 @@ jobs:
     timeout-minutes: 15
     steps:
       - uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
       - uses: actions/setup-node@v7
         with:
           # No `npm ci` in this job: the count check is a dependency-free script
@@ -182,5 +190,7 @@ jobs:
       - run: ./scripts/pgtap.sh
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
-      - name: Check the counts in CLAUDE.md
-        run: npm run test:counts -- pgtap
+      - name: Check no test was lost
+        run: npm run test:counts -- pgtap --base HEAD^1
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
