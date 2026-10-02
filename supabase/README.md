@@ -25,13 +25,12 @@ supabase migration new short_description
 ```
 
 2. Add SQL changes (tables, constraints, indexes, RLS, policies).
-3. Apply to remote:
-
-```bash
-supabase db push
-```
-
-4. Commit migration files to git.
+3. Commit migration files to git and open a pull request.
+4. Merging to `main` applies them to the staging project
+   (`.github/workflows/staging-database.yml`).
+5. On release day `npm run release` pushes them to the linked production project
+   before it moves the `release` branch, and refuses to move it while one is
+   still pending. Do not `supabase db push` to production by hand.
 
 ## Local pgTAP verification
 

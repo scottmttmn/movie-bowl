@@ -1,0 +1,78 @@
+# Keeps the staging database on the same migrations as `main`.
+#
+# `main` deploys to staging.moviebowl.app and `release` to moviebowl.app, so a
+# migration merged to `main` has to reach the staging project before anyone can
+# try the change it belongs to. This applies it there on every push to `main`.
+# Production is never touched from here: its migrations go out through
+# `npm run release`, on Scott's machine, before the code that needs them.
+#
+# The one secret is STAGING_DB_URL, the staging project's session pooler
+# connection string. Pooler rather than direct, because a free project's direct
+# address is IPv6-only and GitHub's runners are not. Secrets are never given to
+# pull_request runs from forks, and this workflow does not run on pull requests
+# at all.
+name: Staging database
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "supabase/baseline/**"
+      - "supabase/migrations/**"
+      - ".github/workflows/staging-database.yml"
+  workflow_dispatch:
+
+# Two pushes in quick succession must not race each other into the same
+# migration history; the second waits rather than cancelling the first.
+concurrency:
+  group: staging-database
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+jobs:
+  migrate:
+    name: Migrate staging
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    env:
+      STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
+    steps:
+      - uses: actions/checkout@v7
+
+      # Until the staging project exists there is nothing to migrate, and a red
+      # run on every merge would only teach people to ignore this workflow.
+      - name: Check for the staging connection
+        id: configured
+        run: |
+          if [ -z "$STAGING_DB_URL" ]; then
+            echo "::notice::STAGING_DB_URL is not set; skipping the staging migration."
+            echo "ready=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "ready=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/setup-node@v7
+        if: steps.configured.outputs.ready == 'true'
+        with:
+          node-version-file: .nvmrc
+
+      # A new project has Supabase's own schemas but none of Movie Bowl's, and
+      # the migrations open on a database that already had the dashboard-made
+      # tables. The baseline supplies those once; 00_platform.sql is skipped
+      # because it imitates what a real Supabase project already has.
+      - name: Apply the baseline to an empty project
+        if: steps.configured.outputs.ready == 'true'
+        run: |
+          has_schema="$(psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 -tAc "select to_regclass('public.bowls') is not null")"
+          if [ "$has_schema" = "t" ]; then
+            echo "Staging already has the baseline."
+          else
+            echo "Empty staging project: applying supabase/baseline/01_schema.sql."
+            psql "$STAGING_DB_URL" -v ON_ERROR_STOP=1 -q -f supabase/baseline/01_schema.sql
+          fi
+
+      - name: Push migrations
+        if: steps.configured.outputs.ready == 'true'
+        run: npx --yes supabase@2.119.0 db push --yes --db-url "$STAGING_DB_URL"
