@@ -878,7 +878,9 @@ export default function MovieSearch({
                 setSearchPage(1);
                 setTotalPages(0);
                 setTotalResults(0);
-                setVoiceStatusMessage(`Searching for "${transcript}"...`);
+                // The transcript is in the field and the spinner says it is
+                // searching; a line repeating both outlived the search.
+                setVoiceStatusMessage("");
                 handleSearch(transcript);
             } else {
                 setVoiceStatusMessage("");
@@ -1087,9 +1089,6 @@ export default function MovieSearch({
                 )}
                 {!isListening && smartSearch?.status === "unavailable" && (
                     <p className="mt-2 text-sm text-slate-400" role="status">Smart search is resting. Try a title or a name.</p>
-                )}
-                {!isListening && !isSearching && voiceStatusMessage && !voiceError && (
-                    <p className="mt-2 text-sm text-slate-300">{voiceStatusMessage}</p>
                 )}
                 {voiceError && (
                     <div className="mt-2 rounded-lg border border-rose-900/60 bg-rose-950/50 px-3 py-2 text-sm text-rose-300">
