@@ -30,9 +30,9 @@ export default function TvTheaterToggle({
   isCountOverridden = false,
   onToggle,
 }) {
-  // An aria-label is the whole accessible name, so a divergence mark written as
-  // sr-only text inside the button is never read: it has to be in the label
-  // itself. The mark stays for the eye.
+  // An aria-label is the whole accessible name, so "set on this TV" has to be in
+  // the label itself. There is no mark for the eye: a dot on every control that
+  // differed from the account was distracting.
   const setHere = ", set on this TV";
   const count = clampTheaterTrailerCount(previewCount);
   const nextCount =
@@ -53,7 +53,6 @@ export default function TvTheaterToggle({
         onClick={() => onToggle("theaterModeEnabled", !enabled)}
       >
         <CurtainGlyph />
-        {isOverridden && <span aria-hidden="true" className="tv-rail-diverged" />}
       </button>
       {enabled && (
         <button
@@ -71,7 +70,6 @@ export default function TvTheaterToggle({
               data-filled={option <= count ? "true" : undefined}
             />
           ))}
-          {isCountOverridden && <span aria-hidden="true" className="tv-rail-diverged" />}
         </button>
       )}
     </span>

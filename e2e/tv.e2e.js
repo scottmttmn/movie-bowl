@@ -207,7 +207,7 @@ test("a paired TV can make a private solo draw without the busy bowl controls", 
   expect(backend.consoleErrors).toEqual([]);
 });
 
-test("the solo scope sheet scrolls with the remote and marks a TV-only setting", async ({ page, backend }, testInfo) => {
+test("the solo scope sheet scrolls with the remote", async ({ page, backend }, testInfo) => {
   test.skip(testInfo.project.name === "mobile-chromium", "TV smoke coverage uses the desktop viewport.");
 
   await page.setViewportSize({ width: 1920, height: 1080 });
@@ -276,19 +276,6 @@ test("the solo scope sheet scrolls with the remote and marks a TV-only setting",
     }
   }
 
-  // A device override belongs to the whole control, so its marker must not sit
-  // on one service's logo like a badge about that service.
-  await page.getByRole("radio", { name: /favor netflix, then max, then hulu/i }).press("Enter");
-  const marker = page.locator(".tv-solo-sheet-streaming .tv-rail-diverged");
-  await expect(marker).toBeVisible();
-  const lastLogo = page.locator(".tv-solo-sheet-streaming .tv-rail-item").last();
-  const [markerBox, logoBox] = await Promise.all([marker.boundingBox(), lastLogo.boundingBox()]);
-  const overlapsLastLogo =
-    markerBox.x < logoBox.x + logoBox.width &&
-    markerBox.x + markerBox.width > logoBox.x &&
-    markerBox.y < logoBox.y + logoBox.height &&
-    markerBox.y + markerBox.height > logoBox.y;
-  expect(overlapsLastLogo).toBe(false);
   await page.screenshot({ path: testInfo.outputPath("tv-solo-scope-scrolled.png") });
 });
 
