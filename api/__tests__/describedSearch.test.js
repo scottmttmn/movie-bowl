@@ -83,6 +83,8 @@ describe("described search: reading the description", () => {
     expect(fetchImpl.mock.calls.map(([url]) => url)).toEqual(["https://groq.test", "https://cf.test"]);
     expect(JSON.parse(fetchImpl.mock.calls[0][1].body).response_format).toEqual({ type: "json_object" });
     expect(JSON.parse(fetchImpl.mock.calls[1][1].body).response_format).toBeUndefined();
+    // A misspelled or described person reaches the model too, so it is asked for them.
+    expect(JSON.parse(fetchImpl.mock.calls[0][1].body).messages[0].content).toMatch(/names, misspells or describes/);
     expect(warn).toHaveBeenCalledWith("[api/tmdb/search] groq answered 429", "model retired");
 
     const down = vi.fn().mockRejectedValueOnce(new Error("timeout")).mockResolvedValueOnce(reply("not json"));

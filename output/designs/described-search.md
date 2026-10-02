@@ -25,6 +25,10 @@ real movie. Scott chose this on October 2, 2026, after the first live tests
 showed terms alone missing every quote; until then the rule was that the model
 never names a movie.
 
+The prompt asks for a movie, an actor or a director, not only a movie: since
+an empty search reaches the model too, a misspelled name ("leanardo decapiro")
+or a described one ("the guy who played Gandalf") is as likely as a plot.
+
 ## When it runs
 
 Never for a title or a name. Title and people search run first, as always.

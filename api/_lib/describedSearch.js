@@ -24,15 +24,15 @@ const MAX_KEYWORDS = 2;
 const MAX_TITLES = 3;
 const MODEL_TIMEOUT_MS = 5000;
 
-const SYSTEM_PROMPT = `You turn a description of a movie into search terms for The Movie Database.
+const SYSTEM_PROMPT = `You turn a search for a movie, an actor or a director -- often a description, a quote or a misspelled name -- into search terms for The Movie Database.
 Reply with JSON only, shaped exactly like:
 {"titles":[],"people":[],"genres":[],"keywords":[],"yearFrom":null,"yearTo":null,"language":null}
-- titles: up to three movies you are confident the description points to (a quote, a scene, a plot), each as {"title":"...","year":1979}.
-- people: full names of actors or directors the description mentions, spelled correctly.
+- titles: up to three movies you are confident the search points to (a quote, a scene, a plot), each as {"title":"...","year":1979}.
+- people: actors or directors the search names, misspells or describes ("the guy who played Gandalf" is Ian McKellen), as full names spelled correctly.
 - genres: only from this list: ${Object.keys(TMDB_MOVIE_GENRES).join(", ")}.
 - keywords: at most two short plot words or themes (e.g. "heist", "time travel"), never a genre or a name.
-- yearFrom/yearTo: release years if the description gives an era ("90s" is 1990 to 1999), else null.
-- language: the two-letter ISO 639-1 code of the movie's language if the description gives one ("Korean thriller" is "ko"), else null.
+- yearFrom/yearTo: release years if the search gives an era ("90s" is 1990 to 1999), else null.
+- language: the two-letter ISO 639-1 code of the movie's language if the search gives one ("Korean thriller" is "ko"), else null.
 Leave a list empty rather than guess.`;
 
 // Each provider speaks OpenAI's chat completions format. They are tried in
