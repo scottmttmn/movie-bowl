@@ -230,7 +230,25 @@ function yearDistance(movie, year) {
   return year && released ? Math.abs(released - year) : 0;
 }
 
+// The model sometimes gives a sequel its full series name ("Star Wars:
+// Episode V – The Empire Strikes Back") where TMDB has only the subtitle.
+// The subtitle alone could be anything ("Part Two"), so it is accepted only
+// within a year of the year the model gave.
+function subtitleOf(title) {
+  const parts = title.split(/:\s*|\s+\p{Pd}\s+/u).map((part) => part.trim()).filter(Boolean);
+  return parts.length > 1 ? parts[parts.length - 1] : null;
+}
+
 async function findTitle({ title, year }, fetchTmdb) {
+  const exact = await findExactTitle(title, year, fetchTmdb);
+  if (exact) return exact;
+  const subtitle = subtitleOf(title);
+  if (!subtitle || !year) return null;
+  const match = await findExactTitle(subtitle, year, fetchTmdb);
+  return match && yearDistance(match, year) <= 1 ? match : null;
+}
+
+async function findExactTitle(title, year, fetchTmdb) {
   for (const query of titleQueries(title)) {
     // A lookup that fails loses only its own title, not the search.
     const data = await fetchTmdb(`/search/movie?query=${encodeURIComponent(query)}&page=1&language=en-US&include_adult=false`).catch(() => null);
