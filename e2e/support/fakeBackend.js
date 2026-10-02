@@ -75,6 +75,9 @@ function createInitialState() {
     tmdbPersonMovies: {},
     // What a search that found nothing is retried as; null suggests nothing.
     tmdbSuggestion: null,
+    // What a described search answers: { status, terms, results }. Null reads
+    // nothing from it, so no ordinary search grows a sparkle.
+    describedSearch: null,
     // Starter pack photos by person; nobody has one unless a test seeds it.
     starterPackPeople: {},
     // Each pack's TMDB candidates by slug; a pack nobody seeded has none.
@@ -1048,6 +1051,10 @@ export class FakeBackend {
       }
       if (type === "suggest") {
         await fulfillJson(route, { query: this.state.tmdbSuggestion });
+        return;
+      }
+      if (type === "describe" || type === "discover") {
+        await fulfillJson(route, this.state.describedSearch || { status: "empty" });
         return;
       }
       if (type === "person-movies") {

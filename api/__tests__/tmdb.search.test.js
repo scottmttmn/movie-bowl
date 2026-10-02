@@ -1,8 +1,9 @@
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
-const mocks = vi.hoisted(() => ({ tmdbFetch: vi.fn() }));
+const mocks = vi.hoisted(() => ({ tmdbFetch: vi.fn(), getUser: vi.fn() }));
 
 vi.mock("../_lib/tmdb.js", () => ({ tmdbFetch: mocks.tmdbFetch }));
+vi.mock("../_lib/supabaseAdmin.js", () => ({ getSupabaseAdmin: () => ({ auth: { getUser: mocks.getUser } }) }));
 
 import handler from "../tmdb/search.js";
 
@@ -244,5 +245,70 @@ describe("api/tmdb/search suggest action", () => {
     await handler({ method: "GET", query: { type: "suggest", query: "martin scorcese" } }, res);
     expect(res.statusCode).toBe(502);
     consoleError.mockRestore();
+  });
+
+  describe("described search", () => {
+    const signedIn = { authorization: "Bearer token" };
+    beforeEach(() => {
+      mocks.getUser.mockReset().mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+      vi.unstubAllEnvs();
+      vi.unstubAllGlobals();
+    });
+
+    it("is for signed-in people only", async () => {
+      const anonymous = createRes();
+      await handler({ method: "GET", query: { type: "describe", query: "space movie with matt damon" }, headers: {} }, anonymous);
+      expect(anonymous.statusCode).toBe(401);
+
+      mocks.getUser.mockResolvedValue({ data: { user: null }, error: new Error("bad token") });
+      const forged = createRes();
+      await handler({ method: "GET", query: { type: "discover", terms: "[]" }, headers: signedIn }, forged);
+      expect(forged.statusCode).toBe(401);
+      expect(mocks.tmdbFetch).not.toHaveBeenCalled();
+    });
+
+    it("says it is unavailable when no model is configured, without touching TMDB", async () => {
+      vi.stubEnv("GROQ_API_KEY", "");
+      vi.stubEnv("CLOUDFLARE_ACCOUNT_ID", "");
+      const res = createRes();
+      await handler({ method: "GET", query: { type: "describe", query: "space movie with matt damon" }, headers: signedIn }, res);
+      expect(res.body).toEqual({ status: "unavailable" });
+      expect(mocks.tmdbFetch).not.toHaveBeenCalled();
+    });
+
+    it("returns the terms read and the movies TMDB found for them", async () => {
+      vi.stubEnv("GROQ_API_KEY", "key");
+      vi.stubGlobal("fetch", vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ choices: [{ message: { content: '{"people":["Matt Damon"],"genres":["Science Fiction"],"keywords":[]}' } }] }),
+      })));
+      mocks.tmdbFetch.mockImplementation(async (path) => (
+        path.startsWith("/search/person")
+          ? { results: [{ id: 1892, name: "Matt Damon", popularity: 40 }] }
+          : { results: [{ id: 286217, title: "The Martian" }] }
+      ));
+      const res = createRes();
+      await handler({ method: "GET", query: { type: "describe", query: "space movie with matt damon" }, headers: signedIn }, res);
+      expect(res.body).toEqual({
+        status: "ok",
+        terms: [{ kind: "person", id: 1892, label: "Matt Damon" }, { kind: "genre", id: 878, label: "Science Fiction" }],
+        results: [{ id: 286217, title: "The Martian" }],
+      });
+    });
+
+    it("searches remaining terms without the model, and refuses malformed ones", async () => {
+      const fetchSpy = vi.fn();
+      vi.stubGlobal("fetch", fetchSpy);
+      mocks.tmdbFetch.mockResolvedValue({ results: [] });
+      const res = createRes();
+      await handler({ method: "GET", query: { type: "discover", terms: JSON.stringify([{ kind: "genre", id: 878, label: "Science Fiction" }]) }, headers: signedIn }, res);
+      expect(res.body).toEqual({ status: "empty" });
+      expect(fetchSpy).not.toHaveBeenCalled();
+
+      const bad = createRes();
+      await handler({ method: "GET", query: { type: "discover", terms: "[{\"kind\":\"genre\",\"id\":\"x\"}]" }, headers: signedIn }, bad);
+      expect(bad.statusCode).toBe(400);
+    });
   });
 });

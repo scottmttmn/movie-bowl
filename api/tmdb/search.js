@@ -2,8 +2,11 @@ import { tmdbFetch } from "../_lib/tmdb.js";
 import { normalizePersonMovieCredits } from "../_lib/personCredits.js";
 import { queryMatchesName, selectStrongPeopleMatches } from "../../src/utils/peopleMatch.js";
 import { suggestCorrection } from "../../src/utils/searchSuggestion.js";
+import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { discoverWithFallback, interpretDescription, parseTermsParam, resolveTerms } from "../_lib/describedSearch.js";
 
 const MAX_QUERY_LENGTH = 100;
+const MAX_DESCRIPTION_LENGTH = 200;
 
 // People are navigation, never slips: a person is returned with what
 // identifies them, and their movies arrive as ordinary movie rows.
@@ -53,17 +56,72 @@ async function probeCandidate(candidate) {
   return [...titles, ...names];
 }
 
+// Described search spends a free model quota, so it is for signed-in people
+// only; a public add link simply never offers it.
+async function isSignedIn(req) {
+  const token = String(req.headers?.authorization || "").match(/^Bearer\s+(\S+)$/i)?.[1];
+  if (!token) return false;
+  const { data, error } = await getSupabaseAdmin().auth.getUser(token);
+  return !error && Boolean(data?.user);
+}
+
+// "unavailable" means no model answered -- unconfigured, over its free
+// limit, or down -- and the client says so. "empty" means it answered and
+// nothing came of it, which is just a search that found nothing.
+async function describe(query, res) {
+  const interpretation = await interpretDescription(query);
+  if (!interpretation) {
+    res.status(200).json({ status: "unavailable" });
+    return;
+  }
+  const { terms, results } = await discoverWithFallback(await resolveTerms(interpretation));
+  res.status(200).json(results.length ? { status: "ok", terms, results } : { status: "empty" });
+}
+
+async function discover(termsParam, res) {
+  const terms = parseTermsParam(termsParam);
+  if (!terms || terms.length === 0) {
+    res.status(400).json({ error: "Invalid query parameter: terms" });
+    return;
+  }
+  const { terms: used, results } = await discoverWithFallback(terms);
+  res.status(200).json(results.length ? { status: "ok", terms: used, results } : { status: "empty" });
+}
+
 export default async function handler(req, res) {
   if (req.method !== "GET") {
     res.status(405).json({ error: "Method not allowed" });
     return;
   }
 
-  // One route, four actions, because the deployment is at Vercel Hobby's
+  // One route, six actions, because the deployment is at Vercel Hobby's
   // 12-function limit. A missing type is today's title search.
   const type = String(req.query?.type || "movie");
-  if (!["movie", "person", "person-movies", "suggest"].includes(type)) {
+  if (!["movie", "person", "person-movies", "suggest", "describe", "discover"].includes(type)) {
     res.status(400).json({ error: "Invalid query parameter: type" });
+    return;
+  }
+
+  if (type === "describe" || type === "discover") {
+    try {
+      if (!(await isSignedIn(req))) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      if (type === "discover") {
+        await discover(req.query?.terms, res);
+        return;
+      }
+      const description = String(req.query?.query || "").trim();
+      if (!description || description.length > MAX_DESCRIPTION_LENGTH) {
+        res.status(400).json({ error: "Invalid query parameter: query" });
+        return;
+      }
+      await describe(description, res);
+    } catch (error) {
+      console.error(`[api/tmdb/search] Failed to ${type}`, error);
+      res.status(502).json({ error: "Failed to search by description" });
+    }
     return;
   }
 
