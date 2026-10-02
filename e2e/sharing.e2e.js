@@ -244,23 +244,24 @@ test("the invitations hub shows what is waiting and checks addresses as they are
 
   await page.goto("/invites");
 
-  const ticket = page.getByRole("article", { name: "Sunday Double Feature" });
-  await expect(ticket).toBeVisible();
-  await expect(ticket.getByText("Invited by Priya")).toBeVisible();
-  await expect(ticket.getByRole("button", { name: "Accept invitation to Sunday Double Feature" })).toBeVisible();
+  const slip = page.getByRole("article", { name: "Sunday Double Feature" });
+  await expect(slip).toBeVisible();
+  await expect(slip.getByText(/^Priya/)).toBeVisible();
+  await expect(slip.getByRole("button", { name: "Accept invitation to Sunday Double Feature" })).toBeVisible();
 
   await expect(page.getByRole("radio", { name: /Friday Night/ })).toBeChecked();
   const field = page.getByLabel("Email addresses");
   await field.fill("jordan@example.com, alex@exmaple sam@example.com");
   await expect(page.getByRole("button", { name: "Remove jordan@example.com" })).toBeVisible();
   await expect(page.getByText("1 address needs fixing before you send.")).toBeVisible();
-  await expect(page.getByRole("button", { name: "Send 2 invitations" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Invite 2" })).toBeVisible();
 
-  const sent = page.locator("#sent");
-  await expect(sent.getByText("maria@example.com")).toBeVisible();
-  await expect(sent.getByRole("button", { name: "Revoke invitation for maria@example.com" })).toBeVisible();
+  await expect(page.getByRole("heading", { name: "In the bowl" })).toBeVisible();
+  const maria = page.getByRole("button", { name: "maria@example.com, invited" });
+  await maria.click();
+  await expect(page.getByRole("button", { name: "Revoke invitation for maria@example.com" })).toBeVisible();
 
-  // The chips and the ticket are the widest things here; neither may push the
-  // page sideways on a phone.
+  // The chips, the slip and the opened invitation are the widest things here;
+  // none may push the page sideways on a phone.
   expect(await page.evaluate(() => document.documentElement.scrollWidth <= window.innerWidth)).toBe(true);
 });

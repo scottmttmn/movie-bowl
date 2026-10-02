@@ -1,7 +1,8 @@
 # Invitations Hub
 
-Status: implemented, layout revised September 27, 2026 (see Information
-architecture). Proposed on September 2, 2026 and revised the same day
+Status: implemented, layout revised September 27 and again October 2, 2026
+(see Information architecture; the October revision supersedes the sections on
+`Waiting to join`, which is no longer a section). Proposed on September 2, 2026 and revised the same day
 after design review. `/invites` now sends, accepts, declines and revokes:
 `src/screens/InvitesPage.jsx` holds both sections, `useSentInvitations` owns the
 sent side, and the owner-side writes go through `create_bowl_invites` and
@@ -152,6 +153,47 @@ FRIDAY NIGHT
   chip. The unfinished draft counts toward Send.
 - Sent invitations are a divided list per bowl rather than a card per row.
 - `Waiting to join` is omitted when the person owns no bowls.
+
+**Second revision (October 2, 2026).** The one-column page still read as
+cluttered: an introduction, counts beside headings, a ticket with an ADMIT
+stub, pills, a label and a hint for the field, a sentence beside Send, and a
+third section repeating each bowl's name above its pending rows. Scott signed
+off a mockup that keeps every job and drops the words:
+
+```text
+Invitations
+
+Invitations for you
+ ┌─────────────────────────────── (P)┐
+ │ Sunday Double Feature             │   a slip; the inviter's initial
+ └───────────────────────────────────┘   on the corner
+ Priya · Aug 21                [×] [Join]
+
+Invite people
+ [🥣 Friday Night] [🥣 Family Picks]      the bowl picker's tiles
+ [ jordan@… × ] Add email        [Invite 2]
+ ───────────────────────────────────────
+ IN THE BOWL   (S) You  (C) Casey
+ INVITED       (A) alex  (M) maria         dashed; tap for Copy link · Revoke
+```
+
+- A received invitation is a `.tonight-slip`, the paper the bowl page uses for
+  a contributor's note. ✕ declines (after the same confirm) and Join accepts.
+- Bowls are `.bowl-choice` tiles with the bowl image, like `BowlPicker`.
+  Member counts are gone from them because the people are shown below.
+- The field and Invite share a row. The field's label is visually hidden and
+  the hint appears only when a chip needs fixing. Invite is disabled only while
+  the field is empty, so an invalid entry still gets its error on press.
+- Under a divider, the chosen bowl's people come from `useBowlPeople` and
+  `buildBowlPeopleRows`. Members are solid initials with names (the caller
+  is "You"). Pending invitations for that bowl are dashed initials with
+  the address's local part. Tapping one opens a row below the circles with the
+  full address, Copy link and Revoke. It sits below rather than floating so the
+  last circle on a phone cannot open off screen.
+- Bowl Settings' `#sent` shortcut still picks the bowl from `?bowl=` and now
+  focuses that bowl's `Invited` heading.
+
+Where this revision and the sections below disagree, this revision wins.
 
 Never make the page itself a modal.
 
