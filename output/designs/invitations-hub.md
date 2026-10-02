@@ -413,7 +413,10 @@ Send or manage invitations for this bowl.
 - The button navigates to `/invites?bowl=[bowlId]#invite-people`.
 - The destination bowl is accepted only after confirming the current user
   still owns it. A foreign, stale, or member-only ID is ignored.
-- Focus the `Invite people` heading after navigation and preselect the bowl.
+- Preselect the bowl and focus the email field, the one thing left to do
+  (October 2, 2026; it focused the `Invite people` heading before). The bowl
+  page's people sheet and its owner-only share button in the header link the
+  same way.
 - If pending sent invitations exist, the count links to
   `/invites?bowl=[bowlId]#sent`, with that bowl's group emphasized or filtered.
 - Members who are not the owner continue to see the existing explanation that
