@@ -24,6 +24,7 @@ npm run test:e2e     # Playwright smoke suite, part of the gate; no production c
 npm run lint         # ESLint, flat config
 node scripts/refresh-provider-logos.mjs  # regenerate src/utils/providerLogos.js
 ./scripts/pgtap.sh   # database tests on a scratch Postgres built from this repo
+npm run eval:search  # score smart search on known answers; spends Groq quota
 npm run build        # production build — run this for any UI/app change
 ```
 
