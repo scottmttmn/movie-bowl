@@ -2,7 +2,8 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import useUserBowls from "../hooks/useUserBowls";
 
-export default function HomeRedirect() {
+// state rides along to the home bowl; /quick-add uses it to open the add sheet.
+export default function HomeRedirect({ state = null }) {
   const { error: contextError, refresh } = useUserBowls();
   const [destination, setDestination] = useState(null);
   const [resolutionError, setResolutionError] = useState(null);
@@ -12,7 +13,7 @@ export default function HomeRedirect() {
     else setResolutionError("Could not load your bowls. Please try again.");
   }), [refresh]);
   useEffect(() => { void resolve(); }, [resolve]);
-  if (destination) return <Navigate to={destination} replace />;
+  if (destination) return <Navigate to={destination} state={destination === "/bowls" ? null : state} replace />;
   return (
     <div className="page-container py-10">
       <div className="panel mx-auto max-w-lg space-y-3 text-sm text-slate-400">

@@ -8,7 +8,7 @@ import { notifyBowlChange } from "../lib/bowlChanges";
 import { describeNetworkError } from "../utils/networkErrors";
 
 const BowlAddContext = createContext(null);
-const initial = { open: false, id: 0, initializing: false, initializationError: null, destination: null, pending: false, result: null, operation: null, unresolved: [], additions: [], actionAnnouncement: "" };
+const initial = { open: false, id: 0, query: "", initializing: false, initializationError: null, destination: null, pending: false, result: null, operation: null, unresolved: [], additions: [], actionAnnouncement: "" };
 
 export function BowlAddProvider({ children }) {
   const { userId, refresh, bowls, loading, error } = useUserBowls();
@@ -27,7 +27,9 @@ export function BowlAddProvider({ children }) {
     return () => { mounted.current = false; opening.current += 1; };
   }, []);
 
-  const open = useCallback(async (bowlId = null) => {
+  // query is what a share or the home-screen shortcut brought in, searched as
+  // soon as the sheet opens.
+  const open = useCallback(async (bowlId = null, { query = "" } = {}) => {
     // The fixed header must not open a competing dialog during a draw/reveal.
     if (!latest.current.open && document.querySelector('[aria-modal="true"], [data-blocks-global-add]')) return;
     setInvoker(document.activeElement);
@@ -38,7 +40,7 @@ export function BowlAddProvider({ children }) {
     const request = ++opening.current;
     // An unconfirmed add outlives the session that made it: it is the only
     // thing that can still turn into a real movie, or prove it never did.
-    update({ ...initial, unresolved: latest.current.unresolved, open: true, id: latest.current.id + 1, initializing: true });
+    update({ ...initial, unresolved: latest.current.unresolved, open: true, id: latest.current.id + 1, initializing: true, query });
     const context = await refresh();
     if (!mounted.current || opening.current !== request || !latest.current.open) return;
     if (!context) {
@@ -187,7 +189,7 @@ export function BowlAddProvider({ children }) {
     actionsPending: session.additions.some((entry) => entry.pending),
     updateAddedMovieNote: (id, note) => changeAddedMovie(id, "comment", note),
     removeAddedMovie: (id) => changeAddedMovie(id, "remove"),
-    openGlobalAdd: () => open(), openBowlAdd: open, close, setDestination, submit, checkStatus, retryAdd,
+    openGlobalAdd: () => open(), openBowlAdd: open, openQuickAdd: (bowlId, query) => open(bowlId, { query }), close, setDestination, submit, checkStatus, retryAdd,
     getInvoker, clearFeedback: () => update({ result: null }),
   }), [session, loading, error, open, close, setDestination, submit, checkStatus, retryAdd, update, getInvoker, changeAddedMovie]);
   return <BowlAddContext.Provider value={value}>{children}</BowlAddContext.Provider>;
