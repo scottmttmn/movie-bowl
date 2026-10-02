@@ -119,6 +119,12 @@ function cleanLanguage(value) {
 // Whatever the model said, only these shapes leave here.
 export function normalizeInterpretation(raw) {
   if (!raw || typeof raw !== "object") return null;
+  // Some answers wrap the shape asked for in one more object
+  // ({"search": {...}}); the terms inside are still the answer.
+  const keys = Object.keys(raw);
+  if (keys.length === 1 && raw[keys[0]] && typeof raw[keys[0]] === "object" && !Array.isArray(raw[keys[0]])) {
+    raw = raw[keys[0]];
+  }
   const genreNames = Object.keys(TMDB_MOVIE_GENRES);
   const genres = cleanList(raw.genres, MAX_GENRES * 2)
     .map((genre) => genreNames.find((name) => name.toLowerCase() === genre.toLowerCase()))
@@ -136,6 +142,12 @@ export function normalizeInterpretation(raw) {
     yearTo,
     language: cleanLanguage(raw.language),
   };
+}
+
+function hasAnyTerm(interpretation) {
+  if (!interpretation) return false;
+  const { titles, people, genres, keywords, yearFrom, yearTo, language } = interpretation;
+  return [titles, people, genres, keywords].some((list) => list.length > 0) || Boolean(yearFrom || yearTo || language);
 }
 
 export async function interpretDescription(query, { providers = getModelProviders(), fetchImpl = fetch } = {}) {
@@ -165,9 +177,12 @@ export async function interpretDescription(query, { providers = getModelProvider
         continue;
       }
       const body = await response.json().catch(() => null);
-      const interpretation = normalizeInterpretation(parseModelJson(body?.choices?.[0]?.message?.content));
-      if (interpretation) return interpretation;
-      console.warn(`[api/tmdb/search] ${provider.name} returned no usable terms`);
+      const content = body?.choices?.[0]?.message?.content;
+      const interpretation = normalizeInterpretation(parseModelJson(content));
+      if (hasAnyTerm(interpretation)) return interpretation;
+      // An answer with nothing in it is no answer: the next provider may do
+      // better, and the raw text is the only way to see what went wrong.
+      console.warn(`[api/tmdb/search] ${provider.name} returned no usable terms`, String(content ?? "").slice(0, 300));
     } catch (error) {
       console.warn(`[api/tmdb/search] ${provider.name} failed`, error?.name || error);
     }
