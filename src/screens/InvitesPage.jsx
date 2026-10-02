@@ -62,7 +62,6 @@ export default function InvitesPage() {
   const [declineTarget, setDeclineTarget] = useState(null);
   const [revokeTarget, setRevokeTarget] = useState(null);
   const [isConfirming, setIsConfirming] = useState(false);
-  const inviteHeadingRef = useRef(null);
   const invitedHeadingRef = useRef(null);
   const peopleRef = useRef(null);
   const handledShortcut = useRef(null);
@@ -95,15 +94,15 @@ export default function InvitesPage() {
 
   // Bowl Settings links to #invite-people to send and #sent to manage what it
   // already sent. Landing both on the form sends half of them to the wrong job.
-  // The ?bowl= hint has already picked the bowl, so #sent lands on its Invited
-  // row.
+  // The ?bowl= hint has already picked the bowl, so #invite-people lands in the
+  // email field, the one thing left to do, and #sent on its Invited row.
   useEffect(() => {
     if (!isRequestedBowlOwned) return;
     const target = `${hash}:${requestedBowlId}`;
     if (handledShortcut.current === target) return;
     if (hash !== "#sent") {
       handledShortcut.current = target;
-      inviteHeadingRef.current?.focus();
+      emailInputRef.current?.focus();
       return;
     }
     // Wait for the row to exist: the records load after the bowls do.
@@ -330,7 +329,7 @@ export default function InvitesPage() {
         </section>
 
         <section aria-labelledby="invite-people-heading" id="invite-people">
-          <h2 id="invite-people-heading" ref={inviteHeadingRef} tabIndex={-1} className="section-title">
+          <h2 id="invite-people-heading" className="section-title">
             Invite people
           </h2>
           {!isOwnershipKnown ? (

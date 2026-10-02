@@ -323,7 +323,7 @@ describe("InvitesPage", () => {
     ));
   });
 
-  it("sends the invite shortcut to the form", () => {
+  it("sends the invite shortcut to the email field, with the bowl already picked", () => {
     mocks.state.bowls = [OWNED, OWNED_2];
     mocks.state.search = "bowl=bowl-2";
 
@@ -333,7 +333,8 @@ describe("InvitesPage", () => {
       </MemoryRouter>
     );
 
-    expect(document.activeElement).toBe(screen.getByRole("heading", { level: 2, name: "Invite people" }));
+    expect(screen.getByRole("radio", { name: /Family Movies/ })).toBeChecked();
+    expect(document.activeElement).toBe(screen.getByLabelText("Email addresses"));
   });
 
   it("sends parsed addresses and reports the outcome", async () => {
