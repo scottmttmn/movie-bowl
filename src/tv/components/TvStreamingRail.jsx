@@ -45,12 +45,9 @@ export default function TvStreamingRail({
   // all this needs.
   return (
     <div className="tv-rail" data-mode={mode}>
-      {isOverridden && (
-        <>
-          <span aria-hidden="true" className="tv-rail-diverged" />
-          <span className="sr-only">set on this TV</span>
-        </>
-      )}
+      {/* Said, not shown: a dot for "set on this TV" sat on every control
+          that differed from the account and read as noise. */}
+      {isOverridden && <span className="sr-only">set on this TV</span>}
       {/* Deliberately not a data-tv-nav-group. A group holds a row at its
           ends, and this row's left end is the only way back to the draw
           button -- grouping it would make the rail somewhere you can arrow

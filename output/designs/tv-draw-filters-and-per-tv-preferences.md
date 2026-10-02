@@ -79,6 +79,13 @@ marks which lines are set on this television. Otherwise someone changes a filter
 on their phone, sees no effect in the living room, and reasonably concludes the
 app is broken.
 
+Revised October 2, 2026: the rose dot that marked each control set on this
+television is gone. It sat on the theater switch, the preview count and the
+streaming rail whenever they differed from the account, and read as noise. The
+divergence is still said rather than shown: each control's accessible name ends
+"set on this TV", and the header's `Use my phone's settings` appears only while
+the television has an opinion to drop, which is the visible cue that one exists.
+
 As built, the sidebar *is* the control: a row that reports a setting is the row
 that changes it, because on a D-pad a separate settings screen means navigating
 away from the thing being described and back again. A circled mark is what says

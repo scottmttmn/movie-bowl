@@ -1014,17 +1014,6 @@ html.tv-root {
   opacity: 0.32;
 }
 
-.tv-rail-diverged {
-  position: absolute;
-  top: 14px;
-  right: 14px;
-  width: 0.7rem;
-  height: 0.7rem;
-  border-radius: 50%;
-  background: #fda4af;
-  box-shadow: 0 0 0 3px rgba(10, 15, 27, 0.9);
-}
-
 /* Theater mode is the one setting here about the occasion rather than about
    filtering, so it is a curtain rather than another pill: the same switch the
    phone has, and the curtains around the bowl are what it looks like on. The
@@ -1081,13 +1070,6 @@ html.tv-root {
 .tv-theater-dot[data-filled] {
   border-color: #fb7185;
   background: #fb7185;
-}
-
-/* The rail can corner the dot because it is a tall panel. These are single
-   pills, so it sits after the contents instead. */
-.tv-theater-toggle .tv-rail-diverged {
-  position: static;
-  flex: 0 0 auto;
 }
 
 /* The stage the curtains hang on. The draw column is its own box, so the
@@ -2473,16 +2455,6 @@ html.tv-root {
   justify-content: space-between;
   gap: 1.5rem;
   background: rgba(31, 24, 64, 0.5);
-}
-
-/* A horizontal rail has no empty corner to pin to: the top right of it is the
-   last service's tile, which makes a marker about the whole control look like a
-   badge about that one service. The theater toggle solves this the same way. */
-.tv-solo-sheet-streaming .tv-rail-diverged {
-  position: static;
-  flex: 0 0 auto;
-  order: -1;
-  margin-left: 0.35rem;
 }
 
 .tv-solo-sheet-streaming .tv-rail-stack {
