@@ -148,6 +148,8 @@ describe("described search: finding the movies", () => {
           { id: 10, title: "Heat", release_date: "1986-03-14", popularity: 5 },
         ] };
       }
+      if (path.includes("query=The%20Empire%20Strikes%20Back")) return { results: [{ id: 1891, title: "The Empire Strikes Back", release_date: "1980-05-20", popularity: 30 }] };
+      if (path.includes("query=Part%20Two")) return { results: [{ id: 77, title: "Part Two", release_date: "2011-01-01", popularity: 1 }] };
       if (path.includes("query=My%20Dinner")) return { results: [{ id: 25468, title: "My Dinner with Andre", release_date: "1981-10-11", popularity: 8 }] };
       return { results: [] };
     });
@@ -157,11 +159,14 @@ describe("described search: finding the movies", () => {
       { title: "Chung\u2011King Express", year: 1994 },
       { title: "Heat", year: 1986 },
       { title: "My Dinner with Andre", year: 1978 },
+      // TMDB files a sequel under its subtitle, but a bare subtitle must agree on the year.
+      { title: "Star Wars: Episode V \u2013 The Empire Strikes Back", year: 1980 },
+      { title: "Dune: Part Two", year: 2024 },
       { title: "A Movie Nobody Made", year: null },
       { title: "Broken", year: null },
     ], fetchTmdb);
     // A remake goes to the nearer year; a misremembered year drops nothing.
-    expect(found.map((movie) => movie.id)).toEqual([28, 11104, 10, 25468]);
+    expect(found.map((movie) => movie.id)).toEqual([28, 11104, 10, 25468, 1891]);
     expect(fetchTmdb.mock.calls.map(([path]) => path).filter((path) => path.includes("Chung")))
       .toEqual(expect.arrayContaining([expect.stringContaining("query=Chung-King%20Express"), expect.stringContaining("query=ChungKing%20Express")]));
   });
