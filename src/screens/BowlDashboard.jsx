@@ -21,7 +21,6 @@ import useBowlPeople from "../hooks/useBowlPeople";
 import useDrawProviderLinks from "../hooks/useDrawProviderLinks";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import useDeviceDrawSettings from "../hooks/useDeviceDrawSettings";
-import TheaterCurtains from "../components/TheaterCurtains";
 import TheaterModeToggle from "../components/TheaterModeToggle";
 import TheaterPreroll from "../components/TheaterPreroll";
 import { buildTrailerQueue, readRecentTrailerKeys, rememberTrailerKeys } from "../utils/theaterQueue";
@@ -1004,8 +1003,8 @@ export default function BowlDashboard() {
         if (movie) {
           const detailMovie = await buildDetailMovie(movie);
           setDrawnMovie(detailMovie);
-          // Armed on this device, so no confirmation: the curtain toggle under
-          // the draw button already answered that question. The reveal is set
+          // Armed on this device, so no confirmation: the Previews first
+          // switch under the draw button already answered that question. The reveal is set
           // first and the previews play over it, which is the order the
           // television runs and the order a cinema runs.
           if (isTheaterModeEnabled) startTheater(detailMovie);
@@ -1111,11 +1110,6 @@ return (
                     className={`mx-auto h-44 w-full max-w-2xl drop-shadow-2xl sm:h-48 md:h-52 ${isDrawing ? "invisible" : ""}`}
                     holdState={holdState}
                   />
-                  <TheaterCurtains
-                    enabled={showsTheaterToggle && isTheaterModeEnabled}
-                    holdState={holdState}
-                    isDrawing={isDrawing}
-                  />
                 </div>
 
                 <BowlStatLine
@@ -1182,7 +1176,7 @@ return (
                     toggle explains nothing and advertises a ceremony they can
                     never start. */}
                 {showsTheaterToggle && (
-                  <div className="mt-3 flex justify-center">
+                  <div className="mx-auto mt-3 w-full max-w-sm">
                     <TheaterModeToggle
                       enabled={isTheaterModeEnabled}
                       previewCount={theaterTrailerCount}

@@ -496,7 +496,7 @@ export default function TvSoloDrawScreen({ userId }) {
   if (isBusy) {
     return (
       <main>
-        {isTheaterModeEnabled && <TheaterRevealCurtains origin={curtainOrigin} closeFirst />}
+        {isTheaterModeEnabled && <TheaterRevealCurtains origin={curtainOrigin} />}
         {revealRun && <SoloDrawReveal run={revealRun} presentation="tv" />}
       </main>
     );

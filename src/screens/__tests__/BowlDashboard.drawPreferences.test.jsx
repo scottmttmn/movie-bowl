@@ -552,7 +552,7 @@ describe("BowlDashboard draw preferences", () => {
       renderDashboard();
       await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-      expect(screen.getByRole("switch", { name: /theater mode/i })).toHaveAttribute(
+      expect(screen.getByRole("switch", { name: "Previews first" })).toHaveAttribute(
         "aria-checked",
         "false"
       );
@@ -562,10 +562,10 @@ describe("BowlDashboard draw preferences", () => {
       renderDashboard();
       await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-      fireEvent.click(screen.getByRole("switch", { name: /theater mode/i }));
+      fireEvent.click(screen.getByRole("switch", { name: "Previews first" }));
 
       await waitFor(() =>
-        expect(screen.getByRole("switch", { name: /theater mode on/i })).toHaveAttribute(
+        expect(screen.getByRole("switch", { name: "Previews first" })).toHaveAttribute(
           "aria-checked",
           "true"
         )
@@ -736,7 +736,7 @@ describe("BowlDashboard draw preferences", () => {
         await waitFor(() => expect(document.querySelector(".modal-overlay")).not.toBeInTheDocument());
 
         await act(async () => releaseLookup());
-        fireEvent.click(screen.getByRole("switch", { name: /theater mode on/i }));
+        fireEvent.click(screen.getByRole("switch", { name: "Previews first" }));
         mocks.state.resolveEligiblePreviewIds = null;
         confirmDraw();
 
@@ -774,7 +774,7 @@ describe("BowlDashboard draw preferences", () => {
       renderDashboard();
       await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-      expect(screen.getByRole("switch", { name: /theater mode on/i })).toHaveAttribute(
+      expect(screen.getByRole("switch", { name: "Previews first" })).toHaveAttribute(
         "aria-checked",
         "true"
       );

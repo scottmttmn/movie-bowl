@@ -229,7 +229,7 @@ describe("BowlDashboard guards", () => {
 
     await waitFor(() => expect(mocks.supabase.from).toHaveBeenCalledWith("bowls"));
     expect(screen.queryByText(/permission to draw/i)).not.toBeInTheDocument();
-    expect(screen.getByRole("switch", { name: /theater mode/i })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Previews first" })).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /nothing is eligible/i })).not.toBeInTheDocument();
 
     answerBowlRow({ data: mocks.state.bowlRow, error: null });
@@ -1091,7 +1091,7 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    expect(screen.queryByRole("switch", { name: /theater mode/i })).not.toBeInTheDocument();
+    expect(screen.queryByRole("switch", { name: "Previews first" })).not.toBeInTheDocument();
     expect(screen.getByRole("button", { name: /draw movie/i })).toBeInTheDocument();
   });
 
@@ -1104,6 +1104,6 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    expect(screen.getByRole("switch", { name: /theater mode/i })).toBeInTheDocument();
+    expect(screen.getByRole("switch", { name: "Previews first" })).toBeInTheDocument();
   });
 });

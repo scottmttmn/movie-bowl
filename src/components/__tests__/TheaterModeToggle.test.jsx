@@ -12,21 +12,21 @@ describe("TheaterModeToggle", () => {
     const onToggle = vi.fn();
     const { rerender } = render(<TheaterModeToggle enabled={false} onToggle={onToggle} />);
 
-    const off = screen.getByRole("switch", { name: "Theater mode" });
+    const off = screen.getByRole("switch", { name: "Previews first" });
     expect(off).toHaveAttribute("aria-checked", "false");
     fireEvent.click(off);
     expect(onToggle).toHaveBeenCalledWith(true);
 
     rerender(<TheaterModeToggle enabled onToggle={onToggle} onPreviewCountChange={vi.fn()} />);
-    const on = screen.getByRole("switch", { name: "Theater mode on" });
+    const on = screen.getByRole("switch", { name: "Previews first" });
     expect(on).toHaveAttribute("aria-checked", "true");
     fireEvent.click(on);
     expect(onToggle).toHaveBeenLastCalledWith(false);
   });
 
-  // The count is a ceiling: buildTrailerQueue resolves up to it, so each dot
+  // The count is a ceiling: buildTrailerQueue resolves up to it, so each option
   // promises "up to" rather than an exact number.
-  it("shows the count as dots, filled up to the chosen one, and sets it with a tap", () => {
+  it("shows the count as a 1-4 picker and sets it with a tap", () => {
     const onPreviewCountChange = vi.fn();
     render(<TheaterModeToggle enabled previewCount={3} onToggle={vi.fn()} onPreviewCountChange={onPreviewCountChange} />);
 
@@ -37,7 +37,7 @@ describe("TheaterModeToggle", () => {
       "Up to 3 previews",
       "Up to 4 previews",
     ]);
-    expect(dots.map((dot) => dot.hasAttribute("data-filled"))).toEqual([true, true, true, false]);
+    expect(dots.map((dot) => dot.textContent)).toEqual(["1", "2", "3", "4"]);
     expect(screen.getByRole("radio", { name: "Up to 3 previews" })).toHaveAttribute("aria-checked", "true");
 
     fireEvent.click(screen.getByRole("radio", { name: "Up to 1 preview" }));

@@ -1,13 +1,10 @@
 import { useCallback, useEffect, useId, useLayoutEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import { HOLD_TO_DRAW_MS } from "./HoldToDrawButton";
 import { easeCurtain, getCurtainShape } from "../utils/theaterCurtains";
 
 const DROP_MS = 550;
 const PART_MS = 1300;
 const CLOSE_MS = 900;
-const REOPEN_MS = 500;
-const GROW_MS = 400;
 const REVEAL_PART_MS = 1000;
 
 const VELVET = { dark: "#4a0716", mid: "#7d1029", light: "#a91b39", hi: "#c72a47" };
@@ -187,20 +184,17 @@ function CurtainArt({ rect, openness, spread, radius, fade }) {
 }
 
 /**
- * Theater mode, shown rather than labelled: while it is on, the bowl sits on a
- * stage between two curtains.
- *
- * Holding to draw closes them at the pace the button fills, and letting go
- * early opens them again. When the hold completes the closed curtains grow to
- * fill the screen and part on the draw reveal, staying tied back at its edges
- * until the movie opens. Turning theater mode on drops them in and parts them;
- * turning it off closes them and lifts them away. A page that loads with it
- * already on shows them open, without the ceremony.
+ * Theater mode on the television, shown rather than labelled: while it is on,
+ * the bowl sits on a stage between two curtains. Turning it on drops them in
+ * and parts them; turning it off closes them and lifts them away. A page that
+ * loads with it already on shows them open, without the ceremony. The phone
+ * and the laptop use a plain switch instead -- the usual night is drawn there
+ * and watched here, so the stage belongs to the screen people watch.
  *
  * Decoration only: hidden from assistive technology, never in the way of a
- * tap, and still under reduced motion.
+ * press, and still under reduced motion.
  */
-export default function TheaterCurtains({ enabled, holdState = "idle", isDrawing = false }) {
+export default function TheaterCurtains({ enabled }) {
   const stageRef = useRef(null);
   const size = useElementSize(stageRef);
   const reducedMotion = prefersReducedMotion();
@@ -208,7 +202,6 @@ export default function TheaterCurtains({ enabled, holdState = "idle", isDrawing
   const [drop, animateDrop] = useTween(enabled ? 0 : 1);
   const wasEnabled = useRef(enabled);
 
-  // On and off.
   useEffect(() => {
     if (wasEnabled.current === enabled) return;
     wasEnabled.current = enabled;
@@ -221,82 +214,41 @@ export default function TheaterCurtains({ enabled, holdState = "idle", isDrawing
     }
   }, [enabled, reducedMotion, animateDrop, animateOpenness]);
 
-  // The hold, and the draw it starts. Only a change in either moves the
-  // curtains here, so turning theater mode on is left to finish its own entrance.
-  const lastMotion = useRef({ holdState, isDrawing });
-  useEffect(() => {
-    const changed = lastMotion.current.holdState !== holdState || lastMotion.current.isDrawing !== isDrawing;
-    lastMotion.current = { holdState, isDrawing };
-    if (!changed || !enabled) return;
-    if (isDrawing) {
-      // The screen-wide pair takes over; this pair waits, open, for the page's return.
-      animateOpenness(1, 0);
-      return;
-    }
-    if (holdState === "holding") animateOpenness(0, reducedMotion ? 0 : HOLD_TO_DRAW_MS, (t) => t);
-    else animateOpenness(1, reducedMotion ? 0 : REOPEN_MS);
-  }, [enabled, holdState, isDrawing, reducedMotion, animateOpenness]);
-
-  const hidden = drop >= 1 || isDrawing;
   return (
-    <>
-      <div ref={stageRef} className="theater-curtains" aria-hidden="true">
-        {!hidden && size.width > 0 && (
-          <svg width={size.width} height={size.height} style={{ transform: `translateY(${(-drop * 102).toFixed(1)}%)` }}>
-            <CurtainArt
-              rect={{ x: 0, y: 0, width: size.width, height: size.height }}
-              openness={openness}
-              spread={0}
-              radius={22}
-              fade={0.78}
-            />
-          </svg>
-        )}
-      </div>
-      {enabled && isDrawing && !reducedMotion && <ScreenCurtains stageRef={stageRef} wasOpen={openness > 0.05} />}
-    </>
+    <div ref={stageRef} className="theater-curtains" aria-hidden="true">
+      {drop < 1 && size.width > 0 && (
+        <svg width={size.width} height={size.height} style={{ transform: `translateY(${(-drop * 102).toFixed(1)}%)` }}>
+          <CurtainArt
+            rect={{ x: 0, y: 0, width: size.width, height: size.height }}
+            openness={openness}
+            spread={0}
+            radius={22}
+            fade={0.78}
+          />
+        </svg>
+      )}
+    </div>
   );
 }
 
-// The same curtains over the whole screen for the draw: shut where the bowl was,
-// grown to the screen's edges, then parted on the reveal.
-function ScreenCurtains({ stageRef, wasOpen }) {
-  const [origin, setOrigin] = useState(null);
-  // A draw started without a hold -- the keyboard's confirm, say -- finds the
-  // stage pair still open, so they close as they grow rather than snapping
-  // shut. Read once: the stage pair reopens behind this one straight after.
-  const [closeFirst] = useState(wasOpen);
-
-  // Measured on the next frame, where the page's own pair stood a moment ago.
-  useEffect(() => {
-    const frame = window.requestAnimationFrame(() => {
-      setOrigin(stageRef.current?.getBoundingClientRect?.() || { left: 0, top: 0, width: 0, height: 0 });
-    });
-    return () => window.cancelAnimationFrame(frame);
-  }, [stageRef]);
-
-  return origin ? <TheaterRevealCurtains origin={origin} closeFirst={closeFirst} /> : null;
-}
-
 /**
- * The screen-wide curtains on their own, for a surface that swaps the page for
- * its draw screen and so cannot keep the page's pair alive through it -- the
- * television. `origin` is where the page's curtains stood. They were open
- * there, since nothing on a remote holds them shut, so `closeFirst` draws them
- * together while they grow, and they part on the reveal as on the phone.
+ * The screen-wide curtains for the draw. The television swaps the page for
+ * its draw screen, so this pair stands on its own: `origin` is where the
+ * page's curtains stood. They were open there, since nothing on a remote holds
+ * them shut, so they draw together while they grow, and part on the reveal.
  */
-export function TheaterRevealCurtains({ origin, closeFirst = false }) {
+export function TheaterRevealCurtains({ origin }) {
   const [viewport] = useState(() => ({ width: window.innerWidth || 390, height: window.innerHeight || 844 }));
   const [spread, animateSpread] = useTween(0);
-  const [openness, animateOpenness] = useTween(closeFirst ? 1 : 0);
+  const [openness, animateOpenness] = useTween(1);
   const reducedMotion = prefersReducedMotion();
 
   useEffect(() => {
     if (reducedMotion) return undefined;
-    if (closeFirst) animateOpenness(0, CLOSE_MS);
-    animateSpread(1, closeFirst ? CLOSE_MS : GROW_MS).then((done) => done && animateOpenness(1, REVEAL_PART_MS));
+    animateOpenness(0, CLOSE_MS);
+    animateSpread(1, CLOSE_MS).then((done) => done && animateOpenness(1, REVEAL_PART_MS));
     return undefined;
-  }, [closeFirst, reducedMotion, animateSpread, animateOpenness]);
+  }, [reducedMotion, animateSpread, animateOpenness]);
 
   if (reducedMotion) return null;
   const from = origin || { left: 0, top: 0, width: viewport.width, height: viewport.height };

@@ -54,7 +54,7 @@ export const NO_SURFACE_DEFAULTS = Object.freeze({});
 
 // The phone and laptop decline to inherit theater mode, because enabling it
 // meant enabling it for a television. Every other setting still follows the
-// account here; the ticket beside the draw button is how this device says yes.
+// account here; the switch under the draw button is how this device says yes.
 export const WEB_SURFACE_DEFAULTS = Object.freeze({ theaterModeEnabled: false });
 
 function getStorage() {
@@ -130,7 +130,7 @@ export function clearDeviceSettingsOverrides(userId) {
  * how a surface declines to inherit an account setting that does not mean the
  * same thing there. The web reads `theaterModeEnabled` that way -- someone who
  * enabled theater mode enabled it for a television, so a laptop starts off and
- * the ticket is how you arm it -- while the television passes nothing and falls
+ * its switch is how you arm it -- while the television passes nothing and falls
  * through to the account as it always has. A device override still wins over
  * both, because it is the one layer someone set on the device in front of them.
  */
