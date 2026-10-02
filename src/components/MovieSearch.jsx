@@ -295,17 +295,57 @@ export default function MovieSearch({
         // person cannot depend on which request happened to win -- but the
         // titles give it a brief moment first, so it rarely pushes rows down.
         let peopleSettled = append ? null : searchPeople(trimmedQuery);
-        let spellingCorrected = false;
 
         try {
             let data = await searchTmdbMovies(trimmedQuery, { page });
             if (requestId !== latestRequestRef.current) return;
 
+            // A description goes to the model only once title and people
+            // search have both missed it. What it finds replaces the title
+            // results, which are kept for when every term it read has been
+            // removed. Returns whether the model was asked at all.
+            let smart = null;
+            const askModel = async () => {
+                try {
+                    const described = await describeSearch(trimmedQuery);
+                    if (requestId !== latestRequestRef.current) return true;
+                    if (described?.status === "ok") {
+                        // Titles the model recognized lead, and stay put while
+                        // terms are removed: they came from the words, not the terms.
+                        const picks = described.picks || [];
+                        smart = { status: "ready", terms: described.terms || [], picks, plain: data };
+                        // The model read the words as typed, never a suggestion.
+                        setResultsQuery({ query: trimmedQuery, correctedFrom: null });
+                        const found = withPicksFirst(picks, described.results);
+                        data = { page: 1, totalPages: 1, totalResults: found.length, results: found };
+                    } else if (described?.status === "unavailable") {
+                        smart = { status: "unavailable" };
+                    }
+                } catch (error) {
+                    // The title search still answered; a description that
+                    // could not be searched is only that, not a failed search.
+                    if (requestId !== latestRequestRef.current) return true;
+                    console.warn("[MovieSearch] Described search failed", error);
+                }
+                return true;
+            };
+
+            // Something that reads as a description goes to the model before
+            // the spelling retry, which would otherwise "correct" it by
+            // dropping words -- "brad pitt baseball movie" into "brad pitt",
+            // who people search then finds, and the model never hears it.
+            let askedModel = false;
+            if (!append && peopleSettled && shouldDescribe(trimmedQuery, data.results || []) && (await peopleSettled).length === 0) {
+                if (requestId !== latestRequestRef.current) return;
+                askedModel = await askModel();
+                if (requestId !== latestRequestRef.current) return;
+            }
+
             // No title the words start and, once it answers, no one is most
             // often a misspelling. Search what the server suggests instead and
             // say so; the field keeps what was typed, and so does the custom
             // slip. Anything the typed words did find stays, after the rest.
-            if (!append && trimmedQuery.length >= SUGGESTION_MIN_QUERY_LENGTH && looksLikeAMiss(trimmedQuery, data.results || [])) {
+            if (!append && smart?.status !== "ready" && trimmedQuery.length >= SUGGESTION_MIN_QUERY_LENGTH && looksLikeAMiss(trimmedQuery, data.results || [])) {
                 const people = await peopleSettled;
                 if (requestId !== latestRequestRef.current) return;
                 if (people.length === 0) {
@@ -317,7 +357,6 @@ export default function MovieSearch({
                             const corrected = await searchTmdbMovies(suggestion, { page: 1 });
                             if (requestId !== latestRequestRef.current) return;
                             setResultsQuery({ query: suggestion, correctedFrom: trimmedQuery });
-                            spellingCorrected = true;
                             data = { ...corrected, results: appendUniqueMovies(corrected.results || [], data.results || []) };
                         } catch (error) {
                             // The search that was asked for did succeed; a
@@ -330,32 +369,15 @@ export default function MovieSearch({
                 }
             }
 
-            // A description goes to the model only once title and people
-            // search have both missed it, and a corrected spelling never
-            // does. What it finds replaces the title results, which are kept
-            // for when every term it read has been removed.
-            let smart = null;
-            if (!append && !spellingCorrected && peopleSettled && shouldDescribe(trimmedQuery, data.results || []) && (await peopleSettled).length === 0) {
+            // Whatever its length, a search that still found no title and no
+            // one goes to the model too: an empty result has nothing to lose,
+            // and a short misspelling the retry cannot fix ("leanardo
+            // decapiro") is exactly what it reads well.
+            const foundNothing = (data.results || []).length === 0 && trimmedQuery.length >= SUGGESTION_MIN_QUERY_LENGTH;
+            if (!append && !askedModel && foundNothing && peopleSettled && (await peopleSettled).length === 0) {
                 if (requestId !== latestRequestRef.current) return;
-                try {
-                    const described = await describeSearch(trimmedQuery);
-                    if (requestId !== latestRequestRef.current) return;
-                    if (described?.status === "ok") {
-                        // Titles the model recognized lead, and stay put while
-                        // terms are removed: they came from the words, not the terms.
-                        const picks = described.picks || [];
-                        smart = { status: "ready", terms: described.terms || [], picks, plain: data };
-                        const found = withPicksFirst(picks, described.results);
-                        data = { page: 1, totalPages: 1, totalResults: found.length, results: found };
-                    } else if (described?.status === "unavailable") {
-                        smart = { status: "unavailable" };
-                    }
-                } catch (error) {
-                    // The title search still answered; a description that
-                    // could not be searched is only that, not a failed search.
-                    if (requestId !== latestRequestRef.current) return;
-                    console.warn("[MovieSearch] Described search failed", error);
-                }
+                await askModel();
+                if (requestId !== latestRequestRef.current) return;
             }
 
             if (peopleSettled) {

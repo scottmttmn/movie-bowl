@@ -32,12 +32,23 @@ The description path runs only when:
 
 - the query has three or more words,
 - no title result is spelled by the words typed (`queryMatchesName`, the
-  People row's own rule, against title and original title),
-- people search found no one, and
-- the misspelling retry did not correct it.
+  People row's own rule, against title and original title), and
+- people search found no one.
+
+These are judged on the words as typed, before the misspelling retry, and the
+model goes first: the retry "corrects" a description by dropping words, so
+"brad pitt baseball movie" became "brad pitt", whom people search then found,
+and the model never heard it. A search the model does not answer still gets
+the retry.
 
 A long real title still matches itself, so length alone never sends it
 (`src/utils/describedSearch.js`). A typed title never waits on it.
+
+One more case sends it whatever the word count or spelling retry: four or more
+characters that found no title and no person at all. An empty result has
+nothing to lose, and a short misspelling the retry cannot fix ("leanardo
+decapiro") is exactly what the model reads well. Scott chose this over a
+separate smart-search button on October 2, 2026.
 
 ## What it looks like
 

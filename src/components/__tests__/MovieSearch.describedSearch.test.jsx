@@ -117,6 +117,36 @@ describe("MovieSearch described search", () => {
     expect(order()).toEqual(["Details for Apocalypse Now", "Details for Elysium"]);
   });
 
+  it("asks about a short search only when title and people search find nothing at all", async () => {
+    const dicaprio = { kind: "person", id: 6193, label: "Leonardo DiCaprio" };
+    const inception = { id: 27205, title: "Inception", release_date: "2010-07-15" };
+    titles();
+    mocks.describeSearch.mockResolvedValue({ status: "ok", terms: [dicaprio], results: [inception] });
+    type("leanardo decapiro");
+    await screen.findByRole("button", { name: "Details for Inception" });
+    expect(mocks.describeSearch).toHaveBeenCalledWith("leanardo decapiro");
+    cleanup();
+
+    mocks.describeSearch.mockClear();
+    titles({ page: 1, totalPages: 1, totalResults: 1, results: [stray] });
+    type("stranded alone");
+    await screen.findByRole("button", { name: "Details for Stranded" });
+    expect(mocks.describeSearch).not.toHaveBeenCalled();
+  });
+
+  it("asks the model before the spelling retry can drop words from a description", async () => {
+    const pitt = { kind: "person", id: 287, label: "Brad Pitt" };
+    const moneyball = { id: 60308, title: "Moneyball", release_date: "2011-09-22" };
+    titles();
+    mocks.suggestTmdbQuery.mockResolvedValue("brad pitt");
+    mocks.describeSearch.mockResolvedValue({ status: "ok", terms: [pitt], picks: [moneyball], results: [] });
+    type("brad pitt baseball movie");
+
+    await screen.findByRole("button", { name: "Details for Moneyball" });
+    expect(mocks.suggestTmdbQuery).not.toHaveBeenCalled();
+    expect(screen.queryByText(/Showing results for/i)).not.toBeInTheDocument();
+  });
+
   it("says smart search is resting and shows the title results when no model answers", async () => {
     titles({ page: 1, totalPages: 1, totalResults: 1, results: [stray] });
     mocks.describeSearch.mockResolvedValue({ status: "unavailable" });
