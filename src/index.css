@@ -519,43 +519,67 @@
       0 28px 68px -40px rgba(244, 63, 94, 0.62);
   }
 
-  /* A received invitation is an admission ticket: the same paper as the slips
-     in the bowl and the theater-mode stub. It is the one thing on /invites
-     that is waiting on you, and it only exists while it is, so it can afford
-     to be the loudest object on the page. */
-  .invite-ticket {
-    @apply relative grid overflow-hidden rounded-2xl border border-rose-800/60 sm:grid-cols-[minmax(0,1fr)_7rem];
-    background: linear-gradient(135deg, #1a0b14 0%, #2a0d1b 45%, #140a18 100%);
-    box-shadow: 0 24px 60px -40px rgba(244, 63, 94, 0.6);
+  /* A received invitation is a slip someone handed you: the bowl's name on the
+     same paper as the slips in the bowl, the inviter's initial on its corner. */
+  .invite-slip-card {
+    @apply grid gap-3;
   }
 
-  .invite-ticket-stub {
-    @apply hidden place-items-center content-center gap-1 px-2 py-4 text-center sm:grid;
-    border-left: 2px dashed rgba(251, 113, 133, 0.35);
+  .invite-slip {
+    @apply px-5 pb-6 pt-5;
   }
 
-  /* Bowl choice as visible options rather than a select: where an invitation
-     goes is the one thing that is hard to undo, so it should be read before
-     it is sent, not discovered by opening a menu. */
-  .choice-pill {
-    @apply inline-flex min-h-11 cursor-pointer items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/65 px-3.5 py-2 text-sm font-semibold text-slate-300 transition;
+  .invite-slip h3 {
+    @apply m-0 break-words;
+    font-family: "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive;
+    font-size: 1.6rem;
+    font-weight: 700;
+    line-height: 1.15;
   }
 
-  .choice-pill:hover {
-    @apply border-slate-600 text-white;
+  /* Bowl choice as the bowl picker's tiles rather than a select: where an
+     invitation goes is the one thing that is hard to undo, so it should be
+     read before it is sent, not discovered by opening a menu. */
+  .bowl-choice {
+    @apply flex min-w-0 cursor-pointer items-center gap-3 rounded-2xl border border-slate-700/50 bg-slate-800/50 p-2.5 text-slate-200 transition hover:border-slate-600;
   }
 
-  .choice-pill:has(input:checked) {
-    @apply border-rose-400/80 bg-rose-950/40 text-slate-50;
-    box-shadow: inset 0 0 0 1px rgba(251, 113, 133, 0.35);
+  .bowl-choice:has(input:checked) {
+    @apply border-[1.5px] border-rose-400 bg-rose-600/10 text-slate-50;
   }
 
-  .choice-pill:has(input:focus-visible) {
+  .bowl-choice:has(input:focus-visible) {
     box-shadow: var(--shadow-focus);
   }
 
-  .choice-pill:has(input:disabled) {
+  .bowl-choice:has(input:disabled) {
     @apply cursor-not-allowed opacity-45;
+  }
+
+  /* A bowl's people under the invite field: members solid, people invited
+     but not joined dashed and greyed. */
+  .person-cell {
+    @apply flex w-14 flex-col items-center gap-1;
+  }
+
+  .person-dot {
+    @apply flex h-11 w-11 items-center justify-center rounded-full border border-slate-700 bg-slate-800 text-sm font-semibold uppercase text-slate-200;
+  }
+
+  .person-dot-invited {
+    @apply border-dashed border-slate-500 bg-transparent text-slate-400 transition hover:border-slate-300 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/70;
+  }
+
+  .person-dot-invited[aria-expanded="true"] {
+    @apply border-rose-400 text-rose-200;
+  }
+
+  .person-name {
+    @apply w-full truncate text-center text-xs text-slate-300;
+  }
+
+  .pending-detail {
+    @apply mt-3 flex flex-wrap items-center gap-x-3 gap-y-2 rounded-xl border border-slate-700 bg-slate-900 p-3;
   }
 
   .email-chip {

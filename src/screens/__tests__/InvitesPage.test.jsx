@@ -21,11 +21,19 @@ const mocks = vi.hoisted(() => ({
     send: vi.fn(async () => ({ ok: true, message: "Sent 1 invitation to Friday Night." })),
     revoke: vi.fn(async () => ({ ok: true, message: "Invitation revoked for friend@example.com." })),
     refreshSent: vi.fn(),
+    people: { status: "idle", members: [], invites: [], names: {} },
+    peopleBowlIds: [],
   },
 }));
 
 vi.mock("../../hooks/useAuth", () => ({
-  default: () => ({ session: { user: { email: mocks.state.accountEmail } } }),
+  default: () => ({ session: { user: { id: "user-1", email: mocks.state.accountEmail } } }),
+}));
+vi.mock("../../hooks/useBowlPeople", () => ({
+  default: (bowlId, { enabled } = {}) => {
+    if (enabled) mocks.state.peopleBowlIds.push(bowlId);
+    return enabled ? mocks.state.people : { status: "idle", members: [], invites: [], names: {} };
+  },
 }));
 vi.mock("../../hooks/useUserBowls", () => ({
   default: () => ({
@@ -90,6 +98,8 @@ describe("InvitesPage", () => {
       receivedLoadError: null,
       bowlsLoading: false,
       bowlsError: null,
+      people: { status: "idle", members: [], invites: [], names: {} },
+      peopleBowlIds: [],
     });
     mocks.state.reloadInvites.mockReset().mockResolvedValue(null);
     mocks.state.navigate.mockReset();
@@ -102,21 +112,24 @@ describe("InvitesPage", () => {
 
   afterEach(cleanup);
 
-  it("separates received, sending, and sent into their own sections", () => {
+  it("has two jobs: invitations for you, then inviting people", () => {
     renderHub();
 
     expect(screen.getByRole("heading", { level: 1, name: "Invitations" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Invitations for you" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Invite people" })).toBeInTheDocument();
-    expect(screen.getByRole("heading", { level: 2, name: "Waiting to join" })).toBeInTheDocument();
+    expect(screen.getAllByRole("heading", { level: 2 }).map((node) => node.textContent))
+      .toEqual(["Invitations for you", "Invite people"]);
   });
 
-  it("leaves out the sent list for someone who owns no bowls", () => {
+  it("leaves out the bowl's people for someone who owns no bowls", () => {
     mocks.state.bowls = [SHARED];
+    mocks.state.sentInvitations = [
+      { id: "s1", bowl_id: "bowl-9", invited_email: "friend@example.com", token: "t", created_at: null },
+    ];
 
     renderHub();
 
-    expect(screen.queryByRole("heading", { level: 2, name: "Waiting to join" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Invited" })).not.toBeInTheDocument();
+    expect(mocks.state.peopleBowlIds).toEqual([]);
   });
 
   it("names the account in the received empty state", () => {
@@ -129,8 +142,8 @@ describe("InvitesPage", () => {
     mocks.state.received = [{ id: "inv-1", bowl_id: "bowl-7", bowl_name: "Film Club", invited_by_name: "Alex" }];
 
     renderHub();
-    expect(screen.getByText("Invited by Alex")).toBeInTheDocument();
-    expect(screen.getByRole("article", { name: "Film Club" })).toBeInTheDocument();
+    const slip = screen.getByRole("article", { name: "Film Club" });
+    expect(within(slip).getByText("Alex")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: /accept invitation to Film Club/i }));
 
     await waitFor(() => expect(mocks.state.acceptInvite).toHaveBeenCalled());
@@ -175,16 +188,66 @@ describe("InvitesPage", () => {
     expect(choices).toHaveLength(1);
     expect(screen.getByRole("radio", { name: /Friday Night/ })).toBeChecked();
     expect(screen.queryByRole("radio", { name: /Work Crew/ })).not.toBeInTheDocument();
-    expect(screen.getByText("They'll get an email and join Friday Night once they accept.")).toBeInTheDocument();
   });
 
-  it("shows each owned bowl's size beside its name", () => {
-    mocks.state.bowls = [{ ...OWNED, memberCount: 4 }, { ...OWNED_2, memberCount: 1 }];
+  it("shows the chosen bowl's people: members, then who is still invited", () => {
+    mocks.state.bowls = [OWNED, OWNED_2];
+    mocks.state.search = "bowl=bowl-1";
+    mocks.state.people = {
+      status: "ready",
+      members: [
+        { userId: "user-1", role: "Owner", displayName: "Scott" },
+        { userId: "user-2", role: "Member", displayName: "Casey" },
+      ],
+      invites: [],
+      names: { "user-1": "Scott", "user-2": "Casey" },
+    };
+    mocks.state.sentInvitations = [
+      { id: "s1", bowl_id: "bowl-1", invited_email: "maria@example.com", token: "t1", created_at: null },
+      { id: "s2", bowl_id: "bowl-2", invited_email: "grandma@example.com", token: "t2", created_at: null },
+    ];
 
     renderHub();
 
-    expect(screen.getByRole("radio", { name: "Friday Night 4 members" })).toBeInTheDocument();
-    expect(screen.getByRole("radio", { name: "Family Movies 1 member" })).toBeInTheDocument();
+    expect(mocks.state.peopleBowlIds.at(-1)).toBe("bowl-1");
+    const members = screen.getByRole("heading", { level: 3, name: "In the bowl" }).parentElement;
+    expect(within(members).getAllByRole("listitem").map((node) => node.textContent)).toEqual(["SYou", "CCasey"]);
+    const invited = screen.getByRole("heading", { level: 3, name: "Invited" }).parentElement;
+    // Another bowl's invitation is that bowl's business.
+    expect(within(invited).getAllByRole("listitem").map((node) => node.textContent)).toEqual(["Mmaria"]);
+
+    const maria = screen.getByRole("button", { name: "maria@example.com, invited" });
+    expect(maria).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(maria);
+    expect(maria).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: "Copy invitation link for maria@example.com" })).toBeInTheDocument();
+    fireEvent.click(maria);
+    expect(screen.queryByRole("button", { name: /revoke invitation for maria/i })).not.toBeInTheDocument();
+  });
+
+  it("leaves an unfinished address alone when a person is tapped", () => {
+    mocks.state.sentInvitations = [
+      { id: "s1", bowl_id: "bowl-1", invited_email: "maria@example.com", token: "t1", created_at: null },
+    ];
+    renderHub();
+    const field = screen.getByLabelText("Email addresses");
+    const maria = screen.getByRole("button", { name: "maria@example.com, invited" });
+
+    // Committing would grow the field and move the circle out from under the tap.
+    fireEvent.change(field, { target: { value: "sam@example.com" } });
+    fireEvent.blur(field, { relatedTarget: maria });
+    expect(field).toHaveValue("sam@example.com");
+
+    fireEvent.blur(field);
+    expect(screen.getByRole("button", { name: "Remove sam@example.com" })).toBeInTheDocument();
+  });
+
+  it("keeps Invite off until there is an address to send", () => {
+    renderHub();
+    const invite = screen.getByRole("button", { name: "Invite" });
+    expect(invite).toBeDisabled();
+    fireEvent.change(screen.getByLabelText("Email addresses"), { target: { value: "one@example.com" } });
+    expect(invite).toBeEnabled();
   });
 
   it("refuses to guess between several owned bowls", async () => {
@@ -194,12 +257,12 @@ describe("InvitesPage", () => {
 
     expect(bowlChoices().every((choice) => !choice.checked)).toBe(true);
     fireEvent.change(screen.getByLabelText("Email addresses"), { target: { value: "one@example.com" } });
-    fireEvent.click(screen.getByRole("button", { name: "Send invitation" }));
+    fireEvent.click(screen.getByRole("button", { name: "Invite" }));
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Choose a bowl to invite people to."));
     expect(mocks.state.send).not.toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("radio", { name: /Family Movies/ }));
-    fireEvent.click(screen.getByRole("button", { name: "Send invitation" }));
+    fireEvent.click(screen.getByRole("button", { name: "Invite" }));
     await waitFor(() => expect(mocks.state.send).toHaveBeenCalledWith(expect.objectContaining({ bowlId: "bowl-2" })));
   });
 
@@ -228,11 +291,10 @@ describe("InvitesPage", () => {
       </MemoryRouter>
     );
 
-    // The shortcut is bowl-specific, so it has to land on that bowl's records,
-    // not merely on the section that contains every bowl's.
-    const group = screen.getByRole("heading", { level: 3, name: "Family Movies" });
-    expect(document.activeElement).toBe(group);
-    expect(group.closest("div").className).toMatch(/ring-rose/);
+    // The shortcut is bowl-specific: it picks that bowl and lands on the
+    // people it is still waiting on.
+    expect(screen.getByRole("radio", { name: /Family Movies/ })).toBeChecked();
+    expect(document.activeElement).toBe(screen.getByRole("heading", { level: 3, name: "Invited" }));
   });
 
   it("waits for the requested group before moving focus to it", async () => {
@@ -245,7 +307,7 @@ describe("InvitesPage", () => {
         <InvitesPage />
       </MemoryRouter>
     );
-    expect(screen.queryByRole("heading", { level: 3, name: "Family Movies" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { level: 3, name: "Invited" })).not.toBeInTheDocument();
 
     mocks.state.sentInvitations = [
       { id: "s1", bowl_id: "bowl-2", invited_email: "friend@example.com", token: "t", created_at: null },
@@ -257,7 +319,7 @@ describe("InvitesPage", () => {
     );
 
     await waitFor(() => expect(document.activeElement).toBe(
-      screen.getByRole("heading", { level: 3, name: "Family Movies" })
+      screen.getByRole("heading", { level: 3, name: "Invited" })
     ));
   });
 
@@ -281,8 +343,8 @@ describe("InvitesPage", () => {
     fireEvent.change(screen.getByLabelText("Email addresses"), {
       target: { value: "one@example.com, two@example.com" },
     });
-    expect(screen.getByRole("button", { name: "Send 2 invitations" })).toBeInTheDocument();
-    fireEvent.click(screen.getByRole("button", { name: "Send 2 invitations" }));
+    expect(screen.getByRole("button", { name: "Invite 2" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Invite 2" }));
 
     await waitFor(() => expect(mocks.state.send).toHaveBeenCalledWith(expect.objectContaining({
       bowlId: "bowl-1",
@@ -295,7 +357,7 @@ describe("InvitesPage", () => {
   it("rejects invalid addresses before sending anything", async () => {
     renderHub();
     fireEvent.change(screen.getByLabelText("Email addresses"), { target: { value: "nope" } });
-    fireEvent.click(screen.getByRole("button", { name: /send invitation/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Invite" }));
 
     await waitFor(() => expect(screen.getByRole("alert")).toHaveTextContent("Invalid email(s): nope"));
     expect(mocks.state.send).not.toHaveBeenCalled();
@@ -313,7 +375,7 @@ describe("InvitesPage", () => {
     expect(field).toHaveValue("two@example.com");
     expect(screen.getByText("(not a valid address)", { exact: false })).toBeInTheDocument();
     expect(screen.getByText("1 address needs fixing before you send.")).toBeInTheDocument();
-    expect(screen.getByRole("button", { name: "Send 2 invitations" })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Invite 2" })).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: "Remove alex@exmaple" }));
     expect(screen.queryByText(/needs fixing/)).not.toBeInTheDocument();
@@ -346,13 +408,13 @@ describe("InvitesPage", () => {
     expect(screen.getByRole("button", { name: /create a bowl/i })).toBeInTheDocument();
   });
 
-  it("groups sent invitations by bowl and confirms before revoking", async () => {
+  it("confirms before revoking an invitation and closes it once revoked", async () => {
     mocks.state.sentInvitations = [
       { id: "s1", bowl_id: "bowl-1", invited_email: "friend@example.com", token: "tok-1", created_at: null },
     ];
 
     renderHub();
-    expect(screen.getByRole("heading", { level: 3, name: "Friday Night" })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "friend@example.com, invited" }));
     expect(screen.getByText("friend@example.com")).toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /revoke invitation for friend@example.com/i }));
@@ -364,6 +426,7 @@ describe("InvitesPage", () => {
       invitationId: "s1",
     })));
     await waitFor(() => expect(screen.getByText("Invitation revoked for friend@example.com.")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: /revoke invitation for/i })).not.toBeInTheDocument();
   });
 
   it("does not turn a failed inbox read into an empty inbox", async () => {
@@ -403,6 +466,7 @@ describe("InvitesPage", () => {
     mocks.state.revoke.mockResolvedValue({ ok: false, message: "Could not revoke that invitation. Try again." });
 
     renderHub();
+    fireEvent.click(screen.getByRole("button", { name: "friend@example.com, invited" }));
     fireEvent.click(screen.getByRole("button", { name: /revoke invitation for friend@example.com/i }));
     fireEvent.click(screen.getByRole("button", { name: /^revoke invitation$/i }));
 
@@ -432,12 +496,7 @@ describe("InvitesPage", () => {
 
     expect(screen.getByText("Could not load your bowls.")).toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /create a bowl/i })).not.toBeInTheDocument();
-    // The sent list is gated on the same context, and blank space there reads as
-    // "you have sent nothing" rather than "this could not be loaded".
-    expect(screen.getByText(/this list is unavailable/i)).toBeInTheDocument();
-    expect(screen.queryByText(/stay here until someone accepts/i)).not.toBeInTheDocument();
-    // One failure, one alert: the send panel owns it, and the sent section
-    // states its own consequence without announcing the same problem twice.
+    expect(screen.queryByRole("heading", { name: "Invited" })).not.toBeInTheDocument();
     expect(screen.getAllByRole("alert")).toHaveLength(1);
   });
 

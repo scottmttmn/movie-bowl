@@ -8,18 +8,23 @@ import useCreateBowl from "../hooks/useCreateBowl";
 import usePendingInvites from "../hooks/usePendingInvites";
 import useSentInvitations from "../hooks/useSentInvitations";
 import useUserBowls from "../hooks/useUserBowls";
+import useBowlPeople from "../hooks/useBowlPeople";
+import bowlImage from "../assets/movie-bowl.webp";
+import { buildBowlPeopleRows } from "../utils/bowlPeople";
 import { formatRelativeDateLabel } from "../utils/formatRelativeDate";
+import { getDisplayInitial } from "../utils/profileIdentity";
 import { parseInviteEmails } from "../utils/parseInviteEmails";
 
-// The hub keeps received and sent invitations in separate language and separate
-// sections. They are different jobs: one is a decision someone owes you, the
-// other is bookkeeping on what you asked of other people.
+// Two jobs, top to bottom: invitations someone handed you, then inviting people
+// to a bowl you own. What you already sent is not a list of its own; it sits
+// under the bowl it belongs to, beside the people who already joined.
 export default function InvitesPage() {
   const navigate = useNavigate();
   const [searchParams] = useSearchParams();
   const { hash } = useLocation();
   const { session } = useAuth();
   const accountEmail = session?.user?.email || "";
+  const currentUserId = session?.user?.id || null;
   const {
     bowls,
     loading: isBowlsLoading,
@@ -42,6 +47,7 @@ export default function InvitesPage() {
   const sent = useSentInvitations(ownedBowls);
 
   const [bowlChoice, setBowlChoice] = useState(null);
+  const [openPendingId, setOpenPendingId] = useState(null);
   // Addresses become chips as soon as a separator follows them, so a bad one is
   // visible while it is still easy to fix rather than after Send.
   const [emailChips, setEmailChips] = useState([]);
@@ -57,7 +63,8 @@ export default function InvitesPage() {
   const [revokeTarget, setRevokeTarget] = useState(null);
   const [isConfirming, setIsConfirming] = useState(false);
   const inviteHeadingRef = useRef(null);
-  const sentGroupRefs = useRef(new Map());
+  const invitedHeadingRef = useRef(null);
+  const peopleRef = useRef(null);
   const handledShortcut = useRef(null);
   const resultRef = useRef(null);
   const emailInputRef = useRef(null);
@@ -81,19 +88,15 @@ export default function InvitesPage() {
     return ownedBowls.length === 1 ? ownedBowls[0].id : "";
   }, [bowlChoice, isRequestedBowlOwned, requestedBowlId, ownedBowls]);
 
-  const groupedSent = useMemo(() => {
-    const byBowl = new Map();
-    sent.invitations.forEach((invitation) => {
-      if (!byBowl.has(invitation.bowl_id)) byBowl.set(invitation.bowl_id, []);
-      byBowl.get(invitation.bowl_id).push(invitation);
-    });
-    return ownedBowls
-      .filter((bowl) => byBowl.has(bowl.id))
-      .map((bowl) => ({ bowl, rows: byBowl.get(bowl.id) }));
-  }, [sent.invitations, ownedBowls]);
+  const selectedPending = useMemo(
+    () => sent.invitations.filter((invitation) => invitation.bowl_id === selectedBowlId),
+    [sent.invitations, selectedBowlId]
+  );
 
   // Bowl Settings links to #invite-people to send and #sent to manage what it
   // already sent. Landing both on the form sends half of them to the wrong job.
+  // The ?bowl= hint has already picked the bowl, so #sent lands on its Invited
+  // row.
   useEffect(() => {
     if (!isRequestedBowlOwned) return;
     const target = `${hash}:${requestedBowlId}`;
@@ -103,13 +106,12 @@ export default function InvitesPage() {
       inviteHeadingRef.current?.focus();
       return;
     }
-    // Wait for the group to exist: the shortcut points at one bowl's records,
-    // and the section heading is not where those records are.
-    const group = sentGroupRefs.current.get(requestedBowlId);
-    if (!group) return;
+    // Wait for the row to exist: the records load after the bowls do.
+    const invited = invitedHeadingRef.current;
+    if (!invited) return;
     handledShortcut.current = target;
-    group.focus();
-  }, [isRequestedBowlOwned, hash, requestedBowlId, groupedSent]);
+    invited.focus();
+  }, [isRequestedBowlOwned, hash, requestedBowlId, selectedPending]);
 
   // Foreground refresh lives in the provider, because the badge is app-wide.
   // This is the entry read: routing here does not raise a focus event.
@@ -122,7 +124,18 @@ export default function InvitesPage() {
   const parsed = parseInviteEmails([...emailChips, emailDraft].join(" "));
   const invalidEmailSet = new Set(parsed.invalidEmails);
   const invalidChipCount = emailChips.filter((email) => invalidEmailSet.has(email)).length;
-  const selectedBowl = ownedBowls.find((bowl) => bowl.id === selectedBowlId) || null;
+  // Every bowl offered here is one the caller owns, so they are its owner.
+  const people = useBowlPeople(selectedBowlId, { enabled: Boolean(selectedBowlId) });
+  const memberRows = people.status === "ready"
+    ? buildBowlPeopleRows({
+      members: people.members,
+      ownerId: currentUserId,
+      ownerName: people.names[currentUserId] || null,
+      names: people.names,
+      currentUserId,
+    })
+    : [];
+  const openPending = selectedPending.find((row) => row.id === openPendingId) || null;
 
   const commitEmails = (pieces) => {
     const next = pieces.map((value) => value.trim().toLowerCase()).filter(Boolean);
@@ -160,8 +173,8 @@ export default function InvitesPage() {
     emailInputRef.current?.focus();
   };
   const sendLabel = parsed.validEmails.length > 1
-    ? `Send ${parsed.validEmails.length} invitations`
-    : "Send invitation";
+    ? `Invite ${parsed.validEmails.length}`
+    : "Invite";
 
   const handleAccept = async (invite) => {
     setReceivedError(null);
@@ -234,28 +247,21 @@ export default function InvitesPage() {
       return;
     }
     setRevokeTarget(null);
+    setOpenPendingId(null);
     setSentMessage(result.message);
   };
 
   return (
     <div className="invites-screen page-container py-6 sm:py-8">
       {/* One column, in the order the jobs come up: something waiting on you,
-          then sending, then the bookkeeping on what you already sent. */}
+          then inviting people. */}
       <div className="mx-auto max-w-2xl space-y-8">
         <header>
           <h1 className="text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">Invitations</h1>
-          <p className="mt-2 text-sm text-slate-400 sm:text-base">
-            Join a bowl or invite people to one you own.
-          </p>
         </header>
 
         <section aria-labelledby="received-heading">
-          <div className="flex flex-wrap items-baseline justify-between gap-2">
-            <h2 id="received-heading" className="section-title">Invitations for you</h2>
-            {received.length > 0 && (
-              <span className="text-sm text-slate-400">{received.length} waiting</span>
-            )}
-          </div>
+          <h2 id="received-heading" className="section-title">Invitations for you</h2>
           {receivedError && <p className="status-error mt-3" role="alert">{receivedError}</p>}
           {receivedMessage && <p className="status-success mt-3" role="status">{receivedMessage}</p>}
           {receivedLoadError && (
@@ -277,52 +283,44 @@ export default function InvitesPage() {
                 : "Nothing waiting for you right now."}
             </p>
           ) : (
-            <div className="mt-3 space-y-3">
+            <div className="mt-4 grid gap-5 sm:grid-cols-2">
               {received.map((invite) => {
                 const bowlName = invite.bowl_name || "Movie Bowl Invite";
                 const sentLabel = formatRelativeDateLabel(invite.created_at);
                 return (
-                  <article key={invite.id} className="invite-ticket" aria-labelledby={`invite-${invite.id}-title`}>
-                    <div className="min-w-0 space-y-3 p-5">
-                      <p className="eyebrow text-rose-300">You&apos;re invited</p>
-                      <h3
-                        id={`invite-${invite.id}-title`}
-                        className="break-words text-2xl font-bold tracking-tight text-slate-50"
-                      >
-                        {bowlName}
-                      </h3>
-                      {(invite.invited_by_name || sentLabel) && (
-                        <p className="flex flex-wrap gap-x-4 gap-y-1 text-sm text-rose-100/80">
-                          {invite.invited_by_name && (
-                            <span className="min-w-0 break-words">Invited by {invite.invited_by_name}</span>
-                          )}
-                          {sentLabel && <span>{sentLabel}</span>}
-                        </p>
+                  // The bowl's name on a slip, with the inviter's initial on the
+                  // corner where the bowl page puts a contributor's.
+                  <article key={invite.id} className="invite-slip-card" aria-labelledby={`invite-${invite.id}-title`}>
+                    <div className="tonight-slip invite-slip">
+                      <h3 id={`invite-${invite.id}-title`}>{bowlName}</h3>
+                      {invite.invited_by_name && (
+                        <span className="tonight-slip-avatar" aria-hidden="true">
+                          {getDisplayInitial(invite.invited_by_name)}
+                        </span>
                       )}
-                      <div className="flex flex-wrap gap-2 pt-1">
-                        <button
-                          type="button"
-                          className="btn btn-primary"
-                          disabled={pendingAccept === invite.id}
-                          aria-label={`Accept invitation to ${invite.bowl_name || "this bowl"}`}
-                          onClick={() => { void handleAccept(invite); }}
-                        >
-                          {pendingAccept === invite.id ? "Joining…" : "Join bowl"}
-                        </button>
-                        <button
-                          type="button"
-                          className="btn btn-ghost"
-                          disabled={pendingAccept === invite.id}
-                          aria-label={`Decline invitation to ${invite.bowl_name || "this bowl"}`}
-                          onClick={() => setDeclineTarget(invite)}
-                        >
-                          Decline
-                        </button>
-                      </div>
                     </div>
-                    <div className="invite-ticket-stub" aria-hidden="true">
-                      <span className="text-[0.65rem] font-semibold uppercase tracking-[0.2em] text-rose-300">Admit</span>
-                      <span className="text-3xl font-extrabold leading-none text-white">1</span>
+                    <div className="flex items-center gap-2">
+                      <p className="mr-auto min-w-0 truncate text-sm text-slate-400">
+                        {[invite.invited_by_name, sentLabel].filter(Boolean).join(" · ")}
+                      </p>
+                      <button
+                        type="button"
+                        className="icon-btn"
+                        disabled={pendingAccept === invite.id}
+                        aria-label={`Decline invitation to ${invite.bowl_name || "this bowl"}`}
+                        onClick={() => setDeclineTarget(invite)}
+                      >
+                        <svg viewBox="0 0 24 24" className="h-5 w-5" aria-hidden="true" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><path d="M6 6l12 12M18 6L6 18" /></svg>
+                      </button>
+                      <button
+                        type="button"
+                        className="btn btn-primary"
+                        disabled={pendingAccept === invite.id}
+                        aria-label={`Accept invitation to ${invite.bowl_name || "this bowl"}`}
+                        onClick={() => { void handleAccept(invite); }}
+                      >
+                        {pendingAccept === invite.id ? "Joining…" : "Join"}
+                      </button>
                     </div>
                   </article>
                 );
@@ -331,7 +329,7 @@ export default function InvitesPage() {
           )}
         </section>
 
-        <section aria-labelledby="invite-people-heading" id="invite-people" className="panel sm:p-6">
+        <section aria-labelledby="invite-people-heading" id="invite-people">
           <h2 id="invite-people-heading" ref={inviteHeadingRef} tabIndex={-1} className="section-title">
             Invite people
           </h2>
@@ -360,10 +358,10 @@ export default function InvitesPage() {
           ) : (
             <form onSubmit={handleSend} className="mt-4 space-y-5">
               <fieldset disabled={sent.isSending}>
-                <legend className="mb-2 text-sm font-medium text-slate-300">Invite to</legend>
-                <div className="flex flex-wrap gap-2">
+                <legend className="sr-only">Invite to</legend>
+                <div className="grid grid-cols-2 gap-2">
                   {ownedBowls.map((bowl) => (
-                    <label key={bowl.id} className="choice-pill">
+                    <label key={bowl.id} className="bowl-choice">
                       <input
                         type="radio"
                         name="invite-bowl"
@@ -372,201 +370,185 @@ export default function InvitesPage() {
                         checked={selectedBowlId === bowl.id}
                         onChange={() => setBowlChoice(bowl.id)}
                       />
-                      <span className="min-w-0 break-words">{bowl.name}</span>
-                      {bowl.memberCount > 0 && (
-                        <span className="text-xs font-medium text-slate-500">
-                          {bowl.memberCount} {bowl.memberCount === 1 ? "member" : "members"}
-                        </span>
-                      )}
+                      <span aria-hidden="true" className="flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-slate-950/70">
+                        <img src={bowlImage} alt="" className="h-8 w-8 object-contain" />
+                      </span>
+                      <span className="line-clamp-2 min-w-0 break-words text-[15px] font-semibold leading-snug">{bowl.name}</span>
                     </label>
                   ))}
                 </div>
               </fieldset>
 
               <div>
-                <label htmlFor="invite-emails" className="mb-2 block text-sm font-medium text-slate-300">
-                  Email addresses
-                </label>
-                {/* The field is the box, not the input inside it: a click on
-                    the space between chips should still start typing. */}
-                <div
-                  className="input-field flex flex-wrap items-center gap-1.5 focus-within:border-rose-500"
-                  onClick={() => emailInputRef.current?.focus()}
-                >
-                  {emailChips.map((email) => {
-                    const isInvalid = invalidEmailSet.has(email);
-                    return (
-                      <span key={email} className={`email-chip${isInvalid ? " email-chip-invalid" : ""}`}>
-                        <span className="truncate">{email}</span>
-                        {isInvalid && <span className="sr-only"> (not a valid address)</span>}
-                        <button
-                          type="button"
-                          className="email-chip-remove"
-                          aria-label={`Remove ${email}`}
-                          disabled={sent.isSending}
-                          onClick={(event) => {
-                            event.stopPropagation();
-                            removeEmailChip(email);
-                          }}
-                        >
-                          ×
-                        </button>
-                      </span>
-                    );
-                  })}
-                  <input
-                    id="invite-emails"
-                    ref={emailInputRef}
-                    type="text"
-                    inputMode="email"
-                    autoComplete="off"
-                    autoCapitalize="none"
-                    spellCheck={false}
-                    aria-describedby="invite-emails-hint"
-                    className="min-w-[12rem] flex-1 bg-transparent py-1 text-slate-100 placeholder:text-slate-500 focus:outline-none"
-                    placeholder={emailChips.length === 0 ? "friend@example.com" : ""}
-                    value={emailDraft}
-                    disabled={sent.isSending}
-                    onChange={(event) => handleEmailChange(event.target.value)}
-                    onKeyDown={handleEmailKeyDown}
-                    onBlur={() => {
-                      if (!emailDraft.trim()) return;
-                      commitEmails([emailDraft]);
-                      setEmailDraft("");
-                    }}
-                  />
+                <label htmlFor="invite-emails" className="sr-only">Email addresses</label>
+                <div className="flex items-start gap-2">
+                  {/* The field is the box, not the input inside it: a click on
+                      the space between chips should still start typing. */}
+                  <div
+                    className="input-field flex min-w-0 flex-1 flex-wrap items-center gap-1.5 focus-within:border-rose-500"
+                    onClick={() => emailInputRef.current?.focus()}
+                  >
+                    {emailChips.map((email) => {
+                      const isInvalid = invalidEmailSet.has(email);
+                      return (
+                        <span key={email} className={`email-chip${isInvalid ? " email-chip-invalid" : ""}`}>
+                          <span className="truncate">{email}</span>
+                          {isInvalid && <span className="sr-only"> (not a valid address)</span>}
+                          <button
+                            type="button"
+                            className="email-chip-remove"
+                            aria-label={`Remove ${email}`}
+                            disabled={sent.isSending}
+                            onClick={(event) => {
+                              event.stopPropagation();
+                              removeEmailChip(email);
+                            }}
+                          >
+                            ×
+                          </button>
+                        </span>
+                      );
+                    })}
+                    <input
+                      id="invite-emails"
+                      ref={emailInputRef}
+                      type="text"
+                      inputMode="email"
+                      autoComplete="off"
+                      autoCapitalize="none"
+                      spellCheck={false}
+                      aria-describedby={invalidChipCount > 0 ? "invite-emails-hint" : undefined}
+                      className="min-w-[8rem] flex-1 bg-transparent py-1 text-slate-100 placeholder:text-slate-500 focus:outline-none"
+                      placeholder="Add email"
+                      value={emailDraft}
+                      disabled={sent.isSending}
+                      onChange={(event) => handleEmailChange(event.target.value)}
+                      onKeyDown={handleEmailKeyDown}
+                      onBlur={(event) => {
+                        if (!emailDraft.trim()) return;
+                        // Committing can wrap the field onto another line and
+                        // move the people below it out from under the tap that
+                        // caused the blur. The draft still counts as typed.
+                        if (peopleRef.current?.contains(event.relatedTarget)) return;
+                        commitEmails([emailDraft]);
+                        setEmailDraft("");
+                      }}
+                    />
+                  </div>
+                  <button
+                    type="submit"
+                    className="btn btn-primary min-h-[3.25rem] shrink-0"
+                    disabled={sent.isSending || (emailChips.length === 0 && !emailDraft.trim())}
+                  >
+                    {sent.isSending ? "Sending…" : sendLabel}
+                  </button>
                 </div>
-                <p
-                  id="invite-emails-hint"
-                  className={`mt-2 text-xs ${invalidChipCount > 0 ? "text-rose-300" : "text-slate-400"}`}
-                >
-                  {invalidChipCount > 0
-                    ? `${invalidChipCount} ${invalidChipCount === 1 ? "address needs" : "addresses need"} fixing before you send.`
-                    : "Paste a list, or press Enter after each address."}
-                </p>
+                {invalidChipCount > 0 && (
+                  <p id="invite-emails-hint" className="mt-2 text-xs text-rose-300">
+                    {`${invalidChipCount} ${invalidChipCount === 1 ? "address needs" : "addresses need"} fixing before you send.`}
+                  </p>
+                )}
               </div>
 
               {formError && <p className="status-error" role="alert">{formError}</p>}
               <p ref={resultRef} tabIndex={-1} role="status" className={resultMessage ? "status-success" : "sr-only"}>
                 {resultMessage || ""}
               </p>
-              <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-                <p className="text-sm text-slate-400">
-                  {selectedBowl
-                    ? `They'll get an email and join ${selectedBowl.name} once they accept.`
-                    : "They'll get an email and join once they accept."}
-                </p>
-                <button type="submit" className="btn btn-primary w-full shrink-0 sm:w-auto" disabled={sent.isSending}>
-                  {sent.isSending ? "Sending…" : sendLabel}
-                </button>
-              </div>
             </form>
+          )}
+          {selectedBowlId && (
+            // Who the bowl already reaches, under the field that adds to it:
+            // members solid, invitations still waiting dashed, the way the
+            // bowl page's people sheet draws them.
+            <div ref={peopleRef} className="mt-6 space-y-4 border-t border-slate-800 pt-4">
+              {memberRows.length > 0 && (
+                <div>
+                  <h3 className="eyebrow mb-2">In the bowl</h3>
+                  <ul className="flex flex-wrap gap-3">
+                    {memberRows.map((row) => (
+                      <li key={row.key} className="person-cell">
+                        <span aria-hidden="true" className="person-dot">{row.initial}</span>
+                        <span className="person-name">{row.isYou ? "You" : row.name}</span>
+                      </li>
+                    ))}
+                  </ul>
+                </div>
+              )}
+              {sentMessage && <p className="status-success" role="status">{sentMessage}</p>}
+              {sent.loadError && (
+                <div>
+                  <p className="status-error" role="alert">{sent.loadError}</p>
+                  <button type="button" className="btn btn-secondary mt-2" onClick={() => { void sent.refresh(); }}>
+                    Try again
+                  </button>
+                </div>
+              )}
+              {selectedPending.length > 0 && (
+                <div>
+                  <h3 ref={invitedHeadingRef} tabIndex={-1} className="eyebrow mb-2 focus-visible:outline-none">
+                    Invited
+                  </h3>
+                  <ul className="flex flex-wrap gap-3">
+                    {selectedPending.map((row) => (
+                      <li key={row.id} className="person-cell">
+                        <button
+                          type="button"
+                          className="person-dot person-dot-invited"
+                          aria-label={`${row.invited_email}, invited`}
+                          aria-expanded={openPendingId === row.id}
+                          aria-controls="invited-detail"
+                          onClick={() => setOpenPendingId((current) => (current === row.id ? null : row.id))}
+                        >
+                          {getDisplayInitial(row.invited_email)}
+                        </button>
+                        <span className="person-name text-slate-500">{row.invited_email.split("@")[0]}</span>
+                      </li>
+                    ))}
+                  </ul>
+                  {/* Below the row rather than floating over it, so the last
+                      circle on a phone does not open off the edge of the screen. */}
+                  {openPending && (
+                    <div id="invited-detail" className="pending-detail">
+                      <div className="min-w-0 flex-1 basis-48">
+                        <p className="truncate text-sm font-medium text-slate-100" title={openPending.invited_email}>
+                          {openPending.invited_email}
+                        </p>
+                        {openPending.created_at && (
+                          <p className="text-xs text-slate-500">
+                            Sent {formatRelativeDateLabel(openPending.created_at)}
+                          </p>
+                        )}
+                      </div>
+                      <div className="flex shrink-0 gap-1">
+                        <CopyButton
+                          value={`${window.location.origin}/accept-invite/${openPending.token}`}
+                          label="Copy link"
+                          className="btn btn-ghost px-3 text-sm"
+                          ariaLabel={`Copy invitation link for ${openPending.invited_email}`}
+                          onCopied={() => setSentMessage(`Invitation link copied for ${openPending.invited_email}.`)}
+                        />
+                        <button
+                          type="button"
+                          className="btn btn-ghost px-3 text-sm text-rose-300"
+                          aria-label={`Revoke invitation for ${openPending.invited_email}`}
+                          onClick={() => setRevokeTarget({
+                            bowlId: selectedBowlId,
+                            bowlName: ownedBowls.find((bowl) => bowl.id === selectedBowlId)?.name || "this bowl",
+                            invitationId: openPending.id,
+                            invitedEmail: openPending.invited_email,
+                          })}
+                        >
+                          Revoke
+                        </button>
+                      </div>
+                    </div>
+                  )}
+                </div>
+              )}
+            </div>
           )}
         </section>
 
-        {(!isOwnershipKnown || ownedBowlCount > 0) && (
-          <section aria-labelledby="sent-heading" id="sent">
-            <div className="flex flex-wrap items-baseline justify-between gap-2">
-              <h2 id="sent-heading" className="section-title">Waiting to join</h2>
-              {sent.invitations.length > 0 && (
-                <span className="text-sm text-slate-400">{sent.invitations.length} pending</span>
-              )}
-            </div>
-            {sentMessage && <p className="status-success mt-3" role="status">{sentMessage}</p>}
-            {sent.loadError && (
-              <div className="mt-3">
-                <p className="status-error" role="alert">{sent.loadError}</p>
-                <button type="button" className="btn btn-secondary mt-2" onClick={() => { void sent.refresh(); }}>
-                  Try again
-                </button>
-              </div>
-            )}
-            {!isOwnershipKnown ? (
-              // Unknown ownership is not "you have sent nothing". The send panel
-              // owns the alert and the retry for this same failure, so this is a
-              // plain line rather than a second alert for one problem.
-              <p className="mt-1 text-sm text-slate-400" role="status">
-                {bowlsError
-                  ? "Your bowls could not be loaded, so this list is unavailable."
-                  : "Loading sent invitations…"}
-              </p>
-            ) : sent.isLoading && sent.invitations.length === 0 ? (
-              <p className="mt-1 text-sm text-slate-400" role="status">Loading sent invitations…</p>
-            ) : sent.invitations.length === 0 ? (
-              <p className="mt-1 text-sm text-slate-500">
-                Invitations you send stay here until someone accepts.
-              </p>
-            ) : (
-              <div className="mt-4 space-y-6">
-                {groupedSent.map(({ bowl, rows }) => (
-                  <div
-                    key={bowl.id}
-                    className={hash === "#sent" && bowl.id === requestedBowlId
-                      ? "-m-3 rounded-2xl p-3 ring-1 ring-rose-800/70"
-                      : undefined}
-                  >
-                    <h3
-                      tabIndex={-1}
-                      ref={(node) => {
-                        if (node) sentGroupRefs.current.set(bowl.id, node);
-                        else sentGroupRefs.current.delete(bowl.id);
-                      }}
-                      className="eyebrow focus-visible:outline-none"
-                    >
-                      {bowl.name}
-                    </h3>
-                    <ul className="mt-2 divide-y divide-slate-800/80 border-y border-slate-800/80">
-                      {rows.map((row) => (
-                        <li key={row.id} className="flex flex-wrap items-center gap-x-3 gap-y-1 py-2">
-                          <span
-                            aria-hidden="true"
-                            className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full border border-dashed border-slate-600 text-xs font-semibold uppercase text-slate-400"
-                          >
-                            {row.invited_email?.[0] || "?"}
-                          </span>
-                          {/* The basis is what sends the actions to their own line on a
-                              phone, rather than squeezing the address to a few letters. */}
-                          <div className="min-w-0 flex-1 basis-52">
-                            <p className="truncate text-sm font-medium text-slate-100" title={row.invited_email}>
-                              {row.invited_email}
-                            </p>
-                            {row.created_at && (
-                              <p className="text-xs text-slate-500">
-                                Sent {formatRelativeDateLabel(row.created_at)}
-                              </p>
-                            )}
-                          </div>
-                          <div className="ml-11 flex shrink-0 gap-1 sm:ml-0">
-                            <CopyButton
-                              value={`${window.location.origin}/accept-invite/${row.token}`}
-                              label="Copy link"
-                              className="btn btn-ghost px-3 text-sm"
-                              ariaLabel={`Copy invitation link for ${row.invited_email}`}
-                              onCopied={() => setSentMessage(`Invitation link copied for ${row.invited_email}.`)}
-                            />
-                            <button
-                              type="button"
-                              className="btn btn-ghost px-3 text-sm text-rose-300"
-                              aria-label={`Revoke invitation for ${row.invited_email}`}
-                              onClick={() => setRevokeTarget({
-                                bowlId: bowl.id,
-                                bowlName: bowl.name,
-                                invitationId: row.id,
-                                invitedEmail: row.invited_email,
-                              })}
-                            >
-                              Revoke
-                            </button>
-                          </div>
-                        </li>
-                      ))}
-                    </ul>
-                  </div>
-                ))}
-              </div>
-            )}
-          </section>
-        )}
       </div>
 
       <ConfirmDialog
