@@ -44,14 +44,14 @@ export function getModelProviders(env = process.env) {
       name: "groq",
       url: "https://api.groq.com/openai/v1/chat/completions",
       key: env.GROQ_API_KEY,
-      // The larger model at medium effort: at low effort, or at 20B, it
-      // named the movie behind a scene ("two guys having dinner") only some
-      // of the time. Groq runs it fast enough that this still fits the
-      // timeout, and its reasoning stays out of the reply.
+      // The larger model at low effort. On the test set (npm run
+      // eval:search) 20B found 38 of 52 answers and 120B 48; medium effort
+      // found no more, at twice the time and tokens. Its reasoning stays out
+      // of the reply.
       model: env.GROQ_MODEL || "openai/gpt-oss-120b",
       jsonMode: true,
       maxTokens: 2000,
-      extra: { reasoning_effort: env.GROQ_REASONING_EFFORT || "medium", include_reasoning: false },
+      extra: { reasoning_effort: env.GROQ_REASONING_EFFORT || "low", include_reasoning: false },
     });
   }
   if (env.CLOUDFLARE_ACCOUNT_ID && env.CLOUDFLARE_AI_TOKEN) {

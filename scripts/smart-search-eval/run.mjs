@@ -9,7 +9,7 @@
 //
 // Needs GROQ_API_KEY and TMDB_READ_ACCESS_TOKEN, from the environment, .env or
 // .env.local (`npx vercel env pull .env.local` fetches them). It spends the
-// same free Groq quota as the app: about a thousand tokens a search at medium
+// same free Groq quota as the app: several hundred tokens a search at low
 // reasoning, against 200,000 a day.
 import { mkdirSync, readFileSync, writeFileSync } from "node:fs";
 
