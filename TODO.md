@@ -47,7 +47,12 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 - Misspellings anywhere in a search: a search that finds nothing now suggests
   the closest word its trimmed last word turns up, which catches "scorcese" but
-  not a typo in an earlier word or the first letters ("scrosese"). Catching those needs an
+  not a typo in an earlier word or the first letters ("scrosese"). Since
+  October 2, a signed-in search of four or more letters that finds nothing also
+  goes to smart search's model, which reads most such misspellings
+  ("leanardo decapiro"; `output/designs/described-search.md`). What is left is
+  the signed-out public add link, which never reaches the model, and searches
+  the model is down or over quota for. Catching those without it needs an
   index of our own -- popular titles and people from TMDB's daily exports under
   a `pg_trgm` index, refreshed inside the six-month cache limit -- behind a
   "Did you mean" (`output/designs/search-revamp.md`, "Misspellings").

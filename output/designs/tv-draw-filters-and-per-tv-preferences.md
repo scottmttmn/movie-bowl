@@ -90,8 +90,9 @@ As built, the sidebar *is* the control: a row that reports a setting is the row
 that changes it, because on a D-pad a separate settings screen means navigating
 away from the thing being described and back again. A circled mark is what says
 a row can be changed; the phone-only facts keep their place in the list without
-one. Divergence is a dot plus visually hidden text rather than a label, which
-would otherwise repeat itself down the whole column.
+one. Divergence is visually hidden text rather than a label, which would
+otherwise repeat itself down the whole column (it was a dot as well until
+October 2; see above).
 
 ## What is editable on TV
 

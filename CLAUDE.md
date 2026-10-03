@@ -298,8 +298,9 @@ because they are the atomic/permission-checked path:
 `create_bowl_invites`, `revoke_bowl_invite`, `draw_bowl_movie`,
 `draw_bowl_movie_by_rotation`, `return_bowl_draw_to_bowl`,
 `remove_bowl_draw_from_history`,
-`save_bowl_draw_access`, `save_bowl_draw_method`, `delete_owned_bowl`,
-`set_own_bowl_movie_pin`, `remove_own_bowl_movie`, `consume_bowl_add_link`,
+`save_bowl_draw_access`, `save_bowl_draw_method`, `create_owned_bowl`,
+`transfer_owned_bowl`, `delete_owned_bowl`, `set_own_bowl_movie_pin`,
+`update_own_bowl_movie_note`, `remove_own_bowl_movie`, `consume_bowl_add_link`,
 `create_manual_watch_event`,
 `install_bowl_starter_pack`, `remove_bowl_starter_pack`,
 `claim_bowl_starter_pack_movie`,
@@ -611,8 +612,9 @@ Vitest + Testing Library, jsdom, setup in `src/test/setup.js`. Tests live in
   shallow ones.
 - `output/designs/*.md` holds the intent behind features. Several are explicitly
   **plans, not implementations** (`guest-night.md`,
-  phase 3 of `tv-theater-mode.md`, and the optional step 2
-  of `deterministic-draw-preview.md`, whose step 3 was decided against) — check
+  `streaming-aware-search.md`, phase 3 of `tv-theater-mode.md`, and the
+  optional step 2 of `deterministic-draw-preview.md`, whose step 3 was decided
+  against) — check
   the status line before assuming code exists.
   `bowl-draw-methods.md` is no longer one of them: all three methods are live,
   and neither is `search-revamp.md`, whose people search is built, nor
