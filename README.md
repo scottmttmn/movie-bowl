@@ -47,7 +47,7 @@ count, or to a rotation that gives the next turn to whoever has waited longest.
 - On Android, the installed app's long-press "Add a movie" shortcut and the
   share sheet open the add sheet on your home bowl (`/quick-add`).
 - Mark one of your own titles as a favorite: when the draw picks you, that is
-  the title that comes up.
+  the title that comes up, as long as the filters leave it in the pool.
 - The add dialog keeps a compact count of movies added during the session.
   Open it to add or edit a comment, or remove a movie from its original bowl
   after confirming. Closing ends the list, not the saved additions; pending
@@ -646,8 +646,9 @@ on it. See `output/designs/described-search.md`.
 Phone and TV draw results can open the chosen service's title page instead of
 its search page. The saved service order and the phone's opt-in setting are
 unchanged. Only subscription/free sources open as a service. Rental and
-purchase links are filed under the store that sells them and feed only the rent
-button a drawn movie offers when none of your services carry it; the TV offers
+purchase links are filed under the store that sells them. Rental links alone
+feed the rent button a drawn movie offers when none of your services carry it;
+purchase links are cached but never used; the TV offers
 Apple TV and Prime Video, the two stores the Google TV app can hand off to.
 A title link does not guarantee automatic playback or bypass a subscription.
 
