@@ -1,5 +1,7 @@
 # TV method mark
 
+Status: built September 30, 2026 (#249), then superseded October 1 (#250).
+
 Scott approved the TV pass mockup on September 30, 2026. This implements
 its method mark separately from the reveal cleanup.
 

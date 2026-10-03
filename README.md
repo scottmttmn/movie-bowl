@@ -34,10 +34,20 @@ count, or to a rotation that gives the next turn to whoever has waited longest.
 - Manage who is allowed to draw, per bowl (everyone, or a selected allow-list).
 - Create public add links so people without accounts can add a fixed number of
   titles.
+- Share a bowl you own from its header, which opens Invitations on that bowl.
+- Pour a starter pack (a filmography or Best Picture winners by decade) into a
+  bowl you own so it can reach a first draw before everyone has added titles.
 
 **Movies**
 
-- Add movies from TMDB search, or add custom/manual entries.
+- Add movies from TMDB search, or add custom/manual entries. One field searches
+  titles, people, and descriptions ("space movie where Matt Damon is
+  stranded"); see [Described search](#described-search). Results mark titles
+  already in this bowl, watched, or in another of your bowls.
+- On Android, the installed app's long-press "Add a movie" shortcut and the
+  share sheet open the add sheet on your home bowl (`/quick-add`).
+- Mark one of your own titles as a favorite: when the draw picks you, that is
+  the title that comes up.
 - The add dialog keeps a compact count of movies added during the session.
   Open it to add or edit a comment, or remove a movie from its original bowl
   after confirming. Closing ends the list, not the saved additions; pending
@@ -65,7 +75,13 @@ count, or to a rotation that gives the next turn to whoever has waited longest.
   an unmatched service falls through to the next one.
 - Add a subscription service from the drawn movie's Where to watch list by
   tapping its + pill. It saves to your account's streaming preferences.
-- See the bowl's active draw method explained without surfacing competitive odds.
+- See the bowl's active draw method explained without surfacing competitive odds,
+  and watch the draw replay it: a full-screen reveal sorts the pool into each
+  person's pile (or one crowd) and lands on what was drawn.
+- When none of your services carry the drawn movie, rent it from a store that
+  does.
+- Draw just for yourself with solo draw (`/solo-draw`), from the bowls you
+  belong to.
 - Put a drawn movie back for two hours after the draw, for when the group did
   not end up watching it. That window bounds the action, not just the cleanup:
   a return is refused afterwards, and a permitted one also removes the personal
@@ -90,8 +106,8 @@ count, or to a rotation that gives the next turn to whoever has waited longest.
 - Change the draw settings from the couch. What the remote changes belongs to
   that television and not to the account: anyone in the room can pick it up, so
   relaxing a filter tonight must not rewrite what the account owner browses with
-  tomorrow. The panel marks which lines this television is deciding for itself,
-  and `Use my phone's settings` hands them all back at once.
+  tomorrow. While this television is deciding anything for itself, the panel
+  offers `Use my phone's settings`, which hands it all back at once.
 
 ## Tech Stack
 
@@ -503,10 +519,14 @@ they are the atomic and permission-checked path):
 `get_bowl_profile_directory`, `get_bowl_filter_metadata`,
 `get_my_invite_sender_directory`, `accept_bowl_invite`, `create_bowl_invites`,
 `revoke_bowl_invite`, `draw_bowl_movie`, `draw_bowl_movie_by_rotation`,
-`return_bowl_draw_to_bowl`, `save_bowl_draw_access`, `save_bowl_draw_method`,
-`transfer_owned_bowl`, `delete_owned_bowl`, `set_own_bowl_movie_pin`, `update_own_bowl_movie_note`,
-`consume_bowl_add_link`, `create_manual_watch_event`, `update_user_watch_event`,
-`delete_user_watch_event`.
+`return_bowl_draw_to_bowl`, `remove_bowl_draw_from_history`,
+`save_bowl_draw_access`, `save_bowl_draw_method`, `create_owned_bowl`,
+`transfer_owned_bowl`, `delete_owned_bowl`, `set_own_bowl_movie_pin`,
+`update_own_bowl_movie_note`, `remove_own_bowl_movie`, `consume_bowl_add_link`,
+`install_bowl_starter_pack`, `remove_bowl_starter_pack`,
+`claim_bowl_starter_pack_movie`, `record_solo_draw`, `undo_solo_draw`,
+`create_manual_watch_event`, `update_user_watch_event`,
+`update_own_watch_event_note`, `delete_user_watch_event`.
 
 `delete_account_data_for_user` is intentionally absent from that client list:
 only the service role may execute it, immediately before the server deletes the
@@ -531,25 +551,21 @@ supabase login
 supabase link --project-ref YOUR_PROJECT_REF
 ```
 
-2. Pull current remote DB as baseline migration (one-time, if needed):
-
-```bash
-supabase db pull
-```
-
-3. Add new changes:
+2. Add new changes (never `supabase db pull` a baseline migration; the
+   pre-migration schema is `supabase/baseline/`, kept out of `migrations/` on
+   purpose):
 
 ```bash
 supabase migration new short_description
 ```
 
-4. Apply to Supabase:
+3. Apply to Supabase:
 
 ```bash
 supabase db push
 ```
 
-5. Commit migrations to git.
+4. Commit migrations to git.
 
 For permission-sensitive changes, add a pgTAP test in `supabase/tests/` and a
 revert in `supabase/rollback/`. See `supabase/README.md` for details.
@@ -606,8 +622,10 @@ A search that reads like a description ("space movie where Matt Damon is
 stranded") rather than a title or a name goes to a small language model, which
 turns it into TMDB terms and may name titles it recognizes from a quote or a
 scene; TMDB's discover endpoint finds the movies, and a named title is shown
-only when TMDB has a movie by exactly that name. Titles and
-names never reach the model. Both providers are free tiers, tried in order:
+only when TMDB has a movie by exactly that name. A search that finds a title
+or a person never reaches the model; one of four or more letters that finds
+nothing does, since a misspelled name is what it reads well. Both providers are
+free tiers, tried in order:
 
 ```dotenv
 GROQ_API_KEY=...            # console.groq.com, free plan
@@ -615,7 +633,8 @@ CLOUDFLARE_ACCOUNT_ID=...   # Workers AI, free daily allocation
 CLOUDFLARE_AI_TOKEN=...     # API token with Workers AI read permission
 ```
 
-Either one is enough. With neither, or when both are over their daily limit or
+Either one is enough. `GROQ_MODEL`, `GROQ_REASONING_EFFORT` and
+`CLOUDFLARE_AI_MODEL` override the models without a code deploy. With neither, or when both are over their daily limit or
 down, a described search shows ordinary title results with a struck-through
 sparkle and "Smart search is resting." It is offered to signed-in people only,
 so a public add link never spends the quota. Do not use Gemini's free tier
@@ -626,8 +645,10 @@ on it. See `output/designs/described-search.md`.
 
 Phone and TV draw results can open the chosen service's title page instead of
 its search page. The saved service order and the phone's opt-in setting are
-unchanged. Only subscription/free sources launch; rental and purchase links
-are cached but never selected. TV also displays a spoken assistant command.
+unchanged. Only subscription/free sources open as a service. Rental and
+purchase links are filed under the store that sells them and feed only the rent
+button a drawn movie offers when none of your services carry it; the TV offers
+Apple TV and Prime Video, the two stores the Google TV app can hand off to.
 A title link does not guarantee automatic playback or bypass a subscription.
 
 To activate. Production is already activated, so these steps are for a new
@@ -673,8 +694,9 @@ redeploy (open clients can retain a cached result for ten minutes). The schema
 rollback is in `supabase/rollback/20260830120000_remove_title_provider_links.sql`;
 revert the server's cleanup call before removing its RPC.
 
-The account-deletion, provider-lookup, and filter-metadata warmup URLs share
-`api/movie-cache.js` through explicit rewrites in `vercel.json`. Their private
+The account-deletion, provider-lookup, filter-metadata warmup, starter-pack
+candidate and starter-pack photo URLs share `api/movie-cache.js` through
+explicit rewrites in `vercel.json`. Their private
 handlers live in `api/_lib/`; keeping them together holds the deployment at
 Vercel Hobby's 12-function limit without changing the client URLs or
 authentication checks.

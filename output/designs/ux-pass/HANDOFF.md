@@ -1,8 +1,9 @@
 # UX pass handoff
 
 Status: items 01–14 are merged; #247 completes first-run and service discovery.
-Scott approved the TV mockup on September 30, 2026. The reveal cleanup is
-implemented on `codex/quiet-draw-reveal`; the method mark follows separately.
+The TV pass Scott approved on September 30, 2026 is merged too: the reveal
+cleanup in #248 and the paper method mark in #249, which `bowl-page-marks.md`
+then superseded (#250). Only the delight ideas below are left.
 
 ## How Scott wants this built
 
@@ -100,13 +101,7 @@ completion branch includes the latest `origin/main` and these two changes:
   - a "How was it?" prompt the next day, feeding the private comment;
   - "Casey added 2 since Friday", shown once;
   - an upturned empty bowl offering a starter pack or an invite.
-- **The TV pass.** Scott queued it to follow this one, and it starts from a
-  mockup.
-  - First, refine the full-screen draw reveal (`DrawRevealStage`). Remove the
-    copy near the top of the screen on every device: it clutters the scene and
-    breaks show-don't-tell, and it is worst on the TV.
-  - Review item 15 belongs here as well: the TV method mark
-    (`TvDrawMethodMark`) reads as a profile button. Draw it as an unframed slip.
+- **The TV pass** is done; see "Approved TV pass" below.
 
 ## Capturing mockups locally
 
@@ -149,5 +144,5 @@ app with fabricated accounts on TV and phone. Scott approved both changes.
   lineup, favorites and drawn title remain part of the scene.
 - Scene framing and animation timing are preserved. The empty header boundary
   keeps the same space above the bowl; screen-reader phase announcements remain.
-- The warm paper method mark follows in a separate PR, using the same printed
-  person, title and rotation glyphs shown in the approved mockup.
+- The warm paper method mark followed in #249, and was redrawn for every
+  surface as the shared `DrawMethodMark` in #250 (`bowl-page-marks.md`).
