@@ -98,7 +98,11 @@ If one of these changes, add or update tests for the new behavior rather than as
 
 ## Release Smoke Checklist
 
-Run this when shipping meaningful app behavior, especially if auth, DB, installs, or public links changed.
+Run this on staging.moviebowl.app every Wednesday before `npm run release`,
+especially when auth, the database, installs, or public links changed. A merge
+reaches staging, not users, so this is where a problem is meant to be found.
+`npm run release` itself applies production's migrations before it ships and
+waits for `/version.json` to show the new build.
 
 - log in successfully
 - add a movie to a bowl

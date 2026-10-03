@@ -26,6 +26,7 @@ node scripts/refresh-provider-logos.mjs  # regenerate src/utils/providerLogos.js
 ./scripts/pgtap.sh   # database tests on a scratch Postgres built from this repo
 npm run eval:search  # score smart search on known answers; spends Groq quota
 npm run build        # production build — run this for any UI/app change
+npm run release      # ship a commit of main to production (Scott only)
 ```
 
 The Vercel CLI is pinned as a devDependency, so run the serverless dev server
@@ -169,6 +170,28 @@ Every reload goes through `reloadForNewBuild`, which fires at most once a minute
 via `sessionStorage` so a genuinely broken build cannot become a refresh loop --
 and which is why an explicit tap on the banner calls `location.reload()` direct.
 The check is production-only; the dev server has HMR and no manifest to serve.
+
+### Staging and releases
+
+Merging is not releasing. `main` deploys to staging.moviebowl.app, which has its
+own Supabase project; production, moviebowl.app, deploys from `release`, and
+only Scott moves it, once a week on Wednesday, with `npm run release`. Before
+that, every merge was a release and the release smoke check happened in front of
+users. A fix that cannot wait for Wednesday goes as a pull request into
+`release` (carrying no migration), and `release` is then merged back into `main`.
+
+Migrations follow the same split. `.github/workflows/staging-database.yml`
+applies them to staging on every push to `main` (building a new staging project
+from `supabase/baseline/01_schema.sql` first), using the one staging secret.
+`scripts/release.mjs` pushes them to production before it moves `release`, and
+refuses to move it while Supabase still reports one pending: in September a
+change merged before its migration and took bowl creation down. Nothing else
+writes to the production database, and no workflow holds a production
+credential.
+
+Staging takes no new sign-ups; its accounts are created in its dashboard. It
+answers with `X-Robots-Tag: noindex` (`vercel.json`), and its data is test data,
+so it is fine for it to be reachable without a Vercel login, which the TV needs.
 
 ### Routes (`src/App.jsx`)
 
@@ -330,7 +353,8 @@ there is nothing to look up.
 
 All schema, RLS, policy, trigger, and function changes go in
 `supabase/migrations/` with a timestamped filename — never dashboard-only edits.
-Apply with `supabase db push` and commit the file. For permission-sensitive
+Commit the file: merging applies it to staging, and `npm run release` applies it
+to production before the code that needs it ships. For permission-sensitive
 changes, add a pgTAP test in `supabase/tests/` and a revert in
 `supabase/rollback/` (rollbacks live outside `migrations/` and must be moved
 back with a fresh timestamp to run). See `supabase/README.md`.

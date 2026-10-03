@@ -20,8 +20,8 @@ by reverting a commit.
   production `SUPABASE_SECRET_KEY`: it bypasses every row-level security policy.
 - **Never run `supabase db push` or `supabase link` against production.** You
   will use both on a Supabase project of your own (Day 2). Schema reaches the
-  production database only through Scott, and only before the app change that
-  depends on it is merged (see "Database changes" below).
+  production database only through Scott's weekly release (see "Database
+  changes" below).
 - **Never commit `.env`.** It is gitignored; keep it that way.
 - **This repository is public.** No secrets, no customer data, and no write-ups
   of unfixed bugs in any file, commit message or pull request. If you find
@@ -194,10 +194,12 @@ new files in `supabase/migrations/`, never edits in the Supabase dashboard and
 never edits to `supabase/baseline/`. Permission changes also need a pgTAP test
 in `supabase/tests/` and a revert in `supabase/rollback/`. Then:
 
-**The migration is applied to production before the pull request that depends
-on it is merged.** Scott applies it and confirms with `supabase migration list`.
-Merging first once took bowl creation down in production. See
-`supabase/README.md`.
+**Merging puts your migration on staging, not production.** A workflow applies
+it to the staging project when your pull request lands on `main`, so check your
+change there. Production gets it on release day, when `npm run release` pushes
+every pending migration before the code that needs it ships. Code once shipped
+ahead of its migration and took bowl creation down in production, which is why
+the release step refuses to run in the other order. See `supabase/README.md`.
 
 ## Words you will see
 
