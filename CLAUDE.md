@@ -497,8 +497,9 @@ then a generic 500. They run in Node and are excluded from coverage; they are
   atomically in Supabase (default 500 HTTP requests, currently 1,000 Watchmode
   credits). Add and draw events warm the private cache; public adds do not.
   Rent and buy links are filed under the store that sells them
-  (`utils/rentalStores.js`), not under a streaming service, and feed only the
-  rent button a drawn movie offers when none of your services carry it. The TV
+  (`utils/rentalStores.js`), not under a streaming service. Only the rent links
+  are used, and only by the rent button a drawn movie offers when none of your
+  services carry it (`resolveRentTarget` drops buy links). The TV
   offers only Apple TV and Prime Video (`isTvAppRentalLink`), the two stores the
   Google TV app knows how to hand off to; another needs the shell updated first.
 - `api/cron/refresh-filter-metadata` maintains the private daily certification
