@@ -196,7 +196,8 @@ answers with `X-Robots-Tag: noindex` (`vercel.json`), and its data is test data,
 so it is fine for it to be reachable without a Vercel login, which the TV needs.
 
 `.github/workflows/deploy-checks.yml` runs when Vercel reports a deploy live.
-For the head of `main` it checks staging serves that commit and runs the staging
+For the head of `main` it waits for that commit's staging migrations, checks
+staging serves it, and runs the staging
 smoke suite (`e2e/staging/`, `playwright.staging.config.js`): the core flow
 against staging's real database and TMDB, signed in with a password as a test
 account made in the staging dashboard, clearing that account before and after.
