@@ -27,6 +27,8 @@ node scripts/refresh-provider-logos.mjs  # regenerate src/utils/providerLogos.js
 npm run eval:search  # score smart search on known answers; spends Groq quota
 npm run build        # production build — run this for any UI/app change
 npm run release      # ship a commit of main to production (Scott only)
+npm run test:staging # the staging smoke suite; needs the STAGING_* variables
+npm run check:deploy -- <url> <commit>  # read-only check of a live deploy
 ```
 
 The Vercel CLI is pinned as a devDependency, so run the serverless dev server
@@ -192,6 +194,17 @@ credential.
 Staging takes no new sign-ups; its accounts are created in its dashboard. It
 answers with `X-Robots-Tag: noindex` (`vercel.json`), and its data is test data,
 so it is fine for it to be reachable without a Vercel login, which the TV needs.
+
+`.github/workflows/deploy-checks.yml` runs when Vercel reports a deploy live.
+For the head of `main` it waits for that commit's staging migrations, checks
+staging serves it, and runs the staging
+smoke suite (`e2e/staging/`, `playwright.staging.config.js`): the core flow
+against staging's real database and TMDB, signed in with a password as a test
+account made in the staging dashboard, clearing that account before and after.
+It is the one suite that meets real systems, which is why it is not in the
+pull request gate. For a production deploy it runs only `scripts/check-deploy.mjs`,
+which never signs in. Both land on the commit as checks, and `npm run release`
+reads them before it ships.
 
 ### Routes (`src/App.jsx`)
 

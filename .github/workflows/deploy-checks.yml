@@ -1,0 +1,118 @@
+# Checks each deploy against the real thing, after Vercel reports it live.
+#
+# Everything in ci.yml runs against fakes. This is where the deployed code
+# meets the real database, the real TMDB and the Vercel environment it was
+# given. Vercel reports each deploy to GitHub as a deployment, so this runs on
+# its status rather than on a push, which would race the build.
+#
+# - A deploy of the head of `main` (Vercel's Preview environment, served at
+#   staging.moviebowl.app) gets the deploy check and then the staging smoke
+#   suite, signed in as a test account made in the staging dashboard. Pull
+#   request previews and superseded commits of `main` are skipped.
+# - A production deploy (the `release` branch) gets the deploy check only. It
+#   is read-only and never signs in; production credentials never reach CI.
+#
+# Each run's result lands on the commit as a check, which is what
+# `npm run release` reads before it ships that commit.
+name: Deploy checks
+
+on:
+  deployment_status:
+
+permissions:
+  contents: read
+  # To read the Staging database workflow's run for the same commit.
+  actions: read
+
+jobs:
+  staging:
+    name: Staging smoke
+    if: github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Preview'
+    runs-on: ubuntu-latest
+    timeout-minutes: 35
+    # One test account, shared by every run: two at once would clear each
+    # other's bowl. A newer deploy waits rather than cancelling a run halfway.
+    concurrency:
+      group: staging-smoke
+      cancel-in-progress: false
+    env:
+      STAGING_URL: https://staging.moviebowl.app
+      STAGING_SUPABASE_URL: ${{ secrets.STAGING_SUPABASE_URL }}
+      STAGING_SUPABASE_ANON_KEY: ${{ secrets.STAGING_SUPABASE_ANON_KEY }}
+      STAGING_SMOKE_EMAIL: ${{ secrets.STAGING_SMOKE_EMAIL }}
+      STAGING_SMOKE_PASSWORD: ${{ secrets.STAGING_SMOKE_PASSWORD }}
+    steps:
+      - uses: actions/checkout@v7
+      # staging.moviebowl.app follows `main`, so only the deploy of its current
+      # head is what the domain serves. Anything else is a pull request preview
+      # or a commit a later one has already replaced.
+      - name: Check this is the head of main
+        id: head
+        run: |
+          git fetch --quiet --depth=1 origin main
+          if [ "$(git rev-parse FETCH_HEAD)" = "$GITHUB_SHA" ]; then
+            echo "current=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "::notice::Not the head of main, so staging does not serve this deploy. Skipping."
+            echo "current=false" >> "$GITHUB_OUTPUT"
+          fi
+      - uses: actions/setup-node@v7
+        if: steps.head.outputs.current == 'true'
+        with:
+          node-version-file: .nvmrc
+          cache: npm
+      # A commit that changes supabase/ also starts the Staging database
+      # workflow, and the deploy can beat it. Smoking the new code against the
+      # old schema would fail the commit for nothing, so wait for that run. A
+      # push creates its runs at once, long before a build finishes, so no run
+      # here means the commit had no migration.
+      - name: Wait for this commit's staging migrations
+        if: steps.head.outputs.current == 'true'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          for attempt in $(seq 1 60); do
+            run="$(gh api "repos/$GITHUB_REPOSITORY/actions/workflows/staging-database.yml/runs?head_sha=$GITHUB_SHA" \
+              --jq '.workflow_runs[0] | if . == null then "none" else "\(.status) \(.conclusion)" end')"
+            case "$run" in
+              none) echo "No staging migration run for this commit."; exit 0 ;;
+              "completed success") echo "Staging migrations applied."; exit 0 ;;
+              completed*) echo "::error::The Staging database run for this commit ended $run."; exit 1 ;;
+            esac
+            echo "Staging database run is $run; waiting."
+            sleep 10
+          done
+          echo "::error::The Staging database run for this commit did not finish in ten minutes."
+          exit 1
+      - name: Check staging serves this commit
+        if: steps.head.outputs.current == 'true'
+        run: node scripts/check-deploy.mjs "$STAGING_URL" "$GITHUB_SHA"
+      - name: Install
+        if: steps.head.outputs.current == 'true'
+        run: |
+          npm ci
+          npx playwright install --with-deps chromium
+      - name: Smoke suite
+        if: steps.head.outputs.current == 'true'
+        run: npm run test:staging
+      - name: Keep the failure artifacts
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: staging-smoke-report
+          path: |
+            playwright-report/
+            test-results/
+          retention-days: 7
+
+  production:
+    name: Production check
+    if: github.event.deployment_status.state == 'success' && github.event.deployment.environment == 'Production'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: .nvmrc
+      - run: node scripts/check-deploy.mjs https://moviebowl.app "$GITHUB_SHA"

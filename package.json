@@ -16,7 +16,9 @@
     "eval:search": "node scripts/smart-search-eval/run.mjs",
     "release": "node scripts/release.mjs",
     "test:coverage": "vitest run --coverage",
-    "test:e2e": "playwright test"
+    "test:e2e": "playwright test",
+    "test:staging": "playwright test --config playwright.staging.config.js",
+    "check:deploy": "node scripts/check-deploy.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.109.0",

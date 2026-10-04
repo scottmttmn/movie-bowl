@@ -41,6 +41,7 @@ export default defineConfig([
       'src/test/**/*.js',
       'e2e/**/*.js',
       'playwright.config.js',
+      'playwright.staging.config.js',
       'vite.config.js',
     ],
     languageOptions: {
