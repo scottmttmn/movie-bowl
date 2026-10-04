@@ -102,7 +102,10 @@ Run this on staging.moviebowl.app every Wednesday before `npm run release`,
 especially when auth, the database, installs, or public links changed. A merge
 reaches staging, not users, so this is where a problem is meant to be found.
 `npm run release` itself applies production's migrations before it ships and
-waits for `/version.json` to show the new build.
+waits for `/version.json` to show the new build. The automated part of this
+list, the staging smoke suite, has already run on every deploy of `main` (the
+Deploy checks workflow); the release script shows its result with the rest of
+the commit's CI, so this list is for what it does not reach.
 
 - log in successfully
 - add a movie to a bowl
