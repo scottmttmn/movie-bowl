@@ -47,9 +47,12 @@ if (linkedRef && new URL(url).hostname.startsWith(`${linkedRef}.`)) {
 // elsewhere, or none, would pass the check above. Staging is the project that
 // takes no sign-ups (CLAUDE.md), so ask the project itself before writing.
 const authSettings = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: serviceKey } })
-  .then((response) => (response.ok ? response.json() : null))
-  .catch(() => null);
-if (authSettings?.disable_signup !== true) {
+  .then(async (response) => (response.ok ? response.json() : { failed: `HTTP ${response.status}` }))
+  .catch((error) => ({ failed: error.message }));
+if (authSettings.failed) {
+  fail(`Could not read ${url}/auth/v1/settings (${authSettings.failed}), so the seed cannot tell whether this is staging. Nothing was written.`);
+}
+if (authSettings.disable_signup !== true) {
   fail(`${url} accepts new sign-ups, so it is not the staging project. Nothing was written.`);
 }
 
