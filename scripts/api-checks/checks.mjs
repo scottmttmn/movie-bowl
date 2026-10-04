@@ -56,7 +56,9 @@ async function checkModel(name, providerName, variables, env, fetchImpl) {
   let failure = null;
   const recordingFetch = async (url, options) => {
     try {
-      const response = await fetchImpl(url, { ...options, signal: AbortSignal.timeout(TIMEOUT_MS) });
+      // The app's own five-second limit stays in force: an answer slower
+      // than that never reaches anyone searching.
+      const response = await fetchImpl(url, options);
       if (!response.ok) failure = `HTTP ${response.status}: ${(await response.clone().text().catch(() => "")).slice(0, 200)}`;
       return response;
     } catch (error) {
@@ -69,10 +71,17 @@ async function checkModel(name, providerName, variables, env, fetchImpl) {
   const warn = console.warn;
   console.warn = () => {};
   try {
-    const interpretation = await interpretDescription(MODEL_QUERY, { providers: [provider], fetchImpl: recordingFetch });
-    if (!interpretation) return { name, ok: false, detail: failure || "answered with nothing usable" };
-    const titles = interpretation.titles.map((title) => title.title).join(", ");
-    return { name, ok: true, detail: `${provider.model} answered${titles ? `: ${titles}` : ""}` };
+    // A second try, so one slow answer on a busy minute does not open an
+    // issue; two in a row is a provider the app cannot rely on today.
+    for (let attempt = 0; attempt < 2; attempt += 1) {
+      failure = null;
+      const interpretation = await interpretDescription(MODEL_QUERY, { providers: [provider], fetchImpl: recordingFetch });
+      if (interpretation) {
+        const titles = interpretation.titles.map((title) => title.title).join(", ");
+        return { name, ok: true, detail: `${provider.model} answered${titles ? `: ${titles}` : ""}` };
+      }
+    }
+    return { name, ok: false, detail: failure || "answered with nothing usable" };
   } finally {
     console.warn = warn;
   }
@@ -110,9 +119,10 @@ export async function checkResend(env, fetchImpl = fetch) {
 }
 
 // A free Supabase project pauses after a week without requests, and a week
-// with nothing merged deploys nothing to wake it. One read through its API is
-// enough: row-level security answers anonymously with nothing, which is fine,
-// because any answer from the database means it is awake.
+// with nothing merged deploys nothing to wake it. One anonymous read through
+// its API is enough. The database answers it with no rows, or refuses it
+// (42501) where anonymous access was revoked; either means it is awake and the
+// key is good. Anything else, a rejected key included, is a failure.
 export async function checkStaging(env, fetchImpl = fetch) {
   const name = "Staging database";
   const variables = ["STAGING_SUPABASE_URL", "STAGING_SUPABASE_ANON_KEY"];
@@ -123,11 +133,11 @@ export async function checkStaging(env, fetchImpl = fetch) {
       headers: { apikey: env.STAGING_SUPABASE_ANON_KEY, Authorization: `Bearer ${env.STAGING_SUPABASE_ANON_KEY}` },
       signal: AbortSignal.timeout(TIMEOUT_MS),
     });
-    if (response.status >= 500) {
-      const { text } = await readBody(response);
-      return { name, ok: false, detail: `HTTP ${response.status}, which can mean it is paused: ${text.slice(0, 200)}` };
-    }
-    return { name, ok: true, detail: `answered ${response.status}` };
+    const { text, json } = await readBody(response);
+    if (response.ok) return { name, ok: true, detail: `answered ${response.status}` };
+    if (json?.code === "42501") return { name, ok: true, detail: `answered ${response.status}, anonymous reads refused` };
+    const paused = response.status >= 500 ? ", which can mean it is paused" : "";
+    return { name, ok: false, detail: `HTTP ${response.status}${paused}: ${json?.message || text.slice(0, 200)}` };
   } catch (error) {
     return { name, ok: false, detail: error.message };
   }

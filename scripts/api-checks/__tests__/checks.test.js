@@ -55,9 +55,15 @@ describe("api checks", () => {
     expect(await checkCloudflare(env, fetchImpl)).toMatchObject({ ok: true, detail: "@cf/openai/gpt-oss-20b answered: Paddington 2" });
   });
 
-  it("fails a model that answers with nothing usable", async () => {
-    const fetchImpl = fakeFetch([["groq.com", modelAnswer({ titles: [], people: [], genres: [], keywords: [] })]]);
-    expect(await checkGroq(env, fetchImpl)).toMatchObject({ ok: false, detail: "answered with nothing usable" });
+  it("tries a model twice before failing it, keeping the app's own time limit", async () => {
+    const empty = fakeFetch([["groq.com", modelAnswer({ titles: [], people: [], genres: [], keywords: [] })]]);
+    expect(await checkGroq(env, empty)).toMatchObject({ ok: false, detail: "answered with nothing usable" });
+    expect(empty.calls).toHaveLength(2);
+    expect(empty.calls[0].options.signal).toBeInstanceOf(AbortSignal);
+
+    let calls = 0;
+    const second = fakeFetch([["groq.com", () => (calls++ ? modelAnswer({ titles: [], people: [], genres: ["Comedy"], keywords: [] }) : json(503, {}))]]);
+    expect(await checkGroq(env, second)).toMatchObject({ ok: true });
   });
 
   it("accepts a sending-only Resend key and needs a verified domain otherwise", async () => {
@@ -74,10 +80,16 @@ describe("api checks", () => {
     expect(await checkResend(env, invalid)).toMatchObject({ ok: false, detail: "HTTP 403: API key is invalid" });
   });
 
-  it("counts any database answer from staging as awake, and a gateway error as not", async () => {
+  it("counts no rows or a refused anonymous read as awake, and a rejected key or gateway error as not", async () => {
+    const empty = fakeFetch([["staging.supabase.co", json(200, [])]]);
+    expect(await checkStaging(env, empty)).toMatchObject({ ok: true, detail: "answered 200" });
+    expect(empty.calls[0].url).toBe("https://staging.supabase.co/rest/v1/bowls?select=id&limit=1");
+
     const denied = fakeFetch([["staging.supabase.co", json(401, { code: "42501" })]]);
-    expect(await checkStaging(env, denied)).toMatchObject({ ok: true, detail: "answered 401" });
-    expect(denied.calls[0].url).toBe("https://staging.supabase.co/rest/v1/bowls?select=id&limit=1");
+    expect((await checkStaging(env, denied)).ok).toBe(true);
+
+    const badKey = fakeFetch([["staging.supabase.co", json(401, { code: "PGRST301", message: "JWT invalid" })]]);
+    expect(await checkStaging(env, badKey)).toMatchObject({ ok: false, detail: "HTTP 401: JWT invalid" });
 
     const paused = fakeFetch([["staging.supabase.co", new Response("project paused", { status: 540 })]]);
     expect(await checkStaging(env, paused)).toMatchObject({ ok: false });
