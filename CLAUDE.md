@@ -211,8 +211,10 @@ reads them before it ships.
 bowl per draw method and a second member, Robin, made as the account's own
 address tagged `+member`, so person-first and rotation have two people to
 choose between. It runs on a person's machine with the staging service role
-key, never in a workflow, refuses the project this checkout is linked to, and
-adds only the bowls the account does not already have by name.
+key, never in a workflow. It refuses the project this checkout is linked to
+and any project that accepts sign-ups, which production does and staging does
+not. It adds only the bowls the account does not already have by name, and
+remakes one an interrupted run left without movies.
 
 ### Routes (`src/App.jsx`)
 

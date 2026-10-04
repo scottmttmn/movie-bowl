@@ -12,9 +12,10 @@
 //
 // It runs on your machine with the staging service role key, because it writes
 // rows for an account other than the one signing in. That key never goes in
-// the repository or a workflow. It refuses to run against the Supabase project
-// this checkout is linked to, which is production. Running it again only adds
-// bowls the account does not already have by name.
+// the repository or a workflow. It refuses the Supabase project this checkout
+// is linked to, which is production, and any project that takes sign-ups,
+// which staging does not. Running it again only adds bowls the account does
+// not already have by name, and remakes one an earlier run left unfinished.
 import { readFileSync, existsSync } from "node:fs";
 import { join, resolve } from "node:path";
 import { randomUUID } from "node:crypto";
@@ -40,6 +41,16 @@ const refFile = join(REPO, "supabase/.temp/project-ref");
 const linkedRef = existsSync(refFile) ? readFileSync(refFile, "utf8").trim() : "";
 if (linkedRef && new URL(url).hostname.startsWith(`${linkedRef}.`)) {
   fail(`${url} is the project this checkout is linked to, which is production. The seed only runs against staging.`);
+}
+
+// Not being production is not enough to be staging: a checkout linked
+// elsewhere, or none, would pass the check above. Staging is the project that
+// takes no sign-ups (CLAUDE.md), so ask the project itself before writing.
+const authSettings = await fetch(`${url}/auth/v1/settings`, { headers: { apikey: serviceKey } })
+  .then((response) => (response.ok ? response.json() : null))
+  .catch(() => null);
+if (authSettings?.disable_signup !== true) {
+  fail(`${url} accepts new sign-ups, so it is not the staging project. Nothing was written.`);
 }
 
 const admin = createClient(url, serviceKey, { auth: { persistSession: false, autoRefreshToken: false } });
@@ -83,7 +94,20 @@ if (!member) {
 await check(admin.from("profiles").upsert({ id: owner.id, email: owner.email }, { onConflict: "id", ignoreDuplicates: true }), "save your profile");
 await check(admin.from("profiles").upsert({ id: member.id, email: memberEmail, display_name: MEMBER_DISPLAY_NAME }, { onConflict: "id" }), "save the member's profile");
 
-const existing = new Set((await check(admin.from("bowls").select("name").eq("owner_id", owner.id), "read your bowls")).map((bowl) => bowl.name));
+// A seed bowl with no titles is one an earlier run lost partway, perhaps with
+// its response, so it is taken out and made again rather than skipped forever.
+const ownedBowls = await check(admin.from("bowls").select("id, name").eq("owner_id", owner.id), "read your bowls");
+const existing = new Set();
+for (const bowl of ownedBowls.filter((candidate) => SEED_BOWLS.some((seed) => seed.name === candidate.name))) {
+  const { count, error } = await admin.from("bowl_movies").select("id", { count: "exact", head: true }).eq("bowl_id", bowl.id);
+  if (error) fail(`Could not read the titles in ${bowl.name}: ${error.message}`);
+  if (count > 0) {
+    existing.add(bowl.name);
+  } else {
+    await check(admin.from("bowls").delete().eq("id", bowl.id), `remove the unfinished ${bowl.name}`);
+    console.log(`Removed an unfinished ${bowl.name} from an earlier run.`);
+  }
+}
 const toSeed = SEED_BOWLS.filter((bowl) => !existing.has(bowl.name));
 if (!toSeed.length) {
   console.log("Every seed bowl is already there. Nothing to add.");
