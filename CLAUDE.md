@@ -30,6 +30,7 @@ npm run release      # ship a commit of main to production (Scott only)
 npm run test:staging # the staging smoke suite; needs the STAGING_* variables
 npm run check:deploy -- <url> <commit>  # read-only check of a live deploy
 npm run seed:staging -- <email>  # sample bowls for a staging account (staging service key)
+npm run check:apis   # one real call to each outside service; needs their keys
 ```
 
 The Vercel CLI is pinned as a devDependency, so run the serverless dev server
@@ -215,6 +216,14 @@ key, never in a workflow. It refuses the project this checkout is linked to
 and any project that accepts sign-ups, which production does and staging does
 not. It adds only the bowls the account does not already have by name, and
 remakes one an interrupted run left without movies.
+
+The outside services are checked on a schedule from the private
+`movie-bowl-issues` repository, which holds their keys and checks out this one:
+`npm run check:apis` (`scripts/api-checks/`) daily, making one real call each to
+TMDB, Groq, Cloudflare and Resend and one read that keeps the free staging
+project from pausing, and `npm run eval:search` on Tuesdays, the day before a
+release. A failure opens an issue there. The checks run there rather than here
+because this repository's logs are public.
 
 ### Routes (`src/App.jsx`)
 
