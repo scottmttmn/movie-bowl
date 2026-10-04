@@ -18,7 +18,8 @@
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test",
     "test:staging": "playwright test --config playwright.staging.config.js",
-    "check:deploy": "node scripts/check-deploy.mjs"
+    "check:deploy": "node scripts/check-deploy.mjs",
+    "seed:staging": "node scripts/staging-seed/run.mjs"
   },
   "dependencies": {
     "@supabase/supabase-js": "2.109.0",

@@ -29,6 +29,7 @@ npm run build        # production build — run this for any UI/app change
 npm run release      # ship a commit of main to production (Scott only)
 npm run test:staging # the staging smoke suite; needs the STAGING_* variables
 npm run check:deploy -- <url> <commit>  # read-only check of a live deploy
+npm run seed:staging -- <email>  # sample bowls for a staging account (staging service key)
 ```
 
 The Vercel CLI is pinned as a devDependency, so run the serverless dev server
@@ -205,6 +206,13 @@ It is the one suite that meets real systems, which is why it is not in the
 pull request gate. For a production deploy it runs only `scripts/check-deploy.mjs`,
 which never signs in. Both land on the commit as checks, and `npm run release`
 reads them before it ships.
+
+`npm run seed:staging` (`scripts/staging-seed/`) gives a staging account one
+bowl per draw method and a second member, Robin, made as the account's own
+address tagged `+member`, so person-first and rotation have two people to
+choose between. It runs on a person's machine with the staging service role
+key, never in a workflow, refuses the project this checkout is linked to, and
+adds only the bowls the account does not already have by name.
 
 ### Routes (`src/App.jsx`)
 
