@@ -87,6 +87,19 @@ jobs:
       - name: Check staging serves this commit
         if: steps.head.outputs.current == 'true'
         run: node scripts/check-deploy.mjs "$STAGING_URL" "$GITHUB_SHA"
+      # The suite skips itself without its credentials, which is right on a
+      # laptop and wrong here: a skipped smoke run reads as a green one.
+      - name: Check the smoke credentials are set
+        if: steps.head.outputs.current == 'true'
+        run: |
+          missing=""
+          for name in STAGING_SUPABASE_URL STAGING_SUPABASE_ANON_KEY STAGING_SMOKE_EMAIL STAGING_SMOKE_PASSWORD; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing repository secrets:$missing"
+            exit 1
+          fi
       - name: Install
         if: steps.head.outputs.current == 'true'
         run: |
