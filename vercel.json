@@ -15,6 +15,11 @@
       "headers": [{ "key": "Cache-Control", "value": "no-store, max-age=0" }]
     },
     {
+      "source": "/(.*)",
+      "has": [{ "type": "host", "value": "staging.moviebowl.app" }],
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex" }]
+    },
+    {
       "source": "/((?!api/).*)",
       "has": [
         { "type": "header", "key": "accept", "value": ".*text/html.*" }

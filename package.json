@@ -14,6 +14,7 @@
     "test:failures": "node scripts/test-failures.mjs",
     "test:counts": "node scripts/check-test-counts.mjs",
     "eval:search": "node scripts/smart-search-eval/run.mjs",
+    "release": "node scripts/release.mjs",
     "test:coverage": "vitest run --coverage",
     "test:e2e": "playwright test"
   },
