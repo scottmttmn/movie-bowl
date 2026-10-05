@@ -14,6 +14,7 @@ export default function MovieActionCard({
   isPinned = false,
   onTogglePin,
   pinDisabled = false,
+  cornerMark = null,
 }) {
   const isCustomEntry = Boolean(
     movie.isCustomEntry || movie.tmdb_id == null || Number(movie.tmdb_id) <= 0
@@ -73,6 +74,8 @@ export default function MovieActionCard({
 
         {/* A sibling of the poster button rather than a child of it: an
             interactive element inside another one is neither valid nor reachable. */}
+        {cornerMark}
+
         <MoviePosterPin
           isPinned={isPinned}
           label={pinLabel}

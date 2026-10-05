@@ -109,3 +109,44 @@ test("an empty bowl offers its owner a starter pack and pours it", async ({ page
   await expect(offer).toBeHidden();
   expect(backend.state.bowl_movies.filter((movie) => movie.starter_pack === "nolan-2000s")).toHaveLength(2);
 });
+
+// A member sees the pack in their own My Movies, after their own titles, and
+// can make one of its titles theirs from its details.
+test("a member makes a pack title in My Movies their own", async ({ page, backend }) => {
+  await backend.authenticate(page);
+  backend.state.bowls.push({
+    id: "pack-bowl",
+    name: "Family Night",
+    owner_id: "someone-else",
+    draw_access_mode: "all_members",
+    draw_method: "person_first",
+    starter_pack: "spielberg-1980s",
+    starter_pack_installed_at: "2026-09-28T12:00:00.000Z",
+  });
+  backend.state.bowl_members.push({ bowl_id: "pack-bowl", user_id: "user-smoke", role: "Member" });
+  backend.state.bowl_movies.push(
+    { id: "own", bowl_id: "pack-bowl", title: "Arrival", tmdb_id: 329865, added_by: "user-smoke", added_at: "2026-09-29T12:00:00.000Z", drawn_at: null, is_pinned: false },
+    { id: "slip", bowl_id: "pack-bowl", title: "E.T. the Extra-Terrestrial", tmdb_id: 601, added_by: null, added_by_name: "Spielberg: The '80s", starter_pack: "spielberg-1980s", added_at: "2026-09-28T12:00:00.000Z", drawn_at: null, is_pinned: false },
+  );
+  await page.goto("/bowl/pack-bowl");
+
+  const strip = page.locator(".my-movies-strip");
+  const cards = strip.getByRole("article");
+  await expect(cards).toHaveCount(2);
+  await expect(cards.nth(0)).toContainText("Arrival");
+  await expect(cards.nth(1).getByRole("img", { name: "From the Spielberg: The '80s pack" })).toBeVisible();
+  await expect(cards.nth(1).getByRole("button", { name: /favorite/i })).toHaveCount(0);
+
+  await strip.getByRole("button", { name: "Details for E.T. the Extra-Terrestrial" }).click();
+  const dialog = page.getByRole("dialog");
+  await dialog.getByRole("button", { name: "Claim" }).click();
+  await expect(dialog.getByRole("button", { name: "Make this your favorite" })).toBeVisible();
+  await expect(dialog.getByRole("button", { name: "Claim" })).toHaveCount(0);
+  await dialog.getByRole("button", { name: "Close", exact: true }).first().click();
+
+  const claimedCard = cards.filter({ hasText: "E.T. the Extra-Terrestrial" });
+  await expect(claimedCard.getByRole("img", { name: /pack$/ })).toHaveCount(0);
+  await expect(claimedCard.getByRole("button", { name: /Favorite "E.T. the Extra-Terrestrial"/ })).toBeVisible();
+  const claimed = backend.state.bowl_movies.find((movie) => movie.id === "slip");
+  expect(claimed).toMatchObject({ added_by: "user-smoke", starter_pack: null, claimed_from_starter_pack: "spielberg-1980s" });
+});

@@ -1,4 +1,5 @@
 import MovieActionCard from "./MovieActionCard";
+import StarterPackMark from "./StarterPackMark";
 import { MY_MOVIE_ELIGIBILITY_STATUS } from "../hooks/useMyMovieEligibility";
 import { DEFAULT_DRAW_METHOD, getDrawMethod } from "../utils/drawMethods";
 
@@ -10,27 +11,31 @@ export default function MyMoviesStrip({
   onRunEligibilityLookups,
   drawMethod = DEFAULT_DRAW_METHOD,
   onTogglePin,
+  packPeople = {},
 }) {
   const hasResolvedEligibility = eligibilityStatus === MY_MOVIE_ELIGIBILITY_STATUS.ready;
   const eligibleIdSet = new Set((eligibleMovieIds || []).map((id) => String(id)));
   const method = getDrawMethod(drawMethod);
-  const persistedMovies = movies.filter((movie) => movie.local_status !== "syncing");
-  const syncingMovies = movies.filter((movie) => movie.local_status === "syncing");
+  const ownMovies = movies.filter((movie) => movie.source !== "pack");
+  const packMovies = movies.filter((movie) => movie.source === "pack");
+  const persistedMovies = ownMovies.filter((movie) => movie.local_status !== "syncing");
+  const syncingMovies = ownMovies.filter((movie) => movie.local_status === "syncing");
+  const isEligible = (movie) => eligibleIdSet.has(String(movie.id));
+  // The person's own picks lead and the pack follows them, each eligible first.
   const orderedMovies = hasResolvedEligibility
     ? [
-        ...persistedMovies.filter(
-          (movie) => movie.is_pinned && eligibleIdSet.has(String(movie.id))
-        ),
-        ...persistedMovies.filter(
-          (movie) => !movie.is_pinned && eligibleIdSet.has(String(movie.id))
-        ),
-        ...persistedMovies.filter((movie) => !eligibleIdSet.has(String(movie.id))),
+        ...persistedMovies.filter((movie) => movie.is_pinned && isEligible(movie)),
+        ...persistedMovies.filter((movie) => !movie.is_pinned && isEligible(movie)),
+        ...persistedMovies.filter((movie) => !isEligible(movie)),
         ...syncingMovies,
+        ...packMovies.filter(isEligible),
+        ...packMovies.filter((movie) => !isEligible(movie)),
       ]
     : [
         ...persistedMovies.filter((movie) => movie.is_pinned),
         ...persistedMovies.filter((movie) => !movie.is_pinned),
         ...syncingMovies,
+        ...packMovies,
       ];
 
   return (
@@ -57,9 +62,9 @@ export default function MyMoviesStrip({
       )}
       <div className="flex flex-nowrap gap-3 overflow-x-auto pb-3 pt-1">
         {orderedMovies.map((movie) => {
-          const isEligible = eligibleIdSet.has(String(movie.id));
+          const isPack = movie.source === "pack";
           const isFilterExcluded =
-            hasResolvedEligibility && movie.local_status !== "syncing" && !isEligible;
+            hasResolvedEligibility && movie.local_status !== "syncing" && !isEligible(movie);
 
           return (
             <MovieActionCard
@@ -68,8 +73,9 @@ export default function MyMoviesStrip({
               onViewDetails={onViewMovie}
               disableWhileSyncing
               isFilterExcluded={isFilterExcluded}
-              isPinned={Boolean(movie.is_pinned)}
-              onTogglePin={method.honorsPin && !isFilterExcluded ? onTogglePin : undefined}
+              isPinned={!isPack && Boolean(movie.is_pinned)}
+              onTogglePin={method.honorsPin && !isFilterExcluded && !isPack ? onTogglePin : undefined}
+              cornerMark={isPack ? <StarterPackMark movie={movie} people={packPeople} /> : null}
             />
           );
         })}

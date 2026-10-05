@@ -910,6 +910,32 @@ export class FakeBackend {
       return;
     }
 
+    // The claim without its locking: a pack slip of this title becomes the
+    // caller's, in place, remembering the pack it came from.
+    if (rpcName === "claim_bowl_starter_pack_movie") {
+      const movie = this.state.bowl_movies.find(
+        (row) =>
+          row.bowl_id === args.p_bowl_id &&
+          Number(row.tmdb_id) === Number(args.p_tmdb_id) &&
+          row.starter_pack &&
+          !row.drawn_at
+      );
+      if (!movie) {
+        await fulfillJson(route, { message: "This title is no longer in the pack.", code: "P0001" }, 400);
+        return;
+      }
+      Object.assign(movie, {
+        added_by: this.state.currentUser.id,
+        claimed_from_starter_pack: movie.starter_pack,
+        claimed_from_starter_pack_name: movie.added_by_name,
+        added_by_name: null,
+        starter_pack: null,
+        note: args.p_note ?? null,
+      });
+      await fulfillJson(route, [movie]);
+      return;
+    }
+
     if (rpcName === "update_own_bowl_movie_note") {
       const movie = this.state.bowl_movies.find(
         (row) =>
