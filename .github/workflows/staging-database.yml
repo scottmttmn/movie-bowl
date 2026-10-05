@@ -11,6 +11,10 @@
 # address is IPv6-only and GitHub's runners are not. Secrets are never given to
 # pull_request runs from forks, and this workflow does not run on pull requests
 # at all.
+#
+# Nor can it be started by hand. A manual run takes the workflow and the
+# migrations from whichever branch is picked, so it could apply a migration that
+# never merged. To apply `main` again, re-run its latest run instead.
 name: Staging database
 
 on:
@@ -20,7 +24,6 @@ on:
       - "supabase/baseline/**"
       - "supabase/migrations/**"
       - ".github/workflows/staging-database.yml"
-  workflow_dispatch:
 
 # Two pushes in quick succession must not race each other into the same
 # migration history; the second waits rather than cancelling the first.
