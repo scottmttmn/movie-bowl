@@ -828,11 +828,18 @@ export default function BowlDashboard() {
     // Claim makes the same claim an add of this title does, with no comment.
     // The details stay open and become the person's own title, so a comment
     // can follow the usual way.
-    const [isClaimingPackMovie, setIsClaimingPackMovie] = useState(false);
-    const [claimErrorMessage, setClaimErrorMessage] = useState("");
+    // The answer can land after the details have moved on to another title,
+    // so it is applied only to the title it was for; the claim itself still
+    // reaches My Movies through the bowl's own update.
+    const [claimingPackMovieId, setClaimingPackMovieId] = useState(null);
+    const [claimError, setClaimError] = useState(null);
+    const selectedDetailMovieIdRef = useRef(null);
+    useEffect(() => {
+      selectedDetailMovieIdRef.current = selectedDetailMovie?.id ?? null;
+    }, [selectedDetailMovie?.id]);
     const claimPackMovie = async (movie) => {
-      setClaimErrorMessage("");
-      setIsClaimingPackMovie(true);
+      setClaimError(null);
+      setClaimingPackMovieId(movie.id);
       const result = await handleAddMovie({
         tmdb_id: movie.tmdb_id,
         title: movie.title,
@@ -840,13 +847,14 @@ export default function BowlDashboard() {
         release_date: movie.release_date,
         note: null,
       });
-      setIsClaimingPackMovie(false);
+      setClaimingPackMovieId((current) => (current === movie.id ? null : current));
+      if (selectedDetailMovieIdRef.current !== movie.id) return;
       if (result?.ok && result.movie?.id === movie.id) {
         setSelectedDetailContext("myAdds");
         setSelectedDetailMovie((current) => (current?.id === movie.id ? { ...current, ...result.movie } : current));
         return;
       }
-      setClaimErrorMessage(result?.message || "Could not claim this movie. Please try again.");
+      setClaimError({ movieId: movie.id, message: result?.message || "Could not claim this movie. Please try again." });
     };
 
     // `includeStreaming` is off for the watched detail, which no longer shows
@@ -1803,8 +1811,14 @@ return (
                       ? "Claim"
                       : null
                 }
-                detailPrimaryActionError={selectedDetailContext === "pack" ? claimErrorMessage : ""}
-                isDetailPrimaryActionLoading={selectedDetailContext === "pack" && isClaimingPackMovie}
+                detailPrimaryActionError={
+                  selectedDetailContext === "pack" && claimError?.movieId === selectedDetailMovie.id
+                    ? claimError.message
+                    : ""
+                }
+                isDetailPrimaryActionLoading={
+                  selectedDetailContext === "pack" && claimingPackMovieId === selectedDetailMovie.id
+                }
                 detailPrimaryActionNote={
                   selectedDetailContext === "watched" && !canReturnDrawToBowl(selectedDetailMovie)
                     ? "Moving a pick back is available for two hours after the draw. Add the movie again to watch it another night."
@@ -1861,7 +1875,7 @@ return (
                 onClose={() => {
                   setSelectedDetailMovie(null);
                   setSelectedDetailContext(null);
-                  setClaimErrorMessage("");
+                  setClaimError(null);
                 }}
               />
             )}
