@@ -285,7 +285,9 @@ describe("api/tmdb/search suggest action", () => {
         json: async () => ({ choices: [{ message: { content: '{"titles":[{"title":"The Martian","year":2015}],"people":["Matt Damon"],"genres":["Science Fiction"],"keywords":[]}' } }] }),
       })));
       mocks.tmdbFetch.mockImplementation(async (path) => {
-        if (path.startsWith("/search/person")) return { results: [{ id: 1892, name: "Matt Damon", popularity: 40 }] };
+        if (path.startsWith("/search/person")) {
+          return { results: [{ id: 1892, name: "Matt Damon", popularity: 40, profile_path: "/damon.jpg", known_for_department: "Acting", known_for: [{ media_type: "movie", title: "The Martian" }] }] };
+        }
         if (path.startsWith("/search/movie")) return { results: [{ id: 286217, title: "The Martian", release_date: "2015-09-30" }] };
         return { results: [{ id: 286217, title: "The Martian" }, { id: 68724, title: "Elysium" }] };
       });
@@ -295,7 +297,26 @@ describe("api/tmdb/search suggest action", () => {
         status: "ok",
         picks: [{ id: 286217, title: "The Martian", release_date: "2015-09-30" }],
         results: [{ id: 68724, title: "Elysium" }],
+        // Whoever it named is offered as a person, the way a typed name is.
+        people: [{ id: 1892, name: "Matt Damon", profilePath: "/damon.jpg", knownForDepartment: "Acting", knownFor: ["The Martian"] }],
       });
+    });
+
+    it("offers the person even when their movies find nothing else", async () => {
+      vi.stubEnv("GROQ_API_KEY", "key");
+      vi.stubGlobal("fetch", vi.fn(async () => ({
+        ok: true,
+        status: 200,
+        json: async () => ({ choices: [{ message: { content: '{"titles":[],"people":["Cillian Murphy"],"genres":[],"keywords":[]}' } }] }),
+      })));
+      mocks.tmdbFetch.mockImplementation(async (path) => (
+        path.startsWith("/search/person") ? { results: [{ id: 2037, name: "Cillian Murphy", popularity: 50 }] } : { results: [] }
+      ));
+      const res = createRes();
+      await handler({ method: "GET", query: { type: "describe", query: "lead actor in oppenheimer" }, headers: signedIn }, res);
+      expect(res.body.status).toBe("ok");
+      expect(res.body.people.map((person) => person.name)).toEqual(["Cillian Murphy"]);
+      expect(res.body.results).toEqual([]);
     });
 
     it("no longer searches terms sent back from the client", async () => {

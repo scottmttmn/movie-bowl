@@ -1,5 +1,5 @@
 import { tmdbFetch } from "../_lib/tmdb.js";
-import { normalizePersonMovieCredits } from "../_lib/personCredits.js";
+import { normalizePersonMovieCredits, toPerson } from "../_lib/personCredits.js";
 import { queryMatchesName, selectStrongPeopleMatches } from "../../src/utils/peopleMatch.js";
 import { suggestCorrection } from "../../src/utils/searchSuggestion.js";
 import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
@@ -8,23 +8,6 @@ import { discoverWithFallback, interpretDescription, resolveTerms, verifyTitles 
 
 const MAX_QUERY_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 200;
-
-// People are navigation, never slips: a person is returned with what
-// identifies them, and their movies arrive as ordinary movie rows.
-function toPerson(person) {
-  const knownFor = (person?.known_for || [])
-    .filter((credit) => credit?.media_type === "movie" && credit?.adult !== true)
-    .map((credit) => credit.title || credit.original_title)
-    .filter(Boolean)
-    .slice(0, 3);
-  return {
-    id: Number(person.id),
-    name: person.name,
-    profilePath: person.profile_path || null,
-    knownForDepartment: person.known_for_department || null,
-    knownFor,
-  };
-}
 
 async function searchPeople(query, res) {
   const data = await tmdbFetch(
@@ -78,15 +61,24 @@ async function describe(query, res) {
   // What the model read, without the words it read it from: the one way to
   // tell a description it did not recognize from a title TMDB did not match.
   console.info("[api/tmdb/search] described as", JSON.stringify(interpretation));
-  const [picks, { results }] = await Promise.all([
+  const [picks, { people, results }] = await Promise.all([
     verifyTitles(interpretation.titles),
-    resolveTerms(interpretation).then((resolved) => discoverWithFallback(resolved)),
+    resolveTerms(interpretation).then(async (resolved) => ({
+      // Whoever the model named is offered as a person too, the way a typed
+      // name would be: "lead actor in Oppenheimer" is a way of saying
+      // Cillian Murphy, and his movies are a tap away rather than only
+      // folded into the results.
+      people: resolved.filter((term) => term.kind === "person" && term.person).map((term) => toPerson(term.person)),
+      ...(await discoverWithFallback(resolved)),
+    })),
   ]);
   // The titles the model recognized lead; the terms' own results follow
   // without repeating them.
   const pickIds = new Set(picks.map((movie) => movie.id));
   const rest = results.filter((movie) => !pickIds.has(movie.id));
-  res.status(200).json(picks.length || rest.length ? { status: "ok", picks, results: rest } : { status: "empty" });
+  res.status(200).json(picks.length || rest.length || people.length
+    ? { status: "ok", picks, results: rest, people }
+    : { status: "empty" });
 }
 
 export default async function handler(req, res) {

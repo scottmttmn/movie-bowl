@@ -37,3 +37,28 @@ test("a described search with no model says so and shows title results", async (
   await expect(page.getByRole("row", { name: /Stranded/ })).toBeVisible();
   await page.screenshot({ path: testInfo.outputPath("resting.png") });
 });
+
+test("a described search offers the person it named", async ({ page, backend }, testInfo) => {
+  backend.state.describedSearch = {
+    status: "ok",
+    picks: [],
+    results: [{ id: 872585, title: "Oppenheimer", release_date: "2023-07-19" }, { id: 155, title: "The Dark Knight", release_date: "2008-07-16" }],
+    people: [{ id: 2037, name: "Cillian Murphy", profilePath: null, knownForDepartment: "Acting", knownFor: ["Oppenheimer", "Inception"] }],
+  };
+  backend.state.tmdbPersonMovies = { 2037: { acting: [{ id: 170, title: "28 Days Later", release_date: "2002-11-01", characters: ["Jim"] }], directing: [] } };
+  backend.state.bowls.push({ id: "b1", name: "Friday Night", owner_id: "user-smoke", draw_access_mode: "all_members", draw_method: "person_first" });
+  backend.state.defaults = { "user-smoke": "b1" };
+  backend.state.tmdbSearchResults = [];
+  await backend.authenticate(page);
+  await page.goto("/bowl/b1");
+  await page.getByRole("button", { name: "Add to this bowl" }).click();
+  await page.getByPlaceholder("Movie, actor or director").fill("lead actor in oppenheimer");
+
+  const person = page.getByRole("button", { name: "Show Cillian Murphy’s movies" });
+  await expect(person).toBeVisible();
+  await expect(page.getByRole("row", { name: /Oppenheimer/ })).toBeVisible();
+  await page.screenshot({ path: testInfo.outputPath("described-person.png") });
+
+  await person.click();
+  await expect(page.getByRole("button", { name: "Details for 28 Days Later" })).toBeVisible();
+});

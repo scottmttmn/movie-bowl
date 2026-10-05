@@ -9,6 +9,7 @@ const mocks = vi.hoisted(() => ({
   getTmdbMovieDetails: vi.fn(),
   fetchStreamingProviders: vi.fn(),
   describeSearch: vi.fn(),
+  getTmdbPersonMovies: vi.fn(),
 }));
 
 vi.mock("../../lib/tmdbApi", () => ({
@@ -16,6 +17,7 @@ vi.mock("../../lib/tmdbApi", () => ({
   searchTmdbPeople: mocks.searchTmdbPeople,
   suggestTmdbQuery: mocks.suggestTmdbQuery,
   getTmdbMovieDetails: mocks.getTmdbMovieDetails,
+  getTmdbPersonMovies: mocks.getTmdbPersonMovies,
 }));
 vi.mock("../../lib/streamingProviders", () => ({ fetchStreamingProviders: mocks.fetchStreamingProviders }));
 vi.mock("../../lib/describedSearch", () => ({
@@ -86,6 +88,23 @@ describe("MovieSearch described search", () => {
     await screen.findByRole("button", { name: "Details for Apocalypse Now" });
     const order = () => screen.getAllByRole("button", { name: /^Details for / }).map((button) => button.getAttribute("aria-label"));
     expect(order()).toEqual(["Details for Apocalypse Now", "Details for The Martian"]);
+  });
+
+  it("offers the person the model named, as a typed name would", async () => {
+    const oppenheimer = { id: 872585, title: "Oppenheimer", release_date: "2023-07-19" };
+    const cillian = { id: 2037, name: "Cillian Murphy", profilePath: null, knownForDepartment: "Acting", knownFor: ["Oppenheimer"] };
+    titles({ page: 1, totalPages: 1, totalResults: 1, results: [stray] });
+    mocks.describeSearch.mockResolvedValue({ status: "ok", picks: [], results: [oppenheimer], people: [cillian] });
+    mocks.getTmdbPersonMovies.mockResolvedValue({ acting: [{ id: 4, title: "28 Days Later", release_date: "2002-11-01" }], directing: [] });
+    type("lead actor in oppenheimer");
+
+    const chip = await screen.findByRole("button", { name: "Show Cillian Murphy’s movies" });
+    expect(screen.getByRole("button", { name: "Details for Oppenheimer" })).toBeInTheDocument();
+    expect(screen.getByTestId("smart-search-ready")).toBeInTheDocument();
+
+    fireEvent.click(chip);
+    expect(await screen.findByRole("button", { name: "Details for 28 Days Later" })).toBeInTheDocument();
+    expect(mocks.getTmdbPersonMovies).toHaveBeenCalledWith(2037);
   });
 
   it("asks about a short search only when title and people search find nothing at all", async () => {

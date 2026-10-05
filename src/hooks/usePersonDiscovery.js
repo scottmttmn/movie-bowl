@@ -71,6 +71,16 @@ export default function usePersonDiscovery() {
     }
   }, [cancelPeople]);
 
+  // People a described search named, offered in the same row a typed name
+  // fills. Anything still looking up the typed words is dropped first, so a
+  // late answer for those cannot replace them.
+  const offerPeople = useCallback((query, people) => {
+    const trimmed = String(query || "").trim();
+    if (!trimmed || !people?.length) return;
+    cancelPeople();
+    setPeopleResult({ query: trimmed, people });
+  }, [cancelPeople]);
+
   const loadCredits = useCallback(async (chosen) => {
     creditsRequestRef.current += 1;
     const requestId = creditsRequestRef.current;
@@ -166,6 +176,7 @@ export default function usePersonDiscovery() {
   return {
     peopleResult,
     searchPeople,
+    offerPeople,
     clearPeople,
     person,
     role,
