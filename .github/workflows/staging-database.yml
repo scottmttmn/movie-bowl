@@ -8,7 +8,9 @@
 #
 # The one secret is STAGING_DB_URL, the staging project's session pooler
 # connection string. Pooler rather than direct, because a free project's direct
-# address is IPv6-only and GitHub's runners are not. Secrets are never given to
+# address is IPv6-only and GitHub's runners are not. It is a secret of the
+# `staging` environment, which only `main` may use, so a copy of this workflow
+# edited on another branch gets nothing. Secrets are never given to
 # pull_request runs from forks, and this workflow does not run on pull requests
 # at all.
 #
@@ -39,6 +41,7 @@ jobs:
     name: Migrate staging
     runs-on: ubuntu-latest
     timeout-minutes: 10
+    environment: staging
     env:
       STAGING_DB_URL: ${{ secrets.STAGING_DB_URL }}
     steps:
