@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
-import { getTmdbPersonMovies, searchTmdbPeople } from "../lib/tmdbApi";
+import { getTmdbPersonMovies, getTmdbPersonMoviesOnServices, searchTmdbPeople } from "../lib/tmdbApi";
 
 // A person's movies are revealed in batches of this size; the credits arrive
 // whole, so "Show more" is local and never another request.
@@ -7,6 +7,7 @@ export const PERSON_MOVIES_BATCH = 20;
 
 const EMPTY_PEOPLE = { query: "", people: [] };
 const IDLE_CREDITS = { status: "idle", acting: [], directing: [] };
+const SERVICES_OFF = { status: "off", ids: null };
 
 function openingRole(person, credits) {
   const preferred = person?.knownForDepartment === "Directing" ? "directing" : "acting";
@@ -32,6 +33,10 @@ export default function usePersonDiscovery() {
   const peopleRequestRef = useRef(0);
   const peopleAbortRef = useRef(null);
   const creditsRequestRef = useRef(0);
+  // Only on the viewer's services: off, or the person's whole answer. While it
+  // loads the list stays as it was, rather than emptying under someone.
+  const [servicesFilter, setServicesFilter] = useState(SERVICES_OFF);
+  const servicesRequestRef = useRef(0);
 
   const cancelPeople = useCallback(() => {
     peopleRequestRef.current += 1;
@@ -87,11 +92,40 @@ export default function usePersonDiscovery() {
     setPerson(chosen);
     setRole(chosen.knownForDepartment === "Directing" ? "directing" : "acting");
     setVisibleCount(PERSON_MOVIES_BATCH);
+    servicesRequestRef.current += 1;
+    setServicesFilter(SERVICES_OFF);
     loadCredits(chosen);
   }, [loadCredits]);
 
+  const stopServicesFilter = useCallback(() => {
+    servicesRequestRef.current += 1;
+    setServicesFilter(SERVICES_OFF);
+  }, []);
+
+  const filterToServices = useCallback(async (services) => {
+    if (!person || !services?.length) {
+      stopServicesFilter();
+      return;
+    }
+    servicesRequestRef.current += 1;
+    const requestId = servicesRequestRef.current;
+    setServicesFilter({ status: "loading", ids: null });
+    setVisibleCount(PERSON_MOVIES_BATCH);
+    try {
+      const ids = await getTmdbPersonMoviesOnServices(person.id, services);
+      if (requestId !== servicesRequestRef.current) return;
+      setServicesFilter({ status: "ready", ids });
+    } catch (error) {
+      if (requestId !== servicesRequestRef.current) return;
+      console.error("[usePersonDiscovery] Failed to check a person's movies on services", error);
+      setServicesFilter({ status: "failed", ids: null });
+    }
+  }, [person, stopServicesFilter]);
+
   const closePerson = useCallback(() => {
     creditsRequestRef.current += 1;
+    servicesRequestRef.current += 1;
+    setServicesFilter(SERVICES_OFF);
     setPerson(null);
     setCredits(IDLE_CREDITS);
     setVisibleCount(PERSON_MOVIES_BATCH);
@@ -119,7 +153,11 @@ export default function usePersonDiscovery() {
     peopleAbortRef.current?.abort();
   }, []);
 
-  const roleMovies = credits[role];
+  const allRoleMovies = credits[role];
+  const roleMovies = useMemo(
+    () => (servicesFilter.ids ? allRoleMovies.filter((movie) => servicesFilter.ids.has(Number(movie.id))) : allRoleMovies),
+    [allRoleMovies, servicesFilter.ids]
+  );
   const visibleMovies = useMemo(() => roleMovies.slice(0, visibleCount), [roleMovies, visibleCount]);
   const roles = useMemo(
     () => ["acting", "directing"].filter((name) => credits[name].length > 0),
@@ -136,6 +174,9 @@ export default function usePersonDiscovery() {
     roles,
     visibleMovies,
     totalMovies: roleMovies.length,
+    servicesFilter: servicesFilter.status,
+    filterToServices,
+    stopServicesFilter,
     openPerson,
     closePerson,
     retryCredits,

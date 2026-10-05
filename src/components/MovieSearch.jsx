@@ -2,7 +2,7 @@
 import { useState, useEffect, useRef, useImperativeHandle, useCallback } from "react";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
-import { matchUserServices } from "../utils/streamingServices";
+import { matchUserServices, normalizeStreamingServices } from "../utils/streamingServices";
 import AddMovieModal from "./AddMovieModal";
 import { getTmdbMovieDetails, searchTmdbMovies, suggestTmdbQuery } from "../lib/tmdbApi";
 import { describeNetworkError } from "../utils/networkErrors";
@@ -16,6 +16,7 @@ import { formatWatchedSpoken, formatWatchedStub } from "../utils/searchMarks";
 import { shouldDescribe } from "../utils/describedSearch";
 import { describeSearch } from "../lib/describedSearch";
 import bowlImage from "../assets/movie-bowl.webp";
+import ServiceLogo from "./ServiceLogo";
 
 const PROVIDER_ENRICHMENT_LIMIT = 8;
 // How long title results wait for the people lookup that started with them.
@@ -541,6 +542,24 @@ export default function MovieSearch({
         if (gridRef.current) gridRef.current.scrollTop = 0;
     };
 
+    // A person's movies narrowed to the viewer's own services. Turned on, it
+    // asks for the person's whole answer at once; a list filtered row by row
+    // as providers trickle in would claim titles are missing that were only
+    // not checked yet.
+    const myServices = normalizeStreamingServices(userStreamingServices);
+    const servicesFilterOn = discovery.servicesFilter === "loading" || discovery.servicesFilter === "ready";
+    // The list stays usable while the answer loads, so a highlight moved in
+    // the meantime would point at another movie, or none, once it narrows.
+    useEffect(() => {
+        if (discovery.servicesFilter === "ready") setHighlightedIndex(0);
+    }, [discovery.servicesFilter]);
+    const toggleServicesFilter = () => {
+        if (servicesFilterOn) discovery.stopServicesFilter();
+        else discovery.filterToServices(myServices);
+        setHighlightedIndex(0);
+        if (gridRef.current) gridRef.current.scrollTop = 0;
+    };
+
     // There is no way back to the title results but the field: editing the
     // query leaves the person, and a control for the same thing only crowded
     // a header that has a phone's width to work with. The chip is gone once
@@ -1046,10 +1065,58 @@ export default function MovieSearch({
             {personView && (
                 // One line: whose movies these are, and -- only for someone
                 // credited in both roles -- which role, as a compact switch.
-                <div className="mt-2 flex min-h-9 items-center justify-between gap-2">
-                    <p className="min-w-0 truncate font-semibold text-slate-100">
+                // On a phone the controls drop to their own line rather than
+                // squeezing the name down to an initial.
+                <div className="mt-2 flex min-h-9 flex-wrap items-center justify-between gap-2">
+                    <p className="w-full min-w-0 truncate font-semibold text-slate-100 sm:w-auto sm:flex-1">
                         {possessive(personView.name)} movies
                     </p>
+                    <div className="flex w-full items-center justify-between gap-2 sm:w-auto sm:flex-shrink-0">
+                    {myServices.length > 0 && discovery.credits.status === "ready" ? (
+                        // The viewer's own logos are the label: grey when off,
+                        // lit with a check when the list is only theirs.
+                        <button
+                            type="button"
+                            aria-pressed={servicesFilterOn}
+                            aria-controls="movie-search-listbox"
+                            aria-label={`Only movies on ${myServices.join(", ")}`}
+                            aria-busy={discovery.servicesFilter === "loading"}
+                            data-testid="person-services-filter"
+                            onPointerDown={notePointer}
+                            onClick={(event) => {
+                                const activation = activatedBy(event);
+                                toggleServicesFilter();
+                                if (activation === "mouse" || activation === "pen") returnFocusToField();
+                            }}
+                            onKeyDown={(event) => {
+                                if (event.key === "ArrowDown" || event.key === "ArrowUp") {
+                                    event.preventDefault();
+                                    inputRef.current?.focus();
+                                }
+                            }}
+                            className={`flex min-h-9 items-center gap-1 rounded-full border p-0.5 pr-2 transition focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/70 ${
+                                servicesFilterOn
+                                    ? "border-emerald-400/80 bg-emerald-500/15"
+                                    : "border-slate-700 hover:border-slate-500"
+                            }`}
+                        >
+                            <span className={`flex items-center pl-0.5 transition ${servicesFilterOn ? "" : "opacity-55 grayscale"} ${discovery.servicesFilter === "loading" ? "animate-pulse" : ""}`}>
+                                {myServices.slice(0, 3).map((service, index) => (
+                                    <span key={service} className={index > 0 ? "-ml-2" : ""}>
+                                        <ServiceLogo service={service} className="h-7 w-7 rounded-lg" />
+                                    </span>
+                                ))}
+                            </span>
+                            {myServices.length > 3 && (
+                                <span className="text-xs font-semibold text-slate-300" aria-hidden="true">+{myServices.length - 3}</span>
+                            )}
+                            {servicesFilterOn && (
+                                <svg viewBox="0 0 16 16" aria-hidden="true" className="h-3.5 w-3.5 text-emerald-300" fill="none" stroke="currentColor" strokeWidth="2.2" strokeLinecap="round" strokeLinejoin="round">
+                                    <path d="M3.5 8.5l3 3 6-7" />
+                                </svg>
+                            )}
+                        </button>
+                    ) : <span />}
                     {discovery.roles.length > 1 && (
                         <div role="tablist" aria-label="Role" className="flex flex-shrink-0 rounded-full border border-slate-700 p-0.5">
                             {discovery.roles.map((roleName) => (
@@ -1093,6 +1160,7 @@ export default function MovieSearch({
                             ))}
                         </div>
                     )}
+                    </div>
                 </div>
             )}
             <div
@@ -1265,9 +1333,22 @@ export default function MovieSearch({
                     </button>
                 </div>
             )}
-            {personView && discovery.credits.status === "ready" && discovery.totalMovies === 0 && (
+            {personView && discovery.credits.status === "ready" && discovery.totalMovies === 0 && discovery.servicesFilter !== "ready" && (
                 <p className="mt-2 text-sm text-slate-400">
                     No feature films found for {personView.name}.
+                </p>
+            )}
+            {personView && discovery.credits.status === "ready" && discovery.totalMovies === 0 && discovery.servicesFilter === "ready" && (
+                <div className="mt-2 flex items-center justify-between gap-3">
+                    <p className="text-sm text-slate-400">None on your services.</p>
+                    <button type="button" className="btn btn-secondary px-4 py-2 text-sm" onClick={toggleServicesFilter}>
+                        Show all
+                    </button>
+                </div>
+            )}
+            {personView && discovery.servicesFilter === "failed" && (
+                <p className="mt-2 text-sm text-rose-300" role="alert">
+                    {"Couldn\u2019t check your services."}
                 </p>
             )}
             {personView && discovery.credits.status === "failed" && (

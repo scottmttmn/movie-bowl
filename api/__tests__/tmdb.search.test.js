@@ -6,6 +6,7 @@ vi.mock("../_lib/tmdb.js", () => ({ tmdbFetch: mocks.tmdbFetch }));
 vi.mock("../_lib/supabaseAdmin.js", () => ({ getSupabaseAdmin: () => ({ auth: { getUser: mocks.getUser } }) }));
 
 import handler from "../tmdb/search.js";
+import { clearProviderListCache } from "../_lib/personOnServices.js";
 
 function createRes() {
   return {
@@ -303,5 +304,79 @@ describe("api/tmdb/search suggest action", () => {
       expect(res.statusCode).toBe(400);
       expect(mocks.tmdbFetch).not.toHaveBeenCalled();
     });
+  });
+});
+
+describe("api/tmdb/search person-on-services", () => {
+  const PROVIDERS = {
+    results: [
+      { provider_id: 8, provider_name: "Netflix" },
+      { provider_id: 1899, provider_name: "Max" },
+      { provider_id: 384, provider_name: "HBO Max" },
+      { provider_id: 9, provider_name: "Amazon Prime Video" },
+      { provider_id: 15, provider_name: "Hulu" },
+    ],
+  };
+
+  beforeEach(() => {
+    mocks.tmdbFetch.mockReset();
+    clearProviderListCache();
+  });
+
+  it("validates the person and the services before asking TMDB", async () => {
+    for (const query of [{ personId: "0", services: "Netflix" }, { personId: "7" }, { personId: "7", services: "Nope|Blockbuster" }]) {
+      const res = createRes();
+      await handler({ method: "GET", query: { type: "person-on-services", ...query } }, res);
+      expect(res.statusCode).toBe(400);
+    }
+    expect(mocks.tmdbFetch).not.toHaveBeenCalled();
+  });
+
+  it("finds the person's movies on the viewer's services across every page", async () => {
+    mocks.tmdbFetch.mockImplementation(async (path) => {
+      if (path.startsWith("/watch/providers/movie")) return PROVIDERS;
+      const page = Number(new URLSearchParams(path.split("?")[1]).get("page"));
+      return { total_pages: 2, results: page === 1 ? [{ id: 1 }, { id: 2, adult: true }] : [{ id: 3 }, { id: 1 }] };
+    });
+
+    const res = createRes();
+    await handler({ method: "GET", query: { type: "person-on-services", personId: "190", services: "Max|Prime Video|Unknown" } }, res);
+
+    expect(res.statusCode).toBe(200);
+    expect(res.body).toEqual({ personId: 190, movieIds: [1, 3] });
+    const discover = mocks.tmdbFetch.mock.calls.map(([path]) => path).filter((path) => path.startsWith("/discover/movie"));
+    expect(discover).toHaveLength(2);
+    const params = new URLSearchParams(discover[0].split("?")[1]);
+    expect(params.get("with_people")).toBe("190");
+    expect(params.get("watch_region")).toBe("US");
+    // Max under both of its names, Prime Video by its long one; rent and buy never count.
+    expect(params.get("with_watch_providers")).toBe("1899|384|9");
+    expect(params.get("with_watch_monetization_types")).toBe("flatrate|free|ads");
+  });
+
+  it("refuses an answer it could not read whole rather than cutting it short", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.tmdbFetch.mockImplementation(async (path) => (path.startsWith("/watch/providers") ? PROVIDERS : { total_pages: 26, results: [{ id: 1 }] }));
+    const res = createRes();
+    await handler({ method: "GET", query: { type: "person-on-services", personId: "190", services: "Netflix" } }, res);
+    expect(res.statusCode).toBe(502);
+    expect(mocks.tmdbFetch.mock.calls.filter(([path]) => path.startsWith("/discover"))).toHaveLength(1);
+  });
+
+  it("asks for the provider list once, not on every person", async () => {
+    mocks.tmdbFetch.mockImplementation(async (path) => (path.startsWith("/watch/providers") ? PROVIDERS : { total_pages: 1, results: [] }));
+    for (const personId of ["1", "2"]) {
+      await handler({ method: "GET", query: { type: "person-on-services", personId, services: "Netflix" } }, createRes());
+    }
+    expect(mocks.tmdbFetch.mock.calls.filter(([path]) => path.startsWith("/watch/providers"))).toHaveLength(1);
+  });
+
+  it("hides a TMDB failure behind a generic bad gateway", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.tmdbFetch.mockRejectedValue(Object.assign(new Error("TMDB request failed"), { statusCode: 500 }));
+    const res = createRes();
+    await handler({ method: "GET", query: { type: "person-on-services", personId: "190", services: "Netflix" } }, res);
+    expect(res.statusCode).toBe(502);
+    expect(res.body).toEqual({ error: "Failed to check streaming services" });
   });
 });

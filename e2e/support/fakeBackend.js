@@ -73,6 +73,8 @@ function createInitialState() {
     // title search keeps looking as it did before people existed.
     tmdbPeople: [],
     tmdbPersonMovies: {},
+    // Which of a person's movies are on the viewer's services, by person id.
+    tmdbPersonOnServices: {},
     // What a search that found nothing is retried as; null suggests nothing.
     tmdbSuggestion: null,
     // What a described search answers: { status, terms, results }. Null reads
@@ -1055,6 +1057,11 @@ export class FakeBackend {
       }
       if (type === "describe") {
         await fulfillJson(route, this.state.describedSearch || { status: "empty" });
+        return;
+      }
+      if (type === "person-on-services") {
+        const personId = url.searchParams.get("personId");
+        await fulfillJson(route, { personId: Number(personId), movieIds: this.state.tmdbPersonOnServices[personId] || [] });
         return;
       }
       if (type === "person-movies") {
