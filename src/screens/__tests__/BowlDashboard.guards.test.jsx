@@ -150,6 +150,11 @@ vi.mock("../../lib/streamingProviders", () => ({
   fetchStreamingProviders: vi.fn(async () => ({ providers: [], region: "US", fetchedAt: null })),
 }));
 
+vi.mock("../../lib/starterPacks", async () => {
+  const actual = await vi.importActual("../../lib/starterPacks");
+  return { ...actual, fetchStarterPackPeople: vi.fn(async () => ({ "Christopher Nolan": "/nolan.jpg" })) };
+});
+
 vi.mock("../../lib/tmdbApi", () => ({
   getTmdbMovieDetails: mocks.getTmdbMovieDetails,
 }));
@@ -770,6 +775,105 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: /add to this bowl/i })).toBeEnabled();
+  });
+
+  // The pack's titles are in every person's pile, so My Movies lists them for
+  // owner and member alike: after the person's own, marked by the pack, with
+  // no favorite ribbon (output/designs/starter-packs.md).
+  it.each([
+    ["the owner", "u1"],
+    ["a member", "u2"],
+  ])("lists the pack's titles after %s's own, marked by the pack", async (_who, currentUserId) => {
+    mocks.state.authUserId = currentUserId;
+    mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
+    mocks.state.bowlData = {
+      remaining: [
+        { id: "slip", title: "Memento", tmdb_id: 77, added_by: null, added_by_name: "Nolan: The '00s", starter_pack: "nolan-2000s", added_at: "2026-03-06T11:00:00.000Z" },
+        { id: "own", title: "Own Movie", tmdb_id: 12, added_by: currentUserId, added_at: "2026-03-06T12:00:00.000Z" },
+        { id: "drawn-slip", title: "Insomnia", tmdb_id: 320, added_by: null, added_by_name: "Nolan: The '00s", starter_pack: "nolan-2000s", drawn_at: "2026-03-07T12:00:00.000Z" },
+      ],
+      watched: [],
+    };
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    const myMoviesSection = screen.getByRole("heading", { name: /my movies/i }).closest("section");
+    const cards = within(myMoviesSection).getAllByRole("article");
+    expect(cards.map((card) => card.textContent)).toEqual([
+      expect.stringContaining("Own Movie"),
+      expect.stringContaining("Memento"),
+    ]);
+    expect(within(myMoviesSection).getByText("2 movies")).toBeInTheDocument();
+    expect(within(cards[1]).getByRole("img", { name: "From the Nolan: The '00s pack" })).toBeInTheDocument();
+    expect(within(cards[1]).queryByRole("button", { name: /favorite/i })).not.toBeInTheDocument();
+    expect(within(cards[0]).getByRole("button", { name: /favorite/i })).toBeInTheDocument();
+    expect(screen.queryByText("Your undrawn picks in this bowl.")).not.toBeInTheDocument();
+  });
+
+  // Solo draw reads only titles added by you, so a person holding nothing but
+  // pack titles would be offered a draw with nothing in it.
+  it("shows pack titles instead of the empty line, with no solo draw, to someone with none of their own", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = {
+      remaining: [
+        { id: "slip", title: "Memento", tmdb_id: 77, added_by: null, added_by_name: "Nolan: The '00s", starter_pack: "nolan-2000s" },
+      ],
+      watched: [],
+    };
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    expect(await screen.findByRole("button", { name: "Details for Memento" })).toBeInTheDocument();
+    expect(screen.queryByText("You have no movies in this section.")).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Draw for myself" })).not.toBeInTheDocument();
+  });
+
+  it("claims a pack title from its details and turns it into the person's own", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    const slip = { id: "slip", title: "Memento", tmdb_id: 77, poster_path: "/m.jpg", added_by: null, added_by_name: "Nolan: The '00s", starter_pack: "nolan-2000s" };
+    mocks.state.bowlData = { remaining: [slip], watched: [] };
+    mocks.state.handleAddMovie.mockResolvedValueOnce({
+      ok: true,
+      movie: { ...slip, added_by: "u1", added_by_name: null, starter_pack: null, claimed_from_starter_pack: "nolan-2000s", claimed_from_starter_pack_name: "Nolan: The '00s" },
+    });
+
+    renderDashboard();
+    fireEvent.click(await screen.findByRole("button", { name: "Details for Memento" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByText("Nolan: The '00s")).toBeInTheDocument();
+    // No delete: removing a pack stays with the owner in Bowl Settings.
+    expect(within(dialog).queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: /comment/i })).not.toBeInTheDocument();
+
+    fireEvent.click(within(dialog).getByRole("button", { name: "Claim" }));
+
+    await waitFor(() => expect(mocks.state.handleAddMovie).toHaveBeenCalledWith(
+      expect.objectContaining({ tmdb_id: 77, title: "Memento", note: null })
+    ));
+    expect(await within(dialog).findByRole("button", { name: /delete/i })).toBeInTheDocument();
+    expect(within(dialog).queryByRole("button", { name: "Claim" })).not.toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: /add a comment/i })).toBeInTheDocument();
+  });
+
+  it("keeps the details open with the reason when a claim is refused", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = {
+      remaining: [{ id: "slip", title: "Memento", tmdb_id: 77, added_by: null, added_by_name: "Nolan: The '00s", starter_pack: "nolan-2000s" }],
+      watched: [],
+    };
+    mocks.state.handleAddMovie.mockResolvedValueOnce({
+      ok: false, code: "claim_lost", message: "Memento was just drawn or claimed by someone else. Try adding it again.",
+    });
+
+    renderDashboard();
+    fireEvent.click(await screen.findByRole("button", { name: "Details for Memento" }));
+    const dialog = await screen.findByRole("dialog");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Claim" }));
+
+    expect(await within(dialog).findByRole("alert")).toHaveTextContent("just drawn or claimed by someone else");
+    expect(within(dialog).getByRole("button", { name: "Claim" })).toBeEnabled();
   });
 
   it("offers the owner of an empty bowl a starter pack", async () => {

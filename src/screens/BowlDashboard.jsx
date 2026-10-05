@@ -4,6 +4,7 @@ import BowlStatLine from "../components/BowlStatLine";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
 import StarterPackOffer from "../components/StarterPackOffer";
 import { STARTER_PACK_SHELF_HASH } from "../utils/starterPacks";
+import { fetchStarterPackPeople } from "../lib/starterPacks";
 import MyMoviesStrip from "../components/MyMoviesStrip";
 import MovieStripSkeleton from "../components/MovieStripSkeleton";
 import AddMovieButton from "../components/AddMovieButton";
@@ -86,6 +87,7 @@ export default function BowlDashboard() {
       errorMessage,
       reload: reloadBowl,
       handleDraw,
+      handleAddMovie,
       handleUpdateMovieNote,
       handleSetMoviePin,
       handleDeleteMovie,
@@ -300,12 +302,17 @@ export default function BowlDashboard() {
       () => (bowl.remaining || []).filter((movie) => movie.added_by === currentUserId),
       [bowl.remaining, currentUserId]
     );
+    // The pack's undrawn titles follow the person's own: every draw already
+    // counts them in this person's pile, so My Movies says what is true. They
+    // belong to nobody until someone claims one (output/designs/starter-packs.md).
     const myMovies = useMemo(
-      () => myRemainingAdds.map((movie) => ({
-        ...movie,
-        source: "added",
-      })),
-      [myRemainingAdds]
+      () => [
+        ...myRemainingAdds.map((movie) => ({ ...movie, source: "added" })),
+        ...(bowl.remaining || [])
+          .filter((movie) => isStarterPackMovie(movie) && !movie.drawn_at)
+          .map((movie) => ({ ...movie, source: "pack" })),
+      ],
+      [myRemainingAdds, bowl.remaining]
     );
     const availableDrawGenres = useMemo(() => {
       const genreSet = new Set();
@@ -516,6 +523,7 @@ export default function BowlDashboard() {
       ? {
           statLine: describeStatLine(statLineInputs),
           myMovieCount: myMovies.length,
+          myOwnMovieCount: myRemainingAdds.length,
           watchedCount: bowl.watched.length,
           canDraw: canCurrentUserDraw,
         }
@@ -547,6 +555,11 @@ export default function BowlDashboard() {
       return count === 1 ? "1 movie" : `${count} movies`;
     })();
     const showsMyMovies = isFirstLoad ? (heldBowlView?.myMovieCount ?? 1) > 0 : myMovies.length > 0;
+    // Solo draw reads only titles added by you, and a pack title is no one's,
+    // so someone holding only pack cards would be offered a draw of nothing.
+    const showsDrawForMyself = isFirstLoad
+      ? (heldBowlView?.myOwnMovieCount ?? heldBowlView?.myMovieCount ?? 1) > 0
+      : myRemainingAdds.length > 0;
     // The cards come in once, already in their final order. Shown before the
     // filter check answered, they re-sorted under the reader's eyes -- eligible
     // titles first, the rest dimmed -- with a status line opening above them
@@ -794,6 +807,46 @@ export default function BowlDashboard() {
         return;
       }
       setMyMoviesErrorMessage("Could not delete this movie. Please try again.");
+    };
+
+    // The pack's face on its cards. The photos are dressing, asked for once a
+    // session and only when a pack card is showing; without them the mark is a
+    // silhouette.
+    const hasPackMovies = myMovies.some((movie) => movie.source === "pack");
+    const [packPeople, setPackPeople] = useState({});
+    useEffect(() => {
+      if (!hasPackMovies) return undefined;
+      let cancelled = false;
+      fetchStarterPackPeople().then((people) => {
+        if (!cancelled) setPackPeople(people || {});
+      });
+      return () => {
+        cancelled = true;
+      };
+    }, [hasPackMovies]);
+
+    // Claim makes the same claim an add of this title does, with no comment.
+    // The details stay open and become the person's own title, so a comment
+    // can follow the usual way.
+    const [isClaimingPackMovie, setIsClaimingPackMovie] = useState(false);
+    const [claimErrorMessage, setClaimErrorMessage] = useState("");
+    const claimPackMovie = async (movie) => {
+      setClaimErrorMessage("");
+      setIsClaimingPackMovie(true);
+      const result = await handleAddMovie({
+        tmdb_id: movie.tmdb_id,
+        title: movie.title,
+        poster_path: movie.poster_path,
+        release_date: movie.release_date,
+        note: null,
+      });
+      setIsClaimingPackMovie(false);
+      if (result?.ok && result.movie?.id === movie.id) {
+        setSelectedDetailContext("myAdds");
+        setSelectedDetailMovie((current) => (current?.id === movie.id ? { ...current, ...result.movie } : current));
+        return;
+      }
+      setClaimErrorMessage(result?.message || "Could not claim this movie. Please try again.");
     };
 
     // `includeStreaming` is off for the watched detail, which no longer shows
@@ -1544,14 +1597,13 @@ return (
                       {myMovieCountLabel}
                     </span>
                   </div>
-                  <p className="text-xs text-slate-400">Your undrawn picks in this bowl.</p>
                 </div>
                 {/* Watching alone belongs to this section rather than beside the
                     draw button: it draws from exactly these titles, and a third
                     control under the two people came to press reads as a third
                     way to spend the bowl's turn. The bowl still rides along as
                     the starting scope. */}
-                {showsMyMovies && (
+                {showsDrawForMyself && (
                   <button
                     type="button"
                     className="btn btn-secondary shrink-0 gap-2 text-sm"
@@ -1583,6 +1635,7 @@ return (
                     eligibleMovieIds={eligibleMyMovieIds}
                     onRunEligibilityLookups={runMyMovieEligibilityLookups}
                     drawMethod={drawMethod}
+                    packPeople={packPeople}
                     onTogglePin={async (movie, pinned) => {
                       setMyMoviesErrorMessage(null);
                       const result = await handleSetMoviePin(movie.id, pinned);
@@ -1591,7 +1644,7 @@ return (
                       }
                     }}
                     onViewMovie={async (movie) => {
-                      setSelectedDetailContext("myAdds");
+                      setSelectedDetailContext(movie.source === "pack" ? "pack" : "myAdds");
                       setSelectedDetailMovie(await buildDetailMovie(movie));
                     }}
                   />
@@ -1746,8 +1799,12 @@ return (
                 detailPrimaryActionLabel={
                   selectedDetailContext === "watched" && canReturnDrawToBowl(selectedDetailMovie)
                     ? "Move to Bowl"
-                    : null
+                    : selectedDetailContext === "pack"
+                      ? "Claim"
+                      : null
                 }
+                detailPrimaryActionError={selectedDetailContext === "pack" ? claimErrorMessage : ""}
+                isDetailPrimaryActionLoading={selectedDetailContext === "pack" && isClaimingPackMovie}
                 detailPrimaryActionNote={
                   selectedDetailContext === "watched" && !canReturnDrawToBowl(selectedDetailMovie)
                     ? "Moving a pick back is available for two hours after the draw. Add the movie again to watch it another night."
@@ -1761,7 +1818,9 @@ return (
                         setSelectedDetailContext(null);
                         setPendingReaddMovie(movie);
                       }
-                    : null
+                    : selectedDetailContext === "pack"
+                      ? claimPackMovie
+                      : null
                 }
                 personalComment={
                   selectedDetailContext === "watched" && selectedDetailMovie.ownWatchEntry
@@ -1802,6 +1861,7 @@ return (
                 onClose={() => {
                   setSelectedDetailMovie(null);
                   setSelectedDetailContext(null);
+                  setClaimErrorMessage("");
                 }}
               />
             )}

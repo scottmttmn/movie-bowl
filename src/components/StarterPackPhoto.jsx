@@ -13,9 +13,9 @@ function PersonSilhouette({ className = "" }) {
 // A starter pack person's TMDB photo, or a silhouette of the same size while it
 // loads, when TMDB has none, or when the lookup failed. Decorative: the name is
 // always beside it.
-export default function StarterPackPhoto({ profilePath, className = "" }) {
+export default function StarterPackPhoto({ profilePath, width, className = "" }) {
   const [failed, setFailed] = useState(false);
-  const url = failed ? null : getStarterPackPhotoUrl(profilePath);
+  const url = failed ? null : getStarterPackPhotoUrl(profilePath, width);
   return (
     <div className={`relative overflow-hidden bg-gradient-to-br from-slate-600 to-slate-900 ${className}`}>
       {url ? (

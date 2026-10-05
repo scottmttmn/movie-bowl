@@ -180,9 +180,9 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   records whose turn a pack draw spent. First packs: filmographies by decade and
   Best Picture winners by decade. Installs skip the provider/metadata warm the
   way public add links do. See `output/designs/starter-packs.md`.
-  **Next, decided September 27:** show the pack's undrawn titles in everyone's
-  My Movies, after their own, marked by the pack's name and claimable with
-  "Make it mine". Spec'd under "Pack Titles in My Movies"; not built.
+  **Built October 5:** the pack's undrawn titles show in everyone's My Movies,
+  after their own, marked by the pack on the poster's corner and claimable
+  with "Claim". See "Pack Titles in My Movies".
 
 - Web/television seam: the Google TV app is the only supported television, and
   other televisions' browsers are out of scope -- in practice a path almost

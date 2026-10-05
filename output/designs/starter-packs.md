@@ -11,7 +11,7 @@ the Bowl Settings section (`src/components/StarterPackSection.jsx`) with the
 empty bowl's offer. The one question left is under "Still Open": whether the
 reveal holds up in a real bowl.
 
-Revised September 27, 2026, not yet built: pack titles now show in every
+Revised September 27, 2026, and built October 5: pack titles show in every
 member's My Movies, reversing "Nothing browses the pack". See "Pack Titles in
 My Movies".
 
@@ -412,7 +412,8 @@ converting the slip without a second copy; and the rotation turn cases above.
 
 ## Pack Titles in My Movies
 
-Decided September 27, 2026; not yet built.
+Decided September 27, 2026; built October 5 (`MyMoviesStrip`,
+`StarterPackMark`, and `claimPackMovie` on the dashboard).
 
 The pack was opaque. An owner poured in up to 15 titles and could not see one of
 them; members could not tell a pack was there at all. The original reason for
@@ -430,12 +431,15 @@ no explanatory line.
 
 **The card.** An ordinary `MovieActionCard` with two differences:
 
-- The line that reads "Added <date>" on a person's own card names the pack
-  instead, on the same paper slip the reveal uses. That is the whole marker.
+- The pack on the poster's corner, where a watched card carries its
+  contributor's initial: the person's face, or the laurel for Best Picture.
+  That is the whole marker, and its accessible name is "From the <pack> pack".
+  (The plan put the pack's name where a card read "Added <date>"; cards lost
+  that line in the September 30 UX pass, before this was built.)
 - No pin toggle. Pack titles cannot be pinned (above).
 
-**The detail view.** One action, **Make it mine**, which claims the slip through
-`claim_bowl_starter_pack_movie` with no comment. The card then becomes an
+**The detail view.** One action, **Claim** (first planned as "Make it mine"),
+which claims the slip through `claim_bowl_starter_pack_movie` with no comment. The card then becomes an
 ordinary title of theirs in place, and they can add a comment the usual way.
 There is no delete: removing a pack stays with the owner in Bowl Settings.
 A claimed title's own delete gives it back instead (below), so claiming and
@@ -469,8 +473,7 @@ describes the strip and goes; the heading already says it.
 - Install, removal and the one-pack rule.
 
 **Tests.** Pack cards appear for owner and member alike, after own titles, with
-the pack's name in place of the date and no pin; Make it mine claims and the
-card turns into the person's own; the count includes pack cards; a person with
+the pack on the poster and no pin; Claim claims and the card turns into the person's own; the count includes pack cards; a person with
 only pack titles sees them instead of the empty state, and no "Draw for
 myself".
 

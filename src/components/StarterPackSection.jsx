@@ -23,7 +23,7 @@ import StarterPackSuggestions from "./StarterPackSuggestions";
 // "Surfaces"). The owner picks a pack from a shelf -- one card per person,
 // with a button per decade, and the Best Picture decades in a laurel -- then
 // tops it up or removes it; members see which pack is in the bowl and
-// nothing to press. The bowl never shows a pack's contents: the cards show
+// nothing to press. The shelf never shows a pack's contents: the cards show
 // the person, never their movies, which a poster would give away.
 
 const PERSON_GROUPS = groupFilmographyPacks();
