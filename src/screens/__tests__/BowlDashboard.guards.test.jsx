@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
@@ -855,6 +855,64 @@ describe("BowlDashboard guards", () => {
     expect(await within(dialog).findByRole("button", { name: /delete/i })).toBeInTheDocument();
     expect(within(dialog).queryByRole("button", { name: "Claim" })).not.toBeInTheDocument();
     expect(within(dialog).getByRole("button", { name: /add a comment/i })).toBeInTheDocument();
+  });
+
+  // The answer can land after the details have moved on: it must not turn
+  // the title now open into an owned one.
+  it("applies a claim that lands late only to the title it was for", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    const slip = { id: "slip", title: "Memento", tmdb_id: 77, added_by: null, added_by_name: "Nolan: The '00s", starter_pack: "nolan-2000s" };
+    const other = { id: "other", title: "Insomnia", tmdb_id: 320, added_by: null, added_by_name: "Nolan: The '00s", starter_pack: "nolan-2000s" };
+    mocks.state.bowlData = { remaining: [slip, other], watched: [] };
+    let finishClaim;
+    mocks.state.handleAddMovie.mockImplementationOnce(() => new Promise((resolve) => { finishClaim = resolve; }));
+
+    renderDashboard();
+    fireEvent.click(await screen.findByRole("button", { name: "Details for Memento" }));
+    fireEvent.click(within(await screen.findByRole("dialog")).getByRole("button", { name: "Claim" }));
+    fireEvent.click(within(screen.getByRole("dialog")).getAllByRole("button", { name: "Close" })[0]);
+    fireEvent.click(await screen.findByRole("button", { name: "Details for Insomnia" }));
+    const dialog = await screen.findByRole("dialog");
+    expect(within(dialog).getByRole("button", { name: "Claim" })).toBeEnabled();
+
+    await act(async () => {
+      finishClaim({ ok: true, movie: { ...slip, added_by: "u1", added_by_name: null, starter_pack: null } });
+    });
+
+    expect(within(dialog).getByRole("heading", { name: "Insomnia" })).toBeInTheDocument();
+    expect(within(dialog).getByRole("button", { name: "Claim" })).toBeEnabled();
+    expect(within(dialog).queryByRole("button", { name: /delete/i })).not.toBeInTheDocument();
+  });
+
+  // Two claims can be in flight at once; each title stays busy until its own
+  // answer lands, so neither can be claimed a second time meanwhile.
+  it("keeps every pending claim busy until its own answer lands", async () => {
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    const slip = { id: "slip", title: "Memento", tmdb_id: 77, added_by: null, added_by_name: "Nolan: The '00s", starter_pack: "nolan-2000s" };
+    const other = { id: "other", title: "Insomnia", tmdb_id: 320, added_by: null, added_by_name: "Nolan: The '00s", starter_pack: "nolan-2000s" };
+    mocks.state.bowlData = { remaining: [slip, other], watched: [] };
+    const finish = [];
+    const pendingClaim = () => new Promise((resolve) => { finish.push(resolve); });
+    mocks.state.handleAddMovie.mockImplementationOnce(pendingClaim).mockImplementationOnce(pendingClaim);
+    const openDetails = async (title) => {
+      fireEvent.click(await screen.findByRole("button", { name: `Details for ${title}` }));
+      return screen.findByRole("dialog");
+    };
+    const close = () => fireEvent.click(within(screen.getByRole("dialog")).getAllByRole("button", { name: "Close" })[0]);
+
+    renderDashboard();
+    fireEvent.click(within(await openDetails("Memento")).getByRole("button", { name: "Claim" }));
+    close();
+    fireEvent.click(within(await openDetails("Insomnia")).getByRole("button", { name: "Claim" }));
+    close();
+
+    expect(within(await openDetails("Memento")).getByRole("button", { name: "Adding..." })).toBeDisabled();
+    expect(mocks.state.handleAddMovie).toHaveBeenCalledTimes(2);
+
+    await act(async () => {
+      finish[1]({ ok: false, code: "claim_lost", message: "Insomnia was just drawn or claimed by someone else." });
+    });
+    expect(within(screen.getByRole("dialog")).getByRole("button", { name: "Adding..." })).toBeDisabled();
   });
 
   it("keeps the details open with the reason when a claim is refused", async () => {
