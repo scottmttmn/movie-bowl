@@ -200,11 +200,14 @@ so it is fine for it to be reachable without a Vercel login, which the TV needs.
 `.github/workflows/deploy-checks.yml` runs when Vercel reports a deploy live.
 For the head of `main` it waits for that commit's staging migrations, checks
 staging serves it, and runs the staging
-smoke suite (`e2e/staging/`, `playwright.staging.config.js`): the core flow
-against staging's real database and TMDB, signed in with a password as a test
-account made in the staging dashboard, clearing that account before and after.
-It is the one suite that meets real systems, which is why it is not in the
-pull request gate. For a production deploy it runs only `scripts/check-deploy.mjs`,
+smoke suite (`e2e/staging/`, `playwright.staging.config.js`): the core flow,
+a guest adding through a link and a rotation draw, against staging's real
+database and TMDB, signed in with a password as a test account made in the
+staging dashboard, clearing that account before and after. It is the one suite
+that meets real systems, which is why it is not in the pull request gate. It
+stays small on purpose: a flow belongs there only if a bug in it could show up
+against the real services and not against the fakes, which keep the pull
+request gate fast, deterministic and able to stage failures. For a production deploy it runs only `scripts/check-deploy.mjs`,
 which never signs in. Both land on the commit as checks, and `npm run release`
 reads them before it ships.
 
