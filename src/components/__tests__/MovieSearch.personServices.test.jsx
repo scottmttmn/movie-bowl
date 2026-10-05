@@ -99,6 +99,22 @@ describe("MovieSearch person movies on my services", () => {
     await waitFor(() => expect(titles()).toEqual(["Unforgiven"]));
   });
 
+  it("moves the highlight back to the top when the narrowed list lands", async () => {
+    const answer = deferred();
+    mocks.getTmdbPersonMoviesOnServices.mockReturnValue(answer.promise);
+    await openEastwood();
+    fireEvent.click(screen.getByRole("button", { name: FILTER_NAME }));
+    const field = screen.getByPlaceholderText("Movie, actor or director");
+    fireEvent.keyDown(field, { key: "ArrowDown" });
+    fireEvent.keyDown(field, { key: "ArrowDown" });
+    expect(field).toHaveAttribute("aria-activedescendant", "movie-option-3");
+
+    answer.resolve(new Set([3]));
+    await waitFor(() => expect(titles()).toEqual(["Unforgiven"]));
+    expect(field).toHaveAttribute("aria-activedescendant", "movie-option-3");
+    expect(screen.getByRole("row", { name: /Unforgiven/ })).toHaveAttribute("aria-selected", "true");
+  });
+
   it("stays on across roles, and offers everything back when a role has none", async () => {
     mocks.getTmdbPersonMoviesOnServices.mockResolvedValue(new Set([1]));
     await openEastwood();

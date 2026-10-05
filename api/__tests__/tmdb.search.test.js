@@ -354,6 +354,15 @@ describe("api/tmdb/search person-on-services", () => {
     expect(params.get("with_watch_monetization_types")).toBe("flatrate|free|ads");
   });
 
+  it("refuses an answer it could not read whole rather than cutting it short", async () => {
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    mocks.tmdbFetch.mockImplementation(async (path) => (path.startsWith("/watch/providers") ? PROVIDERS : { total_pages: 26, results: [{ id: 1 }] }));
+    const res = createRes();
+    await handler({ method: "GET", query: { type: "person-on-services", personId: "190", services: "Netflix" } }, res);
+    expect(res.statusCode).toBe(502);
+    expect(mocks.tmdbFetch.mock.calls.filter(([path]) => path.startsWith("/discover"))).toHaveLength(1);
+  });
+
   it("asks for the provider list once, not on every person", async () => {
     mocks.tmdbFetch.mockImplementation(async (path) => (path.startsWith("/watch/providers") ? PROVIDERS : { total_pages: 1, results: [] }));
     for (const personId of ["1", "2"]) {

@@ -548,6 +548,11 @@ export default function MovieSearch({
     // not checked yet.
     const myServices = normalizeStreamingServices(userStreamingServices);
     const servicesFilterOn = discovery.servicesFilter === "loading" || discovery.servicesFilter === "ready";
+    // The list stays usable while the answer loads, so a highlight moved in
+    // the meantime would point at another movie, or none, once it narrows.
+    useEffect(() => {
+        if (discovery.servicesFilter === "ready") setHighlightedIndex(0);
+    }, [discovery.servicesFilter]);
     const toggleServicesFilter = () => {
         if (servicesFilterOn) discovery.stopServicesFilter();
         else discovery.filterToServices(myServices);

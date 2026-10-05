@@ -12,8 +12,10 @@ import { AVAILABLE_STREAMING_SERVICES, normalizeServiceName } from "../../src/ut
 const REGION = "US";
 // The same groups a search row counts as "On Netflix": rent and buy never do.
 const MONETIZATION = "flatrate|free|ads";
-// Twenty a page. Ten covers anyone's filmography on a handful of services.
-const MAX_PAGES = 10;
+// Twenty a page. Twenty-five covers far more than anyone's filmography on a
+// handful of services; past it the answer is refused rather than cut short,
+// because a filter would treat every title it dropped as not on them.
+const MAX_PAGES = 25;
 const PROVIDER_LIST_TTL_MS = 12 * 60 * 60 * 1000;
 
 let providerList = null;
@@ -69,7 +71,8 @@ export async function findPersonMoviesOnServices(personId, services) {
   });
   const page = (number) => tmdbFetch(`/discover/movie?${params}&page=${number}`);
   const first = await page(1);
-  const pages = Math.min(Number(first?.total_pages) || 1, MAX_PAGES);
+  const pages = Math.max(Number(first?.total_pages) || 1, 1);
+  if (pages > MAX_PAGES) throw new Error(`Too many pages to answer whole: ${pages}`);
   const rest = await Promise.all(Array.from({ length: pages - 1 }, (_, index) => page(index + 2)));
   const ids = new Set();
   for (const data of [first, ...rest]) {
