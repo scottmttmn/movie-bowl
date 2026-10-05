@@ -111,7 +111,8 @@ describe("MovieSearch person movies on my services", () => {
 
     answer.resolve(new Set([3]));
     await waitFor(() => expect(titles()).toEqual(["Unforgiven"]));
-    expect(field).toHaveAttribute("aria-activedescendant", "movie-option-3");
+    // The reset lands in the effect after the narrowed render, so wait for it.
+    await waitFor(() => expect(field).toHaveAttribute("aria-activedescendant", "movie-option-3"));
     expect(screen.getByRole("row", { name: /Unforgiven/ })).toHaveAttribute("aria-selected", "true");
   });
 
