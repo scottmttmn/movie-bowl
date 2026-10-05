@@ -831,7 +831,7 @@ export default function BowlDashboard() {
     // The answer can land after the details have moved on to another title,
     // so it is applied only to the title it was for; the claim itself still
     // reaches My Movies through the bowl's own update.
-    const [claimingPackMovieId, setClaimingPackMovieId] = useState(null);
+    const [claimingPackMovieIds, setClaimingPackMovieIds] = useState(() => new Set());
     const [claimError, setClaimError] = useState(null);
     const selectedDetailMovieIdRef = useRef(null);
     useEffect(() => {
@@ -839,7 +839,7 @@ export default function BowlDashboard() {
     }, [selectedDetailMovie?.id]);
     const claimPackMovie = async (movie) => {
       setClaimError(null);
-      setClaimingPackMovieId(movie.id);
+      setClaimingPackMovieIds((current) => new Set(current).add(movie.id));
       const result = await handleAddMovie({
         tmdb_id: movie.tmdb_id,
         title: movie.title,
@@ -847,7 +847,11 @@ export default function BowlDashboard() {
         release_date: movie.release_date,
         note: null,
       });
-      setClaimingPackMovieId((current) => (current === movie.id ? null : current));
+      setClaimingPackMovieIds((current) => {
+        const next = new Set(current);
+        next.delete(movie.id);
+        return next;
+      });
       if (selectedDetailMovieIdRef.current !== movie.id) return;
       if (result?.ok && result.movie?.id === movie.id) {
         setSelectedDetailContext("myAdds");
@@ -1817,7 +1821,7 @@ return (
                     : ""
                 }
                 isDetailPrimaryActionLoading={
-                  selectedDetailContext === "pack" && claimingPackMovieId === selectedDetailMovie.id
+                  selectedDetailContext === "pack" && claimingPackMovieIds.has(selectedDetailMovie.id)
                 }
                 detailPrimaryActionNote={
                   selectedDetailContext === "watched" && !canReturnDrawToBowl(selectedDetailMovie)
