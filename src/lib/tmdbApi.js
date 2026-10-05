@@ -147,6 +147,17 @@ export async function getTmdbPersonMovies(personId) {
   return request;
 }
 
+// Which of a person's movies are on these services, as a set of TMDB ids. Not
+// cached here: the answer depends on the services, and the caller holds it
+// for as long as the person stays open.
+export async function getTmdbPersonMoviesOnServices(personId, services) {
+  const id = Number(personId);
+  if (!Number.isInteger(id) || id <= 0) throw new Error("Invalid person");
+  const params = new URLSearchParams({ type: "person-on-services", personId: String(id), services: services.join("|") });
+  const data = await apiGet(`/api/tmdb/search?${params}`);
+  return new Set((Array.isArray(data?.movieIds) ? data.movieIds : []).map(Number));
+}
+
 export async function getTmdbMovieDetails(id) {
   const tmdbId = String(id || "").trim();
   if (!tmdbId) throw new Error("Missing movie id");

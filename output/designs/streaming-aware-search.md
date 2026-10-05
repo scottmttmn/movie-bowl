@@ -1,6 +1,29 @@
 # Streaming-aware search
 
-Status: planned September 30, 2026; not implemented.
+Status: planned September 30, 2026. The strict **On my services** filter on a
+person's movies was built October 5, 2026; see "As built". The ranking phase
+was skipped, because the complete answer it was waiting for turned out to be
+one discover run.
+
+## As built
+
+A person's movies carry a toggle beside Acting / Directing: the viewer's own
+service logos, grey when off, lit with a check when on. On, the list is only
+what is on those services. There is no copy beyond the logos, an empty state
+("None on your services." with Show all) and a failure line ("Couldn't check
+your services.", which hides nothing). It survives a role switch and resets
+for the next person. It appears only when the viewer has services, so public
+add links, which pass none, never show it.
+
+The answer comes from `type=person-on-services` on `api/tmdb/search`
+(`api/_lib/personOnServices.js`): TMDB discover with `with_people`, the
+viewer's providers (OR), `watch_region=US` and
+`with_watch_monetization_types=flatrate|free|ads`, up to ten pages. Service
+names become provider ids through TMDB's US provider list, normalized exactly
+as a search row's "On Max" line is, so a title passes only when its row would
+say it is on one of yours. Discover matches any credit, so the client
+intersects the ids with the role list it already has, and "Directing" stays
+`job === "Director"`. While the answer loads, the list stays as it was.
 
 ## Decision
 

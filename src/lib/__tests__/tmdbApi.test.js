@@ -3,6 +3,7 @@ import {
   clearTmdbMovieDetailsCache,
   clearTmdbPersonMoviesCache,
   getTmdbPersonMovies,
+  getTmdbPersonMoviesOnServices,
   searchTmdbPeople,
   suggestTmdbQuery,
   getTmdbMovieDetails,
@@ -327,5 +328,13 @@ describe("tmdbApi", () => {
 
     global.fetch.mockResolvedValueOnce({ ok: false, status: 502, json: async () => ({ error: "Failed" }) });
     await expect(suggestTmdbQuery("martin scorcese")).resolves.toBeNull();
+  });
+
+  it("asks which of a person's movies are on the given services", async () => {
+    global.fetch.mockResolvedValue({ ok: true, json: async () => ({ personId: 190, movieIds: [1, "3"] }) });
+
+    await expect(getTmdbPersonMoviesOnServices(190, ["Max", "Prime Video"])).resolves.toEqual(new Set([1, 3]));
+    expect(global.fetch).toHaveBeenCalledWith("/api/tmdb/search?type=person-on-services&personId=190&services=Max%7CPrime+Video");
+    await expect(getTmdbPersonMoviesOnServices(0, ["Max"])).rejects.toThrow("Invalid person");
   });
 });

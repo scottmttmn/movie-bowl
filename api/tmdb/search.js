@@ -3,6 +3,7 @@ import { normalizePersonMovieCredits } from "../_lib/personCredits.js";
 import { queryMatchesName, selectStrongPeopleMatches } from "../../src/utils/peopleMatch.js";
 import { suggestCorrection } from "../../src/utils/searchSuggestion.js";
 import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
+import { findPersonMoviesOnServices, parseServices } from "../_lib/personOnServices.js";
 import { discoverWithFallback, interpretDescription, resolveTerms, verifyTitles } from "../_lib/describedSearch.js";
 
 const MAX_QUERY_LENGTH = 100;
@@ -94,10 +95,10 @@ export default async function handler(req, res) {
     return;
   }
 
-  // One route, five actions, because the deployment is at Vercel Hobby's
+  // One route, six actions, because the deployment is at Vercel Hobby's
   // 12-function limit. A missing type is today's title search.
   const type = String(req.query?.type || "movie");
-  if (!["movie", "person", "person-movies", "suggest", "describe"].includes(type)) {
+  if (!["movie", "person", "person-movies", "person-on-services", "suggest", "describe"].includes(type)) {
     res.status(400).json({ error: "Invalid query parameter: type" });
     return;
   }
@@ -133,6 +134,26 @@ export default async function handler(req, res) {
       const status = error?.statusCode === 404 ? 404 : 502;
       if (status === 502) console.error("[api/tmdb/search] Failed to fetch person credits", error);
       res.status(status).json({ error: status === 404 ? "Person not found" : "Failed to fetch TMDB credits" });
+    }
+    return;
+  }
+
+  if (type === "person-on-services") {
+    const personId = Number(req.query?.personId);
+    if (!Number.isInteger(personId) || personId <= 0) {
+      res.status(400).json({ error: "Invalid query parameter: personId" });
+      return;
+    }
+    const services = parseServices(req.query?.services);
+    if (services.length === 0) {
+      res.status(400).json({ error: "Invalid query parameter: services" });
+      return;
+    }
+    try {
+      res.status(200).json({ personId, movieIds: await findPersonMoviesOnServices(personId, services) });
+    } catch (error) {
+      console.error("[api/tmdb/search] Failed to find a person's movies on services", error);
+      res.status(502).json({ error: "Failed to check streaming services" });
     }
     return;
   }

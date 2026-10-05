@@ -59,17 +59,11 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Future Product Concepts
 
-- Streaming-aware search: **planned September 30, 2026; not built.** Start in
-  a chosen person's filmography with an explicit **On my services first**
-  control: verified subscription/free/ad-supported matches rise as a settled
-  batch, while unchecked, failed, rental-only, and nonmatching titles remain
-  visible. A later strict **On my services** filter uses OR semantics across
-  the profile's services and ships only when the server can answer for the
-  complete person/role result set; filtering today's partially enriched rows
-  would create false empty states. Do not add catalog-volatility copy, and
-  never remove a bowl title when its provider changes -- search informs the
-  add, while draw time checks availability again. Person results are the first
-  scope; ordinary title results may follow. Plan:
+- Streaming-aware search: the strict **On my services** filter on a person's
+  movies is **built (October 5, 2026)**, answered whole by one TMDB discover
+  run per person. Still open: the same filter on ordinary title results, and
+  smart search offering the person it resolved ("lead actor in Oppenheimer")
+  as a person chip rather than only folding them into discover. Plan:
   `output/designs/streaming-aware-search.md`.
 
 - Assistant voice capture: **failed feasibility gate, closed September 4,

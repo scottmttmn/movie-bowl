@@ -671,15 +671,16 @@ Vitest + Testing Library, jsdom, setup in `src/test/setup.js`. Tests live in
   implementation per feature and a few strong integration tests over many
   shallow ones.
 - `output/designs/*.md` holds the intent behind features. Several are explicitly
-  **plans, not implementations** (`guest-night.md`,
-  `streaming-aware-search.md`, phase 3 of `tv-theater-mode.md`, and the
-  optional step 2 of `deterministic-draw-preview.md`, whose step 3 was decided
+  **plans, not implementations** (`guest-night.md`, phase 3 of
+  `tv-theater-mode.md`, and the optional step 2 of `deterministic-draw-preview.md`, whose step 3 was decided
   against) — check
   the status line before assuming code exists.
   `bowl-draw-methods.md` is no longer one of them: all three methods are live,
   and neither is `search-revamp.md`, whose people search is built, nor
   `starter-packs.md`, whose four steps are all built -- though its "Pack Titles
-  in My Movies" section, decided September 27, is not built yet.
+  in My Movies" section, decided September 27, is not built yet. Nor is
+  `streaming-aware-search.md`, whose person filter is built and whose ranking
+  phase was skipped.
   `solo-draw.md` is the other way round: it is built end to end on web and TV,
   automatic removal included, with nothing deferred. `TODO.md` is the
   live backlog; update it when you land or add an item.
