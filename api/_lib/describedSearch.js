@@ -277,7 +277,7 @@ export async function resolveTerms(interpretation, fetchTmdb = tmdbFetch) {
     const person = (data?.results || [])
       .filter((candidate) => candidate?.adult !== true && queryMatchesName(name, candidate?.name))
       .sort((a, b) => (Number(b.popularity) || 0) - (Number(a.popularity) || 0))[0];
-    return person ? { kind: "person", id: Number(person.id), label: person.name } : null;
+    return person ? { kind: "person", id: Number(person.id), label: person.name, person } : null;
   }));
   const keywords = await Promise.all(interpretation.keywords.map(async (word) => {
     const data = await fetchTmdb(`/search/keyword?query=${encodeURIComponent(word)}&page=1`);

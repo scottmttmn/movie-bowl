@@ -84,3 +84,20 @@ export function normalizePersonMovieCredits(credits) {
     directing: [...directing.values()].sort(byPopularity),
   };
 }
+
+// A person as search shows them: navigation, never a slip. Shared by people
+// search and by described search, which offers whoever the model named.
+export function toPerson(person) {
+  const knownFor = (person?.known_for || [])
+    .filter((credit) => credit?.media_type === "movie" && credit?.adult !== true)
+    .map((credit) => credit.title || credit.original_title)
+    .filter(Boolean)
+    .slice(0, 3);
+  return {
+    id: Number(person.id),
+    name: person.name,
+    profilePath: person.profile_path || null,
+    knownForDepartment: person.known_for_department || null,
+    knownFor,
+  };
+}

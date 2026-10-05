@@ -177,6 +177,7 @@ export default function MovieSearch({
     const discovery = usePersonDiscovery();
     const {
         searchPeople,
+        offerPeople,
         clearPeople,
         openPerson,
         closePerson,
@@ -314,6 +315,9 @@ export default function MovieSearch({
                         smart = { status: "ready" };
                         // The model read the words as typed, never a suggestion.
                         setResultsQuery({ query: trimmedQuery, correctedFrom: null });
+                        // Whoever the model named is a person to open, as
+                        // a typed name would be.
+                        offerPeople(trimmedQuery, described.people);
                         const found = withPicksFirst(described.picks || [], described.results);
                         data = { page: 1, totalPages: 1, totalResults: found.length, results: found };
                     } else if (described?.status === "unavailable") {
@@ -414,7 +418,7 @@ export default function MovieSearch({
                 else setIsSearching(false);
             }
         }
-    }, [closePerson, enrichProviders, searchPeople]);
+    }, [closePerson, enrichProviders, offerPeople, searchPeople]);
 
     // A person's movies get availability the way title results do: only the
     // rows on screen, a bounded batch at a time, and never the whole

@@ -119,7 +119,7 @@ describe("described search: finding the movies", () => {
       people: ["Matt Damon", "Nobody Real"], genres: ["Science Fiction"], keywords: ["stranded", "zzz"], yearFrom: 2010, yearTo: 2019,
     }, fetchTmdb);
     expect(terms).toEqual([
-      { kind: "person", id: 1892, label: "Matt Damon" },
+      { kind: "person", id: 1892, label: "Matt Damon", person: { id: 1892, name: "Matt Damon", popularity: 40 } },
       { kind: "genre", id: 878, label: "Science Fiction" },
       { kind: "keyword", id: 4, label: "stranded" },
       { kind: "years", from: 2010, to: 2019, label: "2010s" },

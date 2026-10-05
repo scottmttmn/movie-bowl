@@ -120,6 +120,14 @@ compares settings and `--runs 3` shows how consistent one is. It spends the
 app's Groq quota. Trying the same five searches by hand could not tell a better
 model from a luckier day, which is why it exists.
 
+## People it names
+
+Whoever the model names is also offered in the People row, the same chip a
+typed name gets, so "lead actor in Oppenheimer" puts Cillian Murphy a tap
+away beside the movies his name found (October 5, 2026). The person is the one
+the server already resolved for discover, so a name TMDB does not have is
+never offered. The prompt did not change: it always asked for people.
+
 ## Relaxing
 
 A description rarely matches TMDB's tags exactly. When every term together

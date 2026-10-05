@@ -61,9 +61,7 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 - Streaming-aware search: the strict **On my services** filter on a person's
   movies is **built (October 5, 2026)**, answered whole by one TMDB discover
-  run per person. Still open: the same filter on ordinary title results, and
-  smart search offering the person it resolved ("lead actor in Oppenheimer")
-  as a person chip rather than only folding them into discover. Plan:
+  run per person. Still open: the same filter on ordinary title results. Plan:
   `output/designs/streaming-aware-search.md`.
 
 - Assistant voice capture: **failed feasibility gate, closed September 4,
