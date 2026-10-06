@@ -66,22 +66,34 @@ async function checkModel(name, providerName, variables, env, fetchImpl) {
       throw error;
     }
   };
-  // The module explains each miss on console.warn, which the failure above
-  // already carries; keep the run's output to one line per check.
+  // The module explains each miss on console.warn. Keep the run's output to
+  // one line per check, but keep the explanation: a 200 that held no terms is
+  // otherwise a failure with no evidence of what the model said, or whether
+  // reading the reply outran the time limit.
   const warn = console.warn;
-  console.warn = () => {};
+  let explanation = null;
+  console.warn = (...args) => {
+    explanation = args
+      .slice(1)
+      .map((arg) => (arg instanceof Error ? arg.message : typeof arg === "string" ? arg : String(arg?.name || arg)))
+      .join(" ")
+      .trim();
+  };
   try {
     // A second try, so one slow answer on a busy minute does not open an
     // issue; two in a row is a provider the app cannot rely on today.
     for (let attempt = 0; attempt < 2; attempt += 1) {
       failure = null;
+      explanation = null;
       const interpretation = await interpretDescription(MODEL_QUERY, { providers: [provider], fetchImpl: recordingFetch });
       if (interpretation) {
         const titles = interpretation.titles.map((title) => title.title).join(", ");
         return { name, ok: true, detail: `${provider.model} answered${titles ? `: ${titles}` : ""}` };
       }
     }
-    return { name, ok: false, detail: failure || "answered with nothing usable" };
+    if (failure) return { name, ok: false, detail: failure };
+    const said = explanation ? `: ${explanation.replace(/\s+/g, " ").slice(0, 200)}` : "";
+    return { name, ok: false, detail: `answered with nothing usable${said}` };
   } finally {
     console.warn = warn;
   }

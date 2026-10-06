@@ -57,13 +57,20 @@ describe("api checks", () => {
 
   it("tries a model twice before failing it, keeping the app's own time limit", async () => {
     const empty = fakeFetch([["groq.com", modelAnswer({ titles: [], people: [], genres: [], keywords: [] })]]);
-    expect(await checkGroq(env, empty)).toMatchObject({ ok: false, detail: "answered with nothing usable" });
+    // What the model said comes along, since that is the only evidence of why.
+    expect(await checkGroq(env, empty)).toMatchObject({
+      ok: false,
+      detail: 'answered with nothing usable: {"titles":[],"people":[],"genres":[],"keywords":[]}',
+    });
     expect(empty.calls).toHaveLength(2);
     expect(empty.calls[0].options.signal).toBeInstanceOf(AbortSignal);
 
     let calls = 0;
     const second = fakeFetch([["groq.com", () => (calls++ ? modelAnswer({ titles: [], people: [], genres: ["Comedy"], keywords: [] }) : json(503, {}))]]);
     expect(await checkGroq(env, second)).toMatchObject({ ok: true });
+
+    const blank = fakeFetch([["groq.com", json(200, { choices: [{ message: { content: "" } }] })]]);
+    expect(await checkGroq(env, blank)).toMatchObject({ ok: false, detail: "answered with nothing usable" });
   });
 
   it("accepts a sending-only Resend key and needs a verified domain otherwise", async () => {
