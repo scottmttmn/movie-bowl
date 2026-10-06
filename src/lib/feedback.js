@@ -14,6 +14,17 @@ export function describeFeedbackContext(win = typeof window === "undefined" ? un
   return { page, device: [agent, size].filter(Boolean).join(" · "), build: APP_BUILD_ID || "" };
 }
 
+// Reports need an account: the error screen asks before offering one, because
+// a crash on a signed-out page leaves no way to sign in from there.
+export async function hasFeedbackSession() {
+  try {
+    const { data } = await supabase.auth.getSession();
+    return Boolean(data?.session?.access_token);
+  } catch {
+    return false;
+  }
+}
+
 // `page` overrides the one read here: a report sent from a phone on the TV's
 // behalf is about the TV.
 export async function sendFeedback({ message = "", errorText = "", page = null } = {}) {

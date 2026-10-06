@@ -1,4 +1,6 @@
 import React from "react";
+import { createPortal } from "react-dom";
+import { hasFeedbackSession } from "../lib/feedback";
 import FeedbackSheet from "./FeedbackSheet";
 import { isStaleChunkError, reloadForNewBuild } from "../utils/appVersion";
 
@@ -16,7 +18,7 @@ function describeError(error) {
 export default class AppErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, isStaleBuild: false, reportOpen: false, errorText: "" };
+    this.state = { hasError: false, isStaleBuild: false, reportOpen: false, errorText: "", canReport: false };
   }
 
   static getDerivedStateFromError(error) {
@@ -28,7 +30,17 @@ export default class AppErrorBoundary extends React.Component {
 
     // If the reload is refused (already tried, or no storage to track it), the
     // rendered fallback below is what the user gets.
-    if (isStaleChunkError(error)) reloadForNewBuild();
+    if (isStaleChunkError(error)) {
+      reloadForNewBuild();
+      return;
+    }
+    hasFeedbackSession().then((canReport) => {
+      if (canReport && !this.unmounted) this.setState({ canReport: true });
+    });
+  }
+
+  componentWillUnmount() {
+    this.unmounted = true;
   }
 
   render() {
@@ -53,14 +65,16 @@ export default class AppErrorBoundary extends React.Component {
           >
             Reload Movie Bowl
           </button>
-          {!this.state.isStaleBuild && (
+          {!this.state.isStaleBuild && this.state.canReport && (
             <button type="button" className="btn btn-ghost" onClick={() => this.setState({ reportOpen: true })}>
               Send report
             </button>
           )}
         </div>
-        {this.state.reportOpen && (
-          <FeedbackSheet errorText={this.state.errorText} onClose={() => this.setState({ reportOpen: false })} />
+        {/* Portalled out of the app shell so the shell can go inert behind it. */}
+        {this.state.reportOpen && createPortal(
+          <FeedbackSheet errorText={this.state.errorText} onClose={() => this.setState({ reportOpen: false })} />,
+          document.body
         )}
       </div>
     );
