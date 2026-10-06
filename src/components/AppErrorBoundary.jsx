@@ -1,4 +1,7 @@
 import React from "react";
+import { createPortal } from "react-dom";
+import { hasFeedbackSession } from "../lib/feedback";
+import FeedbackSheet from "./FeedbackSheet";
 import { isStaleChunkError, reloadForNewBuild } from "../utils/appVersion";
 
 // The floor under every screen. Without a boundary, one throw during render
@@ -7,14 +10,19 @@ import { isStaleChunkError, reloadForNewBuild } from "../utils/appVersion";
 // landing under an open tab so the route's chunk is gone. That case fixes
 // itself with one reload, so take it. Everything else gets a sentence and a
 // button, because a blank screen is never an acceptable resting state.
+function describeError(error) {
+  const text = error instanceof Error ? `${error.name}: ${error.message}` : String(error);
+  return text.slice(0, 2000);
+}
+
 export default class AppErrorBoundary extends React.Component {
   constructor(props) {
     super(props);
-    this.state = { hasError: false, isStaleBuild: false };
+    this.state = { hasError: false, isStaleBuild: false, reportOpen: false, errorText: "", canReport: false };
   }
 
   static getDerivedStateFromError(error) {
-    return { hasError: true, isStaleBuild: isStaleChunkError(error) };
+    return { hasError: true, isStaleBuild: isStaleChunkError(error), errorText: describeError(error) };
   }
 
   componentDidCatch(error) {
@@ -22,7 +30,17 @@ export default class AppErrorBoundary extends React.Component {
 
     // If the reload is refused (already tried, or no storage to track it), the
     // rendered fallback below is what the user gets.
-    if (isStaleChunkError(error)) reloadForNewBuild();
+    if (isStaleChunkError(error)) {
+      reloadForNewBuild();
+      return;
+    }
+    hasFeedbackSession().then((canReport) => {
+      if (canReport && !this.unmounted) this.setState({ canReport: true });
+    });
+  }
+
+  componentWillUnmount() {
+    this.unmounted = true;
   }
 
   render() {
@@ -47,7 +65,17 @@ export default class AppErrorBoundary extends React.Component {
           >
             Reload Movie Bowl
           </button>
+          {!this.state.isStaleBuild && this.state.canReport && (
+            <button type="button" className="btn btn-ghost" onClick={() => this.setState({ reportOpen: true })}>
+              Send report
+            </button>
+          )}
         </div>
+        {/* Portalled out of the app shell so the shell can go inert behind it. */}
+        {this.state.reportOpen && createPortal(
+          <FeedbackSheet errorText={this.state.errorText} onClose={() => this.setState({ reportOpen: false })} />,
+          document.body
+        )}
       </div>
     );
   }

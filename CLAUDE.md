@@ -131,9 +131,9 @@ output/designs/      design specs and roadmaps for shipped + planned features
 
 Vercel Hobby allows 12 functions per deployment, and this app uses all 12.
 `vercel.json` rewrites account deletion, provider-link lookups,
-filter-metadata warmups, starter-pack candidates and starter-pack photos to
-`api/movie-cache.js`, which dispatches to their authorized handlers in
-`_lib/`. Preserve all five public URLs when changing that shared entry point.
+filter-metadata warmups, starter-pack candidates, starter-pack photos and
+feedback to `api/movie-cache.js`, which dispatches to their authorized handlers
+in `_lib/`. Preserve all six public URLs when changing that shared entry point.
 
 ### Layer rules
 
@@ -572,6 +572,14 @@ then a generic 500. They run in Node and are excluded from coverage; they are
   It also deletes provider-link rows at 29 days, even with lookups disabled,
   to satisfy the free vendor plan's 30-day retention limit. This spends no
   Watchmode quota. Apply the provider-link migration before deploying this call.
+- `api/feedback` (through `movie-cache`) takes what the "Send feedback" sheet
+  and the error screen's "Send report" send: signed-in only, saved through the
+  service-role `record_feedback_report` (ten an hour per account) into
+  `feedback_reports`, which no client role can read, then mailed to Scott
+  through Resend with the sender as reply-to. A failed mail is logged, not
+  returned, because the report is already saved. The sheet sends what it says
+  it sends -- the page path, never its query, and the device -- and the TV
+  shows a QR code to `/bowls?feedback=tv` instead of a keyboard.
 - `api/add-links/*` and `api/invites/send.js` use the service-role client from
   `api/_lib/supabaseAdmin.js`. This key bypasses RLS — every route using it must
   do its own authorization, and none of it may ever reach a `VITE_` variable.

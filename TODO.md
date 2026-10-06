@@ -202,8 +202,9 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 ## Technical Debt / Maintenance
 
 - Error reporting: **tabled October 5, 2026.** Nothing reports an error a user
-  hits in the browser or an `api/` function; we hear about it only if they tell
-  us. Sentry's free plan would collect them with the release that caused them
+  hits in the browser or an `api/` function on its own; since October 6 the
+  error screen offers "Send report" and the menu "Send feedback", so we hear
+  about one when someone chooses to tell us. Sentry's free plan would collect them with the release that caused them
   and mail on a new one, which matters more now that releases are weekly.
   Before turning it on: scrub URLs and messages that can carry bowl names or
   emails, and add a line to the privacy notes. Worth it once people outside

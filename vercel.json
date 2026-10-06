@@ -51,6 +51,10 @@
       "destination": "/api/movie-cache?action=starter-pack-people"
     },
     {
+      "source": "/api/feedback",
+      "destination": "/api/movie-cache?action=feedback"
+    },
+    {
       "source": "/voice-probe/privacy",
       "destination": "/index.html"
     },

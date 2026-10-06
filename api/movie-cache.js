@@ -1,4 +1,5 @@
 import deleteAccount from "./_lib/deleteAccount.js";
+import sendFeedback from "./_lib/sendFeedback.js";
 import lookupProviderLinks from "./_lib/lookupProviderLinks.js";
 import starterPackCandidates, { starterPackPeople } from "./_lib/starterPackCandidates.js";
 import warmFilterMetadata from "./_lib/warmFilterMetadata.js";
@@ -20,6 +21,9 @@ export default async function handler(req, res) {
   }
   if (req.query?.action === "starter-pack-people") {
     return starterPackPeople(req, res);
+  }
+  if (req.query?.action === "feedback") {
+    return sendFeedback(req, res);
   }
   res.status(404).json({ error: "Not found" });
 }
