@@ -1,6 +1,9 @@
-import { cleanup, fireEvent, render, screen } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import AppErrorBoundary from "../AppErrorBoundary";
+
+const mocks = vi.hoisted(() => ({ sendFeedback: vi.fn() }));
+vi.mock("../../lib/feedback", () => ({ sendFeedback: mocks.sendFeedback }));
 
 function Boom({ message }) {
   throw new Error(message);
@@ -82,5 +85,38 @@ describe("AppErrorBoundary", () => {
 
     expect(reload).not.toHaveBeenCalled();
     expect(screen.getByTestId("app-error-boundary")).toBeInTheDocument();
+  });
+
+  it("offers to send a report carrying the error the person was shown", async () => {
+    mocks.sendFeedback.mockResolvedValue({ ok: true });
+    render(
+      <AppErrorBoundary>
+        <Boom message="Cannot read properties of undefined" />
+      </AppErrorBoundary>
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Send report" }));
+    const dialog = screen.getByRole("dialog", { name: "Feedback" });
+    expect(dialog).toHaveTextContent("Error: Cannot read properties of undefined");
+    fireEvent.click(within(dialog).getByRole("button", { name: "Send report" }));
+
+    expect(await screen.findByText("Thanks")).toBeInTheDocument();
+    expect(mocks.sendFeedback).toHaveBeenCalledWith({
+      message: "",
+      errorText: "Error: Cannot read properties of undefined",
+      page: null,
+    });
+  });
+
+  // A stale build is not a bug; it fixes itself with the reload offered.
+  it("offers no report for a deploy that landed under an open tab", () => {
+    vi.spyOn(window, "location", "get").mockReturnValue({ reload: vi.fn() });
+    window.sessionStorage.setItem("movie-bowl:build-reload", String(Date.now()));
+    render(
+      <AppErrorBoundary>
+        <Boom message="Failed to fetch dynamically imported module" />
+      </AppErrorBoundary>
+    );
+    expect(screen.queryByRole("button", { name: "Send report" })).not.toBeInTheDocument();
   });
 });

@@ -292,6 +292,8 @@ These are visible in the browser bundle by design.
 - `APP_BASE_URL`
 - `RESEND_API_KEY`
 - `INVITE_EMAIL_FROM`
+- `FEEDBACK_EMAIL_TO` (optional; where feedback is mailed, defaulting to the
+  support address)
 - `WATCHMODE_API_KEY`, `PROVIDER_LINKS_ENABLED`, `PROVIDER_LINKS_MONTHLY_BUDGET`
   — optional, and off unless set; production sets them. See
   [Provider title links](#provider-title-links).

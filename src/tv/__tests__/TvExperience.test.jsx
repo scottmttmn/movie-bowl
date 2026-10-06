@@ -3,6 +3,7 @@ import { MemoryRouter, Route, Routes } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
+  qrToDataUrl: vi.fn(async (text) => `data:image/png;base64,${btoa(text)}`),
   bowls: [
     {
       id: "family",
@@ -119,6 +120,8 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
     loading: false,
   }),
 }));
+
+vi.mock("qrcode", () => ({ default: { toDataURL: mocks.qrToDataUrl } }));
 
 vi.mock("../../lib/tmdbApi", () => ({
   getTmdbMovieDetails: mocks.getTmdbMovieDetails,
@@ -300,10 +303,25 @@ describe("Movie Bowl TV experience", () => {
       expect(await screen.findByRole("heading", { name: "No bowls found" })).toBeInTheDocument();
       expect(screen.queryAllByRole("button").map((button) => button.textContent)).toEqual([
         "Sign out of this TV",
+        "Feedback",
       ]);
     } finally {
       mocks.bowls = populatedBowls;
     }
+  });
+
+  // The television hands feedback to a phone rather than asking for typing.
+  it("shows a code that opens feedback about the TV on a phone, and Back closes it", async () => {
+    renderPicker();
+
+    fireEvent.click(await screen.findByRole("button", { name: "Feedback" }));
+    const dialog = screen.getByRole("dialog", { name: "Feedback" });
+    const code = await within(dialog).findByRole("img", { name: /QR code/ });
+    expect(atob(code.getAttribute("src").split(",")[1])).toBe(`${window.location.origin}/bowls?feedback=tv`);
+    expect(screen.getByRole("main", { hidden: true })).toHaveAttribute("inert");
+
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 
   it("offers solo draw as a quiet route choice before the bowls", async () => {

@@ -1,5 +1,7 @@
 import { useEffect, useRef, useState } from "react";
-import { Link } from "react-router-dom";
+import { createPortal } from "react-dom";
+import { Link, useLocation, useNavigate } from "react-router-dom";
+import FeedbackSheet from "./FeedbackSheet";
 import NavBowlSwitcher from "./NavBowlSwitcher";
 import bowlImage from "../assets/movie-bowl.webp";
 
@@ -17,6 +19,24 @@ export default function TopNav({
   pendingInviteCount = 0,
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [feedbackSource, setFeedbackSource] = useState(null);
+  const location = useLocation();
+  const navigate = useNavigate();
+  // The TV's QR code lands here with ?feedback=tv. Open the sheet once per
+  // arrival and drop the parameter, so a reload or Back is an ordinary visit.
+  const feedbackParam = isAuthenticated ? new URLSearchParams(location.search).get("feedback") : null;
+  const [handledFeedbackKey, setHandledFeedbackKey] = useState(null);
+  if (feedbackParam != null && handledFeedbackKey !== location.key) {
+    setHandledFeedbackKey(location.key);
+    setFeedbackSource(feedbackParam === "tv" ? "tv" : "app");
+  }
+  useEffect(() => {
+    if (feedbackParam == null) return;
+    const params = new URLSearchParams(location.search);
+    params.delete("feedback");
+    const search = params.toString();
+    navigate({ pathname: location.pathname, search: search ? `?${search}` : "", hash: location.hash }, { replace: true });
+  }, [feedbackParam, location.pathname, location.search, location.hash, navigate]);
   const menuRef = useRef(null);
   const [blockingOverlay, setBlockingOverlay] = useState(false);
   useEffect(() => {
@@ -176,6 +196,14 @@ export default function TopNav({
                   <button
                     type="button"
                     role="menuitem"
+                    onClick={() => { setIsMenuOpen(false); setFeedbackSource("app"); }}
+                    className="flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white"
+                  >
+                    Send feedback
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
                     onClick={() => {
                       setIsMenuOpen(false);
                       onSignOut?.();
@@ -200,6 +228,12 @@ export default function TopNav({
         </div>
         </div>
       </div>
+      {/* Portalled: the header's backdrop blur would otherwise pin the sheet
+          inside a 64px strip. */}
+      {feedbackSource && createPortal(
+        <FeedbackSheet page={feedbackSource === "tv" ? "/tv" : null} onClose={() => setFeedbackSource(null)} />,
+        document.body
+      )}
     </header>
   );
 }

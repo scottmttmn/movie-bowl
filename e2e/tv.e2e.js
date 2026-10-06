@@ -66,6 +66,18 @@ test("a paired TV can use remote selection to open a bowl", async ({ page, backe
   await expect(soloButton).toBeFocused();
   await soloButton.press("ArrowUp");
   await expect(signOut).toBeFocused();
+  // Feedback sits beside sign-out and hands off to a phone.
+  const feedback = page.getByRole("button", { name: "Feedback", exact: true });
+  await signOut.press("ArrowRight");
+  await expect(feedback).toBeFocused();
+  await feedback.press("Enter");
+  await expect(page.getByRole("dialog", { name: "Feedback" }).getByRole("img", { name: /QR code/ })).toBeVisible();
+  await page.keyboard.press("Escape");
+  await expect(page.getByRole("dialog", { name: "Feedback" })).toHaveCount(0);
+  await expect(bowlButton).toBeFocused();
+  await bowlButton.press("ArrowUp");
+  await soloButton.press("ArrowUp");
+  await expect(signOut).toBeFocused();
   await signOut.press("Enter");
   const dialog = page.getByRole("dialog", { name: "Sign out of this TV?" });
   const cancel = dialog.getByRole("button", { name: "Cancel" });
@@ -296,7 +308,7 @@ test("TV sign-out can retry a failure, revokes only this session, and returns to
   // remote can drive, and the Google TV shell closes itself rather than show it.
   await expect(page.getByRole("button", { name: "Exit TV mode", exact: true })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Open the full app" })).toHaveCount(0);
-  await expect(page.getByRole("button")).toHaveCount(1);
+  await expect(page.getByRole("button")).toHaveCount(2);
   await expect(page.getByRole("button", { name: "Sign out of this TV", exact: true })).toBeFocused();
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.screenshot({ path: testInfo.outputPath("tv-account-actions.png") });

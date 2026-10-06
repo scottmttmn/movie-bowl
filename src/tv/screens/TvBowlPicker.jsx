@@ -7,6 +7,7 @@ import PeopleGlyph from "../../components/PeopleGlyph";
 import useUserStreamingServices from "../../hooks/useUserStreamingServices";
 import { getDisplayInitial, getProfileDisplayName } from "../../utils/profileIdentity";
 import TvBrand from "../components/TvBrand";
+import TvFeedbackDialog from "../components/TvFeedbackDialog";
 import { useTvBowls } from "../hooks/useTvBowls";
 import useTvSpatialNavigation from "../hooks/useTvSpatialNavigation";
 
@@ -45,6 +46,7 @@ export default function TvBowlPicker({
   const lastBowlId = useMemo(() => getLastBowlId(userId), [userId]);
   const hasRememberedBowl = bowls.some((bowl) => bowl.id === lastBowlId);
   const [showSignOut, setShowSignOut] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
   const [focusSignOut, setFocusSignOut] = useState(false);
   const [isSigningOut, setIsSigningOut] = useState(false);
   const [signOutError, setSignOutError] = useState("");
@@ -64,8 +66,12 @@ export default function TvBowlPicker({
   // browser so does the back button. A control that said "exit" and then landed
   // on the phone UI would be lying on the one surface that cannot use it.
   useTvSpatialNavigation({
-    scopeKey: showSignOut ? "picker-sign-out" : `picker:${isLoading}:${bowls.length}:${Boolean(errorMessage)}:${shouldFocusSolo}`,
-    onBack: () => showSignOut ? closeSignOut() : navigate("/"),
+    scopeKey: showSignOut ? "picker-sign-out" : showFeedback ? "picker-feedback" : `picker:${isLoading}:${bowls.length}:${Boolean(errorMessage)}:${shouldFocusSolo}`,
+    onBack: () => {
+      if (showSignOut) closeSignOut();
+      else if (showFeedback) setShowFeedback(false);
+      else navigate("/");
+    },
   });
 
   useEffect(() => {
@@ -108,7 +114,7 @@ export default function TvBowlPicker({
 
   return (
     <>
-      <main className="tv-page tv-picker-page" aria-hidden={showSignOut || undefined} inert={showSignOut || undefined}>
+      <main className="tv-page tv-picker-page" aria-hidden={showSignOut || showFeedback || undefined} inert={showSignOut || showFeedback || undefined}>
         <header className="tv-topbar" data-tv-nav-region="picker-header">
           <TvBrand context="TV" />
           <div className="tv-account">
@@ -124,6 +130,14 @@ export default function TvBowlPicker({
               }}
             >
               Sign out of this TV
+            </button>
+            <button
+              type="button"
+              className="tv-text-button tv-sign-out-button"
+              data-tv-focusable
+              onClick={() => setShowFeedback(true)}
+            >
+              Feedback
             </button>
           </div>
         </header>
@@ -235,6 +249,7 @@ export default function TvBowlPicker({
         )}
 
       </main>
+      {showFeedback && <TvFeedbackDialog onClose={() => setShowFeedback(false)} />}
       {showSignOut && (
         <div className="tv-dialog-backdrop" role="presentation">
           <section

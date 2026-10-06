@@ -69,6 +69,7 @@ function createInitialState() {
     bowl_draw_permissions: [],
     addLinks: {},
     tmdbSearchResults: [],
+    feedbackReports: [],
     // People search answers nobody unless a test seeds someone, so every
     // title search keeps looking as it did before people existed.
     tmdbPeople: [],
@@ -1114,6 +1115,12 @@ export class FakeBackend {
     }
 
     if (url.pathname === "/api/tmdb/movie/warm-filter-metadata" && method === "POST") {
+      await fulfillJson(route, { ok: true });
+      return;
+    }
+
+    if (url.pathname === "/api/feedback" && method === "POST") {
+      this.state.feedbackReports.push(body);
       await fulfillJson(route, { ok: true });
       return;
     }

@@ -1,7 +1,15 @@
 import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
-import { MemoryRouter } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useLocation } from "react-router-dom";
 import TopNav from "../TopNav";
+
+const mocks = vi.hoisted(() => ({ sendFeedback: vi.fn() }));
+vi.mock("../../lib/feedback", () => ({ sendFeedback: mocks.sendFeedback }));
+
+function CurrentUrl() {
+  const location = useLocation();
+  return <output data-testid="url">{location.pathname + location.search}</output>;
+}
 
 describe("TopNav", () => {
   afterEach(() => {
@@ -193,5 +201,54 @@ describe("TopNav", () => {
     expect(screen.queryByRole("menuitem", { name: /settings/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("menuitem", { name: /log out/i })).not.toBeInTheDocument();
     expect(screen.queryByLabelText(/signed in as/i)).not.toBeInTheDocument();
+  });
+
+  it("opens the feedback sheet from the menu, outside the header", async () => {
+    mocks.sendFeedback.mockResolvedValue({ ok: true });
+    const { container } = render(<MemoryRouter><TopNav onAddMovie={vi.fn()} /></MemoryRouter>);
+
+    fireEvent.click(screen.getByRole("button", { name: "Navigation menu" }));
+    fireEvent.click(screen.getByRole("menuitem", { name: "Send feedback" }));
+
+    expect(screen.queryByRole("menu")).not.toBeInTheDocument();
+    const dialog = screen.getByRole("dialog", { name: "Feedback" });
+    // The header's backdrop blur would trap a fixed sheet inside it.
+    expect(container.querySelector("header")).not.toContainElement(dialog);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Love it" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(await screen.findByText("Thanks")).toBeInTheDocument();
+    expect(mocks.sendFeedback).toHaveBeenCalledWith({ message: "Love it", errorText: "", page: null });
+
+    fireEvent.click(screen.getByRole("button", { name: "Close" }));
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+  });
+
+  it("opens the sheet about the TV when its QR code lands here, then drops the parameter", async () => {
+    mocks.sendFeedback.mockResolvedValue({ ok: true });
+    render(
+      <MemoryRouter initialEntries={["/bowls?feedback=tv"]}>
+        <Routes>
+          <Route path="*" element={<><TopNav onAddMovie={vi.fn()} /><CurrentUrl /></>} />
+        </Routes>
+      </MemoryRouter>
+    );
+
+    expect(await screen.findByRole("dialog", { name: "Feedback" })).toBeInTheDocument();
+    expect(screen.getByTestId("url")).toHaveTextContent(/^\/bowls$/);
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "Remote skips a row" } });
+    fireEvent.click(screen.getByRole("button", { name: "Send" }));
+    expect(await screen.findByText("Thanks")).toBeInTheDocument();
+    expect(mocks.sendFeedback).toHaveBeenCalledWith({ message: "Remote skips a row", errorText: "", page: "/tv" });
+  });
+
+  it("offers no feedback to a signed-out visitor", () => {
+    render(
+      <MemoryRouter initialEntries={["/login?feedback=tv"]}>
+        <TopNav isAuthenticated={false} onAddMovie={vi.fn()} />
+      </MemoryRouter>
+    );
+    fireEvent.click(screen.getByRole("button", { name: "Navigation menu" }));
+    expect(screen.queryByRole("menuitem", { name: "Send feedback" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
   });
 });
