@@ -56,4 +56,17 @@ describe("FeedbackSheet", () => {
     fireEvent.keyDown(document, { key: "Escape" });
     expect(onClose).toHaveBeenCalledTimes(2);
   });
+
+  it("keeps Tab inside the sheet", () => {
+    render(<FeedbackSheet onClose={vi.fn()} send={vi.fn()} />);
+    const close = screen.getByRole("button", { name: "Close" });
+    fireEvent.change(screen.getByRole("textbox"), { target: { value: "x" } });
+    const send = screen.getByRole("button", { name: "Send" });
+
+    send.focus();
+    fireEvent.keyDown(send, { key: "Tab" });
+    expect(close).toHaveFocus();
+    fireEvent.keyDown(close, { key: "Tab", shiftKey: true });
+    expect(send).toHaveFocus();
+  });
 });

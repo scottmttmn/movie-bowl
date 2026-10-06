@@ -221,6 +221,8 @@ describe("TopNav", () => {
 
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(screen.queryByRole("dialog")).not.toBeInTheDocument();
+    // The menu item that opened it is gone; focus goes back to the menu.
+    expect(screen.getByRole("button", { name: "Navigation menu" })).toHaveFocus();
   });
 
   it("opens the sheet about the TV when its QR code lands here, then drops the parameter", async () => {

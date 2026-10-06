@@ -1,24 +1,29 @@
-import { useEffect, useState } from "react";
+import { useCallback, useRef, useState } from "react";
+import useModalFocus from "../hooks/useModalFocus";
 import { sendFeedback } from "../lib/feedback";
 
 // One box for bugs and ideas alike. The line under it is the one disclosure the
 // sheet owes: it sends the page and the device as well as what was typed. From
 // the error screen the error rides along too, shown above the box so the
 // sender sees exactly what goes.
-export default function FeedbackSheet({ onClose, errorText = "", page = null, send = sendFeedback }) {
+export default function FeedbackSheet({ onClose, errorText = "", page = null, getInvoker = null, send = sendFeedback }) {
   const [message, setMessage] = useState("");
   const [status, setStatus] = useState("idle");
   const [failure, setFailure] = useState("");
   const isSending = status === "sending";
   const canSend = !isSending && (message.trim() || errorText);
 
-  useEffect(() => {
-    const onKeyDown = (event) => {
-      if (event.key === "Escape" && !isSending) onClose();
-    };
-    document.addEventListener("keydown", onKeyDown);
-    return () => document.removeEventListener("keydown", onKeyDown);
-  }, [isSending, onClose]);
+  // Focus returns to whatever opened the sheet, unless the caller knows
+  // better (a menu item that is gone by the time the sheet closes).
+  const dialog = useRef(null);
+  const [opener] = useState(() => (typeof document === "undefined" ? null : document.activeElement));
+  const getReturnTarget = useCallback(() => getInvoker?.() || opener, [getInvoker, opener]);
+  useModalFocus(dialog, {
+    getInvoker: getReturnTarget,
+    onEscape: () => {
+      if (!isSending) onClose();
+    },
+  });
 
   const submit = async () => {
     if (!canSend) return;
@@ -35,7 +40,7 @@ export default function FeedbackSheet({ onClose, errorText = "", page = null, se
 
   return (
     <div className="modal-overlay z-50" role="presentation">
-      <div className="modal-surface max-w-lg p-5 sm:p-7" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
+      <div ref={dialog} tabIndex={-1} className="modal-surface max-w-lg p-5 sm:p-7" role="dialog" aria-modal="true" aria-labelledby="feedback-title">
         <div className="mb-4 flex items-center justify-between">
           <h3 id="feedback-title" className="section-title text-xl">Feedback</h3>
           <button type="button" className="icon-btn" aria-label="Close" onClick={onClose} disabled={isSending}>✕</button>

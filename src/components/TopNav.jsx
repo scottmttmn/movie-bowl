@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import FeedbackSheet from "./FeedbackSheet";
@@ -38,6 +38,7 @@ export default function TopNav({
     navigate({ pathname: location.pathname, search: search ? `?${search}` : "", hash: location.hash }, { replace: true });
   }, [feedbackParam, location.pathname, location.search, location.hash, navigate]);
   const menuRef = useRef(null);
+  const getMenuButton = useCallback(() => menuRef.current?.querySelector("button"), []);
   const [blockingOverlay, setBlockingOverlay] = useState(false);
   useEffect(() => {
     const update = () => setBlockingOverlay(Boolean(document.querySelector('[aria-modal="true"], [data-blocks-global-add]')));
@@ -231,7 +232,11 @@ export default function TopNav({
       {/* Portalled: the header's backdrop blur would otherwise pin the sheet
           inside a 64px strip. */}
       {feedbackSource && createPortal(
-        <FeedbackSheet page={feedbackSource === "tv" ? "/tv" : null} onClose={() => setFeedbackSource(null)} />,
+        <FeedbackSheet
+          page={feedbackSource === "tv" ? "/tv" : null}
+          getInvoker={getMenuButton}
+          onClose={() => setFeedbackSource(null)}
+        />,
         document.body
       )}
     </header>
