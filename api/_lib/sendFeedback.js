@@ -1,4 +1,5 @@
 import { getSupabaseAdmin } from "./supabaseAdmin.js";
+import { recordEmailUsage } from "./usageCounters.js";
 
 // Where reports are mailed. The same address the About page already publishes
 // as the support contact; FEEDBACK_EMAIL_TO moves it without a deploy.
@@ -165,6 +166,9 @@ export default async function sendFeedback(req, res) {
     } catch (error) {
       console.error("[api/feedback] Failed to mail report", error);
     }
+    // Feedback spends the same daily mail allowance as invitations, so it is
+    // counted against the same meter -- attempts, as invites/send counts them.
+    await recordEmailUsage(1, { label: "feedback", client: admin });
   } else {
     console.error("[api/feedback] Missing mail configuration; report saved without mail");
   }

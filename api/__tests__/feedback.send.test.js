@@ -2,6 +2,9 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const getUserMock = vi.fn();
 const rpcMock = vi.fn();
+const recordEmailUsageMock = vi.fn();
+
+vi.mock("../_lib/usageCounters.js", () => ({ recordEmailUsage: (...args) => recordEmailUsageMock(...args) }));
 
 vi.mock("../_lib/supabaseAdmin.js", () => ({
   getSupabaseAdmin: () => ({ auth: { getUser: getUserMock }, rpc: rpcMock }),
@@ -39,6 +42,7 @@ describe("api/feedback", () => {
     getUserMock.mockReset();
     rpcMock.mockReset();
     fetchMock.mockReset();
+    recordEmailUsageMock.mockReset();
     vi.stubGlobal("fetch", fetchMock);
     vi.stubEnv("RESEND_API_KEY", "resend-key");
     vi.stubEnv("INVITE_EMAIL_FROM", "Movie Bowl <hello@moviebowl.app>");
@@ -112,6 +116,7 @@ describe("api/feedback", () => {
       subject: "Movie Bowl feedback: The draw did nothing",
     });
     expect(mail.text).toContain("Page: /bowl/abc");
+    expect(recordEmailUsageMock).toHaveBeenCalledWith(1, expect.objectContaining({ label: "feedback" }));
   });
 
   it("takes an error report with no message and clips oversized context", async () => {
@@ -167,6 +172,8 @@ describe("api/feedback", () => {
     await handler(createRequest({ message: "hi" }), unconfigured);
     expect(unconfigured.statusCode).toBe(200);
     expect(fetchMock).not.toHaveBeenCalled();
+    // Attempts count, refused or thrown; no attempt counts nothing.
+    expect(recordEmailUsageMock).toHaveBeenCalledTimes(2);
   });
 
   it("escapes what the sender wrote in the mail's HTML", () => {
