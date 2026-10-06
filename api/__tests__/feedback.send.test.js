@@ -135,7 +135,9 @@ describe("api/feedback", () => {
     await handler(createRequest({ message: "hi", page: "/add-to-bowl/secret-token" }), createRes());
     expect(rpcMock.mock.calls[0][1].p_page).toBe("/add-to-bowl/:token");
     await handler(createRequest({ message: "hi", page: "/Accept-Invite/secret-token" }), createRes());
-    expect(rpcMock.mock.calls[1][1].p_page).toBe("/Accept-Invite/:token");
+    expect(rpcMock.mock.calls[1][1].p_page).toBe("/accept-invite/:token");
+    await handler(createRequest({ message: "hi", page: "/%61dd-to-bowl/secret-token" }), createRes());
+    expect(rpcMock.mock.calls[2][1].p_page).toBe("/add-to-bowl/:token");
   });
 
   it("passes the database's rate limit back without mailing", async () => {

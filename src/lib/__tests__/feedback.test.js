@@ -30,8 +30,11 @@ describe("describeFeedbackContext", () => {
     const pageOf = (pathname) => describeFeedbackContext({ location: { pathname } }).page;
     expect(pageOf("/add-to-bowl/secret-token")).toBe("/add-to-bowl/:token");
     expect(pageOf("/accept-invite/secret-token")).toBe("/accept-invite/:token");
-    expect(pageOf("/ADD-TO-BOWL/secret-token")).toBe("/ADD-TO-BOWL/:token");
-    expect(pageOf("//Accept-Invite//secret-token")).toBe("/Accept-Invite/:token");
+    expect(pageOf("/ADD-TO-BOWL/secret-token")).toBe("/add-to-bowl/:token");
+    expect(pageOf("//Accept-Invite//secret-token")).toBe("/accept-invite/:token");
+    expect(pageOf("/%61ccept-invite/secret-token")).toBe("/accept-invite/:token");
+    expect(pageOf("/accept-invite%2Fsecret-token")).toBe("/accept-invite/:token");
+    expect(pageOf("/%E0%A4%A/broken")).toBe("/%E0%A4%A/broken");
     expect(pageOf("/bowl/abc/settings")).toBe("/bowl/abc/settings");
   });
 });

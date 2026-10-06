@@ -42,6 +42,29 @@ function escapeHtml(value) {
   );
 }
 
+// Invite and guest add-link routes carry a credential as their second segment.
+// The same rule as src/lib/feedback.js, which api/ cannot import.
+function redactPage(path) {
+  // Normalize the way the router reads a path -- decoded, any case, repeated
+  // slashes ignored -- so that every spelling of a token route is caught.
+  const segments = String(path || "")
+    .split("/")
+    .map((segment) => {
+      try {
+        return decodeURIComponent(segment);
+      } catch {
+        return segment;
+      }
+    })
+    .join("/")
+    .split("/")
+    .filter(Boolean);
+  if (segments.length > 1 && /^(accept-invite|add-to-bowl)$/i.test(segments[0].trim())) {
+    return `/${segments[0].trim().toLowerCase()}/:token`;
+  }
+  return path;
+}
+
 export function buildFeedbackEmail({ email, message, errorText, page, device, build }) {
   const kind = errorText ? "error report" : "feedback";
   const firstLine = (message || errorText).split("\n")[0].slice(0, 60);
@@ -96,7 +119,7 @@ export default async function sendFeedback(req, res) {
     return;
   }
   // The client already does this; an older or hand-made request may not.
-  const page = clip(body.page, LIMITS.page).replace(/^\/+(accept-invite|add-to-bowl)\/+[^/]+/i, "/$1/:token");
+  const page = redactPage(clip(body.page, LIMITS.page));
   const device = clip(body.device, LIMITS.device);
   const build = clip(body.build, LIMITS.build);
 
