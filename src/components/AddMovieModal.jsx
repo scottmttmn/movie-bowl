@@ -793,7 +793,7 @@ export default function AddMovieModal({
                     autoFocus
                   />
                   <div className="mt-2 flex items-start justify-between gap-3 text-xs text-slate-400">
-                    <span id="movie-note-help" role={noteEditError ? "alert" : undefined}>{noteEditError || "A little context for movie night."}</span>
+                    <span id="movie-note-help" role={noteEditError ? "alert" : undefined}>{noteEditError}</span>
                     <span className="shrink-0">{noteDraft.length}/{MAX_MOVIE_NOTE_LENGTH}</span>
                   </div>
                   <div className="mt-3 flex flex-wrap gap-2">
