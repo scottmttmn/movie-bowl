@@ -9,6 +9,8 @@ const mocks = vi.hoisted(() => {
     bowlRow: { name: "Friday Night", owner_id: "u1", draw_access_mode: "all_members", draw_method: "rotation" },
     queue: [],
     queueError: null,
+    poolStatus: "unfiltered",
+    eligibleMovieIds: null,
     bowls: [],
     defaultBowlId: "bowl-2",
     contextLoading: false,
@@ -91,6 +93,25 @@ const REMAINING = [
   { id: "m3", tmdb_id: -3, title: "Robin Pick", added_by: "u3" },
 ];
 
+// The pool count is under test elsewhere; here it only has to say whether the
+// filtered pool is known yet.
+vi.mock("../../hooks/useDrawPoolCount", async () => {
+  const actual = await vi.importActual("../../hooks/useDrawPoolCount");
+  return {
+    ...actual,
+    default: () => ({
+      status: mocks.state.poolStatus,
+      poolCount: mocks.state.poolStatus === "counting" ? null : 3,
+      totalCount: 3,
+      contributorReach: { totalCount: 0, reachedCount: 0, packTitleCount: 0, excludedNames: [] },
+      streamingMatch: { status: "idle", matchCount: 0, topService: null, topServiceCount: 0 },
+      eligibleMovieIds: mocks.state.eligibleMovieIds,
+      lookupProgress: null,
+      runLookups: vi.fn(),
+    }),
+  };
+});
+
 vi.mock("../../hooks/useBowl", () => ({
   default: (bowlId) => ({
     bowl: { remaining: REMAINING, watched: [] },
@@ -165,6 +186,8 @@ describe("BowlDashboard rotation turn order", () => {
       { bucket_key: "user:u2", never_drawn: false },
     ];
     mocks.state.queueError = null;
+    mocks.state.poolStatus = "unfiltered";
+    mocks.state.eligibleMovieIds = null;
     mocks.supabase.rpc.mockClear();
   });
 
@@ -182,6 +205,28 @@ describe("BowlDashboard rotation turn order", () => {
     expect(mocks.supabase.rpc).toHaveBeenCalledWith("get_bowl_rotation_queue", {
       p_bowl_id: "bowl-1",
       p_candidate_movie_ids: ["m1", "m2", "m3"],
+    });
+  });
+
+  it("asks for the filtered pool's order and waits for that pool before listing anyone", async () => {
+    mocks.state.poolStatus = "counting";
+    const { rerender } = render(<BowlDashboard />);
+    fireEvent.click(await screen.findByRole("button", { name: "3 people in this bowl. See who." }));
+    const dialog = screen.getByRole("dialog");
+
+    await waitFor(() => expect(mocks.supabase.rpc).toHaveBeenCalledWith("get_bowl_profile_directory", expect.anything()));
+    expect(within(dialog).getByRole("list")).toHaveAttribute("aria-busy", "true");
+    expect(within(dialog).queryAllByRole("listitem")).toHaveLength(0);
+    expect(mocks.supabase.rpc).not.toHaveBeenCalledWith("get_bowl_rotation_queue", expect.anything());
+
+    mocks.state.poolStatus = "ready";
+    mocks.state.eligibleMovieIds = ["m1", "m3"];
+    rerender(<BowlDashboard />);
+
+    await waitFor(() => expect(within(dialog).getAllByRole("listitem")[0]).toHaveAccessibleName(/^Robin, up next/));
+    expect(mocks.supabase.rpc).toHaveBeenCalledWith("get_bowl_rotation_queue", {
+      p_bowl_id: "bowl-1",
+      p_candidate_movie_ids: ["m1", "m3"],
     });
   });
 

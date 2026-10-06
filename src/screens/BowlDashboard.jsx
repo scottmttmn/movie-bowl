@@ -498,6 +498,12 @@ export default function BowlDashboard() {
       enabled: showPeople && drawMethod === "rotation",
       refreshKey: bowl.watched.length,
     });
+    // The order is still unknown while the filtered pool is being counted,
+    // even though nothing has been asked yet; the sheet waits through both
+    // rather than showing the roster in an order it is about to change.
+    const isRotationOrderPending = showPeople && drawMethod === "rotation" && (
+      rotationQueue.status === "loading" || drawPoolStatus === DRAW_POOL_STATUS.counting
+    );
     const rotationTurns = useMemo(
       () => (rotationQueue.status === "ready" ? getRotationTurns(rotationQueue.queue) : null),
       [rotationQueue]
@@ -1722,7 +1728,7 @@ return (
                 onInvite={() => navigate(`/invites?bowl=${bowlId}#invite-people`)}
                 onClose={() => setShowPeople(false)}
                 turns={rotationTurns}
-                isOrderPending={rotationQueue.status === "loading"}
+                isOrderPending={isRotationOrderPending}
               />
             )}
             {showMethodInfo && (
