@@ -19,6 +19,9 @@ import useCreateBowl from "../hooks/useCreateBowl";
 import useUserBowls from "../hooks/useUserBowls";
 import useBowl from "../hooks/useBowl";
 import useBowlPeople from "../hooks/useBowlPeople";
+import useRotationQueue from "../hooks/useRotationQueue";
+import { getRotationTurns } from "../utils/rotationTurns";
+import { getDrawablePoolMovies } from "../utils/drawPool";
 import useDrawProviderLinks from "../hooks/useDrawProviderLinks";
 import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import useDeviceDrawSettings from "../hooks/useDeviceDrawSettings";
@@ -482,6 +485,29 @@ export default function BowlDashboard() {
     // Read only while the sheet is open; the counts reuse the pool the stat
     // line already resolved, so the sheet costs no lookups of its own.
     const bowlPeople = useBowlPeople(bowlId, { enabled: showPeople, includeInvites: isCurrentUserOwner });
+    // On rotation the people sheet lists people in turn order, asked of the
+    // pool tonight's draw would use: the filtered pool once it is counted, the
+    // whole bowl when nothing narrows it, and no order while a large bowl's
+    // count waits on a tap.
+    const rotationCandidateIds = useMemo(() => {
+      if (drawPoolEligibleMovieIds) return drawPoolEligibleMovieIds;
+      if (drawPoolStatus !== DRAW_POOL_STATUS.unfiltered) return null;
+      return getDrawablePoolMovies(bowl.remaining).map((movie) => movie.id);
+    }, [drawPoolEligibleMovieIds, drawPoolStatus, bowl.remaining]);
+    const rotationQueue = useRotationQueue(bowlId, rotationCandidateIds, {
+      enabled: showPeople && drawMethod === "rotation",
+      refreshKey: bowl.watched.length,
+    });
+    // The order is still unknown while the filtered pool is being counted,
+    // even though nothing has been asked yet; the sheet waits through both
+    // rather than showing the roster in an order it is about to change.
+    const isRotationOrderPending = showPeople && drawMethod === "rotation" && (
+      rotationQueue.status === "loading" || drawPoolStatus === DRAW_POOL_STATUS.counting
+    );
+    const rotationTurns = useMemo(
+      () => (rotationQueue.status === "ready" ? getRotationTurns(rotationQueue.queue) : null),
+      [rotationQueue]
+    );
     const bowlPeopleRows = useMemo(
       () => (bowlPeople.status === "ready"
         ? buildBowlPeopleRows({
@@ -1701,6 +1727,8 @@ return (
                 isOwner={isCurrentUserOwner}
                 onInvite={() => navigate(`/invites?bowl=${bowlId}#invite-people`)}
                 onClose={() => setShowPeople(false)}
+                turns={rotationTurns}
+                isOrderPending={isRotationOrderPending}
               />
             )}
             {showMethodInfo && (

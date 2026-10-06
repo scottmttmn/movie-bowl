@@ -52,6 +52,34 @@ describe("BowlPeopleSheet", () => {
       .not.toHaveAttribute("data-left-out");
   });
 
+  it("lists a rotation bowl in turn order and marks whoever is up next with the rotation slip", () => {
+    const rows = [...ROWS, { key: "guest:gil", name: "Gil", initial: "G", count: 1, isOwner: false, isYou: false, isLeftOut: false }];
+    renderSheet({ rows, turns: new Map([["guest:gil", 0], ["user:u1", 1]]) });
+
+    expect(screen.getAllByRole("listitem").map((item) => item.getAttribute("aria-label"))).toEqual([
+      "Gil, up next: 1 movie in the draw",
+      "Alex (you), owner: 2 movies in the draw",
+      "Sam: 0 movies in the draw",
+    ]);
+    const gil = screen.getByRole("listitem", { name: /^Gil/ });
+    expect(gil).toHaveAttribute("data-up-next", "true");
+    expect(gil.querySelector('[data-method="rotation"]')).toBeInTheDocument();
+    expect(screen.getByRole("listitem", { name: /^Alex/ }).querySelector('[data-method="rotation"]')).toBeNull();
+  });
+
+  it("marks everyone tied for the next turn, since chance decides between them", () => {
+    renderSheet({ turns: new Map([["user:u1", 0], ["user:u2", 0]]) });
+
+    expect(screen.getAllByRole("listitem").filter((item) => item.dataset.upNext === "true")).toHaveLength(2);
+  });
+
+  it("waits for the turn order instead of reshuffling the list when it lands", () => {
+    renderSheet({ status: "ready", isOrderPending: true });
+
+    expect(screen.getByRole("list")).toHaveAttribute("aria-busy", "true");
+    expect(screen.queryByRole("listitem", { name: /^Alex/ })).not.toBeInTheDocument();
+  });
+
   it("takes focus, keeps it, closes on Escape and hands focus back", () => {
     const opener = document.createElement("button");
     document.body.appendChild(opener);

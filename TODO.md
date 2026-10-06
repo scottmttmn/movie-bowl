@@ -122,11 +122,11 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   Actual playback (rewriting a Netflix detail URL to `/watch/<id>`) is a later,
   per-service step that needs a real Watchmode URL and a check. See
   `output/designs/theater-autostart-handoff.md`.
-- Rotation lookahead (optional): let a rotation bowl say who is up next --
-  "Coming up: Anna, then Ben" -- as a read-only readout. The order is already
-  derivable from `bowl_draw_events`, so it needs no new state, and it names
-  contributors, never titles. Step 2 of `output/designs/deterministic-draw-preview.md`;
-  nice to have, not scheduled.
+- Rotation lookahead: **built October 2026** as the people sheet's order. On a
+  rotation bowl the people count opens a list in turn order with the rotation
+  slip on whoever is next, read from `get_bowl_rotation_queue`. Nothing was
+  added to the bowl page or the TV, by choice. Step 2 of
+  `output/designs/deterministic-draw-preview.md`.
 - Decided against on 2026-09-23, so these are not coming back as proposals:
   - **Once-per-day draw lockout.** Floated to stop re-rolling after a put-back.
     The two-hour undo does not prevent that -- each new draw gets its own

@@ -1,8 +1,9 @@
 # Deterministic Draw Preview
 
-Status: step 1 shipped. Step 2 is an optional idea, not scheduled. Step 3 was
-decided against on September 23, 2026 and is kept below only as the reasoning.
-Nothing below step 1 exists in code.
+Status: step 1 shipped. Step 2 shipped October 2026 in a narrower form than
+written here: the people sheet lists a rotation bowl in turn order and marks
+who is next, and there are no rotation-sourced previews. Step 3 was decided
+against on September 23, 2026 and is kept below only as the reasoning.
 
 ## The Question
 
@@ -81,6 +82,15 @@ Implementation notes:
   is already playing.
 
 ## Step 2 — Real lookahead for rotation bowls
+
+**Shipped October 2026, in the people sheet only.** Three looks were mocked on
+the bowl page (avatars in a line, paper name slips, plain names) and Scott chose
+none of them: the order lives behind the people count instead, so the bowl
+page and the television stay as they were. The order comes from
+`get_bowl_rotation_queue`, not from the client -- returned and removed draws
+still count and the client cannot see them -- and it ties everyone never drawn
+for the front, each wearing the rotation slip. Previews pulled from the next
+contributors' titles were not built.
 
 Rotation already has deterministic lookahead and does not know it.
 `draw_bowl_movie_by_rotation` picks the contributor bucket with the oldest
