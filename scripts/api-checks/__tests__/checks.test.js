@@ -67,7 +67,7 @@ describe("api checks", () => {
 
     let calls = 0;
     const second = fakeFetch([["groq.com", () => (calls++ ? modelAnswer({ titles: [], people: [], genres: ["Comedy"], keywords: [] }) : json(503, {}))]]);
-    expect(await checkGroq(env, second)).toMatchObject({ ok: true });
+    expect(await checkGroq(env, second)).toMatchObject({ ok: true, detail: "openai/gpt-oss-120b answered: Comedy" });
 
     const blank = fakeFetch([["groq.com", json(200, { choices: [{ message: { content: "" } }] })]]);
     expect(await checkGroq(env, blank)).toMatchObject({ ok: false, detail: "answered with nothing usable" });

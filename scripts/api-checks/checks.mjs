@@ -8,9 +8,12 @@ import { getModelProviders, interpretDescription } from "../../api/_lib/describe
 
 const TIMEOUT_MS = 20000;
 
-// A description with an obvious answer: the check asks whether the model
-// answers at all, not whether it answers well. Scoring is eval:search's job.
-export const MODEL_QUERY = "the movie where a bear in a duffle coat is framed for stealing a pop-up book";
+// A description any working model turns into terms without having to know a
+// film: the check asks whether the model answers at all, not whether it
+// answers well. Scoring is eval:search's job. It used to be a scene from
+// Paddington 2, until on October 6, 2026 Groq's model answered it with an
+// empty search three runs in a row, and a quality call opened an outage issue.
+export const MODEL_QUERY = "90s korean thriller";
 
 const missing = (name, variables) => ({
   name,
@@ -87,8 +90,8 @@ async function checkModel(name, providerName, variables, env, fetchImpl) {
       explanation = null;
       const interpretation = await interpretDescription(MODEL_QUERY, { providers: [provider], fetchImpl: recordingFetch });
       if (interpretation) {
-        const titles = interpretation.titles.map((title) => title.title).join(", ");
-        return { name, ok: true, detail: `${provider.model} answered${titles ? `: ${titles}` : ""}` };
+        const terms = [...interpretation.titles.map((title) => title.title), ...interpretation.genres].join(", ");
+        return { name, ok: true, detail: `${provider.model} answered${terms ? `: ${terms}` : ""}` };
       }
     }
     if (failure) return { name, ok: false, detail: failure };
