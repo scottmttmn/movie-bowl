@@ -94,7 +94,8 @@ export default async function sendFeedback(req, res) {
     res.status(400).json({ error: "That is longer than we can take. Trim it a little." });
     return;
   }
-  const page = clip(body.page, LIMITS.page);
+  // The client already does this; an older or hand-made request may not.
+  const page = clip(body.page, LIMITS.page).replace(/^\/(accept-invite|add-to-bowl)\/[^/]+/, "/$1/:token");
   const device = clip(body.device, LIMITS.device);
   const build = clip(body.build, LIMITS.build);
 

@@ -126,6 +126,11 @@ describe("api/feedback", () => {
     expect(JSON.parse(fetchMock.mock.calls[0][1].body).subject).toBe("Movie Bowl error report: TypeError: boom");
   });
 
+  it("never stores an invite or add-link token from the page", async () => {
+    await handler(createRequest({ message: "hi", page: "/add-to-bowl/secret-token" }), createRes());
+    expect(rpcMock.mock.calls[0][1].p_page).toBe("/add-to-bowl/:token");
+  });
+
   it("passes the database's rate limit back without mailing", async () => {
     rpcMock.mockResolvedValue({ data: { ok: false, code: "rate_limited" }, error: null });
     const res = createRes();

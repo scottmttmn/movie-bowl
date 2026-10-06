@@ -20,9 +20,17 @@ describe("describeFeedbackContext", () => {
       innerWidth: 412,
       innerHeight: 915,
     });
-    expect(context.page).toBe("/accept-invite/abc");
+    expect(context.page).toBe("/accept-invite/:token");
     expect(context.device).toBe("TestPhone/1.0 · 412×915");
     expect(typeof context.build).toBe("string");
+  });
+
+  // Invite and guest add-link tokens are credentials, even in the path.
+  it("replaces the token in invite and add-link paths and leaves others alone", () => {
+    const pageOf = (pathname) => describeFeedbackContext({ location: { pathname } }).page;
+    expect(pageOf("/add-to-bowl/secret-token")).toBe("/add-to-bowl/:token");
+    expect(pageOf("/accept-invite/secret-token")).toBe("/accept-invite/:token");
+    expect(pageOf("/bowl/abc/settings")).toBe("/bowl/abc/settings");
   });
 });
 
