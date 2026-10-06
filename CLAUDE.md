@@ -354,7 +354,7 @@ because they are the atomic/permission-checked path:
 `get_bowl_filter_metadata`,
 `get_my_invite_sender_directory`, `accept_bowl_invite`,
 `create_bowl_invites`, `revoke_bowl_invite`, `draw_bowl_movie`,
-`draw_bowl_movie_by_rotation`, `return_bowl_draw_to_bowl`,
+`draw_bowl_movie_by_rotation`, `get_bowl_rotation_queue`, `return_bowl_draw_to_bowl`,
 `remove_bowl_draw_from_history`,
 `save_bowl_draw_access`, `save_bowl_draw_method`, `create_owned_bowl`,
 `transfer_owned_bowl`, `delete_owned_bowl`, `set_own_bowl_movie_pin`,
@@ -459,6 +459,10 @@ title within that contributor's pool. Returned draws still count. The database
 locks the bowl row and owns this choice so concurrent phone/TV draws cannot
 award the same turn twice. The ordinary draw RPC rejects rotation bowls to keep
 older cached clients from silently applying person-first behavior.
+`get_bowl_rotation_queue` reads that same ranking without drawing, so the people
+sheet can list a rotation bowl in turn order, with the rotation slip on whoever
+is next (on everyone still never drawn, who tie for it). It names
+people, never titles, carries no dates, and is never fed back into a draw.
 
 **Starter pack** slips are marked by `bowl_movies.starter_pack`, never by
 name, and are not a contributor: they join every person's pile and never take

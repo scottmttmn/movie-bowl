@@ -1006,6 +1006,40 @@ export class FakeBackend {
       return;
     }
 
+    // The same ranking the rotation draw uses -- never drawn first, then least
+    // recently drawn, a recorded turn before the slip's contributor -- with
+    // ties broken by key, as the database does for this read.
+    if (rpcName === "get_bowl_rotation_queue") {
+      const bowl = this.state.bowls.find((row) => row.id === args.p_bowl_id);
+      const bucketOf = (row) => {
+        if (row.starter_pack) return null;
+        if (row.added_by) return `user:${row.added_by}`;
+        const name = String(row.added_by_name || "").trim();
+        return name ? `guest:${name.toLowerCase()}` : "guest:Link Guest";
+      };
+      const candidates = new Set(args.p_candidate_movie_ids || []);
+      const buckets = bowl?.draw_method === "rotation"
+        ? [...new Set(this.state.bowl_movies
+          .filter((movie) => movie.bowl_id === args.p_bowl_id && !movie.drawn_at && candidates.has(movie.id))
+          .map(bucketOf)
+          .filter(Boolean))]
+        : [];
+      const lastDrawn = new Map();
+      this.state.bowl_draw_events
+        .filter((event) => event.bowl_id === args.p_bowl_id)
+        .forEach((event) => {
+          const key = event.turn_bucket_key || bucketOf(event);
+          if (!key) return;
+          if (!lastDrawn.has(key) || lastDrawn.get(key) < event.drawn_at) lastDrawn.set(key, event.drawn_at);
+        });
+      const rows = buckets
+        .map((key) => ({ bucket_key: key, never_drawn: !lastDrawn.has(key), at: lastDrawn.get(key) || "" }))
+        .sort((a, b) => (a.at === b.at ? a.bucket_key.localeCompare(b.bucket_key) : a.at < b.at ? -1 : 1))
+        .map(({ bucket_key, never_drawn }) => ({ bucket_key, never_drawn }));
+      await fulfillJson(route, rows);
+      return;
+    }
+
     if (rpcName === "return_bowl_draw_to_bowl") {
       const drawEvent = this.state.bowl_draw_events.find(
         (row) => row.id === args.p_draw_event_id

@@ -2,6 +2,8 @@ import { useCallback, useRef } from "react";
 import useModalFocus from "../hooks/useModalFocus";
 import FilmStripGlyph from "./FilmStripGlyph";
 import PeopleGlyph from "./PeopleGlyph";
+import DrawMethodMark from "./DrawMethodMark";
+import { sortRowsByTurn } from "../utils/rotationTurns";
 
 // The owner's mark: a badge on the corner of their initial, the way the
 // draw method's person badge sits on its slip.
@@ -36,13 +38,14 @@ function Initial({ children, dashed = false, tone = "idle", badge = null }) {
   );
 }
 
-function describeRow(row, showLeftOut, showCounts) {
+function describeRow(row, showLeftOut, showCounts, isNext) {
   const role = row.isOwner ? ", owner" : "";
   const you = row.isYou ? " (you)" : "";
-  if (!showCounts) return `${row.name}${you}${role}`;
+  const next = isNext ? ", up next" : "";
+  if (!showCounts) return `${row.name}${you}${role}${next}`;
   const movies = row.count === 1 ? "1 movie" : `${row.count} movies`;
   const leftOut = showLeftOut && row.isLeftOut ? ", left out by tonight's filters" : "";
-  return `${row.name}${you}${role}: ${movies} in the draw${leftOut}`;
+  return `${row.name}${you}${role}${next}: ${movies} in the draw${leftOut}`;
 }
 
 /**
@@ -52,6 +55,12 @@ function describeRow(row, showLeftOut, showCounts) {
  * into a reached/total ratio and that person is dimmed with an amber zero.
  * Until the filters' pool is known the counts are left off, the way the stat
  * line offers "Preview filter matches" instead of a number.
+ *
+ * On a rotation bowl `turns` puts the list in the order the next draws will
+ * reach people, and whoever is up next wears the rotation slip -- everyone
+ * tied for the next turn wears it, because chance decides between them. The
+ * list waits for that order rather than reshuffling under the reader when it
+ * arrives (`isOrderPending`); without one it keeps its usual order.
  */
 export default function BowlPeopleSheet({
   rows = [],
@@ -64,6 +73,8 @@ export default function BowlPeopleSheet({
   isOwner = false,
   onInvite,
   onClose,
+  turns = null,
+  isOrderPending = false,
 }) {
   const leftOutCount = reach ? reach.totalCount - reach.reachedCount : 0;
   const showReach = showLeftOut && leftOutCount > 0;
@@ -72,6 +83,8 @@ export default function BowlPeopleSheet({
   const invoker = useRef(document.activeElement);
   const getInvoker = useCallback(() => invoker.current, []);
   useModalFocus(dialog, { onEscape: onClose, getInvoker });
+  const isLoading = status === "loading" || (status === "ready" && isOrderPending);
+  const shownRows = isLoading ? [] : sortRowsByTurn(rows, turns);
 
   return (
     <div className="modal-overlay z-[70]" role="presentation" onClick={onClose}>
@@ -102,21 +115,23 @@ export default function BowlPeopleSheet({
         {status === "error" ? (
           <p className="mt-4 text-sm text-slate-400">Couldn&apos;t load who is in this bowl. Try again in a moment.</p>
         ) : (
-          <ul className="mt-3 divide-y divide-slate-800/80" aria-busy={status === "loading" || undefined}>
-            {status === "loading" && rows.length === 0 && Array.from({ length: Math.min(shownCount || 3, 6) }, (_, index) => (
+          <ul className="mt-3 divide-y divide-slate-800/80" aria-busy={isLoading || undefined}>
+            {isLoading && shownRows.length === 0 && Array.from({ length: Math.min(shownCount || 3, 6) }, (_, index) => (
               <li key={`placeholder-${index}`} className="flex items-center gap-3 py-2.5" aria-hidden="true">
                 <span className="skeleton-block h-9 w-9 rounded-full" />
                 <span className="skeleton-block h-4 w-28 rounded" />
               </li>
             ))}
-            {rows.map((row) => {
+            {shownRows.map((row) => {
               const isLeftOut = showLeftOut && row.isLeftOut;
+              const isNext = turns?.get(row.key) === 0;
               return (
                 <li
                   key={row.key}
                   className="flex items-center gap-3 py-2.5"
-                  aria-label={describeRow(row, showLeftOut, showCounts)}
+                  aria-label={describeRow(row, showLeftOut, showCounts, isNext)}
                   data-left-out={isLeftOut || undefined}
+                  data-up-next={isNext || undefined}
                 >
                   <span className={isLeftOut ? "opacity-50" : undefined}>
                     <Initial badge={row.isOwner ? <OwnerBadge /> : null}>{row.initial}</Initial>
@@ -125,6 +140,11 @@ export default function BowlPeopleSheet({
                     {row.name}
                     {row.isYou && <span className="font-normal text-slate-500"> (you)</span>}
                   </span>
+                  {isNext && (
+                    <span aria-hidden="true" className="shrink-0">
+                      <DrawMethodMark drawMethod="rotation" className="block h-7 w-7" />
+                    </span>
+                  )}
                   {showCounts && (
                     <span
                       aria-hidden="true"
