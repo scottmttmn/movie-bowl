@@ -2,7 +2,7 @@ import { supabase } from "./supabase";
 import { APP_BUILD_ID } from "../utils/appVersion";
 
 // Routes whose last segment is a credential: an invite or a guest add link.
-const TOKEN_ROUTES = /^\/(accept-invite|add-to-bowl)\/[^/]+/;
+const TOKEN_ROUTES = /^\/+(accept-invite|add-to-bowl)\/+[^/]+/i;
 
 // Exactly what the sheet says it sends: the page and the device. The path only,
 // never the query or hash, which can carry invite tokens and search text, and

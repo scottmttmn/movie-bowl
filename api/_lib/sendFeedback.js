@@ -96,7 +96,7 @@ export default async function sendFeedback(req, res) {
     return;
   }
   // The client already does this; an older or hand-made request may not.
-  const page = clip(body.page, LIMITS.page).replace(/^\/(accept-invite|add-to-bowl)\/[^/]+/, "/$1/:token");
+  const page = clip(body.page, LIMITS.page).replace(/^\/+(accept-invite|add-to-bowl)\/+[^/]+/i, "/$1/:token");
   const device = clip(body.device, LIMITS.device);
   const build = clip(body.build, LIMITS.build);
 
