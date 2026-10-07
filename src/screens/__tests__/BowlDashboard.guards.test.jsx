@@ -328,7 +328,7 @@ describe("BowlDashboard guards", () => {
 
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    expect(screen.getByRole("button", { name: /add to this bowl/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Add a movie to this bowl" })).toBeEnabled();
     expect(screen.queryByText(/lowest active member/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/draw odds/i)).not.toBeInTheDocument();
 
@@ -402,7 +402,7 @@ describe("BowlDashboard guards", () => {
   it("opens the shared add session for the viewed bowl", async () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
-    fireEvent.click(screen.getByRole("button", { name: /add to this bowl/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a movie to this bowl" }));
     expect(mocks.state.openBowlAdd).toHaveBeenCalledWith("bowl-1");
   });
 
@@ -760,7 +760,7 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    expect(screen.getByRole("button", { name: /add to this bowl/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Add a movie to this bowl" })).toBeEnabled();
   });
 
   it("keeps Add Movie open at the limit while a starter pack title can still be claimed", async () => {
@@ -774,7 +774,7 @@ describe("BowlDashboard guards", () => {
     };
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
-    expect(screen.getByRole("button", { name: /add to this bowl/i })).toBeEnabled();
+    expect(screen.getByRole("button", { name: "Add a movie to this bowl" })).toBeEnabled();
   });
 
   // The pack's titles are in every person's pile, so My Movies lists them for
@@ -1025,7 +1025,7 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    expect(screen.getByRole("button", { name: /add to this bowl/i })).toBeDisabled();
+    expect(screen.getByRole("button", { name: "Add a movie to this bowl" })).toBeDisabled();
     expect(
       screen.getByText(new RegExp(`undrawn movie limit \\(${MAX_UNDRAWN_MOVIES_PER_BOWL}\\)`, "i"))
     ).toBeInTheDocument();

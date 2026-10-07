@@ -19,7 +19,7 @@ test("a person's movies narrow to the viewer's services", async ({ page, backend
   backend.state.tmdbPersonOnServices = { 190: [1] };
   await backend.authenticate(page);
   await page.goto("/bowl/b1");
-  await page.getByRole("button", { name: "Add to this bowl" }).click();
+  await page.getByRole("button", { name: "Add a movie to this bowl" }).click();
   await page.getByPlaceholder("Movie, actor or director").fill("clint eastwood");
   await page.getByRole("button", { name: "Show Clint Eastwood’s movies" }).click();
   await expect(page.getByRole("button", { name: "Details for Letters from Iwo Jima" })).toBeVisible();
