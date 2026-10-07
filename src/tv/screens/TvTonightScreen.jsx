@@ -53,8 +53,8 @@ import useProviderLaunchError from "../hooks/useProviderLaunchError";
 import useTvSpatialNavigation from "../hooks/useTvSpatialNavigation";
 import {
   buildTrailerQueue,
-  readRecentTrailerKeys,
-  rememberTrailerKeys,
+  readRecentTrailers,
+  rememberTrailers,
 } from "../../utils/theaterQueue";
 import {
   clearExternalReturn,
@@ -757,7 +757,7 @@ export default function TvTonightScreen({ userId }) {
           eligibleMovieIds,
           excludeMovieId: drawnMovie.id,
           count: theaterTrailerCount,
-          recentKeys: readRecentTrailerKeys(),
+          recentTrailers: readRecentTrailers(),
           fetchTrailer: fetchMovieTrailer,
         })
       )
@@ -797,7 +797,7 @@ export default function TvTonightScreen({ userId }) {
   // previews suppressed for one extra movie night beats replaying them.
   const endTheater = useCallback(() => {
     setIsTheaterPlaying(false);
-    rememberTrailerKeys(trailerQueue.map((item) => item.trailer?.key));
+    rememberTrailers(trailerQueue);
   }, [trailerQueue]);
 
   const beginProviderLaunch = useCallback(() => {

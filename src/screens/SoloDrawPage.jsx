@@ -29,7 +29,7 @@ import {
   groupSoloCandidatesByTitle,
   getSoloDrawGroups,
 } from "../utils/soloDrawSelection";
-import { buildTrailerQueue, readRecentTrailerKeys, rememberTrailerKeys } from "../utils/theaterQueue";
+import { buildTrailerQueue, readRecentTrailers, rememberTrailers } from "../utils/theaterQueue";
 import { fetchMovieTrailer, resolveEligiblePreviewIds } from "../lib/theaterPreviews";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
@@ -352,12 +352,12 @@ export default function SoloDrawPage() {
         eligibleMovieIds: previewPool.eligibleMovieIds,
         excludeMovieId: drawn.id,
         count: theaterTrailerCount,
-        recentKeys: readRecentTrailerKeys(),
+        recentTrailers: readRecentTrailers(),
         fetchTrailer: fetchMovieTrailer,
       });
       if (queue.length === 0 || requestId !== theaterRequestRef.current) return;
 
-      rememberTrailerKeys(queue.map((entry) => entry.trailer?.key));
+      rememberTrailers(queue);
       setTrailerQueue(queue);
       setIsTheaterPlaying(true);
     } catch (error) {
