@@ -1186,7 +1186,7 @@ describe("BowlSettings integration", () => {
   });
 
   // The bowl page's "Change" lands here, after the section has rendered.
-  it("scrolls to the draw method when opened from the bowl page", async () => {
+  it("scrolls to and focuses the draw method when opened from the bowl page", async () => {
     const scrollIntoView = vi.fn();
     const original = Element.prototype.scrollIntoView;
     Element.prototype.scrollIntoView = scrollIntoView;
@@ -1195,6 +1195,7 @@ describe("BowlSettings integration", () => {
       await waitFor(() => expect(screen.getByLabelText(/person-first/i)).toBeInTheDocument());
       await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
       expect(scrollIntoView.mock.contexts.at(-1)).toBe(document.getElementById("drawing"));
+      expect(document.activeElement).toBe(document.getElementById("drawing"));
     } finally {
       Element.prototype.scrollIntoView = original;
     }

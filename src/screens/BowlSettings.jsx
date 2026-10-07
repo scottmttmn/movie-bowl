@@ -63,9 +63,14 @@ export default function BowlSettings() {
 
   // The bowl page's "Change" arrives on #drawing. The section only renders once
   // the bowl has loaded, so the browser's own anchor jump has nothing to land on.
+  // Focus moves with it, as in the section nav: the button that sent you here
+  // is gone, and focus left on the body tells a keyboard user nothing.
   useEffect(() => {
     if (isLoading || location.hash !== "#drawing") return;
-    document.getElementById("drawing")?.scrollIntoView({ block: "start" });
+    const section = document.getElementById("drawing");
+    if (!section) return;
+    section.focus({ preventScroll: true });
+    section.scrollIntoView({ block: "start" });
   }, [isLoading, location.hash]);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isDeletingBowl, setIsDeletingBowl] = useState(false);
