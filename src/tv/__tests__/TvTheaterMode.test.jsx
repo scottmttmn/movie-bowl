@@ -259,7 +259,12 @@ describe("TV theater mode", () => {
     ).toBeInTheDocument();
     expect(
       JSON.parse(window.localStorage.getItem("movie-bowl:tv:recent-trailers"))
-    ).toEqual(expect.arrayContaining(["dune", "tenet"]));
+    ).toEqual(
+      expect.arrayContaining([
+        { key: "dune", tmdbId: 202 },
+        { key: "tenet", tmdbId: 303 },
+      ])
+    );
   });
 
   it("previews a title the draw filters can still reach over one they exclude", async () => {

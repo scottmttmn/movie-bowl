@@ -28,8 +28,8 @@ import {
 } from "../../utils/soloDrawSelection";
 import {
   buildTrailerQueue,
-  readRecentTrailerKeys,
-  rememberTrailerKeys,
+  readRecentTrailers,
+  rememberTrailers,
 } from "../../utils/theaterQueue";
 import {
   getAutoStartMode,
@@ -305,7 +305,7 @@ export default function TvSoloDrawScreen({ userId }) {
   const endTheater = useCallback(() => {
     setIsTheaterPlaying(false);
     setIsTheaterPending(false);
-    rememberTrailerKeys(trailerQueue.map((item) => item.trailer?.key));
+    rememberTrailers(trailerQueue);
   }, [trailerQueue]);
 
   const closeReveal = useCallback(() => {
@@ -376,7 +376,7 @@ export default function TvSoloDrawScreen({ userId }) {
             eligibleMovieIds: previewPool.eligibleMovieIds,
             excludeMovieId: movie.id,
             count: theaterTrailerCount,
-            recentKeys: readRecentTrailerKeys(),
+            recentTrailers: readRecentTrailers(),
             fetchTrailer: fetchMovieTrailer,
           })
         );

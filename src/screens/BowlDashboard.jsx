@@ -27,7 +27,7 @@ import useUserStreamingServices from "../hooks/useUserStreamingServices";
 import useDeviceDrawSettings from "../hooks/useDeviceDrawSettings";
 import TheaterModeToggle from "../components/TheaterModeToggle";
 import TheaterPreroll from "../components/TheaterPreroll";
-import { buildTrailerQueue, readRecentTrailerKeys, rememberTrailerKeys } from "../utils/theaterQueue";
+import { buildTrailerQueue, readRecentTrailers, rememberTrailers } from "../utils/theaterQueue";
 import { fetchMovieTrailer, resolveEligiblePreviewIds } from "../lib/theaterPreviews";
 import { clampTheaterTrailerCount } from "../utils/drawSettings";
 import { WEB_SURFACE_DEFAULTS } from "../utils/deviceDrawSettings";
@@ -972,14 +972,14 @@ export default function BowlDashboard() {
           eligibleMovieIds,
           excludeMovieId: drawn.id,
           count: theaterTrailerCount,
-          recentKeys: readRecentTrailerKeys(),
+          recentTrailers: readRecentTrailers(),
           fetchTrailer: fetchMovieTrailer,
         });
         if (queue.length === 0 || requestId !== theaterRequestRef.current) return;
 
         // Recorded up front, including on an early exit: a few previews nobody
         // watched to the end are still previews this device has just shown.
-        rememberTrailerKeys(queue.map((entry) => entry.trailer?.key));
+        rememberTrailers(queue);
         setTrailerQueue(queue);
         setIsTheaterPlaying(true);
       } catch (error) {

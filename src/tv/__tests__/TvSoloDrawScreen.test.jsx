@@ -69,7 +69,7 @@ const mocks = vi.hoisted(() => ({
   fetchStreamingProviders: vi.fn(),
   resolveEligiblePreviewIds: vi.fn(),
   buildTrailerQueue: vi.fn(),
-  rememberTrailerKeys: vi.fn(),
+  rememberTrailers: vi.fn(),
 }));
 
 vi.mock("../../hooks/useSoloDrawPool", () => ({
@@ -167,8 +167,8 @@ vi.mock("../../lib/theaterPreviews", () => ({
 
 vi.mock("../../utils/theaterQueue", () => ({
   buildTrailerQueue: (...args) => mocks.buildTrailerQueue(...args),
-  readRecentTrailerKeys: () => [],
-  rememberTrailerKeys: (...args) => mocks.rememberTrailerKeys(...args),
+  readRecentTrailers: () => [],
+  rememberTrailers: (...args) => mocks.rememberTrailers(...args),
 }));
 
 vi.mock("../components/TvTheaterPreroll", () => ({
@@ -263,7 +263,7 @@ describe("TV solo draw", () => {
         trailer: { key: "preview-202", embedUrl: "https://www.youtube.com/embed/preview-202" },
       },
     ]);
-    mocks.rememberTrailerKeys.mockReset();
+    mocks.rememberTrailers.mockReset();
   });
 
   afterEach(() => {
