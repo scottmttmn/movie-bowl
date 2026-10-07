@@ -1211,6 +1211,41 @@
     box-shadow 140ms ease;
 }
 
+.draw-reveal-drawn-by {
+  position: absolute;
+  left: max(16px, 3%);
+  top: max(16px, 5%);
+  z-index: 30;
+  display: inline-flex;
+  max-width: calc(100% - 32px);
+  align-items: center;
+  gap: 0.45em;
+  padding: 0.4em 0.8em 0.4em 0.6em;
+  border-radius: 8px;
+  background: #f7f4ee;
+  color: #0f172a;
+  box-shadow: 0 6px 18px rgba(0, 0, 0, 0.55);
+  font-family: "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive;
+  font-size: 1.15rem;
+  font-weight: 700;
+  line-height: 1.1;
+  pointer-events: none;
+  transform: rotate(-2deg);
+}
+
+.draw-reveal-drawn-by > span {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.draw-reveal-drawn-by-glyph {
+  width: 1.1em;
+  height: 1.1em;
+  flex: none;
+  color: var(--color-accent);
+}
+
 .draw-reveal-card-name {
   max-width: 100%;
   overflow: hidden;

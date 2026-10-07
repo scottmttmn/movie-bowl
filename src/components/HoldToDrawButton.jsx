@@ -29,6 +29,11 @@ function buzz(ms) {
  * arrives as a click with `detail === 0` and goes to `onKeyboardActivate`,
  * which the caller routes to a confirm dialog — the same intent gate the hold
  * provides physically.
+ *
+ * `mark` -- the bowl page's lit television -- sits halfway between the end of
+ * the label and the button's edge, so the label stays centred and the mark
+ * never crowds either. It is decoration only: whatever it means belongs in
+ * `ariaLabel` too.
  */
 export default function HoldToDrawButton({
   onHoldComplete,
@@ -38,6 +43,7 @@ export default function HoldToDrawButton({
   ariaLabel = "Draw movie from bowl. Press and hold to draw.",
   disabled = false,
   isLoading = false,
+  mark = null,
 }) {
   // { scale, ms, easing } for the fill; a transition of 0 jumps.
   const [fill, setFill] = useState({ scale: 0, ms: 150, easing: "ease-out" });
@@ -137,7 +143,17 @@ export default function HoldToDrawButton({
           transition: fill.ms ? `transform ${fill.ms}ms ${fill.easing}` : "none",
         }}
       />
-      <span className="relative">{isLoading ? "Drawing..." : label}</span>
+      {mark && !isLoading ? (
+        <span className="relative grid w-full grid-cols-[1fr_auto_1fr] items-center">
+          <span aria-hidden="true" />
+          <span>{label}</span>
+          <span className="flex justify-center">{mark}</span>
+        </span>
+      ) : (
+        <span className="relative inline-flex items-center justify-center gap-2">
+          {isLoading ? "Drawing..." : label}
+        </span>
+      )}
     </button>
   );
 }

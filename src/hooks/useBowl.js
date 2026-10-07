@@ -223,6 +223,18 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         }
       }
 
+      const mappedDrawEvents = (drawEvents || []).map((event) => {
+        const eventWithProfile = attachContributorProfile(
+          event,
+          profileByUserId
+        );
+        return {
+          ...eventWithProfile,
+          drawEventId: event.id,
+          bowlMovieId: event.source_bowl_movie_id,
+        };
+      });
+
       setBowl((prev) => {
         const pendingRemaining = (prev.remaining || []).filter(
           (movie) => movie?.local_status === "syncing"
@@ -247,22 +259,15 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
           });
         });
 
-        const mappedDrawEvents = (drawEvents || []).map((event) => {
-          const eventWithProfile = attachContributorProfile(
-            event,
-            profileByUserId
-          );
-          return {
-            ...eventWithProfile,
-            drawEventId: event.id,
-            bowlMovieId: event.source_bowl_movie_id,
-          };
-        });
         return {
           remaining: sortByAddedAtAscending([...nextRemaining, ...mergedPending]),
           watched: mappedDrawEvents,
         };
       });
+      // The watched list this read settled on, for a caller that must act on
+      // it before the next render -- a draw announced from another screen is
+      // only played once this shows it happened.
+      return watchedError ? null : { watched: mappedDrawEvents };
     } catch (err) {
       if (sequence !== loadSequence.current) return;
       console.error("[useBowl] Unexpected error loading bowl movies", err);

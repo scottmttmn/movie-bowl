@@ -207,4 +207,12 @@ describe("DrawRevealStage", () => {
     expect(onPhaseChange).toHaveBeenCalledWith("gather");
     expect(onPhaseChange).toHaveBeenCalledWith("rise");
   });
+
+  it("names whoever drew on their phone, and nobody otherwise", () => {
+    const { update } = renderStage({ preview: preview("person_first"), previewAt: 0, drawnBy: "Robin" });
+    expect(document.querySelector("[data-testid='draw-reveal-drawn-by']")).toHaveTextContent("Robin");
+
+    update({ drawnBy: "" });
+    expect(document.querySelector("[data-testid='draw-reveal-drawn-by']")).toBeNull();
+  });
 });

@@ -381,6 +381,22 @@ describe("useBowl handleDraw integration", () => {
     );
   });
 
+  it("hands back the watched list a reload read, before the screen re-renders", async () => {
+    mocks.remainingQueue.push([], []);
+    mocks.watchedQueue.push([], [{ id: "event-9", source_bowl_movie_id: "m9", title: "Movie Z" }]);
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    let loaded;
+    await act(async () => {
+      loaded = await result.current.reload();
+    });
+    expect(loaded.watched).toEqual([
+      expect.objectContaining({ drawEventId: "event-9", bowlMovieId: "m9", title: "Movie Z" }),
+    ]);
+  });
+
   it("asks the database for active draws only, so no surface can differ", async () => {
     const activeDraw = {
       id: "draw-active",
