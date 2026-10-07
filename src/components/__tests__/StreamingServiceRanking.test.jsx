@@ -91,6 +91,44 @@ describe("StreamingServiceRanking", () => {
     expect(props.onReorder).not.toHaveBeenCalled();
   });
 
+  it("lets a taller wrapped row reach a shorter row at either end", () => {
+    const { props } = renderRanking(["Netflix", "The Criterion Channel", "Max"]);
+    const heights = [60, 104, 60];
+    const tops = [100, 168, 280];
+    screen.getAllByRole("listitem").forEach((row, index) => {
+      row.getBoundingClientRect = () => ({
+        top: tops[index], bottom: tops[index] + heights[index], height: heights[index], left: 0, right: 300, width: 300,
+      });
+    });
+    const handle = grip("The Criterion Channel");
+
+    fireEvent.pointerDown(handle, { pointerId: 1, button: 0, clientY: 220 });
+    fireEvent.pointerMove(handle, { pointerId: 1, clientY: -500 });
+    fireEvent.pointerUp(handle, { pointerId: 1 });
+    expect(props.onReorder).toHaveBeenLastCalledWith(["The Criterion Channel", "Netflix", "Max"]);
+
+    fireEvent.pointerDown(handle, { pointerId: 2, button: 0, clientY: 220 });
+    fireEvent.pointerMove(handle, { pointerId: 2, clientY: 2000 });
+    fireEvent.pointerUp(handle, { pointerId: 2 });
+    expect(props.onReorder).toHaveBeenLastCalledWith(["Netflix", "Max", "The Criterion Channel"]);
+  });
+
+  it("leaves focus alone after a key that cannot move the row", () => {
+    const onReorder = vi.fn();
+    const { rerender } = renderRanking(["Netflix", "Max"], { onReorder });
+
+    fireEvent.keyDown(grip("Netflix"), { key: "ArrowUp" });
+    fireEvent.keyDown(grip("Max"), { key: "End" });
+    expect(onReorder).not.toHaveBeenCalled();
+
+    const elsewhere = document.createElement("button");
+    document.body.append(elsewhere);
+    elsewhere.focus();
+    rerender(<StreamingServiceRanking services={["Netflix", "Max", "Hulu"]} onReorder={onReorder} onRemove={vi.fn()} />);
+    expect(elsewhere).toHaveFocus();
+    elsewhere.remove();
+  });
+
   it("ignores a secondary mouse button", () => {
     const { props } = renderRanking(["Netflix", "Max"]);
     const handle = grip("Max");

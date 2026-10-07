@@ -28,13 +28,14 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
 
   const moveTo = (service, toIndex) => {
     const fromIndex = services.indexOf(service);
-    if (fromIndex === -1 || toIndex === fromIndex) return;
-    if (toIndex < 0 || toIndex >= services.length) return;
+    if (fromIndex === -1 || toIndex === fromIndex) return false;
+    if (toIndex < 0 || toIndex >= services.length) return false;
     const next = [...services];
     next.splice(fromIndex, 1);
     next.splice(toIndex, 0, service);
     onReorder(next);
     setAnnouncement(`${service} moved to position ${toIndex + 1} of ${services.length}.`);
+    return true;
   };
 
   const targetIndexFor = (state, dy) => {
@@ -75,12 +76,14 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
   const updateDrag = (clientY) => {
     const state = dragRef.current;
     if (!state) return;
-    const first = state.rects[0];
-    const last = state.rects[state.rects.length - 1];
-    const own = state.rects[state.fromIndex];
+    const middle = (rect) => rect.top + rect.height / 2;
+    const own = middle(state.rects[state.fromIndex]);
     // Keep the lifted row within the list so it cannot be dropped off its end.
-    const minDy = first.top - own.top;
-    const maxDy = last.bottom - own.bottom;
+    // The bounds are the end rows' centres rather than their edges: a wrapped
+    // name makes a taller row, and edge bounds would stop its centre short of
+    // a shorter end row's, so the first or last place could never be reached.
+    const minDy = middle(state.rects[0]) - own;
+    const maxDy = middle(state.rects[state.rects.length - 1]) - own;
     const travelled = clientY - state.startY + (window.scrollY - state.startScrollY);
     const dy = Math.min(maxDy, Math.max(minDy, travelled));
     const next = { ...state, clientY, dy, toIndex: targetIndexFor(state, dy) };
@@ -138,8 +141,10 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
     if (event.key === "End") toIndex = services.length - 1;
     if (toIndex === null) return;
     event.preventDefault();
+    // Armed only for a real move: a no-op at either end changes nothing, and
+    // a stale request would pull focus back here on the next list change.
     pendingFocusRef.current = service;
-    moveTo(service, toIndex);
+    if (!moveTo(service, toIndex)) pendingFocusRef.current = null;
   };
 
   // Where each row sits while a drag is live: the lifted row follows the
