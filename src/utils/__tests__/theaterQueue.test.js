@@ -281,11 +281,12 @@ describe("theater queue", () => {
   it("records played trailers with their movie, most recent first, without duplicates", () => {
     const entry = (key, tmdbId) => ({ movieId: key, tmdbId, title: key, trailer: { key } });
     rememberTrailers([entry("dune", 202), entry("tenet", 303)]);
+    // A queue plays in order, so its last preview is the most recent.
     rememberTrailers([entry("her", 404), entry("dune", 202)]);
 
     expect(readRecentTrailers()).toEqual([
-      { key: "her", tmdbId: 404 },
       { key: "dune", tmdbId: 202 },
+      { key: "her", tmdbId: 404 },
       { key: "tenet", tmdbId: 303 },
     ]);
   });

@@ -43,6 +43,8 @@ export function rememberTrailers(queue) {
     incoming.push({ key, tmdbId: getPositiveTmdbId(entry.tmdbId) });
   });
   if (incoming.length === 0) return readRecentTrailers();
+  // The queue plays first to last, so its last entry is the most recent.
+  incoming.reverse();
 
   const retained = readRecentTrailers().filter((entry) => !incomingKeys.has(entry.key));
   const next = [...incoming, ...retained].slice(0, RECENT_TRAILER_LIMIT);
