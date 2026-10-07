@@ -397,6 +397,19 @@ describe("TV theater mode", () => {
     expect(player.playVideo).toHaveBeenCalledTimes(playsBefore + 1);
   });
 
+  it("starts a preview that never autoplayed when Select dismisses the announcement", async () => {
+    await drawWithTheaterMode();
+    await screen.findByRole("dialog", { name: /previews before arrival/i });
+    await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
+    const playsBefore = player.playVideo.mock.calls.length;
+
+    fireEvent.keyDown(window, { key: "Enter" });
+
+    expect(screen.queryByText(/before the feature/i)).toBeNull();
+    expect(player.playVideo).toHaveBeenCalledTimes(playsBefore + 1);
+    expect(player.pauseVideo).not.toHaveBeenCalled();
+  });
+
   it("does not hold the next preview when the first title fails during the announcement", async () => {
     await drawWithTheaterMode();
     await screen.findByRole("dialog", { name: /previews before arrival/i });

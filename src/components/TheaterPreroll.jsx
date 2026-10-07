@@ -289,7 +289,10 @@ export default function TheaterPreroll({
     if (!player) return;
     // Pressing during the announcement means start now, not pause.
     if (holdingRef.current) {
+      const wasHeld = heldRef.current;
       endAnnouncement();
+      // Nothing has played yet, so this press is the start gesture itself.
+      if (!wasHeld) player.playVideo?.();
       return;
     }
 
