@@ -256,13 +256,17 @@ describe("StreamingServiceRanking", () => {
     expect(rankShown("Hulu")).toBe("3");
   });
 
-  it("ignores a secondary mouse button", () => {
+  it("ignores a secondary mouse or pen button", () => {
     const { props } = renderRanking(["Netflix", "Max"]);
     const handle = grip("Max");
 
     fireEvent.pointerDown(handle, { pointerId: 1, button: 2, clientY: 200, pointerType: "mouse" });
     fireEvent.pointerMove(handle, { pointerId: 1, clientY: 0 });
     fireEvent.pointerUp(handle, { pointerId: 1, clientY: 0 });
+    // A pen's barrel button or eraser.
+    fireEvent.pointerDown(handle, { pointerId: 2, button: 5, clientY: 200, pointerType: "pen" });
+    fireEvent.pointerMove(handle, { pointerId: 2, clientY: 0 });
+    fireEvent.pointerUp(handle, { pointerId: 2, clientY: 0 });
 
     expect(props.onReorder).not.toHaveBeenCalled();
   });

@@ -62,7 +62,7 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
     // One finger owns a drag until it lifts; a second touch is ignored rather
     // than taking over a row mid-flight.
     if (dragRef.current) return;
-    if (event.button !== 0 && event.pointerType === "mouse") return;
+    if (event.button !== 0) return;
     // A second finger already down elsewhere -- a pinch, a two-finger pan, an
     // assistive gesture -- is never the start of a drag.
     if (event.isPrimary === false) return;
