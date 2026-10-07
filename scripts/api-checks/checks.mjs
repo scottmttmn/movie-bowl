@@ -5,6 +5,7 @@
 // Each check takes the environment and a fetch, and answers
 // { name, ok, detail }. None of them writes anything or sends an email.
 import { getModelProviders, interpretDescription } from "../../api/_lib/describedSearch.js";
+import { normalizeProviderLinks } from "../../api/_lib/providerLinks.js";
 
 const TIMEOUT_MS = 20000;
 
@@ -158,11 +159,72 @@ export async function checkStaging(env, fetchImpl = fetch) {
   }
 }
 
-export const CHECKS = [checkTmdb, checkGroq, checkCloudflare, checkResend, checkStaging];
+// The provider-link lookup fails quietly by design -- every surface falls back
+// to the service's search page -- so a dead key or a spent quota would never
+// show up as an error anyone sees. These ask Watchmode for one film the way
+// the app does and read the answer through the app's own normalizer, so a
+// change in Watchmode's shape fails here too. Each is a request the app's own
+// budget never counts, and like the app's it costs two credits (one to map the
+// TMDB id): about 35 requests a month, which PROVIDER_LINKS_MONTHLY_BUDGET has
+// to leave room for under the plan's limit.
+//
+// The films are ones that should not move: a Netflix original stays on
+// Netflix, and an old studio catalog title stays for rent. Streaming runs
+// daily; rent runs weekly to spend fewer credits.
+export const WATCHMODE_STREAMING_TITLE = { tmdbId: 661374, title: "Glass Onion", service: "Netflix" };
+export const WATCHMODE_RENT_TITLE = { tmdbId: 278, title: "The Shawshank Redemption" };
 
-export async function runChecks(env, fetchImpl = fetch) {
+async function checkWatchmode(name, tmdbId, title, describeMatch, env, fetchImpl) {
+  if (!env.WATCHMODE_API_KEY) return missing(name, ["WATCHMODE_API_KEY"]);
+  try {
+    const response = await fetchImpl(`https://api.watchmode.com/v1/title/movie-${tmdbId}/sources/?regions=US`, {
+      headers: { "X-API-Key": env.WATCHMODE_API_KEY },
+      signal: AbortSignal.timeout(TIMEOUT_MS),
+    });
+    const { text, json } = await readBody(response);
+    if (!response.ok) return { name, ok: false, detail: `HTTP ${response.status}: ${json?.statusMessage || json?.message || text.slice(0, 200)}` };
+    let links;
+    try {
+      links = normalizeProviderLinks(json);
+    } catch (error) {
+      return { name, ok: false, detail: `${error.message}: ${text.slice(0, 200)}` };
+    }
+    return describeMatch(links, title);
+  } catch (error) {
+    return { name, ok: false, detail: error.message };
+  }
+}
+
+export const checkWatchmodeStreaming = (env, fetchImpl = fetch) => {
+  const { tmdbId, title, service } = WATCHMODE_STREAMING_TITLE;
+  return checkWatchmode("Watchmode streaming link", tmdbId, title, (links) => {
+    const name = "Watchmode streaming link";
+    const link = links.find((entry) => entry.type === "sub" && entry.service === service && entry.webUrl);
+    return link
+      ? { name, ok: true, detail: `${title} on ${service}: ${link.webUrl}` }
+      : { name, ok: false, detail: `no ${service} link for ${title} (got ${describeLinks(links)})` };
+  }, env, fetchImpl);
+};
+
+export const checkWatchmodeRent = (env, fetchImpl = fetch) => {
+  const { tmdbId, title } = WATCHMODE_RENT_TITLE;
+  return checkWatchmode("Watchmode rent link", tmdbId, title, (links) => {
+    const name = "Watchmode rent link";
+    const stores = [...new Set(links.filter((entry) => entry.type === "rent" && entry.webUrl).map((entry) => entry.service))];
+    return stores.length
+      ? { name, ok: true, detail: `${title} for rent from ${stores.join(", ")}` }
+      : { name, ok: false, detail: `no rent link for ${title} (got ${describeLinks(links)})` };
+  }, env, fetchImpl);
+};
+
+const describeLinks = (links) => links.map((entry) => `${entry.service} ${entry.type}`).join(", ") || "nothing";
+
+export const CHECKS = [checkTmdb, checkGroq, checkCloudflare, checkResend, checkStaging, checkWatchmodeStreaming];
+export const WEEKLY_CHECKS = [checkWatchmodeRent];
+
+export async function runChecks(env, fetchImpl = fetch, { weekly = false } = {}) {
   const results = [];
-  for (const check of CHECKS) results.push(await check(env, fetchImpl));
+  for (const check of weekly ? [...CHECKS, ...WEEKLY_CHECKS] : CHECKS) results.push(await check(env, fetchImpl));
   return results;
 }
 
