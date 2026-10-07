@@ -52,18 +52,32 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
   };
 
   const handlePointerDown = (event, service, index) => {
+    // One finger owns a drag until it lifts; a second touch is ignored rather
+    // than taking over a row mid-flight.
+    if (dragRef.current) return;
     if (event.button !== 0 && event.pointerType === "mouse") return;
     const rows = [...(listRef.current?.querySelectorAll("[data-rank-row]") || [])];
     if (rows.length !== services.length) return;
     event.preventDefault();
     event.currentTarget.setPointerCapture?.(event.pointerId);
+    const rects = rows.map((row) => row.getBoundingClientRect());
+    const middle = (rect) => rect.top + rect.height / 2;
+    const own = middle(rects[index]);
     const state = {
+      pointerId: event.pointerId,
       service,
       fromIndex: index,
       startY: event.clientY,
       startScrollY: window.scrollY,
       clientY: event.clientY,
-      rects: rows.map((row) => row.getBoundingClientRect()),
+      rects,
+      // Keep the lifted row within the list so it cannot be dropped off its
+      // end. The bounds are the end rows' centres rather than their edges: a
+      // wrapped name makes a taller row, and edge bounds would stop its centre
+      // short of a shorter end row's, so the first or last place could never
+      // be reached.
+      minDy: middle(rects[0]) - own,
+      maxDy: middle(rects[rects.length - 1]) - own,
       dy: 0,
       toIndex: index,
     };
@@ -76,14 +90,7 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
   const updateDrag = (clientY) => {
     const state = dragRef.current;
     if (!state) return;
-    const middle = (rect) => rect.top + rect.height / 2;
-    const own = middle(state.rects[state.fromIndex]);
-    // Keep the lifted row within the list so it cannot be dropped off its end.
-    // The bounds are the end rows' centres rather than their edges: a wrapped
-    // name makes a taller row, and edge bounds would stop its centre short of
-    // a shorter end row's, so the first or last place could never be reached.
-    const minDy = middle(state.rects[0]) - own;
-    const maxDy = middle(state.rects[state.rects.length - 1]) - own;
+    const { minDy, maxDy } = state;
     const travelled = clientY - state.startY + (window.scrollY - state.startScrollY);
     const dy = Math.min(maxDy, Math.max(minDy, travelled));
     const next = { ...state, clientY, dy, toIndex: targetIndexFor(state, dy) };
@@ -91,8 +98,10 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
     setDrag(next);
   };
 
+  const ownsDrag = (event) => dragRef.current?.pointerId === event.pointerId;
+
   const handlePointerMove = (event) => {
-    if (!dragRef.current) return;
+    if (!ownsDrag(event)) return;
     updateDrag(event.clientY);
   };
 
@@ -105,9 +114,13 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
     const step = () => {
       const state = dragRef.current;
       if (!state) return;
+      // Only while the row can still travel that way: a row parked at either
+      // end of the list must not carry the page off with it.
       let delta = 0;
-      if (state.clientY < AUTO_SCROLL_EDGE_PX) delta = -AUTO_SCROLL_STEP_PX;
-      if (state.clientY > window.innerHeight - AUTO_SCROLL_EDGE_PX) delta = AUTO_SCROLL_STEP_PX;
+      if (state.clientY < AUTO_SCROLL_EDGE_PX && state.dy > state.minDy) delta = -AUTO_SCROLL_STEP_PX;
+      if (state.clientY > window.innerHeight - AUTO_SCROLL_EDGE_PX && state.dy < state.maxDy) {
+        delta = AUTO_SCROLL_STEP_PX;
+      }
       if (delta) {
         const before = window.scrollY;
         window.scrollBy(0, delta);
@@ -121,14 +134,16 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [isDragging]);
 
-  const finishDrag = () => {
+  const finishDrag = (event) => {
+    if (!ownsDrag(event)) return;
     const state = dragRef.current;
     dragRef.current = null;
     setDrag(null);
     if (state && state.toIndex !== state.fromIndex) moveTo(state.service, state.toIndex);
   };
 
-  const cancelDrag = () => {
+  const cancelDrag = (event) => {
+    if (!ownsDrag(event)) return;
     dragRef.current = null;
     setDrag(null);
   };

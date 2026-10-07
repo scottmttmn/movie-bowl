@@ -129,6 +129,22 @@ describe("StreamingServiceRanking", () => {
     elsewhere.remove();
   });
 
+  it("keeps a drag with the finger that started it", () => {
+    const { props } = renderRanking(["Netflix", "Max", "Hulu"]);
+
+    fireEvent.pointerDown(grip("Hulu"), { pointerId: 1, button: 0, clientY: 270, pointerType: "touch" });
+    fireEvent.pointerDown(grip("Netflix"), { pointerId: 2, button: 0, clientY: 130, pointerType: "touch" });
+    fireEvent.pointerMove(grip("Netflix"), { pointerId: 2, clientY: 400 });
+    fireEvent.pointerUp(grip("Netflix"), { pointerId: 2 });
+    expect(props.onReorder).not.toHaveBeenCalled();
+    expect(rankShown("Hulu")).toBe("3");
+
+    fireEvent.pointerMove(grip("Hulu"), { pointerId: 1, clientY: 0 });
+    fireEvent.pointerUp(grip("Hulu"), { pointerId: 1 });
+    expect(props.onReorder).toHaveBeenCalledTimes(1);
+    expect(props.onReorder).toHaveBeenCalledWith(["Hulu", "Netflix", "Max"]);
+  });
+
   it("ignores a secondary mouse button", () => {
     const { props } = renderRanking(["Netflix", "Max"]);
     const handle = grip("Max");
@@ -172,7 +188,8 @@ describe("StreamingServiceRanking", () => {
       window.scrollY = 0;
       renderRanking(["Netflix", "Max", "Hulu"]);
       const handle = grip("Netflix");
-      fireEvent.pointerDown(handle, { pointerId: 1, button: 0, clientY: 130 });
+      // Held near the bottom of the window with room left to travel down.
+      fireEvent.pointerDown(handle, { pointerId: 1, button: 0, clientY: window.innerHeight - 120 });
       fireEvent.pointerMove(handle, { pointerId: 1, clientY: window.innerHeight - 10 });
       act(() => vi.advanceTimersByTime(100));
       expect(scrollBy).toHaveBeenCalled();
@@ -180,6 +197,15 @@ describe("StreamingServiceRanking", () => {
       const calls = scrollBy.mock.calls.length;
       act(() => vi.advanceTimersByTime(100));
       expect(scrollBy.mock.calls.length).toBe(calls);
+
+      // A row already at the bottom of the list leaves the page where it is.
+      scrollBy.mockClear();
+      const last = grip("Hulu");
+      fireEvent.pointerDown(last, { pointerId: 2, button: 0, clientY: 270 });
+      fireEvent.pointerMove(last, { pointerId: 2, clientY: window.innerHeight - 10 });
+      act(() => vi.advanceTimersByTime(100));
+      expect(scrollBy).not.toHaveBeenCalled();
+      fireEvent.pointerUp(last, { pointerId: 2 });
     } finally {
       scrollBy.mockRestore();
       window.scrollY = 0;
