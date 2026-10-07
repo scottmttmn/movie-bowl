@@ -558,8 +558,9 @@ then a generic 500. They run in Node and are excluded from coverage; they are
   and `WATCHMODE_API_KEY` are set — which production has and a fresh checkout does
   not, so locally the links are absent rather than broken and every surface falls
   back to the service's search page. `PROVIDER_LINKS_MONTHLY_BUDGET` is enforced
-  atomically in Supabase (default 500 HTTP requests, currently 1,000 Watchmode
-  credits). Add and draw events warm the private cache; public adds do not.
+  atomically in Supabase (default 500 HTTP requests; production sets 1,200,
+  which at two credits each leaves about 100 of the plan's 2,500 monthly credits
+  for the scheduled API checks). Add and draw events warm the private cache; public adds do not.
   Rent and buy links are filed under the store that sells them
   (`utils/rentalStores.js`), not under a streaming service. Only the rent links
   are used, and only by the rent button a drawn movie offers when none of your
