@@ -17,6 +17,11 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
   const [drag, setDrag] = useState(null);
   const [announcement, setAnnouncement] = useState("");
   const pendingFocusRef = useRef(null);
+  // The grip is also a button: activating it -- a tap that never moved, Enter,
+  // a screen reader's double tap, a voice or switch command -- opens the moves
+  // below its row, for anyone who cannot slide a finger or press an arrow key.
+  const [menuFor, setMenuFor] = useState(null);
+  const suppressClickRef = useRef(false);
 
   useLayoutEffect(() => {
     const service = pendingFocusRef.current;
@@ -97,6 +102,7 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
     // Auto-scroll waits for this, so a press held still near a screen edge
     // stays a press and cannot drift the row into a move nobody made.
     const moved = state.moved || Math.abs(clientY - state.startY) >= DRAG_START_PX;
+    if (moved && !state.moved) setMenuFor(null);
     const next = { ...state, clientY, dy, moved, toIndex: targetIndexFor(state, dy) };
     dragRef.current = next;
     setDrag(next);
@@ -147,7 +153,31 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
     const state = dragRef.current;
     dragRef.current = null;
     setDrag(null);
+    // The click that follows a real drag is the end of the drag, not a tap.
+    if (state?.moved) suppressClickRef.current = true;
     if (state && state.toIndex !== state.fromIndex) moveTo(state.service, state.toIndex);
+  };
+
+  const handleGripClick = (service) => {
+    if (suppressClickRef.current) {
+      suppressClickRef.current = false;
+      return;
+    }
+    if (services.length < 2) return;
+    setMenuFor((current) => (current === service ? null : service));
+  };
+
+  const chooseMove = (service, toIndex) => {
+    setMenuFor(null);
+    pendingFocusRef.current = service;
+    if (!moveTo(service, toIndex)) pendingFocusRef.current = null;
+  };
+
+  const closeMenu = (service) => {
+    setMenuFor(null);
+    listRef.current
+      ?.querySelector(`[data-reorder-handle="${CSS.escape(service)}"]`)
+      ?.focus();
   };
 
   const cancelDrag = (event) => {
@@ -260,6 +290,9 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
                   onPointerCancel={cancelDrag}
                   onLostPointerCapture={cancelDrag}
                   onKeyDown={(event) => handleKeyDown(event, service, index)}
+                  onClick={() => handleGripClick(service)}
+                  aria-expanded={menuFor === service}
+                  aria-controls={menuFor === service ? `reorder-moves-${index}` : undefined}
                   aria-label={`Reorder ${service}, position ${index + 1} of ${services.length}`}
                   title="Drag to reorder"
                   className={`inline-flex h-11 w-11 shrink-0 touch-none select-none items-center justify-center rounded-lg transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-400 ${
@@ -276,6 +309,36 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
                   </svg>
                 </button>
               </div>
+              {menuFor === service && !drag && (
+                <div
+                  id={`reorder-moves-${index}`}
+                  role="group"
+                  aria-label={`Move ${service}`}
+                  onKeyDown={(event) => {
+                    if (event.key === "Escape") closeMenu(service);
+                  }}
+                  className="mt-1 flex flex-wrap justify-end gap-1"
+                >
+                  {[
+                    { label: "Top", name: `Move ${service} to the top`, to: 0, show: index > 0 },
+                    { label: "Up", name: `Move ${service} up`, to: index - 1, show: index > 1 },
+                    { label: "Down", name: `Move ${service} down`, to: index + 1, show: index < services.length - 2 },
+                    { label: "Bottom", name: `Move ${service} to the bottom`, to: services.length - 1, show: index < services.length - 1 },
+                  ]
+                    .filter((move) => move.show)
+                    .map((move) => (
+                      <button
+                        key={move.label}
+                        type="button"
+                        className="btn btn-ghost px-3 py-1.5 text-sm"
+                        aria-label={move.name}
+                        onClick={() => chooseMove(service, move.to)}
+                      >
+                        {move.label}
+                      </button>
+                    ))}
+                </div>
+              )}
             </li>
           );
         })}

@@ -184,6 +184,48 @@ describe("StreamingServiceRanking", () => {
     expect(onReorder).toHaveBeenCalledWith(["Max", "Hulu", "Netflix"]);
   });
 
+  it("opens the moves when the grip is activated, for anyone who cannot drag or use arrow keys", () => {
+    const onReorder = vi.fn();
+    const { rerender } = renderRanking(["Netflix", "Max", "Hulu", "Prime Video"], { onReorder });
+
+    fireEvent.click(grip("Hulu"));
+    expect(grip("Hulu")).toHaveAttribute("aria-expanded", "true");
+    const moves = screen.getByRole("group", { name: "Move Hulu" });
+    expect(within(moves).getAllByRole("button").map((button) => button.getAttribute("aria-label"))).toEqual([
+      "Move Hulu to the top",
+      "Move Hulu up",
+      "Move Hulu to the bottom",
+    ]);
+
+    fireEvent.click(within(moves).getByRole("button", { name: "Move Hulu up" }));
+    expect(onReorder).toHaveBeenCalledWith(["Netflix", "Hulu", "Max", "Prime Video"]);
+    expect(screen.queryByRole("group", { name: "Move Hulu" })).toBeNull();
+    rerender(<StreamingServiceRanking services={["Netflix", "Hulu", "Max", "Prime Video"]} onReorder={onReorder} onRemove={vi.fn()} />);
+    expect(grip("Hulu")).toHaveFocus();
+
+    // Escape closes it and hands focus back to the grip.
+    fireEvent.click(grip("Max"));
+    fireEvent.keyDown(screen.getByRole("button", { name: "Move Max to the top" }), { key: "Escape" });
+    expect(screen.queryByRole("group", { name: "Move Max" })).toBeNull();
+    expect(grip("Max")).toHaveFocus();
+  });
+
+  it("does not open the moves at the end of a real drag", () => {
+    renderRanking(["Netflix", "Max", "Hulu"]);
+    const handle = grip("Hulu");
+    fireEvent.pointerDown(handle, { pointerId: 1, button: 0, clientY: 270 });
+    fireEvent.pointerMove(handle, { pointerId: 1, clientY: 250 });
+    fireEvent.pointerUp(handle, { pointerId: 1, clientY: 250 });
+    fireEvent.click(handle);
+    expect(screen.queryByRole("group", { name: "Move Hulu" })).toBeNull();
+
+    // A tap that never moved is an activation.
+    fireEvent.pointerDown(handle, { pointerId: 2, button: 0, clientY: 270 });
+    fireEvent.pointerUp(handle, { pointerId: 2, clientY: 270 });
+    fireEvent.click(handle);
+    expect(screen.getByRole("group", { name: "Move Hulu" })).toBeInTheDocument();
+  });
+
   it("ignores a secondary mouse button", () => {
     const { props } = renderRanking(["Netflix", "Max"]);
     const handle = grip("Max");
