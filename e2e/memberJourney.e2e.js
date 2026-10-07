@@ -170,6 +170,6 @@ test("a first draw adds a subscription service to the profile and remembers it a
   await page.screenshot({ path: test.info().outputPath("saved-service.png") });
   await page.goto("/settings#streaming-services");
   await page.reload();
-  await expect(page.getByRole("combobox", { name: "Position of Max", exact: true })).toHaveValue("0");
+  await expect(page.getByRole("button", { name: "Reorder Max, position 1 of 1", exact: true })).toBeVisible();
   expect(consoleErrors).toEqual([]);
 });
