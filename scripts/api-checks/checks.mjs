@@ -165,7 +165,8 @@ export async function checkStaging(env, fetchImpl = fetch) {
 // the app does and read the answer through the app's own normalizer, so a
 // change in Watchmode's shape fails here too. Each is a request the app's own
 // budget never counts, and like the app's it costs two credits (one to map the
-// TMDB id), so PROVIDER_LINKS_MONTHLY_BUDGET leaves about 35 requests for them.
+// TMDB id): about 35 requests a month, which PROVIDER_LINKS_MONTHLY_BUDGET has
+// to leave room for under the plan's limit.
 //
 // The films are ones that should not move: a Netflix original stays on
 // Netflix, and an old studio catalog title stays for rent. Streaming runs
