@@ -163,9 +163,9 @@ export async function checkStaging(env, fetchImpl = fetch) {
 // to the service's search page -- so a dead key or a spent quota would never
 // show up as an error anyone sees. These ask Watchmode for one film the way
 // the app does and read the answer through the app's own normalizer, so a
-// change in Watchmode's shape fails here too. Each spends a Watchmode credit
-// the app's own budget counter never sees, which is why
-// PROVIDER_LINKS_MONTHLY_BUDGET is set a little under the plan's limit.
+// change in Watchmode's shape fails here too. Each is a request the app's own
+// budget never counts, and like the app's it costs two credits (one to map the
+// TMDB id), so PROVIDER_LINKS_MONTHLY_BUDGET leaves about 35 requests for them.
 //
 // The films are ones that should not move: a Netflix original stays on
 // Netflix, and an old studio catalog title stays for rent. Streaming runs
