@@ -249,7 +249,20 @@ async function serveImageFixtures(page) {
   });
 }
 
-export async function setup({ page, projectRoot }) {
+// The fake counts only the Playwright suite's own port as the app, and answers
+// any other origin with a 501 -- which, from #160 on, was this capture's page
+// itself, on a port of its own so the two can run at once. Registered after
+// the fake, so Playwright matches it first; /api/* still reaches the fake.
+async function passCaptureServerThrough(page, baseURL) {
+  if (!baseURL) return;
+  const { origin } = new URL(baseURL);
+  await page.route(
+    (url) => url.origin === origin && !url.pathname.startsWith("/api/"),
+    (route) => route.continue(),
+  );
+}
+
+export async function setup({ page, projectRoot, baseURL }) {
   const fake = await loadFakeBackendForCapture(projectRoot);
   // Commits before the fake backend existed should keep the honest signed-out
   // view. Borrowing today's fake would invent an API those commits never had.
@@ -258,6 +271,7 @@ export async function setup({ page, projectRoot }) {
   const backend = new FakeBackend();
   seed(backend, DEFAULT_USER);
   await backend.install(page);
+  await passCaptureServerThrough(page, baseURL);
   await backend.authenticate(page);
   await serveImageFixtures(page);
 }

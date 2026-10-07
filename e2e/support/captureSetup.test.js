@@ -93,4 +93,43 @@ describe("visual-history capture setup", () => {
       expect(fulfilled.body).not.toContain("The Long Goodbye");
     });
   });
+
+  describe("the capture's own server", () => {
+    async function captureRoute(baseURL) {
+      const handlers = [];
+      const page = {
+        on() {},
+        route: (pattern, handler) => {
+          handlers.push({ pattern, handler });
+        },
+        addInitScript() {},
+      };
+      await setup({ page, baseURL });
+      // Playwright tries the most recently registered route first.
+      return (href) => handlers.slice().reverse().find((entry) => {
+        const url = new URL(href);
+        return typeof entry.pattern === "function"
+          ? entry.pattern(url)
+          : entry.pattern === "**/*";
+      });
+    }
+
+    // From #160 the fake answered every origin but the Playwright suite's with
+    // a 501, so every capture on the visual history's own port was an error page.
+    it("lets the app's pages through on the capture port", async () => {
+      const routeFor = await captureRoute("http://127.0.0.1:4183");
+      const entry = routeFor("http://127.0.0.1:4183/bowls");
+      let continued = false;
+      await entry.handler({ continue: () => { continued = true; } });
+
+      expect(typeof entry.pattern).toBe("function");
+      expect(continued).toBe(true);
+    });
+
+    it("still sends the app's API to the fake", async () => {
+      const routeFor = await captureRoute("http://127.0.0.1:4183");
+
+      expect(routeFor("http://127.0.0.1:4183/api/tmdb/search").pattern).toBe("**/*");
+    });
+  });
 });
