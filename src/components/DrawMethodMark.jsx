@@ -12,7 +12,8 @@ import { getDrawMethod } from "../utils/drawMethods";
  * phone size, where a person printed small on the slip did not.
  *
  * Shared by the television and the bowl page so both say the same thing about
- * the same bowl. `tvLabel` carries the meaning for anyone who cannot see it.
+ * the same bowl. `tvLabel` carries the meaning for anyone who cannot see it,
+ * unless `decorative` says the method is already named in text beside it.
  */
 const SHUFFLE = (
   <>
@@ -34,7 +35,7 @@ const MARKS = {
   title_first: { glyph: SHUFFLE, personFirst: false },
 };
 
-export default function DrawMethodMark({ drawMethod, className = "" }) {
+export default function DrawMethodMark({ drawMethod, className = "", decorative = false }) {
   const method = getDrawMethod(drawMethod);
   const mark = MARKS[method.id];
   // A method the registry knows but this file has no mark for would otherwise
@@ -45,8 +46,9 @@ export default function DrawMethodMark({ drawMethod, className = "" }) {
     <svg
       className={className}
       viewBox="0 0 24 24"
-      role="img"
-      aria-label={method.tvLabel}
+      role={decorative ? undefined : "img"}
+      aria-label={decorative ? undefined : method.tvLabel}
+      aria-hidden={decorative || undefined}
       data-method={method.id}
       fill="none"
       stroke="currentColor"

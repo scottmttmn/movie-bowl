@@ -1,10 +1,11 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import { Link, useNavigate, useParams } from "react-router-dom";
+import { Link, useLocation, useNavigate, useParams } from "react-router-dom";
 import AutosaveStatus from "../components/AutosaveStatus";
 import CopyButton from "../components/CopyButton";
 import SettingsSectionNav from "../components/SettingsSectionNav";
 import StarterPackSection from "../components/StarterPackSection";
 import BowlServiceChart from "../components/BowlServiceChart";
+import DrawMethodMark from "../components/DrawMethodMark";
 import useAutosave, { valuesAreEqual } from "../hooks/useAutosave";
 import { supabase } from "../lib/supabase";
 import { startRead } from "../utils/startRead";
@@ -33,6 +34,7 @@ const ADD_LINK_COLUMNS =
 export default function BowlSettings() {
   const { bowlId } = useParams();
   const navigate = useNavigate();
+  const location = useLocation();
 
   const leaveBowlList = (userId) => {
     notifyBowlChange({ userId, bowlId });
@@ -58,6 +60,18 @@ export default function BowlSettings() {
   const [editingAddLinkNames, setEditingAddLinkNames] = useState({});
 
   const [isLoading, setIsLoading] = useState(true);
+
+  // The bowl page's "Change" arrives on #drawing. The section only renders once
+  // the bowl has loaded, so the browser's own anchor jump has nothing to land on.
+  // Focus moves with it, as in the section nav: the button that sent you here
+  // is gone, and focus left on the body tells a keyboard user nothing.
+  useEffect(() => {
+    if (isLoading || location.hash !== "#drawing") return;
+    const section = document.getElementById("drawing");
+    if (!section) return;
+    section.focus({ preventScroll: true });
+    section.scrollIntoView({ block: "start" });
+  }, [isLoading, location.hash]);
   const [deleteConfirmText, setDeleteConfirmText] = useState("");
   const [isDeletingBowl, setIsDeletingBowl] = useState(false);
   const [transferOwnerId, setTransferOwnerId] = useState("");
@@ -838,6 +852,7 @@ export default function BowlSettings() {
                               checked={isSelected}
                               onChange={(e) => setDrawMethod(e.target.value)}
                             />
+                            <DrawMethodMark drawMethod={method.id} className="h-9 w-9 shrink-0" decorative />
                             <span className="min-w-0">
                               <span className="block text-sm font-semibold text-slate-100">{method.label}</span>
                               <span className="mt-0.5 block text-xs text-slate-400">{method.description}</span>
@@ -848,10 +863,13 @@ export default function BowlSettings() {
                     </div>
                   </>
                 ) : (
-                  <div className="surface-card mt-2 p-3">
-                    <p className="text-sm font-semibold text-slate-100">{drawMethodDetail.label}</p>
-                    <p className="mt-1 text-sm text-slate-400">{drawMethodDetail.description}</p>
-                    <p className="mt-2 text-xs text-slate-500">Only the bowl owner can change this.</p>
+                  <div className="surface-card mt-2 flex items-start gap-3 p-3">
+                    <DrawMethodMark drawMethod={drawMethodDetail.id} className="h-9 w-9 shrink-0" decorative />
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold text-slate-100">{drawMethodDetail.label}</p>
+                      <p className="mt-1 text-sm text-slate-400">{drawMethodDetail.description}</p>
+                      <p className="mt-2 text-xs text-slate-500">Only the bowl owner can change this.</p>
+                    </div>
                   </div>
                 )}
               </div>

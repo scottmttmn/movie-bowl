@@ -1,7 +1,6 @@
 import { cleanup, fireEvent, render, screen } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import DrawMethodInfoModal from "../DrawMethodInfoModal";
-import { getDrawMethod } from "../../utils/drawMethods";
 
 const FULL_REACH = { totalCount: 3, reachedCount: 3, excludedNames: [] };
 
@@ -15,7 +14,7 @@ describe("DrawMethodInfoModal", () => {
 
     const steps = screen.getAllByRole("listitem");
     expect(steps).toHaveLength(2);
-    expect(steps[0]).toHaveTextContent("A person, at random");
+    expect(steps[0]).toHaveTextContent("Random person · equal odds");
     expect(steps[1]).toHaveTextContent("One of their movies");
     // Pins live under step two, which is what makes "pinning never changes who
     // is selected" visible without a sentence saying so.
@@ -23,14 +22,26 @@ describe("DrawMethodInfoModal", () => {
     expect(steps[1]).toHaveTextContent(/favorite/i);
   });
 
-  it("carries a footnote only where the method needs one", () => {
+  it("is headed by the method it describes", () => {
     const { unmount } = render(<DrawMethodInfoModal drawMethod="person_first" onClose={() => {}} />);
-    expect(screen.queryByText(getDrawMethod("title_first").footnote)).not.toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Person-first draw" })).toBeInTheDocument();
+    expect(screen.getByRole("dialog").querySelector('[data-method="person_first"]')).not.toBeNull();
     unmount();
 
     render(<DrawMethodInfoModal drawMethod="title_first" onClose={() => {}} />);
+    expect(screen.getByRole("dialog", { name: "Title-first draw" })).toBeInTheDocument();
     expect(screen.getAllByRole("listitem")).toHaveLength(1);
-    expect(screen.getByText(getDrawMethod("title_first").footnote)).toBeInTheDocument();
+  });
+
+  it("offers the way to change the method only when given one", () => {
+    const { unmount } = render(<DrawMethodInfoModal drawMethod="person_first" onClose={() => {}} />);
+    expect(screen.queryByRole("button", { name: "Change" })).not.toBeInTheDocument();
+    unmount();
+
+    const onChange = vi.fn();
+    render(<DrawMethodInfoModal drawMethod="person_first" onChange={onChange} onClose={() => {}} />);
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
+    expect(onChange).toHaveBeenCalledTimes(1);
   });
 
   it("stays quiet when every contributor is still reachable", () => {
@@ -38,7 +49,7 @@ describe("DrawMethodInfoModal", () => {
       <DrawMethodInfoModal drawMethod="person_first" contributorReach={FULL_REACH} onClose={() => {}} />
     );
 
-    expect(screen.getByText("How this bowl picks")).toBeInTheDocument();
+    expect(screen.getByRole("dialog", { name: "Person-first draw" })).toBeInTheDocument();
     expect(screen.queryByText(/left out/i)).not.toBeInTheDocument();
   });
 
@@ -116,7 +127,7 @@ describe("DrawMethodInfoModal", () => {
       />
     );
 
-    expect(screen.getAllByRole("listitem")[0]).toHaveTextContent("Whoever has waited longest");
+    expect(screen.getAllByRole("listitem")[0]).toHaveTextContent("People take turns");
     expect(screen.getByText(/They rejoin when one of their movies is eligible again\./)).toBeInTheDocument();
   });
 

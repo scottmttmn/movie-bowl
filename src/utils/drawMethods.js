@@ -58,10 +58,11 @@ const PERSON_FIRST = {
     "Picks a person at random, then one of their movies. Everyone is equally likely, no matter how many movies they added.",
   // Steps rather than a paragraph: the mechanism is two ordered choices, and
   // showing them as two makes the promise legible without spelling it out --
-  // pins appear only under step two, so they visibly cannot change who is picked.
+  // favorites appear only under step two, so they visibly cannot change who is
+  // picked. Each step leads with an icon; the note is a phrase, never a sentence.
   steps: [
-    { title: "A person, at random", note: "Everyone equally likely, however many movies they added" },
-    { title: "One of their movies", note: "Their favorite if they picked one" },
+    { icon: "person", title: "Random person", note: "equal odds" },
+    { icon: "favorite", title: "One of their movies", note: "favorite first" },
   ],
   // Equal odds are a promise about people, so a filter that removes everything
   // one person added quietly removes them from the draw. Say so.
@@ -85,11 +86,10 @@ const TITLE_FIRST = {
   label: "Title-first",
   tvLabel: "Title-first random draw",
   description:
-    "Picks a title at random from the whole bowl. Adding more movies means more chances to be drawn.",
+    "Picks a title at random from the whole bowl.",
   steps: [
-    { title: "One title, at random", note: "From the whole bowl, so more movies means more chances" },
+    { icon: "slip", title: "Random movie", note: "more movies, more chances" },
   ],
-  footnote: "Favorites do nothing here — there is no per-person step to apply them to.",
   revealPending: "Picking one title from the whole bowl",
   bucketsByContributor: false,
   reachCaveat: "",
@@ -106,12 +106,11 @@ const ROTATION = {
   label: "Rotation",
   tvLabel: "Contributor rotation",
   description:
-    "Picks someone who has waited longest, then randomly chooses one of their eligible movies.",
+    "Picks whoever has waited longest, then randomly chooses one of their eligible movies.",
   steps: [
-    { title: "Whoever has waited longest", note: "Never drawn goes first, then least recently drawn. Ties are random." },
-    { title: "One of their movies", note: "Their favorite if they picked one" },
+    { icon: "turns", title: "People take turns" },
+    { icon: "favorite", title: "One of their movies", note: "favorite first" },
   ],
-  footnote: "Returning a movie does not reset the turn.",
   revealPending: "Finding whoever has waited longest",
   bucketsByContributor: true,
   reachCaveat: "They rejoin when one of their movies is eligible again.",

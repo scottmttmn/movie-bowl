@@ -332,18 +332,22 @@ describe("BowlDashboard guards", () => {
     expect(screen.queryByText(/lowest active member/i)).not.toBeInTheDocument();
     expect(screen.queryByText(/draw odds/i)).not.toBeInTheDocument();
 
-    expect(screen.queryByText(/everyone equally likely/i)).not.toBeInTheDocument();
+    expect(screen.queryByText("Random person")).not.toBeInTheDocument();
 
     fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks:/i }));
 
-    expect(screen.getByText(/everyone equally likely/i)).toBeInTheDocument();
+    expect(screen.getByText("Random person")).toBeInTheDocument();
     expect(mocks.state.useBowlOptions).toEqual({ drawMethod: "person_first" });
+
+    // The owner can go straight to the setting from here.
+    fireEvent.click(screen.getByRole("button", { name: "Change" }));
+    expect(mocks.state.navigate).toHaveBeenCalledWith("/bowl/bowl-1/settings#drawing");
   });
 
   it("explains a title-first bowl with title-first copy and draws that way", async () => {
     mocks.state.bowlRow = {
       name: "Bowl 1",
-      owner_id: "u1",
+      owner_id: "someone-else",
       draw_access_mode: "all_members",
       draw_method: "title_first",
     };
@@ -357,11 +361,13 @@ describe("BowlDashboard guards", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks:/i }));
 
-    expect(screen.getByText(/one title, at random/i)).toBeInTheDocument();
-    expect(screen.queryByText(/everyone equally likely/i)).not.toBeInTheDocument();
+    expect(screen.getByText("Random movie")).toBeInTheDocument();
+    expect(screen.queryByText("Random person")).not.toBeInTheDocument();
+    // Only the owner can change the method, so a member is not offered it.
+    expect(screen.queryByRole("button", { name: "Change" })).not.toBeInTheDocument();
   });
 
-  it("passes rotation into the shared draw hook and explains the turn history", async () => {
+  it("passes rotation into the shared draw hook and explains the turns", async () => {
     mocks.state.bowlRow = {
       name: "Bowl 1",
       owner_id: "u1",
@@ -378,8 +384,7 @@ describe("BowlDashboard guards", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks:/i }));
 
-    expect(screen.getByText(/whoever has waited longest/i)).toBeInTheDocument();
-    expect(screen.getByText(/returning a movie does not reset the turn/i)).toBeInTheDocument();
+    expect(screen.getByText("People take turns")).toBeInTheDocument();
   });
 
   it("falls back to person-first when the draw_method column is missing", async () => {
@@ -396,7 +401,7 @@ describe("BowlDashboard guards", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^how this bowl picks:/i }));
 
-    expect(screen.getByText(/everyone equally likely/i)).toBeInTheDocument();
+    expect(screen.getByText("Random person")).toBeInTheDocument();
   });
 
   it("opens the shared add session for the viewed bowl", async () => {
