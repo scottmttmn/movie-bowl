@@ -1735,6 +1735,7 @@ return (
               <DrawMethodInfoModal
                 drawMethod={drawMethod}
                 contributorReach={drawPoolContributorReach}
+                onChange={isCurrentUserOwner ? () => navigate(`/bowl/${bowlId}/settings#drawing`) : null}
                 onClose={() => setShowMethodInfo(false)}
               />
             )}

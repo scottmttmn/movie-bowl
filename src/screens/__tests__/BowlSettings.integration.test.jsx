@@ -604,8 +604,8 @@ import { MemoryRouter } from "react-router-dom";
 import BowlSettings from "../BowlSettings";
 
 // BowlSettings links into the Invitations hub, so it needs router context.
-function renderSettings() {
-  return render(<MemoryRouter><BowlSettings /></MemoryRouter>);
+function renderSettings(initialEntry = "/bowl/bowl-1/settings") {
+  return render(<MemoryRouter initialEntries={[initialEntry]}><BowlSettings /></MemoryRouter>);
 }
 
 describe("BowlSettings integration", () => {
@@ -1177,6 +1177,27 @@ describe("BowlSettings integration", () => {
     expect(screen.getByLabelText(/person-first/i)).toBeChecked();
     expect(screen.getByLabelText(/title-first/i)).not.toBeChecked();
     expect(screen.queryByRole("button", { name: /save draw method/i })).not.toBeInTheDocument();
+    // Each choice wears the mark the bowl page shows for it; the label already
+    // names the method, so the mark stays out of the accessible name.
+    const drawing = document.getElementById("drawing");
+    ["person_first", "title_first", "rotation"].forEach((id) => {
+      expect(drawing.querySelector(`[data-method="${id}"]`)).toHaveAttribute("aria-hidden", "true");
+    });
+  });
+
+  // The bowl page's "Change" lands here, after the section has rendered.
+  it("scrolls to the draw method when opened from the bowl page", async () => {
+    const scrollIntoView = vi.fn();
+    const original = Element.prototype.scrollIntoView;
+    Element.prototype.scrollIntoView = scrollIntoView;
+    try {
+      renderSettings("/bowl/bowl-1/settings#drawing");
+      await waitFor(() => expect(screen.getByLabelText(/person-first/i)).toBeInTheDocument());
+      await waitFor(() => expect(scrollIntoView).toHaveBeenCalled());
+      expect(scrollIntoView.mock.contexts.at(-1)).toBe(document.getElementById("drawing"));
+    } finally {
+      Element.prototype.scrollIntoView = original;
+    }
   });
 
   it("owner can switch the bowl to title-first with autosave", async () => {

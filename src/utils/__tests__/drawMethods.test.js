@@ -47,7 +47,7 @@ describe("normalizeDrawMethod", () => {
       expect(method.steps.length).toBeGreaterThan(0);
       method.steps.forEach((step) => {
         expect(step.title).toBeTruthy();
-        expect(step.note).toBeTruthy();
+        expect(["person", "turns", "slip", "favorite"]).toContain(step.icon);
       });
       expect(method.tvLabel).toBeTruthy();
       // Rotation is contributor-first and history-aware. Calling it a random
