@@ -63,6 +63,9 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
     // than taking over a row mid-flight.
     if (dragRef.current) return;
     if (event.button !== 0 && event.pointerType === "mouse") return;
+    // A second finger already down elsewhere -- a pinch, a two-finger pan, an
+    // assistive gesture -- is never the start of a drag.
+    if (event.isPrimary === false) return;
     // An open move group sits inside its row, so it is closed -- and laid out
     // closed -- before anything is measured, or the drag would be working from
     // a list taller than the one it is dragged across.

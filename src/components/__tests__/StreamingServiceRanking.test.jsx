@@ -10,6 +10,7 @@ if (typeof window.PointerEvent === "undefined") {
       super(type, init);
       this.pointerId = init.pointerId ?? 1;
       this.pointerType = init.pointerType ?? "mouse";
+      this.isPrimary = init.isPrimary ?? true;
     }
   };
 }
@@ -244,6 +245,15 @@ describe("StreamingServiceRanking", () => {
     fireEvent.pointerUp(handle, { pointerId: 2, clientY: 270 });
     fireEvent.click(handle);
     expect(screen.getByRole("group", { name: "Move Hulu" })).toBeInTheDocument();
+  });
+
+  it("ignores a finger that is not the first one down", () => {
+    const { props } = renderRanking(["Netflix", "Max", "Hulu"]);
+    fireEvent.pointerDown(grip("Hulu"), { pointerId: 5, button: 0, clientY: 270, pointerType: "touch", isPrimary: false });
+    fireEvent.pointerMove(grip("Hulu"), { pointerId: 5, clientY: 0 });
+    fireEvent.pointerUp(grip("Hulu"), { pointerId: 5 });
+    expect(props.onReorder).not.toHaveBeenCalled();
+    expect(rankShown("Hulu")).toBe("3");
   });
 
   it("ignores a secondary mouse button", () => {
