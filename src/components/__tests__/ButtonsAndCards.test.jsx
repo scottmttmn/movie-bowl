@@ -13,7 +13,7 @@ describe("button and card components", () => {
   it("fires AddMovieButton click", () => {
     const onClick = vi.fn();
     render(<AddMovieButton onClick={onClick} />);
-    fireEvent.click(screen.getByRole("button", { name: /add to this bowl/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Add a movie to this bowl" }));
     expect(onClick).toHaveBeenCalledTimes(1);
   });
 

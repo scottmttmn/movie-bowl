@@ -41,7 +41,7 @@ test("stars persist while global and contextual adds use their intended destinat
   await page.getByRole("button", { name: "Add a movie", exact: true }).click();
   await expect(chooseButton(page)).toHaveText(/Friday Night/);
   await page.getByRole("button", { name: "Close add movie" }).click();
-  await page.getByRole("button", { name: "Add to this bowl" }).click();
+  await page.getByRole("button", { name: "Add a movie to this bowl" }).click();
   await expect(chooseButton(page)).toHaveText(/Friday Night/);
   await addCustom(page, "Context Feature");
   await chooseButton(page).click();
@@ -49,7 +49,7 @@ test("stars persist while global and contextual adds use their intended destinat
   await addCustom(page, "Temporary Feature");
   await addCustom(page, "Another Feature");
   await page.getByRole("button", { name: "Close add movie" }).click();
-  await expect(page.getByRole("button", { name: "Add to this bowl" })).toBeFocused();
+  await expect(page.getByRole("button", { name: "Add a movie to this bowl" })).toBeFocused();
   expect(backend.state.defaults["user-smoke"]).toBe("default-bowl-1");
   expect(backend.state.bowl_movies.map((movie) => [movie.title, movie.bowl_id])).toEqual([
     ["Global Feature", "default-bowl-1"], ["Context Feature", "default-bowl-0"],
@@ -122,7 +122,7 @@ test("closing and reopening during an insert keeps one operation and the origina
     if (route.request().method() === "POST") { inserting = true; await gate; }
     await route.fallback();
   });
-  await page.getByRole("button", { name: "Add to this bowl" }).click();
+  await page.getByRole("button", { name: "Add a movie to this bowl" }).click();
   await page.getByPlaceholder("Movie, actor or director").fill("Slow Feature");
   await page.getByRole("button", { name: 'Add "Slow Feature"' }).click();
   await expect.poll(() => inserting).toBe(true);

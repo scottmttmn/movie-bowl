@@ -105,7 +105,7 @@ test("create a bowl, add a movie from TMDB, draw it, find it in history, and put
   const bowlPath = new URL(page.url()).pathname;
   await expect(page.getByRole("heading", { name: bowlName, level: 1 })).toBeVisible();
 
-  await page.getByRole("button", { name: "Add to this bowl" }).click();
+  await page.getByRole("button", { name: "Add a movie to this bowl" }).click();
   await page.getByPlaceholder("Movie, actor or director").fill(MOVIE);
   await page.getByRole("button", { name: `Details for ${MOVIE}`, exact: true }).first().click();
   await page.getByRole("button", { name: `Add to ${bowlName}`, exact: true }).click();

@@ -11,7 +11,7 @@ async function openSearch(page, backend) {
   backend.state.tmdbSearchResults = [{ id: 5, title: "Stranded", release_date: "2001-01-01" }];
   await backend.authenticate(page);
   await page.goto("/bowl/b1");
-  await page.getByRole("button", { name: "Add to this bowl" }).click();
+  await page.getByRole("button", { name: "Add a movie to this bowl" }).click();
   await page.getByPlaceholder("Movie, actor or director").fill(DESCRIPTION);
 }
 
@@ -51,7 +51,7 @@ test("a described search offers the person it named", async ({ page, backend }, 
   backend.state.tmdbSearchResults = [];
   await backend.authenticate(page);
   await page.goto("/bowl/b1");
-  await page.getByRole("button", { name: "Add to this bowl" }).click();
+  await page.getByRole("button", { name: "Add a movie to this bowl" }).click();
   await page.getByPlaceholder("Movie, actor or director").fill("lead actor in oppenheimer");
 
   const person = page.getByRole("button", { name: "Show Cillian Murphy’s movies" });

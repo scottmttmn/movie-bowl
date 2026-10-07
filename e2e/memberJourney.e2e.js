@@ -21,7 +21,7 @@ test("a member can create a bowl, add and draw a title, see history, and return 
   const bowlPath = new URL(page.url()).pathname;
   await expect(page.getByRole("heading", { name: "Smoke Night", level: 1 })).toBeVisible();
 
-  await page.getByRole("button", { name: "Add to this bowl" }).click();
+  await page.getByRole("button", { name: "Add a movie to this bowl" }).click();
   await page.getByPlaceholder("Movie, actor or director").fill("Smoke Feature");
   await page.getByRole("button", { name: 'Add "Smoke Feature"' }).click();
 

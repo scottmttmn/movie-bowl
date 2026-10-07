@@ -245,7 +245,7 @@ opens `/bowls` when there are no accessible bowls. A failed read shows Retry.
 Explicit `/bowl/:bowlId` links never change it. `useUserBowls` shares the
 account context and is the only writer, through `set_my_default_bowl`. The
 header + adds to the bowl on screen (any `/bowl/:bowlId` route, settings
-included), so on a bowl page it and “Add to this bowl” agree; away from a bowl
+included), so on a bowl page it and “Add a movie” agree; away from a bowl
 there is no bowl on screen, and it uses the home bowl. Both use the same
 `BowlAddProvider` and `bowlMovieService`; keep pending operations
 above routes and retain uncertain outcomes for status checks without

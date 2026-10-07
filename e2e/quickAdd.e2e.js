@@ -29,7 +29,7 @@ test("a share opens the home bowl's add sheet already searching, once", async ({
   await page.keyboard.press("Escape");
   await expect(page.getByRole("dialog", { name: "Add a movie" })).toHaveCount(0);
   await page.reload();
-  await expect(page.getByRole("button", { name: "Add to this bowl" })).toBeVisible();
+  await expect(page.getByRole("button", { name: "Add a movie to this bowl" })).toBeVisible();
   await expect(page.getByRole("dialog", { name: "Add a movie" })).toHaveCount(0);
 });
 
