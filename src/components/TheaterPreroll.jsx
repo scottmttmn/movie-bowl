@@ -65,6 +65,12 @@ export default function TheaterPreroll({
   const graceTimerRef = useRef(null);
   const leaveTimerRef = useRef(null);
   const leavingRef = useRef(false);
+  // The first preview is started under the announcement, so the browser counts
+  // it as allowed to play, then held at its first frame until the card has gone:
+  // starting it only once the card ends risks a refusal, and letting it run
+  // put its opening under the card.
+  const holdingRef = useRef(true);
+  const heldRef = useRef(false);
 
   const [timing] = useState(() => getHouseLightsTiming(prefersReducedMotion()));
   // lowering -> down -> raising. Only "down" shows the screen.
@@ -174,8 +180,13 @@ export default function TheaterPreroll({
               if (event.data === PLAYING) {
                 clearGrace();
                 setNeedsTap(false);
-                setIsCovered(false);
                 setLights((current) => (current === "lowering" ? "down" : current));
+                if (holdingRef.current) {
+                  heldRef.current = true;
+                  playerRef.current?.pauseVideo?.();
+                  return;
+                }
+                setIsCovered(false);
                 return;
               }
               if (event.data === ENDED) advanceRef.current();
@@ -229,13 +240,6 @@ export default function TheaterPreroll({
     raiseLights(timing.exit, () => finishRef.current());
   }, [raiseLights, timing.exit]);
 
-  // The announcement's time starts when the room is dark enough to read it.
-  useEffect(() => {
-    if (!showAnnouncement || lights !== "down") return undefined;
-    const timer = window.setTimeout(() => setShowAnnouncement(false), ANNOUNCEMENT_MS);
-    return () => window.clearTimeout(timer);
-  }, [showAnnouncement, lights]);
-
   useEffect(() => {
     if (phase !== "feature") return undefined;
 
@@ -248,9 +252,31 @@ export default function TheaterPreroll({
     return () => window.clearTimeout(timer);
   }, [phase, raiseLights, timing.up]);
 
+  // The card is gone, so the held preview starts from its first frame. One
+  // that has not started yet simply plays when it does.
+  const endAnnouncement = useCallback(() => {
+    setShowAnnouncement(false);
+    if (!holdingRef.current) return;
+    holdingRef.current = false;
+    if (!heldRef.current || leavingRef.current) return;
+    playerRef.current?.seekTo?.(0, true);
+    playerRef.current?.playVideo?.();
+    armAutoplayCheck();
+  }, [armAutoplayCheck]);
+
+  // The announcement's time starts when the room is dark enough to read it.
+  useEffect(() => {
+    if (!showAnnouncement || lights !== "down") return undefined;
+    const timer = window.setTimeout(endAnnouncement, ANNOUNCEMENT_MS);
+    return () => window.clearTimeout(timer);
+  }, [showAnnouncement, lights, endAnnouncement]);
+
   const startAfterRefusal = useCallback(() => {
     clearGrace();
     setNeedsTap(false);
+    // The tap card already said what is about to play.
+    holdingRef.current = false;
+    setShowAnnouncement(false);
     // Inside a real gesture handler, so this one cannot be refused.
     playerRef.current?.playVideo?.();
   }, [clearGrace]);
@@ -258,13 +284,18 @@ export default function TheaterPreroll({
   const togglePause = useCallback(() => {
     const player = playerRef.current;
     if (!player) return;
+    // Pressing during the announcement means start now, not pause.
+    if (holdingRef.current) {
+      endAnnouncement();
+      return;
+    }
 
     setIsPaused((paused) => {
       if (paused) player.playVideo?.();
       else player.pauseVideo?.();
       return !paused;
     });
-  }, []);
+  }, [endAnnouncement]);
 
   useEffect(() => {
     const onKeyDown = (event) => {
@@ -325,7 +356,7 @@ export default function TheaterPreroll({
           <button
             type="button"
             className="theater-preroll-surface"
-            aria-label={needsTap ? "Start previews" : isPaused ? "Resume previews" : "Pause previews"}
+            aria-label={needsTap ? "Start previews" : showAnnouncement ? "Play previews" : isPaused ? "Resume previews" : "Pause previews"}
             onClick={needsTap ? startAfterRefusal : togglePause}
           />
         )}
