@@ -259,6 +259,19 @@ describe("TheaterPreroll", () => {
       expect(cover()).not.toBeInTheDocument();
     });
 
+    it("never restarts a held preview once the queue has reached the feature", async () => {
+      // A hand-off keeps the lights down, so the card's timer is still live.
+      await renderPreroll({ queue: [QUEUE[0]], handsOff: true });
+      ready();
+      act(() => playerOptions.events.onStateChange({ data: 1 }));
+      act(() => playerOptions.events.onError({ data: 150 }));
+      expect(screen.getByText(/feature presentation/i)).toBeInTheDocument();
+
+      act(() => vi.advanceTimersByTime(4200));
+      expect(player.seekTo).not.toHaveBeenCalled();
+      expect(player.playVideo).toHaveBeenCalledTimes(1);
+    });
+
     it("starts the previews at once when the screen is pressed during the card", async () => {
       await renderPreroll();
       ready();

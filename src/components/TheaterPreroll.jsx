@@ -119,6 +119,10 @@ export default function TheaterPreroll({
   }, [clearGrace]);
 
   const advance = useCallback(() => {
+    // Moving on ends any hold: a first title that failed outright must not
+    // leave the next preview waiting for a card that will never end, or a
+    // stopped one restarting behind the feature card.
+    holdingRef.current = false;
     const next = indexRef.current + 1;
     if (next >= queue.length) {
       setPhase("feature");
@@ -128,9 +132,6 @@ export default function TheaterPreroll({
     indexRef.current = next;
     attemptRef.current = 0;
     setIsPaused(false);
-    // A first title that failed outright takes the announcement with it, so
-    // the next preview must not wait for a card that will never end.
-    holdingRef.current = false;
     setShowAnnouncement(false);
 
     const nextKey = queue[next]?.trailer?.key;
