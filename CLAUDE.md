@@ -223,7 +223,8 @@ remakes one an interrupted run left without movies.
 The outside services are checked on a schedule from the private
 `movie-bowl-issues` repository, which holds their keys and checks out this one:
 `npm run check:apis` (`scripts/api-checks/`) daily, making one real call each to
-TMDB, Groq, Cloudflare and Resend and one read that keeps the free staging
+TMDB, Groq, Cloudflare, Resend and Watchmode (a streaming link; a rent link
+too on Tuesdays, with `--weekly`) and one read that keeps the free staging
 project from pausing, and `npm run eval:search` on Tuesdays, the day before a
 release. A failure opens an issue there. The checks run there rather than here
 because this repository's logs are public.

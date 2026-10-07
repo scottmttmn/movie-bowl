@@ -1,5 +1,15 @@
 import { describe, expect, it } from "vitest";
-import { checkCloudflare, checkGroq, checkResend, checkStaging, checkTmdb, formatSummary, runChecks } from "../checks.mjs";
+import {
+  checkCloudflare,
+  checkGroq,
+  checkResend,
+  checkStaging,
+  checkTmdb,
+  checkWatchmodeRent,
+  checkWatchmodeStreaming,
+  formatSummary,
+  runChecks,
+} from "../checks.mjs";
 
 const json = (status, body) => new Response(JSON.stringify(body), { status, headers: { "Content-Type": "application/json" } });
 
@@ -24,7 +34,10 @@ const env = {
   RESEND_API_KEY: "re",
   STAGING_SUPABASE_URL: "https://staging.supabase.co/",
   STAGING_SUPABASE_ANON_KEY: "anon",
+  WATCHMODE_API_KEY: "wm",
 };
+
+const source = (name, type, webUrl = `https://example.com/${type}`) => ({ name, type, region: "US", web_url: webUrl });
 
 describe("api checks", () => {
   it("fails a check whose variables are missing, naming them", async () => {
@@ -102,9 +115,40 @@ describe("api checks", () => {
     expect(await checkStaging(env, paused)).toMatchObject({ ok: false });
   });
 
+  it("passes the streaming check only on a Netflix link the app could open", async () => {
+    const ok = fakeFetch([["watchmode.com", json(200, [source("Netflix", "sub", "https://www.netflix.com/title/81458416")])]]);
+    expect(await checkWatchmodeStreaming(env, ok)).toMatchObject({ ok: true, detail: "Glass Onion on Netflix: https://www.netflix.com/title/81458416" });
+    expect(ok.calls[0].url).toContain("/title/movie-661374/sources/");
+    expect(ok.calls[0].options.headers["X-API-Key"]).toBe("wm");
+
+    const moved = fakeFetch([["watchmode.com", json(200, [source("Hulu", "sub"), source("Netflix", "sub", "javascript:alert(1)")])]]);
+    expect(await checkWatchmodeStreaming(env, moved)).toMatchObject({ ok: false, detail: "no Netflix link for Glass Onion (got Hulu sub)" });
+
+    const reshaped = fakeFetch([["watchmode.com", json(200, { sources: [] })]]);
+    expect((await checkWatchmodeStreaming(env, reshaped)).detail).toMatch(/^Invalid Watchmode response/);
+  });
+
+  it("passes the rent check on any store's rent link and reports a spent quota", async () => {
+    const ok = fakeFetch([["watchmode.com", json(200, [source("Prime Video", "buy"), source("AppleTV", "rent"), source("Amazon", "rent")])]]);
+    const rent = await checkWatchmodeRent(env, ok);
+    expect(rent.ok).toBe(true);
+    expect(rent.detail).toMatch(/^The Shawshank Redemption for rent from /);
+    expect(ok.calls[0].url).toContain("/title/movie-278/sources/");
+
+    const buyOnly = fakeFetch([["watchmode.com", json(200, [source("Amazon", "buy")])]]);
+    expect(await checkWatchmodeRent(env, buyOnly)).toMatchObject({ ok: false });
+
+    const spent = fakeFetch([["watchmode.com", json(429, { statusMessage: "Over quota" })]]);
+    expect(await checkWatchmodeRent(env, spent)).toMatchObject({ ok: false, detail: "HTTP 429: Over quota" });
+    expect((await checkWatchmodeRent({})).detail).toBe("WATCHMODE_API_KEY is not set");
+  });
+
   it("runs every check and summarizes failures first", async () => {
     const results = await runChecks({}, fakeFetch([]));
-    expect(results).toHaveLength(5);
+    expect(results.map((result) => result.name)).not.toContain("Watchmode rent link");
+    const weekly = await runChecks({}, fakeFetch([]), { weekly: true });
+    expect(weekly).toHaveLength(results.length + 1);
+    expect(weekly.at(-1).name).toBe("Watchmode rent link");
     const summary = formatSummary([...results.slice(0, 1), { name: "Groq describe", ok: true, detail: "a | b" }]);
     expect(summary.split("\n")[0]).toBe("1 of 2 API checks failed.");
     expect(summary).toContain("| Groq describe | ✅ | a \\| b |");
