@@ -128,6 +128,9 @@ export default function TheaterPreroll({
     indexRef.current = next;
     attemptRef.current = 0;
     setIsPaused(false);
+    // A first title that failed outright takes the announcement with it, so
+    // the next preview must not wait for a card that will never end.
+    holdingRef.current = false;
     setShowAnnouncement(false);
 
     const nextKey = queue[next]?.trailer?.key;

@@ -397,6 +397,23 @@ describe("TV theater mode", () => {
     expect(player.playVideo).toHaveBeenCalledTimes(playsBefore + 1);
   });
 
+  it("does not hold the next preview when the first title fails during the announcement", async () => {
+    await drawWithTheaterMode();
+    await screen.findByRole("dialog", { name: /previews before arrival/i });
+    await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      playerOptions.events.onError({ data: 150 });
+    });
+    expect(player.loadVideoById).toHaveBeenCalled();
+
+    act(() => {
+      playerOptions.events.onStateChange({ data: 1 });
+    });
+    expect(player.pauseVideo).not.toHaveBeenCalled();
+    expect(document.querySelector(".tv-theater-cover")).toBeNull();
+  });
+
   it("lays the previews out at the TV's page zoom so YouTube sizes the stream to the screen", async () => {
     const original = Object.getOwnPropertyDescriptor(window, "visualViewport");
     Object.defineProperty(window, "visualViewport", { configurable: true, value: { scale: 0.5 } });

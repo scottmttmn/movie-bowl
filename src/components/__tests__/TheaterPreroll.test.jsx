@@ -248,6 +248,17 @@ describe("TheaterPreroll", () => {
       expect(cover()).not.toBeInTheDocument();
     });
 
+    it("does not hold the next preview when the first title fails during the card", async () => {
+      await renderPreroll();
+      ready();
+      act(() => playerOptions.events.onError({ data: 150 }));
+      expect(player.loadVideoById).toHaveBeenCalledWith("bbb");
+
+      act(() => playerOptions.events.onStateChange({ data: 1 }));
+      expect(player.pauseVideo).not.toHaveBeenCalled();
+      expect(cover()).not.toBeInTheDocument();
+    });
+
     it("starts the previews at once when the screen is pressed during the card", async () => {
       await renderPreroll();
       ready();
