@@ -125,6 +125,19 @@ describe("TV theater mode", () => {
   let playerOptions;
   let player;
 
+  // The first preview is held under the announcement; Select starts it at once.
+  function playPastAnnouncement() {
+    act(() => {
+      playerOptions.events.onStateChange({ data: 1 });
+    });
+    fireEvent.keyDown(window, { key: "Enter" });
+    act(() => {
+      playerOptions.events.onStateChange({ data: 1 });
+    });
+    player.pauseVideo.mockClear();
+    player.playVideo.mockClear();
+  }
+
   // The preview count is a device setting with no account layer, so these cases
   // put it where the television reads it from rather than on the profile.
   const setDeviceTrailerCount = (count) =>
@@ -162,6 +175,7 @@ describe("TV theater mode", () => {
     player = {
       playVideo: vi.fn(),
       pauseVideo: vi.fn(),
+      seekTo: vi.fn(),
       stopVideo: vi.fn(),
       loadVideoById: vi.fn(),
       destroy: vi.fn(),
@@ -345,6 +359,13 @@ describe("TV theater mode", () => {
     });
     expect(cover()).toBeInTheDocument();
 
+    // Held under the announcement, so still covered.
+    act(() => {
+      playerOptions.events.onStateChange({ data: 1 });
+    });
+    expect(cover()).toBeInTheDocument();
+
+    fireEvent.keyDown(window, { key: "Enter" });
     act(() => {
       playerOptions.events.onStateChange({ data: 1 });
     });
@@ -354,6 +375,56 @@ describe("TV theater mode", () => {
       playerOptions.events.onStateChange({ data: 0 });
     });
     expect(cover()).toBeInTheDocument();
+  });
+
+  // The announcement used to sit over the first preview's opening seconds.
+  it("holds the first preview at its start while the announcement shows", async () => {
+    await drawWithTheaterMode();
+    await screen.findByRole("dialog", { name: /previews before arrival/i });
+    await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
+    const playsBefore = player.playVideo.mock.calls.length;
+
+    act(() => {
+      playerOptions.events.onStateChange({ data: 1 });
+    });
+    expect(player.pauseVideo).toHaveBeenCalledTimes(1);
+    expect(screen.getByText(/before the feature/i)).toBeInTheDocument();
+    expect(screen.queryByText(/paused/i)).toBeNull();
+
+    fireEvent.keyDown(window, { key: "Enter" });
+    expect(screen.queryByText(/before the feature/i)).toBeNull();
+    expect(player.seekTo).toHaveBeenCalledWith(0, true);
+    expect(player.playVideo).toHaveBeenCalledTimes(playsBefore + 1);
+  });
+
+  it("starts a preview that never autoplayed when Select dismisses the announcement", async () => {
+    await drawWithTheaterMode();
+    await screen.findByRole("dialog", { name: /previews before arrival/i });
+    await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
+    const playsBefore = player.playVideo.mock.calls.length;
+
+    fireEvent.keyDown(window, { key: "Enter" });
+
+    expect(screen.queryByText(/before the feature/i)).toBeNull();
+    expect(player.playVideo).toHaveBeenCalledTimes(playsBefore + 1);
+    expect(player.pauseVideo).not.toHaveBeenCalled();
+  });
+
+  it("does not hold the next preview when the first title fails during the announcement", async () => {
+    await drawWithTheaterMode();
+    await screen.findByRole("dialog", { name: /previews before arrival/i });
+    await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
+
+    act(() => {
+      playerOptions.events.onError({ data: 150 });
+    });
+    expect(player.loadVideoById).toHaveBeenCalled();
+
+    act(() => {
+      playerOptions.events.onStateChange({ data: 1 });
+    });
+    expect(player.pauseVideo).not.toHaveBeenCalled();
+    expect(document.querySelector(".tv-theater-cover")).toBeNull();
   });
 
   it("lays the previews out at the TV's page zoom so YouTube sizes the stream to the screen", async () => {
@@ -381,6 +452,8 @@ describe("TV theater mode", () => {
     expect(screen.queryByRole("button", { name: /skip to movie/i })).toBeNull();
     expect(screen.queryByText(/paused/i)).toBeNull();
 
+    playPastAnnouncement();
+
     fireEvent.keyDown(window, { key: "Enter" });
     expect(player.pauseVideo).toHaveBeenCalled();
     expect(screen.getByText(/paused/i)).toBeInTheDocument();
@@ -396,6 +469,8 @@ describe("TV theater mode", () => {
       name: /previews before arrival/i,
     });
     await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
+
+    playPastAnnouncement();
 
     // The player takes focus when it starts. From inside the iframe our Select
     // handler never sees the key, which is exactly how pause failed on a real
@@ -415,6 +490,8 @@ describe("TV theater mode", () => {
     await drawWithTheaterMode();
     await screen.findByRole("dialog", { name: /previews before arrival/i });
     await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
+
+    playPastAnnouncement();
 
     // Pressing right then OK on a real television moved focus to the reveal's
     // provider button behind the overlay and launched Max mid-preview. Our own
@@ -437,6 +514,8 @@ describe("TV theater mode", () => {
     await drawWithTheaterMode();
     await screen.findByRole("dialog", { name: /previews before arrival/i });
     await waitFor(() => expect(window.YT.Player).toHaveBeenCalledTimes(1));
+
+    playPastAnnouncement();
 
     // The shell consumes the remote's key and re-dispatches its own with
     // window.dispatchEvent, whose path is window alone. Listening on document

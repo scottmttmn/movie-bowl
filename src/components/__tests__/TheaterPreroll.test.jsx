@@ -16,6 +16,7 @@ function mountPlayer() {
   player = {
     playVideo: vi.fn(),
     pauseVideo: vi.fn(),
+    seekTo: vi.fn(),
     stopVideo: vi.fn(),
     loadVideoById: vi.fn(),
     destroy: vi.fn(),
@@ -38,6 +39,13 @@ async function renderPreroll(props = {}) {
 
 function ready() {
   act(() => playerOptions.events.onReady({ target: player }));
+}
+
+// The first preview is held under the announcement and starts once it goes.
+function playThroughAnnouncement() {
+  act(() => playerOptions.events.onStateChange({ data: 1 }));
+  act(() => vi.advanceTimersByTime(4200));
+  act(() => playerOptions.events.onStateChange({ data: 1 }));
 }
 
 describe("TheaterPreroll", () => {
@@ -136,7 +144,7 @@ describe("TheaterPreroll", () => {
       ready();
       expect(cover()).toBeInTheDocument();
 
-      act(() => playerOptions.events.onStateChange({ data: 1 }));
+      playThroughAnnouncement();
       expect(cover()).not.toBeInTheDocument();
     });
 
@@ -149,7 +157,7 @@ describe("TheaterPreroll", () => {
         ],
       });
       ready();
-      act(() => playerOptions.events.onStateChange({ data: 1 }));
+      playThroughAnnouncement();
       expect(cover()).not.toBeInTheDocument();
 
       act(() => playerOptions.events.onError({ data: 150 }));
@@ -174,7 +182,7 @@ describe("TheaterPreroll", () => {
     it("leaves a paused preview visible", async () => {
       await renderPreroll();
       ready();
-      act(() => playerOptions.events.onStateChange({ data: 1 }));
+      playThroughAnnouncement();
 
       fireEvent.click(screen.getByRole("button", { name: /pause previews/i }));
 
@@ -203,6 +211,80 @@ describe("TheaterPreroll", () => {
     });
   });
 
+  // The announcement used to sit over the first preview's opening seconds.
+  describe("the announcement", () => {
+    const cover = () => screen.queryByTestId("preroll-cover");
+
+    it("holds the first preview at its start until the card has gone", async () => {
+      await renderPreroll();
+      ready();
+      act(() => playerOptions.events.onStateChange({ data: 1 }));
+
+      expect(player.pauseVideo).toHaveBeenCalledTimes(1);
+      expect(screen.getByText("2 previews")).toBeInTheDocument();
+      expect(cover()).toBeInTheDocument();
+
+      act(() => vi.advanceTimersByTime(4200));
+      expect(screen.queryByText("2 previews")).not.toBeInTheDocument();
+      expect(player.seekTo).toHaveBeenCalledWith(0, true);
+      expect(player.playVideo).toHaveBeenCalledTimes(2);
+
+      act(() => playerOptions.events.onStateChange({ data: 1 }));
+      expect(cover()).not.toBeInTheDocument();
+      expect(player.pauseVideo).toHaveBeenCalledTimes(1);
+    });
+
+    it("lets a preview that starts after the card play straight away", async () => {
+      await renderPreroll();
+      // A slow player: not even ready while the card shows.
+      // The room goes dark on its own, then the card runs its course.
+      act(() => vi.advanceTimersByTime(3000));
+      act(() => vi.advanceTimersByTime(4200));
+      expect(screen.queryByText("2 previews")).not.toBeInTheDocument();
+
+      ready();
+      act(() => playerOptions.events.onStateChange({ data: 1 }));
+      expect(player.pauseVideo).not.toHaveBeenCalled();
+      expect(cover()).not.toBeInTheDocument();
+    });
+
+    it("does not hold the next preview when the first title fails during the card", async () => {
+      await renderPreroll();
+      ready();
+      act(() => playerOptions.events.onError({ data: 150 }));
+      expect(player.loadVideoById).toHaveBeenCalledWith("bbb");
+
+      act(() => playerOptions.events.onStateChange({ data: 1 }));
+      expect(player.pauseVideo).not.toHaveBeenCalled();
+      expect(cover()).not.toBeInTheDocument();
+    });
+
+    it("never restarts a held preview once the queue has reached the feature", async () => {
+      // A hand-off keeps the lights down, so the card's timer is still live.
+      await renderPreroll({ queue: [QUEUE[0]], handsOff: true });
+      ready();
+      act(() => playerOptions.events.onStateChange({ data: 1 }));
+      act(() => playerOptions.events.onError({ data: 150 }));
+      expect(screen.getByText(/feature presentation/i)).toBeInTheDocument();
+
+      act(() => vi.advanceTimersByTime(4200));
+      expect(player.seekTo).not.toHaveBeenCalled();
+      expect(player.playVideo).toHaveBeenCalledTimes(1);
+    });
+
+    it("starts the previews at once when the screen is pressed during the card", async () => {
+      await renderPreroll();
+      ready();
+      act(() => playerOptions.events.onStateChange({ data: 1 }));
+
+      fireEvent.click(screen.getByRole("button", { name: /play previews/i }));
+
+      expect(screen.queryByText("2 previews")).not.toBeInTheDocument();
+      expect(player.seekTo).toHaveBeenCalledWith(0, true);
+      expect(player.playVideo).toHaveBeenCalledTimes(2);
+    });
+  });
+
   describe("when the browser refuses autoplay", () => {
     it("asks for the gesture it needs instead of stalling", async () => {
       await renderPreroll();
@@ -223,7 +305,7 @@ describe("TheaterPreroll", () => {
       await renderPreroll();
       ready();
 
-      act(() => playerOptions.events.onStateChange({ data: 1 }));
+      playThroughAnnouncement();
       act(() => vi.advanceTimersByTime(1500));
 
       expect(screen.queryByRole("button", { name: /start previews/i })).not.toBeInTheDocument();
@@ -282,7 +364,8 @@ describe("TheaterPreroll", () => {
     it("leaves the exit's own Enter and Space alone", async () => {
       await renderPreroll();
       ready();
-      act(() => playerOptions.events.onStateChange({ data: 1 }));
+      playThroughAnnouncement();
+      player.pauseVideo.mockClear();
 
       const exit = screen.getByRole("button", { name: /exit previews/i });
       exit.focus();
@@ -305,13 +388,14 @@ describe("TheaterPreroll", () => {
   it("pauses and resumes on the surface, because a living room has a doorbell", async () => {
     await renderPreroll();
     ready();
-    act(() => playerOptions.events.onStateChange({ data: 1 }));
+    playThroughAnnouncement();
 
     fireEvent.click(screen.getByRole("button", { name: /pause previews/i }));
     expect(player.pauseVideo).toHaveBeenCalled();
 
     fireEvent.click(screen.getByRole("button", { name: /resume previews/i }));
-    expect(player.playVideo).toHaveBeenCalledTimes(2);
+    // Ready, the release from the announcement, and the resume.
+    expect(player.playVideo).toHaveBeenCalledTimes(3);
   });
 
   it("ends on the feature card and then brings the lights up on the reveal", async () => {

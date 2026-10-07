@@ -61,6 +61,7 @@ export default function TvTheaterPreroll({
   const advanceRef = useRef(() => {});
   const refusedRef = useRef(() => {});
   const revealRef = useRef(() => {});
+  const holdRef = useRef(() => {});
   const finishRef = useRef(onFinish);
   const completeRef = useRef(onComplete);
   const coverTimerRef = useRef(null);
@@ -69,6 +70,11 @@ export default function TvTheaterPreroll({
   const leavingRef = useRef(false);
   const fullscreenRequestedRef = useRef(false);
   const raiseIdRef = useRef(0);
+  // The first preview is started under the announcement, so the browser counts
+  // it as allowed to play, then held at its first frame until the card has gone:
+  // letting it run put its opening under the card.
+  const holdingRef = useRef(true);
+  const heldRef = useRef(false);
 
   const [timing] = useState(() => getHouseLightsTiming(prefersReducedMotion()));
   // lowering -> down -> raising. Only "down" shows the screen.
@@ -117,6 +123,10 @@ export default function TvTheaterPreroll({
   }, []);
 
   const advance = useCallback(() => {
+    // Moving on ends any hold: a first title that failed outright must not
+    // leave the next preview waiting for a card that will never end, or a
+    // stopped one restarting behind the feature card.
+    holdingRef.current = false;
     const next = indexRef.current + 1;
     if (next >= queue.length) {
       setPhase("feature");
@@ -150,11 +160,33 @@ export default function TvTheaterPreroll({
     playerRef.current?.loadVideoById?.(sequence[next]);
   }, [queue, advance, coverUntilPlaying]);
 
+  // The card is gone, so the held preview starts from its first frame. One
+  // that has not started yet simply plays when it does.
+  const endAnnouncement = useCallback(() => {
+    setShowAnnouncement(false);
+    if (!holdingRef.current) return;
+    holdingRef.current = false;
+    if (!heldRef.current || leavingRef.current) return;
+    coverUntilPlaying();
+    playerRef.current?.seekTo?.(0, true);
+    playerRef.current?.playVideo?.();
+  }, [coverUntilPlaying]);
+
+  const hold = useCallback(() => {
+    heldRef.current = true;
+    playerRef.current?.pauseVideo?.();
+    // Stays covered: the card is what the room should be reading.
+    window.clearTimeout(coverTimerRef.current);
+    setIsCovered(true);
+    setLights((current) => (current === "lowering" ? "down" : current));
+  }, []);
+
   useEffect(() => {
     advanceRef.current = advance;
     refusedRef.current = playFallback;
     revealRef.current = reveal;
-  }, [advance, playFallback, reveal]);
+    holdRef.current = hold;
+  }, [advance, playFallback, reveal, hold]);
 
   useLayoutEffect(() => {
     const overlay = overlayRef.current;
@@ -202,7 +234,10 @@ export default function TvTheaterPreroll({
             },
             onStateChange: (event) => {
               reclaimFocusRef.current();
-              if (event.data === PLAYING) revealRef.current();
+              if (event.data === PLAYING) {
+                if (holdingRef.current) holdRef.current();
+                else revealRef.current();
+              }
               if (event.data === 0 || event.data === youtube.PlayerState?.ENDED) {
                 advanceRef.current();
               }
@@ -281,9 +316,9 @@ export default function TvTheaterPreroll({
   // The announcement's time starts when the room is dark enough to read it.
   useEffect(() => {
     if (!showAnnouncement || lights !== "down") return undefined;
-    const timer = window.setTimeout(() => setShowAnnouncement(false), ANNOUNCEMENT_MS);
+    const timer = window.setTimeout(endAnnouncement, ANNOUNCEMENT_MS);
     return () => window.clearTimeout(timer);
-  }, [showAnnouncement, lights]);
+  }, [showAnnouncement, lights, endAnnouncement]);
 
   useEffect(() => {
     if (phase !== "feature") return undefined;
@@ -326,13 +361,21 @@ export default function TvTheaterPreroll({
   const togglePause = useCallback(() => {
     const player = playerRef.current;
     if (!player) return;
+    // Select during the announcement means start now, not pause.
+    if (holdingRef.current) {
+      const wasHeld = heldRef.current;
+      endAnnouncement();
+      // Nothing has played yet, so this press is the start gesture itself.
+      if (!wasHeld) player.playVideo?.();
+      return;
+    }
 
     setIsPaused((paused) => {
       if (paused) player.playVideo?.();
       else player.pauseVideo?.();
       return !paused;
     });
-  }, []);
+  }, [endAnnouncement]);
 
   // A cinema has no controls to press, so the only gesture is the one every
   // video player already teaches: Select toggles playback. Nothing is drawn
