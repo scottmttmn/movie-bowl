@@ -145,6 +145,24 @@ describe("StreamingServiceRanking", () => {
     expect(props.onReorder).toHaveBeenCalledWith(["Hulu", "Netflix", "Max"]);
   });
 
+  it("lets go of a held row that is removed elsewhere, or loses its pointer", () => {
+    const onReorder = vi.fn();
+    const { rerender } = renderRanking(["Netflix", "Max", "Hulu"], { onReorder });
+
+    fireEvent.pointerDown(grip("Hulu"), { pointerId: 1, button: 0, clientY: 270, pointerType: "touch" });
+    rerender(<StreamingServiceRanking services={["Netflix", "Max"]} onReorder={onReorder} onRemove={vi.fn()} />);
+    layOutRows();
+    expect(screen.getByRole("button", { name: "Remove Max" })).toBeEnabled();
+
+    fireEvent.pointerDown(grip("Max"), { pointerId: 2, button: 0, clientY: 200, pointerType: "touch" });
+    fireEvent.lostPointerCapture(grip("Max"), { pointerId: 2 });
+    fireEvent.pointerDown(grip("Max"), { pointerId: 3, button: 0, clientY: 200, pointerType: "touch" });
+    fireEvent.pointerMove(grip("Max"), { pointerId: 3, clientY: 0 });
+    fireEvent.pointerUp(grip("Max"), { pointerId: 3 });
+    expect(onReorder).toHaveBeenCalledTimes(1);
+    expect(onReorder).toHaveBeenCalledWith(["Max", "Netflix"]);
+  });
+
   it("ignores a secondary mouse button", () => {
     const { props } = renderRanking(["Netflix", "Max"]);
     const handle = grip("Max");

@@ -148,6 +148,17 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
     setDrag(null);
   };
 
+  // Removing the held service through the picker detaches its grip, and a
+  // detached grip never hears its own pointerup, so the drag would stay live
+  // and lock every other grip out.
+  const heldService = drag?.service;
+  const heldServiceGone = Boolean(heldService) && !services.includes(heldService);
+  useEffect(() => {
+    if (!heldServiceGone) return;
+    dragRef.current = null;
+    setDrag(null);
+  }, [heldServiceGone]);
+
   const handleKeyDown = (event, service, index) => {
     const offsets = { ArrowUp: -1, ArrowDown: 1 };
     let toIndex = null;
@@ -238,6 +249,7 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
                   onPointerMove={handlePointerMove}
                   onPointerUp={finishDrag}
                   onPointerCancel={cancelDrag}
+                  onLostPointerCapture={cancelDrag}
                   onKeyDown={(event) => handleKeyDown(event, service, index)}
                   aria-label={`Reorder ${service}, position ${index + 1} of ${services.length}`}
                   title="Drag to reorder"
