@@ -1,4 +1,5 @@
 import { useEffect, useLayoutEffect, useRef, useState } from "react";
+import { flushSync } from "react-dom";
 import ServiceLogo from "./ServiceLogo";
 
 // How close to the top or bottom of the window a held row has to be before the
@@ -62,6 +63,15 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
     // than taking over a row mid-flight.
     if (dragRef.current) return;
     if (event.button !== 0 && event.pointerType === "mouse") return;
+    // An open move group sits inside its row, so it is closed -- and laid out
+    // closed -- before anything is measured, or the drag would be working from
+    // a list taller than the one it is dragged across.
+    if (menuFor !== null) {
+      // A press on the open group's own grip closes it, so the click that
+      // follows must not open it again.
+      if (menuFor === service) suppressClickRef.current = true;
+      flushSync(() => setMenuFor(null));
+    }
     const rows = [...(listRef.current?.querySelectorAll("[data-rank-row]") || [])];
     if (rows.length !== services.length) return;
     event.preventDefault();

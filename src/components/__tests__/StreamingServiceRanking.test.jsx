@@ -210,6 +210,26 @@ describe("StreamingServiceRanking", () => {
     expect(grip("Max")).toHaveFocus();
   });
 
+  it("closes the moves before a drag measures the list, and a second tap on the grip closes them", () => {
+    const onReorder = vi.fn();
+    renderRanking(["Netflix", "Max", "Hulu"], { onReorder });
+
+    fireEvent.click(grip("Max"));
+    fireEvent.pointerDown(grip("Max"), { pointerId: 1, button: 0, clientY: 200 });
+    expect(screen.queryByRole("group", { name: "Move Max" })).toBeNull();
+    fireEvent.pointerUp(grip("Max"), { pointerId: 1, clientY: 200 });
+    fireEvent.click(grip("Max"));
+    expect(screen.queryByRole("group", { name: "Move Max" })).toBeNull();
+
+    // Open on one row, drag another: the group is gone before the drag starts.
+    fireEvent.click(grip("Max"));
+    fireEvent.pointerDown(grip("Netflix"), { pointerId: 2, button: 0, clientY: 130 });
+    expect(screen.queryByRole("group", { name: "Move Max" })).toBeNull();
+    fireEvent.pointerMove(grip("Netflix"), { pointerId: 2, clientY: 130 + ROW_PITCH });
+    fireEvent.pointerUp(grip("Netflix"), { pointerId: 2, clientY: 130 + ROW_PITCH });
+    expect(onReorder).toHaveBeenCalledWith(["Max", "Netflix", "Hulu"]);
+  });
+
   it("does not open the moves at the end of a real drag", () => {
     renderRanking(["Netflix", "Max", "Hulu"]);
     const handle = grip("Hulu");
