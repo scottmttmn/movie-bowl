@@ -152,6 +152,12 @@ export async function buildTrailerQueue({
   if (candidates.length === 0 || typeof fetchTrailer !== "function") return [];
 
   const recentKeys = new Set((recentTrailers || []).map((entry) => entry?.key).filter(Boolean));
+  // A movie counts as a repeat by its own record as well as by the trailer's
+  // key, so the rank it earns is never better than the one it was sorted by
+  // and the early stop above stays sound if TMDB swaps a movie's trailer.
+  const recentTmdbIds = new Set(
+    (recentTrailers || []).map((entry) => entry?.tmdbId).filter(Boolean)
+  );
   const drawable = toIdSet(eligibleMovieIds);
   const seenKeys = new Set();
   const entries = [];
@@ -170,7 +176,7 @@ export async function buildTrailerQueue({
     entries.push({
       rank: getEntryRank({
         isDrawable: !drawable || drawable.has(String(movie.id)),
-        isRepeat: recentKeys.has(key),
+        isRepeat: recentKeys.has(key) || recentTmdbIds.has(getPositiveTmdbId(movie.tmdb_id)),
       }),
       movieId: movie.id,
       tmdbId: getPositiveTmdbId(movie.tmdb_id),
