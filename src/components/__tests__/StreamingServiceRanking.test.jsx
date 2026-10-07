@@ -163,6 +163,27 @@ describe("StreamingServiceRanking", () => {
     expect(onReorder).toHaveBeenCalledWith(["Max", "Netflix"]);
   });
 
+  it("lets go when another service is removed mid-drag, rather than dropping into the old list", () => {
+    const onReorder = vi.fn();
+    const { rerender } = renderRanking(["Netflix", "Max", "Hulu", "Prime Video"], { onReorder });
+
+    // Two places down: a position the shorter list still has.
+    fireEvent.pointerDown(grip("Netflix"), { pointerId: 1, button: 0, clientY: 130, pointerType: "touch" });
+    fireEvent.pointerMove(grip("Netflix"), { pointerId: 1, clientY: 130 + ROW_PITCH * 2 });
+    rerender(<StreamingServiceRanking services={["Netflix", "Max", "Hulu"]} onReorder={onReorder} onRemove={vi.fn()} />);
+    layOutRows();
+    fireEvent.pointerUp(grip("Netflix"), { pointerId: 1 });
+    expect(onReorder).not.toHaveBeenCalled();
+    expect(rankShown("Netflix")).toBe("1");
+
+    // The same list rendered again is no change, and the drag carries on.
+    fireEvent.pointerDown(grip("Netflix"), { pointerId: 2, button: 0, clientY: 130, pointerType: "touch" });
+    rerender(<StreamingServiceRanking services={["Netflix", "Max", "Hulu"]} onReorder={onReorder} onRemove={vi.fn()} />);
+    fireEvent.pointerMove(grip("Netflix"), { pointerId: 2, clientY: 400 });
+    fireEvent.pointerUp(grip("Netflix"), { pointerId: 2 });
+    expect(onReorder).toHaveBeenCalledWith(["Max", "Hulu", "Netflix"]);
+  });
+
   it("ignores a secondary mouse button", () => {
     const { props } = renderRanking(["Netflix", "Max"]);
     const handle = grip("Max");
@@ -215,6 +236,14 @@ describe("StreamingServiceRanking", () => {
       const calls = scrollBy.mock.calls.length;
       act(() => vi.advanceTimersByTime(100));
       expect(scrollBy.mock.calls.length).toBe(calls);
+
+      // A press held still in the edge zone is not a drag yet.
+      scrollBy.mockClear();
+      const still = grip("Max");
+      fireEvent.pointerDown(still, { pointerId: 3, button: 0, clientY: window.innerHeight - 10 });
+      act(() => vi.advanceTimersByTime(500));
+      expect(scrollBy).not.toHaveBeenCalled();
+      fireEvent.pointerUp(still, { pointerId: 3 });
 
       // A row already at the bottom of the list leaves the page where it is.
       scrollBy.mockClear();

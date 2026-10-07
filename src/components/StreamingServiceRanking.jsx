@@ -4,6 +4,7 @@ import ServiceLogo from "./ServiceLogo";
 // How close to the top or bottom of the window a held row has to be before the
 // page scrolls under it, and how far it scrolls each frame.
 const AUTO_SCROLL_EDGE_PX = 72;
+const DRAG_START_PX = 4;
 const AUTO_SCROLL_STEP_PX = 12;
 
 // Ranked list of the account's services. Reordering is one gesture on every
@@ -93,7 +94,10 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
     const { minDy, maxDy } = state;
     const travelled = clientY - state.startY + (window.scrollY - state.startScrollY);
     const dy = Math.min(maxDy, Math.max(minDy, travelled));
-    const next = { ...state, clientY, dy, toIndex: targetIndexFor(state, dy) };
+    // Auto-scroll waits for this, so a press held still near a screen edge
+    // stays a press and cannot drift the row into a move nobody made.
+    const moved = state.moved || Math.abs(clientY - state.startY) >= DRAG_START_PX;
+    const next = { ...state, clientY, dy, moved, toIndex: targetIndexFor(state, dy) };
     dragRef.current = next;
     setDrag(next);
   };
@@ -117,6 +121,10 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
       // Only while the row can still travel that way: a row parked at either
       // end of the list must not carry the page off with it.
       let delta = 0;
+      if (!state.moved) {
+        frame = window.requestAnimationFrame(step);
+        return;
+      }
       if (state.clientY < AUTO_SCROLL_EDGE_PX && state.dy > state.minDy) delta = -AUTO_SCROLL_STEP_PX;
       if (state.clientY > window.innerHeight - AUTO_SCROLL_EDGE_PX && state.dy < state.maxDy) {
         delta = AUTO_SCROLL_STEP_PX;
@@ -148,16 +156,17 @@ export default function StreamingServiceRanking({ services, onReorder, onRemove 
     setDrag(null);
   };
 
-  // Removing the held service through the picker detaches its grip, and a
-  // detached grip never hears its own pointerup, so the drag would stay live
-  // and lock every other grip out.
-  const heldService = drag?.service;
-  const heldServiceGone = Boolean(heldService) && !services.includes(heldService);
+  // A drag measured the list it started on. Any change to that list -- above
+  // all a service removed through the picker mid-drag, whose grip then never
+  // hears its own pointerup -- lets go rather than dropping into a list that
+  // is no longer there.
+  // Keyed on the names, so a parent re-rendering the same list is no change.
+  const servicesKey = services.join("\n");
   useEffect(() => {
-    if (!heldServiceGone) return;
+    if (!dragRef.current) return;
     dragRef.current = null;
     setDrag(null);
-  }, [heldServiceGone]);
+  }, [servicesKey]);
 
   const handleKeyDown = (event, service, index) => {
     const offsets = { ArrowUp: -1, ArrowDown: 1 };
