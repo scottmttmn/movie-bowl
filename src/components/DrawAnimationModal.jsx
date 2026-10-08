@@ -8,8 +8,9 @@ const PHASES = [
 ];
 
 // `detail` is the reveal's own account of the draw (who, then which pile), so a
-// screen reader hears the same stages the animation shows.
-export default function DrawAnimationModal({ detail = "" }) {
+// screen reader hears the same stages the animation shows. `drawnBy` names who
+// drew on another screen, which the stage shows only on its hidden slip.
+export default function DrawAnimationModal({ detail = "", drawnBy = "" }) {
   const [phase, setPhase] = useState("enter");
 
   useEffect(() => {
@@ -33,7 +34,7 @@ export default function DrawAnimationModal({ detail = "" }) {
 
   return (
     <div data-blocks-global-add className="sr-only" role="status" aria-live="polite" data-phase={phase}>
-      Movie Bowl. Drawing a title from the bowl...{detail ? ` ${detail}.` : ""}
+      Movie Bowl.{drawnBy ? ` Drawn by ${drawnBy}.` : ""} Drawing a title from the bowl...{detail ? ` ${detail}.` : ""}
     </div>
   );
 }

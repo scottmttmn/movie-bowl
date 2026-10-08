@@ -42,7 +42,7 @@ export function TvDrawingScreen({
     return (
       <main>
         <div className="sr-only" role="status" aria-live="polite" aria-atomic="true">
-          {bowlName}. {announcement || heading}
+          {bowlName}. {revealRun.drawnBy ? `Drawn by ${revealRun.drawnBy}. ` : ""}{announcement || heading}
         </div>
         <DrawRevealStage
           method={getDrawMethod(revealRun.methodId)}
@@ -55,6 +55,7 @@ export function TvDrawingScreen({
           originRect={revealRun.originRect}
           reducedMotion={revealRun.reducedMotion}
           presentation="tv"
+          drawnBy={revealRun.drawnBy || ""}
           onPhaseChange={setPhase}
         />
       </main>

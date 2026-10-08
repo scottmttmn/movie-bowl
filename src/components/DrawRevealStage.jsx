@@ -6,6 +6,7 @@ import {
   getDrawRevealProgress,
   getDrawRevealTimeline,
 } from "../utils/drawReveal";
+import { PhoneGlyph } from "./TelevisionGlyph";
 
 // The draw, given the whole screen. The bowl lifts out of the page, the pool
 // rises out of it and arranges itself the way the method is about to choose --
@@ -169,6 +170,7 @@ export default function DrawRevealStage({
   originRect = null,
   reducedMotion = false,
   presentation = "web",
+  drawnBy = "",
   onPhaseChange,
 }) {
   const viewport = useViewport();
@@ -503,6 +505,15 @@ export default function DrawRevealStage({
         className={`draw-reveal-glow ${progress.personLanded || progress.titleLanded ? "is-lit" : ""}`}
         style={{ left: bowl.x - bowl.w * 0.15, top: bowl.y + bowl.w * 0.1, width: bowl.w * 1.3, height: bowl.w * 0.9 }}
       />
+
+      {/* A draw made on someone's phone and played here says whose it was,
+          on a slip of the same paper as the names in the bowl. */}
+      {drawnBy && (
+        <span className="draw-reveal-drawn-by" data-testid="draw-reveal-drawn-by">
+          <PhoneGlyph className="draw-reveal-drawn-by-glyph" />
+          <span>{drawnBy}</span>
+        </span>
+      )}
 
       {/* Preserve the approved scene framing above the bowl. */}
       <div className="draw-reveal-header" style={{ height: layout.headerH }} />

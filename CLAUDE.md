@@ -512,6 +512,18 @@ ends. The TV uses `presentation="tv"` to scale the scene and text together from
 720p, independently of its root font size. Theater previews start only after
 the reveal finishes. See `output/designs/draw-method-reveals.md`.
 
+A draw also plays on every other screen open on the bowl, through one private
+Realtime channel per bowl (`useBowlLiveDraw`, `utils/liveDraw.js`): the drawing
+screen broadcasts its `preview` and `drawReveal` after the draw is saved, and a
+television idle on the draw screen tracks presence, which lights a TV beside
+the phone's "Hold to draw". A listener plays an announcement only after
+`useBowl().reload` returns a watched list holding that draw, and drops a
+person stage that does not land on the slip's contributor, so the channel can
+nudge but never invent. `realtime.messages` policies go through
+`can_use_bowl_live_channel`: members listen, only those who may draw send.
+Without Realtime every screen draws as before. See
+`output/designs/phone-to-tv-draw.md`.
+
 Solo draw uses the same crowd, flicker, pluck and unfold on mobile, desktop and
 TV. `useSoloDraw` passes the exact filtered, distinct title pool through
 `onPoolResolved` and returns `drawReveal` only after saving. The pending retry

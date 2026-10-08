@@ -56,6 +56,8 @@ describe("visual-history capture setup", () => {
       const handlers = [];
       const page = {
         on() {},
+        // Realtime's websocket fake; nothing here opens a socket.
+        routeWebSocket() {},
         route: (pattern, handler) => {
           handlers.push({ pattern, handler });
         },
@@ -99,6 +101,8 @@ describe("visual-history capture setup", () => {
       const handlers = [];
       const page = {
         on() {},
+        // Realtime's websocket fake; nothing here opens a socket.
+        routeWebSocket() {},
         route: (pattern, handler) => {
           handlers.push({ pattern, handler });
         },

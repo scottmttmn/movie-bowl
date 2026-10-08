@@ -9,6 +9,8 @@ import { useNavigate, useParams } from "react-router-dom";
 import BowlIllustration from "../../components/BowlIllustration";
 import useBowl from "../../hooks/useBowl";
 import useUserStreamingServices from "../../hooks/useUserStreamingServices";
+import useBowlLiveDraw from "../../hooks/useBowlLiveDraw";
+import { buildLiveDraw, findAnnouncedDraw, verifyAnnouncedReveal } from "../../utils/liveDraw";
 import { getTmdbMovieDetails } from "../../lib/tmdbApi";
 import { fetchMovieTrailer, resolveEligiblePreviewIds } from "../../lib/theaterPreviews";
 import { getDrawReadout } from "../../utils/drawReadout";
@@ -442,6 +444,7 @@ export default function TvTonightScreen({ userId }) {
     bowl,
     isLoading: isBowlLoading,
     errorMessage: bowlError,
+    reload: reloadBowl,
     handleDraw,
     handleReaddMovie,
     filterMetadataFetchers,
@@ -506,6 +509,13 @@ export default function TvTonightScreen({ userId }) {
   useEffect(() => () => {
     // A committed draw may finish after this route goes away. Its animation
     // callbacks must not publish a result into a different bowl's screen.
+    // An announced replay is only a replay, so it is taken down at once
+    // rather than left on screen until its reload and enrichment settle.
+    if (revealRunRef.current?.announced) {
+      drawInFlightRef.current = false;
+      setIsDrawing(false);
+      setRevealRun(null);
+    }
     revealRunRef.current = null;
   }, [bowlId]);
 
@@ -940,6 +950,15 @@ export default function TvTonightScreen({ userId }) {
         if (!result || revealRunRef.current?.startedAt !== startedAt) return null;
         const { drawReveal: reveal = null, ...movie } = result;
         startProviderLookup(movie);
+        // A phone open on the bowl plays it too. The television is signed in
+        // as whoever owns it, not whoever holds the remote, so it names nobody.
+        announceDraw(buildLiveDraw({
+          bowlMovieId: movie.id,
+          title: movie.title,
+          methodId: run.methodId,
+          preview: revealRunRef.current?.preview || null,
+          reveal,
+        }), bowlId);
         const resultAt = Date.now() - startedAt;
         updateRun({ reveal, resultAt, title: movie.title || "" });
         const { preview, previewAt } = revealRunRef.current;
@@ -969,6 +988,104 @@ export default function TvTonightScreen({ userId }) {
       revealRunRef.current = null;
     }
   };
+
+  // A draw made on a phone, played here from the start: the slips rise and
+  // sort while the bowl is read again, and the reveal lands only on a draw
+  // that read shows. The television takes one only when it is sitting on the
+  // draw screen with nothing else up, which is also the only time it tells the
+  // phones it is listening.
+  const isIdleForAnnouncedDraw =
+    !isDrawing &&
+    !drawnMovie &&
+    !showDrawConfirm &&
+    !pendingReturn &&
+    !selectedHistoryMovie &&
+    !showTrailer &&
+    !isTheaterPlaying &&
+    !isAccessLoading &&
+    !accessError &&
+    // A replay opens the movie with this account's theater setting, so it
+    // waits for the saved one rather than playing on the default.
+    !isPreferencesLoading;
+
+  const playedAnnouncementsRef = useRef(new Set());
+  const playAnnouncedDraw = async (draw) => {
+    if (!isIdleForAnnouncedDraw || drawInFlightRef.current) {
+      reloadBowl();
+      return;
+    }
+
+    drawInFlightRef.current = true;
+    clearExternalReturn();
+    setTonightMessage(null);
+    setCurtainOrigin(
+      drawBowlRef.current?.closest(".tv-draw-cta")?.querySelector(".theater-curtains")?.getBoundingClientRect() || null
+    );
+    const startedAt = Date.now();
+    const run = {
+      startedAt,
+      methodId: normalizeDrawMethod(draw.reveal?.methodId || draw.methodId || bowlMeta.drawMethod),
+      reducedMotion: Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches),
+      originRect: drawBowlRef.current?.querySelector(".bowl-illustration-image")?.getBoundingClientRect() || null,
+      preview: draw.preview,
+      previewAt: draw.preview ? 0 : null,
+      reveal: null,
+      resultAt: null,
+      title: "",
+      drawnBy: draw.drawnBy,
+      announced: true,
+    };
+    revealRunRef.current = run;
+    setRevealRun(run);
+    setIsDrawing(true);
+
+    try {
+      const [loaded] = await Promise.all([
+        reloadBowl(),
+        new Promise((resolve) => window.setTimeout(resolve, MIN_DRAW_ANIMATION_MS)),
+      ]);
+      const drawn = findAnnouncedDraw(loaded?.watched, draw.bowlMovieId, { played: playedAnnouncementsRef.current });
+      if (!drawn || revealRunRef.current?.startedAt !== startedAt) return;
+      const reveal = verifyAnnouncedReveal(draw.reveal, drawn);
+      const resultAt = Date.now() - startedAt;
+      revealRunRef.current = { ...revealRunRef.current, reveal, resultAt, title: drawn.title || "" };
+      setRevealRun(revealRunRef.current);
+      startProviderLookup(drawn);
+      const { openAt } = getDrawRevealTimeline({
+        preview: run.preview,
+        previewAt: run.previewAt,
+        reveal,
+        resultAt,
+        reducedMotion: run.reducedMotion,
+      });
+      const wait = Math.max(MIN_DRAW_ANIMATION_MS, openAt ?? 0) - (Date.now() - startedAt);
+      const [movie] = await Promise.all([
+        enrichDrawnMovie(drawn),
+        wait > 0 ? new Promise((resolve) => window.setTimeout(resolve, wait)) : Promise.resolve(),
+      ]);
+      if (revealRunRef.current?.startedAt !== startedAt) return;
+
+      setDrawnMovie(movie);
+      setIsTheaterPending(isTheaterModeEnabled);
+      setIsTheaterPlaying(false);
+      setShowTrailer(false);
+      clearLaunchError();
+    } finally {
+      if (revealRunRef.current?.startedAt === startedAt) {
+        drawInFlightRef.current = false;
+        setIsDrawing(false);
+        setRevealRun(null);
+        revealRunRef.current = null;
+      }
+    }
+  };
+
+  const { announceDraw } = useBowlLiveDraw({
+    bowlId,
+    surface: "tv",
+    available: isIdleForAnnouncedDraw,
+    onDraw: playAnnouncedDraw,
+  });
 
   const requestReturnFromHistory = (movie) => {
     if (!movie) return;

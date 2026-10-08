@@ -106,3 +106,36 @@ $$;
 
 grant execute on function auth.uid(), auth.email(), auth.role(), auth.jwt()
   to anon, authenticated, service_role;
+
+-- Realtime authorizes private channels by running the reader's or sender's
+-- role against `realtime.messages`, with the channel name readable through
+-- `realtime.topic()`. Hosted Supabase owns both; this is the shape the live
+-- draw channel's policies are written against, and Supabase's own definition
+-- of the topic reader.
+create schema if not exists realtime;
+
+create table if not exists realtime.messages (
+  id uuid not null default extensions.gen_random_uuid(),
+  topic text not null,
+  extension text not null,
+  payload jsonb,
+  event text,
+  private boolean default false,
+  updated_at timestamp without time zone not null default now(),
+  inserted_at timestamp without time zone not null default now(),
+  primary key (id, inserted_at)
+);
+
+alter table realtime.messages enable row level security;
+
+create or replace function realtime.topic()
+returns text
+language sql
+stable
+as $$
+  select nullif(current_setting('realtime.topic', true), '')::text;
+$$;
+
+grant usage on schema realtime to anon, authenticated, service_role;
+grant select, insert on realtime.messages to anon, authenticated, service_role;
+grant execute on function realtime.topic() to anon, authenticated, service_role;

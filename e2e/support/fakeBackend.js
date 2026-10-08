@@ -252,9 +252,18 @@ export class FakeBackend {
     this.unhandledRequests = [];
     this.pageErrors = [];
     this.consoleErrors = [];
+    // Realtime is a websocket rather than a request, so it has its own fake:
+    // one hub per backend, shared by every page installed on it, which is what
+    // lets a phone and a television in the same test hear each other.
+    this.realtime = { sockets: new Set(), broadcasts: [], nextRef: 1 };
   }
 
   async install(page) {
+    await page.routeWebSocket(
+      (url) => url.origin.replace(/^ws/, "http") === E2E_SUPABASE_ORIGIN && url.pathname === "/realtime/v1/websocket",
+      (ws) => this.handleRealtime(ws)
+    );
+
     page.on("pageerror", (error) => {
       this.pageErrors.push(error.message);
     });
@@ -1084,6 +1093,100 @@ export class FakeBackend {
     await this.unhandled(route, `Unhandled Supabase RPC ${rpcName}`);
   }
 
+  // A Phoenix server as far as realtime-js speaks to it (vsn 2.0.0): joins,
+  // heartbeats, presence, and broadcasts, which the client sends binary and
+  // this relays to every other socket on the topic. Any member may join; the
+  // channel's policies are asserted in supabase/tests/, not here.
+  handleRealtime(ws) {
+    const socket = { ws, topics: new Map() };
+    const hub = this.realtime;
+    hub.sockets.add(socket);
+
+    const send = (joinRef, ref, topic, event, payload) =>
+      ws.send(JSON.stringify([joinRef, ref, topic, event, payload]));
+    const reply = (joinRef, ref, topic, response = {}) =>
+      send(joinRef, ref, topic, "phx_reply", { status: "ok", response });
+    const peersOn = (topic) => Array.from(hub.sockets).filter((peer) => peer.topics.has(topic));
+    const presenceEntry = (membership) => ({
+      metas: [{ phx_ref: membership.phxRef, ...membership.meta }],
+    });
+    const announcePresence = (topic, key, membership, kind) => {
+      const diff = { joins: {}, leaves: {} };
+      diff[kind][key] = presenceEntry(membership);
+      peersOn(topic).forEach((peer) => {
+        const joined = peer.topics.get(topic);
+        peer.ws.send(JSON.stringify([joined.joinRef, null, topic, "presence_diff", diff]));
+      });
+    };
+    const leave = (topic) => {
+      const membership = socket.topics.get(topic);
+      if (!membership) return;
+      socket.topics.delete(topic);
+      if (membership.meta) announcePresence(topic, membership.key, membership, "leaves");
+    };
+
+    ws.onMessage((message) => {
+      if (typeof message !== "string") {
+        const broadcast = decodeUserBroadcastPush(message);
+        if (!broadcast) return;
+        hub.broadcasts.push({ topic: broadcast.topic, event: broadcast.event, payload: broadcast.payload });
+        peersOn(broadcast.topic)
+          .filter((peer) => peer !== socket)
+          .forEach((peer) => peer.ws.send(JSON.stringify([
+            null,
+            null,
+            broadcast.topic,
+            "broadcast",
+            { type: "broadcast", event: broadcast.event, payload: broadcast.payload },
+          ])));
+        if (broadcast.ref) reply(broadcast.joinRef || null, broadcast.ref, broadcast.topic);
+        return;
+      }
+
+      const [joinRef, ref, topic, event, payload] = JSON.parse(message);
+      if (event === "phx_join") {
+        const key = `presence-${hub.nextRef++}`;
+        socket.topics.set(topic, { joinRef, key, meta: null, phxRef: null });
+        reply(joinRef, ref, topic);
+        const state = {};
+        peersOn(topic).forEach((peer) => {
+          const joined = peer.topics.get(topic);
+          if (joined.meta) state[joined.key] = presenceEntry(joined);
+        });
+        send(joinRef, null, topic, "presence_state", state);
+        return;
+      }
+      if (event === "presence") {
+        const membership = socket.topics.get(topic);
+        if (membership) {
+          if (payload?.event === "track") {
+            if (membership.meta) announcePresence(topic, membership.key, membership, "leaves");
+            membership.meta = payload.payload || {};
+            membership.phxRef = String(hub.nextRef++);
+            announcePresence(topic, membership.key, membership, "joins");
+          } else if (payload?.event === "untrack" && membership.meta) {
+            announcePresence(topic, membership.key, membership, "leaves");
+            membership.meta = null;
+          }
+        }
+        if (ref) reply(joinRef, ref, topic);
+        return;
+      }
+      if (event === "phx_leave") {
+        leave(topic);
+        if (ref) reply(joinRef, ref, topic);
+        return;
+      }
+      // Heartbeats, token refreshes and anything else are acknowledged.
+      if (ref) reply(joinRef, ref, topic);
+    });
+
+    ws.onClose(() => {
+      Array.from(socket.topics.keys()).forEach(leave);
+      hub.sockets.delete(socket);
+    });
+  }
+
   async handleAppApi(route) {
     const request = route.request();
     const url = new URL(request.url());
@@ -1240,6 +1343,25 @@ export class FakeBackend {
     this.unhandledRequests.push(description);
     await fulfillJson(route, { error: description }, 501);
   }
+}
+
+// realtime-js sends a broadcast as one binary frame: a kind byte (3), the
+// lengths of join ref, ref, topic, event and metadata, a payload encoding byte,
+// those strings, then the payload.
+function decodeUserBroadcastPush(buffer) {
+  const bytes = new Uint8Array(buffer);
+  if (bytes[0] !== 3) return null;
+  const lengths = Array.from(bytes.slice(1, 6));
+  const encoding = bytes[6];
+  let offset = 7;
+  const [joinRef, ref, topic, event] = lengths.slice(0, 4).map((length) => {
+    const text = Buffer.from(bytes.slice(offset, offset + length)).toString("utf8");
+    offset += length;
+    return text;
+  });
+  offset += lengths[4];
+  const body = Buffer.from(bytes.slice(offset)).toString("utf8");
+  return { joinRef, ref, topic, event, payload: encoding === 1 ? JSON.parse(body) : body };
 }
 
 export const test = base.extend({

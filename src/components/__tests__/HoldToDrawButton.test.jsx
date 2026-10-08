@@ -236,4 +236,20 @@ describe("HoldToDrawButton", () => {
       expect(onHoldComplete).toHaveBeenCalledTimes(1);
     });
   });
+
+  it("puts a mark between the label and the edge, and drops it while drawing", () => {
+    const { rerender } = render(
+      <HoldToDrawButton onHoldComplete={vi.fn()} mark={<svg data-testid="tv-mark" />} ariaLabel="Draw. It will play on the TV too." />
+    );
+    const button = screen.getByRole("button", { name: "Draw. It will play on the TV too." });
+    const mark = screen.getByTestId("tv-mark");
+    // Third column of a 1fr / auto / 1fr row: centred in the space after the label.
+    expect(mark.parentElement.parentElement.className).toContain("grid-cols-[1fr_auto_1fr]");
+    expect(mark.parentElement.previousElementSibling.textContent).toBe("Hold to draw");
+    expect(button).toContainElement(mark);
+
+    rerender(<HoldToDrawButton onHoldComplete={vi.fn()} mark={<svg data-testid="tv-mark" />} isLoading />);
+    expect(screen.queryByTestId("tv-mark")).toBeNull();
+    expect(screen.getByRole("button", { name: "Drawing movie from bowl" })).toHaveTextContent("Drawing...");
+  });
 });

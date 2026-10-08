@@ -77,10 +77,13 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   share sheet; both open the add sheet on the home bowl (`/quick-add`). A
   "Say a movie" shortcut that opens with the mic listening was left out for
   simplicity and could be added later.
-- Bigger swings, unscheduled: attendance-aware movie nights, a live draw every
-  client sees at once, shareable ticket stubs and bowl recaps, a composable
+- Bigger swings, unscheduled: attendance-aware movie nights, shareable ticket
+  stubs and bowl recaps, a composable
   house-rules layer over the draw method registry, and curation for bowls that
   have outgrown their own memory. Brainstorm only — no specs, no commitments.
+  The live draw that was on this list shipped in October 2026 as a draw on a
+  phone playing on the TV open on the same bowl
+  (`output/designs/phone-to-tv-draw.md`).
 - Movie spend tracking: **planned September 30, 2026, parked while Scott thinks
   it over.** A private, per-person monthly and yearly summary of what you pay
   for rentals and subscriptions, beside how many movies you watched from each.

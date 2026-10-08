@@ -3,6 +3,7 @@ import HoldToDrawButton from "../components/HoldToDrawButton";
 import BowlStatLine from "../components/BowlStatLine";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
 import StarterPackOffer from "../components/StarterPackOffer";
+import { getProfileDisplayName } from "../utils/profileIdentity";
 import { STARTER_PACK_SHELF_HASH } from "../utils/starterPacks";
 import { fetchStarterPackPeople } from "../lib/starterPacks";
 import MyMoviesStrip from "../components/MyMoviesStrip";
@@ -61,6 +62,9 @@ import { getAutoStartMode, getAutoStartSurface, resolvePreferredLaunchTarget, re
 import useBowlAdd from "../hooks/useBowlAdd";
 import { fetchOwnDrawWatchEntry, updateOwnWatchComment } from "../lib/watchComments";
 import { notifyBowlChange } from "../lib/bowlChanges";
+import useBowlLiveDraw from "../hooks/useBowlLiveDraw";
+import TelevisionGlyph from "../components/TelevisionGlyph";
+import { buildLiveDraw, findAnnouncedDraw, verifyAnnouncedReveal } from "../utils/liveDraw";
 import GearGlyph from "../components/GearGlyph";
 import HomeGlyph from "../components/HomeGlyph";
 import FilterRow from "../components/FilterRow";
@@ -153,6 +157,7 @@ export default function BowlDashboard() {
     const [didApplyDefaultDrawSettings, setDidApplyDefaultDrawSettings] = useState(false);
     const {
       streamingServices: userStreamingServices,
+      displayName,
       defaultDrawSettings,
       loading: isLoadingUserPreferences,
       loadError: preferencesLoadError,
@@ -1078,6 +1083,19 @@ export default function BowlDashboard() {
           }
           const { drawReveal: reveal = null, ...movie } = result;
           startProviderLookup(movie);
+          // Every other screen open on the bowl -- the television above all --
+          // plays the same draw. It is sent with the pool the stage sorted, so
+          // the replay there starts from the same piles.
+          announceDraw(buildLiveDraw({
+            bowlMovieId: movie.id,
+            title: movie.title,
+            methodId: run.methodId,
+            preview: revealRunRef.current?.preview || null,
+            reveal,
+            // A blank name is a choice, so this is the label every shared
+            // surface already gives that person, never nothing at all.
+            drawnBy: getProfileDisplayName({ display_name: displayName }, currentUserId),
+          }), bowlId);
           // The reveal replays the draw that just happened, and the movie opens
           // when its schedule says the show is over -- never before, and never
           // left waiting after.
@@ -1106,6 +1124,99 @@ export default function BowlDashboard() {
         setRevealRun(null);
       }
     };
+
+    // A draw made on another screen open on this bowl. It plays only here and
+    // now if nothing else is on screen, and it is a replay: the bowl is read
+    // again first, and nothing opens that the read does not show was drawn.
+    const playedAnnouncementsRef = useRef(new Set());
+    const playAnnouncedDraw = async (draw) => {
+      // Anything open over the bowl counts: a reveal on top of a sheet would
+      // leave that sheet mounted underneath with whatever state it had.
+      const busy = isDrawing
+        || Boolean(drawnMovie)
+        || Boolean(selectedDetailMovie)
+        || showDrawConfirm
+        || showDrawFilters
+        || showPeople
+        || showMethodInfo
+        || isPickerOpen
+        || isCreateBowlOpen
+        || Boolean(pendingReaddMovie)
+        || Boolean(pendingRemoveWatchedMovie)
+        || Boolean(bowlAdd?.open)
+        || holdState === "holding"
+        || !isAccessKnown
+        || Boolean(accessError);
+      if (busy) {
+        reloadBowl();
+        return;
+      }
+      const startedAt = Date.now();
+      const run = {
+        startedAt,
+        methodId: normalizeDrawMethod(draw.reveal?.methodId || draw.methodId || drawMethod),
+        reducedMotion: Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches),
+        originRect: drawBowlRef.current?.getBoundingClientRect?.() || null,
+        preview: draw.preview,
+        previewAt: draw.preview ? 0 : null,
+        reveal: null,
+        resultAt: null,
+        title: "",
+        drawnBy: draw.drawnBy,
+        announced: true,
+      };
+      revealRunRef.current = run;
+      setRevealRun(run);
+      setRevealPhase("gather");
+      setIsDrawing(true);
+
+      try {
+        const [loaded] = await Promise.all([
+          reloadBowl(),
+          new Promise((resolve) => setTimeout(resolve, DRAW_REVEAL_FALLBACK_OPEN_MS)),
+        ]);
+        const movie = findAnnouncedDraw(loaded?.watched, draw.bowlMovieId, { played: playedAnnouncementsRef.current });
+        if (!movie || revealRunRef.current?.startedAt !== startedAt) return;
+        const reveal = verifyAnnouncedReveal(draw.reveal, movie);
+        const resultAt = Date.now() - startedAt;
+        revealRunRef.current = { ...revealRunRef.current, reveal, resultAt, title: movie.title || "" };
+        setRevealRun(revealRunRef.current);
+        const { openAt } = getDrawRevealTimeline({
+          preview: run.preview,
+          previewAt: run.previewAt,
+          reveal,
+          resultAt,
+          reducedMotion: run.reducedMotion,
+        });
+        const wait = (openAt ?? 0) - (Date.now() - startedAt);
+        if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
+        if (revealRunRef.current?.startedAt !== startedAt) return;
+        const detailMovie = await buildDetailMovie(movie);
+        if (revealRunRef.current?.startedAt !== startedAt) return;
+        setDrawnMovie(detailMovie);
+      } finally {
+        if (revealRunRef.current?.startedAt === startedAt) {
+          setIsDrawing(false);
+          revealRunRef.current = null;
+          setRevealRun(null);
+        }
+      }
+    };
+
+    // Moving to another bowl abandons an announced replay; the route reuses
+    // this screen, so without this the old bowl's movie would open on the new.
+    useEffect(() => () => {
+      if (!revealRunRef.current?.announced) return;
+      revealRunRef.current = null;
+      setRevealRun(null);
+      setIsDrawing(false);
+    }, [bowlId]);
+
+    const { televisionPresent, announceDraw } = useBowlLiveDraw({
+      bowlId,
+      surface: "web",
+      onDraw: playAnnouncedDraw,
+    });
 
     if (accessError) return <div className="page-container py-8"><div className="status-error" role="alert">
       {accessError}
@@ -1240,6 +1351,10 @@ return (
                     }}
                     isLoading={isDrawing}
                     disabled={isFirstLoad || !canCurrentUserDraw || bowl.remaining.length === 0}
+                    mark={televisionPresent ? <TelevisionGlyph className="h-5 w-5 drop-shadow-[0_0_6px_rgba(255,255,255,0.55)]" /> : null}
+                    ariaLabel={televisionPresent
+                      ? "Draw movie from bowl. Press and hold to draw. It will play on the TV too."
+                      : undefined}
                   />
                   <AddMovieButton
                     variant="secondary"
@@ -2030,10 +2145,11 @@ return (
                 title={revealRun.title}
                 originRect={revealRun.originRect}
                 reducedMotion={revealRun.reducedMotion}
+                drawnBy={revealRun.drawnBy || ""}
                 onPhaseChange={setRevealPhase}
               />
             )}
-            {isDrawing && <DrawAnimationModal detail={getDrawRevealAnnouncement(revealRun?.reveal, revealPhase)} />}
+            {isDrawing && <DrawAnimationModal detail={getDrawRevealAnnouncement(revealRun?.reveal, revealPhase)} drawnBy={revealRun?.drawnBy} />}
             <BowlPicker
               isOpen={isPickerOpen}
               bowls={accountBowls}
