@@ -5,6 +5,7 @@ import useAutosave, { valuesAreEqual } from "../hooks/useAutosave";
 import AutosaveStatus from "../components/AutosaveStatus";
 import SettingsSectionNav from "../components/SettingsSectionNav";
 import ServiceLogo from "../components/ServiceLogo";
+import StreamingServiceRanking from "../components/StreamingServiceRanking";
 import { RENTAL_STORES, RENT_FROM_ANY, RENT_FROM_OFF } from "../utils/rentalStores";
 import { AVAILABLE_STREAMING_SERVICES } from "../utils/streamingServices";
 import { deleteMyAccount } from "../lib/account";
@@ -82,8 +83,6 @@ export default function UserSettings() {
   const navigate = useNavigate();
   const location = useLocation();
   const [searchTerm, setSearchTerm] = useState("");
-  const [draggedService, setDraggedService] = useState(null);
-  const [dropIndex, setDropIndex] = useState(null);
   const [isDeleteDialogOpen, setIsDeleteDialogOpen] = useState(false);
   const [deleteConfirmation, setDeleteConfirmation] = useState("");
   const [isDeletingAccount, setIsDeletingAccount] = useState(false);
@@ -120,45 +119,6 @@ export default function UserSettings() {
       if (!next.includes(service)) next.push(service);
     });
     return next;
-  };
-
-  const moveServiceToIndex = (serviceToMove, toIndex) => {
-    const fromIndex = streamingServices.indexOf(serviceToMove);
-    if (fromIndex === -1 || toIndex === null) return;
-    if (fromIndex === toIndex) return;
-    if (fromIndex < 0 || fromIndex >= streamingServices.length) return;
-    if (toIndex < 0 || toIndex > streamingServices.length) return;
-
-    const next = [...streamingServices];
-    const [moved] = next.splice(fromIndex, 1);
-    const adjustedToIndex = fromIndex < toIndex ? toIndex - 1 : toIndex;
-    next.splice(adjustedToIndex, 0, moved);
-    return next;
-  };
-
-  const moveServiceByOffset = (service, offset) => {
-    const fromIndex = streamingServices.indexOf(service);
-    if (fromIndex === -1) return;
-    const toIndex = fromIndex + offset;
-    if (toIndex < 0 || toIndex >= streamingServices.length) return;
-    const next = [...streamingServices];
-    const [moved] = next.splice(fromIndex, 1);
-    next.splice(toIndex, 0, moved);
-    setStreamingServices(next);
-  };
-
-  // Where a dragged row would land, given the pointer position over a row.
-  const dropIndexForPointer = (event, index) => {
-    const rect = event.currentTarget.getBoundingClientRect();
-    return event.clientY < rect.top + rect.height / 2 ? index : index + 1;
-  };
-
-  const commitDrop = (nextDropIndex) => {
-    const next = moveServiceToIndex(draggedService, nextDropIndex);
-    setDraggedService(null);
-    setDropIndex(null);
-    if (!next) return;
-    setStreamingServices(next);
   };
 
   const filteredServices = useMemo(() => {
@@ -445,111 +405,11 @@ export default function UserSettings() {
                   Nothing picked yet. Choose services below and they will show up here in priority order.
                 </p>
               ) : (
-                <>
-                  <p className="mt-1 text-sm text-slate-400">
-                    Tap a number to change its position.
-                  </p>
-                  <ol aria-label="Streaming service ranking" className="mt-3 space-y-2">
-                    {streamingServices.map((service, index) => (
-                      <li key={service}>
-                        <div
-                          className={`h-0.5 rounded-full transition ${
-                            dropIndex === index && draggedService ? "bg-rose-500" : "bg-transparent"
-                          }`}
-                          aria-hidden="true"
-                        />
-                        <div
-                          draggable
-                          onDragStart={(event) => {
-                            setDraggedService(service);
-                            setDropIndex(index);
-                            event.dataTransfer.setData("text/plain", String(index));
-                            event.dataTransfer.effectAllowed = "move";
-                          }}
-                          onDragEnd={() => {
-                            setDraggedService(null);
-                            setDropIndex(null);
-                          }}
-                          onDragOver={(event) => {
-                            event.preventDefault();
-                            setDropIndex(dropIndexForPointer(event, index));
-                          }}
-                          onDrop={(event) => {
-                            event.preventDefault();
-                            commitDrop(dropIndexForPointer(event, index));
-                          }}
-                          className={`flex items-center justify-between gap-1 rounded-xl border px-2 py-2 sm:gap-2 sm:p-3 transition ${index === 0 ? "border-rose-500/40 bg-rose-950/20" : "border-slate-800 bg-slate-950/40 hover:border-slate-600"} ${
-                            draggedService === service ? "opacity-60" : ""
-                          }`}
-                        >
-                          <div className="flex min-w-0 flex-1 items-center gap-2 sm:gap-3">
-                            <span
-                              className="hidden cursor-grab text-slate-500 sm:inline"
-                              aria-hidden="true"
-                              title="Drag to reorder"
-                            >
-                              ⋮⋮
-                            </span>
-                            <select
-                              aria-label={`Position of ${service}`}
-                              value={index}
-                              onChange={(event) => moveServiceByOffset(service, Number(event.target.value) - index)}
-                              className={`h-11 w-12 shrink-0 cursor-pointer rounded-lg border-0 pl-2 text-sm font-semibold tabular-nums focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-400 ${index === 0 ? "bg-rose-950/50 text-rose-200" : "bg-slate-800 text-slate-200"}`}
-                            >
-                              {streamingServices.map((_, position) => (
-                                <option key={position} value={position}>{position + 1}</option>
-                              ))}
-                            </select>
-                            <ServiceLogo service={service} className="h-7 w-7 sm:h-9 sm:w-9" />
-                            <div className="min-w-0">
-                              <span className="block break-words text-sm font-semibold text-slate-100 sm:text-base">{service}</span>
-                              {index === 0 && <span className="block text-xs text-rose-300">First choice</span>}
-                            </div>
-                          </div>
-                          <div className="ml-auto flex shrink-0 items-center rounded-lg sm:border sm:border-slate-700/60 sm:bg-slate-900/70">
-                            <button
-                              type="button"
-                              onClick={() => moveServiceByOffset(service, -1)}
-                              disabled={index === 0}
-                              className="hidden h-11 w-11 items-center justify-center rounded-lg text-lg text-slate-300 sm:inline-flex transition hover:bg-slate-800 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-400 disabled:cursor-not-allowed disabled:opacity-25 sm:w-11"
-                              aria-label={`Move ${service} up`}
-                              title={`Move ${service} up`}
-                            >
-                              ↑
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => moveServiceByOffset(service, 1)}
-                              disabled={index === streamingServices.length - 1}
-                              className="hidden h-11 w-11 items-center justify-center rounded-lg text-lg text-slate-300 sm:inline-flex transition hover:bg-slate-800 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-400 disabled:cursor-not-allowed disabled:opacity-25 sm:w-11"
-                              aria-label={`Move ${service} down`}
-                              title={`Move ${service} down`}
-                            >
-                              ↓
-                            </button>
-                            <button
-                              type="button"
-                              onClick={() => toggleService(service)}
-                              className="inline-flex h-11 w-11 items-center justify-center rounded-lg text-lg text-slate-500 transition hover:bg-rose-950/60 hover:text-rose-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-rose-400 sm:w-11"
-                              aria-label={`Remove ${service}`}
-                              title={`Remove ${service}`}
-                            >
-                              ×
-                            </button>
-                          </div>
-                        </div>
-                        {index === streamingServices.length - 1 && (
-                          <div
-                            className={`mt-1.5 h-0.5 rounded-full transition ${
-                              dropIndex === index + 1 && draggedService ? "bg-rose-500" : "bg-transparent"
-                            }`}
-                            aria-hidden="true"
-                          />
-                        )}
-                      </li>
-                    ))}
-                  </ol>
-                </>
+                <StreamingServiceRanking
+                  services={streamingServices}
+                  onReorder={setStreamingServices}
+                  onRemove={toggleService}
+                />
               )}
             </div>
 

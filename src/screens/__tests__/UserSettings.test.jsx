@@ -272,10 +272,10 @@ describe("UserSettings", () => {
     ]);
 
     // Ranking and picking share one view, so reordering needs no mode switch.
-    fireEvent.click(screen.getByRole("button", { name: /move hulu up/i }));
+    fireEvent.keyDown(screen.getByRole("button", { name: /^reorder hulu,/i }), { key: "ArrowUp" });
     expect(mocks.hook.setStreamingServices).toHaveBeenCalledWith(["Hulu", "Netflix"]);
 
-    fireEvent.click(screen.getByRole("button", { name: /move netflix down/i }));
+    fireEvent.keyDown(screen.getByRole("button", { name: /^reorder netflix,/i }), { key: "ArrowDown" });
     expect(mocks.hook.setStreamingServices).toHaveBeenCalledWith(["Hulu", "Netflix"]);
 
     fireEvent.click(screen.getByRole("button", { name: /remove netflix/i }));
@@ -288,22 +288,13 @@ describe("UserSettings", () => {
     expect(mocks.navigate).toHaveBeenCalledWith(-1);
   });
 
-  it("moves a service directly to any position without dragging", () => {
+  it("reorders the watch order from the grip and saves the new order", () => {
     mocks.hook.streamingServices = ["Netflix", "Hulu", "Disney+", "Max"];
-    const { rerender } = renderSettings();
+    renderSettings();
 
-    fireEvent.change(screen.getByRole("combobox", { name: "Position of Max" }), {
-      target: { value: "0" },
-    });
+    const ranking = screen.getByRole("list", { name: "Streaming service ranking" });
+    fireEvent.keyDown(within(ranking).getByRole("button", { name: /^Reorder Max,/ }), { key: "Home" });
     expect(mocks.hook.setStreamingServices).toHaveBeenLastCalledWith(["Max", "Netflix", "Hulu", "Disney+"]);
-    mocks.hook.streamingServices = ["Max", "Netflix", "Hulu", "Disney+"];
-    rerender(<UserSettings />);
-    expect(screen.getByRole("combobox", { name: "Position of Max" })).toHaveValue("0");
-
-    fireEvent.change(screen.getByRole("combobox", { name: "Position of Max" }), {
-      target: { value: "3" },
-    });
-    expect(mocks.hook.setStreamingServices).toHaveBeenLastCalledWith(["Netflix", "Hulu", "Disney+", "Max"]);
   });
 
   it("summarizes each section in the header and links to it", () => {
