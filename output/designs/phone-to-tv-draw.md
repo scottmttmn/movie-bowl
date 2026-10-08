@@ -39,8 +39,11 @@ One private Supabase Realtime channel per bowl, `bowl-live:<bowl id>`
   the pool its stage sorted; `reveal` is what `handleDraw` returned, so
   rotation's line-up still comes from the database.
 - The channel is only a nudge. A listener reloads the bowl (`useBowl().reload`
-  now returns the watched list it read) and plays nothing unless a draw event
-  for `bowlMovieId` is in it. A person-first or rotation reveal is kept only
+  now returns the watched list it read) and plays nothing unless the bowl's
+  newest draw event is for `bowlMovieId`, is under ten minutes old, and has not
+  already played on that screen, so an announcement cannot replay history. It
+  is also ignored, beyond the refresh, while anything is open over the bowl. A
+  person-first or rotation reveal is kept only
   when its chosen person is the drawn slip's contributor (a pack slip is
   exempt), so a replay never lands on someone the draw did not pick.
 

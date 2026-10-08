@@ -49,7 +49,7 @@ const mocks = vi.hoisted(() => {
         eq: vi.fn(() => query),
         maybeSingle: vi.fn(async () => ({ data: { user_id: state.authUserId }, error: null })),
         single: vi.fn(async () => {
-          if (table === "bowls") return { data: state.bowlRow, error: null };
+          if (table === "bowls") return state.bowlError ? { data: null, error: state.bowlError } : { data: state.bowlRow, error: null };
           return { data: null, error: null };
         }),
         then: (resolve, reject) => {
@@ -134,6 +134,7 @@ vi.mock("react-router-dom", async () => {
   };
 });
 
+import { MemoryRouter } from "react-router-dom";
 import BowlDashboard from "../BowlDashboard";
 
 function renderDashboard() {
@@ -165,6 +166,7 @@ describe("BowlDashboard live draw", () => {
     mocks.state.reload.mockReset();
     mocks.state.live = { televisionPresent: false, announceDraw: vi.fn(), props: null };
     mocks.state.bowlId = "bowl-1";
+    mocks.state.bowlError = null;
     mocks.state.bowlAdd = { open: false, openBowlAdd: vi.fn() };
     mocks.state.streamingServices = [];
     mocks.state.preferencesLoading = false;
@@ -238,7 +240,7 @@ describe("BowlDashboard live draw", () => {
   });
 
   it("plays a draw made on another screen once the bowl shows it, naming who drew", async () => {
-    const drawn = { id: "event-1", drawEventId: "event-1", bowlMovieId: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A" };
+    const drawn = { id: "event-1", drawEventId: "event-1", bowlMovieId: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A", drawn_at: new Date().toISOString() };
     mocks.state.reload.mockResolvedValue({ watched: [drawn] });
 
     renderDashboard();
@@ -303,7 +305,7 @@ describe("BowlDashboard live draw", () => {
     ["the add sheet", () => { mocks.state.bowlAdd = { ...mocks.state.bowlAdd, open: true }; }],
     ["a hold on the draw button", () => fireEvent.pointerDown(screen.getByRole("button", { name: /draw movie/i }))],
   ])("only refreshes the bowl when an announced draw arrives over %s", async (_name, openOverlay) => {
-    const drawn = { id: "event-1", drawEventId: "event-1", bowlMovieId: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A" };
+    const drawn = { id: "event-1", drawEventId: "event-1", bowlMovieId: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A", drawn_at: new Date().toISOString() };
     mocks.state.reload.mockResolvedValue({ watched: [drawn] });
     const view = renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
@@ -319,7 +321,7 @@ describe("BowlDashboard live draw", () => {
   });
 
   it("abandons an announced replay when the page moves to another bowl", async () => {
-    const drawn = { id: "event-1", drawEventId: "event-1", bowlMovieId: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A" };
+    const drawn = { id: "event-1", drawEventId: "event-1", bowlMovieId: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A", drawn_at: new Date().toISOString() };
     mocks.state.reload.mockResolvedValue({ watched: [drawn] });
     const view = renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
@@ -338,6 +340,27 @@ describe("BowlDashboard live draw", () => {
     });
     vi.useRealTimers();
     expect(document.querySelector(".draw-reveal-stage")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Movie A", level: 2 })).toBeNull();
+  });
+
+  it("only refreshes the bowl for an announcement behind the access error screen", async () => {
+    const drawn = { id: "event-1", drawEventId: "event-1", bowlMovieId: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A", drawn_at: new Date().toISOString() };
+    mocks.state.reload.mockResolvedValue({ watched: [drawn] });
+    mocks.state.bowlError = { message: "offline" };
+    render(<MemoryRouter><BowlDashboard /></MemoryRouter>);
+    await waitFor(() => expect(screen.getByText(/could not load this bowl/i)).toBeInTheDocument());
+
+    await act(async () => {
+      mocks.state.live.props.onDraw({ bowlMovieId: "m1", title: "Movie A", methodId: "", preview: null, reveal: null, drawnBy: "Robin" });
+    });
+    expect(mocks.state.reload).toHaveBeenCalledTimes(1);
+
+    mocks.state.bowlError = null;
+    fireEvent.click(screen.getByRole("button", { name: "Retry" }));
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    await act(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 2500));
+    });
     expect(screen.queryByRole("heading", { name: "Movie A", level: 2 })).toBeNull();
   });
 });

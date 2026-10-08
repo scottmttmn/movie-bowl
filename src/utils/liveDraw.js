@@ -108,11 +108,28 @@ export function parseLiveDraw(raw) {
   };
 }
 
+// How old a draw can be and still be played as news. Generous, because it is
+// the database's clock against this device's, and short next to how long a
+// draw stays in the watched list.
+export const MAX_ANNOUNCED_DRAW_AGE_MS = 10 * 60 * 1000;
+
 // The drawn copy, once the reloaded bowl shows it was drawn. Null means the
 // announcement is not (or not yet) backed by a draw, and nothing should open.
-export function findAnnouncedDraw(watched, bowlMovieId) {
+// Only the bowl's newest draw qualifies, only while it is recent, and only once
+// per screen: anyone allowed to draw can send an announcement, and without this
+// they could make every screen on the bowl replay an old one at will.
+export function findAnnouncedDraw(watched, bowlMovieId, { now = Date.now(), played = null } = {}) {
   if (!Array.isArray(watched) || !bowlMovieId) return null;
-  return watched.find((movie) => String(movie?.bowlMovieId || "") === String(bowlMovieId)) || null;
+  const drawnAt = (movie) => Date.parse(movie?.drawn_at || "");
+  const newest = watched.reduce((latest, movie) => (
+    Number.isFinite(drawnAt(movie)) && (!latest || drawnAt(movie) > drawnAt(latest)) ? movie : latest
+  ), null);
+  if (!newest || String(newest.bowlMovieId || "") !== String(bowlMovieId)) return null;
+  if (Math.abs(now - drawnAt(newest)) > MAX_ANNOUNCED_DRAW_AGE_MS) return null;
+  const eventId = newest.drawEventId || newest.id;
+  if (!eventId || played?.has(eventId)) return null;
+  played?.add(eventId);
+  return newest;
 }
 
 // The announced reveal, if it agrees with the draw the database recorded. A

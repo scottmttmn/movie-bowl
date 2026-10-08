@@ -1125,6 +1125,7 @@ export default function BowlDashboard() {
     // A draw made on another screen open on this bowl. It plays only here and
     // now if nothing else is on screen, and it is a replay: the bowl is read
     // again first, and nothing opens that the read does not show was drawn.
+    const playedAnnouncementsRef = useRef(new Set());
     const playAnnouncedDraw = async (draw) => {
       // Anything open over the bowl counts: a reveal on top of a sheet would
       // leave that sheet mounted underneath with whatever state it had.
@@ -1140,7 +1141,9 @@ export default function BowlDashboard() {
         || Boolean(pendingReaddMovie)
         || Boolean(pendingRemoveWatchedMovie)
         || Boolean(bowlAdd?.open)
-        || holdState === "holding";
+        || holdState === "holding"
+        || !isAccessKnown
+        || Boolean(accessError);
       if (busy) {
         reloadBowl();
         return;
@@ -1169,7 +1172,7 @@ export default function BowlDashboard() {
           reloadBowl(),
           new Promise((resolve) => setTimeout(resolve, DRAW_REVEAL_FALLBACK_OPEN_MS)),
         ]);
-        const movie = findAnnouncedDraw(loaded?.watched, draw.bowlMovieId);
+        const movie = findAnnouncedDraw(loaded?.watched, draw.bowlMovieId, { played: playedAnnouncementsRef.current });
         if (!movie || revealRunRef.current?.startedAt !== startedAt) return;
         const reveal = verifyAnnouncedReveal(draw.reveal, movie);
         const resultAt = Date.now() - startedAt;

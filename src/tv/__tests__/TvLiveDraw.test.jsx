@@ -116,7 +116,7 @@ describe("TV live draw", () => {
 
   it("plays a phone's draw with the drawer's name, then lands on the movie", async () => {
     mocks.reload.mockResolvedValue({
-      watched: [{ id: "event-1", drawEventId: "event-1", bowlMovieId: "movie-1", tmdb_id: 101, title: "Arrival", added_by: "user-1" }],
+      watched: [{ id: "event-1", drawEventId: "event-1", bowlMovieId: "movie-1", tmdb_id: 101, title: "Arrival", added_by: "user-1", drawn_at: new Date().toISOString() }],
     });
     renderTonight();
 

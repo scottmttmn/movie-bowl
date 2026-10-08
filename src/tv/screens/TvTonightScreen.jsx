@@ -998,6 +998,7 @@ export default function TvTonightScreen({ userId }) {
     !isAccessLoading &&
     !accessError;
 
+  const playedAnnouncementsRef = useRef(new Set());
   const playAnnouncedDraw = async (draw) => {
     if (!isIdleForAnnouncedDraw || drawInFlightRef.current) {
       reloadBowl();
@@ -1032,7 +1033,7 @@ export default function TvTonightScreen({ userId }) {
         reloadBowl(),
         new Promise((resolve) => window.setTimeout(resolve, MIN_DRAW_ANIMATION_MS)),
       ]);
-      const drawn = findAnnouncedDraw(loaded?.watched, draw.bowlMovieId);
+      const drawn = findAnnouncedDraw(loaded?.watched, draw.bowlMovieId, { played: playedAnnouncementsRef.current });
       if (!drawn || revealRunRef.current?.startedAt !== startedAt) return;
       const reveal = verifyAnnouncedReveal(draw.reveal, drawn);
       const resultAt = Date.now() - startedAt;
