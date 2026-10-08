@@ -187,7 +187,7 @@ users. A fix that cannot wait for Wednesday goes as a pull request into
 Migrations follow the same split. `.github/workflows/staging-database.yml`
 applies them to staging on every push to `main` (building a new staging project
 from `supabase/baseline/01_schema.sql` first), using the one staging secret.
-`scripts/release.mjs` pushes them to production before it moves `release`, and
+`scripts/release/` pushes them to production before it moves `release`, and
 refuses to move it while Supabase still reports one pending: in September a
 change merged before its migration and took bowl creation down. Nothing else
 writes to the production database, and no workflow holds a production

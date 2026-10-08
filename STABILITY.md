@@ -117,7 +117,10 @@ the commit's CI, so this list is for what it does not reach.
   tab relies on it to refresh itself instead of going blank)
 - confirm new Supabase migrations are applied
 - with provider links enabled, draw on phone and TV: the preferred service
-  stays the same when its title link arrives; TV shows the voice command
+  stays the same when its title link arrives; on the TV, the launch button opens
+  the installed provider app on that title, Back returns to the reveal, and a
+  service whose app is not installed shows the "isn't installed on this TV"
+  line instead of leaving the reveal
 - disable provider links (or force the lookup to fail) and confirm the reveal
   remains usable with the existing service search URL and no lookup error
 - confirm the daily job expires provider-link rows even while lookups are off
