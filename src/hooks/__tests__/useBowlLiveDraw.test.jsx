@@ -173,4 +173,14 @@ describe("useBowlLiveDraw", () => {
     await act(async () => result.current.announceDraw(draw));
     expect(latest().send).not.toHaveBeenCalled();
   });
+
+  it("stops promising the television once its own channel closes", () => {
+    const { result } = renderHook(() => useBowlLiveDraw({ bowlId: "b1" }));
+    act(() => latest().statusCallback("SUBSCRIBED"));
+    act(() => latest().emitPresence({ k1: [{ surface: "tv" }] }));
+    expect(result.current.televisionPresent).toBe(true);
+
+    act(() => latest().statusCallback("CLOSED"));
+    expect(result.current.televisionPresent).toBe(false);
+  });
 });

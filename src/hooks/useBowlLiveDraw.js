@@ -75,10 +75,12 @@ export default function useBowlLiveDraw({ bowlId, surface = "web", available = t
           if (isTelevision && availableRef.current) channel.track({ surface: "tv" });
           return;
         }
+        // Off the channel, a draw cannot reach the television, so the phone
+        // stops saying it will. A rejoin syncs presence again.
         joinedRef.current = false;
+        setTelevisionPresent(false);
         if (status === "CHANNEL_ERROR" || status === "TIMED_OUT") {
           console.error("[useBowlLiveDraw] The live channel is unavailable", status, error);
-          setTelevisionPresent(false);
         }
       });
 
