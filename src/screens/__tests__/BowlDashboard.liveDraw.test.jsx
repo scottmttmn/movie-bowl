@@ -260,6 +260,8 @@ describe("BowlDashboard live draw", () => {
     });
     expect(mocks.state.reload).toHaveBeenCalledTimes(1);
     expect(document.querySelector("[data-testid='draw-reveal-drawn-by']")).toHaveTextContent("Robin");
+    // The slip is decoration; the live region is what a screen reader hears.
+    expect(screen.getByText(/drawn by robin\./i)).toBeInTheDocument();
 
     await act(async () => {
       await vi.advanceTimersByTimeAsync(1500);

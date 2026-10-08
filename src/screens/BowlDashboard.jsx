@@ -2146,7 +2146,7 @@ return (
                 onPhaseChange={setRevealPhase}
               />
             )}
-            {isDrawing && <DrawAnimationModal detail={getDrawRevealAnnouncement(revealRun?.reveal, revealPhase)} />}
+            {isDrawing && <DrawAnimationModal detail={getDrawRevealAnnouncement(revealRun?.reveal, revealPhase)} drawnBy={revealRun?.drawnBy} />}
             <BowlPicker
               isOpen={isPickerOpen}
               bowls={accountBowls}
