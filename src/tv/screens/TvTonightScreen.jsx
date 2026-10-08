@@ -1003,7 +1003,10 @@ export default function TvTonightScreen({ userId }) {
     !showTrailer &&
     !isTheaterPlaying &&
     !isAccessLoading &&
-    !accessError;
+    !accessError &&
+    // A replay opens the movie with this account's theater setting, so it
+    // waits for the saved one rather than playing on the default.
+    !isPreferencesLoading;
 
   const playedAnnouncementsRef = useRef(new Set());
   const playAnnouncedDraw = async (draw) => {

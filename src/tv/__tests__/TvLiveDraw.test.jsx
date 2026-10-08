@@ -14,6 +14,7 @@ const mocks = vi.hoisted(() => ({
   reload: vi.fn(),
   getTmdbMovieDetails: vi.fn(async () => ({})),
   live: { props: null, announceDraw: vi.fn() },
+  preferencesLoading: false,
 }));
 
 vi.mock("../hooks/useTvBowls", () => ({
@@ -51,7 +52,7 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
       includeUnknownRuntime: true,
       theaterModeEnabled: false,
     },
-    loading: false,
+    loading: mocks.preferencesLoading,
   }),
 }));
 
@@ -105,6 +106,7 @@ describe("TV live draw", () => {
     mocks.handleDraw.mockReset();
     mocks.reload.mockReset();
     mocks.live = { props: null, announceDraw: vi.fn() };
+    mocks.preferencesLoading = false;
   });
 
   afterEach(() => {
@@ -186,5 +188,11 @@ describe("TV live draw", () => {
     fireEvent.click(screen.getByText("Other bowl"));
     expect(document.querySelector(".draw-reveal-stage")).toBeNull();
     expect(mocks.live.props).toMatchObject({ bowlId: "other", available: true });
+  });
+
+  it("does not say it is listening until its saved preferences have loaded", () => {
+    mocks.preferencesLoading = true;
+    renderTonight();
+    expect(mocks.live.props.available).toBe(false);
   });
 });
