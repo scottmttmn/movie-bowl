@@ -958,7 +958,7 @@ export default function TvTonightScreen({ userId }) {
           methodId: run.methodId,
           preview: revealRunRef.current?.preview || null,
           reveal,
-        }));
+        }), bowlId);
         const resultAt = Date.now() - startedAt;
         updateRun({ reveal, resultAt, title: movie.title || "" });
         const { preview, previewAt } = revealRunRef.current;

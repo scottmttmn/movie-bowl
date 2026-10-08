@@ -20,6 +20,7 @@ import { getBowlLiveTopic, parseLiveDraw } from "../utils/liveDraw";
 export default function useBowlLiveDraw({ bowlId, surface = "web", available = true, onDraw } = {}) {
   const [televisionPresent, setTelevisionPresent] = useState(false);
   const channelRef = useRef(null);
+  const channelBowlRef = useRef(null);
   const joinedRef = useRef(false);
   const availableRef = useRef(available);
   const onDrawRef = useRef(onDraw);
@@ -45,6 +46,7 @@ export default function useBowlLiveDraw({ bowlId, surface = "web", available = t
       return undefined;
     }
     channelRef.current = channel;
+    channelBowlRef.current = bowlId;
     // A channel being left can still report in after its replacement joined;
     // only the current one may touch the shared state.
     let current = true;
@@ -84,6 +86,7 @@ export default function useBowlLiveDraw({ bowlId, surface = "web", available = t
       current = false;
       joinedRef.current = false;
       channelRef.current = null;
+      channelBowlRef.current = null;
       setTelevisionPresent(false);
       supabase.removeChannel?.(channel);
     };
@@ -98,9 +101,14 @@ export default function useBowlLiveDraw({ bowlId, surface = "web", available = t
     else channel.untrack();
   }, [available, isTelevision]);
 
-  const announceDraw = useCallback((draw) => {
+  // A draw names the bowl it was made in. It can still be in flight when the
+  // screen moves to another bowl, and by then the channel is that bowl's: an
+  // announcement there would set every idle screen on it reloading for a
+  // movie it does not have.
+  const announceDraw = useCallback((draw, fromBowlId) => {
     const channel = channelRef.current;
     if (!draw || !channel || !joinedRef.current) return;
+    if (!fromBowlId || fromBowlId !== channelBowlRef.current) return;
     Promise.resolve(channel.send({ type: "broadcast", event: "draw", payload: draw })).catch((error) => {
       console.error("[useBowlLiveDraw] Could not announce the draw", error);
     });

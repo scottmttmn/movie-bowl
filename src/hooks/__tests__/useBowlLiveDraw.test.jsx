@@ -127,11 +127,11 @@ describe("useBowlLiveDraw", () => {
     const draw = buildLiveDraw({ bowlMovieId: "m1", title: "Heat", methodId: "title_first", drawnBy: "Robin" });
 
     // Not joined yet: nothing goes out.
-    act(() => result.current.announceDraw(draw));
+    act(() => result.current.announceDraw(draw, "b1"));
     expect(latest().send).not.toHaveBeenCalled();
 
     act(() => latest().statusCallback("SUBSCRIBED"));
-    await act(async () => result.current.announceDraw(draw));
+    await act(async () => result.current.announceDraw(draw, "b1"));
     expect(latest().sent).toEqual([{ type: "broadcast", event: "draw", payload: draw }]);
 
     act(() => latest().emitDraw(draw));
@@ -157,7 +157,20 @@ describe("useBowlLiveDraw", () => {
     expect(onDraw).not.toHaveBeenCalled();
 
     const draw = buildLiveDraw({ bowlMovieId: "m2", title: "Alien" });
-    await act(async () => result.current.announceDraw(draw));
+    await act(async () => result.current.announceDraw(draw, "b2"));
     expect(second.sent).toEqual([{ type: "broadcast", event: "draw", payload: draw }]);
+  });
+
+  it("keeps a draw from one bowl off the channel of the bowl the screen moved to", async () => {
+    const { rerender, result } = renderHook((props) => useBowlLiveDraw(props), {
+      initialProps: { bowlId: "b1" },
+    });
+    rerender({ bowlId: "b2" });
+    act(() => latest().statusCallback("SUBSCRIBED"));
+
+    const draw = buildLiveDraw({ bowlMovieId: "m1", title: "Heat" });
+    await act(async () => result.current.announceDraw(draw, "b1"));
+    await act(async () => result.current.announceDraw(draw));
+    expect(latest().send).not.toHaveBeenCalled();
   });
 });

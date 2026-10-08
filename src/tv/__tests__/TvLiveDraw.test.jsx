@@ -169,7 +169,7 @@ describe("TV live draw", () => {
       bowlMovieId: "movie-1",
       title: "Arrival",
       drawnBy: "",
-    }));
+    }), "family");
   });
 
   it("takes an announced replay down at once when the TV moves to another bowl", async () => {

@@ -1092,7 +1092,7 @@ export default function BowlDashboard() {
             preview: revealRunRef.current?.preview || null,
             reveal,
             drawnBy: displayName,
-          }));
+          }), bowlId);
           // The reveal replays the draw that just happened, and the movie opens
           // when its schedule says the show is over -- never before, and never
           // left waiting after.

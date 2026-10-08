@@ -236,7 +236,7 @@ describe("BowlDashboard live draw", () => {
       drawnBy: "Scott",
       reveal: drawReveal,
       preview: expect.objectContaining({ total: 1 }),
-    }));
+    }), "bowl-1");
   });
 
   it("plays a draw made on another screen once the bowl shows it, naming who drew", async () => {
