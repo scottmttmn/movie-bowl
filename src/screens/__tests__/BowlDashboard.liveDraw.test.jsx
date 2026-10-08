@@ -379,4 +379,45 @@ describe("BowlDashboard live draw", () => {
     });
     expect(screen.queryByRole("heading", { name: "Movie A", level: 2 })).toBeNull();
   });
+
+  describe("coming back to the page", () => {
+    let visibility = "visible";
+    const setVisibility = (next) => {
+      visibility = next;
+      act(() => {
+        document.dispatchEvent(new Event("visibilitychange"));
+      });
+    };
+
+    beforeEach(() => {
+      visibility = "visible";
+      Object.defineProperty(document, "visibilityState", { configurable: true, get: () => visibility });
+    });
+    afterEach(() => {
+      delete document.visibilityState;
+    });
+
+    it("reads the bowl again, showing a missed draw without replaying it", async () => {
+      renderDashboard();
+      await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+      setVisibility("hidden");
+      expect(mocks.state.reload).not.toHaveBeenCalled();
+
+      setVisibility("visible");
+      expect(mocks.state.reload).toHaveBeenCalledTimes(1);
+      expect(document.querySelector(".draw-reveal-stage")).toBeNull();
+    });
+
+    it("leaves a draw this screen is running to land on its own", async () => {
+      mocks.state.handleDraw.mockReturnValue(new Promise(() => {}));
+      renderDashboard();
+      await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+      confirmDraw();
+
+      setVisibility("hidden");
+      setVisibility("visible");
+      expect(mocks.state.reload).not.toHaveBeenCalled();
+    });
+  });
 });
