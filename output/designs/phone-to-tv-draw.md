@@ -25,6 +25,10 @@ The same channel gives a bowl shared with someone far away a draw both ends see.
   paper slip in the top-left corner carries a phone and the drawer's name.
 - **Another web tab** on the bowl plays the draw the same way when nothing else
   is open on it; otherwise it just refreshes.
+- **Coming back** to a bowl page that was out of sight reads the bowl again. A
+  phone asleep in the background misses the broadcast, so a draw made
+  meanwhile shows in the watched list. It never replays: Scott chose the
+  result alone.
 - A draw made on the **television** is announced too, naming nobody: the TV is
   signed in as its owner, not whoever holds the remote.
 

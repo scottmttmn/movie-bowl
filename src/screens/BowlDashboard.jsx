@@ -1212,6 +1212,21 @@ export default function BowlDashboard() {
       setIsDrawing(false);
     }, [bowlId]);
 
+    // A phone puts a backgrounded browser to sleep and its live channel with
+    // it, so a draw made meanwhile never arrives. Coming back reads the bowl
+    // again: the draw shows in the watched list rather than replaying, and a
+    // draw this screen is running is left to land on its own.
+    const isDrawingRef = useRef(isDrawing);
+    isDrawingRef.current = isDrawing;
+    useEffect(() => {
+      const refreshOnReturn = () => {
+        if (document.visibilityState === "hidden" || isDrawingRef.current) return;
+        reloadBowl();
+      };
+      document.addEventListener("visibilitychange", refreshOnReturn);
+      return () => document.removeEventListener("visibilitychange", refreshOnReturn);
+    }, [reloadBowl]);
+
     const { televisionPresent, announceDraw } = useBowlLiveDraw({
       bowlId,
       surface: "web",
