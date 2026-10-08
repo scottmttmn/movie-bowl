@@ -1139,7 +1139,8 @@ export default function BowlDashboard() {
         || isCreateBowlOpen
         || Boolean(pendingReaddMovie)
         || Boolean(pendingRemoveWatchedMovie)
-        || Boolean(bowlAdd?.open);
+        || Boolean(bowlAdd?.open)
+        || holdState === "holding";
       if (busy) {
         reloadBowl();
         return;
@@ -1156,6 +1157,7 @@ export default function BowlDashboard() {
         resultAt: null,
         title: "",
         drawnBy: draw.drawnBy,
+        announced: true,
       };
       revealRunRef.current = run;
       setRevealRun(run);
@@ -1182,7 +1184,10 @@ export default function BowlDashboard() {
         });
         const wait = (openAt ?? 0) - (Date.now() - startedAt);
         if (wait > 0) await new Promise((resolve) => setTimeout(resolve, wait));
-        setDrawnMovie(await buildDetailMovie(movie));
+        if (revealRunRef.current?.startedAt !== startedAt) return;
+        const detailMovie = await buildDetailMovie(movie);
+        if (revealRunRef.current?.startedAt !== startedAt) return;
+        setDrawnMovie(detailMovie);
       } finally {
         if (revealRunRef.current?.startedAt === startedAt) {
           setIsDrawing(false);
@@ -1191,6 +1196,15 @@ export default function BowlDashboard() {
         }
       }
     };
+
+    // Moving to another bowl abandons an announced replay; the route reuses
+    // this screen, so without this the old bowl's movie would open on the new.
+    useEffect(() => () => {
+      if (!revealRunRef.current?.announced) return;
+      revealRunRef.current = null;
+      setRevealRun(null);
+      setIsDrawing(false);
+    }, [bowlId]);
 
     const { televisionPresent, announceDraw } = useBowlLiveDraw({
       bowlId,

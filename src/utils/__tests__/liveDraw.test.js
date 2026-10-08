@@ -8,10 +8,11 @@ import {
   verifyAnnouncedReveal,
 } from "../liveDraw";
 
-const preview = { methodId: "person_first", stage: "people", mode: "random", people: [{ key: "user:a", label: "Ann", count: 2 }], sharedCount: 0, total: 2 };
+const people = [{ key: "user:a", label: "Ann", count: 2 }, { key: "user:b", label: "Bo", count: 1 }];
+const preview = { methodId: "person_first", stage: "people", mode: "random", people, sharedCount: 0, total: 3 };
 const reveal = {
   methodId: "person_first",
-  person: { mode: "random", people: [], chosenKey: "user:a", chosenLabel: "Ann" },
+  person: { mode: "random", people, chosenKey: "user:a", chosenLabel: "Ann" },
   title: { mode: "random", scope: "person", personLabel: "Ann", count: 2 },
 };
 
@@ -53,6 +54,40 @@ describe("liveDraw", () => {
     expect(odd.drawnBy).toHaveLength(80);
     expect(odd.preview).toBeNull();
     expect(odd.reveal).toBeNull();
+  });
+
+  it("drops a preview or reveal the stage could not draw, and keeps the draw", () => {
+    const announce = (extra) => parseLiveDraw({ v: LIVE_DRAW_VERSION, bowlMovieId: "1", ...extra });
+    const malformedPreviews = [
+      { ...preview, people: [null] },
+      { ...preview, people: [{ key: "user:a", label: "Ann" }] },
+      { ...preview, people: [{ key: 7, label: "Ann", count: 1 }] },
+      { ...preview, people: [] },
+      { ...preview, stage: "pile" },
+      { ...preview, total: "3" },
+    ];
+    malformedPreviews.forEach((shape) => expect(announce({ preview: shape }).preview).toBeNull());
+
+    const malformedReveals = [
+      { ...reveal, person: {}, title: {} },
+      { ...reveal, person: {} },
+      { ...reveal, person: { ...reveal.person, people: null } },
+      { ...reveal, person: { ...reveal.person, people: [null] } },
+      { ...reveal, person: { ...reveal.person, chosenKey: "user:z" } },
+      { ...reveal, person: { ...reveal.person, queue: [null] } },
+      { ...reveal, title: { ...reveal.title, scope: "elsewhere" } },
+      { ...reveal, title: { ...reveal.title, count: -1 } },
+    ];
+    malformedReveals.forEach((shape) => {
+      const parsed = announce({ reveal: shape });
+      expect(parsed.reveal).toBeNull();
+      expect(parsed.bowlMovieId).toBe("1");
+    });
+
+    const rotation = { ...reveal, person: { ...reveal.person, mode: "turn", queue: [{ key: "user:a", neverDrawn: true, extra: 1 }] } };
+    expect(announce({ reveal: rotation }).reveal.person.queue).toEqual([{ key: "user:a", neverDrawn: true }]);
+    const flat = { methodId: "title_first", person: null, title: { mode: "random", scope: "bowl", count: 3 } };
+    expect(announce({ reveal: flat }).reveal).toEqual(flat);
   });
 
   it("finds only a draw the reloaded bowl shows", () => {

@@ -164,6 +164,7 @@ describe("BowlDashboard live draw", () => {
     mocks.state.handleDraw.mockReset();
     mocks.state.reload.mockReset();
     mocks.state.live = { televisionPresent: false, announceDraw: vi.fn(), props: null };
+    mocks.state.bowlId = "bowl-1";
     mocks.state.bowlAdd = { open: false, openBowlAdd: vi.fn() };
     mocks.state.streamingServices = [];
     mocks.state.preferencesLoading = false;
@@ -300,6 +301,7 @@ describe("BowlDashboard live draw", () => {
   it.each([
     ["the filters sheet", () => fireEvent.click(screen.getByRole("button", { name: "Filters" }))],
     ["the add sheet", () => { mocks.state.bowlAdd = { ...mocks.state.bowlAdd, open: true }; }],
+    ["a hold on the draw button", () => fireEvent.pointerDown(screen.getByRole("button", { name: /draw movie/i }))],
   ])("only refreshes the bowl when an announced draw arrives over %s", async (_name, openOverlay) => {
     const drawn = { id: "event-1", drawEventId: "event-1", bowlMovieId: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A" };
     mocks.state.reload.mockResolvedValue({ watched: [drawn] });
@@ -312,6 +314,29 @@ describe("BowlDashboard live draw", () => {
       mocks.state.live.props.onDraw({ bowlMovieId: "m1", title: "Movie A", methodId: "", preview: null, reveal: null, drawnBy: "Robin" });
     });
     expect(mocks.state.reload).toHaveBeenCalledTimes(1);
+    expect(document.querySelector(".draw-reveal-stage")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Movie A", level: 2 })).toBeNull();
+  });
+
+  it("abandons an announced replay when the page moves to another bowl", async () => {
+    const drawn = { id: "event-1", drawEventId: "event-1", bowlMovieId: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A" };
+    mocks.state.reload.mockResolvedValue({ watched: [drawn] });
+    const view = renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    vi.useFakeTimers();
+    await act(async () => {
+      mocks.state.live.props.onDraw({ bowlMovieId: "m1", title: "Movie A", methodId: "title_first", preview: null, reveal: null, drawnBy: "Robin" });
+      await vi.advanceTimersByTimeAsync(1300);
+    });
+    expect(document.querySelector(".draw-reveal-stage")).not.toBeNull();
+
+    mocks.state.bowlId = "bowl-2";
+    view.rerender(<BowlDashboard />);
+    await act(async () => {
+      await vi.advanceTimersByTimeAsync(3000);
+    });
+    vi.useRealTimers();
     expect(document.querySelector(".draw-reveal-stage")).toBeNull();
     expect(screen.queryByRole("heading", { name: "Movie A", level: 2 })).toBeNull();
   });

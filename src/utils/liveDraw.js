@@ -27,21 +27,83 @@ export function buildLiveDraw({ bowlMovieId, title, methodId, preview = null, re
 }
 
 const isPlainObject = (value) => Boolean(value) && typeof value === "object" && !Array.isArray(value);
+const isCount = (value) => Number.isFinite(value) && value >= 0;
+const MAX_PEOPLE = 200;
 
-// A newer version is dropped rather than half-understood; the reveal shapes are
-// checked only as far as the stage reads them, so an odd one falls back to no
-// replay rather than a broken one.
+// One person as the stage reads them: a key and a label, and a count wherever
+// one is given. Anything else in the shape makes the whole list unusable.
+function parsePeople(raw) {
+  if (!Array.isArray(raw) || raw.length > MAX_PEOPLE) return null;
+  const people = [];
+  for (const entry of raw) {
+    if (!isPlainObject(entry) || typeof entry.key !== "string" || !entry.key) return null;
+    if (typeof entry.label !== "string") return null;
+    if (entry.count !== undefined && !isCount(entry.count)) return null;
+    const person = { key: entry.key, label: entry.label.slice(0, MAX_NAME_LENGTH) };
+    if (entry.count !== undefined) person.count = entry.count;
+    people.push(person);
+  }
+  return people;
+}
+
+// The pool's arrangement, rebuilt from the fields the stage reads, so a
+// malformed one is dropped here rather than met by the stage mid-render.
+function parsePreview(raw) {
+  if (!isPlainObject(raw) || !["people", "bowl"].includes(raw.stage)) return null;
+  if (!isCount(raw.total) || (raw.sharedCount !== undefined && !isCount(raw.sharedCount))) return null;
+  const people = parsePeople(raw.people);
+  if (!people || people.some((person) => person.count === undefined)) return null;
+  if (raw.stage === "people" && people.length === 0) return null;
+  return {
+    methodId: typeof raw.methodId === "string" ? raw.methodId : "",
+    stage: raw.stage,
+    mode: raw.mode === "turn" ? "turn" : "random",
+    people,
+    sharedCount: raw.sharedCount ?? 0,
+    total: raw.total,
+  };
+}
+
+function parseRevealPerson(raw) {
+  if (raw === null || raw === undefined) return null;
+  if (!isPlainObject(raw) || !["turn", "random"].includes(raw.mode)) return undefined;
+  if (typeof raw.chosenKey !== "string" || !raw.chosenKey || typeof raw.chosenLabel !== "string") return undefined;
+  const people = parsePeople(raw.people);
+  if (!people || !people.some((person) => person.key === raw.chosenKey)) return undefined;
+  const person = { mode: raw.mode, people, chosenKey: raw.chosenKey, chosenLabel: raw.chosenLabel.slice(0, MAX_NAME_LENGTH) };
+  if (raw.queue !== undefined) {
+    if (!Array.isArray(raw.queue) || raw.queue.length > MAX_PEOPLE) return undefined;
+    if (!raw.queue.every((entry) => isPlainObject(entry) && typeof entry.key === "string" && entry.key)) return undefined;
+    person.queue = raw.queue.map((entry) => ({ key: entry.key, neverDrawn: Boolean(entry.neverDrawn) }));
+  }
+  return person;
+}
+
+function parseReveal(raw) {
+  if (!isPlainObject(raw) || !isPlainObject(raw.title)) return null;
+  const { title } = raw;
+  if (!["random", "pinned"].includes(title.mode) || !["person", "bowl", "pack"].includes(title.scope)) return null;
+  if (title.count !== null && title.count !== undefined && !isCount(title.count)) return null;
+  if (title.personLabel !== undefined && typeof title.personLabel !== "string") return null;
+  const person = parseRevealPerson(raw.person);
+  if (person === undefined) return null;
+  const parsedTitle = { mode: title.mode, scope: title.scope, count: title.count ?? null };
+  if (title.personLabel !== undefined) parsedTitle.personLabel = title.personLabel.slice(0, MAX_NAME_LENGTH);
+  return { methodId: typeof raw.methodId === "string" ? raw.methodId : "", person, title: parsedTitle };
+}
+
+// A newer version is dropped rather than half-understood, and so is any
+// preview or reveal the stage could not draw: the movie still opens, just
+// without a replay.
 export function parseLiveDraw(raw) {
   if (!isPlainObject(raw) || raw.v !== LIVE_DRAW_VERSION) return null;
   if (typeof raw.bowlMovieId !== "string" || !raw.bowlMovieId) return null;
-  const preview = isPlainObject(raw.preview) && Array.isArray(raw.preview.people) ? raw.preview : null;
-  const reveal = isPlainObject(raw.reveal) && isPlainObject(raw.reveal.title) ? raw.reveal : null;
   return {
     bowlMovieId: raw.bowlMovieId,
     title: typeof raw.title === "string" ? raw.title.slice(0, MAX_TITLE_LENGTH) : "",
     methodId: typeof raw.methodId === "string" ? raw.methodId : "",
-    preview,
-    reveal,
+    preview: parsePreview(raw.preview),
+    reveal: parseReveal(raw.reveal),
     drawnBy: typeof raw.drawnBy === "string" ? raw.drawnBy.trim().slice(0, MAX_NAME_LENGTH) : "",
   };
 }
