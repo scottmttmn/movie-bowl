@@ -139,4 +139,25 @@ describe("useBowlLiveDraw", () => {
     expect(onDraw).toHaveBeenCalledTimes(1);
     expect(onDraw).toHaveBeenCalledWith(expect.objectContaining({ bowlMovieId: "m1", drawnBy: "Robin" }));
   });
+
+  it("lets a channel it has left change nothing on the one that replaced it", async () => {
+    const onDraw = vi.fn();
+    const { rerender, result } = renderHook((props) => useBowlLiveDraw(props), {
+      initialProps: { bowlId: "b1", onDraw },
+    });
+    const first = latest();
+    rerender({ bowlId: "b2", onDraw });
+    const second = latest();
+    act(() => second.statusCallback("SUBSCRIBED"));
+
+    act(() => first.statusCallback("CLOSED"));
+    act(() => first.emitPresence({ k1: [{ surface: "tv" }] }));
+    act(() => first.emitDraw(buildLiveDraw({ bowlMovieId: "m1", title: "Heat" })));
+    expect(result.current.televisionPresent).toBe(false);
+    expect(onDraw).not.toHaveBeenCalled();
+
+    const draw = buildLiveDraw({ bowlMovieId: "m2", title: "Alien" });
+    await act(async () => result.current.announceDraw(draw));
+    expect(second.sent).toEqual([{ type: "broadcast", event: "draw", payload: draw }]);
+  });
 });

@@ -1,5 +1,5 @@
 import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
-import { MemoryRouter, Route, Routes } from "react-router-dom";
+import { MemoryRouter, Route, Routes, useNavigate } from "react-router-dom";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
@@ -77,8 +77,14 @@ function renderTonight() {
       <Routes>
         <Route path="/tv/bowl/:bowlId" element={<TvTonightScreen userId="user-1" />} />
       </Routes>
+      <NavigateProbe />
     </MemoryRouter>
   );
+}
+
+function NavigateProbe() {
+  const navigate = useNavigate();
+  return <button type="button" hidden onClick={() => navigate("/tv/bowl/other")}>Other bowl</button>;
 }
 
 const announced = (overrides = {}) => ({
@@ -164,5 +170,21 @@ describe("TV live draw", () => {
       title: "Arrival",
       drawnBy: "",
     }));
+  });
+
+  it("takes an announced replay down at once when the TV moves to another bowl", async () => {
+    // The reload never answers, so only the bowl change can end the replay.
+    mocks.reload.mockReturnValue(new Promise(() => {}));
+    renderTonight();
+
+    await act(async () => {
+      mocks.live.props.onDraw(announced());
+      await Promise.resolve();
+    });
+    expect(document.querySelector(".draw-reveal-stage")).not.toBeNull();
+
+    fireEvent.click(screen.getByText("Other bowl"));
+    expect(document.querySelector(".draw-reveal-stage")).toBeNull();
+    expect(mocks.live.props).toMatchObject({ bowlId: "other", available: true });
   });
 });

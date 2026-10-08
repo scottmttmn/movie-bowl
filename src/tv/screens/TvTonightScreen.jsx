@@ -509,6 +509,13 @@ export default function TvTonightScreen({ userId }) {
   useEffect(() => () => {
     // A committed draw may finish after this route goes away. Its animation
     // callbacks must not publish a result into a different bowl's screen.
+    // An announced replay is only a replay, so it is taken down at once
+    // rather than left on screen until its reload and enrichment settle.
+    if (revealRunRef.current?.announced) {
+      drawInFlightRef.current = false;
+      setIsDrawing(false);
+      setRevealRun(null);
+    }
     revealRunRef.current = null;
   }, [bowlId]);
 
@@ -1023,6 +1030,7 @@ export default function TvTonightScreen({ userId }) {
       resultAt: null,
       title: "",
       drawnBy: draw.drawnBy,
+      announced: true,
     };
     revealRunRef.current = run;
     setRevealRun(run);
@@ -1060,10 +1068,12 @@ export default function TvTonightScreen({ userId }) {
       setShowTrailer(false);
       clearLaunchError();
     } finally {
-      drawInFlightRef.current = false;
-      setIsDrawing(false);
-      setRevealRun(null);
-      revealRunRef.current = null;
+      if (revealRunRef.current?.startedAt === startedAt) {
+        drawInFlightRef.current = false;
+        setIsDrawing(false);
+        setRevealRun(null);
+        revealRunRef.current = null;
+      }
     }
   };
 

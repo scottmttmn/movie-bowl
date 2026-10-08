@@ -45,8 +45,12 @@ export default function useBowlLiveDraw({ bowlId, surface = "web", available = t
       return undefined;
     }
     channelRef.current = channel;
+    // A channel being left can still report in after its replacement joined;
+    // only the current one may touch the shared state.
+    let current = true;
 
     const readPresence = () => {
+      if (!current) return;
       const state = channel.presenceState?.() || {};
       const present = Object.values(state).some((metas) =>
         (metas || []).some((meta) => meta?.surface === "tv")
@@ -58,10 +62,12 @@ export default function useBowlLiveDraw({ bowlId, surface = "web", available = t
     channel
       .on("presence", { event: "sync" }, readPresence)
       .on("broadcast", { event: "draw" }, ({ payload } = {}) => {
+        if (!current) return;
         const draw = parseLiveDraw(payload);
         if (draw) onDrawRef.current?.(draw);
       })
       .subscribe((status, error) => {
+        if (!current) return;
         if (status === "SUBSCRIBED") {
           joinedRef.current = true;
           if (isTelevision && availableRef.current) channel.track({ surface: "tv" });
@@ -75,6 +81,7 @@ export default function useBowlLiveDraw({ bowlId, surface = "web", available = t
       });
 
     return () => {
+      current = false;
       joinedRef.current = false;
       channelRef.current = null;
       setTelevisionPresent(false);
