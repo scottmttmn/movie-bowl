@@ -80,7 +80,7 @@ const userBowlsMock = vi.hoisted(() => ({
 }));
 vi.mock("../../hooks/useUserBowls", () => ({ default: () => userBowlsMock }));
 
-vi.mock("../../hooks/useBowlAdd", () => ({ default: () => ({ openBowlAdd: vi.fn() }) }));
+vi.mock("../../hooks/useBowlAdd", () => ({ default: () => mocks.state.bowlAdd }));
 vi.mock("../../hooks/useBowl", () => ({
   default: (bowlId) => ({
     bowl: mocks.state.bowlData,
@@ -164,6 +164,7 @@ describe("BowlDashboard live draw", () => {
     mocks.state.handleDraw.mockReset();
     mocks.state.reload.mockReset();
     mocks.state.live = { televisionPresent: false, announceDraw: vi.fn(), props: null };
+    mocks.state.bowlAdd = { open: false, openBowlAdd: vi.fn() };
     mocks.state.streamingServices = [];
     mocks.state.preferencesLoading = false;
     mocks.state.preferencesLoadError = null;
@@ -294,5 +295,24 @@ describe("BowlDashboard live draw", () => {
     expect(mocks.state.reload).toHaveBeenCalledTimes(1);
     expect(document.querySelector(".draw-reveal-stage")).toBeNull();
     expect(screen.getByRole("heading", { name: "Movie A", level: 2 })).toBeInTheDocument();
+  });
+
+  it.each([
+    ["the filters sheet", () => fireEvent.click(screen.getByRole("button", { name: "Filters" }))],
+    ["the add sheet", () => { mocks.state.bowlAdd = { ...mocks.state.bowlAdd, open: true }; }],
+  ])("only refreshes the bowl when an announced draw arrives over %s", async (_name, openOverlay) => {
+    const drawn = { id: "event-1", drawEventId: "event-1", bowlMovieId: "m1", added_by: "u1", tmdb_id: 101, title: "Movie A" };
+    mocks.state.reload.mockResolvedValue({ watched: [drawn] });
+    const view = renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    act(() => openOverlay());
+    view.rerender(<BowlDashboard />);
+
+    await act(async () => {
+      mocks.state.live.props.onDraw({ bowlMovieId: "m1", title: "Movie A", methodId: "", preview: null, reveal: null, drawnBy: "Robin" });
+    });
+    expect(mocks.state.reload).toHaveBeenCalledTimes(1);
+    expect(document.querySelector(".draw-reveal-stage")).toBeNull();
+    expect(screen.queryByRole("heading", { name: "Movie A", level: 2 })).toBeNull();
   });
 });

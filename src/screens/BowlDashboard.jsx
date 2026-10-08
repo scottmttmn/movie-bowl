@@ -1126,7 +1126,20 @@ export default function BowlDashboard() {
     // now if nothing else is on screen, and it is a replay: the bowl is read
     // again first, and nothing opens that the read does not show was drawn.
     const playAnnouncedDraw = async (draw) => {
-      const busy = isDrawing || Boolean(drawnMovie) || Boolean(selectedDetailMovie) || showDrawConfirm;
+      // Anything open over the bowl counts: a reveal on top of a sheet would
+      // leave that sheet mounted underneath with whatever state it had.
+      const busy = isDrawing
+        || Boolean(drawnMovie)
+        || Boolean(selectedDetailMovie)
+        || showDrawConfirm
+        || showDrawFilters
+        || showPeople
+        || showMethodInfo
+        || isPickerOpen
+        || isCreateBowlOpen
+        || Boolean(pendingReaddMovie)
+        || Boolean(pendingRemoveWatchedMovie)
+        || Boolean(bowlAdd?.open);
       if (busy) {
         reloadBowl();
         return;
