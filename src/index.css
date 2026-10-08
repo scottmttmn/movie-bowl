@@ -1962,8 +1962,13 @@
 
 /* Theater mode's curtains on the television: around the draw while it is on,
    and over the whole screen while a draw is revealed. Both are decoration and
-   never take a press. tv.css sizes the stage pair. */
+   never take a press. tv.css sizes the stage pair.
+
+   Everything that moves is a transform on a layer painted once, so the
+   television's compositor runs it without the page painting a frame. Folds
+   bunch because the painted curtain is squeezed toward its outer edge. */
 .theater-curtains {
+  --curtain-open: 0.3;
   position: absolute;
   inset: -0.75rem 0 0;
   margin: 0 auto;
@@ -1973,13 +1978,119 @@
   pointer-events: none;
 }
 
-.theater-curtains > svg {
-  display: block;
+.theater-curtains-drop,
+.theater-curtains-grow {
+  position: absolute;
+  inset: 0;
+  will-change: transform;
+}
+
+.theater-curtains-drop {
+  transform: translateY(-102%);
+}
+
+.theater-curtains[data-open] .theater-curtains-drop {
+  transform: none;
+}
+
+.theater-curtain {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  /* A few pixels past the middle, so two closed curtains overlap rather than
+     leave a seam of light between them. */
+  width: calc(50% + 7px);
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, 0.07), transparent 45%, rgba(0, 0, 0, 0.5)),
+    repeating-linear-gradient(
+      90deg,
+      #4a0716 0, #7d1029 1.75%, #a91b39 3.25%, #c72a47 3.9%, #a91b39 5%,
+      #7d1029 7%, #4a0716 8%, #7d1029 10%, #4a0716 12.5%
+    );
+  box-shadow: 0 0 12px rgba(0, 0, 0, 0.6);
+  -webkit-mask-image: linear-gradient(180deg, #000 78%, transparent);
+  mask-image: linear-gradient(180deg, #000 78%, transparent);
+  will-change: transform;
+}
+
+.theater-curtain[data-side="left"] {
+  left: 0;
+  transform-origin: left center;
+  border-right: 1px solid rgba(255, 190, 200, 0.25);
+}
+
+.theater-curtain[data-side="right"] {
+  right: 0;
+  transform-origin: right center;
+  border-left: 1px solid rgba(255, 190, 200, 0.25);
+}
+
+.theater-curtains[data-open] .theater-curtain {
+  transform: scaleX(var(--curtain-open));
+}
+
+.theater-valance {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: min(26px, 10%);
+  fill: #6a0d23;
+  filter: drop-shadow(0 2px 6px rgba(0, 0, 0, 0.6));
+}
+
+/* On: drop in shut, then draw aside. Off: draw shut, then lift away. Each
+   direction carries its own delays, and a change of mind mid-way reverses from
+   wherever the curtains are. */
+.theater-curtains[data-animated] .theater-curtains-drop {
+  transition: transform 900ms cubic-bezier(0.65, 0, 0.35, 1) 900ms;
+}
+
+.theater-curtains[data-animated] .theater-curtain {
+  transition: transform 900ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.theater-curtains[data-animated][data-open] .theater-curtains-drop {
+  transition: transform 550ms cubic-bezier(0.65, 0, 0.35, 1);
+}
+
+.theater-curtains[data-animated][data-open] .theater-curtain {
+  transition: transform 1300ms cubic-bezier(0.65, 0, 0.35, 1) 550ms;
 }
 
 .theater-curtains-screen {
+  --curtain-open: 0.15;
   position: fixed;
   inset: 0;
   z-index: 71;
+  overflow: hidden;
   pointer-events: none;
+}
+
+.theater-curtains-grow {
+  transform-origin: 0 0;
+  animation: theater-curtains-grow 900ms cubic-bezier(0.65, 0, 0.35, 1) both;
+}
+
+.theater-curtains-grow .theater-curtain {
+  animation: theater-curtains-reveal 1900ms both;
+}
+
+@keyframes theater-curtains-grow {
+  from { transform: var(--curtain-from); }
+  to { transform: none; }
+}
+
+/* Starts at the stage's own --curtain-open, which is where the page's pair was. */
+@keyframes theater-curtains-reveal {
+  0% { transform: scaleX(0.3); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  47% { transform: scaleX(1); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
+  100% { transform: scaleX(var(--curtain-open)); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .theater-curtains[data-animated] .theater-curtains-drop,
+  .theater-curtains[data-animated] .theater-curtain {
+    transition: none;
+  }
 }

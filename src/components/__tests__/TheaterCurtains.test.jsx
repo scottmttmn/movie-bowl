@@ -1,74 +1,77 @@
-import { act, cleanup, render } from "@testing-library/react";
-import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
+import { cleanup, render } from "@testing-library/react";
+import { afterEach, describe, expect, it, vi } from "vitest";
 
 import TheaterCurtains, { TheaterRevealCurtains } from "../TheaterCurtains";
-
-// jsdom lays nothing out, so the stage is given a size to paint into.
-beforeEach(() => {
-  vi.spyOn(HTMLElement.prototype, "clientWidth", "get").mockReturnValue(360);
-  vi.spyOn(HTMLElement.prototype, "clientHeight", "get").mockReturnValue(200);
-});
 
 afterEach(() => {
   cleanup();
   vi.restoreAllMocks();
 });
 
+const stageOf = (container) => container.querySelector(".theater-curtains");
 const screenCurtains = () => document.body.querySelector(".theater-curtains-screen");
+
+function mockReducedMotion(reduce) {
+  vi.spyOn(window, "matchMedia").mockImplementation((query) => ({
+    matches: reduce && query.includes("reduce"),
+    media: query,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+  }));
+}
 
 describe("TheaterCurtains", () => {
   it("frames the bowl while theater mode is on, and is decoration only", () => {
     const { container } = render(<TheaterCurtains enabled />);
-    const stage = container.querySelector(".theater-curtains");
+    const stage = stageOf(container);
 
     expect(stage).toHaveAttribute("aria-hidden", "true");
-    expect(stage.querySelectorAll("polygon").length).toBeGreaterThan(0);
+    expect(stage).toHaveAttribute("data-open");
+    expect(stage.querySelectorAll(".theater-curtain")).toHaveLength(2);
   });
 
-  it("hangs nothing while theater mode is off", () => {
+  it("keeps the curtains lifted while theater mode is off", () => {
     const { container } = render(<TheaterCurtains enabled={false} />);
 
-    expect(container.querySelector(".theater-curtains svg")).toBeNull();
+    expect(stageOf(container)).not.toHaveAttribute("data-open");
   });
 
-  it("lifts the curtains away once turned off", async () => {
-    vi.useFakeTimers();
-    try {
-      const { container, rerender } = render(<TheaterCurtains enabled />);
-      rerender(<TheaterCurtains enabled={false} />);
-      await act(async () => { await vi.advanceTimersByTimeAsync(3000); });
-      expect(container.querySelector(".theater-curtains svg")).toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
-  });
+  // A page that loads with theater mode on shows the curtains already open;
+  // only a change made while watching plays the drop and the part.
+  it("animates a change, never the first paint", () => {
+    const { container, rerender } = render(<TheaterCurtains enabled />);
+    expect(stageOf(container)).not.toHaveAttribute("data-animated");
 
-  // Turning it back on mid-close interrupts the close; the lift that was queued
-  // behind it must not run anyway and take the curtains off a switch that is on.
-  it("keeps the curtains when turned back on before they finish closing", async () => {
-    vi.useFakeTimers();
-    try {
-      const { container, rerender } = render(<TheaterCurtains enabled />);
-      rerender(<TheaterCurtains enabled={false} />);
-      await act(async () => { await vi.advanceTimersByTimeAsync(300); });
-      rerender(<TheaterCurtains enabled />);
-      await act(async () => { await vi.advanceTimersByTimeAsync(4000); });
-      expect(container.querySelector(".theater-curtains svg")).not.toBeNull();
-    } finally {
-      vi.useRealTimers();
-    }
+    rerender(<TheaterCurtains enabled={false} />);
+    expect(stageOf(container)).toHaveAttribute("data-animated");
+    expect(stageOf(container)).not.toHaveAttribute("data-open");
+
+    rerender(<TheaterCurtains enabled />);
+    expect(stageOf(container)).toHaveAttribute("data-open");
   });
 
   // The television swaps the page for its draw screen, so the page's own pair
-  // is gone by then; the screen-wide pair has to stand on its own.
+  // is gone by then; the screen-wide pair has to stand on its own, starting
+  // where the page's curtains stood.
   it("draws the screen-wide pair on its own for the television", () => {
+    mockReducedMotion(false);
+    vi.spyOn(window, "innerWidth", "get").mockReturnValue(1200);
+    vi.spyOn(window, "innerHeight", "get").mockReturnValue(600);
     const { unmount } = render(
       <TheaterRevealCurtains origin={{ left: 100, top: 200, width: 600, height: 300 }} />
     );
 
-    expect(screenCurtains()).not.toBeNull();
     expect(screenCurtains()).toHaveAttribute("aria-hidden", "true");
+    expect(screenCurtains().querySelector(".theater-curtains-grow").style.getPropertyValue("--curtain-from"))
+      .toBe("translate(100px, 200px) scale(0.5, 0.5)");
     unmount();
+    expect(screenCurtains()).toBeNull();
+  });
+
+  it("leaves the screen-wide pair out under reduced motion", () => {
+    mockReducedMotion(true);
+    render(<TheaterRevealCurtains origin={null} />);
+
     expect(screenCurtains()).toBeNull();
   });
 });
