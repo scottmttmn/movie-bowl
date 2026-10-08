@@ -3,6 +3,7 @@ import HoldToDrawButton from "../components/HoldToDrawButton";
 import BowlStatLine from "../components/BowlStatLine";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
 import StarterPackOffer from "../components/StarterPackOffer";
+import { getProfileDisplayName } from "../utils/profileIdentity";
 import { STARTER_PACK_SHELF_HASH } from "../utils/starterPacks";
 import { fetchStarterPackPeople } from "../lib/starterPacks";
 import MyMoviesStrip from "../components/MyMoviesStrip";
@@ -1091,7 +1092,9 @@ export default function BowlDashboard() {
             methodId: run.methodId,
             preview: revealRunRef.current?.preview || null,
             reveal,
-            drawnBy: displayName,
+            // A blank name is a choice, so this is the label every shared
+            // surface already gives that person, never nothing at all.
+            drawnBy: getProfileDisplayName({ display_name: displayName }, currentUserId),
           }), bowlId);
           // The reveal replays the draw that just happened, and the movie opens
           // when its schedule says the show is over -- never before, and never

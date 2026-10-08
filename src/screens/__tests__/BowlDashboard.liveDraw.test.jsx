@@ -105,7 +105,7 @@ vi.mock("../../hooks/useBowlLiveDraw", () => ({
 vi.mock("../../hooks/useUserStreamingServices", () => ({
   default: () => ({
     streamingServices: mocks.state.streamingServices,
-    displayName: "Scott",
+    displayName: mocks.state.displayName,
     saveStreamingServices: mocks.saveStreamingServices,
     defaultDrawSettings: mocks.state.defaultDrawSettings,
     loading: mocks.state.preferencesLoading,
@@ -136,6 +136,7 @@ vi.mock("react-router-dom", async () => {
 
 import { MemoryRouter } from "react-router-dom";
 import BowlDashboard from "../BowlDashboard";
+import { getProfileDisplayName } from "../../utils/profileIdentity";
 
 function renderDashboard() {
   return render(<BowlDashboard />);
@@ -154,6 +155,7 @@ describe("BowlDashboard live draw", () => {
     mocks.fetchProviderLinks.mockReset().mockResolvedValue({ links: [] });
     mocks.state.navigate.mockReset();
     mocks.state.authUserId = "u1";
+    mocks.state.displayName = "Scott";
     mocks.state.bowlRow = { name: "Bowl 1", owner_id: "u1" };
     mocks.state.memberRows = [{ user_id: "u1" }];
     mocks.state.bowlData = {
@@ -237,6 +239,18 @@ describe("BowlDashboard live draw", () => {
       reveal: drawReveal,
       preview: expect.objectContaining({ total: 1 }),
     }), "bowl-1");
+  });
+
+  it("names a drawer who left their name blank the way every shared surface does", async () => {
+    mocks.state.displayName = "";
+    mocks.state.handleDraw.mockResolvedValue({ id: "m1", tmdb_id: 101, title: "Movie A", streamingProviders: [] });
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    confirmDraw();
+
+    await waitFor(() => expect(mocks.state.live.announceDraw).toHaveBeenCalledTimes(1));
+    expect(mocks.state.live.announceDraw.mock.calls[0][0].drawnBy).toBe(getProfileDisplayName(null, "u1"));
   });
 
   it("plays a draw made on another screen once the bowl shows it, naming who drew", async () => {
