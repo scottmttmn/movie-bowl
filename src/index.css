@@ -2076,7 +2076,7 @@
 .theater-curtains-grow .theater-curtain {
   -webkit-mask-image: linear-gradient(180deg, #000 98%, transparent);
   mask-image: linear-gradient(180deg, #000 98%, transparent);
-  animation: theater-curtains-reveal 1900ms both;
+  animation: theater-curtains-reveal 900ms cubic-bezier(0.65, 0, 0.35, 1) both;
 }
 
 @keyframes theater-curtains-grow {
@@ -2084,11 +2084,11 @@
   to { transform: none; }
 }
 
-/* Starts at the stage's own --curtain-open, which is where the page's pair was. */
+/* Starts at the stage's own --curtain-open, which is where the page's pair
+   was, and ends tied back to the screen's edges. */
 @keyframes theater-curtains-reveal {
-  0% { transform: scaleX(0.3); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
-  47% { transform: scaleX(1); animation-timing-function: cubic-bezier(0.65, 0, 0.35, 1); }
-  100% { transform: scaleX(var(--curtain-open)); }
+  from { transform: scaleX(0.3); }
+  to { transform: scaleX(var(--curtain-open)); }
 }
 
 @media (prefers-reduced-motion: reduce) {

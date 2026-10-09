@@ -71,8 +71,8 @@ export default function TheaterCurtains({ enabled }) {
 /**
  * The screen-wide curtains for the draw. The television swaps the page for
  * its draw screen, so this pair stands on its own: `origin` is where the
- * page's curtains stood. They were open there, since nothing on a remote holds
- * them shut, so they draw together while they grow, and part on the reveal.
+ * page's curtains stood. They stay open and widen with the stage to the edges
+ * of the screen, framing the reveal rather than hiding the start of it.
  */
 export function TheaterRevealCurtains({ origin }) {
   const [viewport] = useState(() => ({ width: window.innerWidth || 390, height: window.innerHeight || 844 }));
