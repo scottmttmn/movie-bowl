@@ -112,13 +112,10 @@ export default function BowlDashboard() {
     const { providerLinks, startLookup: startProviderLookup } = useDrawProviderLinks(bowlId, drawnMovie);
     const [selectedDetailMovie, setSelectedDetailMovie] = useState(null);
     const [selectedDetailContext, setSelectedDetailContext] = useState(null);
-    const [showWatched, setShowWatched] = useState(() => readSectionOpen("watched"));
-    const [showMyMovies, setShowMyMovies] = useState(() => readSectionOpen("myMovies"));
+    // Both closed until the account is known, then as that account left them
+    // on this device.
+    const [sections, setSections] = useState({ userId: null, myMovies: false, watched: false, touched: {} });
     const myMoviesBodyId = useId();
-    const toggleSection = (section, isOpen, setOpen) => {
-      writeSectionOpen(section, !isOpen);
-      setOpen(!isOpen);
-    };
     const [prioritizeStreaming, setPrioritizeStreaming] = useState(false);
     const [useStreamingRank, setUseStreamingRank] = useState(true);
     const [selectedRatings, setSelectedRatings] = useState(MPAA_RATING_OPTIONS);
@@ -149,6 +146,27 @@ export default function BowlDashboard() {
     const [drawAccessMode, setDrawAccessMode] = useState(DRAW_ACCESS_MODE_ALL);
     const [drawAllowedUserIds, setDrawAllowedUserIds] = useState([]);
     const [currentUserId, setCurrentUserId] = useState(null);
+    // A tap that lands before the account is known still counts: it is kept,
+    // and saved for that account once it arrives.
+    if (currentUserId && sections.userId !== currentUserId) {
+      const next = { userId: currentUserId, touched: {} };
+      ["myMovies", "watched"].forEach((section) => {
+        if (sections.userId === null && sections.touched[section]) {
+          next[section] = sections[section];
+          writeSectionOpen(section, sections[section], currentUserId);
+        } else {
+          next[section] = readSectionOpen(section, currentUserId);
+        }
+      });
+      setSections(next);
+    }
+    const showMyMovies = sections.myMovies;
+    const showWatched = sections.watched;
+    const toggleSection = (section) => {
+      const next = !sections[section];
+      writeSectionOpen(section, next, currentUserId);
+      setSections((prev) => ({ ...prev, [section]: next, touched: { ...prev.touched, [section]: true } }));
+    };
     // Which bowl the access read last answered for. Until it has, nobody is
     // known to be unable to draw -- saying so anyway flashed a permission error
     // at the owner on every refresh.
@@ -1770,7 +1788,7 @@ return (
                     className="section-toggle"
                     aria-expanded={showMyMovies}
                     aria-controls={myMoviesBodyId}
-                    onClick={() => toggleSection("myMovies", showMyMovies, setShowMyMovies)}
+                    onClick={() => toggleSection("myMovies")}
                   >
                     <SlipGlyph />
                     <span className="section-title text-base">My Movies</span>
@@ -1850,7 +1868,7 @@ return (
                   isExpanded={showWatched}
                   isLoading={isFirstLoad}
                   heldCount={isFirstLoad ? heldBowlView?.watchedCount ?? null : null}
-                  onToggleExpanded={() => toggleSection("watched", showWatched, setShowWatched)}
+                  onToggleExpanded={() => toggleSection("watched")}
                   onSelectMovie={async (movie) => {
                     setSelectedDetailContext("watched");
                     // Read beside the details so the dialog opens with the

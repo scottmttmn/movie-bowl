@@ -219,8 +219,10 @@ describe("BowlDashboard guards", () => {
     mocks.getTmdbMovieDetails.mockReset();
     mocks.getTmdbMovieDetails.mockResolvedValue({});
     // My Movies starts closed on a new device; most cases here work with its
-    // posters, so they start from a device that left it open.
-    window.localStorage.setItem("movieBowl.sections.v1", JSON.stringify({ myMovies: true }));
+    // posters, so they start from a device where both accounts left it open.
+    ["u1", "u2"].forEach((userId) => {
+      window.localStorage.setItem(`movieBowl.sections.v1:${userId}`, JSON.stringify({ myMovies: true }));
+    });
   });
 
   afterEach(() => {
@@ -548,6 +550,28 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
     expect(screen.getByRole("button", { name: /^My Movies\s+1/ })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  // A shared browser: one account leaving My Movies open must not open the
+  // next account's titles.
+  it("keeps another account's open sections to that account", async () => {
+    window.localStorage.clear();
+    window.localStorage.setItem("movieBowl.sections.v1:someone-else", JSON.stringify({ myMovies: true, watched: true }));
+    mocks.state.bowlData = {
+      remaining: [
+        { id: "m1", title: "My Movie", added_by: "u1", added_at: "2026-03-06T12:00:00.000Z" },
+      ],
+      watched: [
+        { id: "w1", title: "Watched Movie", drawn_at: "2026-03-05T12:00:00.000Z" },
+      ],
+    };
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    expect(screen.getByRole("button", { name: /^My Movies\s+1/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /^Watched\s+1 watched/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("My Movie")).not.toBeInTheDocument();
   });
 
   // Closed means no body in any state: a placeholder while the bowl loads, or
