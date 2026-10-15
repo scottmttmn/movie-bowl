@@ -548,6 +548,27 @@ describe("BowlDashboard guards", () => {
     expect(screen.getByRole("button", { name: /^My Movies\s+1/ })).toHaveAttribute("aria-expanded", "false");
   });
 
+  // Closed means no body in any state: a placeholder while the bowl loads, or
+  // the empty line, would show a section its own toggle calls closed.
+  it("renders no My Movies body while it is closed, loading or empty", async () => {
+    window.localStorage.clear();
+    let answerBowlRow;
+    mocks.state.heldBowlRow = new Promise((resolve) => { answerBowlRow = resolve; });
+    mocks.state.bowlIsLoading = true;
+    renderDashboard();
+
+    expect(screen.queryByText("Loading your movies…")).not.toBeInTheDocument();
+
+    mocks.state.bowlIsLoading = false;
+    mocks.state.bowlData = { remaining: [], watched: [] };
+    answerBowlRow({ data: mocks.state.bowlRow, error: null });
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    expect(screen.queryByText("You have no movies in this section.")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^My Movies/ }));
+    expect(screen.getByText("You have no movies in this section.")).toBeInTheDocument();
+  });
+
   it("reorders and greys My Movies when the current filters change", async () => {
     mocks.state.memberRows = [{ user_id: "u1" }];
     mocks.state.bowlData = {

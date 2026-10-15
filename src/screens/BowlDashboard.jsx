@@ -1760,7 +1760,9 @@ return (
 
 
             <section className="panel my-movies-panel mt-5 w-full max-w-full min-w-0">
-              <div className="flex items-center justify-between gap-3">
+              {/* Wraps only where the heading and "Draw for myself" cannot share
+                  a line, the narrowest phones, rather than overlapping. */}
+              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
                 <h3 className="min-w-0">
                   <button
                     type="button"
@@ -1798,41 +1800,45 @@ return (
                 )}
               </div>
 
-              <div className={showMyMovies ? "mt-3" : ""}>
-                {isHoldingMyMovies && showsMyMovies ? (
-                  // Padded as the strip's own row is, so the cards replace it
-                  // without the panel changing height.
-                  <div className="mt-1 pb-3 pt-1">
-                    <MovieStripSkeleton
-                      label="Loading your movies…"
-                      count={Math.min(Math.max(heldBowlView?.myMovieCount || 4, 1), 12)}
-                      scrollable
+              {/* Closed means no body at all: not the loading placeholder, and
+                  not the empty line either. */}
+              {showMyMovies && (
+                <div className="mt-3">
+                  {isHoldingMyMovies && showsMyMovies ? (
+                    // Padded as the strip's own row is, so the cards replace it
+                    // without the panel changing height.
+                    <div className="mt-1 pb-3 pt-1">
+                      <MovieStripSkeleton
+                        label="Loading your movies…"
+                        count={Math.min(Math.max(heldBowlView?.myMovieCount || 4, 1), 12)}
+                        scrollable
+                      />
+                    </div>
+                  ) : isFirstLoad || myMovies.length === 0 ? (
+                    <p className="text-sm text-slate-400">You have no movies in this section.</p>
+                  ) : (
+                    <MyMoviesStrip
+                      movies={myMovies}
+                      eligibilityStatus={myMovieEligibilityStatus}
+                      eligibleMovieIds={eligibleMyMovieIds}
+                      onRunEligibilityLookups={runMyMovieEligibilityLookups}
+                      drawMethod={drawMethod}
+                      packPeople={packPeople}
+                      onTogglePin={async (movie, pinned) => {
+                        setMyMoviesErrorMessage(null);
+                        const result = await handleSetMoviePin(movie.id, pinned);
+                        if (!result.ok) {
+                          setMyMoviesErrorMessage(result.message);
+                        }
+                      }}
+                      onViewMovie={async (movie) => {
+                        setSelectedDetailContext(movie.source === "pack" ? "pack" : "myAdds");
+                        setSelectedDetailMovie(await buildDetailMovie(movie));
+                      }}
                     />
-                  </div>
-                ) : isFirstLoad || myMovies.length === 0 ? (
-                  <p className="text-sm text-slate-400">You have no movies in this section.</p>
-                ) : !showMyMovies ? null : (
-                  <MyMoviesStrip
-                    movies={myMovies}
-                    eligibilityStatus={myMovieEligibilityStatus}
-                    eligibleMovieIds={eligibleMyMovieIds}
-                    onRunEligibilityLookups={runMyMovieEligibilityLookups}
-                    drawMethod={drawMethod}
-                    packPeople={packPeople}
-                    onTogglePin={async (movie, pinned) => {
-                      setMyMoviesErrorMessage(null);
-                      const result = await handleSetMoviePin(movie.id, pinned);
-                      if (!result.ok) {
-                        setMyMoviesErrorMessage(result.message);
-                      }
-                    }}
-                    onViewMovie={async (movie) => {
-                      setSelectedDetailContext(movie.source === "pack" ? "pack" : "myAdds");
-                      setSelectedDetailMovie(await buildDetailMovie(movie));
-                    }}
-                  />
-                )}
-              </div>
+                  )}
+                </div>
+              )}
               {myMoviesErrorMessage && <p className="mt-2 text-sm text-rose-300">{myMoviesErrorMessage}</p>}
             </section>
 
