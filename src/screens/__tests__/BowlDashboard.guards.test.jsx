@@ -218,6 +218,11 @@ describe("BowlDashboard guards", () => {
     mocks.state.streamingServices = [];
     mocks.getTmdbMovieDetails.mockReset();
     mocks.getTmdbMovieDetails.mockResolvedValue({});
+    // My Movies starts closed on a new device; most cases here work with its
+    // posters, so they start from a device where both accounts left it open.
+    ["u1", "u2"].forEach((userId) => {
+      window.localStorage.setItem(`movieBowl.sections.v1:${userId}`, JSON.stringify({ myMovies: true }));
+    });
   });
 
   afterEach(() => {
@@ -485,7 +490,7 @@ describe("BowlDashboard guards", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     const myMoviesHeading = screen.getByRole("heading", { name: /my movies/i });
-    const watchedHeading = screen.getByRole("heading", { name: /^watched$/i });
+    const watchedHeading = screen.getByRole("heading", { name: /^watched/i });
     const myMoviesSection = myMoviesHeading.closest("section");
     const watchedSection = watchedHeading.closest("section");
 
@@ -493,18 +498,101 @@ describe("BowlDashboard guards", () => {
       myMoviesHeading.compareDocumentPosition(watchedHeading) & Node.DOCUMENT_POSITION_FOLLOWING
     ).toBeTruthy();
     expect(within(myMoviesSection).getAllByText(/^My Movie$/i).length).toBeGreaterThan(0);
-    expect(within(myMoviesSection).queryByRole("button", { name: /^(show|hide)$/i })).not.toBeInTheDocument();
     expect(within(watchedSection).getByText("1 watched")).toBeInTheDocument();
     expect(within(watchedSection).queryByText("Watched Movie")).not.toBeInTheDocument();
 
-    const showButton = within(watchedSection).getByRole("button", { name: "Show" });
-    expect(showButton).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(showButton);
+    const watchedToggle = within(watchedSection).getByRole("button", { name: /^Watched\s+\d+ watched/ });
+    expect(watchedToggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(watchedToggle);
     expect(within(watchedSection).getAllByText("Watched Movie").length).toBeGreaterThan(0);
-    expect(within(watchedSection).getByRole("button", { name: "Hide" })).toHaveAttribute(
-      "aria-expanded",
-      "true"
-    );
+    expect(watchedToggle).toHaveAttribute("aria-expanded", "true");
+  });
+
+  // The bowl is usually drawn with people around, so a device that has never
+  // chosen keeps your titles folded away; whatever it is left at, it keeps.
+  it("starts My Movies closed and remembers each section on this device", async () => {
+    window.localStorage.clear();
+    mocks.state.memberRows = [{ user_id: "u1" }];
+    mocks.state.bowlData = {
+      remaining: [
+        { id: "m1", title: "My Movie", added_by: "u1", added_at: "2026-03-06T12:00:00.000Z" },
+      ],
+      watched: [
+        { id: "w1", title: "Watched Movie", drawn_at: "2026-03-05T12:00:00.000Z" },
+      ],
+    };
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    const myMoviesToggle = screen.getByRole("button", { name: /^My Movies\s+1/ });
+    expect(myMoviesToggle).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("My Movie")).not.toBeInTheDocument();
+    // Closed still lets you watch alone.
+    expect(screen.getByRole("button", { name: "Draw for myself" })).toBeInTheDocument();
+
+    fireEvent.click(myMoviesToggle);
+    expect(myMoviesToggle).toHaveAttribute("aria-expanded", "true");
+    const myMoviesBody = document.getElementById(myMoviesToggle.getAttribute("aria-controls"));
+    expect(within(myMoviesBody).getAllByText("My Movie").length).toBeGreaterThan(0);
+    expect(screen.getAllByText("My Movie").length).toBeGreaterThan(0);
+    fireEvent.click(screen.getByRole("button", { name: /^Watched\s+1 watched/ }));
+    expect(screen.getAllByText("Watched Movie").length).toBeGreaterThan(0);
+
+    cleanup();
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: /^My Movies\s+1/ })).toHaveAttribute("aria-expanded", "true");
+    expect(screen.getByRole("button", { name: /^Watched\s+1 watched/ })).toHaveAttribute("aria-expanded", "true");
+
+    fireEvent.click(screen.getByRole("button", { name: /^My Movies\s+1/ }));
+    cleanup();
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    expect(screen.getByRole("button", { name: /^My Movies\s+1/ })).toHaveAttribute("aria-expanded", "false");
+  });
+
+  // A shared browser: one account leaving My Movies open must not open the
+  // next account's titles.
+  it("keeps another account's open sections to that account", async () => {
+    window.localStorage.clear();
+    window.localStorage.setItem("movieBowl.sections.v1:someone-else", JSON.stringify({ myMovies: true, watched: true }));
+    mocks.state.bowlData = {
+      remaining: [
+        { id: "m1", title: "My Movie", added_by: "u1", added_at: "2026-03-06T12:00:00.000Z" },
+      ],
+      watched: [
+        { id: "w1", title: "Watched Movie", drawn_at: "2026-03-05T12:00:00.000Z" },
+      ],
+    };
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+
+    expect(screen.getByRole("button", { name: /^My Movies\s+1/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.getByRole("button", { name: /^Watched\s+1 watched/ })).toHaveAttribute("aria-expanded", "false");
+    expect(screen.queryByText("My Movie")).not.toBeInTheDocument();
+  });
+
+  // Closed means no body in any state: a placeholder while the bowl loads, or
+  // the empty line, would show a section its own toggle calls closed.
+  it("renders no My Movies body while it is closed, loading or empty", async () => {
+    window.localStorage.clear();
+    let answerBowlRow;
+    mocks.state.heldBowlRow = new Promise((resolve) => { answerBowlRow = resolve; });
+    mocks.state.bowlIsLoading = true;
+    renderDashboard();
+
+    expect(screen.queryByText("Loading your movies…")).not.toBeInTheDocument();
+
+    mocks.state.bowlIsLoading = false;
+    mocks.state.bowlData = { remaining: [], watched: [] };
+    answerBowlRow({ data: mocks.state.bowlRow, error: null });
+    await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
+    expect(screen.queryByText("You have no movies in this section.")).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /^My Movies/ }));
+    expect(screen.getByText("You have no movies in this section.")).toBeInTheDocument();
   });
 
   it("reorders and greys My Movies when the current filters change", async () => {
@@ -735,8 +823,8 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    const watchedSection = screen.getByRole("heading", { name: /^watched$/i }).closest("section");
-    fireEvent.click(within(watchedSection).getByRole("button", { name: "Show" }));
+    const watchedSection = screen.getByRole("heading", { name: /^watched/i }).closest("section");
+    fireEvent.click(within(watchedSection).getByRole("button", { name: /^Watched\s+\d+ watched/ }));
     fireEvent.click(within(watchedSection).getAllByRole("button")[1]);
 
     await waitFor(() =>
@@ -1055,8 +1143,8 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    const watchedSection = screen.getByRole("heading", { name: /^watched$/i }).closest("section");
-    fireEvent.click(within(watchedSection).getByRole("button", { name: /^show$/i }));
+    const watchedSection = screen.getByRole("heading", { name: /^watched/i }).closest("section");
+    fireEvent.click(within(watchedSection).getByRole("button", { name: /^Watched\s+\d+ watched/ }));
     fireEvent.click(screen.getByRole("button", { name: /movie a/i }));
     await waitFor(() => expect(screen.getByRole("button", { name: /move to bowl/i })).toBeInTheDocument());
     expect(screen.queryByRole("group", { name: "Favorite" })).not.toBeInTheDocument();
@@ -1094,8 +1182,8 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    const watchedSection = screen.getByRole("heading", { name: /^watched$/i }).closest("section");
-    fireEvent.click(within(watchedSection).getByRole("button", { name: /^show$/i }));
+    const watchedSection = screen.getByRole("heading", { name: /^watched/i }).closest("section");
+    fireEvent.click(within(watchedSection).getByRole("button", { name: /^Watched\s+\d+ watched/ }));
     fireEvent.click(screen.getByRole("button", { name: /movie a/i }));
 
     // The database refuses a late return, so the button must not promise one.
@@ -1133,8 +1221,8 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    const watchedSection = screen.getByRole("heading", { name: /^watched$/i }).closest("section");
-    fireEvent.click(within(watchedSection).getByRole("button", { name: /^show$/i }));
+    const watchedSection = screen.getByRole("heading", { name: /^watched/i }).closest("section");
+    fireEvent.click(within(watchedSection).getByRole("button", { name: /^Watched\s+\d+ watched/ }));
     fireEvent.click(screen.getByRole("button", { name: /movie a/i }));
 
     await waitFor(() => expect(screen.getByRole("heading", { name: "Movie A", level: 2 })).toBeInTheDocument());
@@ -1185,8 +1273,8 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    const watchedSection = screen.getByRole("heading", { name: /^watched$/i }).closest("section");
-    fireEvent.click(within(watchedSection).getByRole("button", { name: /^show$/i }));
+    const watchedSection = screen.getByRole("heading", { name: /^watched/i }).closest("section");
+    fireEvent.click(within(watchedSection).getByRole("button", { name: /^Watched\s+\d+ watched/ }));
     fireEvent.click(screen.getByRole("button", { name: /movie a/i }));
     await waitFor(() => expect(screen.getByRole("button", { name: /move to bowl/i })).toBeInTheDocument());
     fireEvent.click(screen.getByRole("button", { name: /move to bowl/i }));

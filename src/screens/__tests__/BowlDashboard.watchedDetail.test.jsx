@@ -137,7 +137,7 @@ async function openWatchedDetail() {
   render(<BowlDashboard />);
   await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-  fireEvent.click(screen.getByRole("button", { name: "Show" }));
+  fireEvent.click(screen.getByRole("button", { name: /^Watched\s+\d+ watched/ }));
   fireEvent.click(screen.getByRole("button", { name: /^Movie A/ }));
 
   return screen.findByRole("dialog", { name: "Movie A" });
@@ -174,6 +174,8 @@ describe("BowlDashboard watched detail", () => {
 
   afterEach(() => {
     cleanup();
+    // Each case opens Watched, and the device remembers that.
+    window.localStorage.clear();
   });
 
   // A movie in the watched list has already been seen, so where it streams is

@@ -60,7 +60,7 @@ test("a comment written on the bowl page is the same one the Watch History leads
 
   await backend.authenticate(page);
   await page.goto("/bowl/bowl-comments");
-  await page.getByRole("button", { name: "Show", exact: true }).click();
+  await page.getByRole("button", { name: /^Watched \d+ watched/ }).click();
   await page.getByRole("button", { name: "Sam's Pick" }).click();
 
   const bowlDetail = page.getByRole("dialog", { name: "Sam's Pick" });

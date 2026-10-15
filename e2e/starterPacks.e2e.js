@@ -129,6 +129,8 @@ test("a member makes a pack title in My Movies their own", async ({ page, backen
     { id: "slip", bowl_id: "pack-bowl", title: "E.T. the Extra-Terrestrial", tmdb_id: 601, added_by: null, added_by_name: "Spielberg: The '80s", starter_pack: "spielberg-1980s", added_at: "2026-09-28T12:00:00.000Z", drawn_at: null, is_pinned: false },
   );
   await page.goto("/bowl/pack-bowl");
+  // My Movies starts closed on a new device.
+  await page.getByRole("button", { name: /^My Movies/ }).click();
 
   const strip = page.locator(".my-movies-strip");
   const cards = strip.getByRole("article");

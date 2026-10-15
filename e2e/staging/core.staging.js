@@ -124,7 +124,7 @@ test("create a bowl, add a movie from TMDB, draw it, find it in history, and put
 
   await page.goto(bowlPath);
   await expect(page.getByText("1 watched", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Show", exact: true }).click();
+  await page.getByRole("button", { name: /^Watched \d+ watched/ }).click();
   await page.getByRole("button", { name: MOVIE }).click();
   await page.getByRole("button", { name: "Move to Bowl" }).click();
   await page.getByRole("button", { name: "Put movie back in bowl" }).click();

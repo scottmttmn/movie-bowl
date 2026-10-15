@@ -14,6 +14,8 @@ test("movie details can move and remove a saved pin while cards show only poster
     note: index === 1 ? "A longer recommendation for movie night. ".repeat(12) : null,
   })));
   await page.goto("/bowl/pin-bowl");
+  // My Movies starts closed on a new device.
+  await page.getByRole("button", { name: /^My Movies/ }).click();
 
   const firstCard = page.getByRole("article").filter({ hasText: "First Movie" });
   const secondCard = page.getByRole("article").filter({ hasText: "Second Movie" });

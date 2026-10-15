@@ -340,9 +340,9 @@ describe("movie strip components", () => {
 
     expect(screen.getByText("1 watched")).toBeInTheDocument();
     expect(screen.queryByAltText("Movie One")).not.toBeInTheDocument();
-    const showButton = screen.getByRole("button", { name: "Show" });
-    expect(showButton).toHaveAttribute("aria-expanded", "false");
-    fireEvent.click(showButton);
+    const toggle = screen.getByRole("button", { name: /^Watched\s+1 watched/ });
+    expect(toggle).toHaveAttribute("aria-expanded", "false");
+    fireEvent.click(toggle);
     expect(onToggleExpanded).toHaveBeenCalledTimes(1);
   });
 });
