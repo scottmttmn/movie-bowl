@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useId, useMemo, useRef, useState } from "react";
 import HoldToDrawButton from "../components/HoldToDrawButton";
 import BowlStatLine from "../components/BowlStatLine";
 import WatchedMoviesStrip from "../components/WatchedMoviesStrip";
@@ -114,6 +114,7 @@ export default function BowlDashboard() {
     const [selectedDetailContext, setSelectedDetailContext] = useState(null);
     const [showWatched, setShowWatched] = useState(() => readSectionOpen("watched"));
     const [showMyMovies, setShowMyMovies] = useState(() => readSectionOpen("myMovies"));
+    const myMoviesBodyId = useId();
     const toggleSection = (section, isOpen, setOpen) => {
       writeSectionOpen(section, !isOpen);
       setOpen(!isOpen);
@@ -1768,6 +1769,7 @@ return (
                     type="button"
                     className="section-toggle"
                     aria-expanded={showMyMovies}
+                    aria-controls={myMoviesBodyId}
                     onClick={() => toggleSection("myMovies", showMyMovies, setShowMyMovies)}
                   >
                     <SlipGlyph />
@@ -1803,7 +1805,7 @@ return (
               {/* Closed means no body at all: not the loading placeholder, and
                   not the empty line either. */}
               {showMyMovies && (
-                <div className="mt-3">
+                <div id={myMoviesBodyId} className="mt-3">
                   {isHoldingMyMovies && showsMyMovies ? (
                     // Padded as the strip's own row is, so the cards replace it
                     // without the panel changing height.

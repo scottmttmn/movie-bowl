@@ -531,6 +531,8 @@ describe("BowlDashboard guards", () => {
 
     fireEvent.click(myMoviesToggle);
     expect(myMoviesToggle).toHaveAttribute("aria-expanded", "true");
+    const myMoviesBody = document.getElementById(myMoviesToggle.getAttribute("aria-controls"));
+    expect(within(myMoviesBody).getAllByText("My Movie").length).toBeGreaterThan(0);
     expect(screen.getAllByText("My Movie").length).toBeGreaterThan(0);
     fireEvent.click(screen.getByRole("button", { name: /^Watched\s+1 watched/ }));
     expect(screen.getAllByText("Watched Movie").length).toBeGreaterThan(0);
