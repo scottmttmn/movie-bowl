@@ -488,7 +488,7 @@ describe("BowlDashboard guards", () => {
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
     const myMoviesHeading = screen.getByRole("heading", { name: /my movies/i });
-    const watchedHeading = screen.getByRole("heading", { name: /^watched$/i });
+    const watchedHeading = screen.getByRole("heading", { name: /^watched/i });
     const myMoviesSection = myMoviesHeading.closest("section");
     const watchedSection = watchedHeading.closest("section");
 
@@ -776,7 +776,7 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    const watchedSection = screen.getByRole("heading", { name: /^watched$/i }).closest("section");
+    const watchedSection = screen.getByRole("heading", { name: /^watched/i }).closest("section");
     fireEvent.click(within(watchedSection).getByRole("button", { name: /^Watched\s+\d+ watched/ }));
     fireEvent.click(within(watchedSection).getAllByRole("button")[1]);
 
@@ -1096,7 +1096,7 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    const watchedSection = screen.getByRole("heading", { name: /^watched$/i }).closest("section");
+    const watchedSection = screen.getByRole("heading", { name: /^watched/i }).closest("section");
     fireEvent.click(within(watchedSection).getByRole("button", { name: /^Watched\s+\d+ watched/ }));
     fireEvent.click(screen.getByRole("button", { name: /movie a/i }));
     await waitFor(() => expect(screen.getByRole("button", { name: /move to bowl/i })).toBeInTheDocument());
@@ -1135,7 +1135,7 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    const watchedSection = screen.getByRole("heading", { name: /^watched$/i }).closest("section");
+    const watchedSection = screen.getByRole("heading", { name: /^watched/i }).closest("section");
     fireEvent.click(within(watchedSection).getByRole("button", { name: /^Watched\s+\d+ watched/ }));
     fireEvent.click(screen.getByRole("button", { name: /movie a/i }));
 
@@ -1174,7 +1174,7 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    const watchedSection = screen.getByRole("heading", { name: /^watched$/i }).closest("section");
+    const watchedSection = screen.getByRole("heading", { name: /^watched/i }).closest("section");
     fireEvent.click(within(watchedSection).getByRole("button", { name: /^Watched\s+\d+ watched/ }));
     fireEvent.click(screen.getByRole("button", { name: /movie a/i }));
 
@@ -1226,7 +1226,7 @@ describe("BowlDashboard guards", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Bowl 1")).toBeInTheDocument());
 
-    const watchedSection = screen.getByRole("heading", { name: /^watched$/i }).closest("section");
+    const watchedSection = screen.getByRole("heading", { name: /^watched/i }).closest("section");
     fireEvent.click(within(watchedSection).getByRole("button", { name: /^Watched\s+\d+ watched/ }));
     fireEvent.click(screen.getByRole("button", { name: /movie a/i }));
     await waitFor(() => expect(screen.getByRole("button", { name: /move to bowl/i })).toBeInTheDocument());

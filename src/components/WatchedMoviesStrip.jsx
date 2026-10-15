@@ -1,6 +1,7 @@
 import { useId } from "react";
 import WatchedMovieCard from "./WatchedMovieCard";
 import MovieStripSkeleton from "./MovieStripSkeleton";
+import SectionChevron from "./SectionChevron";
 
 export default function WatchedMoviesStrip({
   movies = [],
@@ -25,18 +26,20 @@ export default function WatchedMoviesStrip({
     <section className="watched-movies-strip mt-1 w-full min-w-0">
       <div className={`${isExpanded || isEmpty ? "mb-3" : ""} flex items-center justify-between gap-3`}>
         {isCollapsible && !isEmpty ? (
-          <button
-            type="button"
-            className="section-toggle"
-            aria-expanded={isExpanded}
-            aria-controls={listId}
-            onClick={onToggleExpanded}
-          >
-            <TicketGlyph />
-            <h3 className="section-title text-base">Watched</h3>
-            <span className="text-xs font-semibold text-slate-400">{watchedCountLabel}</span>
-            <svg aria-hidden="true" viewBox="0 0 24 24" className={`section-toggle-eye transition-transform ${isExpanded ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
-          </button>
+          <h3 className="min-w-0">
+            <button
+              type="button"
+              className="section-toggle"
+              aria-expanded={isExpanded}
+              aria-controls={listId}
+              onClick={onToggleExpanded}
+            >
+              <TicketGlyph />
+              <span className="section-title text-base">Watched</span>
+              <span className="text-xs font-semibold text-slate-400">{watchedCountLabel}</span>
+              <SectionChevron open={isExpanded} />
+            </button>
+          </h3>
         ) : (
           <div className="flex items-baseline gap-2">
             <TicketGlyph />

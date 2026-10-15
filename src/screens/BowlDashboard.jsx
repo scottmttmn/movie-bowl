@@ -7,6 +7,7 @@ import { getProfileDisplayName } from "../utils/profileIdentity";
 import { STARTER_PACK_SHELF_HASH } from "../utils/starterPacks";
 import { fetchStarterPackPeople } from "../lib/starterPacks";
 import MyMoviesStrip from "../components/MyMoviesStrip";
+import SectionChevron from "../components/SectionChevron";
 import { readSectionOpen, writeSectionOpen } from "../utils/sectionVisibility";
 import MovieStripSkeleton from "../components/MovieStripSkeleton";
 import AddMovieButton from "../components/AddMovieButton";
@@ -113,10 +114,10 @@ export default function BowlDashboard() {
     const [selectedDetailContext, setSelectedDetailContext] = useState(null);
     const [showWatched, setShowWatched] = useState(() => readSectionOpen("watched"));
     const [showMyMovies, setShowMyMovies] = useState(() => readSectionOpen("myMovies"));
-    const toggleSection = (section, setter) => setter((prev) => {
-      writeSectionOpen(section, !prev);
-      return !prev;
-    });
+    const toggleSection = (section, isOpen, setOpen) => {
+      writeSectionOpen(section, !isOpen);
+      setOpen(!isOpen);
+    };
     const [prioritizeStreaming, setPrioritizeStreaming] = useState(false);
     const [useStreamingRank, setUseStreamingRank] = useState(true);
     const [selectedRatings, setSelectedRatings] = useState(MPAA_RATING_OPTIONS);
@@ -1760,24 +1761,26 @@ return (
 
             <section className="panel my-movies-panel mt-5 w-full max-w-full min-w-0">
               <div className="flex items-center justify-between gap-3">
-                <button
-                  type="button"
-                  className="section-toggle"
-                  aria-expanded={showMyMovies}
-                  onClick={() => toggleSection("myMovies", setShowMyMovies)}
-                >
-                  <SlipGlyph />
-                  <h3 className="section-title text-base">My Movies</h3>
-                  {/* A phone has room for the number beside "Draw for myself",
-                      not the word. */}
-                  {typeof myMovieCount === "number" && (
-                    <span className="text-xs font-semibold text-slate-400">
-                      <span className="sm:hidden">{myMovieCount}</span>
-                      <span className="hidden sm:inline">{myMovieCount === 1 ? "1 movie" : `${myMovieCount} movies`}</span>
-                    </span>
-                  )}
-                  <SectionChevron open={showMyMovies} />
-                </button>
+                <h3 className="min-w-0">
+                  <button
+                    type="button"
+                    className="section-toggle"
+                    aria-expanded={showMyMovies}
+                    onClick={() => toggleSection("myMovies", showMyMovies, setShowMyMovies)}
+                  >
+                    <SlipGlyph />
+                    <span className="section-title text-base">My Movies</span>
+                    {/* A phone has room for the number beside "Draw for myself",
+                        not the word. */}
+                    {typeof myMovieCount === "number" && (
+                      <span className="text-xs font-semibold text-slate-400">
+                        <span className="sm:hidden">{myMovieCount}</span>
+                        <span className="hidden sm:inline">{myMovieCount === 1 ? "1 movie" : `${myMovieCount} movies`}</span>
+                      </span>
+                    )}
+                    <SectionChevron open={showMyMovies} />
+                  </button>
+                </h3>
                 {/* Watching alone belongs to this section rather than beside the
                     draw button: it draws from exactly these titles, and a third
                     control under the two people came to press reads as a third
@@ -1839,7 +1842,7 @@ return (
                   isExpanded={showWatched}
                   isLoading={isFirstLoad}
                   heldCount={isFirstLoad ? heldBowlView?.watchedCount ?? null : null}
-                  onToggleExpanded={() => toggleSection("watched", setShowWatched)}
+                  onToggleExpanded={() => toggleSection("watched", showWatched, setShowWatched)}
                   onSelectMovie={async (movie) => {
                     setSelectedDetailContext("watched");
                     // Read beside the details so the dialog opens with the
@@ -2222,8 +2225,3 @@ function SlipGlyph() {
   );
 }
 
-function SectionChevron({ open }) {
-  return (
-    <svg aria-hidden="true" viewBox="0 0 24 24" className={`section-toggle-eye transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
-  );
-}

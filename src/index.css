@@ -2108,10 +2108,10 @@
   .section-toggle:focus-visible {
     @apply outline-none ring-2 ring-rose-800/70;
   }
-  .section-toggle-eye {
+  .section-toggle-chevron {
     @apply h-4 w-4 flex-shrink-0 self-center text-slate-400;
   }
-  .section-toggle:hover .section-toggle-eye {
+  .section-toggle:hover .section-toggle-chevron {
     @apply text-slate-200;
   }
   .section-glyph {
