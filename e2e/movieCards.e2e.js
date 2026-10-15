@@ -33,6 +33,8 @@ test.describe("My Movies card actions", () => {
       drawn_at: null,
     });
     await page.goto("/bowl/bowl-cards");
+    // My Movies starts closed on a new device.
+    await page.getByRole("button", { name: /^My Movies/ }).click();
   });
 
   test("carries no delete of its own on the card", async ({ page }) => {

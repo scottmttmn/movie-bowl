@@ -2097,3 +2097,44 @@
     transition: none;
   }
 }
+
+/* My Movies and Watched sit one above the other and can both be open or
+   both closed, so each carries its own mark and tint: rose for the slips you
+   are holding, a cooler slate for the nights already spent. */
+@layer components {
+  .section-toggle {
+    @apply -mx-1 flex min-w-0 items-baseline gap-2 whitespace-nowrap rounded-lg border-0 bg-transparent px-1 py-1 text-left;
+  }
+  .section-toggle:focus-visible {
+    @apply outline-none ring-2 ring-rose-800/70;
+  }
+  .section-toggle-eye {
+    @apply h-4 w-4 flex-shrink-0 self-center text-slate-400;
+  }
+  .section-toggle:hover .section-toggle-eye {
+    @apply text-slate-200;
+  }
+  .section-glyph {
+    @apply h-[18px] w-[18px] flex-shrink-0 self-center;
+  }
+  .section-glyph-mine {
+    color: var(--color-accent-bright);
+  }
+  .section-glyph-watched {
+    color: #7dd3fc;
+  }
+
+  .my-movies-panel {
+    border-color: rgba(251, 113, 133, 0.24);
+    background:
+      radial-gradient(120% 90% at 0% 0%, rgba(225, 29, 72, 0.12), transparent 60%),
+      linear-gradient(145deg, rgba(17, 26, 43, 0.96), rgba(8, 13, 24, 0.98));
+  }
+  .watched-panel {
+    @apply sm:p-5;
+    border-color: rgba(125, 211, 252, 0.16);
+    background:
+      radial-gradient(120% 90% at 0% 0%, rgba(56, 189, 248, 0.07), transparent 60%),
+      rgba(6, 11, 20, 0.9);
+  }
+}

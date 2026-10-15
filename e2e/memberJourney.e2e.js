@@ -50,7 +50,7 @@ test("a member can create a bowl, add and draw a title, see history, and return 
 
   await page.goto(bowlPath);
   await expect(page.getByText("1 watched", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Show", exact: true }).click();
+  await page.getByRole("button", { name: /^Watched \d+ watched/ }).click();
   await page.getByRole("button", { name: "Smoke Feature" }).click();
   await page.getByRole("button", { name: "Move to Bowl" }).click();
   await expect(page.getByRole("dialog", { name: "Put movie back in bowl?" })).toBeVisible();
@@ -119,7 +119,7 @@ test("an owner removes a draw nobody watched from the bowl's history, and person
   await backend.authenticate(page);
   await page.goto("/bowl/bowl-owner-history");
   await expect(page.getByText("1 watched", { exact: true })).toBeVisible();
-  await page.getByRole("button", { name: "Show", exact: true }).click();
+  await page.getByRole("button", { name: /^Watched \d+ watched/ }).click();
   await page.getByRole("button", { name: "Nobody Watched This" }).click();
 
   // Past the undo window, so putting it back is not offered; removing it is.

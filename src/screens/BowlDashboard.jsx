@@ -7,6 +7,7 @@ import { getProfileDisplayName } from "../utils/profileIdentity";
 import { STARTER_PACK_SHELF_HASH } from "../utils/starterPacks";
 import { fetchStarterPackPeople } from "../lib/starterPacks";
 import MyMoviesStrip from "../components/MyMoviesStrip";
+import { readSectionOpen, writeSectionOpen } from "../utils/sectionVisibility";
 import MovieStripSkeleton from "../components/MovieStripSkeleton";
 import AddMovieButton from "../components/AddMovieButton";
 import FilterChipSelect from "../components/FilterChipSelect";
@@ -110,7 +111,12 @@ export default function BowlDashboard() {
     const { providerLinks, startLookup: startProviderLookup } = useDrawProviderLinks(bowlId, drawnMovie);
     const [selectedDetailMovie, setSelectedDetailMovie] = useState(null);
     const [selectedDetailContext, setSelectedDetailContext] = useState(null);
-    const [showWatched, setShowWatched] = useState(false);
+    const [showWatched, setShowWatched] = useState(() => readSectionOpen("watched"));
+    const [showMyMovies, setShowMyMovies] = useState(() => readSectionOpen("myMovies"));
+    const toggleSection = (section, setter) => setter((prev) => {
+      writeSectionOpen(section, !prev);
+      return !prev;
+    });
     const [prioritizeStreaming, setPrioritizeStreaming] = useState(false);
     const [useStreamingRank, setUseStreamingRank] = useState(true);
     const [selectedRatings, setSelectedRatings] = useState(MPAA_RATING_OPTIONS);
@@ -580,11 +586,7 @@ export default function BowlDashboard() {
     // Counts under the section titles follow the same rule on a first load:
     // the number from last time, or nothing, but never a zero that is only
     // "not loaded yet".
-    const myMovieCountLabel = (() => {
-      const count = isFirstLoad ? heldBowlView?.myMovieCount : myMovies.length;
-      if (typeof count !== "number") return "";
-      return count === 1 ? "1 movie" : `${count} movies`;
-    })();
+    const myMovieCount = isFirstLoad ? heldBowlView?.myMovieCount : myMovies.length;
     const showsMyMovies = isFirstLoad ? (heldBowlView?.myMovieCount ?? 1) > 0 : myMovies.length > 0;
     // Solo draw reads only titles added by you, and a pack title is no one's,
     // so someone holding only pack cards would be offered a draw of nothing.
@@ -1756,16 +1758,26 @@ return (
             )}
 
 
-            <section className="panel mt-5 w-full max-w-full min-w-0">
+            <section className="panel my-movies-panel mt-5 w-full max-w-full min-w-0">
               <div className="flex items-center justify-between gap-3">
-                <div className="text-left">
-                  <div className="flex items-baseline gap-2">
-                    <h3 className="section-title text-base">My Movies</h3>
+                <button
+                  type="button"
+                  className="section-toggle"
+                  aria-expanded={showMyMovies}
+                  onClick={() => toggleSection("myMovies", setShowMyMovies)}
+                >
+                  <SlipGlyph />
+                  <h3 className="section-title text-base">My Movies</h3>
+                  {/* A phone has room for the number beside "Draw for myself",
+                      not the word. */}
+                  {typeof myMovieCount === "number" && (
                     <span className="text-xs font-semibold text-slate-400">
-                      {myMovieCountLabel}
+                      <span className="sm:hidden">{myMovieCount}</span>
+                      <span className="hidden sm:inline">{myMovieCount === 1 ? "1 movie" : `${myMovieCount} movies`}</span>
                     </span>
-                  </div>
-                </div>
+                  )}
+                  <SectionChevron open={showMyMovies} />
+                </button>
                 {/* Watching alone belongs to this section rather than beside the
                     draw button: it draws from exactly these titles, and a third
                     control under the two people came to press reads as a third
@@ -1774,7 +1786,7 @@ return (
                 {showsDrawForMyself && (
                   <button
                     type="button"
-                    className="btn btn-secondary shrink-0 gap-2 text-sm"
+                    className="btn btn-secondary shrink-0 gap-2 px-3 text-sm sm:px-4"
                     onClick={() => navigate(`/solo-draw?bowl=${bowlId}`)}
                   >
                     <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
@@ -1783,7 +1795,7 @@ return (
                 )}
               </div>
 
-              <div className="mt-3">
+              <div className={showMyMovies ? "mt-3" : ""}>
                 {isHoldingMyMovies && showsMyMovies ? (
                   // Padded as the strip's own row is, so the cards replace it
                   // without the panel changing height.
@@ -1796,7 +1808,7 @@ return (
                   </div>
                 ) : isFirstLoad || myMovies.length === 0 ? (
                   <p className="text-sm text-slate-400">You have no movies in this section.</p>
-                ) : (
+                ) : !showMyMovies ? null : (
                   <MyMoviesStrip
                     movies={myMovies}
                     eligibilityStatus={myMovieEligibilityStatus}
@@ -1821,13 +1833,13 @@ return (
               {myMoviesErrorMessage && <p className="mt-2 text-sm text-rose-300">{myMoviesErrorMessage}</p>}
             </section>
 
-            <section className="panel mt-4 w-full max-w-full min-w-0 overflow-x-auto">
+            <section className="panel-muted watched-panel mt-4 w-full max-w-full min-w-0 overflow-x-auto">
                 <WatchedMoviesStrip
                   movies={bowl.watched}
                   isExpanded={showWatched}
                   isLoading={isFirstLoad}
                   heldCount={isFirstLoad ? heldBowlView?.watchedCount ?? null : null}
-                  onToggleExpanded={() => setShowWatched((prev) => !prev)}
+                  onToggleExpanded={() => toggleSection("watched", setShowWatched)}
                   onSelectMovie={async (movie) => {
                     setSelectedDetailContext("watched");
                     // Read beside the details so the dialog opens with the
@@ -2201,4 +2213,17 @@ return (
             )}
         </div>
     );
+}
+
+// The section's own mark: a folded slip, the thing you put in the bowl.
+function SlipGlyph() {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className="section-glyph section-glyph-mine"><path d="M3.5 8.2 18.6 5l1.9 9.6-15.1 3.2z" fill="currentColor" /><path d="M4.4 12.6l15.1-3.2" stroke="rgba(2,4,10,0.55)" strokeWidth="1.2" /></svg>
+  );
+}
+
+function SectionChevron({ open }) {
+  return (
+    <svg aria-hidden="true" viewBox="0 0 24 24" className={`section-toggle-eye transition-transform ${open ? "rotate-180" : ""}`} fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M6 9l6 6 6-6" /></svg>
+  );
 }
