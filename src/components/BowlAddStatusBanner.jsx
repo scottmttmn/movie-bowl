@@ -1,19 +1,16 @@
 import useBowlAdd from "../hooks/useBowlAdd";
 import { isUnsettledAddCode } from "../lib/addBowlMovie";
 
-// Two different things, deliberately separated. The result is feedback about the
-// last submission and is always dismissible. An add whose write may still land
-// is not feedback: it keeps its own row, and its control resolves it, because
-// dismissing it would free the same title to be submitted under a new id.
+// Success is already confirmed in search. Keep only errors and unfinished adds
+// here; an add whose write may still land must be resolved, since dismissing it
+// would free the same title to be submitted under a new id.
 export default function BowlAddStatusBanner() {
   const add = useBowlAdd();
-  const result = isUnsettledAddCode(add.result?.code) ? null : add.result;
+  const result = add.result?.ok === false && !isUnsettledAddCode(add.result.code) ? add.result : null;
   if (!result && add.unresolved.length === 0) return null;
   return <div className="page-container pt-3 section-stack">
-    {result && <div className={result.ok ? "status-success" : "status-error"} role={result.ok ? "status" : "alert"}>
-      {result.ok
-        ? `Added ${add.operation.movie.title} to ${add.operation.bowlName}`
-        : `${add.operation.movie.title} — ${add.operation.bowlName}: ${result.message}`}
+    {result && <div className="status-error" role="alert">
+      {`${add.operation.movie.title} — ${add.operation.bowlName}: ${result.message}`}
       <button className="icon-btn ml-2" aria-label="Dismiss add result" onClick={add.clearFeedback}>✕</button>
     </div>}
     {add.unresolved.map((entry) => {

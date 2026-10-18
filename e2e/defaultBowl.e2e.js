@@ -36,6 +36,8 @@ test("stars persist while global and contextual adds use their intended destinat
   await expect(chooseButton(page)).toHaveText(/Family Movies/);
   await addCustom(page, "Global Feature");
   await page.getByRole("button", { name: "Close add movie" }).click();
+  await expect(page.getByRole("status").filter({ hasText: "Added Global Feature to Family Movies" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Dismiss add result" })).toHaveCount(0);
   await expect(page.getByRole("button", { name: "Add a movie", exact: true })).toBeFocused();
   await page.goto("/bowl/default-bowl-0");
   await page.getByRole("button", { name: "Add a movie", exact: true }).click();
@@ -133,7 +135,9 @@ test("closing and reopening during an insert keeps one operation and the origina
   await expect(chooseButton(page)).toBeDisabled();
   await page.getByRole("button", { name: "Close add movie" }).click();
   release();
-  await expect(page.getByRole("status").filter({ hasText: "Added Slow Feature to Family Movies" })).toBeVisible();
+  await expect(page.getByRole("button", { name: /Drawing from 1 title\b/i })).toBeVisible();
+  await expect(page.getByRole("status").filter({ hasText: "Added Slow Feature to Family Movies" })).toHaveCount(0);
+  await expect(page.getByRole("button", { name: "Dismiss add result" })).toHaveCount(0);
   expect(backend.state.bowl_movies).toHaveLength(1);
   expect(backend.state.bowl_movies[0].bowl_id).toBe("default-bowl-1");
 });

@@ -47,9 +47,9 @@ describe("global add status banner", () => {
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(mocks.add).toHaveBeenCalledTimes(2));
     expect(mocks.add.mock.calls[1][0].submissionId).toBe(submissionId);
-    await screen.findByText(/Added Wildcard to Friday Night/);
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss add result" }));
-    await waitFor(() => expect(screen.queryByText(/Added Wildcard/)).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Dismiss add result" })).toBeNull();
   });
 
   it("keeps an unconfirmed add on its own row until a status check settles it", async () => {
@@ -61,6 +61,7 @@ describe("global add status banner", () => {
     mocks.checkStatus.mockResolvedValue({ ok: true, movie: { id: "saved" } });
     fireEvent.click(screen.getByRole("button", { name: "Check add status" }));
     await waitFor(() => expect(screen.queryByText(/Could not confirm Wildcard/)).toBeNull());
-    await screen.findByText(/Added Wildcard to Friday Night/);
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Dismiss add result" })).toBeNull();
   });
 });
