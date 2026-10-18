@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ add: vi.fn(), checkStatus: vi.fn(), refresh: vi.fn() }));
@@ -17,6 +17,7 @@ function Harness() {
   const add = useBowlAdd();
   return <>
     <button onClick={() => add.openGlobalAdd()}>Open add</button>
+    <button onClick={add.close}>Close add</button>
     <button onClick={() => add.submit(custom)}>Submit</button>
     <BowlAddStatusBanner />
   </>;
@@ -32,9 +33,23 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.refresh.mockResolvedValue({ bowls, defaultBowlId: "a" });
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe("global add status banner", () => {
+  it("briefly confirms a save that finishes after closing without requiring dismissal", async () => {
+    let finish;
+    mocks.add.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    await submitOnce();
+    await waitFor(() => expect(finish).toBeTypeOf("function"));
+    fireEvent.click(screen.getByText("Close add"));
+    vi.useFakeTimers();
+    await act(async () => { finish({ ok: true, movie: { id: "saved" } }); });
+    expect(screen.getByRole("status")).toHaveTextContent("Added Wildcard to Friday Night");
+    expect(screen.queryByRole("button", { name: "Dismiss add result" })).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
   it("keeps an uncommitted add undismissable and retries it under the same id", async () => {
     mocks.add.mockResolvedValueOnce({ ok: false, code: "add_not_committed", message: "has not been added" });
     await submitOnce();
@@ -47,9 +62,9 @@ describe("global add status banner", () => {
     fireEvent.click(screen.getByRole("button", { name: "Try again" }));
     await waitFor(() => expect(mocks.add).toHaveBeenCalledTimes(2));
     expect(mocks.add.mock.calls[1][0].submissionId).toBe(submissionId);
-    await screen.findByText(/Added Wildcard to Friday Night/);
-    fireEvent.click(screen.getByRole("button", { name: "Dismiss add result" }));
-    await waitFor(() => expect(screen.queryByText(/Added Wildcard/)).toBeNull());
+    await waitFor(() => expect(screen.queryByRole("alert")).toBeNull());
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Dismiss add result" })).toBeNull();
   });
 
   it("keeps an unconfirmed add on its own row until a status check settles it", async () => {
@@ -61,6 +76,7 @@ describe("global add status banner", () => {
     mocks.checkStatus.mockResolvedValue({ ok: true, movie: { id: "saved" } });
     fireEvent.click(screen.getByRole("button", { name: "Check add status" }));
     await waitFor(() => expect(screen.queryByText(/Could not confirm Wildcard/)).toBeNull());
-    await screen.findByText(/Added Wildcard to Friday Night/);
+    expect(screen.queryByRole("status")).toBeNull();
+    expect(screen.queryByRole("button", { name: "Dismiss add result" })).toBeNull();
   });
 });

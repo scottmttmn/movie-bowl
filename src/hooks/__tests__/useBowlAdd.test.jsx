@@ -134,6 +134,9 @@ describe("shared add session", () => {
     await act(async () => { finishDetails({ title: "Movie", runtime: 120 }); await pending; });
     expect(mocks.add).toHaveBeenCalledOnce();
     expect(mocks.add.mock.calls[0][0]).toMatchObject({ accountId: "u1", bowlId: "b", bowlName: "Family Movies", movie: { note: "Keep this comment" } });
+    expect(result.current.backgroundSuccess).toBe(false);
+    act(() => result.current.close());
+    expect(result.current.backgroundSuccess).toBe(false);
   });
 
   it("keeps a closed pending operation alive and supplies named completion feedback", async () => {
@@ -145,6 +148,7 @@ describe("shared add session", () => {
     await act(async () => { finish({ ok: true, movie: { id: "saved" } }); await pending; });
     expect(result.current.open).toBe(false);
     expect(result.current.result.ok).toBe(true);
+    expect(result.current.backgroundSuccess).toBe(true);
     expect(result.current.operation).toMatchObject({ bowlName: "Friday Night", movie: { title: "Wildcard" } });
   });
 
