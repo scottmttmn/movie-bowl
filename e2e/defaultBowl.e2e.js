@@ -117,14 +117,16 @@ test("movie details preserve search on Back, and comments are added after the mo
 });
 
 test("closing and reopening during an insert keeps one operation and the original destination", async ({ page, backend }) => {
-  seed(backend); await backend.authenticate(page); await page.goto("/bowl/default-bowl-1");
+  seed(backend); await backend.authenticate(page); await page.goto("/watch-list");
   let release; let inserting = false;
   const gate = new Promise((resolve) => { release = resolve; });
   await page.route("**/rest/v1/bowl_movies?*", async (route) => {
     if (route.request().method() === "POST") { inserting = true; await gate; }
     await route.fallback();
   });
-  await page.getByRole("button", { name: "Add a movie to this bowl" }).click();
+  await page.getByRole("button", { name: "Add a movie", exact: true }).click();
+  await chooseButton(page).click();
+  await page.getByRole("button", { name: "Family Movies", exact: true }).click();
   await page.getByPlaceholder("Movie, actor or director").fill("Slow Feature");
   await page.getByRole("button", { name: 'Add "Slow Feature"' }).click();
   await expect.poll(() => inserting).toBe(true);
@@ -135,9 +137,10 @@ test("closing and reopening during an insert keeps one operation and the origina
   await expect(chooseButton(page)).toBeDisabled();
   await page.getByRole("button", { name: "Close add movie" }).click();
   release();
-  await expect(page.getByRole("button", { name: /Drawing from 1 title\b/i })).toBeVisible();
-  await expect(page.getByRole("status").filter({ hasText: "Added Slow Feature to Family Movies" })).toHaveCount(0);
+  const confirmation = page.getByRole("status").filter({ hasText: "Added Slow Feature to Family Movies" });
+  await expect(confirmation).toBeVisible();
   await expect(page.getByRole("button", { name: "Dismiss add result" })).toHaveCount(0);
+  await expect(confirmation).toHaveCount(0);
   expect(backend.state.bowl_movies).toHaveLength(1);
   expect(backend.state.bowl_movies[0].bowl_id).toBe("default-bowl-1");
 });

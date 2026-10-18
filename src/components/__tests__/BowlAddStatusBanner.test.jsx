@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { act, cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({ add: vi.fn(), checkStatus: vi.fn(), refresh: vi.fn() }));
@@ -17,6 +17,7 @@ function Harness() {
   const add = useBowlAdd();
   return <>
     <button onClick={() => add.openGlobalAdd()}>Open add</button>
+    <button onClick={add.close}>Close add</button>
     <button onClick={() => add.submit(custom)}>Submit</button>
     <BowlAddStatusBanner />
   </>;
@@ -32,9 +33,23 @@ beforeEach(() => {
   vi.clearAllMocks();
   mocks.refresh.mockResolvedValue({ bowls, defaultBowlId: "a" });
 });
-afterEach(cleanup);
+afterEach(() => { cleanup(); vi.useRealTimers(); });
 
 describe("global add status banner", () => {
+  it("briefly confirms a save that finishes after closing without requiring dismissal", async () => {
+    let finish;
+    mocks.add.mockImplementationOnce(() => new Promise((resolve) => { finish = resolve; }));
+    await submitOnce();
+    await waitFor(() => expect(finish).toBeTypeOf("function"));
+    fireEvent.click(screen.getByText("Close add"));
+    vi.useFakeTimers();
+    await act(async () => { finish({ ok: true, movie: { id: "saved" } }); });
+    expect(screen.getByRole("status")).toHaveTextContent("Added Wildcard to Friday Night");
+    expect(screen.queryByRole("button", { name: "Dismiss add result" })).toBeNull();
+    await act(async () => { await vi.advanceTimersByTimeAsync(5000); });
+    expect(screen.queryByRole("status")).toBeNull();
+  });
+
   it("keeps an uncommitted add undismissable and retries it under the same id", async () => {
     mocks.add.mockResolvedValueOnce({ ok: false, code: "add_not_committed", message: "has not been added" });
     await submitOnce();

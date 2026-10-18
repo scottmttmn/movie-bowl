@@ -8,7 +8,7 @@ import { notifyBowlChange } from "../lib/bowlChanges";
 import { describeNetworkError } from "../utils/networkErrors";
 
 const BowlAddContext = createContext(null);
-const initial = { open: false, id: 0, query: "", initializing: false, initializationError: null, destination: null, pending: false, result: null, operation: null, unresolved: [], additions: [], actionAnnouncement: "" };
+const initial = { open: false, id: 0, query: "", initializing: false, initializationError: null, destination: null, pending: false, result: null, backgroundSuccess: false, operation: null, unresolved: [], additions: [], actionAnnouncement: "" };
 
 export function BowlAddProvider({ children }) {
   const { userId, refresh, bowls, loading, error } = useUserBowls();
@@ -34,7 +34,7 @@ export function BowlAddProvider({ children }) {
     if (!latest.current.open && document.querySelector('[aria-modal="true"], [data-blocks-global-add]')) return;
     setInvoker(document.activeElement);
     if (latest.current.pending || latest.current.additions.some((entry) => entry.pending)) {
-      update({ open: true });
+      update({ open: true, backgroundSuccess: false });
       return;
     }
     const request = ++opening.current;
@@ -77,7 +77,7 @@ export function BowlAddProvider({ children }) {
     // submission has a fresh id and no claim, so this cannot hold it back.
     const unresolved = isUnsettledAddCode(result.code) ? [...others, { operation, result }]
       : result.ok || !claim ? others : [...others, claim];
-    update({ pending: false, operation, result, unresolved, additions });
+    update({ pending: false, operation, result, backgroundSuccess: result.ok && !latest.current.open, unresolved, additions });
     if (result.ok || result.code === "access_lost") void refresh({ force: true });
   }, [refresh, update]);
 
@@ -185,13 +185,15 @@ export function BowlAddProvider({ children }) {
     return result;
   }, [bowls, userId, update]);
 
+  const clearFeedback = useCallback(() => update({ result: null, backgroundSuccess: false }), [update]);
+
   const value = useMemo(() => ({ ...session, bowlsLoading: loading, bowlsError: error || session.initializationError,
     actionsPending: session.additions.some((entry) => entry.pending),
     updateAddedMovieNote: (id, note) => changeAddedMovie(id, "comment", note),
     removeAddedMovie: (id) => changeAddedMovie(id, "remove"),
     openGlobalAdd: () => open(), openBowlAdd: open, openQuickAdd: (bowlId, query) => open(bowlId, { query }), close, setDestination, submit, checkStatus, retryAdd,
-    getInvoker, clearFeedback: () => update({ result: null }),
-  }), [session, loading, error, open, close, setDestination, submit, checkStatus, retryAdd, update, getInvoker, changeAddedMovie]);
+    getInvoker, clearFeedback,
+  }), [session, loading, error, open, close, setDestination, submit, checkStatus, retryAdd, clearFeedback, getInvoker, changeAddedMovie]);
   return <BowlAddContext.Provider value={value}>{children}</BowlAddContext.Provider>;
 }
 
