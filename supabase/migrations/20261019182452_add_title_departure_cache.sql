@@ -22,7 +22,7 @@ alter table public.title_departure_usage enable row level security;
 revoke all on public.title_departures, public.title_departure_usage from public, anon, authenticated;
 grant select, insert, update, delete on public.title_departures, public.title_departure_usage to service_role;
 
-create function public.begin_title_departure_fetch(p_tmdb_id bigint, p_user_id uuid, p_budget integer)
+create function public.begin_title_departure_fetch(p_tmdb_id bigint, p_bowl_id uuid, p_user_id uuid, p_budget integer)
 returns jsonb language plpgsql security invoker set search_path = '' as $$
 declare
   cached public.title_departures%rowtype;
@@ -33,6 +33,20 @@ begin
     raise exception using errcode = '22023', message = 'Invalid departure lookup';
   end if;
   if not exists (select 1 from public.profiles where id = p_user_id and cardinality(streaming_services) > 0) then
+    raise exception using errcode = '42501', message = 'Departure lookup not allowed';
+  end if;
+  -- A search result cannot spend quota. The caller must own or belong to a
+  -- bowl that still has this movie in its active registry (including packs).
+  if not exists (
+    select 1 from public.bowls b
+    where b.id = p_bowl_id
+      and (b.owner_id = p_user_id or exists (
+        select 1 from public.bowl_members m where m.bowl_id = b.id and m.user_id = p_user_id
+      ))
+      and exists (
+        select 1 from public.bowl_active_tmdb_movies a where a.bowl_id = b.id and a.tmdb_id = p_tmdb_id
+      )
+  ) then
     raise exception using errcode = '42501', message = 'Departure lookup not allowed';
   end if;
   -- Serializes quota reservation across titles and users, including cache misses.
@@ -90,10 +104,10 @@ begin
 end;
 $$;
 
-revoke all on function public.begin_title_departure_fetch(bigint, uuid, integer),
+revoke all on function public.begin_title_departure_fetch(bigint, uuid, uuid, integer),
   public.complete_title_departure_fetch(bigint, uuid, jsonb), public.fail_title_departure_fetch(bigint, uuid),
   public.prune_title_departures() from public, anon, authenticated;
-grant execute on function public.begin_title_departure_fetch(bigint, uuid, integer),
+grant execute on function public.begin_title_departure_fetch(bigint, uuid, uuid, integer),
   public.complete_title_departure_fetch(bigint, uuid, jsonb), public.fail_title_departure_fetch(bigint, uuid),
   public.prune_title_departures() to service_role;
 

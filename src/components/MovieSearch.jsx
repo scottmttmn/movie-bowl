@@ -1303,9 +1303,11 @@ export default function MovieSearch({
                                 </button>
                                 {(availability?.tone === "mine" || !providersByMovieId[movie.id]) && (
                                     <div className="ml-14">
-                                        <DepartureNotice tmdbId={movie.id}
+                                        <DepartureNotice
+                                            tmdbId={movie.id}
                                             providers={providersByMovieId[movie.id]?.data?.providers ?? null}
-                                            userStreamingServices={userStreamingServices} />
+                                            userStreamingServices={userStreamingServices}
+                                        />
                                     </div>
                                 )}
                             </div>

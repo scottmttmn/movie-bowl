@@ -131,9 +131,9 @@ output/designs/      design specs and roadmaps for shipped + planned features
 
 Vercel Hobby allows 12 functions per deployment, and this app uses all 12.
 `vercel.json` rewrites account deletion, provider-link lookups,
-filter-metadata warmups, starter-pack candidates, starter-pack photos and
+filter-metadata warmups, starter-pack candidates, starter-pack photos, departure lookups and
 feedback to `api/movie-cache.js`, which dispatches to their authorized handlers
-in `_lib/`. Preserve all six public URLs when changing that shared entry point.
+in `_lib/`. Preserve all seven public URLs when changing that shared entry point.
 
 ### Layer rules
 
@@ -303,7 +303,8 @@ layout, so the markup and every query still pass.
 
 Tables the app touches: `profiles`, `bowls`, `bowl_members`, `bowl_movies`,
 `bowl_invites`, `bowl_draw_permissions`, `bowl_add_links`, `bowl_draw_events`,
-`user_watch_events`, `user_bowl_defaults`, `solo_draw_removed_copies`. `bowl_movie_queue` is legacy and is not written to.
+`user_watch_events`, `user_bowl_defaults`, `solo_draw_removed_copies`,
+`title_departures`, `title_departure_usage` (the last two are server-only). `bowl_movie_queue` is legacy and is not written to.
 
 The interface says **home bowl**; the database says **default**, and likewise
 a **favorite** is a pin underneath. That drift is
@@ -579,6 +580,18 @@ then a generic 500. They run in Node and are excluded from coverage; they are
   services carry it (`resolveRentTarget` drops buy links). The TV
   offers only Apple TV and Prime Video (`isTvAppRentalLink`), the two stores the
   Google TV app knows how to hand off to; another needs the shell updated first.
+- `api/title-departures/lookup` (through `movie-cache`) is authenticated and
+  reads saved services and current TMDB availability on the server. Search and
+  unsaved details read fresh cache data only. A new Movie of the Night request
+  requires a supported US base service and an active title in an owned/joined
+  bowl, verified by the service-only `begin_title_departure_fetch` RPC. Positive
+  results last 24 hours, negative results seven days; failed lookups back off
+  one hour. The rolling 32-day budget defaults to 900 in Production and 100 in
+  nonproduction, with a 30/day/user limit. Nonproduction cannot exceed 100 even
+  if configured higher. Counters belong to each Supabase project; projects
+  sharing one key must keep their combined budgets within its allowance.
+  Failures stay quiet in the UI and log only stage, database code, and HTTP
+  status under `[api/title-departures/lookup]`, never raw errors or credentials.
 - `api/cron/refresh-filter-metadata` maintains the private daily certification
   and provider cache. It requires `CRON_SECRET`, uses the service role, and must
   remain compatible with Vercel Hobby's once-daily schedule and 60-second cap.

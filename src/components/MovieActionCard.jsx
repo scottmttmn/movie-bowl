@@ -9,6 +9,7 @@ import DepartureNotice from "./DepartureNotice";
 // delete in the details that opens.
 export default function MovieActionCard({
   movie,
+  bowlId = null,
   onViewDetails,
   disableWhileSyncing = true,
   isFilterExcluded = false,
@@ -97,8 +98,13 @@ export default function MovieActionCard({
       </div>
       {isSyncing && <p className="text-[11px] font-medium text-rose-300">Syncing...</p>}
       {!isCustomEntry && !isSyncing && userStreamingServices.length > 0 && (
-        <DepartureNotice tmdbId={movie.tmdb_id} userStreamingServices={userStreamingServices}
-          fetchProviders={fetchProviders} compact />
+        <DepartureNotice
+          bowlId={bowlId}
+          tmdbId={movie.tmdb_id}
+          userStreamingServices={userStreamingServices}
+          fetchProviders={fetchProviders}
+          compact
+        />
       )}
     </article>
   );

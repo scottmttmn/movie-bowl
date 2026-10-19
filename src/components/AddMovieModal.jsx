@@ -156,6 +156,7 @@ export default function AddMovieModal({
   onAddMovie,
   userStreamingServices = [],
   showWhereToWatch = true,
+  departureBowlId = null,
   detailPrimaryActionLabel = null,
   detailPrimaryActionNote = null,
   detailPrimaryActionFields = null,
@@ -674,8 +675,12 @@ export default function AddMovieModal({
           )}
 
           {showWhereToWatch && movie && (
-            <DepartureNotice tmdbId={movie.tmdb_id || movie.tmdbId || (!movie.isCustomEntry ? movie.id : null)}
-              providers={availableProviders} userStreamingServices={userStreamingServices} />
+            <DepartureNotice
+              bowlId={departureBowlId}
+              tmdbId={movie.tmdb_id || movie.tmdbId || (!movie.isCustomEntry ? movie.id : null)}
+              providers={availableProviders}
+              userStreamingServices={userStreamingServices}
+            />
           )}
           {showWhereSection && (
             <section id="movie-streaming-section" className="border-t border-slate-700/60 pt-5" aria-labelledby="movie-streaming-title">

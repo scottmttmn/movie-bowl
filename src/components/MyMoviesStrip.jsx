@@ -5,6 +5,7 @@ import { DEFAULT_DRAW_METHOD, getDrawMethod } from "../utils/drawMethods";
 
 export default function MyMoviesStrip({
   movies,
+  bowlId = null,
   onViewMovie,
   eligibilityStatus = MY_MOVIE_ELIGIBILITY_STATUS.idle,
   eligibleMovieIds = [],
@@ -72,6 +73,7 @@ export default function MyMoviesStrip({
             <MovieActionCard
               key={`${movie.source}:${movie.id}`}
               movie={movie}
+              bowlId={bowlId}
               onViewDetails={onViewMovie}
               disableWhileSyncing
               userStreamingServices={userStreamingServices}

@@ -71,6 +71,8 @@ function createInitialState() {
     tmdbSearchResults: [],
     tmdbProviders: {},
     titleDepartures: {},
+    titleDepartureCache: {},
+    titleDepartureFetches: [],
     feedbackReports: [],
     // People search answers nobody unless a test seeds someone, so every
     // title search keeps looking as it did before people existed.
@@ -1211,7 +1213,14 @@ export class FakeBackend {
       return;
     }
     if (url.pathname === "/api/title-departures/lookup" && method === "POST") {
-      await fulfillJson(route, { departures: this.state.titleDepartures[body.id] || [], validUntil: new Date(Date.now() + 86400000).toISOString() });
+      if (body.bowlId && !Object.hasOwn(this.state.titleDepartureCache, body.id)) {
+        this.state.titleDepartureFetches.push(body.id);
+        this.state.titleDepartureCache[body.id] = this.state.titleDepartures[body.id] || [];
+      }
+      const cached = this.state.titleDepartureCache[body.id];
+      await fulfillJson(route, cached ? {
+        departures: cached, validUntil: new Date(Date.now() + 86400000).toISOString(),
+      } : { departures: [] });
       return;
     }
 

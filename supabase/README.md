@@ -280,12 +280,15 @@ Rollback is available via:
 TMDB movie and US region, and private daily request counters. Only the server
 service role can use its RPCs or tables; RLS is enabled and client grants are
 revoked. The authenticated HTTP handler reads the caller's saved services and
-TMDB availability before reserving a lookup. Search titles need not already
-belong to a bowl. Anonymous/public add flows spend no requests.
+TMDB availability before reserving a lookup. The reservation RPC also requires
+an active title in a bowl owned by or joined by the caller. Anonymous/public
+add flows spend no requests.
 
-The Movie of the Night title lookup runs only for visible search results,
-details, or My Movies cards with a saved-service match. Results cover all
-supported base subscription/free services for that movie, so different viewers
+Search and unsaved details read fresh cached notices only, without reserving
+quota. Visible My Movies cards and saved-title details may refresh a missing
+or stale entry when a saved service matches a supported US base catalog.
+Kanopy and standalone Showtime are unsupported and cannot trigger a lookup.
+Results cover all supported base subscription/free services for that movie, so different viewers
 share a vendor request. The HTTP response shows only the caller's matching
 services. Add-on channels, rentals, and purchases cannot produce a departure
 notice. Unknown dates remain unknown; no notice does not mean no departure.
@@ -295,14 +298,16 @@ days. Newly announced departures can therefore take up to a week to appear for
 a previously checked movie. Stale notices are hidden if refresh fails. An
 atomic lease and quota reservation prevent duplicate requests; failures back
 off an hour. Each user can trigger at most 30 vendor requests per UTC day, and
-the shared cap is at most 900 over 32 UTC dates. Cache hits remain usable at the
-cap. Usage survives account deletion until it ages out of that window.
+the shared cap is at most 900 in Production and 100 in nonproduction over 32
+UTC dates. The optional request-budget setting can lower these ceilings. Cache
+hits remain usable at the cap. Usage survives account deletion until it ages out of that window.
 
 The existing cron prunes old rows without fetching departures or changing
 refresh priority. The limit is per Supabase project: environments using the
-same vendor key must share its 1,000-request allowance, so reserve Preview usage
-within the remaining headroom or use separate keys. Attribution links appear
-with notices in search and details.
+same vendor key must share its 1,000-request allowance. Production at 900 and
+one Preview Supabase project at 100 fit that allowance; additional projects
+need lower budgets or separate keys. Attribution links appear with notices in
+search and details. Lookup errors log sanitized stage/code/status metadata while the UI quietly omits the notice.
 
 Apply the migration before enabling the API key. Rollback:
 `supabase/rollback/20261019182452_add_title_departure_cache.sql` (revert the
