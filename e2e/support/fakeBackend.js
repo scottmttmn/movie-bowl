@@ -69,6 +69,10 @@ function createInitialState() {
     bowl_draw_permissions: [],
     addLinks: {},
     tmdbSearchResults: [],
+    tmdbProviders: {},
+    titleDepartures: {},
+    titleDepartureCache: {},
+    titleDepartureFetches: [],
     feedbackReports: [],
     // People search answers nobody unless a test seeds someone, so every
     // title search keeps looking as it did before people existed.
@@ -1208,6 +1212,17 @@ export class FakeBackend {
       await fulfillJson(route, { links: [] });
       return;
     }
+    if (url.pathname === "/api/title-departures/lookup" && method === "POST") {
+      if (body.bowlId && !Object.hasOwn(this.state.titleDepartureCache, body.id)) {
+        this.state.titleDepartureFetches.push(body.id);
+        this.state.titleDepartureCache[body.id] = this.state.titleDepartures[body.id] || [];
+      }
+      const cached = this.state.titleDepartureCache[body.id];
+      await fulfillJson(route, cached ? {
+        departures: cached, validUntil: new Date(Date.now() + 86400000).toISOString(),
+      } : { departures: [] });
+      return;
+    }
 
     if (url.pathname === "/api/tmdb/search" && method === "GET") {
       const type = url.searchParams.get("type");
@@ -1239,7 +1254,7 @@ export class FakeBackend {
     }
 
     if (url.pathname === "/api/tmdb/movie/providers" && method === "GET") {
-      await fulfillJson(route, { results: { US: { flatrate: [], ads: [] } } });
+      await fulfillJson(route, this.state.tmdbProviders[url.searchParams.get("id")] || { results: { US: { flatrate: [], ads: [] } } });
       return;
     }
 

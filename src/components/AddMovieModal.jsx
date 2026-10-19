@@ -3,6 +3,7 @@ import MovieSearch from "./MovieSearch";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { getProviderLogoUrl } from "../utils/getProviderLogoUrl";
 import { matchUserServices, normalizeStreamingServices } from "../utils/streamingServices";
+import DepartureNotice from "./DepartureNotice";
 import { normalizeRentalStore } from "../utils/rentalStores";
 import ProviderLinksAttribution from "./ProviderLinksAttribution";
 import AvailabilityAttribution from "./AvailabilityAttribution";
@@ -155,6 +156,7 @@ export default function AddMovieModal({
   onAddMovie,
   userStreamingServices = [],
   showWhereToWatch = true,
+  departureBowlId = null,
   detailPrimaryActionLabel = null,
   detailPrimaryActionNote = null,
   detailPrimaryActionFields = null,
@@ -672,6 +674,14 @@ export default function AddMovieModal({
             </div>
           )}
 
+          {showWhereToWatch && movie && (
+            <DepartureNotice
+              bowlId={departureBowlId}
+              tmdbId={movie.tmdb_id || movie.tmdbId || (!movie.isCustomEntry ? movie.id : null)}
+              providers={availableProviders}
+              userStreamingServices={userStreamingServices}
+            />
+          )}
           {showWhereSection && (
             <section id="movie-streaming-section" className="border-t border-slate-700/60 pt-5" aria-labelledby="movie-streaming-title">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

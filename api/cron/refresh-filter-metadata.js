@@ -86,6 +86,10 @@ export default async function handler(req, res) {
     }
 
     const titleSnapshots = await refreshTitleSnapshots(supabaseAdmin, startedAt);
+    // Cache housekeeping spends no vendor requests and cannot fail the refresh.
+    try {
+      await supabaseAdmin.rpc("prune_title_departures");
+    } catch { /* A deployment may arrive before its migration. */ }
     const result = {
       ...(report ? { ...stats, remainingStale: report.remainingStale } : stats),
       titleSnapshots,

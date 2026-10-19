@@ -1838,7 +1838,10 @@ return (
                     <p className="text-sm text-slate-400">You have no movies in this section.</p>
                   ) : (
                     <MyMoviesStrip
+                      bowlId={bowlId}
                       movies={myMovies}
+                      userStreamingServices={userStreamingServices}
+                      fetchProviders={filterMetadataFetchers?.fetchProviders}
                       eligibilityStatus={myMovieEligibilityStatus}
                       eligibleMovieIds={eligibleMyMovieIds}
                       onRunEligibilityLookups={runMyMovieEligibilityLookups}
@@ -1975,6 +1978,7 @@ return (
             {selectedDetailMovie && (
               <AddMovieModal
                 movie={selectedDetailMovie}
+                departureBowlId={bowlId}
                 userStreamingServices={userStreamingServices}
                 showWhereToWatch={selectedDetailContext !== "watched"}
                 onDeleteMovie={

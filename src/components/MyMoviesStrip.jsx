@@ -5,6 +5,7 @@ import { DEFAULT_DRAW_METHOD, getDrawMethod } from "../utils/drawMethods";
 
 export default function MyMoviesStrip({
   movies,
+  bowlId = null,
   onViewMovie,
   eligibilityStatus = MY_MOVIE_ELIGIBILITY_STATUS.idle,
   eligibleMovieIds = [],
@@ -12,6 +13,8 @@ export default function MyMoviesStrip({
   drawMethod = DEFAULT_DRAW_METHOD,
   onTogglePin,
   packPeople = {},
+  userStreamingServices = [],
+  fetchProviders,
 }) {
   const hasResolvedEligibility = eligibilityStatus === MY_MOVIE_ELIGIBILITY_STATUS.ready;
   const eligibleIdSet = new Set((eligibleMovieIds || []).map((id) => String(id)));
@@ -70,8 +73,11 @@ export default function MyMoviesStrip({
             <MovieActionCard
               key={`${movie.source}:${movie.id}`}
               movie={movie}
+              bowlId={bowlId}
               onViewDetails={onViewMovie}
               disableWhileSyncing
+              userStreamingServices={userStreamingServices}
+              fetchProviders={fetchProviders}
               isFilterExcluded={isFilterExcluded}
               isPinned={!isPack && Boolean(movie.is_pinned)}
               onTogglePin={method.honorsPin && !isFilterExcluded && !isPack ? onTogglePin : undefined}

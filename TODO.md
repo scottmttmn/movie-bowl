@@ -59,6 +59,28 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Future Product Concepts
 
+- Departure notices: **built October 19, 2026** for search, movie details, and
+  My Movies cards. Active bowl movies with a supported saved-service match
+  refresh a shared, budgeted Movie of the Night cache. Search and unsaved
+  details only read fresh cached notices. Dates are service-specific; missing
+  dates remain "Leaving soon." Departure-driven refresh priority stays deferred below.
+
+- Change-aware daily refresh prioritization: **deferred October 19, 2026 until
+  capacity is needed.** Revisit when daily runs consistently leave a backlog
+  because they reach the configured title limit (300 by default) or time budget.
+  Count distinct active TMDB movies across bowls, not individual slips. Keep one
+  queue: missing data first, then age since the last successful refresh with a
+  bounded boost for a reported availability change or a departure that is due.
+  Age eventually takes precedence; there is no reserved share of each run.
+  Preserve the daily refresh target, retry delays, and oldest-first behavior
+  when the feed is unavailable. Scope Movie of the Night queries to relevant
+  catalogs and enforce request/time budgets. The October 19 probe found
+  pagination beyond the first 50 new, updated, and expiring entries (25 per page). All-catalog
+  removed-title requests timed out at both 5 and 15 seconds, while a Netflix
+  request returned four entries in under a second. This supports measuring
+  bounded catalog feeds before integrating them. No scheduler integration
+  is implemented yet.
+
 - Streaming-aware search: the strict **On my services** filter on a person's
   movies is **built (October 5, 2026)**, answered whole by one TMDB discover
   run per person. Still open: the same filter on ordinary title results. Plan:

@@ -2,6 +2,7 @@
 import { useState, useEffect, useRef, useImperativeHandle, useCallback } from "react";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
+import DepartureNotice from "./DepartureNotice";
 import { matchUserServices, normalizeStreamingServices } from "../utils/streamingServices";
 import AddMovieModal from "./AddMovieModal";
 import { getTmdbMovieDetails, searchTmdbMovies, suggestTmdbQuery } from "../lib/tmdbApi";
@@ -1300,6 +1301,15 @@ export default function MovieSearch({
                                         </span>
                                     </span>
                                 </button>
+                                {(availability?.tone === "mine" || !providersByMovieId[movie.id]) && (
+                                    <div className="ml-14">
+                                        <DepartureNotice
+                                            tmdbId={movie.id}
+                                            providers={providersByMovieId[movie.id]?.data?.providers ?? null}
+                                            userStreamingServices={userStreamingServices}
+                                        />
+                                    </div>
+                                )}
                             </div>
                             <div role="gridcell" className="flex-shrink-0">
                                 {mark?.blocksAdd ? (
