@@ -12,6 +12,8 @@ export default function MyMoviesStrip({
   drawMethod = DEFAULT_DRAW_METHOD,
   onTogglePin,
   packPeople = {},
+  userStreamingServices = [],
+  fetchProviders,
 }) {
   const hasResolvedEligibility = eligibilityStatus === MY_MOVIE_ELIGIBILITY_STATUS.ready;
   const eligibleIdSet = new Set((eligibleMovieIds || []).map((id) => String(id)));
@@ -72,6 +74,8 @@ export default function MyMoviesStrip({
               movie={movie}
               onViewDetails={onViewMovie}
               disableWhileSyncing
+              userStreamingServices={userStreamingServices}
+              fetchProviders={fetchProviders}
               isFilterExcluded={isFilterExcluded}
               isPinned={!isPack && Boolean(movie.is_pinned)}
               onTogglePin={method.honorsPin && !isFilterExcluded && !isPack ? onTogglePin : undefined}

@@ -75,6 +75,9 @@ count, or to a rotation that gives the next turn to whoever has waited longest.
   an unmatched service falls through to the next one.
 - Add a subscription service from the drawn movie's Where to watch list by
   tapping its + pill. It saves to your account's streaming preferences.
+- See reported US departures from your saved services in search and movie
+  details, with a small Leaving soon marker on My Movies cards. Departure dates
+  come from Movie of the Night and are checked on demand when configured.
 - See the bowl's active draw method explained without surfacing competitive odds,
   and watch the draw replay it: a full-screen reveal sorts the pool into each
   person's pile (or one crowd) and lands on what was drawn.
@@ -297,6 +300,10 @@ These are visible in the browser bundle by design.
 - `WATCHMODE_API_KEY`, `PROVIDER_LINKS_ENABLED`, `PROVIDER_LINKS_MONTHLY_BUDGET`
   — optional, and off unless set; production sets them. See
   [Provider title links](#provider-title-links).
+- `MOVIE_OF_THE_NIGHT_API_KEY` — optional server secret for US departure notices;
+  no departure lookups run without it. `MOVIE_OF_THE_NIGHT_REQUEST_BUDGET` may
+  lower the default 900-request cap across the last 32 UTC dates (maximum 900).
+  Set the secret separately in each deployment environment that should use it.
 - `GROQ_API_KEY`, `CLOUDFLARE_ACCOUNT_ID`, `CLOUDFLARE_AI_TOKEN` — optional;
   described search is off without them. See
   [Described search](#described-search).

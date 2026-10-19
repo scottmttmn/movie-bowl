@@ -1,4 +1,5 @@
 import MoviePosterPin from "./MoviePosterPin";
+import DepartureNotice from "./DepartureNotice";
 
 // Sized and shaped to match WatchedMovieCard on purpose. The two strips sit on
 // the same screen, and a card that is 40% taller than its neighbour reads as a
@@ -15,6 +16,8 @@ export default function MovieActionCard({
   onTogglePin,
   pinDisabled = false,
   cornerMark = null,
+  userStreamingServices = [],
+  fetchProviders,
 }) {
   const isCustomEntry = Boolean(
     movie.isCustomEntry || movie.tmdb_id == null || Number(movie.tmdb_id) <= 0
@@ -93,6 +96,10 @@ export default function MovieActionCard({
         {isFilterExcluded && <span className="sr-only">Outside current filters</span>}
       </div>
       {isSyncing && <p className="text-[11px] font-medium text-rose-300">Syncing...</p>}
+      {!isCustomEntry && !isSyncing && userStreamingServices.length > 0 && (
+        <DepartureNotice tmdbId={movie.tmdb_id} userStreamingServices={userStreamingServices}
+          fetchProviders={fetchProviders} compact />
+      )}
     </article>
   );
 }

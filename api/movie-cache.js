@@ -3,10 +3,14 @@ import sendFeedback from "./_lib/sendFeedback.js";
 import lookupProviderLinks from "./_lib/lookupProviderLinks.js";
 import starterPackCandidates, { starterPackPeople } from "./_lib/starterPackCandidates.js";
 import warmFilterMetadata from "./_lib/warmFilterMetadata.js";
+import lookupTitleDepartures from "./_lib/lookupTitleDepartures.js";
 
 // Public URLs are rewritten here to stay within Vercel Hobby's
 // twelve-function limit. Each handler keeps its own authorization checks.
 export default async function handler(req, res) {
+  if (req.query?.action === "title-departures") {
+    return lookupTitleDepartures(req, res);
+  }
   if (req.query?.action === "account-delete") {
     return deleteAccount(req, res);
   }

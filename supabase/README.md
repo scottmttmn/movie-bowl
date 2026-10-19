@@ -274,6 +274,40 @@ Rollback is available via:
 - `supabase/rollback/20260829010000_remove_filter_metadata_refresh_run_history.sql`
 - `supabase/rollback/20260917022736_remove_tmdb_provider_availability.sql`
 
+## Departure notices
+
+`20261019182452_add_title_departure_cache.sql` adds a shared cache keyed by
+TMDB movie and US region, and private daily request counters. Only the server
+service role can use its RPCs or tables; RLS is enabled and client grants are
+revoked. The authenticated HTTP handler reads the caller's saved services and
+TMDB availability before reserving a lookup. Search titles need not already
+belong to a bowl. Anonymous/public add flows spend no requests.
+
+The Movie of the Night title lookup runs only for visible search results,
+details, or My Movies cards with a saved-service match. Results cover all
+supported base subscription/free services for that movie, so different viewers
+share a vendor request. The HTTP response shows only the caller's matching
+services. Add-on channels, rentals, and purchases cannot produce a departure
+notice. Unknown dates remain unknown; no notice does not mean no departure.
+
+Positive results refresh on demand after 24 hours; empty results after seven
+days. Newly announced departures can therefore take up to a week to appear for
+a previously checked movie. Stale notices are hidden if refresh fails. An
+atomic lease and quota reservation prevent duplicate requests; failures back
+off an hour. Each user can trigger at most 30 vendor requests per UTC day, and
+the shared cap is at most 900 over 32 UTC dates. Cache hits remain usable at the
+cap. Usage survives account deletion until it ages out of that window.
+
+The existing cron prunes old rows without fetching departures or changing
+refresh priority. The limit is per Supabase project: environments using the
+same vendor key must share its 1,000-request allowance, so reserve Preview usage
+within the remaining headroom or use separate keys. Attribution links appear
+with notices in search and details.
+
+Apply the migration before enabling the API key. Rollback:
+`supabase/rollback/20261019182452_add_title_departure_cache.sql` (revert the
+handler/cleanup first). No hosted database is modified by the test suites.
+
 ## Provider title-link cache
 
 `20260830120000_add_title_provider_links.sql` creates private provider-link and

@@ -1839,6 +1839,8 @@ return (
                   ) : (
                     <MyMoviesStrip
                       movies={myMovies}
+                      userStreamingServices={userStreamingServices}
+                      fetchProviders={filterMetadataFetchers?.fetchProviders}
                       eligibilityStatus={myMovieEligibilityStatus}
                       eligibleMovieIds={eligibleMyMovieIds}
                       onRunEligibilityLookups={runMyMovieEligibilityLookups}

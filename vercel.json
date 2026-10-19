@@ -31,6 +31,10 @@
   ],
   "rewrites": [
     {
+      "source": "/api/title-departures/lookup",
+      "destination": "/api/movie-cache?action=title-departures"
+    },
+    {
       "source": "/api/account/delete",
       "destination": "/api/movie-cache?action=account-delete"
     },

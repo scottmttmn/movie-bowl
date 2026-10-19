@@ -69,6 +69,8 @@ function createInitialState() {
     bowl_draw_permissions: [],
     addLinks: {},
     tmdbSearchResults: [],
+    tmdbProviders: {},
+    titleDepartures: {},
     feedbackReports: [],
     // People search answers nobody unless a test seeds someone, so every
     // title search keeps looking as it did before people existed.
@@ -1208,6 +1210,10 @@ export class FakeBackend {
       await fulfillJson(route, { links: [] });
       return;
     }
+    if (url.pathname === "/api/title-departures/lookup" && method === "POST") {
+      await fulfillJson(route, { departures: this.state.titleDepartures[body.id] || [], validUntil: new Date(Date.now() + 86400000).toISOString() });
+      return;
+    }
 
     if (url.pathname === "/api/tmdb/search" && method === "GET") {
       const type = url.searchParams.get("type");
@@ -1239,7 +1245,7 @@ export class FakeBackend {
     }
 
     if (url.pathname === "/api/tmdb/movie/providers" && method === "GET") {
-      await fulfillJson(route, { results: { US: { flatrate: [], ads: [] } } });
+      await fulfillJson(route, this.state.tmdbProviders[url.searchParams.get("id")] || { results: { US: { flatrate: [], ads: [] } } });
       return;
     }
 
