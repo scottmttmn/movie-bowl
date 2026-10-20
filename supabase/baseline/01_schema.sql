@@ -188,6 +188,14 @@ alter table public.bowl_draw_permissions enable row level security;
 alter table public.bowl_movies enable row level security;
 alter table public.bowl_invites enable row level security;
 
+-- The dashboard made these when Supabase still granted every new table to the
+-- API roles by default. It stopped on October 30, 2026, so a new project built
+-- from this file has to be told. Later migrations narrow three of them.
+grant select, insert, update, delete on table
+  public.profiles, public.bowls, public.bowl_members,
+  public.bowl_draw_permissions, public.bowl_movies, public.bowl_invites
+  to anon, authenticated, service_role;
+
 -- Replaced wholesale by 20260726153000; here in the shape it drops.
 create policy "Users can view own profile"
 on public.profiles

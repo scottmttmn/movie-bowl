@@ -23,6 +23,10 @@ create index if not exists bowl_movies_added_via_link_id_idx on public.bowl_movi
 
 alter table public.bowl_add_links enable row level security;
 
+-- Supabase granted new tables to the API roles by default when this ran, and
+-- stopped on October 30, 2026; stated here so a rebuilt schema still has it.
+grant select, insert, update, delete on table public.bowl_add_links to anon, authenticated, service_role;
+
 drop policy if exists "Bowl members can view add links" on public.bowl_add_links;
 create policy "Bowl members can view add links"
 on public.bowl_add_links

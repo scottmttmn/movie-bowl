@@ -396,6 +396,13 @@ changes, add a pgTAP test in `supabase/tests/` and a revert in
 `supabase/rollback/` (rollbacks live outside `migrations/` and must be moved
 back with a fresh timestamp to run). See `supabase/README.md`.
 
+A migration that creates a table grants it in the same file. Supabase stopped
+granting new `public` tables to `anon`, `authenticated` and `service_role` on
+October 30, 2026, so a table without grants is unreachable through the API, the
+service role included. Grant only what the app uses; a table reached only
+through security definer functions is listed as sealed in
+`supabase/tests/table_api_grants.sql` instead. See `supabase/README.md`.
+
 Run database tests with `./scripts/pgtap.sh`, which creates a scratch database
 on a PostgreSQL you already have, applies `supabase/baseline/` and then every
 migration in order, runs the suites and drops it again. It needs pgTAP and

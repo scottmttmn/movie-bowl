@@ -24,7 +24,9 @@ database from this repository; linking is only for `supabase db push`.
 supabase migration new short_description
 ```
 
-2. Add SQL changes (tables, constraints, indexes, RLS, policies).
+2. Add SQL changes (tables, constraints, indexes, RLS, policies). A new table
+   also needs its grants, beside `enable row level security` — see
+   [Privileges](#privileges).
 3. Commit migration files to git and open a pull request.
 4. Merging to `main` applies them to the staging project
    (`.github/workflows/staging-database.yml`).
@@ -115,6 +117,34 @@ default privilege, and several migrations revoke those grants by name. The
 baseline sets the same default privileges, so an object created by a migration
 is born with the same grants it is born with in production and a migration's
 `revoke ... from public, anon, authenticated` means the same thing here.
+
+Since October 30, 2026 those defaults no longer include reading or writing rows
+of a new table or sequence: Supabase revoked select, insert, update and delete
+from all three roles, in existing projects and in every rebuild (a new project,
+a branch, `supabase db reset`). A table a migration creates without saying who
+may use it is unreachable through the Data API, even for `service_role`, and
+the error is a plain `permission denied`. So every table states its grants in
+the migration that creates it, next to `enable row level security`:
+
+```sql
+alter table public.thing enable row level security;
+revoke all on table public.thing from public, anon, authenticated;
+grant select on table public.thing to authenticated;
+grant select, insert, update, delete on table public.thing to service_role;
+```
+
+Grant what the app reaches the table with, and nothing to `anon` unless a
+signed-out page reads it directly. A table that only security definer functions
+touch needs no grant at all, and goes on the list of sealed tables in
+`tests/table_api_grants.sql`; that suite fails for any other table with no row
+grant, which is what a forgotten one looks like. `00_platform.sql` revokes the
+same defaults Supabase does, so the suites see what a new project would.
+
+The baseline and the migrations written before the change were given the grants
+the old defaults had handed out, exactly: a database built from this repository
+has the same table, column and function privileges as one built the old way,
+and as production. Production and staging were unaffected either way, since
+Supabase kept the grants of every existing table; this is for a rebuilt one.
 
 This replaced a much more delicate arrangement. When the suites were seeded from
 `pg_dump`, the dump wrote the ACL it wanted each object to *end up* with,

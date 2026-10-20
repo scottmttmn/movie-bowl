@@ -7,6 +7,10 @@ create table public.user_bowl_defaults (
 );
 create index user_bowl_defaults_bowl_id_idx on public.user_bowl_defaults (bowl_id);
 alter table public.user_bowl_defaults enable row level security;
+
+-- Supabase granted new tables to the API roles by default when this ran, and
+-- stopped on October 30, 2026; stated here so a rebuilt schema still has it.
+grant select, insert, update, delete on table public.user_bowl_defaults to service_role;
 create policy user_bowl_defaults_select_own on public.user_bowl_defaults
   for select to authenticated using (user_id = auth.uid());
 revoke all on public.user_bowl_defaults from public, anon, authenticated;

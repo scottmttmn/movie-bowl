@@ -51,6 +51,17 @@ alter default privileges in schema public
 alter default privileges in schema public
   grant all on sequences to anon, authenticated, service_role;
 
+-- Except for reading and writing rows. From October 30, 2026 Supabase stops
+-- granting those on new `public` tables and sequences, in every project and on
+-- every rebuild of one (a new project, a branch, `supabase db reset`); what is
+-- left by default is truncate, references and trigger. These are its own two
+-- statements, so a table whose migration forgets its grants is as unreachable
+-- here as it would be on a new staging project, and the grants suite fails.
+alter default privileges in schema public
+  revoke select, insert, update, delete on tables from anon, authenticated, service_role;
+alter default privileges in schema public
+  revoke usage, select on sequences from anon, authenticated, service_role;
+
 create table if not exists auth.users (
   id uuid primary key default extensions.gen_random_uuid(),
   email text,
