@@ -56,6 +56,10 @@ create index solo_draw_removed_copies_user_idx
 
 alter table public.solo_draw_removed_copies enable row level security;
 
+-- Supabase granted new tables to the API roles by default when this ran, and
+-- stopped on October 30, 2026; stated here so a rebuilt schema still has it.
+grant select, insert, update, delete on table public.solo_draw_removed_copies to service_role;
+
 -- Readable by the person whose copies they were, so the reveal and the history
 -- entry can name the bowls a draw emptied. Never written from the client: both
 -- writers are security definer functions that own the ownership checks.

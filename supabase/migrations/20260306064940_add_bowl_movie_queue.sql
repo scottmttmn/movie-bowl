@@ -28,6 +28,10 @@ create index if not exists bowl_movie_queue_bowl_user_promoted_idx
 
 alter table public.bowl_movie_queue enable row level security;
 
+-- Supabase granted new tables to the API roles by default when this ran, and
+-- stopped on October 30, 2026; stated here so a rebuilt schema still has it.
+grant select, insert, update, delete on table public.bowl_movie_queue to anon, authenticated, service_role;
+
 drop policy if exists "Queue members can insert own rows" on public.bowl_movie_queue;
 create policy "Queue members can insert own rows"
 on public.bowl_movie_queue

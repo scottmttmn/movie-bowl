@@ -14,6 +14,10 @@ create table public.bowl_active_tmdb_movies (
 
 alter table public.bowl_active_tmdb_movies enable row level security;
 
+-- Supabase granted new tables to the API roles by default when this ran, and
+-- stopped on October 30, 2026; stated here so a rebuilt schema still has it.
+grant select, insert, update, delete on table public.bowl_active_tmdb_movies to service_role;
+
 revoke all on table public.bowl_active_tmdb_movies from public, anon, authenticated;
 
 insert into public.bowl_active_tmdb_movies (bowl_id, tmdb_id, active_count)

@@ -26,7 +26,10 @@ alter table public.tmdb_filter_metadata_refresh_runs enable row level security;
 
 revoke all on table public.tmdb_filter_metadata_refresh_runs
 from public, anon, authenticated;
-grant select on table public.tmdb_filter_metadata_refresh_runs to service_role;
+-- Select is all the cron reads, but service_role was also granted writes by
+-- default when this ran. Stated in full so a rebuilt schema matches.
+grant select, insert, update, delete on table public.tmdb_filter_metadata_refresh_runs
+  to service_role;
 
 create index tmdb_filter_metadata_refresh_runs_completed_at_idx
 on public.tmdb_filter_metadata_refresh_runs (completed_at desc);

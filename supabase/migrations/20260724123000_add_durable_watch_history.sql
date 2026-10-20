@@ -56,6 +56,11 @@ create index user_watch_events_user_watched_on_idx
 alter table public.bowl_draw_events enable row level security;
 alter table public.user_watch_events enable row level security;
 
+-- Supabase granted new tables to the API roles by default when this ran, and
+-- stopped on October 30, 2026; stated here so a rebuilt schema still has it.
+grant select, insert, update, delete on table public.bowl_draw_events, public.user_watch_events
+  to service_role;
+
 revoke all on table public.bowl_draw_events from public, anon, authenticated;
 revoke all on table public.user_watch_events from public, anon, authenticated;
 grant select on table public.bowl_draw_events to authenticated;
