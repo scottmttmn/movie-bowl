@@ -252,7 +252,17 @@ function checkPgtap(base) {
   if (!head) return null;
 
   const baseRun = withBaseCheckout(base, "run the pgTAP suites", (dir) => {
-    run("bash", [join(dir, "scripts/pgtap.sh")], dir);
+    // Only the base's counts are wanted here, not its verdict. A base that is
+    // red where it runs now (a newer PostgreSQL than it was written against)
+    // still says how many suites and assertions it had; one whose schema
+    // would not even build wrote no report, or one that ran nothing.
+    try {
+      run("bash", [join(dir, "scripts/pgtap.sh")], dir);
+    } catch (error) {
+      const partial = existsSync(join(dir, PGTAP_REPORT)) ? readJson(join(dir, PGTAP_REPORT)) : null;
+      if (!(partial?.files > 0)) throw error;
+      console.log(`! pgTAP: ${base.slice(0, 7)} has failing suites here; comparing its counts anyway.`);
+    }
     return readJson(join(dir, PGTAP_REPORT));
   });
 
