@@ -588,10 +588,13 @@ then a generic 500. They run in Node and are excluded from coverage; they are
   offers only Apple TV and Prime Video (`isTvAppRentalLink`), the two stores the
   Google TV app knows how to hand off to; another needs the shell updated first.
 - `api/title-departures/lookup` (through `movie-cache`) is authenticated and
-  reads saved services and current TMDB availability on the server. Search and
-  unsaved details read fresh cache data only. A new Movie of the Night request
-  requires a supported US base service and an active title in an owned/joined
-  bowl, verified by the service-only `begin_title_departure_fetch` RPC. Positive
+  reads saved services on the server. A fresh cache entry is answered from
+  those alone, without TMDB; search and unsaved details read only that. A
+  miss checks bowl membership and the active title through the service-only
+  `can_fetch_title_departure` before it asks TMDB for current availability,
+  and a new Movie of the Night request also needs a supported US base service
+  and the same access again inside `begin_title_departure_fetch`, which
+  reserves the quota. Positive
   results last 24 hours, negative results seven days; failed lookups back off
   one hour. The rolling 32-day budget defaults to 900 in Production and 100 in
   nonproduction, with a 30/day/user limit. Nonproduction cannot exceed 100 even

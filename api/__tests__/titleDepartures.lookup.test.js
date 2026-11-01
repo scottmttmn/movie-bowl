@@ -39,7 +39,7 @@ function response() {
     },
   };
 }
-let services, providers, metadataDate, cached, cacheError, logger;
+let services, providers, metadataDate, cached, cacheError, logger, tables;
 beforeEach(() => {
   vi.stubEnv("VERCEL_ENV", "production");
   vi.stubEnv("MOVIE_OF_THE_NIGHT_API_KEY", "test-key");
@@ -49,9 +49,11 @@ beforeEach(() => {
   metadataDate = new Date().toISOString();
   cached = null;
   cacheError = null;
+  tables = [];
   logger = vi.spyOn(console, "error").mockImplementation(() => {});
   mocks.getUser.mockReset().mockResolvedValue({ data: { user: { id: "user" } } });
   mocks.from.mockReset().mockImplementation((table) => {
+    tables.push(table);
     const query = {
       select: () => query,
       eq: () => query,
@@ -66,7 +68,11 @@ beforeEach(() => {
   });
   mocks.rpc.mockReset().mockImplementation(async (name) => ({
     data:
-      name === "begin_title_departure_fetch" ? { should_fetch: true, token: "lease" } : validUntil,
+      name === "can_fetch_title_departure"
+        ? true
+        : name === "begin_title_departure_fetch"
+          ? { should_fetch: true, token: "lease" }
+          : validUntil,
   }));
   mocks.fetchTitleDepartures.mockReset().mockResolvedValue(departures);
   mocks.tmdbFetch
@@ -116,7 +122,7 @@ describe("departure lookup boundary", () => {
         res,
       );
       expect(res.body).toEqual({ departures: [] });
-      expect(mocks.rpc).not.toHaveBeenCalled();
+      expect(mocks.rpc).not.toHaveBeenCalledWith("begin_title_departure_fetch", expect.anything());
       expect(mocks.fetchTitleDepartures).not.toHaveBeenCalled();
     },
   );
@@ -133,12 +139,64 @@ describe("departure lookup boundary", () => {
       expect(mocks.fetchTitleDepartures).not.toHaveBeenCalled();
     },
   );
-  it("search shares fresh data filtered to the caller without reserving quota", async () => {
+  it.each([
+    ["search", { id: 77 }],
+    ["a bowl title", { id: 77, bowlId }],
+  ])("%s reads a fresh cache without TMDB or quota, even with stale availability", async (_, body) => {
     cached = { departures, valid_until: validUntil };
+    metadataDate = null;
     const res = response();
-    await handler({ ...request, body: { id: 77 } }, res);
+    await handler({ ...request, body }, res);
     expect(res.body).toEqual({ departures: [departures[0]], validUntil });
     expect(mocks.rpc).not.toHaveBeenCalled();
+    expect(mocks.tmdbFetch).not.toHaveBeenCalled();
+    expect(tables).not.toContain("tmdb_filter_metadata");
+  });
+  it("filters a fresh cache to the viewer's saved services", async () => {
+    cached = { departures, valid_until: validUntil };
+    services = ["Hulu", "Netflix"];
+    const res = response();
+    await handler(request, res);
+    expect(res.body).toEqual({ departures, validUntil });
+    services = ["Peacock"];
+    const other = response();
+    await handler(request, other);
+    expect(other.body).toEqual({ departures: [], validUntil });
+  });
+  it.each([null, { departures, valid_until: "2000-01-01" }])(
+    "settles bowl and title access before TMDB on a missing or stale cache",
+    async (record) => {
+      cached = record;
+      metadataDate = null;
+      mocks.rpc.mockResolvedValue({ data: false });
+      const res = response();
+      await handler(request, res);
+      expect(res.body).toEqual({ departures: [] });
+      expect(mocks.rpc).toHaveBeenCalledTimes(1);
+      expect(mocks.rpc).toHaveBeenCalledWith("can_fetch_title_departure", {
+        p_tmdb_id: 77,
+        p_bowl_id: bowlId,
+        p_user_id: "user",
+      });
+      expect(mocks.tmdbFetch).not.toHaveBeenCalled();
+      expect(tables).not.toContain("tmdb_filter_metadata");
+      expect(mocks.fetchTitleDepartures).not.toHaveBeenCalled();
+      expect(logger).not.toHaveBeenCalled();
+    },
+  );
+  it("fails closed and logs when the access check is unavailable", async () => {
+    metadataDate = null;
+    mocks.rpc.mockResolvedValue({ error: { code: "PGRST202", message: "private-key-in-error" } });
+    const res = response();
+    await handler(request, res);
+    expect(res.body).toEqual({ departures: [] });
+    expect(mocks.tmdbFetch).not.toHaveBeenCalled();
+    expect(logger).toHaveBeenCalledWith("[api/title-departures/lookup] Lookup failed", {
+      stage: "access_check",
+      code: "PGRST202",
+      status: undefined,
+    });
+    expect(JSON.stringify(logger.mock.calls)).not.toContain("private-key");
   });
   it("rechecks stale availability and supplies the authenticated user and bowl for reservation", async () => {
     metadataDate = null;
@@ -146,31 +204,42 @@ describe("departure lookup boundary", () => {
     await handler(request, res);
     expect(mocks.tmdbFetch).toHaveBeenCalledWith("/movie/77/watch/providers", expect.anything());
     expect(res.body.departures).toEqual([departures[0]]);
-    expect(mocks.rpc).toHaveBeenNthCalledWith(1, "begin_title_departure_fetch", {
+    expect(mocks.rpc).toHaveBeenNthCalledWith(1, "can_fetch_title_departure", {
+      p_tmdb_id: 77,
+      p_bowl_id: bowlId,
+      p_user_id: "user",
+    });
+    expect(mocks.tmdbFetch.mock.invocationCallOrder[0]).toBeGreaterThan(
+      mocks.rpc.mock.invocationCallOrder[0],
+    );
+    expect(mocks.rpc).toHaveBeenNthCalledWith(2, "begin_title_departure_fetch", {
       p_tmdb_id: 77,
       p_bowl_id: bowlId,
       p_user_id: "user",
       p_budget: 900,
     });
-    expect(mocks.rpc).toHaveBeenNthCalledWith(2, "complete_title_departure_fetch", {
+    expect(mocks.rpc).toHaveBeenNthCalledWith(3, "complete_title_departure_fetch", {
       p_tmdb_id: 77,
       p_token: "lease",
       p_departures: departures,
     });
   });
   it("obeys a concurrent cache fill and lease/budget refusals", async () => {
-    mocks.rpc.mockResolvedValue({
-      data: { should_fetch: false, departures, valid_until: validUntil },
-    });
+    let claim = { should_fetch: false, departures, valid_until: validUntil };
+    mocks.rpc.mockImplementation(async (name) => ({
+      data: name === "can_fetch_title_departure" ? true : claim,
+    }));
     const res = response();
     await handler(request, res);
     expect(res.body.departures).toEqual([departures[0]]);
-    mocks.rpc.mockResolvedValue({ data: { should_fetch: false, departures: [] } });
+    claim = { should_fetch: false, departures: [] };
     await handler(request, response());
     expect(mocks.fetchTitleDepartures).not.toHaveBeenCalled();
   });
-  it("does not spend when SQL denies access to the bowl/title", async () => {
-    mocks.rpc.mockResolvedValue({ error: { code: "42501" } });
+  it("does not spend when access is lost between the check and the reservation", async () => {
+    mocks.rpc.mockImplementation(async (name) =>
+      name === "can_fetch_title_departure" ? { data: true } : { error: { code: "42501" } },
+    );
     await handler(request, response());
     expect(mocks.fetchTitleDepartures).not.toHaveBeenCalled();
     expect(logger).not.toHaveBeenCalled();
@@ -211,9 +280,11 @@ describe("departure lookup boundary", () => {
   );
   it("logs cache writes and failed backoff writes", async () => {
     mocks.rpc.mockImplementation(async (name) =>
-      name === "begin_title_departure_fetch"
-        ? { data: { should_fetch: true, token: "lease" } }
-        : { error: { code: "PGRST202" } },
+      name === "can_fetch_title_departure"
+        ? { data: true }
+        : name === "begin_title_departure_fetch"
+          ? { data: { should_fetch: true, token: "lease" } }
+          : { error: { code: "PGRST202" } },
     );
     await handler(request, response());
     expect(logger.mock.calls.map((call) => call[1].stage)).toEqual([

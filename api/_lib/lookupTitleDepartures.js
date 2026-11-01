@@ -72,10 +72,36 @@ export default async function handler(req, res) {
       logFailure("cache_read", cacheError);
       return empty();
     }
-    const freshCache = Date.parse(cached?.valid_until) > Date.now();
+    // A fresh cache answers on its own. Its notices name only services that
+    // carry the title, so the viewer's saved services are all it needs; asking
+    // TMDB again would spend the shared key to learn nothing new.
+    if (Date.parse(cached?.valid_until) > Date.now()) {
+      const cachedDepartures = Array.isArray(cached.departures) ? cached.departures : [];
+      const matches = matchDepartureServices(
+        cachedDepartures.map((departure) => departure?.service),
+        services,
+      );
+      return res.status(200).json({
+        departures: cachedDepartures.filter((departure) => matches.includes(departure?.service)),
+        validUntil: cached.valid_until,
+      });
+    }
     // Search and unsaved details only read fresh data. They cannot reserve quota
     // or make fallback TMDB requests just to discover a departure cache miss.
-    if (!bowlId && !freshCache) return empty();
+    if (!bowlId) return empty();
+
+    // Membership and the active bowl title are settled before anything is spent,
+    // TMDB included; the reservation below checks them again under its lock.
+    const { data: allowed, error: accessError } = await admin.rpc("can_fetch_title_departure", {
+      p_tmdb_id: tmdbId,
+      p_bowl_id: bowlId,
+      p_user_id: auth.user.id,
+    });
+    if (accessError) {
+      logFailure("access_check", accessError);
+      return empty();
+    }
+    if (allowed !== true) return empty();
 
     const { data: metadata, error: metadataError } = await admin
       .from("tmdb_filter_metadata")
@@ -101,14 +127,9 @@ export default async function handler(req, res) {
     }
     const matches = matchDepartureServices(providers || [], services);
     if (matches.length === 0) return empty();
-    if (freshCache) {
-      return res.status(200).json({
-        departures: cached.departures.filter((departure) => matches.includes(departure.service)),
-        validUntil: cached.valid_until,
-      });
-    }
 
-    // SQL verifies membership and the active bowl title before reserving quota.
+    // The final check: SQL verifies membership and the active bowl title again,
+    // atomically with reserving quota, before the vendor is called.
     const { data: claim, error } = await admin.rpc("begin_title_departure_fetch", {
       p_tmdb_id: tmdbId,
       p_bowl_id: bowlId,
