@@ -154,11 +154,14 @@ select ok(
 );
 reset role;
 
+-- Called directly rather than inside a query on realtime.messages. On the
+-- PostgreSQL 18 runners that query stopped raising: anon has no policy there,
+-- so the scan can finish without the function ever being reached, and whether
+-- it is depends on the plan rather than on the grant this asserts.
 set local role anon;
 select throws_ok(
-  $$ select count(*) from realtime.messages
-     where topic = 'bowl-live:10000000-0000-0000-0000-000000000a01'
-       and public.can_use_bowl_live_channel(topic, extension, false) $$,
+  $$ select public.can_use_bowl_live_channel(
+       'bowl-live:10000000-0000-0000-0000-000000000a01', 'broadcast', false) $$,
   '42501',
   null,
   'an anonymous caller cannot even ask'
