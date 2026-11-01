@@ -194,3 +194,15 @@ jobs:
         run: npm run test:counts -- pgtap --base HEAD^1
         env:
           DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres
+      # Races need separate connections and rows they can commit, which a pgTAP
+      # suite inside one rolled-back transaction cannot give them. After the
+      # count check, because this run rewrites the record that check reads.
+      - name: Race the departure quota lease
+        run: |
+          db=$(PGTAP_KEEP=1 ./scripts/pgtap.sh supabase/tests/20261019182452_add_title_departure_cache.sql \
+            | sed -n 's/^==> kept \([^ ]*\).*/\1/p')
+          test -n "$db"
+          python3 scripts/test-title-departure-lease-concurrency.py \
+            --database-url "postgres://postgres:postgres@localhost:5432/$db"
+        env:
+          DATABASE_URL: postgres://postgres:postgres@localhost:5432/postgres

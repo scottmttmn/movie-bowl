@@ -309,10 +309,13 @@ Rollback is available via:
 `20261019182452_add_title_departure_cache.sql` adds a shared cache keyed by
 TMDB movie and US region, and private daily request counters. Only the server
 service role can use its RPCs or tables; RLS is enabled and client grants are
-revoked. The authenticated HTTP handler reads the caller's saved services and
-TMDB availability before reserving a lookup. The reservation RPC also requires
-an active title in a bowl owned by or joined by the caller. Anonymous/public
-add flows spend no requests.
+revoked. The authenticated HTTP handler answers a fresh cache entry from the
+caller's saved services alone, without TMDB. On a missing or stale entry it
+first asks `can_fetch_title_departure` (`20261101120000_add_title_departure_access_check.sql`)
+whether the caller owns or belongs to the bowl and the title is active in it,
+and only then checks TMDB availability. The reservation RPC repeats that check
+under its lock, so it stays the final word before the vendor is called.
+Anonymous/public add flows spend no requests.
 
 Search and unsaved details read fresh cached notices only, without reserving
 quota. Visible My Movies cards and saved-title details may refresh a missing
@@ -342,6 +345,18 @@ search and details. Lookup errors log sanitized stage/code/status metadata while
 Apply the migration before enabling the API key. Rollback:
 `supabase/rollback/20261019182452_add_title_departure_cache.sql` (revert the
 handler/cleanup first). No hosted database is modified by the test suites.
+
+The access check's migration goes before the handler that calls it; until it
+is applied, that handler logs `access_check` and shows no notice for a cache
+miss. Roll back the other way: revert the handler, then
+`supabase/rollback/20261101120000_remove_title_departure_access_check.sql`.
+The lease and quota races run against separate connections in CI:
+
+```sh
+PGTAP_KEEP=1 ./scripts/pgtap.sh supabase/tests/20261019182452_add_title_departure_cache.sql
+python3 scripts/test-title-departure-lease-concurrency.py \
+  --database-url postgres://postgres@localhost:5432/movie_bowl_pgtap_NNNN
+```
 
 ## Provider title-link cache
 
