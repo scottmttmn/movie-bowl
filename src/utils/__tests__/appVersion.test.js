@@ -2,9 +2,11 @@ import { afterEach, describe, expect, it, vi } from "vitest";
 import {
   APP_BUILD_ID,
   fetchDeployedBuildId,
+  findFailedAssetUrls,
   isNewBuildId,
   isStaleChunkError,
   recoverFromStaleChunkError,
+  refreshFailedAssets,
   reloadForNewBuild,
 } from "../appVersion";
 
@@ -188,5 +190,76 @@ describe("recoverFromStaleChunkError", () => {
       })
     ).toBe(false);
     expect(reload).not.toHaveBeenCalled();
+  });
+});
+
+describe("findFailedAssetUrls", () => {
+  const origin = "https://moviebowl.app";
+
+  it("takes the chunk the error names and every asset the page failed to get", () => {
+    const urls = findFailedAssetUrls({
+      origin,
+      error: new Error(
+        "Failed to fetch dynamically imported module: https://moviebowl.app/assets/BowlDashboard-B7uhNkT0.js"
+      ),
+      entries: [
+        { name: "https://moviebowl.app/assets/startRead-MARMgFDb.js", responseStatus: 404 },
+        { name: "https://moviebowl.app/assets/index-abc.js", responseStatus: 200 },
+        { name: "https://moviebowl.app/api/tmdb/search", responseStatus: 500 },
+        { name: "https://image.tmdb.org/assets/poster.jpg", responseStatus: 404 },
+      ],
+    });
+
+    expect(urls).toEqual([
+      "https://moviebowl.app/assets/BowlDashboard-B7uhNkT0.js",
+      "https://moviebowl.app/assets/startRead-MARMgFDb.js",
+    ]);
+  });
+
+  // Safari reports no status, so it cannot tell which ones failed.
+  it("asks for every own asset again when the browser does not say which failed", () => {
+    const urls = findFailedAssetUrls({
+      origin,
+      error: new Error("Importing a module script failed."),
+      entries: [
+        { name: "https://moviebowl.app/assets/index-abc.js" },
+        { name: "https://moviebowl.app/assets/AboutPage-x.js", responseStatus: 0 },
+        { name: "https://moviebowl.app/movie-bowl.webp" },
+      ],
+    });
+
+    expect(urls).toEqual([
+      "https://moviebowl.app/assets/index-abc.js",
+      "https://moviebowl.app/assets/AboutPage-x.js",
+    ]);
+  });
+});
+
+describe("refreshFailedAssets", () => {
+  const origin = "https://moviebowl.app";
+  const entries = [{ name: "https://moviebowl.app/assets/a.js", responseStatus: 404 }];
+
+  it("asks again with the cache bypassed and waits for the whole file", async () => {
+    let finishBody;
+    const arrayBuffer = vi.fn(() => new Promise((done) => { finishBody = done; }));
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, arrayBuffer });
+    let settled = false;
+    const refresh = refreshFailedAssets({ origin, entries, fetchImpl }).then(() => { settled = true; });
+
+    await vi.waitFor(() => expect(arrayBuffer).toHaveBeenCalled());
+    expect(fetchImpl).toHaveBeenCalledWith("https://moviebowl.app/assets/a.js", { cache: "reload" });
+    expect(settled).toBe(false);
+    finishBody();
+    await refresh;
+    expect(settled).toBe(true);
+  });
+
+  it("settles even when a request fails or never answers", async () => {
+    await expect(
+      refreshFailedAssets({ origin, entries, fetchImpl: vi.fn().mockRejectedValue(new TypeError("x")) })
+    ).resolves.toBeUndefined();
+    await expect(
+      refreshFailedAssets({ origin, entries, fetchImpl: () => new Promise(() => {}), timeoutMs: 10 })
+    ).resolves.toBeUndefined();
   });
 });

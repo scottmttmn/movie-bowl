@@ -41,7 +41,7 @@ describe("AppErrorBoundary", () => {
     expect(screen.queryByTestId("app-error-boundary")).not.toBeInTheDocument();
   });
 
-  it("reloads once when a screen's chunk went missing under a deploy", () => {
+  it("reloads once when a screen's chunk went missing under a deploy", async () => {
     const reload = vi.fn();
     vi.spyOn(window, "location", "get").mockReturnValue({ reload });
 
@@ -51,13 +51,13 @@ describe("AppErrorBoundary", () => {
       </AppErrorBoundary>
     );
 
-    expect(reload).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
     expect(screen.getByTestId("app-error-boundary")).toHaveTextContent(
       "Movie Bowl was just updated. Reload to pick up the new version."
     );
   });
 
-  it("explains an ordinary failure instead of leaving a blank page", () => {
+  it("explains an ordinary failure instead of leaving a blank page", async () => {
     const reload = vi.fn();
     vi.spyOn(window, "location", "get").mockReturnValue({ reload });
 
@@ -73,7 +73,35 @@ describe("AppErrorBoundary", () => {
     );
 
     fireEvent.click(screen.getByRole("button", { name: "Reload Movie Bowl" }));
-    expect(reload).toHaveBeenCalledTimes(1);
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+  });
+
+  // November 5: a 404 saved under the year-long asset cache survived every
+  // ordinary reload, so the button has to ask for the file again first.
+  it("asks again for the missing chunk, past the cache, before the button reloads", async () => {
+    const order = [];
+    const reload = vi.fn(() => order.push("reload"));
+    vi.spyOn(window, "location", "get").mockReturnValue({ reload, origin: "https://moviebowl.app" });
+    const fetchMock = vi.fn(async (url) => {
+      order.push(url);
+      return { ok: true };
+    });
+    vi.stubGlobal("fetch", fetchMock);
+    window.sessionStorage.setItem("movie-bowl:build-reload", String(Date.now()));
+    const chunk = "https://moviebowl.app/assets/AboutPage-CcOIUZxC.js";
+
+    render(
+      <AppErrorBoundary>
+        <Boom message={`Failed to fetch dynamically imported module: ${chunk}`} />
+      </AppErrorBoundary>
+    );
+    expect(reload).not.toHaveBeenCalled();
+
+    fireEvent.click(screen.getByRole("button", { name: "Reload Movie Bowl" }));
+    await waitFor(() => expect(reload).toHaveBeenCalledTimes(1));
+    expect(fetchMock).toHaveBeenCalledWith(chunk, { cache: "reload" });
+    expect(order.indexOf(chunk)).toBeLessThan(order.indexOf("reload"));
+    vi.unstubAllGlobals();
   });
 
   it("does not reload a second time inside the guard window", () => {

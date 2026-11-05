@@ -2,7 +2,7 @@ import React from "react";
 import { createPortal } from "react-dom";
 import { hasFeedbackSession } from "../lib/feedback";
 import FeedbackSheet from "./FeedbackSheet";
-import { isStaleChunkError, reloadForNewBuild } from "../utils/appVersion";
+import { isStaleChunkError, reloadForNewBuild, reloadWithFreshAssets } from "../utils/appVersion";
 
 // The floor under every screen. Without a boundary, one throw during render
 // unmounts the whole tree and leaves a blank page with no way out but a manual
@@ -31,7 +31,8 @@ export default class AppErrorBoundary extends React.Component {
     // If the reload is refused (already tried, or no storage to track it), the
     // rendered fallback below is what the user gets.
     if (isStaleChunkError(error)) {
-      reloadForNewBuild();
+      this.error = error;
+      reloadForNewBuild({ error });
       return;
     }
     hasFeedbackSession().then((canReport) => {
@@ -61,7 +62,7 @@ export default class AppErrorBoundary extends React.Component {
           <button
             type="button"
             className="btn btn-primary"
-            onClick={() => window.location.reload()}
+            onClick={() => reloadWithFreshAssets(this.error)}
           >
             Reload Movie Bowl
           </button>

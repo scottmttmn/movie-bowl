@@ -10,7 +10,7 @@ import { isOffline } from './utils/networkErrors.js'
 // Catching it at the window means a deploy that landed under an open tab is
 // recovered even when the failure happens outside a React render.
 window.addEventListener('vite:preloadError', (event) => {
-  if (!isOffline() && reloadForNewBuild()) event.preventDefault()
+  if (!isOffline() && reloadForNewBuild({ error: event.payload })) event.preventDefault()
 })
 
 createRoot(document.getElementById('root')).render(
