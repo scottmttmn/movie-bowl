@@ -147,7 +147,12 @@ export async function refreshFailedAssets(options = {}) {
   if (!urls.length) return;
 
   const refreshes = Promise.allSettled(
-    urls.map((url) => doFetch(url, { cache: "reload" }))
+    // Read each body through: the cache stores a response only once it has
+    // all of it, and navigating away mid-download would cancel that.
+    urls.map(async (url) => {
+      const response = await doFetch(url, { cache: "reload" });
+      await response?.arrayBuffer?.();
+    })
   );
   const timeout = new Promise((done) =>
     setTimeout(done, options.timeoutMs ?? ASSET_REFRESH_TIMEOUT_MS)

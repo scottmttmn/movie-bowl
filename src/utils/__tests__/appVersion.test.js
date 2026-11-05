@@ -239,10 +239,19 @@ describe("refreshFailedAssets", () => {
   const origin = "https://moviebowl.app";
   const entries = [{ name: "https://moviebowl.app/assets/a.js", responseStatus: 404 }];
 
-  it("asks again with the cache bypassed", async () => {
-    const fetchImpl = vi.fn().mockResolvedValue({ ok: true });
-    await refreshFailedAssets({ origin, entries, fetchImpl });
+  it("asks again with the cache bypassed and waits for the whole file", async () => {
+    let finishBody;
+    const arrayBuffer = vi.fn(() => new Promise((done) => { finishBody = done; }));
+    const fetchImpl = vi.fn().mockResolvedValue({ ok: true, arrayBuffer });
+    let settled = false;
+    const refresh = refreshFailedAssets({ origin, entries, fetchImpl }).then(() => { settled = true; });
+
+    await vi.waitFor(() => expect(arrayBuffer).toHaveBeenCalled());
     expect(fetchImpl).toHaveBeenCalledWith("https://moviebowl.app/assets/a.js", { cache: "reload" });
+    expect(settled).toBe(false);
+    finishBody();
+    await refresh;
+    expect(settled).toBe(true);
   });
 
   it("settles even when a request fails or never answers", async () => {
