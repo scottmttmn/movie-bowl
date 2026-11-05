@@ -88,12 +88,84 @@ export function isStaleChunkError(error) {
   return STALE_CHUNK_MESSAGE_FRAGMENTS.some((fragment) => text.includes(fragment));
 }
 
+// A reload is only a fix if the browser asks the server again. Every file
+// under /assets/ is served "immutable" for a year, and a 404 for one of them
+// can be stored the same way -- which is what happened on November 5, when a
+// tab opened mid-deploy asked for the new chunks a moment before they were
+// served, and every reload after that replayed the saved 404 until a hard
+// reload. So before reloading, ask again for each asset this page failed to
+// get, with the cache bypassed; the fresh answer replaces the stored one.
+const ASSET_REFRESH_TIMEOUT_MS = 3000;
+const ASSET_URL_PATTERN = /https?:\/\/[^\s"')]+\/assets\/[^\s"')]+/gi;
+
+function isOwnAssetUrl(url, origin) {
+  try {
+    const parsed = new URL(url, origin);
+    return parsed.origin === origin && parsed.pathname.startsWith("/assets/");
+  } catch {
+    return false;
+  }
+}
+
+// Which /assets/ files to ask for again: any the error names, plus any the
+// page recorded as failing. Safari reports neither a URL in the message nor a
+// response status, so there every asset the page loaded is asked for again --
+// a few dozen small requests, on a path that runs at most once a minute.
+export function findFailedAssetUrls(options = {}) {
+  const origin = options.origin ?? globalThis.location?.origin ?? "";
+  const urls = new Set();
+
+  const message = String(options.error?.message ?? "");
+  for (const match of message.match(ASSET_URL_PATTERN) || []) {
+    if (isOwnAssetUrl(match, origin)) urls.add(match);
+  }
+
+  let entries = options.entries;
+  if (!entries) {
+    try {
+      entries = globalThis.performance?.getEntriesByType?.("resource") ?? [];
+    } catch {
+      entries = [];
+    }
+  }
+  for (const entry of entries) {
+    if (!isOwnAssetUrl(entry?.name, origin)) continue;
+    const status = entry.responseStatus;
+    if (typeof status !== "number" || status === 0 || status >= 400) urls.add(entry.name);
+  }
+
+  return [...urls];
+}
+
+// Never rejects and never takes longer than the timeout: whatever it manages
+// to refresh, the reload still happens.
+export async function refreshFailedAssets(options = {}) {
+  const doFetch = options.fetchImpl || globalThis.fetch;
+  if (typeof doFetch !== "function") return;
+
+  const urls = findFailedAssetUrls(options);
+  if (!urls.length) return;
+
+  const refreshes = Promise.allSettled(
+    urls.map((url) => doFetch(url, { cache: "reload" }))
+  );
+  const timeout = new Promise((done) =>
+    setTimeout(done, options.timeoutMs ?? ASSET_REFRESH_TIMEOUT_MS)
+  );
+  await Promise.race([refreshes, timeout]);
+}
+
+// The reload behind every recovery, including the error screen's button.
+export function reloadWithFreshAssets(error) {
+  return refreshFailedAssets({ error }).finally(() => window.location.reload());
+}
+
 // Reloads at most once per guard window. Returns whether a reload was started,
 // so callers can fall back to asking the user when it was not.
 export function reloadForNewBuild(options = {}) {
   const now = options.now ?? Date.now();
   const storage = "storage" in options ? options.storage : getSessionStorage();
-  const reload = options.reload ?? (() => window.location.reload());
+  const reload = options.reload ?? (() => reloadWithFreshAssets(options.error));
 
   // Without storage there is no way to tell a first attempt from a loop, so
   // stay put and let the visible fallback ask the user instead.
@@ -125,5 +197,5 @@ export function reloadForNewBuild(options = {}) {
 // The failed-import path: reload only when the failure looks like a chunk the
 // deploy moved out from under us.
 export function recoverFromStaleChunkError(error, options) {
-  return isStaleChunkError(error) && reloadForNewBuild(options);
+  return isStaleChunkError(error) && reloadForNewBuild({ error, ...options });
 }
