@@ -9,6 +9,12 @@ function getToday() {
   return formatLocalCalendarDate(new Date());
 }
 
+function getYesterday() {
+  const date = new Date();
+  date.setDate(date.getDate() - 1);
+  return formatLocalCalendarDate(date);
+}
+
 function normalizeDateInput(value) {
   const text = String(value || "");
   return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : "";
@@ -30,6 +36,7 @@ export default function WatchHistoryEntryModal({
   const [releaseDate, setReleaseDate] = useState(normalizeDateInput(entry?.release_date));
   const [note, setNote] = useState(entry?.personal_note || "");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
+  const [editingRelease, setEditingRelease] = useState(false);
 
   const isEditing = Boolean(entry?.id);
   const canUndoSolo = isWithinSoloUndoWindow(entry);
@@ -45,6 +52,7 @@ export default function WatchHistoryEntryModal({
     setSelectedMovie(movie);
     setTitle(movie?.title || "");
     setReleaseDate(normalizeDateInput(movie?.release_date));
+    setEditingRelease(false);
     return { ok: true };
   };
 
@@ -105,7 +113,33 @@ export default function WatchHistoryEntryModal({
                 </div>
               )}
               <div className="min-w-0 flex-1">
-                <p className="truncate font-semibold text-slate-100">{selectedMovie.title}</p>
+                <p className="flex min-w-0 items-baseline gap-2">
+                  <span className="truncate font-semibold text-slate-100">{selectedMovie.title}</span>
+                  {!editingRelease && (
+                    <button
+                      type="button"
+                      className="shrink-0 border-b border-dashed border-slate-600 text-sm text-slate-400 hover:border-slate-400 hover:text-slate-200"
+                      aria-label={releaseDate ? `Release date ${releaseDate}` : "Add release date"}
+                      onClick={() => setEditingRelease(true)}
+                      disabled={isSaving}
+                    >
+                      {releaseDate ? releaseDate.slice(0, 4) : "＋"}
+                    </button>
+                  )}
+                </p>
+                {editingRelease && (
+                  <div>
+                  <input
+                    type="date"
+                    className="input-field mt-1.5 min-h-0 w-auto py-1 text-sm text-slate-300"
+                    aria-label="Release date"
+                    value={releaseDate}
+                    onChange={(event) => setReleaseDate(event.target.value)}
+                    disabled={isSaving}
+                    autoFocus
+                  />
+                  </div>
+                )}
                 {!isEditing && (
                   <button
                     type="button"
@@ -119,6 +153,42 @@ export default function WatchHistoryEntryModal({
               </div>
             </div>
 
+            <div className="rounded-xl border border-rose-400/35 bg-rose-500/[0.06] p-3">
+              <label className="block text-sm font-semibold text-rose-100" htmlFor="watch-history-watched-on">
+                Watched on
+              </label>
+              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
+                <input
+                  id="watch-history-watched-on"
+                  type="date"
+                  className="input-field text-lg font-semibold text-slate-50 sm:flex-1"
+                  value={watchedOn}
+                  onChange={(event) => setWatchedOn(event.target.value)}
+                  required
+                  disabled={isSaving}
+                />
+                <div className="flex gap-2">
+                  {[
+                    ["Today", getToday()],
+                    ["Yesterday", getYesterday()],
+                  ].map(([label, value]) => (
+                    <button
+                      key={label}
+                      type="button"
+                      className={`btn btn-secondary flex-1 px-3 py-2 text-sm sm:flex-none ${
+                        watchedOn === value ? "!border-rose-400/70 !bg-rose-500/15 !text-rose-100" : ""
+                      }`}
+                      aria-pressed={watchedOn === value}
+                      onClick={() => setWatchedOn(value)}
+                      disabled={isSaving}
+                    >
+                      {label}
+                    </button>
+                  ))}
+                </div>
+              </div>
+            </div>
+
             <label className="block text-sm font-medium text-slate-300">
               Title
               <input
@@ -129,30 +199,6 @@ export default function WatchHistoryEntryModal({
                 disabled={isSaving}
               />
             </label>
-
-            <div className="grid gap-4 sm:grid-cols-2">
-              <label className="block text-sm font-medium text-slate-300">
-                Watched on
-                <input
-                  type="date"
-                  className="input-field mt-1.5"
-                  value={watchedOn}
-                  onChange={(event) => setWatchedOn(event.target.value)}
-                  required
-                  disabled={isSaving}
-                />
-              </label>
-              <label className="block text-sm font-medium text-slate-300">
-                Release date
-                <input
-                  type="date"
-                  className="input-field mt-1.5"
-                  value={releaseDate}
-                  onChange={(event) => setReleaseDate(event.target.value)}
-                  disabled={isSaving}
-                />
-              </label>
-            </div>
 
             <label className="block text-sm font-medium text-slate-300">
               Your comment (optional)
