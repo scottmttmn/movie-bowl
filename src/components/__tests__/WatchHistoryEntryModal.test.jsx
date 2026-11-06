@@ -209,3 +209,53 @@ describe("WatchHistoryEntryModal solo draw undo", () => {
     expect(screen.queryByRole("button", { name: "Undo draw" })).not.toBeInTheDocument();
   });
 });
+
+describe("WatchHistoryEntryModal dates", () => {
+  afterEach(() => cleanup());
+
+  it("leads with the watched date and keeps the release date as a year until tapped", async () => {
+    const onSave = vi.fn(async () => {});
+    render(<WatchHistoryEntryModal onClose={vi.fn()} onSave={onSave} />);
+    fireEvent.click(screen.getByRole("button", { name: /choose arrival/i }));
+
+    expect(screen.getByLabelText("Watched on")).toBeInTheDocument();
+    expect(screen.queryByLabelText("Release date")).toBeNull();
+    const year = screen.getByRole("button", { name: "Release date 2016-11-11" });
+    expect(year).toHaveTextContent("2016");
+
+    fireEvent.change(screen.getByLabelText("Watched on"), { target: { value: "2026-11-05" } });
+    fireEvent.click(year);
+    fireEvent.change(screen.getByLabelText("Release date"), { target: { value: "2016-09-01" } });
+    fireEvent.click(screen.getByRole("button", { name: /add to history/i }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(
+        expect.objectContaining({ watched_on: "2026-11-05", release_date: "2016-09-01" })
+      );
+    });
+  });
+
+  it("saves the movie's own release date when it is left alone", async () => {
+    const onSave = vi.fn(async () => {});
+    render(<WatchHistoryEntryModal onClose={vi.fn()} onSave={onSave} />);
+    fireEvent.click(screen.getByRole("button", { name: /choose arrival/i }));
+    fireEvent.click(screen.getByRole("button", { name: /add to history/i }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ release_date: "2016-11-11" }));
+    });
+  });
+
+  it("offers to add a release date to an entry that has none", () => {
+    render(
+      <WatchHistoryEntryModal
+        entry={{ id: "history-2", source_kind: "manual", tmdb_id: -5, title: "Something with Adam Sandler", watched_on: "2026-08-20" }}
+        onClose={vi.fn()}
+        onSave={vi.fn()}
+      />
+    );
+
+    fireEvent.click(screen.getByRole("button", { name: "Add release date" }));
+    expect(screen.getByLabelText("Release date")).toHaveValue("");
+  });
+});

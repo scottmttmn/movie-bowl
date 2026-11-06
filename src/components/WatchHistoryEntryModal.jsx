@@ -9,12 +9,6 @@ function getToday() {
   return formatLocalCalendarDate(new Date());
 }
 
-function getYesterday() {
-  const date = new Date();
-  date.setDate(date.getDate() - 1);
-  return formatLocalCalendarDate(date);
-}
-
 function normalizeDateInput(value) {
   const text = String(value || "");
   return /^\d{4}-\d{2}-\d{2}$/.test(text) ? text : "";
@@ -113,6 +107,9 @@ export default function WatchHistoryEntryModal({
                 </div>
               )}
               <div className="min-w-0 flex-1">
+                {/* The release date is almost never wrong, so it rides beside the
+                    title as a year and only becomes a field when tapped; the
+                    watched date below is the one people come here to change. */}
                 <p className="flex min-w-0 items-baseline gap-2">
                   <span className="truncate font-semibold text-slate-100">{selectedMovie.title}</span>
                   {!editingRelease && (
@@ -129,15 +126,15 @@ export default function WatchHistoryEntryModal({
                 </p>
                 {editingRelease && (
                   <div>
-                  <input
-                    type="date"
-                    className="input-field mt-1.5 min-h-0 w-auto py-1 text-sm text-slate-300"
-                    aria-label="Release date"
-                    value={releaseDate}
-                    onChange={(event) => setReleaseDate(event.target.value)}
-                    disabled={isSaving}
-                    autoFocus
-                  />
+                    <input
+                      type="date"
+                      className="input-field mt-1.5 min-h-0 w-auto py-1 text-sm text-slate-300"
+                      aria-label="Release date"
+                      value={releaseDate}
+                      onChange={(event) => setReleaseDate(event.target.value)}
+                      disabled={isSaving}
+                      autoFocus
+                    />
                   </div>
                 )}
                 {!isEditing && (
@@ -157,36 +154,15 @@ export default function WatchHistoryEntryModal({
               <label className="block text-sm font-semibold text-rose-100" htmlFor="watch-history-watched-on">
                 Watched on
               </label>
-              <div className="mt-2 flex flex-col gap-2 sm:flex-row sm:items-center">
-                <input
-                  id="watch-history-watched-on"
-                  type="date"
-                  className="input-field text-lg font-semibold text-slate-50 sm:flex-1"
-                  value={watchedOn}
-                  onChange={(event) => setWatchedOn(event.target.value)}
-                  required
-                  disabled={isSaving}
-                />
-                <div className="flex gap-2">
-                  {[
-                    ["Today", getToday()],
-                    ["Yesterday", getYesterday()],
-                  ].map(([label, value]) => (
-                    <button
-                      key={label}
-                      type="button"
-                      className={`btn btn-secondary flex-1 px-3 py-2 text-sm sm:flex-none ${
-                        watchedOn === value ? "!border-rose-400/70 !bg-rose-500/15 !text-rose-100" : ""
-                      }`}
-                      aria-pressed={watchedOn === value}
-                      onClick={() => setWatchedOn(value)}
-                      disabled={isSaving}
-                    >
-                      {label}
-                    </button>
-                  ))}
-                </div>
-              </div>
+              <input
+                id="watch-history-watched-on"
+                type="date"
+                className="input-field mt-2 text-lg font-semibold text-slate-50"
+                value={watchedOn}
+                onChange={(event) => setWatchedOn(event.target.value)}
+                required
+                disabled={isSaving}
+              />
             </div>
 
             <label className="block text-sm font-medium text-slate-300">
