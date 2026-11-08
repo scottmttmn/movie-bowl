@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import FeedbackSheet from "./FeedbackSheet";
+import HelpSheet from "./HelpSheet";
 import NavBowlSwitcher from "./NavBowlSwitcher";
 import bowlImage from "../assets/movie-bowl.webp";
 
@@ -20,7 +21,10 @@ export default function TopNav({
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [feedbackSource, setFeedbackSource] = useState(null);
+  const [feedbackDraft, setFeedbackDraft] = useState("");
+  const [isHelpOpen, setIsHelpOpen] = useState(false);
   const location = useLocation();
+  const helpBowlId = location.pathname.match(/^\/bowl\/([^/]+)/)?.[1] || null;
   const navigate = useNavigate();
   // The TV's QR code lands here with ?feedback=tv. Open the sheet once per
   // arrival and drop the parameter, so a reload or Back is an ordinary visit.
@@ -197,7 +201,15 @@ export default function TopNav({
                   <button
                     type="button"
                     role="menuitem"
-                    onClick={() => { setIsMenuOpen(false); setFeedbackSource("app"); }}
+                    onClick={() => { setIsMenuOpen(false); setIsHelpOpen(true); }}
+                    className="flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white"
+                  >
+                    Help
+                  </button>
+                  <button
+                    type="button"
+                    role="menuitem"
+                    onClick={() => { setIsMenuOpen(false); setFeedbackDraft(""); setFeedbackSource("app"); }}
                     className="flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white"
                   >
                     Send feedback
@@ -231,8 +243,18 @@ export default function TopNav({
       </div>
       {/* Portalled: the header's backdrop blur would otherwise pin the sheet
           inside a 64px strip. */}
+      {isHelpOpen && createPortal(
+        <HelpSheet
+          bowlId={helpBowlId}
+          getInvoker={getMenuButton}
+          onClose={() => setIsHelpOpen(false)}
+          onSendFeedback={(text) => { setIsHelpOpen(false); setFeedbackDraft(text); setFeedbackSource("app"); }}
+        />,
+        document.body
+      )}
       {feedbackSource && createPortal(
         <FeedbackSheet
+          initialMessage={feedbackDraft}
           page={feedbackSource === "tv" ? "/tv" : null}
           getInvoker={getMenuButton}
           onClose={() => setFeedbackSource(null)}

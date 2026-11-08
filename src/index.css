@@ -2138,3 +2138,12 @@
       rgba(6, 11, 20, 0.9);
   }
 }
+
+/* Mockup: the setting Help pointed at, ringed once on arrival. */
+.help-target {
+  border-radius: 0.9rem;
+  box-shadow: 0 0 0 2px rgb(251 113 133 / 0.75), 0 0 0 8px rgb(251 113 133 / 0.12);
+  background: rgb(251 113 133 / 0.06);
+  margin: -0.6rem;
+  padding: 0.6rem;
+}

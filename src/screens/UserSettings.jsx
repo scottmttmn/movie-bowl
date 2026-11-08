@@ -141,6 +141,21 @@ export default function UserSettings() {
     : "Theater mode off";
   const profileTileSummary = displayName?.trim() || "Choose a display name";
 
+  // Help lands here with the setting it named; ring it once so the eye finds it.
+  const helpTarget = location.state?.helpTarget || null;
+  useEffect(() => {
+    if (!helpTarget) return;
+    // Sections mount after preferences load, so wait for the target to exist.
+    const timer = window.setInterval(() => {
+      const row = document.getElementById(helpTarget)?.closest("label")?.parentElement;
+      if (!row) return;
+      window.clearInterval(timer);
+      row.classList.add("help-target");
+      row.scrollIntoView({ block: "center" });
+    }, 100);
+    return () => window.clearInterval(timer);
+  }, [helpTarget]);
+
   useEffect(() => {
     if (location.hash === "#streaming-services") {
       streamingServicesRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
