@@ -102,6 +102,10 @@ export default function BowlDashboard() {
     const { bowlId } = useParams();
     const [drawMethod, setDrawMethod] = useState(DEFAULT_DRAW_METHOD);
     const [installedStarterPack, setInstalledStarterPack] = useState(null);
+    // The kind as the bowl's own row states it, read with its access, so a
+    // slow or failed account context cannot leave a restaurant bowl drawing
+    // as movies. Keyed by bowl so another bowl's answer never carries over.
+    const [loadedBowlKind, setLoadedBowlKind] = useState(null);
     const {
       bowl,
       isLoading,
@@ -276,9 +280,14 @@ export default function BowlDashboard() {
     const [homeMessage, setHomeMessage] = useState(null);
     const [homeError, setHomeError] = useState(null);
     const currentBowlMemberCount = accountBowls.find((entry) => entry.id === bowlId)?.memberCount ?? null;
-    // The kind is fixed at creation and rides on the account's bowl list, so
-    // this costs no read of its own.
-    const bowlKind = normalizeBowlKind(accountBowls.find((entry) => entry.id === bowlId)?.kind);
+    // The kind is fixed at creation. The bowl's own access read is the answer
+    // the draw waits for; the account's bowl list only lets the page dress
+    // itself before that read lands.
+    const bowlKind = normalizeBowlKind(
+      loadedBowlKind?.bowlId === bowlId
+        ? loadedBowlKind.kind
+        : accountBowls.find((entry) => entry.id === bowlId)?.kind
+    );
     const isRestaurantBowl = isRestaurantKind(bowlKind);
     const kindWords = getBowlKindWords(bowlKind);
     const ownedBowlCount = accountBowls.filter((entry) => entry.role === "Owner").length;
@@ -783,7 +792,7 @@ export default function BowlDashboard() {
         // the screen thinks can draw.
         let { data, error } = await supabase
           .from("bowls")
-          .select("name, owner_id, draw_access_mode, draw_method, starter_pack")
+          .select("name, owner_id, draw_access_mode, draw_method, starter_pack, kind")
           .eq("id", bowlId)
           .single();
 
@@ -856,6 +865,7 @@ export default function BowlDashboard() {
         );
         setDrawMethod(normalizeDrawMethod(data?.draw_method));
         setInstalledStarterPack(data?.starter_pack || null);
+        setLoadedBowlKind({ bowlId, kind: normalizeBowlKind(data?.kind) });
       };
 
       loadBowlName();

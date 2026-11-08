@@ -137,7 +137,10 @@ const slips = () => [
 describe("BowlDashboard in a restaurant bowl", () => {
   beforeEach(() => {
     mocks.state.navigate.mockReset();
-    mocks.state.bowlRow = { name: "Date Night Eats", owner_id: "u1" };
+    mocks.state.bowlRow = { name: "Date Night Eats", owner_id: "u1", kind: "restaurants" };
+    userBowlsMock.bowls = [{ id: "bowl-1", name: "Date Night Eats", ownerId: "u1", role: "Owner", memberCount: 2, remainingCount: 2, kind: "restaurants" }];
+    userBowlsMock.loading = false;
+    userBowlsMock.error = null;
     mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
     mocks.state.bowlData = { remaining: slips(), watched: [] };
     mocks.state.handleDraw.mockReset();
@@ -193,5 +196,24 @@ describe("BowlDashboard in a restaurant bowl", () => {
     expect(directions.getAttribute("href")).toContain("query_place_id=ChIJlarana");
     expect(screen.queryByText(/where to watch/i)).not.toBeInTheDocument();
     expect(mocks.getTmdbMovieDetails).not.toHaveBeenCalled();
+  });
+
+  it("takes the kind from the bowl itself when the account's bowl list has not answered", async () => {
+    userBowlsMock.bowls = [];
+    userBowlsMock.error = new Error("context failed");
+    mocks.state.handleDraw.mockResolvedValue({ ...slips()[0], drawn_at: "2026-11-08T19:00:00Z" });
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("My Restaurants")).toBeInTheDocument());
+    expect(screen.queryByRole("button", { name: "Filters" })).not.toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Reveal" }));
+    await waitFor(() => expect(mocks.state.handleDraw).toHaveBeenCalledTimes(1));
+    expect(mocks.state.handleDraw.mock.calls[0][0]).toMatchObject({
+      ratingFilter: null,
+      genreFilter: null,
+      runtimeFilter: null,
+    });
   });
 });
