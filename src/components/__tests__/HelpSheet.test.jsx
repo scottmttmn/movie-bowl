@@ -60,6 +60,16 @@ describe("HelpSheet", () => {
     expect(screen.getByText("Sent")).toBeInTheDocument();
   });
 
+  it("holds the question still while it is being sent as feedback", async () => {
+    let finish;
+    renderSheet({ ask: async () => null, send: () => new Promise((done) => { finish = done; }) });
+    await askQuestion("dark mode please");
+    fireEvent.click(screen.getByRole("button", { name: "Send as feedback" }));
+    expect(screen.getByRole("textbox", { name: "Question" })).toBeDisabled();
+    await act(async () => { finish({ ok: true }); });
+    expect(screen.getByText("Sent")).toBeInTheDocument();
+  });
+
   it("says why feedback did not send and keeps the question", async () => {
     renderSheet({ ask: async () => null, send: async () => ({ ok: false, message: "Ten an hour." }) });
     await askQuestion("dark mode please");

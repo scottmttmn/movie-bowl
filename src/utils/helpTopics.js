@@ -76,7 +76,9 @@ export const HELP_TOPICS = [
     id: "invite_people",
     ask: "Invite, add or share with a friend, partner or family member so they can join the bowl.",
     answer: "Invite people by email from Invitations. Only the bowl's owner can invite.",
-    to: "/invites",
+    // Invitations picks the home bowl unless told otherwise; the question was
+    // about the bowl on screen.
+    to: "/invites?bowl=:bowlId",
     target: "invite-people",
     label: "Invitations",
   },
@@ -218,11 +220,17 @@ export function getHelpTopic(id) {
 }
 
 // Where a topic goes. A bowl route needs a bowl: the one on screen, else
-// home; with neither there is no bowl to open, so My Bowls is the answer.
+// home; with neither there is no bowl to open, so My Bowls is the answer. A
+// bowl in the query is only a hint, and is dropped when there is none.
 export function resolveHelpDestination(topic, bowlId) {
   if (!topic) return null;
-  if (!topic.to.includes(":bowlId")) return topic.to;
-  return bowlId ? topic.to.replace(":bowlId", encodeURIComponent(bowlId)) : "/bowls";
+  const [path, query] = topic.to.split("?");
+  if (bowlId) return topic.to.replaceAll(":bowlId", encodeURIComponent(bowlId));
+  return path.includes(":bowlId") ? "/bowls" : path + (query && !query.includes(":bowlId") ? `?${query}` : "");
+}
+
+export function helpTopicRoute(topic) {
+  return topic.to.split("?")[0];
 }
 
 export const HELP_QUESTION_MAX_LENGTH = 200;

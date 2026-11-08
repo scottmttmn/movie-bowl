@@ -1,7 +1,7 @@
 import { readFileSync } from "node:fs";
 import path from "node:path";
 import { describe, expect, it } from "vitest";
-import { HELP_TOPICS, getHelpTopic, resolveHelpDestination } from "../helpTopics";
+import { HELP_TOPICS, getHelpTopic, helpTopicRoute, resolveHelpDestination } from "../helpTopics";
 
 const read = (file) => readFileSync(path.resolve(file), "utf8");
 const routes = new Set([...read("src/App.jsx").matchAll(/<Route path="([^"]+)"/g)].map((match) => match[1]));
@@ -31,12 +31,13 @@ describe("help guide", () => {
   // not in front of someone who asked where it went.
   it("sends every topic to a real route, and rings an element that page draws", () => {
     for (const topic of HELP_TOPICS) {
-      expect(routes, `${topic.id} goes to ${topic.to}`).toContain(topic.to);
+      const route = helpTopicRoute(topic);
+      expect(routes, `${topic.id} goes to ${route}`).toContain(route);
       if (!topic.target) continue;
-      const screens = SCREENS[topic.to];
+      const screens = SCREENS[route];
       expect(screens, `${topic.id}: no screen listed for ${topic.to}`).toBeDefined();
       const source = screens.map(read).join("\n");
-      expect(source, `${topic.id}: #${topic.target} is not on ${topic.to}`).toContain(`id="${topic.target}"`);
+      expect(source, `${topic.id}: #${topic.target} is not on ${route}`).toContain(`id="${topic.target}"`);
     }
   });
 
@@ -61,5 +62,8 @@ describe("help guide", () => {
     expect(resolveHelpDestination(filters, null)).toBe("/bowls");
     expect(resolveHelpDestination(getHelpTopic("solo_draw_removal"), null)).toBe("/settings");
     expect(resolveHelpDestination(null, "b1")).toBeNull();
+    // Invitations is about the bowl asked from, or home when there is none.
+    expect(resolveHelpDestination(getHelpTopic("invite_people"), "b1")).toBe("/invites?bowl=b1");
+    expect(resolveHelpDestination(getHelpTopic("invite_people"), null)).toBe("/invites");
   });
 });

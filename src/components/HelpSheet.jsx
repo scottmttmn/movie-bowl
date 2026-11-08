@@ -77,7 +77,8 @@ export default function HelpSheet({ onClose, getInvoker = null, bowlId = null, a
               maxLength={HELP_QUESTION_MAX_LENGTH}
               value={text}
               autoFocus
-              disabled={status === "sent"}
+              // Held while feedback sends: what is sent is what is shown.
+              disabled={status === "sent" || status === "sending"}
               onChange={(event) => {
                 latest.current += 1;
                 setText(event.target.value);
