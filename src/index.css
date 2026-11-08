@@ -2138,3 +2138,25 @@
       rgba(6, 11, 20, 0.9);
   }
 }
+
+/* PROTOTYPE ONLY: restaurant slips. */
+@layer components {
+  .restaurant-slip {
+    @apply flex flex-col items-center justify-center gap-2 rounded-xl p-2.5 text-center shadow-lg shadow-black/30;
+    background: #fbf8f1;
+    color: #3b3346;
+  }
+  .restaurant-slip-big {
+    @apply aspect-[2/3] w-full gap-3 p-4;
+    transform: rotate(-1.5deg);
+  }
+  .restaurant-slip-name {
+    @apply m-0 break-words font-bold leading-tight;
+    font-family: "Bradley Hand", "Segoe Print", "Comic Sans MS", cursive;
+  }
+  .restaurant-slip-cuisine {
+    @apply rounded-full px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide;
+    background: #f3e3e6;
+    color: #9f1239;
+  }
+}

@@ -1,3 +1,4 @@
+import RestaurantSlip from "../proto/RestaurantSlip";
 import { getMovieAttributionAccent, getMovieAttributionLabel, getMovieAttributionLine } from "../utils/drawBuckets";
 
 export default function WatchedMovieCard({ movie, onClick }) {
@@ -28,6 +29,7 @@ export default function WatchedMovieCard({ movie, onClick }) {
             ? `https://image.tmdb.org/t/p/w200${movie.poster_path}`
             : movie.poster || null;
 
+          if (movie.cuisine !== undefined) return <RestaurantSlip movie={movie} />;
           return posterUrl ? (
             <img
               src={posterUrl}
@@ -59,10 +61,10 @@ export default function WatchedMovieCard({ movie, onClick }) {
           )}
         </div>
       </button>
-      <p className="mt-1 line-clamp-2 min-h-[2rem] text-xs font-medium leading-tight text-slate-200">
+      {movie.cuisine === undefined && <p className="mt-1 line-clamp-2 min-h-[2rem] text-xs font-medium leading-tight text-slate-200">
         {movie.title}
-      </p>
-      {isCustomEntry && (
+      </p>}
+      {isCustomEntry && movie.cuisine === undefined && (
         <span className="rounded-full border border-amber-700/70 bg-amber-950/50 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
           Custom
         </span>

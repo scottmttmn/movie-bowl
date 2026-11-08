@@ -2,6 +2,7 @@ import { Fragment } from "react";
 import { describeStatLine } from "../utils/drawReadout";
 import { getDrawMethod } from "../utils/drawMethods";
 import FilmStripGlyph from "./FilmStripGlyph";
+import ForkKnifeGlyph from "../proto/ForkKnifeGlyph";
 import PeopleGlyph from "./PeopleGlyph";
 import DrawMethodMark from "./DrawMethodMark";
 
@@ -69,7 +70,7 @@ function PoolSegment({ count, service, tone, onOpenFilters }) {
   return (
     <Segment as="button" tone={tone} onClick={onOpenFilters} ariaLabel={label}>
       <span className="inline-flex items-center gap-1 leading-none">
-        <FilmStripGlyph className="block h-4 w-4" />
+        {typeof window !== "undefined" && window.__protoRestaurant ? <ForkKnifeGlyph className="block h-4 w-4" /> : <FilmStripGlyph className="block h-4 w-4" />}
         <span>
           <Count tone={tone}>{count}</Count>
           {service ? ` on ${service}` : ""}

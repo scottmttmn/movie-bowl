@@ -1,5 +1,6 @@
 import MoviePosterPin from "./MoviePosterPin";
 import DepartureNotice from "./DepartureNotice";
+import RestaurantSlip from "../proto/RestaurantSlip";
 
 // Sized and shaped to match WatchedMovieCard on purpose. The two strips sit on
 // the same screen, and a card that is 40% taller than its neighbour reads as a
@@ -55,7 +56,9 @@ export default function MovieActionCard({
           }`}
         >
           <div className={dimmed}>
-            {posterUrl ? (
+            {movie.cuisine !== undefined ? (
+              <RestaurantSlip movie={movie} />
+            ) : posterUrl ? (
               <img
                 src={posterUrl}
                 alt={movie.title}
@@ -69,7 +72,7 @@ export default function MovieActionCard({
               </div>
             )}
           </div>
-          <div className={dimmed}>
+          <div className={`${dimmed} ${movie.cuisine !== undefined ? "hidden" : ""}`}>
             <p className="mt-1 line-clamp-2 min-h-[2rem] text-xs font-medium leading-tight text-slate-200">
               {movie.title}
             </p>
@@ -89,7 +92,7 @@ export default function MovieActionCard({
       </div>
 
       <div className={dimmed}>
-        {isCustomEntry && (
+        {isCustomEntry && movie.cuisine === undefined && (
           <span className="inline-flex rounded-full border border-amber-700/70 bg-amber-950/50 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
             Custom
           </span>

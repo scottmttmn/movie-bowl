@@ -18,7 +18,7 @@ export default function WatchedMoviesStrip({
   const watchedCount = isLoading ? heldCount : isEmpty ? null : movies.length;
   const watchedCountLabel = typeof watchedCount !== "number"
     ? ""
-    : watchedCount === 1 ? "1 watched" : `${watchedCount} watched`;
+    : (typeof window !== "undefined" && window.__protoRestaurant) ? `${watchedCount} visits` : watchedCount === 1 ? "1 watched" : `${watchedCount} watched`;
   const listId = useId();
   const isCollapsible = typeof onToggleExpanded === "function";
 
@@ -35,7 +35,7 @@ export default function WatchedMoviesStrip({
               onClick={onToggleExpanded}
             >
               <TicketGlyph />
-              <span className="section-title text-base">Watched</span>
+              <span className="section-title text-base">{typeof window !== "undefined" && window.__protoRestaurant ? "Been there" : "Watched"}</span>
               <span className="text-xs font-semibold text-slate-400">{watchedCountLabel}</span>
               <SectionChevron open={isExpanded} />
             </button>
@@ -43,7 +43,7 @@ export default function WatchedMoviesStrip({
         ) : (
           <div className="flex items-baseline gap-2">
             <TicketGlyph />
-            <h3 className="section-title text-base">Watched</h3>
+            <h3 className="section-title text-base">{typeof window !== "undefined" && window.__protoRestaurant ? "Been there" : "Watched"}</h3>
             <span className="text-xs font-semibold text-slate-400">{watchedCountLabel}</span>
           </div>
         )}
