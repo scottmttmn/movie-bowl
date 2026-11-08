@@ -104,6 +104,15 @@ export default function HelpSheet({ onClose, getInvoker = null, bowlId = null, a
                 {topic.label}
                 <ArrowGlyph />
               </button>
+              {/* The answer is written by hand, but which one fits is the
+                  model's guess -- the same sparkle smart search wears. */}
+              <p className="mt-2 flex items-center gap-1.5 px-1 text-xs text-slate-500">
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-3.5 w-3.5 text-amber-300/80" fill="currentColor">
+                  <path d="M12 2.5l1.9 5.6 5.6 1.9-5.6 1.9L12 17.5l-1.9-5.6L4.5 10l5.6-1.9z" />
+                  <path d="M19 15l.8 2.2 2.2.8-2.2.8L19 21l-.8-2.2-2.2-.8 2.2-.8z" />
+                </svg>
+                Picked by AI, which can make mistakes.
+              </p>
             </div>
           )}
 

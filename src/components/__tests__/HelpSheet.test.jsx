@@ -38,6 +38,7 @@ describe("HelpSheet", () => {
     await askQuestion("  remove a movie I watched alone ");
     expect(ask).toHaveBeenCalledWith("remove a movie I watched alone");
     expect(screen.getByText(getHelpTopic("solo_draw_removal").answer)).toBeInTheDocument();
+    expect(screen.getByText("Picked by AI, which can make mistakes.")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Solo draw setting" }));
     expect(onClose).toHaveBeenCalled();
     expect(screen.getByTestId("landed")).toHaveTextContent("/settings remove-from-bowls-on-solo-draw");
