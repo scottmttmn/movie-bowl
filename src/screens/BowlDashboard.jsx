@@ -70,10 +70,6 @@ import { buildLiveDraw, findAnnouncedDraw, verifyAnnouncedReveal } from "../util
 import GearGlyph from "../components/GearGlyph";
 import HomeGlyph from "../components/HomeGlyph";
 import FilterRow from "../components/FilterRow";
-import { isRestaurantBowlName, CUISINES } from "../proto/restaurant";
-import RestaurantAddSheet from "../proto/RestaurantAddSheet";
-import RestaurantTonightSheet from "../proto/RestaurantTonightSheet";
-import { getMovieAttributionLabel } from "../utils/drawBuckets";
 import StreamingPreferenceRows from "../components/StreamingPreferenceRows";
 import { describeGenres, describeRatings, describeRuntime } from "../utils/filterSummaries";
 import {
@@ -113,11 +109,6 @@ export default function BowlDashboard() {
     const [accessError, setAccessError] = useState(null);
     const [accessAttempt, setAccessAttempt] = useState(0);
     const [drawnMovie, setDrawnMovie] = useState(null);
-    const [protoAddOpen, setProtoAddOpen] = useState(false);
-    const [protoOpenWhen, setProtoOpenWhen] = useState("Any time");
-    const protoOpenNow = protoOpenWhen !== "Any time";
-    const protoCuisineOptions = CUISINES.filter((c) => ["American", "Pizza", "Mexican", "Chinese", "Italian", "Mediterranean", "Pub"].includes(c));
-    const [protoCuisines, setProtoCuisines] = useState(() => ["American", "Pizza", "Mexican", "Chinese", "Italian", "Mediterranean", "Pub"]);
     const { providerLinks, startLookup: startProviderLookup } = useDrawProviderLinks(bowlId, drawnMovie);
     const [selectedDetailMovie, setSelectedDetailMovie] = useState(null);
     const [selectedDetailContext, setSelectedDetailContext] = useState(null);
@@ -1270,8 +1261,6 @@ export default function BowlDashboard() {
       <Link className="btn btn-ghost ml-2" to="/bowls">Browse bowls</Link>
     </div></div>;
 
-const isRestaurantBowl = isRestaurantBowlName(displayBowlName);
-if (typeof window !== "undefined") window.__protoRestaurant = isRestaurantBowl;
 return (
     <div className="bowl-dashboard page-container overflow-hidden pb-12 pt-5 sm:pt-7">
         <header className="mb-5 flex min-w-0 items-center justify-between gap-3">
@@ -1407,10 +1396,8 @@ return (
                   <AddMovieButton
                     variant="secondary"
                     disabled={isAddBlocked}
-                    label={isRestaurantBowl ? "Add a restaurant" : undefined}
                     onClick={() => {
                       setAddGuardMessage(null);
-                      if (isRestaurantBowl) { setProtoAddOpen(true); return; }
                       bowlAdd?.openBowlAdd(bowlId);
                     }}
                   />
@@ -1446,7 +1433,7 @@ return (
                     cannot draw, with drawGuardMessage beside it, while a greyed
                     toggle explains nothing and advertises a ceremony they can
                     never start. */}
-                {showsTheaterToggle && !isRestaurantBowl && (
+                {showsTheaterToggle && (
                   <div className="mx-auto mt-3 w-full max-w-sm">
                     <TheaterModeToggle
                       enabled={isTheaterModeEnabled}
@@ -1507,12 +1494,10 @@ return (
                       ) : (
                         <>
                           <p className="mt-0.5 text-sm text-slate-400">
-                            {isRestaurantBowl
-                              ? (protoOpenWhen === "Pick" ? "5 of 7 open Sat at 7 PM" : protoOpenWhen === "Now" ? "5 of 7 open now" : protoOpenWhen === "Tonight" ? "6 of 7 open tonight" : "All 7 restaurants")
-                              : drawPoolStatus === DRAW_POOL_STATUS.counting
+                            {drawPoolStatus === DRAW_POOL_STATUS.counting
                               ? "Checking filter matches…"
                               : drawPoolStatus === DRAW_POOL_STATUS.ready
-                                ? (isRestaurantBowl && protoOpenNow ? "5 of 7 open now" : `${drawPoolCount} of ${countTitles(drawPoolTotalCount)} eligible`)
+                                ? `${drawPoolCount} of ${countTitles(drawPoolTotalCount)} eligible`
                                 : drawPoolTotalCount === 1
                                   ? "1 eligible title"
                                   : `All ${drawPoolTotalCount} titles eligible`}
@@ -1568,39 +1553,6 @@ return (
                       disabled={!didApplyDefaultDrawSettings || isLoadingUserPreferences || Boolean(preferencesLoadError)}
                       aria-label="Draw filters"
                     >
-                      {isRestaurantBowl ? (
-                        <>
-                          <div className="filter-row text-left">
-                            <p className="flex items-center gap-2 text-sm font-medium text-slate-200"><span aria-hidden="true" className="h-2 w-2 rounded-full bg-emerald-400" />Open</p>
-                            <div className="mt-2 grid grid-cols-4 gap-1 rounded-xl border border-slate-700 bg-slate-900 p-1" role="radiogroup" aria-label="Open">
-                              {["Any time", "Now", "Tonight", "Pick"].map((opt) => (
-                                <button key={opt} type="button" role="radio" aria-checked={protoOpenWhen === opt} onClick={() => setProtoOpenWhen(opt)} className={`h-10 rounded-lg text-sm font-semibold transition ${protoOpenWhen === opt ? "bg-rose-700 text-white" : "text-slate-400 hover:text-slate-200"}`}>{opt}</button>
-                              ))}
-                            </div>
-                            {protoOpenWhen === "Pick" && (
-                              <div className="mt-2 grid grid-cols-2 gap-2">
-                                <select aria-label="Day" className="input-field text-sm" defaultValue="Sat"><option>Today</option><option>Fri</option><option>Sat</option><option>Sun</option></select>
-                                <select aria-label="Time" className="input-field text-sm" defaultValue="7:00 PM"><option>6:00 PM</option><option>6:30 PM</option><option>7:00 PM</option><option>7:30 PM</option></select>
-                              </div>
-                            )}
-                          </div>
-                          <div className="filter-row text-left">
-                            <FilterRow label="Cuisine" value={protoCuisines.length === protoCuisineOptions.length ? "Any" : protoCuisineOptions.length - protoCuisines.length <= 2 ? `All but ${protoCuisineOptions.filter((c) => !protoCuisines.includes(c)).join(", ")}` : protoCuisines.join(", ")} isOpen onToggle={() => {}} controls="draw-cuisine-filter-panel" />
-                            <div id="draw-cuisine-filter-panel" className="mt-2">
-                              <FilterChipSelect
-                                ariaLabel="Draw cuisine controls"
-                                options={protoCuisineOptions}
-                                selectedValues={protoCuisines}
-                                optionAriaLabelPrefix="Draw cuisine"
-                                onToggle={(c) => setProtoCuisines((prev) => prev.includes(c) ? prev.filter((x) => x !== c) : [...prev, c])}
-                                onOnly={(c) => setProtoCuisines([c])}
-                                onSelectAll={() => setProtoCuisines(protoCuisineOptions)}
-                                onClear={() => setProtoCuisines([])}
-                              />
-                            </div>
-                          </div>
-                        </>
-                      ) : (<>
                       <StreamingPreferenceRows
                         idSuffix="draw"
                         services={userStreamingServices}
@@ -1790,7 +1742,6 @@ return (
                           </div>
                         )}
                       </div>
-                      </>)}
                     </fieldset>
                   </div>
                   <div className="shrink-0 border-t border-slate-800 px-4 py-3 sm:px-5">
@@ -1840,13 +1791,13 @@ return (
                     onClick={() => toggleSection("myMovies")}
                   >
                     <SlipGlyph />
-                    <span className="section-title text-base">{isRestaurantBowl ? "My Restaurants" : "My Movies"}</span>
+                    <span className="section-title text-base">My Movies</span>
                     {/* A phone has room for the number beside "Draw for myself",
                         not the word. */}
                     {typeof myMovieCount === "number" && (
                       <span className="text-xs font-semibold text-slate-400">
                         <span className="sm:hidden">{myMovieCount}</span>
-                        <span className="hidden sm:inline">{isRestaurantBowl ? `${myMovieCount} restaurants` : myMovieCount === 1 ? "1 movie" : `${myMovieCount} movies`}</span>
+                        <span className="hidden sm:inline">{myMovieCount === 1 ? "1 movie" : `${myMovieCount} movies`}</span>
                       </span>
                     )}
                     <SectionChevron open={showMyMovies} />
@@ -1965,7 +1916,7 @@ return (
             {showDrawConfirm && (
               <div className="modal-overlay z-[70]" role="presentation">
                 <div className="modal-surface max-w-md p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="draw-confirm-title">
-                  <h3 id="draw-confirm-title" className="text-lg font-semibold text-slate-100">{isRestaurantBowl ? "Reveal a restaurant?" : "Reveal a movie?"}</h3>
+                  <h3 id="draw-confirm-title" className="text-lg font-semibold text-slate-100">Reveal a movie?</h3>
                   <p className="mt-2 text-sm text-slate-400">
                     Drawing will reveal one hidden title from this bowl to everyone here.
                   </p>
@@ -1984,7 +1935,7 @@ return (
                       className="btn btn-danger"
                       disabled={isDrawing}
                     >
-                      {isDrawing ? "Drawing..." : isRestaurantBowl ? "Reveal" : "Reveal Movie"}
+                      {isDrawing ? "Drawing..." : "Reveal Movie"}
                     </button>
                   </div>
                 </div>
@@ -2004,11 +1955,7 @@ return (
                 onComplete={completeTheater}
               />
             )}
-            {drawnMovie && isRestaurantBowl && (
-              <RestaurantTonightSheet movie={drawnMovie} addedByLabel={getMovieAttributionLabel(drawnMovie)} openLabel={protoOpenWhen === "Pick" ? "Open Sat until 9" : "Open until 9"} onClose={closeReveal} />
-            )}
-            {protoAddOpen && <RestaurantAddSheet bowlName={displayBowlName} onClose={() => setProtoAddOpen(false)} />}
-            {drawnMovie && !isRestaurantBowl && (
+            {drawnMovie && (
               <AddMovieModal
                 movie={drawnMovie}
                 isObscured={isTheaterPlaying}
