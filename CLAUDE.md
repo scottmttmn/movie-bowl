@@ -380,6 +380,11 @@ of a batch, and the accept-versus-revoke race. The client never inserts a
 to decline. `useSentInvitations` holds one request id across retries so a resend
 after a timeout replays the batch instead of creating a second live invitation.
 
+A bowl has a `kind`, `movies` or `restaurants`, fixed at creation. Restaurant
+bowls are being built (`output/designs/restaurant-bowls.md`): their slips are
+`bowl_movies` rows with a `cuisine` and an optional Google `place_id`, they
+never carry a TMDB id, and their draws write no personal watch history.
+
 Custom (non-TMDB) movies carry a **negative synthetic `tmdb_id`** so that
 NOT NULL deployments still accept them. Any code that hits TMDB must filter for
 `Number(tmdb_id) > 0` first. They therefore carry no poster, no rating and no
