@@ -114,7 +114,8 @@ export default function BowlDashboard() {
     const [accessAttempt, setAccessAttempt] = useState(0);
     const [drawnMovie, setDrawnMovie] = useState(null);
     const [protoAddOpen, setProtoAddOpen] = useState(false);
-    const [protoOpenNow, setProtoOpenNow] = useState(false);
+    const [protoOpenWhen, setProtoOpenWhen] = useState("Any time");
+    const protoOpenNow = protoOpenWhen !== "Any time";
     const protoCuisineOptions = CUISINES.filter((c) => ["American", "Pizza", "Mexican", "Chinese", "Italian", "Mediterranean", "Pub"].includes(c));
     const [protoCuisines, setProtoCuisines] = useState(() => ["American", "Pizza", "Mexican", "Chinese", "Italian", "Mediterranean", "Pub"]);
     const { providerLinks, startLookup: startProviderLookup } = useDrawProviderLinks(bowlId, drawnMovie);
@@ -1507,7 +1508,7 @@ return (
                         <>
                           <p className="mt-0.5 text-sm text-slate-400">
                             {isRestaurantBowl
-                              ? (protoOpenNow ? "5 of 7 open now" : "All 7 restaurants")
+                              ? (protoOpenWhen === "Pick" ? "5 of 7 open Sat at 7 PM" : protoOpenWhen === "Now" ? "5 of 7 open now" : protoOpenWhen === "Tonight" ? "6 of 7 open tonight" : "All 7 restaurants")
                               : drawPoolStatus === DRAW_POOL_STATUS.counting
                               ? "Checking filter matches…"
                               : drawPoolStatus === DRAW_POOL_STATUS.ready
@@ -1569,11 +1570,19 @@ return (
                     >
                       {isRestaurantBowl ? (
                         <>
-                          <div className="filter-row flex items-center justify-between gap-3 text-left">
-                            <span className="flex items-center gap-2 text-sm font-medium text-slate-200"><span aria-hidden="true" className="h-2 w-2 rounded-full bg-emerald-400" />Open now</span>
-                            <button type="button" role="switch" aria-checked={protoOpenNow} aria-label="Open now" onClick={() => setProtoOpenNow((v) => !v)} className={`relative h-7 w-12 rounded-full transition ${protoOpenNow ? "bg-rose-600" : "bg-slate-700"}`}>
-                              <span className={`absolute top-1 h-5 w-5 rounded-full bg-white transition-all ${protoOpenNow ? "left-6" : "left-1"}`} />
-                            </button>
+                          <div className="filter-row text-left">
+                            <p className="flex items-center gap-2 text-sm font-medium text-slate-200"><span aria-hidden="true" className="h-2 w-2 rounded-full bg-emerald-400" />Open</p>
+                            <div className="mt-2 grid grid-cols-4 gap-1 rounded-xl border border-slate-700 bg-slate-900 p-1" role="radiogroup" aria-label="Open">
+                              {["Any time", "Now", "Tonight", "Pick"].map((opt) => (
+                                <button key={opt} type="button" role="radio" aria-checked={protoOpenWhen === opt} onClick={() => setProtoOpenWhen(opt)} className={`h-10 rounded-lg text-sm font-semibold transition ${protoOpenWhen === opt ? "bg-rose-700 text-white" : "text-slate-400 hover:text-slate-200"}`}>{opt}</button>
+                              ))}
+                            </div>
+                            {protoOpenWhen === "Pick" && (
+                              <div className="mt-2 grid grid-cols-2 gap-2">
+                                <select aria-label="Day" className="input-field text-sm" defaultValue="Sat"><option>Today</option><option>Fri</option><option>Sat</option><option>Sun</option></select>
+                                <select aria-label="Time" className="input-field text-sm" defaultValue="7:00 PM"><option>6:00 PM</option><option>6:30 PM</option><option>7:00 PM</option><option>7:30 PM</option></select>
+                              </div>
+                            )}
                           </div>
                           <div className="filter-row text-left">
                             <FilterRow label="Cuisine" value={protoCuisines.length === protoCuisineOptions.length ? "Any" : protoCuisineOptions.length - protoCuisines.length <= 2 ? `All but ${protoCuisineOptions.filter((c) => !protoCuisines.includes(c)).join(", ")}` : protoCuisines.join(", ")} isOpen onToggle={() => {}} controls="draw-cuisine-filter-panel" />
@@ -1996,7 +2005,7 @@ return (
               />
             )}
             {drawnMovie && isRestaurantBowl && (
-              <RestaurantTonightSheet movie={drawnMovie} addedByLabel={getMovieAttributionLabel(drawnMovie)} onClose={closeReveal} />
+              <RestaurantTonightSheet movie={drawnMovie} addedByLabel={getMovieAttributionLabel(drawnMovie)} openLabel={protoOpenWhen === "Pick" ? "Open Sat until 9" : "Open until 9"} onClose={closeReveal} />
             )}
             {protoAddOpen && <RestaurantAddSheet bowlName={displayBowlName} onClose={() => setProtoAddOpen(false)} />}
             {drawnMovie && !isRestaurantBowl && (

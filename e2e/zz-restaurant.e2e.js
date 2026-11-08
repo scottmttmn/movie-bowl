@@ -4,7 +4,7 @@ const SEEDED = "2026-10-20T12:00:00.000Z";
 const MODE = process.env.RB_MODE || "before";
 const OUT = "/tmp/claude-0/rb/shots";
 const MINE = [
-  ["La Rana Bistro", "Mediterranean", "https://www.opentable.com/r/la-rana-bistro-decorah", "Anniversary spot"],
+  ["La Rana Bistro", "Mediterranean", "", "Anniversary spot"],
   ["Sabin Family Table", "American", "", ""],
   ["Great Dragon", "Chinese", "", "Takeout night"],
 ];
@@ -28,7 +28,7 @@ test("restaurant mock", async ({ page, backend }, testInfo) => {
   let n = 0;
   const row = ([title, cuisine, reserve, note], by) => {
     n += 1;
-    return { id: `r${n}`, bowl_id: "b1", title, tmdb_id: -(9000 + n), poster_path: null, release_date: null, runtime: null, genres: [], cuisine, reserve_url: reserve || null, note: note || null, added_by: by, added_at: SEEDED, drawn_at: null, is_pinned: false };
+    return { id: `r${n}`, bowl_id: "b1", title, tmdb_id: -(9000 + n), poster_path: null, release_date: null, runtime: null, genres: [], cuisine, reservable: title === "La Rana Bistro", website: "https://example.com", phone: "5633827532", note: note || null, added_by: by, added_at: SEEDED, drawn_at: null, is_pinned: false };
   };
   s.bowl_movies.push(...MINE.map((r) => row(r, me)), ...FRIEND.map((r) => row(r, "friend")));
   VISITED.forEach((v, k) => {
@@ -56,7 +56,7 @@ test("restaurant mock", async ({ page, backend }, testInfo) => {
   await page.evaluate(() => window.scrollTo(0, 0));
   await page.getByRole("button", { name: "Filters", exact: true }).first().click();
   await page.waitForTimeout(600);
-  if (MODE !== "before") { await page.getByRole("switch", { name: "Open now" }).click(); await page.getByRole("button", { name: /Draw cuisine Pub/ }).first().click().catch(() => {}); await page.waitForTimeout(300); }
+  if (MODE !== "before") { await page.getByRole("radio", { name: "Pick" }).click(); await page.getByRole("button", { name: /Draw cuisine Pub/ }).first().click().catch(() => {}); await page.waitForTimeout(300); }
   await shot("3-filters");
   await page.keyboard.press("Escape");
   await page.waitForTimeout(400);
@@ -65,8 +65,7 @@ test("restaurant mock", async ({ page, backend }, testInfo) => {
   await page.getByRole("button", { name: /to this bowl$/ }).first().click();
   await page.waitForTimeout(800);
   if (MODE !== "before") {
-    await page.getByLabel("Name").fill("Magpie Coffeehouse");
-    await page.getByRole("radio", { name: "Cafe" }).click();
+    await page.getByLabel("Search restaurants").fill("Ma");
     await page.waitForTimeout(300);
   }
   await shot("4-add");
