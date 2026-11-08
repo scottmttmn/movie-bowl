@@ -2,7 +2,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  state: { countRows: [], countError: null, countThrows: false },
+  state: { countRows: [], countError: null, countThrows: false, kind: "movies" },
 }));
 
 vi.mock("../../../lib/supabase", () => {
@@ -10,7 +10,7 @@ vi.mock("../../../lib/supabase", () => {
     select: () => bowlQuery,
     eq: () => bowlQuery,
     single: async () => ({
-      data: { name: "Family Night", owner_id: "user-1", draw_access_mode: "all_members", draw_method: "rotation" },
+      data: { name: "Family Night", owner_id: "user-1", draw_access_mode: "all_members", draw_method: "rotation", kind: mocks.state.kind },
       error: null,
     }),
   };
@@ -33,6 +33,7 @@ describe("useTvBowlAccess", () => {
     mocks.state.countRows = [];
     mocks.state.countError = null;
     mocks.state.countThrows = false;
+    mocks.state.kind = "movies";
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
@@ -65,5 +66,15 @@ describe("useTvBowlAccess", () => {
 
     await waitFor(() => expect(result.current.isLoading).toBe(false));
     expect(result.current.bowlMeta.memberCount).toBeNull();
+  });
+
+  it("will not open a restaurant bowl a link still names", async () => {
+    mocks.state.kind = "restaurants";
+
+    const { result } = renderHook(() => useTvBowlAccess("bowl-1", "user-1"));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.errorMessage).toBe("That bowl is for restaurants. Draw it on your phone.");
+    expect(result.current.bowlMeta.canDraw).toBe(false);
   });
 });
