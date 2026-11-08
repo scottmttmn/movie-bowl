@@ -1,10 +1,20 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { Suspense, lazy, useCallback, useEffect, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 import FeedbackSheet from "./FeedbackSheet";
-import HelpSheet from "./HelpSheet";
 import NavBowlSwitcher from "./NavBowlSwitcher";
 import bowlImage from "../assets/movie-bowl.webp";
+
+// Loaded on the first tap of ?, so the guide is not in every page's bundle.
+const HelpSheet = lazy(() => import("./HelpSheet"));
+
+function safeDecode(value) {
+  try {
+    return decodeURIComponent(value);
+  } catch {
+    return value;
+  }
+}
 
 export default function TopNav({
   isSettingsRoute,
@@ -23,7 +33,10 @@ export default function TopNav({
   const [feedbackSource, setFeedbackSource] = useState(null);
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const location = useLocation();
-  const helpBowlId = location.pathname.match(/^\/bowl\/([^/]+)/)?.[1] || null;
+  // Help about a bowl means the bowl on screen, else home.
+  const viewedBowlId = location.pathname.match(/^\/bowl\/([^/]+)/)?.[1] || null;
+  const helpBowlId = (viewedBowlId && safeDecode(viewedBowlId)) || homeBowlId || null;
+  const helpButtonRef = useRef(null);
   const navigate = useNavigate();
   // The TV's QR code lands here with ?feedback=tv. Open the sheet once per
   // arrival and drop the parameter, so a reload or Back is an ordinary visit.
@@ -104,7 +117,9 @@ export default function TopNav({
           </Link>
         )}
         <div className="flex shrink-0 items-center gap-2">
-          {isAuthenticated && <button type="button" className="flex h-11 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/70"
+          {/* Help sits back from +: a bare glyph, no box, quieter than the
+              buttons people came for. */}
+          {isAuthenticated && <button ref={helpButtonRef} type="button" disabled={blockingOverlay} className="flex h-11 w-9 disabled:opacity-45 items-center justify-center rounded-lg text-slate-500 transition hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/70"
             aria-label="Help" title="Help"
             onClick={() => { setIsMenuOpen(false); setIsHelpOpen(true); }}>
             <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8.6 8.8a3.4 3.4 0 1 1 4.8 3.1c-.9.4-1.4 1.2-1.4 2.2v.6" /><path d="M12 18.6h.01" strokeWidth="2.8" /></svg>
@@ -240,11 +255,13 @@ export default function TopNav({
       {/* Portalled: the header's backdrop blur would otherwise pin the sheet
           inside a 64px strip. */}
       {isHelpOpen && createPortal(
-        <HelpSheet
-          bowlId={helpBowlId}
-          getInvoker={getMenuButton}
-          onClose={() => setIsHelpOpen(false)}
-        />,
+        <Suspense fallback={null}>
+          <HelpSheet
+            bowlId={helpBowlId}
+            getInvoker={() => helpButtonRef.current}
+            onClose={() => setIsHelpOpen(false)}
+          />
+        </Suspense>,
         document.body
       )}
       {feedbackSource && createPortal(

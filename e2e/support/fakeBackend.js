@@ -85,6 +85,10 @@ function createInitialState() {
     // What a described search answers: { status, terms, results }. Null reads
     // nothing from it, so no ordinary search grows a sparkle.
     describedSearch: null,
+    // The help panel's answers: the topic id the model would choose for each
+    // question, and every question asked. A question not listed has no topic.
+    helpTopics: {},
+    helpQuestions: [],
     // Starter pack photos by person; nobody has one unless a test seeds it.
     starterPackPeople: {},
     // Each pack's TMDB candidates by slug; a pack nobody seeded has none.
@@ -1236,6 +1240,12 @@ export class FakeBackend {
       }
       if (type === "describe") {
         await fulfillJson(route, this.state.describedSearch || { status: "empty" });
+        return;
+      }
+      if (type === "help") {
+        const question = url.searchParams.get("query") || "";
+        this.state.helpQuestions.push(question);
+        await fulfillJson(route, { status: "ok", topic: this.state.helpTopics[question] || null });
         return;
       }
       if (type === "person-on-services") {

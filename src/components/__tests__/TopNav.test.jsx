@@ -36,9 +36,21 @@ describe("TopNav", () => {
     await waitFor(() => expect(screen.getByRole("button", { name: "Add a movie" })).toBeEnabled());
   });
 
-  it("does not show global Add to signed-out visitors", () => {
+  it("does not show global Add or Help to signed-out visitors", () => {
     render(<MemoryRouter><TopNav isAuthenticated={false} onAddMovie={vi.fn()} /></MemoryRouter>);
     expect(screen.queryByRole("button", { name: "Add a movie" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Help" })).not.toBeInTheDocument();
+  });
+
+  it("opens the help panel from the ? beside Add and returns focus to it on Escape", async () => {
+    render(<MemoryRouter><TopNav onAddMovie={vi.fn()} homeBowlId="home" /></MemoryRouter>);
+    const help = screen.getByRole("button", { name: "Help" });
+    fireEvent.click(help);
+    expect(await screen.findByRole("dialog", { name: "Help" })).toBeInTheDocument();
+    expect(screen.getByRole("textbox", { name: "Question" })).toHaveFocus();
+    fireEvent.keyDown(document, { key: "Escape" });
+    expect(screen.queryByRole("dialog", { name: "Help" })).not.toBeInTheDocument();
+    await waitFor(() => expect(help).toHaveFocus());
   });
 
   it("opens and closes the navigation menu", () => {

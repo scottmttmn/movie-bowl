@@ -152,7 +152,11 @@ function hasAnyTerm(interpretation) {
   return [titles, people, genres, keywords].some((list) => list.length > 0) || Boolean(yearFrom || yearTo || language);
 }
 
-export async function interpretDescription(query, { providers = getModelProviders(), fetchImpl = fetch } = {}) {
+// Asks each provider in turn and returns the first reply `accept` turns into
+// a value; anything it rejects is no answer, and the next provider may do
+// better. Shared by described search and the help panel, which differ only in
+// what they ask and what counts as an answer.
+export async function askModels({ system, user, accept, label = "api/tmdb/search", providers = getModelProviders(), fetchImpl = fetch }) {
   for (const provider of providers) {
     try {
       const response = await fetchImpl(provider.url, {
@@ -165,8 +169,8 @@ export async function interpretDescription(query, { providers = getModelProvider
           ...(provider.jsonMode ? { response_format: { type: "json_object" } } : {}),
           ...provider.extra,
           messages: [
-            { role: "system", content: SYSTEM_PROMPT },
-            { role: "user", content: query },
+            { role: "system", content: system },
+            { role: "user", content: user },
           ],
         }),
         signal: AbortSignal.timeout(MODEL_TIMEOUT_MS),
@@ -175,21 +179,34 @@ export async function interpretDescription(query, { providers = getModelProvider
         // The body says why (a retired model, a token without permission),
         // which the status alone did not.
         const detail = await response.text().catch(() => "");
-        console.warn(`[api/tmdb/search] ${provider.name} answered ${response.status}`, detail.slice(0, 300));
+        console.warn(`[${label}] ${provider.name} answered ${response.status}`, detail.slice(0, 300));
         continue;
       }
       const body = await response.json().catch(() => null);
       const content = body?.choices?.[0]?.message?.content;
-      const interpretation = normalizeInterpretation(parseModelJson(content));
-      if (hasAnyTerm(interpretation)) return interpretation;
-      // An answer with nothing in it is no answer: the next provider may do
-      // better, and the raw text is the only way to see what went wrong.
-      console.warn(`[api/tmdb/search] ${provider.name} returned no usable terms`, String(content ?? "").slice(0, 300));
+      const value = accept(parseModelJson(content));
+      if (value) return value;
+      // The raw text is the only way to see what went wrong.
+      console.warn(`[${label}] ${provider.name} returned no usable answer`, String(content ?? "").slice(0, 300));
     } catch (error) {
-      console.warn(`[api/tmdb/search] ${provider.name} failed`, error?.name || error);
+      console.warn(`[${label}] ${provider.name} failed`, error?.name || error);
     }
   }
   return null;
+}
+
+export async function interpretDescription(query, { providers = getModelProviders(), fetchImpl = fetch } = {}) {
+  return askModels({
+    system: SYSTEM_PROMPT,
+    user: query,
+    // An answer with nothing in it is no answer.
+    accept: (raw) => {
+      const interpretation = normalizeInterpretation(raw);
+      return hasAnyTerm(interpretation) ? interpretation : null;
+    },
+    providers,
+    fetchImpl,
+  });
 }
 
 function decadeLabel(from, to) {

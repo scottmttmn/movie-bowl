@@ -13,7 +13,7 @@ async function getAccessToken(client) {
   }
 }
 
-async function request(params, { client, fetchImpl }) {
+export async function requestSearchAction(params, { client = supabase, fetchImpl = fetch } = {}) {
   const token = await getAccessToken(client);
   if (!token) return { status: "signed-out" };
   const response = await fetchImpl(`/api/tmdb/search?${new URLSearchParams(params)}`, {
@@ -25,5 +25,5 @@ async function request(params, { client, fetchImpl }) {
 }
 
 export function describeSearch(query, { client = supabase, fetchImpl = fetch } = {}) {
-  return request({ type: "describe", query }, { client, fetchImpl });
+  return requestSearchAction({ type: "describe", query }, { client, fetchImpl });
 }

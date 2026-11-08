@@ -2139,11 +2139,10 @@
   }
 }
 
-/* Mockup: the setting Help pointed at, ringed once on arrival. */
+/* What the help panel pointed at, ringed on arrival so the eye lands on it.
+   A shadow rather than a border or padding, so nothing on the page moves. */
 .help-target {
-  border-radius: 0.9rem;
-  box-shadow: 0 0 0 2px rgb(251 113 133 / 0.75), 0 0 0 8px rgb(251 113 133 / 0.12);
-  background: rgb(251 113 133 / 0.06);
-  margin: -0.6rem;
-  padding: 0.6rem;
+  box-shadow: 0 0 0 6px rgb(2 6 23 / 0.6), 0 0 0 8px rgb(251 113 133 / 0.8), 0 0 0 16px rgb(251 113 133 / 0.12);
+  transition: box-shadow 600ms ease;
 }
+[data-help-row].help-target { border-radius: 0.75rem; }

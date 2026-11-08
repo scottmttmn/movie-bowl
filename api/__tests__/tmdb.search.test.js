@@ -328,6 +328,59 @@ describe("api/tmdb/search suggest action", () => {
   });
 });
 
+describe("api/tmdb/search help action", () => {
+  const signedIn = { authorization: "Bearer token" };
+  const ask = (query, headers = signedIn) => {
+    const res = createRes();
+    return handler({ method: "GET", query: { type: "help", query }, headers }, res).then(() => res);
+  };
+  const modelSays = (content) => vi.stubGlobal("fetch", vi.fn(async () => ({
+    ok: true,
+    status: 200,
+    json: async () => ({ choices: [{ message: { content } }] }),
+  })));
+  beforeEach(() => {
+    mocks.getUser.mockReset().mockResolvedValue({ data: { user: { id: "u1" } }, error: null });
+    vi.unstubAllEnvs();
+    vi.unstubAllGlobals();
+    vi.spyOn(console, "warn").mockImplementation(() => {});
+  });
+
+  it("is for signed-in people only, and never asks a model for anyone else", async () => {
+    vi.stubEnv("GROQ_API_KEY", "key");
+    const fetchSpy = vi.fn();
+    vi.stubGlobal("fetch", fetchSpy);
+    expect((await ask("remove a movie i watched alone", {})).statusCode).toBe(401);
+    mocks.getUser.mockResolvedValue({ data: { user: null }, error: new Error("bad token") });
+    expect((await ask("remove a movie i watched alone")).statusCode).toBe(401);
+    expect(fetchSpy).not.toHaveBeenCalled();
+  });
+
+  it("rejects an empty or overlong question", async () => {
+    expect((await ask("   ")).statusCode).toBe(400);
+    expect((await ask("x".repeat(201))).statusCode).toBe(400);
+  });
+
+  it("answers with the guide's topic id the model chose", async () => {
+    vi.stubEnv("GROQ_API_KEY", "key");
+    modelSays('{"topic":"solo_draw_removal"}');
+    const res = await ask("take a movie out of the bowl if I watched it alone");
+    expect(res.body).toEqual({ status: "ok", topic: "solo_draw_removal" });
+  });
+
+  it("treats an invented id as no topic rather than passing it on", async () => {
+    vi.stubEnv("GROQ_API_KEY", "key");
+    modelSays('{"topic":"restaurant_mode"}');
+    expect((await ask("can it pick a restaurant")).body).toEqual({ status: "ok", topic: null });
+  });
+
+  it("says it is unavailable when no model answered", async () => {
+    vi.stubEnv("GROQ_API_KEY", "");
+    vi.stubEnv("CLOUDFLARE_ACCOUNT_ID", "");
+    expect((await ask("how do I invite someone")).body).toEqual({ status: "unavailable" });
+  });
+});
+
 describe("api/tmdb/search person-on-services", () => {
   const PROVIDERS = {
     results: [

@@ -5,6 +5,8 @@ import { suggestCorrection } from "../../src/utils/searchSuggestion.js";
 import { getSupabaseAdmin } from "../_lib/supabaseAdmin.js";
 import { findPersonMoviesOnServices, parseServices } from "../_lib/personOnServices.js";
 import { discoverWithFallback, interpretDescription, resolveTerms, verifyTitles } from "../_lib/describedSearch.js";
+import { pickHelpTopic } from "../_lib/helpAnswer.js";
+import { HELP_QUESTION_MAX_LENGTH } from "../../src/utils/helpTopics.js";
 
 const MAX_QUERY_LENGTH = 100;
 const MAX_DESCRIPTION_LENGTH = 200;
@@ -87,11 +89,35 @@ export default async function handler(req, res) {
     return;
   }
 
-  // One route, six actions, because the deployment is at Vercel Hobby's
-  // 12-function limit. A missing type is today's title search.
+  // One route, seven actions, because the deployment is at Vercel Hobby's
+  // 12-function limit. A missing type is today's title search. "help" is not
+  // a search, but it is the other question this route puts to the same model.
   const type = String(req.query?.type || "movie");
-  if (!["movie", "person", "person-movies", "person-on-services", "suggest", "describe"].includes(type)) {
+  if (!["movie", "person", "person-movies", "person-on-services", "suggest", "describe", "help"].includes(type)) {
     res.status(400).json({ error: "Invalid query parameter: type" });
+    return;
+  }
+
+  // The help panel: the model only chooses one of the guide's topic ids.
+  // "unavailable" when no model answered; the panel then offers feedback, as
+  // it does for a question with no topic. The question is not logged.
+  if (type === "help") {
+    try {
+      if (!(await isSignedIn(req))) {
+        res.status(401).json({ error: "Unauthorized" });
+        return;
+      }
+      const question = String(req.query?.query || "").trim();
+      if (!question || question.length > HELP_QUESTION_MAX_LENGTH) {
+        res.status(400).json({ error: "Invalid query parameter: query" });
+        return;
+      }
+      const reply = await pickHelpTopic(question);
+      res.status(200).json(reply ? { status: "ok", topic: reply.topic } : { status: "unavailable" });
+    } catch (error) {
+      console.error("[api/tmdb/search] Failed to answer help", error);
+      res.status(502).json({ error: "Failed to answer help" });
+    }
     return;
   }
 
