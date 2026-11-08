@@ -104,10 +104,10 @@ export default function TopNav({
           </Link>
         )}
         <div className="flex shrink-0 items-center gap-2">
-          {isAuthenticated && <button type="button" className="icon-btn h-11 w-11 text-slate-400"
+          {isAuthenticated && <button type="button" className="flex h-11 w-9 items-center justify-center rounded-lg text-slate-500 transition hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-400/70"
             aria-label="Help" title="Help"
             onClick={() => { setIsMenuOpen(false); setIsHelpOpen(true); }}>
-            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M9.2 9.2a2.9 2.9 0 1 1 4.1 2.6c-.8.4-1.3 1.1-1.3 2v.5" /><path d="M12 17.6h.01" strokeWidth="2.6" /></svg>
+            <svg aria-hidden="true" viewBox="0 0 24 24" className="h-5 w-5" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M8.6 8.8a3.4 3.4 0 1 1 4.8 3.1c-.9.4-1.4 1.2-1.4 2.2v.6" /><path d="M12 18.6h.01" strokeWidth="2.8" /></svg>
           </button>}
           {isAuthenticated && onAddMovie && <button type="button" className="icon-btn h-11 w-11 disabled:opacity-45"
             aria-label="Add a movie" title="Add a movie" disabled={blockingOverlay}
