@@ -97,7 +97,7 @@ describe("described search: reading the description", () => {
       .mockResolvedValueOnce(reply('{"titles":[],"people":[],"genres":[],"keywords":[]}'))
       .mockResolvedValueOnce(reply('{"terms":{"people":["Brad Pitt"]}}'));
     expect((await interpretDescription("brad pitt baseball movie", { providers: PROVIDERS, fetchImpl: hollow })).people).toEqual(["Brad Pitt"]);
-    expect(warn).toHaveBeenCalledWith("[api/tmdb/search] groq returned no usable terms", '{"titles":[],"people":[],"genres":[],"keywords":[]}');
+    expect(warn).toHaveBeenCalledWith("[api/tmdb/search] groq returned no usable answer", '{"titles":[],"people":[],"genres":[],"keywords":[]}');
 
     const down = vi.fn().mockRejectedValueOnce(new Error("timeout")).mockResolvedValueOnce(reply("not json"));
     expect(await interpretDescription("x y z", { providers: PROVIDERS, fetchImpl: down })).toBeNull();

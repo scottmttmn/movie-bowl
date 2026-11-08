@@ -25,6 +25,7 @@ npm run lint         # ESLint, flat config
 node scripts/refresh-provider-logos.mjs  # regenerate src/utils/providerLogos.js
 ./scripts/pgtap.sh   # database tests on a scratch Postgres built from this repo
 npm run eval:search  # score smart search on known answers; spends Groq quota
+npm run eval:help    # score the help panel's topic choices; spends Groq quota
 npm run build        # production build — run this for any UI/app change
 npm run release      # ship a commit of main to production (Scott only)
 npm run test:staging # the staging smoke suite; needs the STAGING_* variables
@@ -573,6 +574,15 @@ then a generic 500. They run in Node and are excluded from coverage; they are
   (`output/designs/described-search.md`). It is signed-in only and off
   without `GROQ_API_KEY` or the Cloudflare pair, and "no model answered" is a
   normal result the search sheet shows, never an error.
+  Its `help` action serves the header's ? panel (`HelpSheet`) through the same
+  models, signed-in only. The model only chooses a topic id from
+  `src/utils/helpTopics.js`, the hand-written guide that holds every answer
+  and link, or none; an id it invents is none. No topic, or no model, offers
+  the question as feedback. A change that adds, moves, renames or removes
+  something a person would ask how to do updates that guide in the same
+  change -- its test fails when a topic's route or ringed element is gone,
+  but it cannot see a new feature the guide never mentions. See
+  `output/designs/help-panel.md`.
 - `api/provider-links/lookup` verifies the bearer token and bowl/title access
   before a Watchmode lookup. It fails closed unless `PROVIDER_LINKS_ENABLED=true`
   and `WATCHMODE_API_KEY` are set — which production has and a fresh checkout does

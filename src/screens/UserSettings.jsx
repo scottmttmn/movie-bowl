@@ -36,7 +36,7 @@ function SettingToggle({
   disabled = false,
 }) {
   return (
-    <div className="flex items-start justify-between gap-4">
+    <div className="flex items-start justify-between gap-4" data-help-row>
       <div className="min-w-0">
         <label
           htmlFor={id}
