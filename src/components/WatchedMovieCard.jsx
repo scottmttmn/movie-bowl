@@ -1,3 +1,6 @@
+import RestaurantSlip from "./RestaurantSlip";
+import { useBowlKind } from "../context/BowlKindContext";
+import { isRestaurantKind } from "../utils/restaurants";
 import { getMovieAttributionAccent, getMovieAttributionLabel, getMovieAttributionLine } from "../utils/drawBuckets";
 
 export default function WatchedMovieCard({ movie, onClick }) {
@@ -7,7 +10,8 @@ export default function WatchedMovieCard({ movie, onClick }) {
   const drawnDateLabel = drawnDate && !Number.isNaN(displayDate.getTime())
     ? displayDate.toLocaleDateString()
     : null;
-  const isCustomEntry = Boolean(
+  const isRestaurant = isRestaurantKind(useBowlKind());
+  const isCustomEntry = !isRestaurant && Boolean(
     movie.isCustomEntry || movie.tmdb_id == null || Number(movie.tmdb_id) <= 0
   );
   const addedByLabel = getMovieAttributionLabel(movie);
@@ -28,6 +32,15 @@ export default function WatchedMovieCard({ movie, onClick }) {
             ? `https://image.tmdb.org/t/p/w200${movie.poster_path}`
             : movie.poster || null;
 
+          if (isRestaurant) {
+            return (
+              <RestaurantSlip
+                slip={movie}
+                className="border-2"
+                style={{ borderColor: contributorAccent?.borderColor || "transparent" }}
+              />
+            );
+          }
           return posterUrl ? (
             <img
               src={posterUrl}
@@ -59,9 +72,11 @@ export default function WatchedMovieCard({ movie, onClick }) {
           )}
         </div>
       </button>
-      <p className="mt-1 line-clamp-2 min-h-[2rem] text-xs font-medium leading-tight text-slate-200">
-        {movie.title}
-      </p>
+      {!isRestaurant && (
+        <p className="mt-1 line-clamp-2 min-h-[2rem] text-xs font-medium leading-tight text-slate-200">
+          {movie.title}
+        </p>
+      )}
       {isCustomEntry && (
         <span className="rounded-full border border-amber-700/70 bg-amber-950/50 px-2 py-0.5 text-[10px] font-semibold text-amber-300">
           Custom

@@ -66,4 +66,15 @@ describe("useTvBowls", () => {
       unmount();
     }
   });
+
+  it("leaves restaurant bowls off the television", async () => {
+    mocks.state.homeResult = {
+      data: { default_bowl_id: "family", bowls: [{ id: "family", kind: "movies" }, { id: "friends", kind: "restaurants" }] },
+      error: null,
+    };
+    const { result } = renderHook(() => useTvBowls("user-1"));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.bowls.map((bowl) => bowl.id)).toEqual(["family"]);
+  });
 });

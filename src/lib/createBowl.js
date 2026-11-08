@@ -25,7 +25,9 @@ export function createBowlCreationService({
   bowlIdFactory = () => crypto.randomUUID(),
   maxOwnedBowls = MAX_BOWLS_PER_USER,
 } = {}) {
-  async function create({ bowlName: rawBowlName, inviteEmails = "", ownedBowlCount = 0, bowlId = null }) {
+  async function create({
+    bowlName: rawBowlName, inviteEmails = "", ownedBowlCount = 0, bowlId = null, kind = "movies",
+  }) {
     if (ownedBowlCount >= maxOwnedBowls) {
       return createBowlResult({
         ok: false,
@@ -66,9 +68,11 @@ export function createBowlCreationService({
     // The bowl id is the creation's identity: the caller keeps it across
     // retries, so a repeat after a lost response returns the bowl the first
     // attempt made instead of making another.
+    // A movie bowl keeps the two-argument call every deployed database knows.
     const { data: bowlData, error: bowlError } = await client.rpc("create_owned_bowl", {
       p_bowl_id: bowlId || bowlIdFactory(),
       p_name: bowlName,
+      ...(kind === "restaurants" ? { p_kind: "restaurants" } : {}),
     });
     // A composite return can arrive as a one-row array.
     const newBowl = Array.isArray(bowlData) ? bowlData[0] : bowlData;

@@ -35,6 +35,14 @@ function harness() {
 }
 
 describe("shared bowl add service", () => {
+  it("writes a restaurant's cuisine and leaves a movie's insert without one", async () => {
+    const h = harness();
+    expect(await h.service.add(h.operation({ title: " La Rana Bistro ", cuisine: " Mediterranean ", isCustomEntry: true }))).toMatchObject({ ok: true });
+    expect(h.insert.mock.calls[0][0]).toMatchObject({ title: "La Rana Bistro", cuisine: "Mediterranean", tmdb_id: null });
+    expect(await h.service.add(h.operation({ id: 101, title: "Movie" }))).toMatchObject({ ok: true });
+    expect(h.insert.mock.calls[1][0]).not.toHaveProperty("cuisine");
+    expect(h.insert.mock.calls[1][0]).not.toHaveProperty("place_id");
+  });
   it("refuses offline writes before optimistic state or reads", async () => {
     const h = harness(); h.offline.mockReturnValue(true);
     expect(await h.service.add(h.operation())).toMatchObject({ ok: false, code: "offline" });

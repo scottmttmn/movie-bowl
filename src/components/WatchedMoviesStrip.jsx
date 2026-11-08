@@ -2,6 +2,8 @@ import { useId } from "react";
 import WatchedMovieCard from "./WatchedMovieCard";
 import MovieStripSkeleton from "./MovieStripSkeleton";
 import SectionChevron from "./SectionChevron";
+import { useBowlKind } from "../context/BowlKindContext";
+import { getBowlKindWords, isRestaurantKind } from "../utils/restaurants";
 
 export default function WatchedMoviesStrip({
   movies = [],
@@ -13,12 +15,16 @@ export default function WatchedMoviesStrip({
   heldCount = null,
   onToggleExpanded,
 }) {
+  const kind = useBowlKind();
+  const heading = getBowlKindWords(kind).drawn;
   const isEmpty = !isLoading && movies.length === 0;
   // Empty is shown by the empty card, so it carries no "0 watched" either.
   const watchedCount = isLoading ? heldCount : isEmpty ? null : movies.length;
   const watchedCountLabel = typeof watchedCount !== "number"
     ? ""
-    : watchedCount === 1 ? "1 watched" : `${watchedCount} watched`;
+    : isRestaurantKind(kind)
+      ? String(watchedCount)
+      : watchedCount === 1 ? "1 watched" : `${watchedCount} watched`;
   const listId = useId();
   const isCollapsible = typeof onToggleExpanded === "function";
 
@@ -35,7 +41,7 @@ export default function WatchedMoviesStrip({
               onClick={onToggleExpanded}
             >
               <TicketGlyph />
-              <span className="section-title text-base">Watched</span>
+              <span className="section-title text-base">{heading}</span>
               <span className="text-xs font-semibold text-slate-400">{watchedCountLabel}</span>
               <SectionChevron open={isExpanded} />
             </button>
@@ -43,7 +49,7 @@ export default function WatchedMoviesStrip({
         ) : (
           <div className="flex items-baseline gap-2">
             <TicketGlyph />
-            <h3 className="section-title text-base">Watched</h3>
+            <h3 className="section-title text-base">{heading}</h3>
             <span className="text-xs font-semibold text-slate-400">{watchedCountLabel}</span>
           </div>
         )}
@@ -58,7 +64,7 @@ export default function WatchedMoviesStrip({
       )}
       {isEmpty && (
         <div className="pb-3 pt-1">
-          <div className="watched-empty" role="img" aria-label="Nothing watched yet">
+          <div className="watched-empty" role="img" aria-label={isRestaurantKind(kind) ? "Nowhere drawn yet" : "Nothing watched yet"}>
             <svg aria-hidden="true" viewBox="0 0 24 24"><path d="M3 8a2 2 0 0 0 2-2h14a2 2 0 0 0 2 2v2a2 2 0 0 0 0 4v2a2 2 0 0 0-2 2H5a2 2 0 0 0-2-2v-2a2 2 0 0 0 0-4z" /><path d="M9 6v12" strokeDasharray="2 2" /></svg>
           </div>
         </div>

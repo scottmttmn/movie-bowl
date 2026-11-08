@@ -1042,6 +1042,20 @@ describe("BowlSettings integration", () => {
     expect(screen.getByRole("status")).toHaveTextContent("All changes saved");
   });
 
+  it("leaves the movie-only sections out of a restaurant bowl", async () => {
+    mocks.state.bowl = { id: "bowl-1", name: "Date Night Eats", owner_id: "owner-1", kind: "restaurants" };
+
+    renderSettings();
+
+    await waitFor(() => {
+      expect(screen.getByRole("heading", { name: "People" })).toBeInTheDocument();
+    });
+    expect(screen.getByRole("heading", { name: "Drawing" })).toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Add links" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("heading", { name: "Starter pack" })).not.toBeInTheDocument();
+    expect(screen.queryByRole("link", { name: /Add links/ })).not.toBeInTheDocument();
+  });
+
   it("shows draw access controls for owner and defaults to everyone", async () => {
     mocks.state.bowl = {
       id: "bowl-1",

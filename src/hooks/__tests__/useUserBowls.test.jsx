@@ -22,6 +22,18 @@ async function loaded() {
   return view;
 }
 describe("shared account bowl context", () => {
+  it("carries each bowl's kind and whether restaurant bowls are on", async () => {
+    const { result } = await loaded();
+    expect(result.current.bowls.map((bowl) => bowl.kind)).toEqual(["movies", "movies"]);
+    expect(result.current.restaurantBowlsEnabled).toBe(false);
+    mocks.rpc.mockResolvedValue({ data: { default_bowl_id: "a", restaurant_bowls_enabled: true, bowls: [
+      { id: "a", name: "A", owner_id: "u1", remaining_count: 4, kind: "restaurants" },
+      { id: "b", name: "B", owner_id: "u2", remaining_count: 9, kind: "something new" },
+    ] }, error: null });
+    await act(async () => { await result.current.refresh({ force: true }); });
+    expect(result.current.bowls.map((bowl) => bowl.kind)).toEqual(["restaurants", "movies"]);
+    expect(result.current.restaurantBowlsEnabled).toBe(true);
+  });
   it("normalizes owner/member cards without sorting the default first", async () => {
     mocks.rpc.mockResolvedValue(context("b")); const { result } = await loaded();
     expect(result.current.defaultBowlId).toBe("b");

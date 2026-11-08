@@ -2,6 +2,9 @@ import { Fragment } from "react";
 import { describeStatLine } from "../utils/drawReadout";
 import { getDrawMethod } from "../utils/drawMethods";
 import FilmStripGlyph from "./FilmStripGlyph";
+import ForkKnifeGlyph from "./ForkKnifeGlyph";
+import { useBowlKind } from "../context/BowlKindContext";
+import { countSlips, isRestaurantKind } from "../utils/restaurants";
 import PeopleGlyph from "./PeopleGlyph";
 import DrawMethodMark from "./DrawMethodMark";
 
@@ -55,10 +58,31 @@ function Segment({ as = "span", tone = "idle", onClick, ariaLabel, children }) {
 }
 
 function PoolSegment({ count, service, tone, onOpenFilters }) {
+  const kind = useBowlKind();
+  const isRestaurant = isRestaurantKind(kind);
   if (count === 0) {
     return (
       <Segment as="button" tone="warning" onClick={onOpenFilters} ariaLabel="Nothing is eligible to draw. Open draw filters.">
         Nothing to draw
+      </Segment>
+    );
+  }
+  const Glyph = isRestaurant ? ForkKnifeGlyph : FilmStripGlyph;
+  const counted = (
+    <span className="inline-flex items-center gap-1 leading-none">
+      <Glyph className="block h-4 w-4" />
+      <span>
+        <Count tone={tone}>{count}</Count>
+        {service ? ` on ${service}` : ""}
+      </span>
+    </span>
+  );
+  // A restaurant bowl has no draw filters yet, so its count opens nothing.
+  if (isRestaurant) {
+    return (
+      <Segment tone={tone}>
+        <span className="sr-only">Drawing from {countSlips(kind, count)}.</span>
+        <span aria-hidden="true">{counted}</span>
       </Segment>
     );
   }
@@ -68,13 +92,7 @@ function PoolSegment({ count, service, tone, onOpenFilters }) {
     : `Drawing from ${titles}. Open draw filters.`;
   return (
     <Segment as="button" tone={tone} onClick={onOpenFilters} ariaLabel={label}>
-      <span className="inline-flex items-center gap-1 leading-none">
-        <FilmStripGlyph className="block h-4 w-4" />
-        <span>
-          <Count tone={tone}>{count}</Count>
-          {service ? ` on ${service}` : ""}
-        </span>
-      </span>
+      {counted}
     </Segment>
   );
 }

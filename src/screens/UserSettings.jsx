@@ -108,6 +108,9 @@ export default function UserSettings() {
     removeFromBowlsOnSoloDraw,
     setRemoveFromBowlsOnSoloDraw,
     saveRemoveFromBowlsOnSoloDraw,
+    restaurantBowlsEnabled,
+    setRestaurantBowlsEnabled,
+    saveRestaurantBowlsEnabled,
     saveDisplayName,
   } = useUserStreamingServices();
 
@@ -164,8 +167,9 @@ export default function UserSettings() {
         rentFrom: defaultDrawSettings.rentFrom,
       },
       removeFromBowlsOnSoloDraw,
+      restaurantBowlsEnabled,
     }),
-    [displayName, streamingServices, defaultDrawSettings, removeFromBowlsOnSoloDraw]
+    [displayName, streamingServices, defaultDrawSettings, removeFromBowlsOnSoloDraw, restaurantBowlsEnabled]
   );
 
   // Only playback keys are edited here; the dashboard owns the draw filters.
@@ -186,11 +190,14 @@ export default function UserSettings() {
       if (next.removeFromBowlsOnSoloDraw !== previous.removeFromBowlsOnSoloDraw) {
         pendingWrites.push(saveRemoveFromBowlsOnSoloDraw(next.removeFromBowlsOnSoloDraw));
       }
+      if (next.restaurantBowlsEnabled !== previous.restaurantBowlsEnabled) {
+        pendingWrites.push(saveRestaurantBowlsEnabled(next.restaurantBowlsEnabled));
+      }
 
       const results = await Promise.all(pendingWrites);
       return { error: results.find((result) => result?.error)?.error || null };
     },
-    [saveDisplayName, saveStreamingServices, saveDefaultDrawSettings, saveRemoveFromBowlsOnSoloDraw]
+    [saveDisplayName, saveStreamingServices, saveDefaultDrawSettings, saveRemoveFromBowlsOnSoloDraw, saveRestaurantBowlsEnabled]
   );
 
   const { status: saveStatus, error: saveError, retry: retrySave } = useAutosave({
@@ -612,6 +619,23 @@ export default function UserSettings() {
                     prerollCaptionsEnabled: event.target.checked,
                   })
                 }
+              />
+            </div>
+          </section>
+
+          {/* Off by default and out of the way while restaurant bowls are being
+              built. Bowls someone else made still open for anyone invited. */}
+          <section id="restaurant-bowls" tabIndex={-1} className="panel scroll-mt-24" aria-labelledby="restaurant-bowls-heading">
+            <h2 id="restaurant-bowls-heading" className="section-title">Restaurant bowls</h2>
+            <div className="mt-5">
+              <SettingToggle
+                id="restaurant-bowls-enabled"
+                name="restaurant_bowls_enabled"
+                ariaLabel="Let me create restaurant bowls"
+                label="Restaurant bowls"
+                description="Adds a Restaurants choice when you create a bowl: a bowl of places to eat, drawn the same way as movies."
+                checked={restaurantBowlsEnabled}
+                onChange={(event) => setRestaurantBowlsEnabled(event.target.checked)}
               />
             </div>
           </section>

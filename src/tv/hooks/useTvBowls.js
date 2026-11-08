@@ -68,11 +68,17 @@ export function useTvBowls(userId) {
         console.error("[useTvBowls] Failed to load the home bowl", homeResult.error);
       }
       setHomeBowlId(homeResult?.error ? null : homeResult?.data?.default_bowl_id || null);
+      // The television plays movies, so a restaurant bowl stays on the phone.
+      const restaurantBowlIds = new Set(
+        (homeResult?.error ? [] : homeResult?.data?.bowls || [])
+          .filter((bowl) => bowl?.kind === "restaurants")
+          .map((bowl) => bowl.id)
+      );
 
       setBowls(
         sortBowlsByActivity(
           (rows || [])
-            .filter((bowl) => allowedBowlIds.has(bowl.id))
+            .filter((bowl) => allowedBowlIds.has(bowl.id) && !restaurantBowlIds.has(bowl.id))
             .map((bowl) => ({
               id: bowl.id,
               name: bowl.name || "Untitled bowl",

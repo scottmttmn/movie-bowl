@@ -112,6 +112,20 @@ describe("useSoloDrawPool", () => {
     expect(result.current.bowlIds).toEqual(["bowl-1"]);
   });
 
+  it("leaves a restaurant bowl's slips out of the pool", async () => {
+    mocks.state.movieRows = [row("m1", "bowl-1"), row("r1", "bowl-eats", { tmdb_id: null, cuisine: "Pizza" })];
+    mocks.state.bowlRows = [
+      { id: "bowl-1", name: "First Bowl", kind: "movies" },
+      { id: "bowl-eats", name: "Date Night Eats", kind: "restaurants" },
+    ];
+
+    const { result } = renderHook(() => useSoloDrawPool("user-1"));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.rows.map((movie) => movie.id)).toEqual(["m1"]);
+    expect(result.current.bowlIds).toEqual(["bowl-1"]);
+  });
+
   it("skips the bowl lookup when there is nothing to name", async () => {
     const { result } = renderHook(() => useSoloDrawPool("user-1"));
 

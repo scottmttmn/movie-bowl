@@ -11,7 +11,7 @@ import usePendingInvites from "../hooks/usePendingInvites";
 import { MAX_BOWLS_PER_USER } from "../utils/appLimits";
 
 export default function MyBowlsScreen() {
-  const { bowls, defaultBowlId, loading: isLoading, error: loadError, refresh } = useUserBowls();
+  const { bowls, defaultBowlId, loading: isLoading, error: loadError, refresh, restaurantBowlsEnabled } = useUserBowls();
   const navigate = useNavigate();
   const {
     invites: pendingInvites,
@@ -31,6 +31,8 @@ export default function MyBowlsScreen() {
     open: handleNewBowl,
     setBowlName: setNewBowlName,
     setInviteEmails,
+    kind: newBowlKind,
+    setKind: setNewBowlKind,
   } = useCreateBowl({ ownedBowlCount, refresh });
   const ownedBowls = sortBowlsByRecentActivity(bowls.filter((b) => b.role === "Owner"));
   const sharedBowls = sortBowlsByRecentActivity(bowls.filter((b) => b.role !== "Owner"));
@@ -192,6 +194,9 @@ export default function MyBowlsScreen() {
         onClose={handleCloseModal}
         isCreating={isCreating}
         errorMessage={createErrorMessage}
+        offerKinds={restaurantBowlsEnabled}
+        kind={newBowlKind}
+        onChangeKind={setNewBowlKind}
       />
     </div>
   );

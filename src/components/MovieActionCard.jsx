@@ -1,5 +1,8 @@
 import MoviePosterPin from "./MoviePosterPin";
 import DepartureNotice from "./DepartureNotice";
+import RestaurantSlip from "./RestaurantSlip";
+import { useBowlKind } from "../context/BowlKindContext";
+import { isRestaurantKind } from "../utils/restaurants";
 
 // Sized and shaped to match WatchedMovieCard on purpose. The two strips sit on
 // the same screen, and a card that is 40% taller than its neighbour reads as a
@@ -20,7 +23,9 @@ export default function MovieActionCard({
   userStreamingServices = [],
   fetchProviders,
 }) {
-  const isCustomEntry = Boolean(
+  const isRestaurant = isRestaurantKind(useBowlKind());
+  // Every restaurant is hand-made in the movie sense, so the mark says nothing.
+  const isCustomEntry = !isRestaurant && Boolean(
     movie.isCustomEntry || movie.tmdb_id == null || Number(movie.tmdb_id) <= 0
   );
   const posterUrl = movie.poster_path
@@ -55,7 +60,9 @@ export default function MovieActionCard({
           }`}
         >
           <div className={dimmed}>
-            {posterUrl ? (
+            {isRestaurant ? (
+              <RestaurantSlip slip={movie} />
+            ) : posterUrl ? (
               <img
                 src={posterUrl}
                 alt={movie.title}
@@ -69,7 +76,7 @@ export default function MovieActionCard({
               </div>
             )}
           </div>
-          <div className={dimmed}>
+          <div className={`${dimmed} ${isRestaurant ? "hidden" : ""}`}>
             <p className="mt-1 line-clamp-2 min-h-[2rem] text-xs font-medium leading-tight text-slate-200">
               {movie.title}
             </p>
@@ -97,7 +104,7 @@ export default function MovieActionCard({
         {isFilterExcluded && <span className="sr-only">Outside current filters</span>}
       </div>
       {isSyncing && <p className="text-[11px] font-medium text-rose-300">Syncing...</p>}
-      {!isCustomEntry && !isSyncing && userStreamingServices.length > 0 && (
+      {!isRestaurant && !isCustomEntry && !isSyncing && userStreamingServices.length > 0 && (
         <DepartureNotice
           bowlId={bowlId}
           tmdbId={movie.tmdb_id}

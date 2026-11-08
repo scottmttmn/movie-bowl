@@ -384,6 +384,11 @@ A bowl has a `kind`, `movies` or `restaurants`, fixed at creation. Restaurant
 bowls are being built (`output/designs/restaurant-bowls.md`): their slips are
 `bowl_movies` rows with a `cuisine` and an optional Google `place_id`, they
 never carry a TMDB id, and their draws write no personal watch history.
+Creating one is offered only to accounts with `profiles.restaurant_bowls_enabled`
+on, which `get_my_bowl_context` reports beside each bowl's `kind`. The bowl
+page provides the kind through `BowlKindContext`, and the cards, strips and
+stat line read it there; anything outside a bowl page is a movie surface.
+The television and solo draw leave restaurant bowls out.
 
 Custom (non-TMDB) movies carry a **negative synthetic `tmdb_id`** so that
 NOT NULL deployments still accept them. Any code that hits TMDB must filter for

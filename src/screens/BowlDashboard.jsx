@@ -70,6 +70,9 @@ import { buildLiveDraw, findAnnouncedDraw, verifyAnnouncedReveal } from "../util
 import GearGlyph from "../components/GearGlyph";
 import HomeGlyph from "../components/HomeGlyph";
 import FilterRow from "../components/FilterRow";
+import RestaurantSheet from "../components/RestaurantSheet";
+import { BowlKindProvider } from "../context/BowlKindContext";
+import { countSlips, getBowlKindWords, isRestaurantKind, normalizeBowlKind } from "../utils/restaurants";
 import StreamingPreferenceRows from "../components/StreamingPreferenceRows";
 import { describeGenres, describeRatings, describeRuntime } from "../utils/filterSummaries";
 import {
@@ -81,6 +84,16 @@ import { DEFAULT_DRAW_METHOD, getDrawMethod, normalizeDrawMethod } from "../util
 
 
 const countTitles = (count) => (count === 1 ? "1 title" : `${count} titles`);
+// Every movie filter reads TMDB metadata a restaurant does not have, so a
+// restaurant bowl draws from all of its slips until it has filters of its own.
+const RESTAURANT_DRAW_FILTERS = Object.freeze({
+  prioritizeByServices: false,
+  prioritizeByServiceRank: false,
+  userStreamingServices: [],
+  ratingFilter: null,
+  genreFilter: null,
+  runtimeFilter: null,
+});
 
 export default function BowlDashboard() {
     const DRAW_ACCESS_MODE_ALL = "all_members";
@@ -256,12 +269,18 @@ export default function BowlDashboard() {
       refresh: refreshBowlContext,
       setDefaultBowl,
       savingDefault,
+      restaurantBowlsEnabled,
     } = useUserBowls();
     const [isPickerOpen, setIsPickerOpen] = useState(false);
     const pickerTriggerRef = useRef(null);
     const [homeMessage, setHomeMessage] = useState(null);
     const [homeError, setHomeError] = useState(null);
     const currentBowlMemberCount = accountBowls.find((entry) => entry.id === bowlId)?.memberCount ?? null;
+    // The kind is fixed at creation and rides on the account's bowl list, so
+    // this costs no read of its own.
+    const bowlKind = normalizeBowlKind(accountBowls.find((entry) => entry.id === bowlId)?.kind);
+    const isRestaurantBowl = isRestaurantKind(bowlKind);
+    const kindWords = getBowlKindWords(bowlKind);
     const ownedBowlCount = accountBowls.filter((entry) => entry.role === "Owner").length;
     const {
       actionMessage: createActionMessage,
@@ -276,6 +295,8 @@ export default function BowlDashboard() {
       open: openCreateBowl,
       setBowlName: setNewBowlName,
       setInviteEmails: setCreateInviteEmails,
+      kind: newBowlKind,
+      setKind: setNewBowlKind,
     } = useCreateBowl({ ownedBowlCount, refresh: refreshBowlContext });
     const isCurrentBowlHome = Boolean(defaultBowlId) && defaultBowlId === bowlId;
     const knownBowlName = accountBowls.find((entry) => entry.id === bowlId)?.name || "";
@@ -384,7 +405,7 @@ export default function BowlDashboard() {
     // One filter object for both the pool count and the draw itself, so the
     // number on screen cannot drift from what the draw actually applies.
     const drawFilters = useMemo(
-      () => ({
+      () => isRestaurantBowl ? RESTAURANT_DRAW_FILTERS : ({
         prioritizeByServices: isDrawFilteredByServices,
         prioritizeByServiceRank: useStreamingRank,
         userStreamingServices,
@@ -403,6 +424,7 @@ export default function BowlDashboard() {
         },
       }),
       [
+        isRestaurantBowl,
         isDrawFilteredByServices,
         useStreamingRank,
         userStreamingServices,
@@ -639,7 +661,8 @@ export default function BowlDashboard() {
       settings: deviceDrawSettings,
       setOverride: setDeviceDrawSetting,
     } = useDeviceDrawSettings(currentUserId, defaultDrawSettings, WEB_SURFACE_DEFAULTS);
-    const isTheaterModeEnabled = Boolean(deviceDrawSettings.theaterModeEnabled);
+    // A restaurant has no trailers, so a restaurant bowl never plays previews.
+    const isTheaterModeEnabled = !isRestaurantBowl && Boolean(deviceDrawSettings.theaterModeEnabled);
     const theaterTrailerCount = clampTheaterTrailerCount(deviceDrawSettings.theaterTrailerCount);
     const [trailerQueue, setTrailerQueue] = useState([]);
     const [isTheaterPlaying, setIsTheaterPlaying] = useState(false);
@@ -859,7 +882,7 @@ export default function BowlDashboard() {
         setSelectedDetailMovie((current) => (current?.id === movie.id ? null : current));
         return;
       }
-      setMyMoviesErrorMessage("Could not delete this movie. Please try again.");
+      setMyMoviesErrorMessage(`Could not delete this ${kindWords.one}. Please try again.`);
     };
 
     // The pack's face on its cards. The photos are dressing, asked for once a
@@ -1262,6 +1285,7 @@ export default function BowlDashboard() {
     </div></div>;
 
 return (
+    <BowlKindProvider value={bowlKind}>
     <div className="bowl-dashboard page-container overflow-hidden pb-12 pt-5 sm:pt-7">
         <header className="mb-5 flex min-w-0 items-center justify-between gap-3">
                 <div className="min-w-0 flex-1">
@@ -1297,7 +1321,7 @@ return (
                   {isCurrentBowlHome && <p className="sr-only">Home bowl</p>}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  <button
+                  {!isRestaurantBowl && <button
                     id="bowl-filters"
                     type="button"
                     onClick={() => setShowDrawFilters((prev) => !prev)}
@@ -1319,7 +1343,7 @@ return (
                         className="absolute right-1 top-1 h-2 w-2 rounded-full border border-slate-950 bg-rose-500"
                       />
                     )}
-                  </button>
+                  </button>}
                   {isCurrentUserOwner && (
                     <button
                       type="button"
@@ -1372,7 +1396,7 @@ return (
                   isPending={!isBowlViewSettled}
                   remembered={heldBowlView?.statLine || null}
                   onRunPoolLookups={runDrawPoolLookups}
-                  onOpenFilters={() => setShowDrawFilters(true)}
+                  onOpenFilters={isRestaurantBowl ? undefined : () => setShowDrawFilters(true)}
                   onOpenMethodInfo={() => setShowMethodInfo(true)}
                   onOpenPeople={() => setShowPeople(true)}
                   memberCount={currentBowlMemberCount}
@@ -1396,6 +1420,7 @@ return (
                   />
                   <AddMovieButton
                     variant="secondary"
+                    label={kindWords.add}
                     disabled={isAddBlocked}
                     onClick={() => {
                       setAddGuardMessage(null);
@@ -1413,7 +1438,7 @@ return (
                     this one's, which isFirstLoad already rules out. The
                     same goes for ownership: the last bowl's owner is not this
                     bowl's until this bowl's access has been read. */}
-                {!isFirstLoad && !errorMessage && isAccessKnown && isCurrentUserOwner && bowl.remaining.length === 0 && (
+                {!isRestaurantBowl && !isFirstLoad && !errorMessage && isAccessKnown && isCurrentUserOwner && bowl.remaining.length === 0 && (
                   <StarterPackOffer
                     bowlId={bowlId}
                     onSeeAll={() => navigate(`/bowl/${bowlId}/settings${STARTER_PACK_SHELF_HASH}`)}
@@ -1434,7 +1459,7 @@ return (
                     cannot draw, with drawGuardMessage beside it, while a greyed
                     toggle explains nothing and advertises a ceremony they can
                     never start. */}
-                {showsTheaterToggle && (
+                {showsTheaterToggle && !isRestaurantBowl && (
                   <div className="mx-auto mt-3 w-full max-w-sm">
                     <TheaterModeToggle
                       enabled={isTheaterModeEnabled}
@@ -1455,7 +1480,7 @@ return (
                 )}
                 {isAddBlockedByUndrawnLimit && (
                   <p className="mt-2 text-center text-sm text-amber-300">
-                    Bowl is at the undrawn movie limit ({MAX_UNDRAWN_MOVIES_PER_BOWL}).
+                    Bowl is at the undrawn {kindWords.one} limit ({MAX_UNDRAWN_MOVIES_PER_BOWL}).
                   </p>
                 )}
               </div>
@@ -1792,13 +1817,13 @@ return (
                     onClick={() => toggleSection("myMovies")}
                   >
                     <SlipGlyph />
-                    <span className="section-title text-base">My Movies</span>
+                    <span className="section-title text-base">{kindWords.mine}</span>
                     {/* A phone has room for the number beside "Draw for myself",
                         not the word. */}
                     {typeof myMovieCount === "number" && (
                       <span className="text-xs font-semibold text-slate-400">
                         <span className="sm:hidden">{myMovieCount}</span>
-                        <span className="hidden sm:inline">{myMovieCount === 1 ? "1 movie" : `${myMovieCount} movies`}</span>
+                        <span className="hidden sm:inline">{countSlips(bowlKind, myMovieCount)}</span>
                       </span>
                     )}
                     <SectionChevron open={showMyMovies} />
@@ -1809,7 +1834,7 @@ return (
                     control under the two people came to press reads as a third
                     way to spend the bowl's turn. The bowl still rides along as
                     the starting scope. */}
-                {showsDrawForMyself && (
+                {showsDrawForMyself && !isRestaurantBowl && (
                   <button
                     type="button"
                     className="btn btn-secondary shrink-0 gap-2 px-3 text-sm sm:px-4"
@@ -1836,7 +1861,7 @@ return (
                       />
                     </div>
                   ) : isFirstLoad || myMovies.length === 0 ? (
-                    <p className="text-sm text-slate-400">You have no movies in this section.</p>
+                    <p className="text-sm text-slate-400">{kindWords.empty}</p>
                   ) : (
                     <MyMoviesStrip
                       bowlId={bowlId}
@@ -1917,7 +1942,7 @@ return (
             {showDrawConfirm && (
               <div className="modal-overlay z-[70]" role="presentation">
                 <div className="modal-surface max-w-md p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="draw-confirm-title">
-                  <h3 id="draw-confirm-title" className="text-lg font-semibold text-slate-100">Reveal a movie?</h3>
+                  <h3 id="draw-confirm-title" className="text-lg font-semibold text-slate-100">{kindWords.reveal}</h3>
                   <p className="mt-2 text-sm text-slate-400">
                     Drawing will reveal one hidden title from this bowl to everyone here.
                   </p>
@@ -1936,7 +1961,7 @@ return (
                       className="btn btn-danger"
                       disabled={isDrawing}
                     >
-                      {isDrawing ? "Drawing..." : "Reveal Movie"}
+                      {isDrawing ? "Drawing..." : kindWords.revealAction}
                     </button>
                   </div>
                 </div>
@@ -1956,7 +1981,47 @@ return (
                 onComplete={completeTheater}
               />
             )}
-            {drawnMovie && (
+            {drawnMovie && isRestaurantBowl && (
+              <RestaurantSheet slip={drawnMovie} tonight onClose={closeReveal} />
+            )}
+            {selectedDetailMovie && isRestaurantBowl && (
+              <RestaurantSheet
+                slip={selectedDetailMovie}
+                onClose={() => {
+                  setSelectedDetailMovie(null);
+                  setSelectedDetailContext(null);
+                }}
+                onDelete={
+                  selectedDetailContext === "myAdds"
+                    ? confirmAndDeleteMovie
+                    : selectedDetailContext === "watched" && isCurrentUserOwner
+                      ? (slip) => {
+                          setReaddErrorMessage(null);
+                          setSelectedDetailMovie(null);
+                          setSelectedDetailContext(null);
+                          setPendingRemoveWatchedMovie(slip);
+                        }
+                      : null
+                }
+                deleteLabel={selectedDetailContext === "watched" ? "Remove from history" : "Remove from bowl"}
+                primaryActionLabel={
+                  selectedDetailContext === "watched" && canReturnDrawToBowl(selectedDetailMovie)
+                    ? "Move to Bowl"
+                    : null
+                }
+                onPrimaryAction={
+                  selectedDetailContext === "watched" && canReturnDrawToBowl(selectedDetailMovie)
+                    ? async (slip) => {
+                        setReaddErrorMessage(null);
+                        setSelectedDetailMovie(null);
+                        setSelectedDetailContext(null);
+                        setPendingReaddMovie(slip);
+                      }
+                    : null
+                }
+              />
+            )}
+            {drawnMovie && !isRestaurantBowl && (
               <AddMovieModal
                 movie={drawnMovie}
                 isObscured={isTheaterPlaying}
@@ -1976,7 +2041,7 @@ return (
                 onClose={closeReveal}
               />
             )}
-            {selectedDetailMovie && (
+            {selectedDetailMovie && !isRestaurantBowl && (
               <AddMovieModal
                 movie={selectedDetailMovie}
                 departureBowlId={bowlId}
@@ -2092,16 +2157,18 @@ return (
               <div className="modal-overlay z-[70]" role="presentation">
                 <div className="modal-surface max-w-md p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="readd-confirm-title">
                   <h3 id="readd-confirm-title" className="text-lg font-semibold text-slate-100">
-                    Put movie back in bowl?
+                    {isRestaurantBowl ? "Put it back in the bowl?" : "Put movie back in bowl?"}
                   </h3>
                   <div className="mt-2 space-y-2 text-sm text-slate-400">
                     <p>
                       This puts "{pendingReaddMovie.title}" back into the bowl for everyone.
                     </p>
-                    <p>
-                      The Watch History entries created by that pick are removed for
-                      everyone.
-                    </p>
+                    {!isRestaurantBowl && (
+                      <p>
+                        The Watch History entries created by that pick are removed for
+                        everyone.
+                      </p>
+                    )}
                   </div>
                   <div className="mt-4 flex items-center justify-end gap-2">
                     <button
@@ -2118,7 +2185,7 @@ return (
                         if (isReadding) return;
                         if ((bowl.remaining || []).length >= MAX_UNDRAWN_MOVIES_PER_BOWL) {
                           setReaddErrorMessage(
-                            `Bowl is at the undrawn movie limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`
+                            `Bowl is at the undrawn ${kindWords.one} limit (${MAX_UNDRAWN_MOVIES_PER_BOWL}).`
                           );
                           setPendingReaddMovie(null);
                           return;
@@ -2138,7 +2205,7 @@ return (
                       className="btn btn-primary"
                       disabled={isReadding}
                     >
-                      {isReadding ? "Putting movie back..." : "Put movie back in bowl"}
+                      {isReadding ? "Putting it back..." : isRestaurantBowl ? "Put it back" : "Put movie back in bowl"}
                     </button>
                   </div>
                 </div>
@@ -2148,17 +2215,19 @@ return (
               <div className="modal-overlay z-[70]" role="presentation">
                 <div className="modal-surface max-w-md p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="remove-watched-confirm-title">
                   <h3 id="remove-watched-confirm-title" className="text-lg font-semibold text-slate-100">
-                    Remove from watched history?
+                    {isRestaurantBowl ? "Remove from Been there?" : "Remove from watched history?"}
                   </h3>
                   <div className="mt-2 space-y-2 text-sm text-slate-400">
                     <p>
-                      "{pendingRemoveWatchedMovie.title}" leaves this bowl's watched list for
+                      "{pendingRemoveWatchedMovie.title}" leaves this bowl's {isRestaurantBowl ? "Been there" : "watched"} list for
                       everyone. It does not go back in the bowl.
                     </p>
-                    <p>
-                      Each person's own Watch History keeps it. Anyone who didn't watch it can
-                      remove their entry there.
-                    </p>
+                    {!isRestaurantBowl && (
+                      <p>
+                        Each person's own Watch History keeps it. Anyone who didn't watch it can
+                        remove their entry there.
+                      </p>
+                    )}
                   </div>
                   <div className="mt-4 flex items-center justify-end gap-2">
                     <button
@@ -2241,11 +2310,15 @@ return (
               onClose={closeCreateBowl}
               isCreating={isCreatingBowl}
               errorMessage={createErrorMessage}
+              offerKinds={restaurantBowlsEnabled}
+              kind={newBowlKind}
+              onChangeKind={setNewBowlKind}
             />
             {createActionMessage && !isCreateBowlOpen && (
               <div className="status-success mt-3" role="status">{createActionMessage}</div>
             )}
         </div>
+    </BowlKindProvider>
     );
 }
 

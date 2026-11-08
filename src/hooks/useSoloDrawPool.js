@@ -57,11 +57,13 @@ export default function useSoloDrawPool(userId, { enabled = true } = {}) {
       if (bowlIds.length > 0) {
         const { data, error: bowlsError } = await supabase
           .from("bowls")
-          .select("id, name")
+          .select("id, name, kind")
           .in("id", bowlIds);
 
         if (bowlsError) throw bowlsError;
-        bowlRows = data || [];
+        // Solo draw picks a movie to watch; a restaurant bowl's slips are not
+        // part of that pool, and every row outside these bowls is dropped below.
+        bowlRows = (data || []).filter((bowl) => bowl.kind !== "restaurants");
       }
 
       const counts = getSoloScopeCounts(rows);

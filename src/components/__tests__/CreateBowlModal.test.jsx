@@ -117,4 +117,24 @@ describe("CreateBowlModal", () => {
     expect(onCreate).not.toHaveBeenCalled();
     expect(onClose).toHaveBeenCalledTimes(1);
   });
+
+  it("offers a kind only to an account with restaurant bowls on", () => {
+    const props = {
+      isOpen: true,
+      bowlName: "",
+      inviteEmails: "",
+      onChangeBowlName: vi.fn(),
+      onChangeInviteEmails: vi.fn(),
+      onCreate: vi.fn(),
+      onClose: vi.fn(),
+    };
+    const { rerender } = render(<CreateBowlModal {...props} />);
+    expect(screen.queryByRole("radiogroup", { name: "Kind of bowl" })).not.toBeInTheDocument();
+
+    const onChangeKind = vi.fn();
+    rerender(<CreateBowlModal {...props} offerKinds kind="movies" onChangeKind={onChangeKind} />);
+    expect(screen.getByRole("radio", { name: "Movies" })).toHaveAttribute("aria-checked", "true");
+    fireEvent.click(screen.getByRole("radio", { name: "Restaurants" }));
+    expect(onChangeKind).toHaveBeenCalledWith("restaurants");
+  });
 });

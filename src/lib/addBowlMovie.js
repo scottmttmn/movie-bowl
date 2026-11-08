@@ -6,8 +6,9 @@ import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { getMovieNoteValidationError, normalizeMovieNote } from "../utils/movieNote";
 import { getMovieAttributionLabel, isStarterPackMovie } from "../utils/drawBuckets";
 import { OFFLINE_MESSAGE, describeNetworkError, isOffline, isOfflineError } from "../utils/networkErrors";
+import { normalizeCuisine } from "../utils/restaurants";
 
-export const BOWL_MOVIE_FIELDS = "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, is_pinned, added_by, added_by_name, starter_pack, claimed_from_starter_pack, claimed_from_starter_pack_name, added_at, drawn_at, drawn_by, snapshot_at";
+export const BOWL_MOVIE_FIELDS = "id, bowl_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, is_pinned, added_by, added_by_name, starter_pack, claimed_from_starter_pack, claimed_from_starter_pack_name, added_at, drawn_at, drawn_by, snapshot_at, cuisine, place_id";
 export const addResult = (ok, code = null, message = null) => ({ ok, code, message });
 export function getPositiveTmdbId(movie) {
   const id = Number(movie?.tmdb_id ?? movie?.id);
@@ -276,6 +277,10 @@ export function createBowlMovieService({ client = supabase, offline = isOffline,
         genres: (Array.isArray(movie.genres) ? movie.genres : []).map((genre) => typeof genre === "string" ? genre : genre?.name).filter(Boolean),
         overview: movie.overview ?? null, note: normalizeMovieNote(movie.note),
         is_pinned: false, snapshot_at: now,
+        // Only a restaurant carries these, and a movie bowl refuses them, so
+        // a movie's insert never names the columns at all.
+        ...(normalizeCuisine(movie.cuisine) ? { cuisine: normalizeCuisine(movie.cuisine) } : {}),
+        ...(movie.place_id ? { place_id: movie.place_id } : {}),
       };
       optimistic = true;
       publish({ type: "add", phase: "pending", userId: accountId, bowlId, submissionId,

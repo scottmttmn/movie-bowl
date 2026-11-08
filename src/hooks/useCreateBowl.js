@@ -11,6 +11,7 @@ export default function useCreateBowl({
   const [isOpen, setIsOpen] = useState(false);
   const [bowlName, setBowlName] = useState("");
   const [inviteEmails, setInviteEmails] = useState("");
+  const [kind, setKind] = useState("movies");
   const [errorMessage, setErrorMessage] = useState(null);
   const [actionMessage, setActionMessage] = useState(null);
   const [isCreating, setIsCreating] = useState(false);
@@ -39,6 +40,7 @@ export default function useCreateBowl({
     if (createInFlight.current) abandonedOperation.current = createInFlight.current;
     setBowlName("");
     setInviteEmails("");
+    setKind("movies");
     setErrorMessage(null);
     setActionMessage(null);
     setIsOpen(false);
@@ -54,7 +56,7 @@ export default function useCreateBowl({
 
     const bowlId = uncertainBowlId.current || bowlIdFactory();
     uncertainBowlId.current = bowlId;
-    const input = { bowlName, inviteEmails, ownedBowlCount, bowlId };
+    const input = { bowlName, inviteEmails, ownedBowlCount, bowlId, kind };
     // Start in a microtask so the promise guard is installed before injected
     // services can resolve or throw, closing the rapid Enter/click race.
     const operation = Promise.resolve()
@@ -72,6 +74,7 @@ export default function useCreateBowl({
         if (abandonedOperation.current !== operation) {
           setBowlName("");
           setInviteEmails("");
+          setKind("movies");
           setIsOpen(false);
         }
         return result;
@@ -109,8 +112,10 @@ export default function useCreateBowl({
     isCreating,
     isLimitReached,
     isOpen,
+    kind,
     open,
     setBowlName,
     setInviteEmails,
+    setKind,
   };
 }
