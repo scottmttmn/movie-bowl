@@ -160,7 +160,7 @@ export const HELP_TOPICS = [
   },
   {
     id: "rent",
-    ask: "Rent or buy a movie that isn't streaming; which store to rent from; turn off rental buttons.",
+    ask: "Rent or buy a movie that isn't streaming; the drawn movie isn't on any of my services; which store to rent from; turn off rental buttons.",
     answer: "When none of your services carry the drawn movie, it offers a rental from the store you pick here.",
     to: "/settings",
     target: "rent-from",

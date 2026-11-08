@@ -8,7 +8,8 @@
 //   npm run eval:help -- --only restaurant
 //
 // Needs GROQ_API_KEY (or the Cloudflare pair), from the environment, .env or
-// .env.local. Each question spends a few hundred tokens of the free quota.
+// .env.local. Each question spends about 1,200 tokens of the free quota, and
+// the run paces itself to fit the per-minute limit: about six minutes.
 import { readFileSync } from "node:fs";
 import { pickHelpTopic } from "../../api/_lib/helpAnswer.js";
 
@@ -51,7 +52,11 @@ for (const entry of cases) {
   // unhelpful; a null where a topic belongs only offers feedback.
   else if (reply && got !== null) wrongTopic += 1;
   console.log(`${ok ? "PASS" : "FAIL"}  ${entry.q}\n      expected ${entry.topic ?? "null"}, got ${got ?? "null"}`);
-  await sleep(1500);
+  // Each question carries the whole guide, about 1,200 tokens, and Groq's
+  // free tier allows 8,000 a minute: faster than this and the later
+  // questions fall through to Cloudflare or go unanswered, which scores the
+  // rate limit rather than the guide.
+  await sleep(9000);
 }
 console.log(`\n${passed}/${cases.length} correct; ${wrongTopic} pointed somewhere wrong.`);
 process.exit(passed === cases.length ? 0 : 1);
