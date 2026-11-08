@@ -4,8 +4,8 @@ import useModalFocus from "../hooks/useModalFocus";
 import { sendFeedback } from "../lib/feedback";
 import { HELP_TOPICS, mockPickHelpTopic } from "../utils/helpTopics";
 
-// One box for questions, bugs and ideas. A question the guide can answer gets
-// one line and one place to go; anything else is a tap away from feedback.
+// One question, one line, one place to go. A question the guide cannot answer
+// is one tap from becoming feedback.
 export default function HelpSheet({ onClose, getInvoker = null, bowlId = null, send = sendFeedback }) {
   const [text, setText] = useState("");
   const [status, setStatus] = useState("idle");
@@ -45,7 +45,7 @@ export default function HelpSheet({ onClose, getInvoker = null, bowlId = null, s
     <div className="modal-overlay z-50" role="presentation">
       <div ref={dialog} tabIndex={-1} className="modal-surface max-w-lg p-5 sm:p-7" role="dialog" aria-modal="true" aria-labelledby="help-title">
         <div className="mb-4 flex items-center justify-between">
-          <h3 id="help-title" className="section-title text-xl">Help &amp; feedback</h3>
+          <h3 id="help-title" className="section-title text-xl">Help</h3>
           <button type="button" className="icon-btn" aria-label="Close" onClick={onClose}>✕</button>
         </div>
         {status === "sent" ? (
@@ -57,9 +57,9 @@ export default function HelpSheet({ onClose, getInvoker = null, bowlId = null, s
           <>
             <form className="flex items-end gap-2" onSubmit={(event) => { event.preventDefault(); ask(); }}>
               <textarea
-                className="input-field min-h-24 flex-1"
-                aria-label="Question or feedback"
-                placeholder="Ask how to do something, or tell us what's wrong"
+                className="input-field min-h-20 flex-1"
+                aria-label="Question"
+                placeholder="How do I…"
                 maxLength={4000}
                 value={text}
                 autoFocus
@@ -94,7 +94,6 @@ export default function HelpSheet({ onClose, getInvoker = null, bowlId = null, s
               </div>
             )}
             {failure && <div className="status-error mt-3" role="alert">{failure}</div>}
-            <p className="mt-3 text-xs text-slate-500">Feedback sends with your page and device.</p>
           </>
         )}
       </div>
