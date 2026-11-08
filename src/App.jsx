@@ -11,6 +11,7 @@ import useUserBowls, { UserBowlsProvider } from "./hooks/useUserBowls";
 import TopNav from "./components/TopNav";
 import OfflineBanner from "./components/OfflineBanner";
 import UpdateBanner from "./components/UpdateBanner";
+import HelpLanding from "./components/HelpLanding";
 import AppErrorBoundary from "./components/AppErrorBoundary";
 import { recoverFromStaleChunkError } from "./utils/appVersion";
 import { trackRouteLoad } from "./utils/routeLoading";
@@ -167,6 +168,7 @@ function AppShell({ children }) {
 
       <div className={shouldShowTopNav ? "pt-16" : ""}>
         {updateReady && !isTvRoute && <UpdateBanner />}
+        <HelpLanding />
         {shouldShowTopNav && !bowlAdd.open && <BowlAddStatusBanner />}
         {children}
       </div>

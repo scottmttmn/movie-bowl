@@ -2138,3 +2138,11 @@
       rgba(6, 11, 20, 0.9);
   }
 }
+
+/* What the help panel pointed at, ringed on arrival so the eye lands on it.
+   A shadow rather than a border or padding, so nothing on the page moves. */
+.help-target {
+  box-shadow: 0 0 0 6px rgb(2 6 23 / 0.6), 0 0 0 8px rgb(251 113 133 / 0.8), 0 0 0 16px rgb(251 113 133 / 0.12);
+  transition: box-shadow 600ms ease;
+}
+[data-help-row].help-target { border-radius: 0.75rem; }

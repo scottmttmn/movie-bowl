@@ -1298,6 +1298,7 @@ return (
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
                   <button
+                    id="bowl-filters"
                     type="button"
                     onClick={() => setShowDrawFilters((prev) => !prev)}
                     className={`icon-btn relative ${showDrawFilters ? "border-rose-700 text-rose-300" : ""}`}
@@ -1778,7 +1779,7 @@ return (
             )}
 
 
-            <section className="panel my-movies-panel mt-5 w-full max-w-full min-w-0">
+            <section id="my-movies" className="panel my-movies-panel mt-5 w-full max-w-full min-w-0">
               {/* Wraps only where the heading and "Draw for myself" cannot share
                   a line, the narrowest phones, rather than overlapping. */}
               <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
@@ -1865,7 +1866,7 @@ return (
               {myMoviesErrorMessage && <p className="mt-2 text-sm text-rose-300">{myMoviesErrorMessage}</p>}
             </section>
 
-            <section className="panel-muted watched-panel mt-4 w-full max-w-full min-w-0 overflow-x-auto">
+            <section id="watched" className="panel-muted watched-panel mt-4 w-full max-w-full min-w-0 overflow-x-auto">
                 <WatchedMoviesStrip
                   movies={bowl.watched}
                   isExpanded={showWatched}
