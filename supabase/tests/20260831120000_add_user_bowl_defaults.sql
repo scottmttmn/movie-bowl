@@ -80,10 +80,10 @@ select is(_ensure_user_bowl_default('00000000-0000-0000-0000-000000000092'),
 delete from bowl_members where user_id='00000000-0000-0000-0000-000000000092';
 set local role authenticated;
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000092',true);
-select is(get_my_bowl_context(),'{"default_bowl_id":null,"bowls":[]}'::jsonb,'loss of final bowl resolves to empty context');
+select is(get_my_bowl_context(),'{"default_bowl_id":null,"bowls":[],"restaurant_bowls_enabled":false}'::jsonb,'loss of final bowl resolves to empty context');
 select set_config('request.jwt.claim.sub','00000000-0000-0000-0000-000000000093',true);
 select throws_ok($$select set_my_default_bowl('10000000-0000-0000-0000-000000000091')$$,'42501','That bowl is no longer available.','outsider cannot select a private bowl');
-select is(get_my_bowl_context(),'{"default_bowl_id":null,"bowls":[]}'::jsonb,'outsider cannot list private bowls');
+select is(get_my_bowl_context(),'{"default_bowl_id":null,"bowls":[],"restaurant_bowls_enabled":false}'::jsonb,'outsider cannot list private bowls');
 select set_config('request.jwt.claim.sub','',true);
 select throws_ok($$select get_my_bowl_context()$$,'42501','You must be signed in to load your bowls.','function rejects a missing user even with execute permission');
 reset role;

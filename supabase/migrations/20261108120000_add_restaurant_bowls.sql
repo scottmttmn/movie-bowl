@@ -207,6 +207,35 @@ $$;
 
 revoke all on function public._accessible_bowl_context(uuid) from public, anon, authenticated;
 
+-- The same read answers whether this account has turned restaurant bowls on,
+-- so the create dialog knows whether to offer the choice without a second read.
+create or replace function public.get_my_bowl_context()
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_default uuid;
+  v_bowls jsonb;
+  v_restaurants boolean;
+begin
+  if v_user_id is null then
+    raise exception 'You must be signed in to load your bowls.' using errcode = '42501';
+  end if;
+  select coalesce(p.restaurant_bowls_enabled, false) into v_restaurants
+    from public.profiles p where p.id = v_user_id;
+  for attempt in 1..2 loop
+    v_default := public._ensure_user_bowl_default(v_user_id);
+    select coalesce(jsonb_agg(to_jsonb(c) order by c.last_activity_at desc nulls last, c.name, c.id), '[]'::jsonb)
+      into v_bowls from public._accessible_bowl_context(v_user_id) c;
+    if (v_default is null and jsonb_array_length(v_bowls) = 0)
+      or exists (select 1 from jsonb_array_elements(v_bowls) c where c->>'id' = v_default::text) then
+      return jsonb_build_object('default_bowl_id', v_default, 'bowls', v_bowls,
+        'restaurant_bowls_enabled', coalesce(v_restaurants, false));
+    end if;
+  end loop;
+  raise exception 'Your bowls changed. Please try again.' using errcode = '40001';
+end;
+$$;
+
 -- A draw copies the restaurant onto its event, so the bowl's history can show
 -- it, and writes no personal watch history for a restaurant bowl.
 create or replace function public._record_bowl_movie_draw(

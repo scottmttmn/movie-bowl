@@ -3,7 +3,7 @@ begin;
 create extension if not exists pgtap with schema extensions;
 set search_path = public, extensions;
 
-select plan(31);
+select plan(33);
 
 insert into auth.users (id, email)
 values
@@ -244,6 +244,14 @@ select is(
 );
 set local role authenticated;
 select pg_temp.act_as('00000000-0000-0000-0000-000000000813');
+select is(
+  public.get_my_bowl_context()->'restaurant_bowls_enabled',
+  'false'::jsonb,
+  'the account context says when restaurant bowls are off'
+);
+reset role;
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-000000000813');
 update public.profiles set restaurant_bowls_enabled = true where id = '00000000-0000-0000-0000-000000000813';
 update public.profiles set restaurant_bowls_enabled = true where id = '00000000-0000-0000-0000-000000000811';
 reset role;
@@ -257,6 +265,14 @@ select is(
   false,
   'an account cannot turn them on for someone else'
 );
+set local role authenticated;
+select pg_temp.act_as('00000000-0000-0000-0000-000000000813');
+select is(
+  public.get_my_bowl_context()->'restaurant_bowls_enabled',
+  'true'::jsonb,
+  'the account context says when restaurant bowls are on'
+);
+reset role;
 
 select * from finish();
 rollback;

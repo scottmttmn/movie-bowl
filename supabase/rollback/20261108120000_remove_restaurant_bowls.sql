@@ -101,6 +101,29 @@ $$;
 
 revoke all on function public._accessible_bowl_context(uuid) from public, anon, authenticated;
 
+create or replace function public.get_my_bowl_context()
+returns jsonb language plpgsql security definer set search_path = '' as $$
+declare
+  v_user_id uuid := auth.uid();
+  v_default uuid;
+  v_bowls jsonb;
+begin
+  if v_user_id is null then
+    raise exception 'You must be signed in to load your bowls.' using errcode = '42501';
+  end if;
+  for attempt in 1..2 loop
+    v_default := public._ensure_user_bowl_default(v_user_id);
+    select coalesce(jsonb_agg(to_jsonb(c) order by c.last_activity_at desc nulls last, c.name, c.id), '[]'::jsonb)
+      into v_bowls from public._accessible_bowl_context(v_user_id) c;
+    if (v_default is null and jsonb_array_length(v_bowls) = 0)
+      or exists (select 1 from jsonb_array_elements(v_bowls) c where c->>'id' = v_default::text) then
+      return jsonb_build_object('default_bowl_id', v_default, 'bowls', v_bowls);
+    end if;
+  end loop;
+  raise exception 'Your bowls changed. Please try again.' using errcode = '40001';
+end;
+$$;
+
 create or replace function public._record_bowl_movie_draw(
   p_bowl_movie_id uuid,
   p_watched_timezone text,
