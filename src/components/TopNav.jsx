@@ -21,7 +21,6 @@ export default function TopNav({
 }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [feedbackSource, setFeedbackSource] = useState(null);
-  const [feedbackDraft, setFeedbackDraft] = useState("");
   const [isHelpOpen, setIsHelpOpen] = useState(false);
   const location = useLocation();
   const helpBowlId = location.pathname.match(/^\/bowl\/([^/]+)/)?.[1] || null;
@@ -204,15 +203,7 @@ export default function TopNav({
                     onClick={() => { setIsMenuOpen(false); setIsHelpOpen(true); }}
                     className="flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white"
                   >
-                    Help
-                  </button>
-                  <button
-                    type="button"
-                    role="menuitem"
-                    onClick={() => { setIsMenuOpen(false); setFeedbackDraft(""); setFeedbackSource("app"); }}
-                    className="flex min-h-10 w-full items-center rounded-lg px-3 py-2 text-sm text-slate-200 transition hover:bg-slate-800 hover:text-white"
-                  >
-                    Send feedback
+                    Help &amp; feedback
                   </button>
                   <button
                     type="button"
@@ -248,13 +239,11 @@ export default function TopNav({
           bowlId={helpBowlId}
           getInvoker={getMenuButton}
           onClose={() => setIsHelpOpen(false)}
-          onSendFeedback={(text) => { setIsHelpOpen(false); setFeedbackDraft(text); setFeedbackSource("app"); }}
         />,
         document.body
       )}
       {feedbackSource && createPortal(
         <FeedbackSheet
-          initialMessage={feedbackDraft}
           page={feedbackSource === "tv" ? "/tv" : null}
           getInvoker={getMenuButton}
           onClose={() => setFeedbackSource(null)}

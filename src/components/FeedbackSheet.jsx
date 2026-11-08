@@ -6,8 +6,8 @@ import { sendFeedback } from "../lib/feedback";
 // sheet owes: it sends the page and the device as well as what was typed. From
 // the error screen the error rides along too, shown above the box so the
 // sender sees exactly what goes.
-export default function FeedbackSheet({ initialMessage = "", onClose, errorText = "", page = null, getInvoker = null, send = sendFeedback }) {
-  const [message, setMessage] = useState(initialMessage);
+export default function FeedbackSheet({ onClose, errorText = "", page = null, getInvoker = null, send = sendFeedback }) {
+  const [message, setMessage] = useState("");
   const [status, setStatus] = useState("idle");
   const [failure, setFailure] = useState("");
   const isSending = status === "sending";
