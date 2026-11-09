@@ -1,8 +1,9 @@
 # Restaurant Bowls
 
-Status: a plan, being built in five steps. Step 1, the schema
-(`supabase/migrations/20261108120000_add_restaurant_bowls.sql`), is the only
-part that exists. Nothing in the app creates or shows a restaurant bowl yet.
+Status: being built in five steps. Steps 1 and 2 are built: the schema, and
+restaurant bowls behind the Settings switch, added to by name and drawn with
+a Directions link. Google search, the Cuisine and Open filters, and the longer
+return window are not built yet.
 
 ## Why
 
@@ -48,11 +49,16 @@ rotation, the reveal and returning a draw, with one account and one deploy.
 1. Schema: `bowls.kind`, `cuisine` and `place_id` on slips and draw events,
    the setting, `create_owned_bowl(id, name, kind)`, and the kind in the
    account's bowl context. **Built.**
-2. Restaurant bowls behind the setting, adding by name, the Cuisine filter,
-   and the drawn sheet. Hidden from the TV, solo draw and Watch History.
+2. Restaurant bowls behind the setting, adding by name with a cuisine chip,
+   paper slips in place of posters, and the drawn sheet with Directions.
+   Hidden from the TV and solo draw, and kept out of Watch History; Bowl
+   Settings leaves out starter packs, the streaming chart and add links.
+   The bowl page reads the kind through `BowlKindContext`. **Built.**
 3. Google search through a places route in `api/movie-cache.js`.
-4. The Open filter, with a monthly budget in Supabase for the hours lookups
-   (1,000 free a month), plus Reserve, Website and Call.
+4. The restaurant filter sheet: Cuisine, and Open with a monthly budget in
+   Supabase for the hours lookups (1,000 free a month), plus Reserve,
+   Website and Call. Until then a restaurant bowl draws from every slip and
+   has no filter button.
 5. Returning a draw until the end of the day it was drawn for.
 
 Later: a distance filter. Not possible for free: how busy a place is.

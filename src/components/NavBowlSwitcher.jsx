@@ -18,7 +18,7 @@ import bowlImage from "../assets/movie-bowl.webp";
 // for the bowl being viewed, and away from a bowl there is none.
 export default function NavBowlSwitcher({ homeBowlName }) {
   const navigate = useNavigate();
-  const { bowls, defaultBowlId, loading, error, refresh } = useUserBowls();
+  const { bowls, defaultBowlId, loading, error, refresh, restaurantBowlsEnabled } = useUserBowls();
   const [isOpen, setIsOpen] = useState(false);
   const triggerRef = useRef(null);
   const ownedBowlCount = bowls.filter((bowl) => bowl.role === "Owner").length;
@@ -35,6 +35,8 @@ export default function NavBowlSwitcher({ homeBowlName }) {
     open: openCreateBowl,
     setBowlName: setNewBowlName,
     setInviteEmails: setCreateInviteEmails,
+    kind: newBowlKind,
+    setKind: setNewBowlKind,
   } = useCreateBowl({ ownedBowlCount, refresh });
 
   // Opening a bowl is a visit, so push: browser Back returns to the page the
@@ -143,6 +145,9 @@ export default function NavBowlSwitcher({ homeBowlName }) {
         onClose={closeCreateBowl}
         isCreating={isCreatingBowl}
         errorMessage={createErrorMessage}
+        offerKinds={restaurantBowlsEnabled}
+        kind={newBowlKind}
+        onChangeKind={setNewBowlKind}
       />
       {createActionMessage && !isCreateBowlOpen && (
         <p className="sr-only" role="status">{createActionMessage}</p>

@@ -5,11 +5,13 @@ import { DEFAULT_DRAW_SETTINGS, normalizeDefaultDrawSettings } from "../utils/dr
 import { valuesAreEqual } from "./useAutosave";
 import { getDisplayNameValidationError, normalizeDisplayName } from "../utils/profileIdentity";
 import { isPageUnloading } from "../utils/pageLifecycle";
+import { notifyBowlChange } from "../lib/bowlChanges";
 
 export default function useUserStreamingServices({ autoLoad = true } = {}) {
   const [streamingServices, setStreamingServicesState] = useState([]);
   const [defaultDrawSettings, setDefaultDrawSettingsState] = useState(DEFAULT_DRAW_SETTINGS);
   const [removeFromBowlsOnSoloDraw, setRemoveFromBowlsOnSoloDrawState] = useState(false);
+  const [restaurantBowlsEnabled, setRestaurantBowlsEnabledState] = useState(false);
   const [displayName, setDisplayName] = useState("");
   const [accountEmail, setAccountEmail] = useState("");
   const [loading, setLoading] = useState(autoLoad);
@@ -44,7 +46,7 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
 
       const { data, error } = await supabase
         .from("profiles")
-        .select("display_name, streaming_services, default_draw_settings, remove_from_bowls_on_solo_draw")
+        .select("display_name, streaming_services, default_draw_settings, remove_from_bowls_on_solo_draw, restaurant_bowls_enabled")
         .eq("id", user.id)
         .single();
 
@@ -63,6 +65,7 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
       setStreamingServicesState(normalized);
       setDefaultDrawSettingsState(normalizedDrawSettings);
       setRemoveFromBowlsOnSoloDrawState(data?.remove_from_bowls_on_solo_draw === true);
+      setRestaurantBowlsEnabledState(data?.restaurant_bowls_enabled === true);
       return normalized;
     } catch (error) {
       if (isPageUnloading()) abandonedLoadRef.current = true;
@@ -177,6 +180,36 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
     [loadError, removeFromBowlsOnSoloDraw]
   );
 
+  // Its own column for the same reason, and the account's bowl context reads
+  // it too, so a save tells that context to read again.
+  const saveRestaurantBowlsEnabled = useCallback(
+    async (enabled) => {
+      if (loadError) return { error: loadError };
+      const { data: authData, error: authError } = await supabase.auth.getSession();
+      const user = authData?.session?.user;
+
+      if (authError || !user) {
+        return { error: authError || new Error("Not authenticated") };
+      }
+
+      const next = enabled === true;
+      const { error } = await supabase
+        .from("profiles")
+        .update({ restaurant_bowls_enabled: next })
+        .eq("id", user.id);
+
+      if (!error) {
+        setRestaurantBowlsEnabledState((current) =>
+          current === restaurantBowlsEnabled ? next : current
+        );
+        notifyBowlChange({ type: "account", userId: user.id });
+      }
+
+      return { error };
+    },
+    [loadError, restaurantBowlsEnabled]
+  );
+
   const saveDisplayName = useCallback(async (value = displayName) => {
     const validationError = getDisplayNameValidationError(value);
     if (validationError) return { error: new Error(validationError) };
@@ -221,6 +254,9 @@ export default function useUserStreamingServices({ autoLoad = true } = {}) {
     saveStreamingServices,
     saveDefaultDrawSettings,
     saveRemoveFromBowlsOnSoloDraw,
+    restaurantBowlsEnabled,
+    setRestaurantBowlsEnabled: setRestaurantBowlsEnabledState,
+    saveRestaurantBowlsEnabled,
     saveDisplayName,
   };
 }

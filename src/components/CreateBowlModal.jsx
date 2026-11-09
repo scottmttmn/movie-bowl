@@ -1,3 +1,6 @@
+import FilmStripGlyph from "./FilmStripGlyph";
+import ForkKnifeGlyph from "./ForkKnifeGlyph";
+
 export default function CreateBowlModal({
   isOpen,
   bowlName,
@@ -8,6 +11,10 @@ export default function CreateBowlModal({
   onClose,
   isCreating = false,
   errorMessage = null,
+  // Offered only to accounts that turned restaurant bowls on in Settings.
+  offerKinds = false,
+  kind = "movies",
+  onChangeKind,
 }) {
   if (!isOpen) return null;
 
@@ -30,6 +37,29 @@ export default function CreateBowlModal({
           }}
           autoFocus
         />
+        {offerKinds && (
+          <div className="mb-4 grid grid-cols-2 gap-1 rounded-xl border border-slate-700 bg-slate-900 p-1" role="radiogroup" aria-label="Kind of bowl">
+            {[
+              { value: "movies", label: "Movies", glyph: <FilmStripGlyph className="h-4 w-4" /> },
+              { value: "restaurants", label: "Restaurants", glyph: <ForkKnifeGlyph className="h-4 w-4" /> },
+            ].map(({ value, label, glyph }) => (
+              <button
+                key={value}
+                type="button"
+                role="radio"
+                aria-checked={kind === value}
+                disabled={isCreating}
+                onClick={() => onChangeKind?.(value)}
+                className={`flex h-11 items-center justify-center gap-2 rounded-lg text-sm font-semibold transition ${
+                  kind === value ? "bg-rose-700 text-white" : "text-slate-400 hover:text-slate-200"
+                }`}
+              >
+                {glyph}
+                {label}
+              </button>
+            ))}
+          </div>
+        )}
         <label htmlFor="new-bowl-invites" className="mb-1 block text-sm font-medium text-slate-300">
           Invite emails (optional)
         </label>

@@ -1,6 +1,9 @@
 import { useCallback, useEffect, useState } from "react";
 import { supabase } from "../../lib/supabase";
 import { DEFAULT_DRAW_METHOD, normalizeDrawMethod } from "../../utils/drawMethods";
+import { isRestaurantKind } from "../../utils/restaurants";
+
+const RESTAURANT_BOWL_ON_TV_MESSAGE = "That bowl is for restaurants. Draw it on your phone.";
 
 function getActivityTime(bowl) {
   const time = new Date(bowl?.lastActivityAt || 0).getTime();
@@ -54,8 +57,12 @@ export function useTvBowls(userId) {
         return;
       }
 
-      const [{ data: rows, error }, homeResult] = await Promise.all([
+      const [{ data: rows, error }, { data: kindRows, error: kindError }, homeResult] = await Promise.all([
         supabase.rpc("get_my_bowls_with_counts"),
+        // The television plays movies, so a restaurant bowl stays on the
+        // phone. The kind is read from the bowls themselves and a failed read
+        // fails the list: guessing "movies" would open a restaurant bowl here.
+        supabase.from("bowls").select("id, kind").in("id", [...allowedBowlIds]),
         // The house is a mark, not a route: a failed read leaves every card
         // unmarked rather than failing the list.
         supabase.rpc("get_my_bowl_context").then(
@@ -63,16 +70,21 @@ export function useTvBowls(userId) {
           (homeError) => ({ error: homeError })
         ),
       ]);
-      if (error) throw error;
+      if (error || kindError) throw error || kindError;
       if (homeResult?.error) {
         console.error("[useTvBowls] Failed to load the home bowl", homeResult.error);
       }
       setHomeBowlId(homeResult?.error ? null : homeResult?.data?.default_bowl_id || null);
+      const restaurantBowlIds = new Set(
+        (kindRows || [])
+          .filter((bowl) => isRestaurantKind(bowl?.kind))
+          .map((bowl) => bowl.id)
+      );
 
       setBowls(
         sortBowlsByActivity(
           (rows || [])
-            .filter((bowl) => allowedBowlIds.has(bowl.id))
+            .filter((bowl) => allowedBowlIds.has(bowl.id) && !restaurantBowlIds.has(bowl.id))
             .map((bowl) => ({
               id: bowl.id,
               name: bowl.name || "Untitled bowl",
@@ -134,7 +146,7 @@ export function useTvBowlAccess(bowlId, userId) {
       try {
         let { data: bowlRow, error: bowlError } = await supabase
           .from("bowls")
-          .select("name, owner_id, draw_access_mode, draw_method")
+          .select("name, owner_id, draw_access_mode, draw_method, kind")
           .eq("id", bowlId)
           .single();
 
@@ -191,6 +203,12 @@ export function useTvBowlAccess(bowlId, userId) {
           throw new Error("This television no longer has access to that bowl.");
         }
 
+        // A saved or typed link can still name a restaurant bowl; the list
+        // leaving it out is not enough.
+        if (isRestaurantKind(bowlRow.kind)) {
+          throw new Error(RESTAURANT_BOWL_ON_TV_MESSAGE);
+        }
+
         let canDraw = isOwner || bowlRow.draw_access_mode !== "selected_members";
 
         if (!canDraw) {
@@ -237,6 +255,7 @@ export function useTvBowlAccess(bowlId, userId) {
         if (!cancelled) {
           setErrorMessage(
             error?.message === "This television no longer has access to that bowl."
+              || error?.message === RESTAURANT_BOWL_ON_TV_MESSAGE
               ? error.message
               : "Movie Bowl could not open this bowl."
           );

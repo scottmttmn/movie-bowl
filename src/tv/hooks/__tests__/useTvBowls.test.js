@@ -2,7 +2,7 @@ import { renderHook, waitFor } from "@testing-library/react";
 import { beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => ({
-  state: { homeResult: null, homeThrows: false },
+  state: { homeResult: null, homeThrows: false, kindRows: [], kindError: null },
 }));
 
 vi.mock("../../../lib/supabase", () => ({
@@ -12,6 +12,7 @@ vi.mock("../../../lib/supabase", () => ({
         eq: async () => (table === "bowls"
           ? { data: [{ id: "family" }], error: null }
           : { data: [{ bowl_id: "friends" }], error: null }),
+        in: async () => ({ data: mocks.state.kindRows, error: mocks.state.kindError }),
       }),
     }),
     rpc: async (name) => {
@@ -39,6 +40,8 @@ describe("useTvBowls", () => {
   beforeEach(() => {
     mocks.state.homeResult = { data: { default_bowl_id: "friends", bowls: [] }, error: null };
     mocks.state.homeThrows = false;
+    mocks.state.kindRows = [{ id: "family", kind: "movies" }, { id: "friends", kind: "movies" }];
+    mocks.state.kindError = null;
     vi.spyOn(console, "error").mockImplementation(() => {});
   });
 
@@ -65,5 +68,30 @@ describe("useTvBowls", () => {
       expect(result.current.homeBowlId).toBeNull();
       unmount();
     }
+  });
+
+  it("leaves restaurant bowls off the television, even when the account context fails", async () => {
+    mocks.state.kindRows = [{ id: "family", kind: "movies" }, { id: "friends", kind: "restaurants" }];
+    for (const context of [
+      () => { mocks.state.homeResult = { data: { default_bowl_id: "family", bowls: [] }, error: null }; },
+      () => { mocks.state.homeThrows = true; },
+    ]) {
+      context();
+      const { result, unmount } = renderHook(() => useTvBowls("user-1"));
+
+      await waitFor(() => expect(result.current.isLoading).toBe(false));
+      expect(result.current.bowls.map((bowl) => bowl.id)).toEqual(["family"]);
+      unmount();
+    }
+  });
+
+  // Without the kinds the list cannot tell a restaurant bowl from a movie one.
+  it("fails the list rather than guess when the kinds cannot be read", async () => {
+    mocks.state.kindError = { message: "denied" };
+    const { result } = renderHook(() => useTvBowls("user-1"));
+
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    expect(result.current.bowls).toEqual([]);
+    expect(result.current.errorMessage).toBe("Movie Bowl could not load your bowls. Try again.");
   });
 });

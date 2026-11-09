@@ -462,6 +462,7 @@ export class FakeBackend {
     return this.state.bowls.filter((bowl) => bowl.owner_id === userId
       || this.state.bowl_members.some((member) => member.bowl_id === bowl.id && member.user_id === userId))
       .map((bowl) => ({ ...bowl,
+        kind: bowl.kind || "movies",
         remaining_count: this.state.bowl_movies.filter((movie) => movie.bowl_id === bowl.id && movie.drawn_at == null).length,
         member_count: new Set([bowl.owner_id, ...this.state.bowl_members.filter((member) => member.bowl_id === bowl.id).map((member) => member.user_id)]).size,
         last_activity_at: bowl.updated_at || bowl.created_at || null,
@@ -476,7 +477,9 @@ export class FakeBackend {
         || a.name.trim().toLowerCase().localeCompare(b.name.trim().toLowerCase()) || a.id.localeCompare(b.id));
       this.state.defaults[userId] = ranked[0]?.id || null;
     }
-    return { default_bowl_id: this.state.defaults[userId], bowls };
+    const profile = this.state.profiles.find((row) => row.id === userId);
+    return { default_bowl_id: this.state.defaults[userId], bowls,
+      restaurant_bowls_enabled: profile?.restaurant_bowls_enabled === true };
   }
 
   async handleRpc(route, rpcName, args) {
@@ -506,6 +509,7 @@ export class FakeBackend {
           updated_at: now,
           draw_access_mode: "all_members",
           draw_method: "person_first",
+          kind: args.p_kind || "movies",
         };
         this.state.bowls.push(bowl);
       }
@@ -652,8 +656,9 @@ export class FakeBackend {
           .filter((member) => member.bowl_id === movie.bowl_id)
           .map((member) => member.user_id),
       ]);
+      // A restaurant bowl's draw writes no personal watch history.
       participantIds.forEach((userId) => {
-        if (!userId) return;
+        if (!userId || bowl?.kind === "restaurants") return;
         this.state.user_watch_events.push({
           id: nextId(this.state, "watch", "user_watch_events"),
           user_id: userId,

@@ -4,6 +4,7 @@ import useUserStreamingServices from "../useUserStreamingServices";
 import useAutosave from "../useAutosave";
 import { DEFAULT_DRAW_SETTINGS } from "../../utils/drawSettings";
 import { resetPageLifecycleForTests } from "../../utils/pageLifecycle";
+import { subscribeBowlChanges } from "../../lib/bowlChanges";
 
 const mocks = vi.hoisted(() => {
   const state = {
@@ -286,6 +287,24 @@ describe("useUserStreamingServices", () => {
       { remove_from_bowls_on_solo_draw: true },
     ]);
     expect(result.current.removeFromBowlsOnSoloDraw).toBe(true);
+  });
+
+  // The account's bowl context reads the same column, so it is told to read again.
+  it("saves restaurant bowls on its own column and refreshes the bowl context", async () => {
+    const changes = [];
+    const unsubscribe = subscribeBowlChanges((change) => changes.push(change));
+    const { result } = renderHook(() => useUserStreamingServices({ autoLoad: false }));
+
+    let response;
+    await act(async () => {
+      response = await result.current.saveRestaurantBowlsEnabled(true);
+    });
+    unsubscribe();
+
+    expect(response).toEqual({ error: null });
+    expect(mocks.state.updatedPayloads).toEqual([{ restaurant_bowls_enabled: true }]);
+    expect(result.current.restaurantBowlsEnabled).toBe(true);
+    expect(changes).toEqual([expect.objectContaining({ type: "account" })]);
   });
 
   it("can reload services on demand", async () => {

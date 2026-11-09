@@ -31,6 +31,7 @@ export default function InvitesPage() {
     loading: isBowlsLoading,
     error: bowlsError,
     refresh: refreshBowls,
+    restaurantBowlsEnabled,
   } = useUserBowls();
   // Until the context resolves, ownership is unknown -- which is not the same as
   // owning nothing. Deciding otherwise would offer Create to an owner already at
@@ -571,6 +572,9 @@ export default function InvitesPage() {
         onClose={createBowl.close}
         isCreating={createBowl.isCreating}
         errorMessage={createBowl.errorMessage}
+        offerKinds={restaurantBowlsEnabled}
+        kind={createBowl.kind}
+        onChangeKind={createBowl.setKind}
       />
     </div>
   );

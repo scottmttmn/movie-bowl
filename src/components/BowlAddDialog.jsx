@@ -9,6 +9,8 @@ import useModalFocus from "../hooks/useModalFocus";
 import useSearchMarks from "../hooks/useSearchMarks";
 import MovieSearch from "./MovieSearch";
 import AddedMoviesList from "./AddedMoviesList";
+import RestaurantAddForm from "./RestaurantAddForm";
+import { getBowlKindWords, isRestaurantKind } from "../utils/restaurants";
 
 function choiceDescription(bowl, bowls) {
   const matches = bowls.filter((other) => other.name === bowl.name);
@@ -43,6 +45,8 @@ export default function BowlAddDialog() {
   // only refuses a second attempt at the same title in the same bowl.
   const result = isUnsettledAddCode(add.result?.code) ? null : add.result;
   const disabled = add.pending || Boolean(lost) || add.initializing;
+  const isRestaurant = isRestaurantKind(destination?.kind);
+  const words = getBowlKindWords(destination?.kind);
   useEffect(() => {
     if (!add.open) {
       openLocation.current = location.key;
@@ -132,7 +136,7 @@ export default function BowlAddDialog() {
           </div>
         </div> : <p className="py-3 text-sm font-medium text-slate-200">Add to a bowl</p>}
       </div>
-      <button className="icon-btn h-11 w-11 shrink-0" aria-label="Close add movie" onClick={add.close}>✕</button>
+      <button className="icon-btn h-11 w-11 shrink-0" aria-label={isRestaurant ? "Close add restaurant" : "Close add movie"} onClick={add.close}>✕</button>
     </div>
     {lost && <div className="status-error mt-2" role="alert">
       You no longer have access to this bowl. Choose another bowl.
@@ -167,19 +171,26 @@ export default function BowlAddDialog() {
           setSessionView(true);
         }
       }}>
-      <span>{sessionView ? "Back to search" : "Added this session"}</span>
+      <span>{sessionView ? (isRestaurant ? "Back" : "Back to search") : "Added this session"}</span>
       {!sessionView && <span className="text-xs text-slate-400">{add.additions.length}</span>}
     </button>}
   </>;
   return createPortal(<div className="bowl-add-overlay" hidden={!add.open} style={{ height: viewport.height, top: viewport.top }}>
     <div ref={dialog} tabIndex={-1} role={add.open ? "dialog" : undefined} aria-modal={add.open ? "true" : undefined}
       aria-labelledby="bowl-add-title" className="modal-surface bowl-add-surface">
-      <h2 id="bowl-add-title" className="sr-only">Add a movie</h2>
+      <h2 id="bowl-add-title" className="sr-only">{words.add}</h2>
       {selector}
       {add.initializing ? <p role="status">Loading your bowls…</p> : !destination && add.bowlsError ? <div role="alert" className="status-error">
         {add.bowlsError}<button className="btn btn-secondary mt-3" onClick={() => add.openGlobalAdd()}>Retry</button>
       </div> : <>
-        {destination ? <MovieSearch controllerRef={search} initialSearchTerm={add.query} inlineDetails disabled={disabled} submissionPending={add.pending}
+        {destination && isRestaurant ? (sessionView
+          ? <><AddedMoviesList add={add} bowls={bowls} controllerRef={additions} onRemoved={() => setSessionView(false)} />{feedback}</>
+          // Keyed by the session and the bowl, so a reopened sheet or a new
+          // destination starts from an empty slip.
+          : <RestaurantAddForm key={`${add.id}:${destination.id}`} bowlName={destination.name}
+            initialName={add.query || ""} disabled={disabled || expanded} pending={add.pending}
+            onDraftChange={() => add.clearFeedback()} onSubmit={add.submit} feedback={feedback} />)
+        : destination ? <MovieSearch controllerRef={search} initialSearchTerm={add.query} inlineDetails disabled={disabled} submissionPending={add.pending}
           includeComment={false} autoFocusSearch={false}
           alternateBody={sessionView ? <AddedMoviesList add={add} bowls={bowls} controllerRef={additions}
             onRemoved={() => { setSessionView(false); search.current?.focusSearch(); }} /> : null}

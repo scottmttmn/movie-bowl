@@ -61,7 +61,8 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 - Restaurant bowls: **in progress November 8, 2026.** A second kind of bowl,
   hidden behind a Settings switch, drawing where to eat. Five steps in
-  `output/designs/restaurant-bowls.md`; step 1 (schema) is built.
+  `output/designs/restaurant-bowls.md`; steps 1 (schema) and 2 (bowls
+  added to by name, drawn with Directions) are built.
 
 - Departure notices: **built October 19, 2026** for search, movie details, and
   My Movies cards. Active bowl movies with a supported saved-service match

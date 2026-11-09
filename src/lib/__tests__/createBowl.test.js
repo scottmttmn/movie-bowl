@@ -281,4 +281,20 @@ describe("create bowl service", () => {
     });
     expect(sendEmails).not.toHaveBeenCalled();
   });
+
+  it("names a kind only for a restaurant bowl, so a movie bowl keeps the two-argument call", async () => {
+    const { client, createBowlCalls } = createClient({
+      bowlResponses: [
+        { data: { id: "bowl-1", name: "Friday Films" }, error: null },
+        { data: { id: "bowl-2", name: "Date Night Eats", kind: "restaurants" }, error: null },
+      ],
+    });
+    const service = createBowlCreationService({ client, sendEmails: vi.fn(), publish: vi.fn() });
+
+    await service.create({ bowlName: "Friday Films", bowlId: "bowl-1" });
+    await service.create({ bowlName: "Date Night Eats", bowlId: "bowl-2", kind: "restaurants" });
+
+    expect(createBowlCalls[0]).toEqual({ p_bowl_id: "bowl-1", p_name: "Friday Films" });
+    expect(createBowlCalls[1]).toEqual({ p_bowl_id: "bowl-2", p_name: "Date Night Eats", p_kind: "restaurants" });
+  });
 });

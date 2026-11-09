@@ -26,6 +26,9 @@ const mocks = vi.hoisted(() => ({
       includeUnknownRuntime: true,
     },
     removeFromBowlsOnSoloDraw: false,
+    restaurantBowlsEnabled: false,
+    setRestaurantBowlsEnabled: vi.fn(),
+    saveRestaurantBowlsEnabled: vi.fn(),
     setStreamingServices: vi.fn(),
     setDefaultDrawSettings: vi.fn(),
     setRemoveFromBowlsOnSoloDraw: vi.fn(),
@@ -86,6 +89,10 @@ describe("UserSettings", () => {
       includeUnknownRuntime: true,
     };
     mocks.hook.removeFromBowlsOnSoloDraw = false;
+    mocks.hook.restaurantBowlsEnabled = false;
+    mocks.hook.setRestaurantBowlsEnabled.mockReset();
+    mocks.hook.saveRestaurantBowlsEnabled.mockReset();
+    mocks.hook.saveRestaurantBowlsEnabled.mockImplementation(async () => ({ error: null }));
     mocks.hook.setStreamingServices.mockReset();
     mocks.hook.setDefaultDrawSettings.mockReset();
     mocks.hook.setRemoveFromBowlsOnSoloDraw.mockReset();
@@ -183,6 +190,24 @@ describe("UserSettings", () => {
     expect(mocks.hook.saveRemoveFromBowlsOnSoloDraw).toHaveBeenCalledWith(true);
     expect(mocks.hook.saveDefaultDrawSettings).not.toHaveBeenCalled();
     expect(mocks.hook.saveStreamingServices).not.toHaveBeenCalled();
+  });
+
+  it("keeps restaurant bowls off until the account turns them on, and saves that alone", async () => {
+    vi.useFakeTimers();
+    const { rerender } = renderSettings();
+
+    const toggle = screen.getByLabelText("Let me create restaurant bowls");
+    expect(toggle).not.toBeChecked();
+    fireEvent.click(toggle);
+    expect(mocks.hook.setRestaurantBowlsEnabled).toHaveBeenCalledWith(true);
+
+    mocks.hook.restaurantBowlsEnabled = true;
+    rerender(<UserSettings />);
+    await settleAutosave();
+
+    expect(mocks.hook.saveRestaurantBowlsEnabled).toHaveBeenCalledWith(true);
+    expect(mocks.hook.saveDefaultDrawSettings).not.toHaveBeenCalled();
+    expect(mocks.hook.saveRemoveFromBowlsOnSoloDraw).not.toHaveBeenCalled();
   });
 
   it("autosaves the private bowl display name", async () => {

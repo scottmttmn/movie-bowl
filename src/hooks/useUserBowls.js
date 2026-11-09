@@ -15,15 +15,18 @@ function normalizeContext(data, userId) {
     memberCount: Number(row.member_count || 0),
     role: row.owner_id === userId ? "Owner" : "Member",
     lastActivityAt: row.last_activity_at || null,
+    kind: row.kind === "restaurants" ? "restaurants" : "movies",
   })));
   const defaultBowlId = data.default_bowl_id || null;
   if ((bowls.length > 0 && !bowls.some((bowl) => bowl.id === defaultBowlId))
     || (bowls.length === 0 && defaultBowlId)) throw new Error("Inconsistent bowl context");
-  return { bowls, defaultBowlId };
+  return { bowls, defaultBowlId, restaurantBowlsEnabled: data.restaurant_bowls_enabled === true };
 }
 
 export function UserBowlsProvider({ children, userId, enabled = true }) {
-  const [state, setState] = useState({ bowls: [], defaultBowlId: null, loading: true, error: null });
+  const [state, setState] = useState({
+    bowls: [], defaultBowlId: null, restaurantBowlsEnabled: false, loading: true, error: null,
+  });
   const [savingDefault, setSavingDefault] = useState(false);
   const generation = useRef(0);
   const mounted = useRef(true);

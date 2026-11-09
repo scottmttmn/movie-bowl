@@ -109,6 +109,7 @@ describe("useCreateBowl", () => {
       inviteEmails: "friend@example.com",
       ownedBowlCount: 0,
       bowlId: expect.any(String),
+      kind: "movies",
     });
     expect(result.current.isOpen).toBe(true);
     expect(result.current.bowlName).toBe("Weekend Bowl");
@@ -348,5 +349,23 @@ describe("useCreateBowl", () => {
     expect(result.current.isOpen).toBe(true);
     expect(result.current.bowlName).toBe("Weekend Bowl");
     expect(console.error).toHaveBeenCalledWith("[useCreateBowl] Unexpected creation failure", failure);
+  });
+
+  it("sends the chosen kind and starts the next bowl as movies again", async () => {
+    const { result, service } = renderCreateBowl();
+    expect(result.current.kind).toBe("movies");
+    act(() => {
+      result.current.open();
+      result.current.setBowlName("Date Night Eats");
+      result.current.setKind("restaurants");
+    });
+    await act(async () => {
+      await result.current.create();
+    });
+    expect(service.create).toHaveBeenCalledWith(expect.objectContaining({
+      bowlName: "Date Night Eats",
+      kind: "restaurants",
+    }));
+    expect(result.current.kind).toBe("movies");
   });
 });
