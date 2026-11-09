@@ -98,3 +98,44 @@ export function countSlips(kind, count) {
   const words = getBowlKindWords(kind);
   return `${count} ${count === 1 ? words.one : words.many}`;
 }
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// Google's times are instants; the sheet reads them on the restaurant's own
+// clock, which is the one its door keeps, wherever the phone is.
+function onPlaceClock(iso, offsetMinutes) {
+  return new Date(Date.parse(iso) + offsetMinutes * 60_000);
+}
+
+function clockTime(date) {
+  const hours = date.getUTCHours();
+  const minutes = date.getUTCMinutes();
+  const hour = hours % 12 || 12;
+  return `${hour}${minutes ? `:${String(minutes).padStart(2, "0")}` : ""} ${hours < 12 ? "AM" : "PM"}`;
+}
+
+function dayDistance(from, to) {
+  const day = (date) => Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  return Math.round((day(to) - day(from)) / 86_400_000);
+}
+
+// "Open until 9 PM", "Closed · opens tomorrow 11 AM": what the drawn sheet
+// says about the door right now, or null when Google said nothing usable.
+export function describeOpenStatus(details, now = Date.now()) {
+  if (!details) return null;
+  if (details.closedForGood) return { tone: "gone", text: "Closed for good" };
+  const offset = Number.isInteger(details.utcOffsetMinutes) ? details.utcOffsetMinutes : 0;
+  const here = new Date(now + offset * 60_000);
+  if (details.openNow === true) {
+    if (!details.nextCloseTime) return { tone: "open", text: "Open now" };
+    return { tone: "open", text: `Open until ${clockTime(onPlaceClock(details.nextCloseTime, offset))}` };
+  }
+  if (details.openNow === false) {
+    if (!details.nextOpenTime) return { tone: "closed", text: "Closed now" };
+    const opens = onPlaceClock(details.nextOpenTime, offset);
+    const days = dayDistance(here, opens);
+    const day = days <= 0 ? "" : days === 1 ? "tomorrow " : `${WEEKDAYS[opens.getUTCDay()]} `;
+    return { tone: "closed", text: `Closed · opens ${day}${clockTime(opens)}` };
+  }
+  return null;
+}

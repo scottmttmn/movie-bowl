@@ -303,7 +303,9 @@ These are visible in the browser bundle by design.
   [Provider title links](#provider-title-links).
 - `GOOGLE_PLACES_API_KEY` — optional; restaurant bowls search Google Places
   with it and add by name without it. Restrict the key to Places API (New) and
-  use a separate key per environment.
+  use a separate key per environment. The drawn restaurant's hours, links and
+  photo use the same key; `PLACE_DETAILS_MONTHLY_BUDGET` may lower their
+  monthly budget (900 in Production, at most 100 elsewhere).
 - `MOVIE_OF_THE_NIGHT_API_KEY` — optional server secret for US departure notices;
   no departure lookups run without it. `MOVIE_OF_THE_NIGHT_REQUEST_BUDGET` may
   lower the rolling 32-UTC-date cap: 900 in Production, 100 in nonproduction.

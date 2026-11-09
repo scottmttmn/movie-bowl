@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   countSlips,
+  describeOpenStatus,
   filterSlipsByCuisine,
   getCuisineChoices,
   getRestaurantDirectionsUrl,
@@ -61,5 +62,26 @@ describe("restaurant helpers", () => {
       .toBe("Welcome to Movie Bowl. This bowl draws title-first.");
     expect(inBowlWords("movies", "One of their movies")).toBe("One of their movies");
     expect(inBowlWords("restaurants", null)).toBeNull();
+  });
+
+  it("reads Google's hours on the restaurant's own clock", () => {
+    // 7:30 PM in Decorah (UTC-6) on Sunday, November 8.
+    const now = Date.parse("2026-11-09T01:30:00Z");
+    const central = { utcOffsetMinutes: -360 };
+    expect(describeOpenStatus({ ...central, openNow: true, nextCloseTime: "2026-11-09T03:00:00Z" }, now))
+      .toEqual({ tone: "open", text: "Open until 9 PM" });
+    expect(describeOpenStatus({ ...central, openNow: true, nextCloseTime: "2026-11-09T07:30:00Z" }, now).text)
+      .toBe("Open until 1:30 AM");
+    expect(describeOpenStatus({ ...central, openNow: false, nextOpenTime: "2026-11-09T02:00:00Z" }, now).text)
+      .toBe("Closed · opens 8 PM");
+    expect(describeOpenStatus({ ...central, openNow: false, nextOpenTime: "2026-11-09T17:00:00Z" }, now).text)
+      .toBe("Closed · opens tomorrow 11 AM");
+    expect(describeOpenStatus({ ...central, openNow: false, nextOpenTime: "2026-11-11T17:00:00Z" }, now).text)
+      .toBe("Closed · opens Wed 11 AM");
+    expect(describeOpenStatus({ openNow: true }, now).text).toBe("Open now");
+    expect(describeOpenStatus({ closedForGood: true, openNow: false }, now))
+      .toEqual({ tone: "gone", text: "Closed for good" });
+    expect(describeOpenStatus({ openNow: null }, now)).toBeNull();
+    expect(describeOpenStatus(null)).toBeNull();
   });
 });
