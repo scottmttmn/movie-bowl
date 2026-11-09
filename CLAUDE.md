@@ -132,9 +132,9 @@ output/designs/      design specs and roadmaps for shipped + planned features
 
 Vercel Hobby allows 12 functions per deployment, and this app uses all 12.
 `vercel.json` rewrites account deletion, provider-link lookups,
-filter-metadata warmups, starter-pack candidates, starter-pack photos, departure lookups and
-feedback to `api/movie-cache.js`, which dispatches to their authorized handlers
-in `_lib/`. Preserve all seven public URLs when changing that shared entry point.
+filter-metadata warmups, starter-pack candidates, starter-pack photos, departure lookups,
+feedback and restaurant search to `api/movie-cache.js`, which dispatches to their authorized handlers
+in `_lib/`. Preserve all eight public URLs when changing that shared entry point.
 
 ### Layer rules
 
@@ -641,6 +641,14 @@ then a generic 500. They run in Node and are excluded from coverage; they are
   returned, because the report is already saved. The sheet sends what it says
   it sends -- the page path, never its query, and the device -- and the TV
   shows a QR code to `/bowls?feedback=tv` instead of a keyboard.
+- `api/places/search` (through `movie-cache`) is the restaurant add sheet's
+  search: signed-in only, one Google Places Autocomplete (New) call per
+  request with `GOOGLE_PLACES_API_KEY`, biased toward the caller through
+  Vercel's IP location headers. It returns the place id, name, short street
+  and a cuisine read from Google's types; only the place id is ever stored.
+  Without the key, or when Google fails, it answers `available: false` and
+  the sheet adds by name. Google's console caps Autocomplete per day; set that
+  quota rather than counting here.
 - `api/add-links/*` and `api/invites/send.js` use the service-role client from
   `api/_lib/supabaseAdmin.js`. This key bypasses RLS — every route using it must
   do its own authorization, and none of it may ever reach a `VITE_` variable.

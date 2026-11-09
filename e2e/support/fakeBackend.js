@@ -93,6 +93,10 @@ function createInitialState() {
     starterPackPeople: {},
     // Each pack's TMDB candidates by slug; a pack nobody seeded has none.
     starterPackCandidates: {},
+    // What Google Places would list for the restaurant add sheet; off answers
+    // the way a deploy without a key does.
+    places: [],
+    placesAvailable: true,
   };
 }
 
@@ -1283,6 +1287,14 @@ export class FakeBackend {
 
     if (url.pathname === "/api/tmdb/movie/warm-filter-metadata" && method === "POST") {
       await fulfillJson(route, { ok: true });
+      return;
+    }
+
+    if (url.pathname === "/api/places/search" && method === "POST") {
+      const query = String(body?.query || "").trim().toLowerCase();
+      await fulfillJson(route, this.state.placesAvailable
+        ? { available: true, results: this.state.places.filter((place) => place.name.toLowerCase().includes(query)) }
+        : { available: false, results: [] });
       return;
     }
 

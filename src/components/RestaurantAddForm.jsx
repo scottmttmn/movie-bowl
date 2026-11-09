@@ -2,12 +2,16 @@ import { useId, useState } from "react";
 import { MAX_MOVIE_NOTE_LENGTH } from "../utils/movieNote";
 import { MAX_RESTAURANT_NAME_LENGTH, RESTAURANT_CUISINES } from "../utils/restaurants";
 
-// Adding to a restaurant bowl, by name for now: the place as the adder writes
-// it, one cuisine chip, and why it belongs in the bowl. Search through Google
-// takes the top of this sheet when it lands; this stays as its fallback.
+// The slip a restaurant is added on: the place as the adder writes it
+// (prefilled from Google when it came from search), one cuisine chip, and why
+// it belongs in the bowl. A place from search carries its Google id, which is
+// all of Google's answer the slip keeps.
 export default function RestaurantAddForm({
   bowlName,
   initialName = "",
+  initialCuisine = null,
+  placeId = null,
+  autoFocusName = false,
   disabled = false,
   pending = false,
   onSubmit,
@@ -15,7 +19,7 @@ export default function RestaurantAddForm({
   feedback = null,
 }) {
   const [name, setName] = useState(initialName);
-  const [cuisine, setCuisine] = useState(null);
+  const [cuisine, setCuisine] = useState(initialCuisine);
   const [note, setNote] = useState("");
   const nameId = useId();
   const noteId = useId();
@@ -35,6 +39,7 @@ export default function RestaurantAddForm({
       cuisine,
       note,
       isCustomEntry: true,
+      ...(placeId ? { place_id: placeId } : {}),
     });
     if (result?.ok) {
       setName("");
@@ -53,6 +58,9 @@ export default function RestaurantAddForm({
           className="input-field w-full"
           placeholder="La Rana Bistro"
           autoComplete="off"
+          // Only when search gave out under the adder's fingers: the box they
+          // were typing in has just become this one.
+          autoFocus={autoFocusName}
           maxLength={MAX_RESTAURANT_NAME_LENGTH}
           value={name}
           disabled={disabled}
