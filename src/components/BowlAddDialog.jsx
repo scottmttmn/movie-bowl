@@ -9,7 +9,7 @@ import useModalFocus from "../hooks/useModalFocus";
 import useSearchMarks from "../hooks/useSearchMarks";
 import MovieSearch from "./MovieSearch";
 import AddedMoviesList from "./AddedMoviesList";
-import RestaurantAddForm from "./RestaurantAddForm";
+import RestaurantSearch from "./RestaurantSearch";
 import { getBowlKindWords, isRestaurantKind } from "../utils/restaurants";
 
 function choiceDescription(bowl, bowls) {
@@ -187,8 +187,8 @@ export default function BowlAddDialog() {
           ? <><AddedMoviesList add={add} bowls={bowls} controllerRef={additions} onRemoved={() => setSessionView(false)} />{feedback}</>
           // Keyed by the session and the bowl, so a reopened sheet or a new
           // destination starts from an empty slip.
-          : <RestaurantAddForm key={`${add.id}:${destination.id}`} bowlName={destination.name}
-            initialName={add.query || ""} disabled={disabled || expanded} pending={add.pending}
+          : <RestaurantSearch key={`${add.id}:${destination.id}`} bowlName={destination.name}
+            initialQuery={add.query || ""} disabled={disabled || expanded} pending={add.pending}
             onDraftChange={() => add.clearFeedback()} onSubmit={add.submit} feedback={feedback} />)
         : destination ? <MovieSearch controllerRef={search} initialSearchTerm={add.query} inlineDetails disabled={disabled} submissionPending={add.pending}
           includeComment={false} autoFocusSearch={false}

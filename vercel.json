@@ -59,6 +59,10 @@
       "destination": "/api/movie-cache?action=feedback"
     },
     {
+      "source": "/api/places/search",
+      "destination": "/api/movie-cache?action=places-search"
+    },
+    {
       "source": "/voice-probe/privacy",
       "destination": "/index.html"
     },

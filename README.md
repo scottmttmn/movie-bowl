@@ -301,6 +301,9 @@ These are visible in the browser bundle by design.
 - `WATCHMODE_API_KEY`, `PROVIDER_LINKS_ENABLED`, `PROVIDER_LINKS_MONTHLY_BUDGET`
   — optional, and off unless set; production sets them. See
   [Provider title links](#provider-title-links).
+- `GOOGLE_PLACES_API_KEY` — optional; restaurant bowls search Google Places
+  with it and add by name without it. Restrict the key to Places API (New) and
+  use a separate key per environment.
 - `MOVIE_OF_THE_NIGHT_API_KEY` — optional server secret for US departure notices;
   no departure lookups run without it. `MOVIE_OF_THE_NIGHT_REQUEST_BUDGET` may
   lower the rolling 32-UTC-date cap: 900 in Production, 100 in nonproduction.
@@ -708,7 +711,7 @@ rollback is in `supabase/rollback/20260830120000_remove_title_provider_links.sql
 revert the server's cleanup call before removing its RPC.
 
 The account-deletion, provider-lookup, filter-metadata warmup, starter-pack
-candidate and starter-pack photo URLs share `api/movie-cache.js` through
+candidate, starter-pack photo, feedback and restaurant-search URLs share `api/movie-cache.js` through
 explicit rewrites in `vercel.json`. Their private
 handlers live in `api/_lib/`; keeping them together holds the deployment at
 Vercel Hobby's 12-function limit without changing the client URLs or

@@ -22,6 +22,10 @@ test.describe("restaurant bowls", () => {
   });
 
   test("turn on in Settings, then create, add to and draw from a restaurant bowl", async ({ page, backend }) => {
+    backend.state.places = [
+      { placeId: "ChIJlarana", name: "La Rana Bistro", address: "Water St, Decorah", cuisine: "Mediterranean" },
+      { placeId: "ChIJmabes", name: "Mabe's Pizza", address: "W Water St, Decorah", cuisine: "Pizza" },
+    ];
     await page.goto("/settings");
     const toggle = page.getByLabel("Let me create restaurant bowls");
     await expect(toggle).not.toBeChecked();
@@ -42,13 +46,19 @@ test.describe("restaurant bowls", () => {
     await page.goto(`/bowl/${bowl.id}`);
     await page.getByRole("button", { name: "Add a restaurant to this bowl" }).click();
     const add = page.getByRole("dialog", { name: "Add a restaurant" });
-    await add.getByLabel("Restaurant", { exact: true }).fill("La Rana Bistro");
-    await add.getByRole("radio", { name: "Mediterranean" }).click();
+    await add.getByLabel("Search for a restaurant").fill("La Rana");
+    await add.getByRole("button", { name: "Add La Rana Bistro" }).click();
+    // The slip comes prefilled from Google, and the name stays the adder's.
+    await expect(add.getByLabel("Restaurant", { exact: true })).toHaveValue("La Rana Bistro");
+    await expect(add.getByRole("radio", { name: "Mediterranean" })).toHaveAttribute("aria-checked", "true");
+    await add.getByLabel("Restaurant", { exact: true }).fill("La Rana");
     await add.getByRole("button", { name: "Add to Date Night Eats" }).click();
-    await expect(add.getByRole("status").filter({ hasText: "Added La Rana Bistro" })).toBeVisible();
-    expect(backend.state.bowl_movies.find((row) => row.title === "La Rana Bistro")).toMatchObject({
-      bowl_id: bowl.id, cuisine: "Mediterranean",
+    await expect(add.getByRole("status").filter({ hasText: "Added La Rana" })).toBeVisible();
+    expect(backend.state.bowl_movies.find((row) => row.title === "La Rana")).toMatchObject({
+      bowl_id: bowl.id, cuisine: "Mediterranean", place_id: "ChIJlarana",
     });
+    // Back on search for the next place.
+    await expect(add.getByLabel("Search for a restaurant")).toHaveValue("");
     await add.getByRole("button", { name: "Close add restaurant" }).click();
 
     await expect(page.getByText("Drawing from 1 restaurant.")).toBeAttached();
@@ -58,9 +68,9 @@ test.describe("restaurant bowls", () => {
     await expect(page.getByRole("dialog", { name: "Reveal a restaurant?" })).toBeVisible();
     await page.getByRole("button", { name: "Reveal", exact: true }).click();
 
-    const sheet = page.getByRole("dialog", { name: "La Rana Bistro" });
+    const sheet = page.getByRole("dialog", { name: "La Rana" });
     await expect(sheet).toBeVisible({ timeout: 10_000 });
-    await expect(sheet.getByRole("link", { name: "Directions" })).toHaveAttribute("href", /google\.com\/maps\/search/);
+    await expect(sheet.getByRole("link", { name: "Directions" })).toHaveAttribute("href", /query_place_id=ChIJlarana/);
     expect(backend.state.user_watch_events).toHaveLength(0);
   });
 });

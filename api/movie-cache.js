@@ -4,6 +4,7 @@ import lookupProviderLinks from "./_lib/lookupProviderLinks.js";
 import starterPackCandidates, { starterPackPeople } from "./_lib/starterPackCandidates.js";
 import warmFilterMetadata from "./_lib/warmFilterMetadata.js";
 import lookupTitleDepartures from "./_lib/lookupTitleDepartures.js";
+import searchPlaces from "./_lib/placesSearch.js";
 
 // Public URLs are rewritten here to stay within Vercel Hobby's
 // twelve-function limit. Each handler keeps its own authorization checks.
@@ -28,6 +29,9 @@ export default async function handler(req, res) {
   }
   if (req.query?.action === "feedback") {
     return sendFeedback(req, res);
+  }
+  if (req.query?.action === "places-search") {
+    return searchPlaces(req, res);
   }
   res.status(404).json({ error: "Not found" });
 }

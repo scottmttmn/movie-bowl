@@ -1,9 +1,9 @@
 # Restaurant Bowls
 
-Status: being built in five steps. Steps 1 and 2 are built: the schema, and
-restaurant bowls behind the Settings switch, added to by name and drawn with
-a Directions link. Google search, the Cuisine and Open filters, and the longer
-return window are not built yet.
+Status: being built in five steps. Steps 1 to 3 are built: the schema,
+restaurant bowls behind the Settings switch, drawn with a Directions link, and
+added through Google search or by name. The Cuisine and Open filters and the
+longer return window are not built yet.
 
 ## Why
 
@@ -54,7 +54,15 @@ rotation, the reveal and returning a draw, with one account and one deploy.
    Hidden from the TV and solo draw, and kept out of Watch History; Bowl
    Settings leaves out starter packs, the streaming chart and add links.
    The bowl page reads the kind through `BowlKindContext`. **Built.**
-3. Google search through a places route in `api/movie-cache.js`.
+3. Google search through a places route in `api/movie-cache.js`
+   (`/api/places/search`): Autocomplete (New), one call per settled
+   keystroke under one session token per search, biased toward the caller by
+   Vercel's IP location. Results are kept to places to eat by their Google
+   types, and the first type that names a cuisine prefills the chip. Picking
+   one opens the slip prefilled with Google's name, which the adder can
+   change; only the place id is stored. "Not listed?" and a deploy without
+   the key both add by name. The daily Autocomplete quota is set in Google's
+   console, not counted here. **Built.**
 4. The restaurant filter sheet: Cuisine, and Open with a monthly budget in
    Supabase for the hours lookups (1,000 free a month), plus Reserve,
    Website and Call. Until then a restaurant bowl draws from every slip and
