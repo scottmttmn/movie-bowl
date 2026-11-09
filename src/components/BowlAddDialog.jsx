@@ -10,7 +10,7 @@ import useSearchMarks from "../hooks/useSearchMarks";
 import MovieSearch from "./MovieSearch";
 import AddedMoviesList from "./AddedMoviesList";
 import RestaurantSearch from "./RestaurantSearch";
-import { getBowlKindWords, isRestaurantKind } from "../utils/restaurants";
+import { getBowlKindWords, inBowlWords, isRestaurantKind } from "../utils/restaurants";
 
 function choiceDescription(bowl, bowls) {
   const matches = bowls.filter((other) => other.name === bowl.name);
@@ -149,12 +149,12 @@ export default function BowlAddDialog() {
     <span className="sr-only" role="status">{announcement}</span>
   </div>;
   const feedback = <>
-    {result?.ok && <p className="mt-2 text-sm text-emerald-300" role="status">{result.message || `Added ${add.operation.movie.title} to ${add.operation.bowlName}`}</p>}
-    {result?.ok === false && <div className="status-error mt-2" role="alert">{result.message}</div>}
+    {result?.ok && <p className="mt-2 text-sm text-emerald-300" role="status">{inBowlWords(destination?.kind, result.message) || `Added ${add.operation.movie.title} to ${add.operation.bowlName}`}</p>}
+    {result?.ok === false && <div className="status-error mt-2" role="alert">{inBowlWords(destination?.kind, result.message)}</div>}
     {add.unresolved.map((entry) => {
       const retryable = entry.result.code === "add_not_committed";
       return <div key={entry.operation.submissionId} className="status-warning mt-2" role="alert">
-        {entry.result.message}
+        {inBowlWords(destination?.kind, entry.result.message)}
         <button className="btn btn-secondary mt-2" disabled={add.pending} onClick={async () => {
           const settled = await (retryable ? add.retryAdd : add.checkStatus)(entry.operation.submissionId);
           if (settled?.ok) search.current?.reset();

@@ -1,4 +1,6 @@
 import { useEffect, useRef, useState } from "react";
+import { useBowlKind } from "../context/BowlKindContext";
+import { inBowlWords } from "../utils/restaurants";
 
 export const HOLD_TO_DRAW_MS = 1000;
 // Anything shorter is a tap, not an abandoned hold.
@@ -46,6 +48,7 @@ export default function HoldToDrawButton({
   mark = null,
 }) {
   // { scale, ms, easing } for the fill; a transition of 0 jumps.
+  const kind = useBowlKind();
   const [fill, setFill] = useState({ scale: 0, ms: 150, easing: "ease-out" });
   const timersRef = useRef([]);
   const startedAtRef = useRef(null);
@@ -128,11 +131,7 @@ export default function HoldToDrawButton({
       onContextMenu={(event) => event.preventDefault()}
       className="btn btn-primary relative w-full max-w-sm select-none touch-none overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
       style={{ WebkitTouchCallout: "none" }}
-      aria-label={
-        isLoading
-          ? "Drawing movie from bowl"
-          : ariaLabel
-      }
+      aria-label={inBowlWords(kind, isLoading ? "Drawing movie from bowl" : ariaLabel)}
     >
       <span
         aria-hidden="true"

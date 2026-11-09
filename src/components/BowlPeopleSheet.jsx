@@ -4,6 +4,8 @@ import FilmStripGlyph from "./FilmStripGlyph";
 import PeopleGlyph from "./PeopleGlyph";
 import DrawMethodMark from "./DrawMethodMark";
 import { sortRowsByTurn } from "../utils/rotationTurns";
+import { useBowlKind } from "../context/BowlKindContext";
+import { countSlips, inBowlWords } from "../utils/restaurants";
 
 // The owner's mark: a badge on the corner of their initial, the way the
 // draw method's person badge sits on its slip.
@@ -38,14 +40,13 @@ function Initial({ children, dashed = false, tone = "idle", badge = null }) {
   );
 }
 
-function describeRow(row, showLeftOut, showCounts, isNext) {
+function describeRow(row, showLeftOut, showCounts, isNext, kind) {
   const role = row.isOwner ? ", owner" : "";
   const you = row.isYou ? " (you)" : "";
   const next = isNext ? ", up next" : "";
   if (!showCounts) return `${row.name}${you}${role}${next}`;
-  const movies = row.count === 1 ? "1 movie" : `${row.count} movies`;
   const leftOut = showLeftOut && row.isLeftOut ? ", left out by tonight's filters" : "";
-  return `${row.name}${you}${role}${next}: ${movies} in the draw${leftOut}`;
+  return `${row.name}${you}${role}${next}: ${countSlips(kind, row.count)} in the draw${leftOut}`;
 }
 
 /**
@@ -76,6 +77,7 @@ export default function BowlPeopleSheet({
   turns = null,
   isOrderPending = false,
 }) {
+  const kind = useBowlKind();
   const leftOutCount = reach ? reach.totalCount - reach.reachedCount : 0;
   const showReach = showLeftOut && leftOutCount > 0;
   const shownCount = memberCount ?? rows.filter((row) => row.key.startsWith("user:")).length;
@@ -102,7 +104,7 @@ export default function BowlPeopleSheet({
           {showReach ? (
             <span className="text-amber-200">
               {reach.reachedCount}/{reach.totalCount}
-              <span className="sr-only"> people have a movie in tonight&apos;s draw</span>
+              <span className="sr-only">{inBowlWords(kind, " people have a movie in tonight's draw")}</span>
             </span>
           ) : (
             <span>
@@ -129,7 +131,7 @@ export default function BowlPeopleSheet({
                 <li
                   key={row.key}
                   className="flex items-center gap-3 py-2.5"
-                  aria-label={describeRow(row, showLeftOut, showCounts, isNext)}
+                  aria-label={describeRow(row, showLeftOut, showCounts, isNext, kind)}
                   data-left-out={isLeftOut || undefined}
                   data-up-next={isNext || undefined}
                 >

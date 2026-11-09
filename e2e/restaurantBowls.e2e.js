@@ -61,8 +61,8 @@ test.describe("restaurant bowls", () => {
     await expect(add.getByLabel("Search for a restaurant")).toHaveValue("");
     await add.getByRole("button", { name: "Close add restaurant" }).click();
 
-    await expect(page.getByText("Drawing from 1 restaurant.")).toBeAttached();
-    const drawButton = page.getByRole("button", { name: /Draw movie from bowl\. Press and hold to draw\./i });
+    await expect(page.getByRole("button", { name: "Drawing from 1 restaurant. Open draw filters." })).toBeAttached();
+    const drawButton = page.getByRole("button", { name: /Draw restaurant from bowl\. Press and hold to draw\./i });
     await expect(drawButton).toBeEnabled();
     await drawButton.press("Enter");
     await expect(page.getByRole("dialog", { name: "Reveal a restaurant?" })).toBeVisible();

@@ -17,7 +17,7 @@ import {
   normalizeDrawMethod,
 } from "../utils/drawMethods";
 import { getDisplayInitial, getProfileDisplayName } from "../utils/profileIdentity";
-import { isRestaurantKind, normalizeBowlKind } from "../utils/restaurants";
+import { inBowlWords, isRestaurantKind, normalizeBowlKind } from "../utils/restaurants";
 
 const DRAW_ACCESS_MODE_ALL = "all_members";
 const DRAW_ACCESS_MODE_SELECTED = "selected_members";
@@ -826,7 +826,7 @@ export default function BowlSettings() {
             <section id="drawing" tabIndex={-1} className="panel scroll-mt-24" aria-labelledby="drawing-heading">
               <h2 id="drawing-heading" className="section-title">Drawing</h2>
               <p className="mt-1 text-sm text-slate-400">
-                How this bowl picks a movie, and who is allowed to pick one.
+                {inBowlWords(bowlKind, "How this bowl picks a movie, and who is allowed to pick one.")}
               </p>
 
               <div className="mt-5">
@@ -862,7 +862,7 @@ export default function BowlSettings() {
                             <DrawMethodMark drawMethod={method.id} className="h-9 w-9 shrink-0" decorative />
                             <span className="min-w-0">
                               <span className="block text-sm font-semibold text-slate-100">{method.label}</span>
-                              <span className="mt-0.5 block text-xs text-slate-400">{method.description}</span>
+                              <span className="mt-0.5 block text-xs text-slate-400">{inBowlWords(bowlKind, method.description)}</span>
                             </span>
                           </label>
                         );
@@ -885,7 +885,7 @@ export default function BowlSettings() {
                 <div className="mt-6 border-t border-slate-800 pt-5">
                   <h3 className="eyebrow">Draw access</h3>
                   <p className="mt-1 text-sm text-slate-400">
-                    Set who can draw movies from this bowl. Owner is always allowed.
+                    {inBowlWords(bowlKind, "Set who can draw movies from this bowl. Owner is always allowed.")}
                   </p>
                   <div className="mt-3 flex flex-wrap gap-x-6 gap-y-2">
                     <label
@@ -985,7 +985,7 @@ export default function BowlSettings() {
               </div>
               <p className="mt-1 text-sm text-slate-400">
                 {isOwner
-                  ? "Everyone here can add movies to the bowl."
+                  ? inBowlWords(bowlKind, "Everyone here can add movies to the bowl.")
                   : "Only the bowl owner can invite or remove members."}
               </p>
 
@@ -1253,7 +1253,7 @@ export default function BowlSettings() {
                 <h2 className="text-sm font-semibold uppercase tracking-[0.16em] text-rose-400">Danger zone</h2>
                 <p className="mt-2 text-base font-semibold text-slate-100">Delete bowl</p>
                 <p className="mt-1 text-sm text-slate-400">
-                  Permanently deletes this bowl, including movies, members, and pending invites.
+                  {inBowlWords(bowlKind, "Permanently deletes this bowl, including movies, members, and pending invites.")}
                 </p>
                 <form onSubmit={handleDeleteBowl} className="mt-3 flex flex-col gap-2 sm:flex-row sm:items-center">
                   <input
