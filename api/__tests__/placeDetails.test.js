@@ -29,6 +29,7 @@ function adminWith(reservations = {}) {
 const googleDetails = {
   currentOpeningHours: { openNow: true, nextCloseTime: "2026-11-09T03:00:00Z" },
   utcOffsetMinutes: -360,
+  timeZone: { id: "America/Chicago" },
   businessStatus: "OPERATIONAL",
   nationalPhoneNumber: "(563) 555-0101",
   internationalPhoneNumber: "+1 563-555-0101",
@@ -125,6 +126,7 @@ describe("api/places/details", () => {
         nextOpenTime: null,
         nextCloseTime: "2026-11-09T03:00:00Z",
         utcOffsetMinutes: -360,
+        timeZone: "America/Chicago",
         phone: "+15635550101",
         phoneLabel: "(563) 555-0101",
         website: "https://laranabistro.com/",
@@ -170,6 +172,7 @@ describe("place details helpers", () => {
     expect(toPlaceDetails({ ...googleDetails, reservable: false }).reserveUrl).toBeNull();
     expect(toPlaceDetails({ websiteUri: "javascript:alert(1)" }).website).toBeNull();
     expect(toPlaceDetails({ businessStatus: "CLOSED_PERMANENTLY" }).closedForGood).toBe(true);
+    expect(toPlaceDetails({ timeZone: { id: "<script>" } }).timeZone).toBeNull();
     expect(toPlaceDetails(null)).toMatchObject({ openNow: null, phone: null, website: null, reserveUrl: null });
   });
 

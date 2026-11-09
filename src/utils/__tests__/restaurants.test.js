@@ -79,6 +79,13 @@ describe("restaurant helpers", () => {
     expect(describeOpenStatus({ ...central, openNow: false, nextOpenTime: "2026-11-11T17:00:00Z" }, now).text)
       .toBe("Closed · opens Wed 11 AM");
     expect(describeOpenStatus({ openNow: true }, now).text).toBe("Open now");
+    // Saturday, March 13, 2027: Chicago is still on UTC-6, and springs forward
+    // overnight, so Sunday's 15:00 UTC opening is 10 AM there, not 9.
+    const beforeSpring = Date.parse("2027-03-14T01:00:00Z");
+    expect(describeOpenStatus(
+      { openNow: false, nextOpenTime: "2027-03-14T15:00:00Z", utcOffsetMinutes: -360, timeZone: "America/Chicago" },
+      beforeSpring
+    ).text).toBe("Closed · opens tomorrow 10 AM");
     expect(describeOpenStatus({ closedForGood: true, openNow: false }, now))
       .toEqual({ tone: "gone", text: "Closed for good" });
     expect(describeOpenStatus({ openNow: null }, now)).toBeNull();

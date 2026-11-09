@@ -12,11 +12,13 @@ const PLACE_ID_PATTERN = /^[A-Za-z0-9_-]{1,512}$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
 const PHOTO_NAME_PATTERN = /^places\/[A-Za-z0-9_-]+\/photos\/[A-Za-z0-9_-]+$/;
 const PHOTO_WIDTH_PX = 900;
+const TIME_ZONE_PATTERN = /^[A-Za-z][A-Za-z0-9_+-]*(?:\/[A-Za-z0-9_+-]+){0,2}$/;
 const DETAILS_FIELDS = [
   "currentOpeningHours.openNow",
   "currentOpeningHours.nextOpenTime",
   "currentOpeningHours.nextCloseTime",
   "utcOffsetMinutes",
+  "timeZone",
   "businessStatus",
   "nationalPhoneNumber",
   "internationalPhoneNumber",
@@ -60,6 +62,8 @@ export function toPlaceDetails(body) {
     nextOpenTime: isoTime(hours?.nextOpenTime),
     nextCloseTime: isoTime(hours?.nextCloseTime),
     utcOffsetMinutes: Number.isInteger(body?.utcOffsetMinutes) ? body.utcOffsetMinutes : null,
+    // The IANA zone, so a time past a daylight-saving change reads right.
+    timeZone: TIME_ZONE_PATTERN.test(String(body?.timeZone?.id || "")) ? body.timeZone.id : null,
     phone: phone.length >= 5 ? phone : null,
     phoneLabel: String(body?.nationalPhoneNumber || "").trim() || null,
     website: httpsUrl(body?.websiteUri),
