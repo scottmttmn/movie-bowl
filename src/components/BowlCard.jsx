@@ -2,6 +2,7 @@ import bowlImage from "../assets/movie-bowl.webp";
 import FilmStripGlyph from "./FilmStripGlyph";
 import HomeGlyph from "./HomeGlyph";
 import PeopleGlyph from "./PeopleGlyph";
+import { inBowlWords } from "../utils/restaurants";
 
 // One row per bowl: the bowl, its name, and two counts drawn as icons -- a
 // film strip for titles left to draw, people for members -- with a chevron
@@ -14,7 +15,7 @@ export default function BowlCard({ bowl, onSelect, isHome = false }) {
   const label = [
     bowl.name,
     isHome ? "home bowl" : null,
-    `${remaining} ${remaining === 1 ? "title" : "titles"} to draw`,
+    inBowlWords(bowl.kind, `${remaining} ${remaining === 1 ? "title" : "titles"} to draw`),
     `${members} ${members === 1 ? "member" : "members"}`,
   ].filter(Boolean).join(", ");
 

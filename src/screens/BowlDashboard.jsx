@@ -72,7 +72,9 @@ import HomeGlyph from "../components/HomeGlyph";
 import FilterRow from "../components/FilterRow";
 import RestaurantSheet from "../components/RestaurantSheet";
 import { BowlKindProvider } from "../context/BowlKindContext";
-import { countSlips, getBowlKindWords, isRestaurantKind, normalizeBowlKind } from "../utils/restaurants";
+import { countSlips, getBowlKindWords, getCuisineChoices, inBowlWords, isRestaurantKind, normalizeBowlKind } from "../utils/restaurants";
+import { readExcludedCuisines, writeExcludedCuisines } from "../utils/restaurantFilters";
+import RestaurantFilterSheet from "../components/RestaurantFilterSheet";
 import StreamingPreferenceRows from "../components/StreamingPreferenceRows";
 import { describeGenres, describeRatings, describeRuntime } from "../utils/filterSummaries";
 import {
@@ -85,7 +87,7 @@ import { DEFAULT_DRAW_METHOD, getDrawMethod, normalizeDrawMethod } from "../util
 
 const countTitles = (count) => (count === 1 ? "1 title" : `${count} titles`);
 // Every movie filter reads TMDB metadata a restaurant does not have, so a
-// restaurant bowl draws from all of its slips until it has filters of its own.
+// restaurant bowl turns them all off and narrows by its own instead.
 const RESTAURANT_DRAW_FILTERS = Object.freeze({
   prioritizeByServices: false,
   prioritizeByServiceRank: false,
@@ -143,6 +145,9 @@ export default function BowlDashboard() {
     const [runtimeMaxMinutes, setRuntimeMaxMinutes] = useState(RUNTIME_FILTER_MAX_MINUTES);
     const [includeUnknownRuntime, setIncludeUnknownRuntime] = useState(true);
     const [showDrawFilters, setShowDrawFilters] = useState(false);
+    // Read for the account and bowl on screen; a change is kept beside the
+    // key it was made under, so another bowl never borrows it.
+    const [cuisineChange, setCuisineChange] = useState(null);
     const filterDialogRef = useRef(null);
     const [showRatingFilters, setShowRatingFilters] = useState(false);
     const [showGenreFilters, setShowGenreFilters] = useState(false);
@@ -408,13 +413,32 @@ export default function BowlDashboard() {
         selectedRatings.filter((rating) => MPAA_RATING_OPTIONS.includes(rating)),
       [selectedRatings]
     );
+    const cuisineStorageKey = `${currentUserId || ""}:${bowlId || ""}`;
+    const storedExcludedCuisines = useMemo(
+      () => readExcludedCuisines(currentUserId, bowlId),
+      [currentUserId, bowlId]
+    );
+    const excludedCuisines = cuisineChange?.key === cuisineStorageKey
+      ? cuisineChange.excluded
+      : storedExcludedCuisines;
+    const setExcludedCuisines = (excluded) => {
+      setCuisineChange({ key: cuisineStorageKey, excluded });
+      writeExcludedCuisines(currentUserId, bowlId, excluded);
+    };
+    const cuisineChoices = useMemo(
+      () => (isRestaurantBowl ? getCuisineChoices(bowl.remaining) : []),
+      [isRestaurantBowl, bowl.remaining]
+    );
     const ratingSummary = describeRatings(selectedRatings, includeUnknownRatings);
     const genreSummary = describeGenres(selectedGenres, availableDrawGenres, includeUnknownGenres);
     const runtimeSummary = describeRuntime(runtimeMinMinutes, runtimeMaxMinutes, includeUnknownRuntime);
     // One filter object for both the pool count and the draw itself, so the
     // number on screen cannot drift from what the draw actually applies.
     const drawFilters = useMemo(
-      () => isRestaurantBowl ? RESTAURANT_DRAW_FILTERS : ({
+      () => isRestaurantBowl ? ({
+        ...RESTAURANT_DRAW_FILTERS,
+        cuisineFilter: excludedCuisines.length > 0 ? { excluded: excludedCuisines } : null,
+      }) : ({
         prioritizeByServices: isDrawFilteredByServices,
         prioritizeByServiceRank: useStreamingRank,
         userStreamingServices,
@@ -434,6 +458,7 @@ export default function BowlDashboard() {
       }),
       [
         isRestaurantBowl,
+        excludedCuisines,
         isDrawFilteredByServices,
         useStreamingRank,
         userStreamingServices,
@@ -482,11 +507,11 @@ export default function BowlDashboard() {
     const detailPinExcluded = canManageDetailPin &&
       myMovieEligibilityStatus === MY_MOVIE_ELIGIBILITY_STATUS.ready &&
       !eligibleMyMovieIds.some((id) => String(id) === String(selectedOwnedMovie.id));
-    const detailPinDisabledReason = !getDrawMethod(drawMethod).honorsPin
+    const detailPinDisabledReason = inBowlWords(bowlKind, !getDrawMethod(drawMethod).honorsPin
       ? getDrawMethod(drawMethod).pinNote
       : detailPinExcluded
         ? "This movie is outside tonight's filters, so favoriting it won't affect this draw. Change the filters to change your favorite."
-        : "";
+        : "");
     const hasResolvedPrioritizedPool =
       isDrawFilteredByServices &&
       drawPoolTotalCount > 0 &&
@@ -504,7 +529,7 @@ export default function BowlDashboard() {
     // or not it currently removes anything — the dot marks set state, not
     // effect, so it cannot flicker as the bowl's contents change.
     const isFilterEngaged = useMemo(
-      () =>
+      () => isRestaurantBowl ? excludedCuisines.length > 0 : (
         isDrawFilteredByServices ||
         selectedRatings.length < MPAA_RATING_OPTIONS.length ||
         !includeUnknownRatings ||
@@ -512,8 +537,10 @@ export default function BowlDashboard() {
         !includeUnknownGenres ||
         runtimeMinMinutes > RUNTIME_FILTER_MIN_MINUTES ||
         runtimeMaxMinutes < RUNTIME_FILTER_MAX_MINUTES ||
-        !includeUnknownRuntime,
+        !includeUnknownRuntime),
       [
+        isRestaurantBowl,
+        excludedCuisines,
         isDrawFilteredByServices,
         selectedRatings,
         includeUnknownRatings,
@@ -1331,7 +1358,7 @@ return (
                   {isCurrentBowlHome && <p className="sr-only">Home bowl</p>}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  {!isRestaurantBowl && <button
+                  {(!isRestaurantBowl || cuisineChoices.length > 1 || isFilterEngaged) && <button
                     id="bowl-filters"
                     type="button"
                     onClick={() => setShowDrawFilters((prev) => !prev)}
@@ -1377,7 +1404,7 @@ return (
               <p className="sr-only" role="status">Loading bowl…</p>
             )}
             {!isFirstLoad && !isLoading && errorMessage && (
-              <div className="status-error mb-3">{errorMessage}</div>
+              <div className="status-error mb-3">{inBowlWords(bowlKind, errorMessage)}</div>
             )}
             {!showDrawFilters && (preferencesLoadError || filterSaveStatus === "error") && (
               <div className="status-error mb-3 flex flex-wrap items-center justify-between gap-3" role="alert">
@@ -1406,7 +1433,7 @@ return (
                   isPending={!isBowlViewSettled}
                   remembered={heldBowlView?.statLine || null}
                   onRunPoolLookups={runDrawPoolLookups}
-                  onOpenFilters={isRestaurantBowl ? undefined : () => setShowDrawFilters(true)}
+                  onOpenFilters={() => setShowDrawFilters(true)}
                   onOpenMethodInfo={() => setShowMethodInfo(true)}
                   onOpenPeople={() => setShowPeople(true)}
                   memberCount={currentBowlMemberCount}
@@ -1499,7 +1526,19 @@ return (
             {/* Anchored under the header rather than centered or bottom-sheeted:
                 the filter icon lives up there, and the panel must be fully
                 visible without scrolling the page. */}
-            {showDrawFilters && (
+            {showDrawFilters && isRestaurantBowl && (
+              <RestaurantFilterSheet
+                dialogRef={filterDialogRef}
+                choices={cuisineChoices}
+                excluded={excludedCuisines}
+                onChange={setExcludedCuisines}
+                summary={drawPoolCount === drawPoolTotalCount
+                  ? `All ${countSlips(bowlKind, drawPoolTotalCount)} in the draw`
+                  : `${drawPoolCount} of ${countSlips(bowlKind, drawPoolTotalCount)} in the draw`}
+                onClose={() => setShowDrawFilters(false)}
+              />
+            )}
+            {showDrawFilters && !isRestaurantBowl && (
               <div
                 className="modal-overlay-top z-[70]"
                 role="presentation"
@@ -1865,7 +1904,7 @@ return (
                     // without the panel changing height.
                     <div className="mt-1 pb-3 pt-1">
                       <MovieStripSkeleton
-                        label="Loading your movies…"
+                        label={inBowlWords(bowlKind, "Loading your movies…")}
                         count={Math.min(Math.max(heldBowlView?.myMovieCount || 4, 1), 12)}
                         scrollable
                       />
@@ -1920,7 +1959,7 @@ return (
                   }}
                 />
                 {readdErrorMessage && (
-                  <p className="mt-2 text-sm text-amber-300">{readdErrorMessage}</p>
+                  <p className="mt-2 text-sm text-amber-300">{inBowlWords(bowlKind, readdErrorMessage)}</p>
                 )}
             </section>
             
@@ -1954,7 +1993,7 @@ return (
                 <div className="modal-surface max-w-md p-5 sm:p-6" role="dialog" aria-modal="true" aria-labelledby="draw-confirm-title">
                   <h3 id="draw-confirm-title" className="text-lg font-semibold text-slate-100">{kindWords.reveal}</h3>
                   <p className="mt-2 text-sm text-slate-400">
-                    Drawing will reveal one hidden title from this bowl to everyone here.
+                    {inBowlWords(bowlKind, "Drawing will reveal one hidden title from this bowl to everyone here.")}
                   </p>
                   <div className="mt-4 flex items-center justify-end gap-2">
                     <button
@@ -2069,10 +2108,10 @@ return (
                         }
                       : null
                 }
-                deleteActionLabel={selectedDetailContext === "watched" ? "Remove from watched" : undefined}
+                deleteActionLabel={selectedDetailContext === "watched" ? (isRestaurantBowl ? "Remove from Been there" : "Remove from watched") : undefined}
                 deleteActionAriaLabel={
                   selectedDetailContext === "watched"
-                    ? `Remove "${selectedDetailMovie.title}" from this bowl's watched history`
+                    ? `Remove "${selectedDetailMovie.title}" from this bowl's ${isRestaurantBowl ? "Been there list" : "watched history"}`
                     : null
                 }
                 pinDisabledReason={detailPinDisabledReason}
@@ -2105,7 +2144,9 @@ return (
                 }
                 detailPrimaryActionNote={
                   selectedDetailContext === "watched" && !canReturnDrawToBowl(selectedDetailMovie)
-                    ? "Moving a pick back is available for two hours after the draw. Add the movie again to watch it another night."
+                    ? isRestaurantBowl
+                      ? "Moving a pick back is available for two hours after the draw. Add the restaurant again to go another night."
+                      : "Moving a pick back is available for two hours after the draw. Add the movie again to watch it another night."
                     : null
                 }
                 onDetailPrimaryAction={
@@ -2261,14 +2302,16 @@ return (
                         if (!result?.ok) {
                           setReaddErrorMessage(
                             result?.message ||
-                              "Could not remove this movie from the watched history. Please try again."
+                              (isRestaurantBowl
+                                ? "Could not remove this restaurant from Been there. Please try again."
+                                : "Could not remove this movie from the watched history. Please try again.")
                           );
                         }
                       }}
                       className="btn btn-danger"
                       disabled={isRemovingWatched}
                     >
-                      {isRemovingWatched ? "Removing..." : "Remove from watched"}
+                      {isRemovingWatched ? "Removing..." : isRestaurantBowl ? "Remove from Been there" : "Remove from watched"}
                     </button>
                   </div>
                 </div>

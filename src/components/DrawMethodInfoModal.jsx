@@ -1,5 +1,7 @@
 import DrawMethodMark from "./DrawMethodMark";
 import { getDrawMethod } from "../utils/drawMethods";
+import { useBowlKind } from "../context/BowlKindContext";
+import { inBowlWords } from "../utils/restaurants";
 
 // One small picture per step, so the sheet reads at a glance: the same person
 // badge and paper slip the method's mark is built from, plus the ribbon a
@@ -49,6 +51,7 @@ function describeExcludedContributors(excludedNames, excludedCount) {
 }
 
 export default function DrawMethodInfoModal({ drawMethod, contributorReach = null, onChange = null, onClose }) {
+  const kind = useBowlKind();
   const method = getDrawMethod(drawMethod);
   const excludedCount = contributorReach
     ? contributorReach.totalCount - contributorReach.reachedCount
@@ -85,8 +88,8 @@ export default function DrawMethodInfoModal({ drawMethod, contributorReach = nul
                 </svg>
               </span>
               <span className="min-w-0 text-sm">
-                <span className="font-semibold text-slate-100">{step.title}</span>
-                {step.note && <span className="text-slate-400"> · {step.note}</span>}
+                <span className="font-semibold text-slate-100">{inBowlWords(kind, step.title)}</span>
+                {step.note && <span className="text-slate-400"> · {inBowlWords(kind, step.note)}</span>}
               </span>
             </li>
           ))}
@@ -94,9 +97,9 @@ export default function DrawMethodInfoModal({ drawMethod, contributorReach = nul
         {showReach && (
           <p className="mt-4 rounded-xl border border-amber-800/70 bg-amber-950/25 px-3.5 py-3 text-sm leading-6 text-amber-200">
             {describeExcludedContributors(contributorReach.excludedNames, excludedCount)} — your filters
-            removed every movie they added
+            removed every {inBowlWords(kind, "movie")} they added
             {drawsFromPackOnly ? ", so tonight's draw is a straight pick from the starter pack." : "."}
-            {method.reachCaveat ? ` ${method.reachCaveat}` : ""}
+            {method.reachCaveat ? ` ${inBowlWords(kind, method.reachCaveat)}` : ""}
           </p>
         )}
         {/* Only the owner can change the method, so only the owner gets the way there. */}

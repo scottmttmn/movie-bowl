@@ -2,6 +2,8 @@ import MovieActionCard from "./MovieActionCard";
 import StarterPackMark from "./StarterPackMark";
 import { MY_MOVIE_ELIGIBILITY_STATUS } from "../hooks/useMyMovieEligibility";
 import { DEFAULT_DRAW_METHOD, getDrawMethod } from "../utils/drawMethods";
+import { useBowlKind } from "../context/BowlKindContext";
+import { inBowlWords } from "../utils/restaurants";
 
 export default function MyMoviesStrip({
   movies,
@@ -16,6 +18,7 @@ export default function MyMoviesStrip({
   userStreamingServices = [],
   fetchProviders,
 }) {
+  const kind = useBowlKind();
   const hasResolvedEligibility = eligibilityStatus === MY_MOVIE_ELIGIBILITY_STATUS.ready;
   const eligibleIdSet = new Set((eligibleMovieIds || []).map((id) => String(id)));
   const method = getDrawMethod(drawMethod);
@@ -44,11 +47,11 @@ export default function MyMoviesStrip({
   return (
     <section className="my-movies-strip mt-1 w-full min-w-0">
       {method.pinNote && (
-        <p className="mb-3 text-xs text-slate-400">{method.pinNote}</p>
+        <p className="mb-3 text-xs text-slate-400">{inBowlWords(kind, method.pinNote)}</p>
       )}
       {eligibilityStatus === MY_MOVIE_ELIGIBILITY_STATUS.manual && (
         <div className="mb-3 flex flex-wrap items-center justify-between gap-2 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2">
-          <p className="text-xs text-slate-300">Check more than 100 movies against the current filters.</p>
+          <p className="text-xs text-slate-300">{inBowlWords(kind, "Check more than 100 movies against the current filters.")}</p>
           <button
             type="button"
             className="text-sm font-medium text-rose-300 hover:text-rose-200"

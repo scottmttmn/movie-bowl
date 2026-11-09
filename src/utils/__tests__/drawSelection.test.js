@@ -34,6 +34,34 @@ describe("getDrawSelection", () => {
     expect(fetchProviders).toHaveBeenCalledWith(201);
   });
 
+  it("draws a restaurant only from the cuisines left in, and says so when none are", async () => {
+    const remainingMovies = [
+      { id: "pizza", tmdb_id: null, title: "Mabe's", cuisine: "Pizza", added_by: "user-1" },
+      { id: "thai", tmdb_id: null, title: "Thai Haus", cuisine: "Thai", added_by: "user-2" },
+      { id: "ramen", tmdb_id: null, title: "Ramen Bar", cuisine: "Ramen", added_by: "user-2" },
+    ];
+    const fetchProviders = vi.fn(async () => ({ providers: [], region: "US", fetchedAt: null }));
+
+    const kept = await getResolvedDrawPool({
+      remainingMovies,
+      cuisineFilter: { excluded: ["Thai", "Other"] },
+      fetchProviders,
+      fetchMovieDetails: vi.fn(),
+    });
+    expect(kept.errorMessage).toBeNull();
+    expect(kept.candidates.map((entry) => (entry.movie || entry).id)).toEqual(["pizza"]);
+
+    const none = await getDrawSelection({
+      remainingMovies,
+      cuisineFilter: { excluded: ["Pizza", "Thai", "Other"] },
+      fetchProviders,
+      fetchMovieDetails: vi.fn(),
+      randomFn: () => 0,
+    });
+    expect(none.selected).toBeFalsy();
+    expect(none.errorMessage).toBe("No restaurants match your cuisine filter. Check your filters.");
+  });
+
   it("resolves the exact post-filter and post-service-rank pool", async () => {
     const movies = [
       { id: "netflix", tmdb_id: 101, genres: ["Action"], runtime: 100 },

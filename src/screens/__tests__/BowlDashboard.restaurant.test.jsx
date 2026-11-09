@@ -1,4 +1,4 @@
-import { cleanup, fireEvent, render, screen, waitFor } from "@testing-library/react";
+import { cleanup, fireEvent, render, screen, waitFor, within } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 const mocks = vi.hoisted(() => {
@@ -163,11 +163,11 @@ describe("BowlDashboard in a restaurant bowl", () => {
     expect(screen.getByText("My Restaurants")).toBeInTheDocument();
     expect(screen.getByText("Been there")).toBeInTheDocument();
     expect(screen.queryByText("My Movies")).not.toBeInTheDocument();
-    expect(screen.queryByRole("button", { name: "Filters" })).not.toBeInTheDocument();
     expect(screen.queryByRole("switch", { name: /theater/i })).not.toBeInTheDocument();
     expect(screen.queryByRole("button", { name: /Draw for myself/ })).not.toBeInTheDocument();
-    // The count stands alone: there are no filters for it to open yet.
-    expect(screen.getByText("Drawing from 2 restaurants.")).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Drawing from 2 restaurants. Open draw filters." })).toBeInTheDocument();
+    expect(screen.getByRole("button", { name: "Draw restaurant from bowl. Press and hold to draw." })).toBeInTheDocument();
+    expect(screen.queryByText(/movie/i)).not.toBeInTheDocument();
     expect(mocks.getTmdbMovieDetails).not.toHaveBeenCalled();
   });
 
@@ -177,7 +177,7 @@ describe("BowlDashboard in a restaurant bowl", () => {
     renderDashboard();
     await waitFor(() => expect(screen.getByText("Date Night Eats")).toBeInTheDocument());
 
-    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    fireEvent.click(screen.getByRole("button", { name: /draw restaurant/i }));
     expect(screen.getByText("Reveal a restaurant?")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Reveal" }));
 
@@ -205,9 +205,8 @@ describe("BowlDashboard in a restaurant bowl", () => {
 
     renderDashboard();
     await waitFor(() => expect(screen.getByText("My Restaurants")).toBeInTheDocument());
-    expect(screen.queryByRole("button", { name: "Filters" })).not.toBeInTheDocument();
 
-    fireEvent.click(screen.getByRole("button", { name: /draw movie/i }));
+    fireEvent.click(screen.getByRole("button", { name: /draw restaurant/i }));
     fireEvent.click(screen.getByRole("button", { name: "Reveal" }));
     await waitFor(() => expect(mocks.state.handleDraw).toHaveBeenCalledTimes(1));
     expect(mocks.state.handleDraw.mock.calls[0][0]).toMatchObject({
@@ -215,5 +214,39 @@ describe("BowlDashboard in a restaurant bowl", () => {
       genreFilter: null,
       runtimeFilter: null,
     });
+  });
+
+  it("narrows the draw by cuisine, and keeps the narrowing for next time", async () => {
+    mocks.state.handleDraw.mockResolvedValue({ ...slips()[1], drawn_at: "2026-11-08T19:00:00Z" });
+
+    const view = renderDashboard();
+    await waitFor(() => expect(screen.getByText("Date Night Eats")).toBeInTheDocument());
+
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    const sheet = screen.getByRole("dialog", { name: "Narrow the draw" });
+    expect(within(sheet).getByRole("button", { name: "Chinese", pressed: true })).toBeInTheDocument();
+    expect(within(sheet).getByRole("button", { name: "Mediterranean", pressed: true })).toBeInTheDocument();
+    expect(within(sheet).queryByText(/movie|genre|rating|runtime/i)).not.toBeInTheDocument();
+
+    fireEvent.click(within(sheet).getByRole("button", { name: "Only Chinese" }));
+    expect(within(sheet).getByRole("button", { name: "Mediterranean", pressed: false })).toBeInTheDocument();
+    expect(await within(sheet).findByText("1 of 2 restaurants in the draw")).toBeInTheDocument();
+    fireEvent.click(within(sheet).getByRole("button", { name: "Done" }));
+
+    fireEvent.click(screen.getByRole("button", { name: /draw restaurant/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Reveal" }));
+    await waitFor(() => expect(mocks.state.handleDraw).toHaveBeenCalledTimes(1));
+    expect(mocks.state.handleDraw.mock.calls[0][0]).toMatchObject({
+      cuisineFilter: { excluded: ["Mediterranean"] },
+      genreFilter: null,
+    });
+
+    view.unmount();
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Date Night Eats")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    expect(screen.getByRole("button", { name: "Mediterranean", pressed: false })).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Reset" }));
+    expect(screen.getByRole("button", { name: "Mediterranean", pressed: true })).toBeInTheDocument();
   });
 });

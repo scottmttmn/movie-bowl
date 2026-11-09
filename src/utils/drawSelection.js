@@ -4,6 +4,7 @@ import {
 } from "./selectDrawCandidate";
 import { extractUsMovieRating, MPAA_RATING_OPTIONS, normalizeMpaaRating } from "./movieRatings";
 import { createFilterMetadataFetchers } from "./filterMetadataFetchers";
+import { filterSlipsByCuisine } from "./restaurants";
 
 const MOVIE_RATING_CACHE_TTL_MS = 60 * 60 * 1000;
 const movieRatingCache = new Map();
@@ -116,9 +117,10 @@ function filterCandidatesByGenre(movies, genreFilter) {
 // presentation readout cannot drift from selection behavior.
 export function getLocallyFilteredCandidates(
   movies,
-  { genreFilter = null, runtimeFilter = null } = {}
+  { genreFilter = null, runtimeFilter = null, cuisineFilter = null } = {}
 ) {
   let candidates = Array.isArray(movies) ? movies : [];
+  if (cuisineFilter) candidates = filterSlipsByCuisine(candidates, cuisineFilter);
   if (genreFilter) candidates = filterCandidatesByGenre(candidates, genreFilter);
   if (runtimeFilter) candidates = filterCandidatesByRuntime(candidates, runtimeFilter);
   return candidates;
@@ -155,6 +157,7 @@ export async function getDrawCandidates({
   ratingFilter = null,
   genreFilter = null,
   runtimeFilter = null,
+  cuisineFilter = null,
   fetchMovieDetails,
   ratingLast = false,
 }) {
@@ -167,6 +170,10 @@ export async function getDrawCandidates({
     run: (movies) => filterCandidatesByRating(movies, ratingFilter, fetchMovieDetails),
   };
   const cheapStages = [
+    cuisineFilter && {
+      errorMessage: "No restaurants match your cuisine filter. Check your filters.",
+      run: (movies) => filterSlipsByCuisine(movies, cuisineFilter),
+    },
     genreFilter && {
       errorMessage: "No titles match your genre filter. Check your filters.",
       run: (movies) => filterCandidatesByGenre(movies, genreFilter),
@@ -200,6 +207,7 @@ export async function getDrawSelection({
   ratingFilter = null,
   genreFilter = null,
   runtimeFilter = null,
+  cuisineFilter = null,
   fetchProviders,
   fetchMovieDetails,
   fetchFilterMetadata,
@@ -218,6 +226,7 @@ export async function getDrawSelection({
     ratingFilter,
     genreFilter,
     runtimeFilter,
+    cuisineFilter,
     fetchProviders,
     fetchMovieDetails,
     fetchFilterMetadata,
@@ -248,6 +257,7 @@ export async function getResolvedDrawPool({
   ratingFilter = null,
   genreFilter = null,
   runtimeFilter = null,
+  cuisineFilter = null,
   fetchProviders,
   fetchMovieDetails,
   fetchFilterMetadata,
@@ -277,6 +287,7 @@ export async function getResolvedDrawPool({
     ratingFilter: ratingFilterForSelection,
     genreFilter,
     runtimeFilter,
+    cuisineFilter,
     fetchMovieDetails: movieDetailsFetcher,
   });
   if (errorMessage) return { candidates: [], errorMessage };

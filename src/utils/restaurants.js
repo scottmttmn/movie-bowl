@@ -22,6 +22,31 @@ export function isRestaurantKind(kind) {
   return normalizeBowlKind(kind) === BOWL_KINDS.restaurants;
 }
 
+// A slip with no cuisine, or one the chips do not name, is filed under Other
+// so the filter can still leave it in or out.
+export const OTHER_CUISINE = "Other";
+
+export function getCuisineKey(slip) {
+  const cuisine = normalizeCuisine(slip?.cuisine);
+  return cuisine && RESTAURANT_CUISINES.includes(cuisine) ? cuisine : OTHER_CUISINE;
+}
+
+// The chips the filter offers: the cuisines this bowl actually holds, in the
+// add sheet's order, with Other last.
+export function getCuisineChoices(slips) {
+  const present = new Set((Array.isArray(slips) ? slips : []).map(getCuisineKey));
+  return [...RESTAURANT_CUISINES, OTHER_CUISINE].filter((key) => present.has(key));
+}
+
+// The filter is what is left out, so a cuisine added to the bowl later is in
+// the draw until someone says otherwise.
+export function filterSlipsByCuisine(slips, cuisineFilter) {
+  const list = Array.isArray(slips) ? slips : [];
+  const excluded = new Set(cuisineFilter?.excluded || []);
+  if (excluded.size === 0) return list;
+  return list.filter((slip) => !excluded.has(getCuisineKey(slip)));
+}
+
 export function normalizeCuisine(value) {
   const cuisine = String(value ?? "").trim().replace(/\s+/g, " ");
   return cuisine ? cuisine.slice(0, MAX_CUISINE_LENGTH) : null;
@@ -54,6 +79,19 @@ const WORDS = {
 
 export function getBowlKindWords(kind) {
   return WORDS[normalizeBowlKind(kind)];
+}
+
+// Copy written once for movie bowls -- the draw methods' steps and caveats --
+// read in a restaurant bowl's own word. Movie copy passes through untouched.
+export function inBowlWords(kind, text) {
+  if (!isRestaurantKind(kind) || typeof text !== "string") return text;
+  // "Movie Bowl" and "Title-first" are names and stay; every other movie or title is a
+  // restaurant in a restaurant bowl.
+  return text
+    .replace(/\b(movie|title)(s?)\b(?! Bowl|-)/gi, (word, _noun, plural) => {
+      const noun = word[0] === word[0].toUpperCase() ? "Restaurant" : "restaurant";
+      return `${noun}${plural}`;
+    });
 }
 
 export function countSlips(kind, count) {

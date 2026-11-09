@@ -4,7 +4,7 @@ import { getDrawMethod } from "../utils/drawMethods";
 import FilmStripGlyph from "./FilmStripGlyph";
 import ForkKnifeGlyph from "./ForkKnifeGlyph";
 import { useBowlKind } from "../context/BowlKindContext";
-import { countSlips, isRestaurantKind } from "../utils/restaurants";
+import { countSlips, inBowlWords, isRestaurantKind } from "../utils/restaurants";
 import PeopleGlyph from "./PeopleGlyph";
 import DrawMethodMark from "./DrawMethodMark";
 
@@ -77,12 +77,10 @@ function PoolSegment({ count, service, tone, onOpenFilters }) {
       </span>
     </span>
   );
-  // A restaurant bowl has no draw filters yet, so its count opens nothing.
   if (isRestaurant) {
     return (
-      <Segment tone={tone}>
-        <span className="sr-only">Drawing from {countSlips(kind, count)}.</span>
-        <span aria-hidden="true">{counted}</span>
+      <Segment as="button" tone={tone} onClick={onOpenFilters} ariaLabel={`Drawing from ${countSlips(kind, count)}. Open draw filters.`}>
+        {counted}
       </Segment>
     );
   }
@@ -102,13 +100,14 @@ function PoolSegment({ count, service, tone, onOpenFilters }) {
 // nothing in the draw it turns amber and becomes a ratio: the one fact here
 // that should stop someone.
 function PeopleSegment({ memberCount, reach, onOpenPeople }) {
+  const kind = useBowlKind();
   if (reach) {
     return (
       <Segment
         as="button"
         tone="warning"
         onClick={onOpenPeople}
-        ariaLabel={`Only ${reach.reachedCount} of ${reach.totalCount} people have a movie in the draw. See who.`}
+        ariaLabel={inBowlWords(kind, `Only ${reach.reachedCount} of ${reach.totalCount} people have a movie in the draw. See who.`)}
       >
         <span className="inline-flex items-center gap-1 leading-none">
           <PeopleGlyph className="block h-4 w-4" />
