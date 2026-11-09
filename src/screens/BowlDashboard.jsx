@@ -2031,7 +2031,7 @@ return (
               />
             )}
             {drawnMovie && isRestaurantBowl && (
-              <RestaurantSheet slip={drawnMovie} tonight onClose={closeReveal} />
+              <RestaurantSheet slip={drawnMovie} tonight bowlId={bowlId} onClose={closeReveal} />
             )}
             {selectedDetailMovie && isRestaurantBowl && (
               <RestaurantSheet

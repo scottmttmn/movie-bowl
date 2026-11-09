@@ -97,6 +97,8 @@ function createInitialState() {
     // the way a deploy without a key does.
     places: [],
     placesAvailable: true,
+    placeDetails: {},
+    placeDetailsRequests: [],
   };
 }
 
@@ -1295,6 +1297,15 @@ export class FakeBackend {
       await fulfillJson(route, this.state.placesAvailable
         ? { available: true, results: this.state.places.filter((place) => place.name.toLowerCase().includes(query)) }
         : { available: false, results: [] });
+      return;
+    }
+
+    if (url.pathname === "/api/places/details" && method === "POST") {
+      this.state.placeDetailsRequests.push(body);
+      const known = this.state.placeDetails[body?.placeId];
+      await fulfillJson(route, known
+        ? { available: true, details: known.details, photo: body?.photo === true ? known.photo || null : null }
+        : { available: false, details: null, photo: null });
       return;
     }
 

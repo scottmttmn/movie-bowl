@@ -31,6 +31,7 @@ select is(
   ),
   array[
     'feedback_reports',
+    'place_details_usage',
     'service_usage_counters',
     'tv_pairing_rate_limits'
   ]::text[],

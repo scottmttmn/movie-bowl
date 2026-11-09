@@ -63,6 +63,10 @@
       "destination": "/api/movie-cache?action=places-search"
     },
     {
+      "source": "/api/places/details",
+      "destination": "/api/movie-cache?action=place-details"
+    },
+    {
       "source": "/voice-probe/privacy",
       "destination": "/index.html"
     },

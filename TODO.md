@@ -63,7 +63,8 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   hidden behind a Settings switch, drawing where to eat. Five steps in
   `output/designs/restaurant-bowls.md`; steps 1 (schema), 2 (bowls
   drawn with Directions) and 3 (adding through Google search) are built, and
-  step 4's Cuisine filter.
+  step 4's Cuisine filter and the drawn sheet's hours, Reserve, Website, Call
+  and photo.
 
 - Departure notices: **built October 19, 2026** for search, movie details, and
   My Movies cards. Active bowl movies with a supported saved-service match

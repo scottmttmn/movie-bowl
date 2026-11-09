@@ -1,6 +1,7 @@
 import { describe, expect, it } from "vitest";
 import {
   countSlips,
+  describeOpenStatus,
   filterSlipsByCuisine,
   getCuisineChoices,
   getRestaurantDirectionsUrl,
@@ -61,5 +62,33 @@ describe("restaurant helpers", () => {
       .toBe("Welcome to Movie Bowl. This bowl draws title-first.");
     expect(inBowlWords("movies", "One of their movies")).toBe("One of their movies");
     expect(inBowlWords("restaurants", null)).toBeNull();
+  });
+
+  it("reads Google's hours on the restaurant's own clock", () => {
+    // 7:30 PM in Decorah (UTC-6) on Sunday, November 8.
+    const now = Date.parse("2026-11-09T01:30:00Z");
+    const central = { utcOffsetMinutes: -360 };
+    expect(describeOpenStatus({ ...central, openNow: true, nextCloseTime: "2026-11-09T03:00:00Z" }, now))
+      .toEqual({ tone: "open", text: "Open until 9 PM" });
+    expect(describeOpenStatus({ ...central, openNow: true, nextCloseTime: "2026-11-09T07:30:00Z" }, now).text)
+      .toBe("Open until 1:30 AM");
+    expect(describeOpenStatus({ ...central, openNow: false, nextOpenTime: "2026-11-09T02:00:00Z" }, now).text)
+      .toBe("Closed · opens 8 PM");
+    expect(describeOpenStatus({ ...central, openNow: false, nextOpenTime: "2026-11-09T17:00:00Z" }, now).text)
+      .toBe("Closed · opens tomorrow 11 AM");
+    expect(describeOpenStatus({ ...central, openNow: false, nextOpenTime: "2026-11-11T17:00:00Z" }, now).text)
+      .toBe("Closed · opens Wed 11 AM");
+    expect(describeOpenStatus({ openNow: true }, now).text).toBe("Open now");
+    // Saturday, March 13, 2027: Chicago is still on UTC-6, and springs forward
+    // overnight, so Sunday's 15:00 UTC opening is 10 AM there, not 9.
+    const beforeSpring = Date.parse("2027-03-14T01:00:00Z");
+    expect(describeOpenStatus(
+      { openNow: false, nextOpenTime: "2027-03-14T15:00:00Z", utcOffsetMinutes: -360, timeZone: "America/Chicago" },
+      beforeSpring
+    ).text).toBe("Closed · opens tomorrow 10 AM");
+    expect(describeOpenStatus({ closedForGood: true, openNow: false }, now))
+      .toEqual({ tone: "gone", text: "Closed for good" });
+    expect(describeOpenStatus({ openNow: null }, now)).toBeNull();
+    expect(describeOpenStatus(null)).toBeNull();
   });
 });

@@ -2,9 +2,9 @@
 
 Status: being built in five steps. Steps 1 to 3 are built: the schema,
 restaurant bowls behind the Settings switch, drawn with a Directions link, and
-added through Google search or by name. Step 4's Cuisine filter is built. The
-Open filter, the place details on the drawn sheet and the longer return
-window are not built yet.
+added through Google search or by name. Step 4's Cuisine filter and the drawn sheet's
+place details are built. The Open filter and the longer return window are not
+built yet.
 
 ## Why
 
@@ -75,6 +75,13 @@ rotation, the reveal and returning a draw, with one account and one deploy.
    draw alike. The Filters button shows once the bowl holds two cuisines.
    Copy written for movies (draw method steps, the draw button, the people
    sheet, add messages, Bowl Settings) reads through `inBowlWords`.
+   **The drawn sheet is built:** the drawn pick (only) asks
+   `/api/places/details` for open now, Reserve, Website, Call and Google's
+   first photo with its author, each against a monthly budget in Supabase
+   (`begin_place_details_fetch`, details and photo counted apart). A slip
+   opened from My Restaurants or Been there keeps Directions alone.
+   The Open filter is next; it needs hours for every slip, so it spends the
+   same budget and must decide how many lookups a draw may make.
 5. Returning a draw until the end of the day it was drawn for.
 
 Later: a distance filter. Not possible for free: how busy a place is.

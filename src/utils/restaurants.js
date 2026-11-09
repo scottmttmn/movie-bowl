@@ -98,3 +98,64 @@ export function countSlips(kind, count) {
   const words = getBowlKindWords(kind);
   return `${count} ${count === 1 ? words.one : words.many}`;
 }
+
+const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+
+// Google's times are instants; the sheet reads them on the restaurant's own
+// clock, which is the one its door keeps, wherever the phone is. The returned
+// date's UTC fields are that wall clock. The place's time zone answers across
+// a daylight-saving change; its current offset, the fallback, does not.
+function onPlaceClock(ms, details) {
+  if (details.timeZone) {
+    try {
+      const parts = Object.fromEntries(
+        new Intl.DateTimeFormat("en-US", {
+          timeZone: details.timeZone,
+          hourCycle: "h23",
+          year: "numeric",
+          month: "numeric",
+          day: "numeric",
+          hour: "numeric",
+          minute: "numeric",
+        }).formatToParts(new Date(ms)).map((part) => [part.type, Number(part.value)])
+      );
+      return new Date(Date.UTC(parts.year, parts.month - 1, parts.day, parts.hour, parts.minute));
+    } catch {
+      // A zone this browser does not know: the offset below is close enough.
+    }
+  }
+  const offset = Number.isInteger(details.utcOffsetMinutes) ? details.utcOffsetMinutes : 0;
+  return new Date(ms + offset * 60_000);
+}
+
+function clockTime(date) {
+  const hours = date.getUTCHours();
+  const minutes = date.getUTCMinutes();
+  const hour = hours % 12 || 12;
+  return `${hour}${minutes ? `:${String(minutes).padStart(2, "0")}` : ""} ${hours < 12 ? "AM" : "PM"}`;
+}
+
+function dayDistance(from, to) {
+  const day = (date) => Date.UTC(date.getUTCFullYear(), date.getUTCMonth(), date.getUTCDate());
+  return Math.round((day(to) - day(from)) / 86_400_000);
+}
+
+// "Open until 9 PM", "Closed · opens tomorrow 11 AM": what the drawn sheet
+// says about the door right now, or null when Google said nothing usable.
+export function describeOpenStatus(details, now = Date.now()) {
+  if (!details) return null;
+  if (details.closedForGood) return { tone: "gone", text: "Closed for good" };
+  const here = onPlaceClock(now, details);
+  if (details.openNow === true) {
+    if (!details.nextCloseTime) return { tone: "open", text: "Open now" };
+    return { tone: "open", text: `Open until ${clockTime(onPlaceClock(Date.parse(details.nextCloseTime), details))}` };
+  }
+  if (details.openNow === false) {
+    if (!details.nextOpenTime) return { tone: "closed", text: "Closed now" };
+    const opens = onPlaceClock(Date.parse(details.nextOpenTime), details);
+    const days = dayDistance(here, opens);
+    const day = days <= 0 ? "" : days === 1 ? "tomorrow " : `${WEEKDAYS[opens.getUTCDay()]} `;
+    return { tone: "closed", text: `Closed · opens ${day}${clockTime(opens)}` };
+  }
+  return null;
+}

@@ -26,6 +26,22 @@ test.describe("restaurant bowls", () => {
       { placeId: "ChIJlarana", name: "La Rana Bistro", address: "Water St, Decorah", cuisine: "Mediterranean" },
       { placeId: "ChIJmabes", name: "Mabe's Pizza", address: "W Water St, Decorah", cuisine: "Pizza" },
     ];
+    // A local image: the gate has no network for Google's.
+    const photo = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='9'/%3E";
+    backend.state.placeDetails = {
+      ChIJlarana: {
+        details: {
+          openNow: true,
+          nextCloseTime: new Date(Date.now() + 3 * 3_600_000).toISOString(),
+          utcOffsetMinutes: 0,
+          phone: "+15635550101",
+          phoneLabel: "(563) 555-0101",
+          website: "https://laranabistro.example/",
+          reserveUrl: "https://maps.google.com/?cid=1",
+        },
+        photo: { uri: photo, author: { name: "Sam", uri: null } },
+      },
+    };
     await page.goto("/settings");
     const toggle = page.getByLabel("Let me create restaurant bowls");
     await expect(toggle).not.toBeChecked();
@@ -71,6 +87,13 @@ test.describe("restaurant bowls", () => {
     const sheet = page.getByRole("dialog", { name: "La Rana" });
     await expect(sheet).toBeVisible({ timeout: 10_000 });
     await expect(sheet.getByRole("link", { name: "Directions" })).toHaveAttribute("href", /query_place_id=ChIJlarana/);
+    await expect(sheet.getByRole("link", { name: "Reserve a table" })).toHaveAttribute("href", "https://maps.google.com/?cid=1");
+    await expect(sheet.getByRole("link", { name: "Call" })).toHaveAttribute("href", "tel:+15635550101");
+    await expect(sheet.getByText(/^Open until/)).toBeVisible();
+    await expect(sheet.getByRole("img", { name: "La Rana, from Google Maps" })).toBeVisible();
+    expect(backend.state.placeDetailsRequests).toEqual([
+      { placeId: "ChIJlarana", bowlId: bowl.id, photo: true },
+    ]);
     expect(backend.state.user_watch_events).toHaveLength(0);
   });
 });

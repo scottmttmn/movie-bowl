@@ -37,3 +37,30 @@ export async function searchPlaces({ query, sessionToken, signal } = {}) {
     return { available: false, results: [] };
   }
 }
+
+// The drawn restaurant's hours, links and photo. Resolves, never rejects:
+// { available, details, photo }. Unavailable leaves the sheet with Directions,
+// which needs nothing from Google.
+export async function getPlaceDetails({ placeId, bowlId, photo = false, signal } = {}) {
+  const unavailable = { available: false, details: null, photo: null };
+  if (!placeId || !bowlId) return unavailable;
+  try {
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data?.session?.access_token;
+    if (!accessToken) return unavailable;
+
+    const response = await fetch("/api/places/details", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ placeId, bowlId, photo }),
+      signal,
+    });
+    if (!response.ok) return unavailable;
+    const body = await response.json();
+    if (body?.available !== true || !body.details) return unavailable;
+    return { available: true, details: body.details, photo: body.photo?.uri ? body.photo : null };
+  } catch (error) {
+    if (error?.name !== "AbortError") console.error("[placesSearch] Details failed", error);
+    return unavailable;
+  }
+}

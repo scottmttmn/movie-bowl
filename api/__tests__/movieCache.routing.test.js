@@ -30,6 +30,7 @@ describe("movie cache public routing", () => {
     ["/api/tmdb/movie/warm-filter-metadata", "Unauthorized"],
     ["/api/feedback", "Authentication required."],
     ["/api/places/search", "Unauthorized"],
+    ["/api/places/details", "Unauthorized"],
   ]) {
     it(`keeps ${path} authenticated after rewriting`, async () => {
       const res = response();
