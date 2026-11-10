@@ -13,6 +13,7 @@ const SCREENS = {
   "/bowl/:bowlId": ["src/screens/BowlDashboard.jsx"],
   "/bowl/:bowlId/settings": ["src/screens/BowlSettings.jsx", "src/components/StarterPackSection.jsx"],
   "/invites": ["src/screens/InvitesPage.jsx"],
+  "/watch-list": ["src/screens/WatchListPage.jsx"],
 };
 
 describe("help guide", () => {

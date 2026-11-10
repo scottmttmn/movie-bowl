@@ -31,6 +31,8 @@
   { "q": "turn off the trailers before the movie", "topic": "previews" },
   { "q": "add a movie I watched at the theater to my history", "topic": "log_watched" },
   { "q": "write what I thought of a movie I watched", "topic": "personal_comment" },
+  { "q": "can I send my sister a list of what I've watched", "topic": "share_watch_history" },
+  { "q": "stop sharing my watch history", "topic": "share_watch_history" },
   { "q": "how do I use this on my TV", "topic": "tv" },
   { "q": "change my name", "topic": "display_name" },
   { "q": "delete my account", "topic": "delete_account" },

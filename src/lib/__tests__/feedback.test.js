@@ -25,11 +25,12 @@ describe("describeFeedbackContext", () => {
     expect(typeof context.build).toBe("string");
   });
 
-  // Invite and guest add-link tokens are credentials, even in the path.
+  // Invite, guest add-link and Watch History share tokens are credentials, even in the path.
   it("replaces the token in invite and add-link paths and leaves others alone", () => {
     const pageOf = (pathname) => describeFeedbackContext({ location: { pathname } }).page;
     expect(pageOf("/add-to-bowl/secret-token")).toBe("/add-to-bowl/:token");
     expect(pageOf("/accept-invite/secret-token")).toBe("/accept-invite/:token");
+    expect(pageOf("/w/secret-token")).toBe("/w/:token");
     expect(pageOf("/ADD-TO-BOWL/secret-token")).toBe("/add-to-bowl/:token");
     expect(pageOf("//Accept-Invite//secret-token")).toBe("/accept-invite/:token");
     expect(pageOf("/%61ccept-invite/secret-token")).toBe("/accept-invite/:token");

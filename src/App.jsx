@@ -68,6 +68,7 @@ const AboutPage = lazyScreen(() => import("./screens/AboutPage"));
 const VoiceProbePrivacyPage = lazyScreen(() => import("./screens/VoiceProbePrivacyPage"));
 const PublicAddLinkPage = lazyScreen(() => import("./screens/PublicAddLinkPage"));
 const WatchListPage = lazyScreen(() => import("./screens/WatchListPage"));
+const SharedWatchHistoryPage = lazyScreen(() => import("./screens/SharedWatchHistoryPage"));
 const SoloDrawPage = lazyScreen(() => import("./screens/SoloDrawPage"));
 const InvitesPage = lazyScreen(() => import("./screens/InvitesPage"));
 const HomeRedirect = lazyScreen(() => import("./screens/HomeRedirect"));
@@ -94,12 +95,14 @@ function AppShell({ children }) {
   const isInvitesRoute = location.pathname === "/invites";
   const isSoloDrawRoute = location.pathname === "/solo-draw";
   const isPublicAddRoute = location.pathname.startsWith("/add-to-bowl/");
+  const isSharedHistoryRoute = location.pathname.startsWith("/w/");
   const isBowlRoute = location.pathname.startsWith("/bowl/");
   const isBowlsRoute = location.pathname === "/bowls";
   const isTvRoute = location.pathname === "/tv" || location.pathname.startsWith("/tv/");
   const shouldShowTopNav =
     !isLoginRoute &&
     !isPublicAddRoute &&
+    !isSharedHistoryRoute &&
     !isTvRoute &&
     !isVoiceProbePrivacyRoute &&
     (Boolean(session) || isAboutRoute);
@@ -187,6 +190,7 @@ function Layout({ children }) {
   const bowlContextEnabled = Boolean(session) && pathname !== "/login"
     && pathname !== "/tv" && !pathname.startsWith("/tv/")
     && !pathname.startsWith("/add-to-bowl/")
+    && !pathname.startsWith("/w/")
     && pathname !== "/voice-probe/privacy";
 
   // Re-key on the signed-in user so invites reload on login, logout, and
@@ -331,6 +335,7 @@ function App() {
               <Route path="/activate-tv" element={<TvActivationPage />} />
               <Route path="/accept-invite/:token" element={<AcceptInvite />} />
               <Route path="/add-to-bowl/:token" element={<PublicAddLinkPage />} />
+              <Route path="/w/:token" element={<SharedWatchHistoryPage />} />
               <Route path="/watch-list" element={
                 <RequireAuth>
                   <WatchListPage />

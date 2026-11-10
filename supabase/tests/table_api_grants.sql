@@ -33,7 +33,8 @@ select is(
     'feedback_reports',
     'place_details_usage',
     'service_usage_counters',
-    'tv_pairing_rate_limits'
+    'tv_pairing_rate_limits',
+    'watch_history_share_links'
   ]::text[],
   'only the sealed tables have no row grant to any API role'
 );

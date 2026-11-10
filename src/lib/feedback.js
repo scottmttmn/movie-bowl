@@ -17,7 +17,7 @@ export function redactPage(path) {
     .join("/")
     .split("/")
     .filter(Boolean);
-  if (segments.length > 1 && /^(accept-invite|add-to-bowl)$/i.test(segments[0].trim())) {
+  if (segments.length > 1 && /^(accept-invite|add-to-bowl|w)$/i.test(segments[0].trim())) {
     return `/${segments[0].trim().toLowerCase()}/:token`;
   }
   return path;
