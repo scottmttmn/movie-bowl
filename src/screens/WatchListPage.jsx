@@ -52,6 +52,7 @@ export default function WatchListPage() {
   const [exportNotice, setExportNotice] = useState("");
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareLink, setShareLink] = useState(null);
+  const [isShareLinkKnown, setIsShareLinkKnown] = useState(false);
 
   const loadWatchList = useCallback(async () => {
     setIsLoading(true);
@@ -99,11 +100,15 @@ export default function WatchListPage() {
     loadWatchList();
   }, [loadWatchList]);
 
-  // Only tints the share button; the sheet works from whatever this found.
+  // The sheet opens only once this has answered: opened earlier it would show
+  // comments as private on a link that shares them, and making a link would
+  // quietly switch them off.
   useEffect(() => {
     let active = true;
     fetchMyWatchHistoryShareLink().then((result) => {
-      if (active) setShareLink(result.link);
+      if (!active) return;
+      setShareLink(result.link);
+      setIsShareLinkKnown(true);
     });
     return () => {
       active = false;
@@ -445,10 +450,11 @@ export default function WatchListPage() {
             <button
               id="share-watch-history"
               type="button"
-              className={`icon-btn ${shareLink ? "border-rose-800/80 text-rose-300" : ""}`}
+              className={`icon-btn disabled:cursor-wait disabled:opacity-45 ${shareLink ? "border-rose-800/80 text-rose-300" : ""}`}
               aria-label={shareLink ? "Share watch history (link on)" : "Share watch history"}
               title="Share watch history"
               onClick={() => setIsShareOpen(true)}
+              disabled={!isShareLinkKnown}
             >
               <LinkGlyph />
             </button>

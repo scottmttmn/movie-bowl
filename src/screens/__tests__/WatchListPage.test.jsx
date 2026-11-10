@@ -356,6 +356,27 @@ describe("WatchListPage", () => {
     expect(screen.getByRole("switch", { name: "Show my comments" })).toHaveAttribute("aria-checked", "false");
   });
 
+  it("keeps the share sheet shut until the saved link has been read", async () => {
+    let answer;
+    mocks.supabase.rpc.mockImplementationOnce(
+      (name) => new Promise((resolve) => { answer = () => resolve({ data: name && { token: "live-token", include_comments: true }, error: null }); })
+    );
+
+    render(
+      <MemoryRouter>
+        <WatchListPage />
+      </MemoryRouter>
+    );
+
+    const button = screen.getByRole("button", { name: "Share watch history" });
+    expect(button).toBeDisabled();
+    answer();
+    const ready = await screen.findByRole("button", { name: "Share watch history (link on)" });
+    expect(ready).toBeEnabled();
+    fireEvent.click(ready);
+    expect(screen.getByRole("switch", { name: "Show my comments" })).toHaveAttribute("aria-checked", "true");
+  });
+
   it("offers to make a link when there is none", async () => {
     render(
       <MemoryRouter>
