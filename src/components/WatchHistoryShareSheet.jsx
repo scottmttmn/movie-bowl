@@ -34,7 +34,14 @@ function Switch({ checked, onChange, label, disabled }) {
 // One private link per account. A viewer can look and nothing else: there is
 // nobody to follow, nothing to like, and no count of who looked -- sharing
 // what you watched without Movie Bowl turning into a social app.
-export default function WatchHistoryShareSheet({ link, posters = [], onLinkChange, onClose }) {
+export default function WatchHistoryShareSheet({
+  link,
+  lookupStatus = "known",
+  onRetryLookup,
+  posters = [],
+  onLinkChange,
+  onClose,
+}) {
   const [includeComments, setIncludeComments] = useState(link?.includeComments ?? false);
   const [isBusy, setIsBusy] = useState(false);
   const [failure, setFailure] = useState("");
@@ -129,57 +136,74 @@ export default function WatchHistoryShareSheet({ link, posters = [], onLinkChang
           </div>
         )}
 
-        {link && (
-          <>
-            <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/70 py-1.5 pl-3 pr-1.5">
-              <LinkGlyph className="h-4 w-4 shrink-0 text-rose-300" />
-              <input
-                readOnly
-                aria-label="Share link"
-                value={url}
-                onFocus={(event) => event.target.select()}
-                className="min-w-0 flex-1 truncate bg-transparent font-mono text-sm text-slate-200 outline-none"
-              />
-              <button type="button" className="btn btn-primary min-h-0 px-4 py-2 text-sm" onClick={handleCopy}>
-                {copied ? "Copied" : "Copy"}
+        {lookupStatus !== "known" ? (
+          // Without a confirmed answer the controls would be guesses: a link
+          // may already exist, sharing comments the switch would show as off.
+          lookupStatus === "failed" ? (
+            <div className="status-error flex flex-wrap items-center justify-between gap-3" role="alert">
+              <p>Could not check your link.</p>
+              <button type="button" className="btn btn-secondary min-h-0 px-4 py-2 text-sm" onClick={onRetryLookup}>
+                Try again
               </button>
             </div>
-            <p className="mt-2 text-xs text-slate-500">Anyone with the link can look. Nobody can reply.</p>
-          </>
-        )}
-
-        <div className={`flex items-center justify-between gap-4 border-t border-slate-800 pt-4 ${link ? "mt-5" : ""}`}>
-          <span className="text-sm font-medium text-slate-200">Show my comments</span>
-          <Switch checked={includeComments} onChange={handleComments} label="Show my comments" disabled={isBusy} />
-        </div>
-
-        {failure && <div className="status-error mt-4" role="alert">{failure}</div>}
-
-        {link ? (
-          <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
-            <button
-              type="button"
-              className="btn btn-ghost px-0 text-sm text-rose-300"
-              onClick={handleTurnOff}
-              disabled={isBusy}
-            >
-              {confirmingOff ? "Tap again to turn off" : "Turn off link"}
-            </button>
-            <a className="btn btn-secondary text-sm" href={url} target="_blank" rel="noreferrer">
-              Preview
-            </a>
-          </div>
+          ) : (
+            <p className="text-sm text-slate-400" role="status">Checking your link…</p>
+          )
         ) : (
-          <div className="mt-6 flex justify-end">
-            <button
-              type="button"
-              className="btn btn-primary w-full sm:w-auto"
-              onClick={() => save(includeComments)}
-              disabled={isBusy}
-            >
-              {isBusy ? "Making…" : "Make a link"}
-            </button>
+          <>
+          {link && (
+            <>
+              <div className="flex items-center gap-2 rounded-xl border border-slate-700 bg-slate-950/70 py-1.5 pl-3 pr-1.5">
+                <LinkGlyph className="h-4 w-4 shrink-0 text-rose-300" />
+                <input
+                  readOnly
+                  aria-label="Share link"
+                  value={url}
+                  onFocus={(event) => event.target.select()}
+                  className="min-w-0 flex-1 truncate bg-transparent font-mono text-sm text-slate-200 outline-none"
+                />
+                <button type="button" className="btn btn-primary min-h-0 px-4 py-2 text-sm" onClick={handleCopy}>
+                  {copied ? "Copied" : "Copy"}
+                </button>
+              </div>
+              <p className="mt-2 text-xs text-slate-500">Anyone with the link can look. Nobody can reply.</p>
+            </>
+          )}
+
+          <div className={`flex items-center justify-between gap-4 border-t border-slate-800 pt-4 ${link ? "mt-5" : ""}`}>
+            <span className="text-sm font-medium text-slate-200">Show my comments</span>
+            <Switch checked={includeComments} onChange={handleComments} label="Show my comments" disabled={isBusy} />
           </div>
+
+          {failure && <div className="status-error mt-4" role="alert">{failure}</div>}
+
+          {link ? (
+            <div className="mt-6 flex flex-wrap items-center justify-between gap-3">
+              <button
+                type="button"
+                className="btn btn-ghost px-0 text-sm text-rose-300"
+                onClick={handleTurnOff}
+                disabled={isBusy}
+              >
+                {confirmingOff ? "Tap again to turn off" : "Turn off link"}
+              </button>
+              <a className="btn btn-secondary text-sm" href={url} target="_blank" rel="noreferrer">
+                Preview
+              </a>
+            </div>
+          ) : (
+            <div className="mt-6 flex justify-end">
+              <button
+                type="button"
+                className="btn btn-primary w-full sm:w-auto"
+                onClick={() => save(includeComments)}
+                disabled={isBusy}
+              >
+                {isBusy ? "Making…" : "Make a link"}
+              </button>
+            </div>
+          )}
+          </>
         )}
       </div>
     </div>

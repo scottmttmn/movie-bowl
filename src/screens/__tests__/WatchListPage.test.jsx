@@ -377,6 +377,29 @@ describe("WatchListPage", () => {
     expect(screen.getByRole("switch", { name: "Show my comments" })).toHaveAttribute("aria-checked", "true");
   });
 
+  it("never mistakes a failed link lookup for having no link", async () => {
+    mocks.supabase.rpc.mockImplementationOnce(async () => ({ data: null, error: { message: "offline" } }));
+    mocks.state.shareLink = { token: "live-token", include_comments: true };
+
+    render(
+      <MemoryRouter>
+        <WatchListPage />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Owned Favorite");
+    fireEvent.click(await screen.findByRole("button", { name: "Share watch history" }));
+    expect(await screen.findByText("Could not check your link.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Make a link" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("textbox", { name: "Share link" })).toHaveValue(
+      `${window.location.origin}/w/live-token`
+    );
+    expect(screen.getByRole("switch", { name: "Show my comments" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("button", { name: "Share watch history (link on)" })).toBeInTheDocument();
+  });
+
   it("offers to make a link when there is none", async () => {
     render(
       <MemoryRouter>

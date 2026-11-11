@@ -52,7 +52,9 @@ export default function WatchListPage() {
   const [exportNotice, setExportNotice] = useState("");
   const [isShareOpen, setIsShareOpen] = useState(false);
   const [shareLink, setShareLink] = useState(null);
-  const [isShareLinkKnown, setIsShareLinkKnown] = useState(false);
+  // "loading", "known" or "failed". Only "known" means the link is what
+  // shareLink says: a failed read must never look like having no link.
+  const [shareLinkStatus, setShareLinkStatus] = useState("loading");
 
   const loadWatchList = useCallback(async () => {
     setIsLoading(true);
@@ -100,15 +102,22 @@ export default function WatchListPage() {
     loadWatchList();
   }, [loadWatchList]);
 
-  // The sheet opens only once this has answered: opened earlier it would show
-  // comments as private on a link that shares them, and making a link would
-  // quietly switch them off.
+  // The sheet offers its controls only once this has answered: before then,
+  // or after a failed read, it would show comments as private on a link that
+  // shares them and offer to make a link that already exists.
+  const loadShareLink = useCallback(async () => {
+    setShareLinkStatus("loading");
+    const result = await fetchMyWatchHistoryShareLink();
+    setShareLink(result.link);
+    setShareLinkStatus(result.ok ? "known" : "failed");
+  }, []);
+
   useEffect(() => {
     let active = true;
     fetchMyWatchHistoryShareLink().then((result) => {
       if (!active) return;
       setShareLink(result.link);
-      setIsShareLinkKnown(true);
+      setShareLinkStatus(result.ok ? "known" : "failed");
     });
     return () => {
       active = false;
@@ -454,7 +463,7 @@ export default function WatchListPage() {
               aria-label={shareLink ? "Share watch history (link on)" : "Share watch history"}
               title="Share watch history"
               onClick={() => setIsShareOpen(true)}
-              disabled={!isShareLinkKnown}
+              disabled={shareLinkStatus === "loading" && !isShareOpen}
             >
               <LinkGlyph />
             </button>
@@ -595,7 +604,10 @@ export default function WatchListPage() {
 
       {isShareOpen && (
         <WatchHistoryShareSheet
+          key={shareLinkStatus}
           link={shareLink}
+          lookupStatus={shareLinkStatus}
+          onRetryLookup={loadShareLink}
           posters={rows.slice(0, 5).map((movie) => movie.posterUrl)}
           onLinkChange={setShareLink}
           onClose={() => setIsShareOpen(false)}

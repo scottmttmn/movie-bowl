@@ -87,6 +87,23 @@ describe("WatchHistoryShareSheet", () => {
     await waitFor(() => expect(onLinkChange).toHaveBeenCalledWith(null));
   });
 
+  it("offers no controls until the saved link is known", () => {
+    const onRetryLookup = vi.fn();
+    const { rerender, onLinkChange, onClose } = renderSheet({ lookupStatus: "failed", onRetryLookup });
+
+    expect(screen.getByRole("alert")).toHaveTextContent("Could not check your link.");
+    expect(screen.queryByRole("button", { name: "Make a link" })).toBeNull();
+    expect(screen.queryByRole("switch", { name: "Show my comments" })).toBeNull();
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(onRetryLookup).toHaveBeenCalled();
+
+    rerender(
+      <WatchHistoryShareSheet link={null} lookupStatus="loading" onLinkChange={onLinkChange} onClose={onClose} />
+    );
+    expect(screen.getByRole("status")).toHaveTextContent("Checking your link");
+    expect(screen.queryByRole("button", { name: "Make a link" })).toBeNull();
+  });
+
   it("keeps the link when turning it off fails", async () => {
     mocks.remove.mockResolvedValue({ ok: false, message: "Could not turn off your link. Please try again." });
     const { onLinkChange } = renderSheet({ link: { token: "t1", includeComments: false } });
