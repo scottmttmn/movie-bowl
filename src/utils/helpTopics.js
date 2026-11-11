@@ -189,6 +189,14 @@ export const HELP_TOPICS = [
     label: "Watch History",
   },
   {
+    id: "share_watch_history",
+    ask: "Share what I've watched with a friend; send someone my watch history or watched list; a link to my movies; stop sharing it.",
+    answer: "Make a private link in Watch History. Anyone with it can look; turn it off any time.",
+    to: "/watch-list",
+    target: "share-watch-history",
+    label: "Share Watch History",
+  },
+  {
     id: "tv",
     ask: "Use Movie Bowl on the TV; Google TV; sign in on the television; draw on the big screen.",
     answer: "Open Movie Bowl on the TV, then enter the code it shows here.",

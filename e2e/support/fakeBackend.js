@@ -74,6 +74,8 @@ function createInitialState() {
     titleDepartureCache: {},
     titleDepartureFetches: [],
     feedbackReports: [],
+    // Watch History share links by owner id: { token, include_comments }.
+    watchShareLinks: {},
     // People search answers nobody unless a test seeds someone, so every
     // title search keeps looking as it did before people existed.
     tmdbPeople: [],
@@ -488,7 +490,61 @@ export class FakeBackend {
       restaurant_bowls_enabled: profile?.restaurant_bowls_enabled === true };
   }
 
+  // The share-link functions, shaped as the database answers them: the owner's
+  // own link or null, and a public read that leaves out bowls and slip reasons.
+  async handleWatchShareRpc(route, rpcName, args) {
+    const links = this.state.watchShareLinks;
+    const toBody = (link) => (link ? { token: link.token, include_comments: link.include_comments } : null);
+    const userId = this.state.currentUser?.id;
+
+    if (rpcName === "get_my_watch_history_share_link") {
+      await fulfillJson(route, toBody(links[userId]));
+      return true;
+    }
+    if (rpcName === "save_my_watch_history_share_link") {
+      links[userId] ||= { token: `share${Object.keys(links).length + 1}token0000000000000000000000` };
+      links[userId].include_comments = Boolean(args.p_include_comments);
+      await fulfillJson(route, toBody(links[userId]));
+      return true;
+    }
+    if (rpcName === "delete_my_watch_history_share_link") {
+      delete links[userId];
+      await fulfillJson(route, null);
+      return true;
+    }
+    if (rpcName === "get_shared_watch_history") {
+      const ownerId = Object.keys(links).find((id) => links[id].token === args.p_token);
+      if (!ownerId) {
+        await fulfillJson(route, null);
+        return true;
+      }
+      const link = links[ownerId];
+      const entries = this.state.user_watch_events
+        .filter((event) => event.user_id === ownerId)
+        .sort((a, b) => String(b.watched_on).localeCompare(String(a.watched_on))
+          || String(b.created_at).localeCompare(String(a.created_at)))
+        .map((event) => ({
+          tmdb_id: event.tmdb_id,
+          title: event.title,
+          poster_path: event.poster_path,
+          release_date: event.release_date,
+          watched_on: event.watched_on,
+          personal_note: link.include_comments ? event.personal_note ?? null : null,
+        }));
+      const profile = this.state.profiles.find((row) => row.id === ownerId);
+      await fulfillJson(route, {
+        display_name: profile?.display_name ?? null,
+        include_comments: link.include_comments,
+        entries,
+      });
+      return true;
+    }
+    return false;
+  }
+
   async handleRpc(route, rpcName, args) {
+    if (await this.handleWatchShareRpc(route, rpcName, args)) return;
+
     if (rpcName === "get_my_bowl_context" || rpcName === "set_my_default_bowl") {
       if (rpcName === "set_my_default_bowl") {
         if (!this.accessibleBowlRows().some((bowl) => bowl.id === args.p_bowl_id)) {

@@ -2,6 +2,8 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import AddMovieModal from "../components/AddMovieModal";
 import RemoveFromBowlsModal from "../components/RemoveFromBowlsModal";
 import WatchHistoryEntryModal from "../components/WatchHistoryEntryModal";
+import WatchHistoryTimeline from "../components/WatchHistoryTimeline";
+import WatchHistoryShareSheet, { LinkGlyph } from "../components/WatchHistoryShareSheet";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { notifyBowlChange } from "../lib/bowlChanges";
 import { findOwnUndrawnBowlCopies, removeOwnBowlCopies } from "../lib/ownBowlCopies";
@@ -17,6 +19,12 @@ import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { getMovieNoteValidationError, normalizeMovieNote } from "../utils/movieNote";
 import { updateOwnWatchComment } from "../lib/watchComments";
 import {
+  getWatchedDate,
+  getWatchedYears,
+  groupWatchHistoryByMonth,
+} from "../utils/watchHistoryTimeline";
+import { fetchMyWatchHistoryShareLink } from "../lib/watchHistoryShare";
+import {
   buildLetterboxdWatchedCsv,
   getLetterboxdWatchedExportFileName,
 } from "../utils/letterboxdExport";
@@ -24,27 +32,6 @@ import {
 function formatWatchedDate(value) {
   const date = getWatchedDate(value);
   return date ? date.toLocaleDateString() : null;
-}
-
-function getWatchedDate(value) {
-  if (!value) return null;
-
-  const dateOnly = String(value).match(/^(\d{4})-(\d{2})-(\d{2})$/);
-  if (dateOnly) {
-    const [, year, month, day] = dateOnly;
-    return new Date(Number(year), Number(month) - 1, Number(day));
-  }
-
-  const date = new Date(value);
-  return Number.isNaN(date.getTime()) ? null : date;
-}
-
-function getLocalDateKey(date) {
-  return [
-    date.getFullYear(),
-    String(date.getMonth() + 1).padStart(2, "0"),
-    String(date.getDate()).padStart(2, "0"),
-  ].join("-");
 }
 
 export default function WatchListPage() {
@@ -63,6 +50,11 @@ export default function WatchListPage() {
   const [restorableCopies, setRestorableCopies] = useState([]);
   const [restoreNotice, setRestoreNotice] = useState("");
   const [exportNotice, setExportNotice] = useState("");
+  const [isShareOpen, setIsShareOpen] = useState(false);
+  const [shareLink, setShareLink] = useState(null);
+  // "loading", "known" or "failed". Only "known" means the link is what
+  // shareLink says: a failed read must never look like having no link.
+  const [shareLinkStatus, setShareLinkStatus] = useState("loading");
 
   const loadWatchList = useCallback(async () => {
     setIsLoading(true);
@@ -110,6 +102,28 @@ export default function WatchListPage() {
     loadWatchList();
   }, [loadWatchList]);
 
+  // The sheet offers its controls only once this has answered: before then,
+  // or after a failed read, it would show comments as private on a link that
+  // shares them and offer to make a link that already exists.
+  const loadShareLink = useCallback(async () => {
+    setShareLinkStatus("loading");
+    const result = await fetchMyWatchHistoryShareLink();
+    setShareLink(result.link);
+    setShareLinkStatus(result.ok ? "known" : "failed");
+  }, []);
+
+  useEffect(() => {
+    let active = true;
+    fetchMyWatchHistoryShareLink().then((result) => {
+      if (!active) return;
+      setShareLink(result.link);
+      setShareLinkStatus(result.ok ? "known" : "failed");
+    });
+    return () => {
+      active = false;
+    };
+  }, []);
+
   const buildDetailMovie = async (movie) => {
     const tmdbId = Number(movie?.tmdb_id ?? movie?.id);
     const shouldFetchTmdbDetails = Number.isInteger(tmdbId) && tmdbId > 0;
@@ -156,13 +170,7 @@ export default function WatchListPage() {
         ),
     [movies]
   );
-  const availableYears = useMemo(
-    () =>
-      [...new Set(rows.map((movie) => movie.watchedYear).filter(Number.isInteger))].sort(
-        (firstYear, secondYear) => secondYear - firstYear
-      ),
-    [rows]
-  );
+  const availableYears = useMemo(() => getWatchedYears(rows), [rows]);
   const activeYear =
     selectedYear !== null && availableYears.includes(selectedYear)
       ? selectedYear
@@ -171,59 +179,7 @@ export default function WatchListPage() {
     () => rows.filter((movie) => movie.watchedYear === activeYear),
     [activeYear, rows]
   );
-  const monthGroups = useMemo(() => {
-    const groups = [];
-    const monthMap = new Map();
-
-    filteredRows.forEach((movie) => {
-      if (!movie.watchedDate) return;
-
-      const monthKey = `${movie.watchedDate.getFullYear()}-${movie.watchedDate.getMonth()}`;
-      let monthGroup = monthMap.get(monthKey);
-
-      if (!monthGroup) {
-        monthGroup = {
-          key: monthKey,
-          label: movie.watchedDate.toLocaleDateString(undefined, { month: "long" }),
-          dayGroups: [],
-          dayMap: new Map(),
-          movieCount: 0,
-        };
-        monthMap.set(monthKey, monthGroup);
-        groups.push(monthGroup);
-      }
-
-      const dayKey = getLocalDateKey(movie.watchedDate);
-      let dayGroup = monthGroup.dayMap.get(dayKey);
-
-      if (!dayGroup) {
-        dayGroup = {
-          key: dayKey,
-          dateTime: dayKey,
-          weekdayLabel: movie.watchedDate.toLocaleDateString(undefined, { weekday: "short" }),
-          dayLabel: movie.watchedDate.toLocaleDateString(undefined, {
-            weekday: "long",
-            month: "long",
-            day: "numeric",
-          }),
-          dayNumber: movie.watchedDate.getDate(),
-          movies: [],
-        };
-        monthGroup.dayMap.set(dayKey, dayGroup);
-        monthGroup.dayGroups.push(dayGroup);
-      }
-
-      dayGroup.movies.push(movie);
-      monthGroup.movieCount += 1;
-    });
-
-    return groups.map((group) => ({
-      key: group.key,
-      label: group.label,
-      dayGroups: group.dayGroups,
-      movieCount: group.movieCount,
-    }));
-  }, [filteredRows]);
+  const monthGroups = useMemo(() => groupWatchHistoryByMonth(filteredRows), [filteredRows]);
   const letterboxdExport = useMemo(() => buildLetterboxdWatchedCsv(rows), [rows]);
   const canExportLetterboxd =
     !isLoading && !errorMessage && letterboxdExport.exportedCount > 0;
@@ -499,6 +455,18 @@ export default function WatchListPage() {
             )}
           </div>
           <div className="flex shrink-0 items-center gap-2">
+            {/* Rose while a link is live, so a shared history never goes unnoticed. */}
+            <button
+              id="share-watch-history"
+              type="button"
+              className={`icon-btn disabled:cursor-wait disabled:opacity-45 ${shareLink ? "border-rose-800/80 text-rose-300" : ""}`}
+              aria-label={shareLink ? "Share watch history (link on)" : "Share watch history"}
+              title="Share watch history"
+              onClick={() => setIsShareOpen(true)}
+              disabled={shareLinkStatus === "loading" && !isShareOpen}
+            >
+              <LinkGlyph />
+            </button>
             <button
               type="button"
               className="icon-btn"
@@ -566,88 +534,48 @@ export default function WatchListPage() {
           </div>
         ) : (
           <div className="space-y-8">
-            <div className="space-y-10">
-              {monthGroups.map((monthGroup) => (
-                <section key={monthGroup.key} aria-labelledby={`month-${monthGroup.key}`}>
-                  <div className="mb-4 flex items-baseline justify-between gap-4 border-b border-slate-800 pb-3">
-                    <h2
-                      id={`month-${monthGroup.key}`}
-                      className="text-2xl font-semibold tracking-tight text-slate-100"
-                    >
-                      {monthGroup.label}
-                    </h2>
-                    <span className="text-sm font-semibold text-slate-400">
-                      {monthGroup.movieCount} {monthGroup.movieCount === 1 ? "movie" : "movies"}
-                    </span>
+            <WatchHistoryTimeline
+              monthGroups={monthGroups}
+              renderMovie={(movie) => (
+                <button
+                  key={movie.id}
+                  type="button"
+                  onClick={async () => {
+                    setSelectedDetailMovie(await buildDetailMovie(movie));
+                  }}
+                  className="group flex w-full items-center gap-4 rounded-2xl border border-slate-700/80 bg-slate-950/45 p-3 text-left transition duration-200 hover:-translate-y-0.5 hover:border-slate-600 hover:bg-slate-900/80 hover:shadow-lg hover:shadow-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60"
+                >
+                  <img
+                    src={movie.posterUrl}
+                    alt={movie.title}
+                    className="h-24 w-16 flex-shrink-0 rounded-xl object-cover shadow-md shadow-black/30"
+                  />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
+                      <h3 className="text-lg font-semibold text-slate-100">
+                        {movie.title}
+                      </h3>
+                      <span className="text-sm text-slate-400">
+                        ({movie.releaseYear})
+                      </span>
+                    </div>
+                    <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-300">
+                      {movie.bowlName ? `From ${movie.bowlName}` : "Added manually"}
+                      {movie.source_kind === "solo_draw" && (
+                        <span className="rounded-full border border-slate-700 px-2 py-0.5 text-xs text-slate-400">
+                          Solo
+                        </span>
+                      )}
+                    </p>
+                    {movie.watchedDateLabel && (
+                      <p className="mt-1 text-sm text-slate-400">
+                        Watched on {movie.watchedDateLabel}
+                      </p>
+                    )}
                   </div>
-
-                  <div className="relative space-y-6 before:absolute before:bottom-2 before:left-[1.35rem] before:top-2 before:w-px before:bg-slate-800 sm:before:left-[3.7rem]">
-                    {monthGroup.dayGroups.map((dayGroup) => (
-                      <div
-                        key={dayGroup.key}
-                        className="relative grid gap-3 pl-14 sm:grid-cols-[7.5rem_minmax(0,1fr)] sm:gap-4 sm:pl-0"
-                      >
-                        <time
-                          dateTime={dayGroup.dateTime}
-                          className="absolute left-0 top-0 z-10 flex h-11 w-11 flex-col items-center justify-center rounded-xl border border-rose-900/70 bg-rose-950/70 text-center shadow-lg shadow-black/20 sm:static sm:h-auto sm:min-h-16 sm:w-full sm:flex-row sm:gap-2 sm:self-start sm:bg-slate-950/80"
-                          aria-label={dayGroup.dayLabel}
-                        >
-                          <span className="text-[10px] font-semibold uppercase tracking-wider text-rose-300 sm:text-xs">
-                            {dayGroup.weekdayLabel}
-                          </span>
-                          <span className="text-base font-bold leading-none text-slate-50 sm:text-xl">
-                            {dayGroup.dayNumber}
-                          </span>
-                        </time>
-
-                        <div className="space-y-3">
-                          <p className="sr-only">{dayGroup.dayLabel}</p>
-                          {dayGroup.movies.map((movie) => (
-                            <button
-                              key={movie.id}
-                              type="button"
-                              onClick={async () => {
-                                setSelectedDetailMovie(await buildDetailMovie(movie));
-                              }}
-                              className="group flex w-full items-center gap-4 rounded-2xl border border-slate-700/80 bg-slate-950/45 p-3 text-left transition duration-200 hover:-translate-y-0.5 hover:border-slate-600 hover:bg-slate-900/80 hover:shadow-lg hover:shadow-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60"
-                            >
-                              <img
-                                src={movie.posterUrl}
-                                alt={movie.title}
-                                className="h-24 w-16 flex-shrink-0 rounded-xl object-cover shadow-md shadow-black/30"
-                              />
-                              <div className="min-w-0 flex-1">
-                                <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                                  <h3 className="text-lg font-semibold text-slate-100">
-                                    {movie.title}
-                                  </h3>
-                                  <span className="text-sm text-slate-400">
-                                    ({movie.releaseYear})
-                                  </span>
-                                </div>
-                                <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-300">
-                                  {movie.bowlName ? `From ${movie.bowlName}` : "Added manually"}
-                                  {movie.source_kind === "solo_draw" && (
-                                    <span className="rounded-full border border-slate-700 px-2 py-0.5 text-xs text-slate-400">
-                                      Solo
-                                    </span>
-                                  )}
-                                </p>
-                                {movie.watchedDateLabel && (
-                                  <p className="mt-1 text-sm text-slate-400">
-                                    Watched on {movie.watchedDateLabel}
-                                  </p>
-                                )}
-                              </div>
-                            </button>
-                          ))}
-                        </div>
-                      </div>
-                    ))}
-                  </div>
-                </section>
-              ))}
-            </div>
+                </button>
+              )}
+            />
           </div>
         )}
       </section>
@@ -671,6 +599,18 @@ export default function WatchListPage() {
             setIsEntryEditorOpen(true);
           }}
           onClose={() => setSelectedDetailMovie(null)}
+        />
+      )}
+
+      {isShareOpen && (
+        <WatchHistoryShareSheet
+          key={shareLinkStatus}
+          link={shareLink}
+          lookupStatus={shareLinkStatus}
+          onRetryLookup={loadShareLink}
+          posters={rows.slice(0, 5).map((movie) => movie.posterUrl)}
+          onLinkChange={setShareLink}
+          onClose={() => setIsShareOpen(false)}
         />
       )}
 

@@ -234,11 +234,11 @@ because this repository's logs are public.
 
 `/` (HomeRedirect), `/quick-add`, `/bowls`, `/bowl/:bowlId`,
 `/bowl/:bowlId/settings`, `/settings`, `/watch-list`, `/solo-draw`, `/invites`,
-`/about`, `/login`, `/accept-invite/:token`, `/add-to-bowl/:token`, `/tv/*`.
+`/about`, `/login`, `/accept-invite/:token`, `/add-to-bowl/:token`, `/w/:token`, `/tv/*`.
 
-Everything except `/login`, `/about`, `/accept-invite/:token`, and
-`/add-to-bowl/:token` is wrapped in `RequireAuth`. `/tv/*` and
-`/add-to-bowl/*` deliberately render without the top nav. Screens are
+Everything except `/login`, `/about`, `/accept-invite/:token`,
+`/add-to-bowl/:token` and `/w/:token` is wrapped in `RequireAuth`. `/tv/*`,
+`/add-to-bowl/*` and `/w/*` deliberately render without the top nav. Screens are
 `React.lazy` imports — add new ones the same way.
 
 `/` resolves the account's saved home bowl through `get_my_bowl_context`, or
@@ -305,7 +305,8 @@ layout, so the markup and every query still pass.
 Tables the app touches: `profiles`, `bowls`, `bowl_members`, `bowl_movies`,
 `bowl_invites`, `bowl_draw_permissions`, `bowl_add_links`, `bowl_draw_events`,
 `user_watch_events`, `user_bowl_defaults`, `solo_draw_removed_copies`,
-`title_departures`, `title_departure_usage` (the last two are server-only). `bowl_movie_queue` is legacy and is not written to.
+`title_departures`, `title_departure_usage` (the last two are server-only),
+`watch_history_share_links` (sealed; its functions only). `bowl_movie_queue` is legacy and is not written to.
 
 The interface says **home bowl**; the database says **default**, and likewise
 a **favorite** is a pin underneath. That drift is
@@ -349,6 +350,14 @@ which have no `note` at all. The bowl page leads with the reason and folds the
 viewer's own comment away; Watch History does the reverse. See
 `output/designs/movie-comments.md`.
 
+Watch History can be shared through one private, revocable link per account
+(`/w/:token`). The viewer gets the same calendar, read-only, without bowl
+names or slip reasons. They see the owner's own comments only while the owner
+has "Show my comments" on, and the database drops those comments from the
+response otherwise. The link has no followers, likes, replies or viewer
+counts, and none should be added: sharing is not meant to make the app
+social. See `output/designs/watch-history-share-link.md`.
+
 RPCs used by the client — prefer these over multi-statement client writes,
 because they are the atomic/permission-checked path:
 
@@ -367,7 +376,9 @@ because they are the atomic/permission-checked path:
 `claim_bowl_starter_pack_movie`,
 `record_solo_draw`, `undo_solo_draw`,
 `update_user_watch_event`, `update_own_watch_event_note`,
-`delete_user_watch_event`.
+`delete_user_watch_event`, `get_my_watch_history_share_link`,
+`save_my_watch_history_share_link`, `delete_my_watch_history_share_link`,
+`get_shared_watch_history`.
 
 Invitations live at `/invites`, the one surface that sends, accepts, declines,
 and revokes them. Bowl Settings keeps the member roster and links into the hub

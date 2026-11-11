@@ -66,6 +66,9 @@ const mocks = vi.hoisted(() => {
       }),
       rpc: vi.fn(async (name, params) => {
         state.rpcCalls.push({ name, params });
+        if (name === "get_my_watch_history_share_link") {
+          return { data: state.shareLink || null, error: null };
+        }
         if (name === "update_own_watch_event_note") {
           return { data: { id: params.p_event_id, personal_note: params.p_note }, error: null };
         }
@@ -215,6 +218,7 @@ describe("WatchListPage", () => {
     mocks.getTmdbMovieDetails.mockClear();
     mocks.fetchStreamingProviders.mockClear();
     mocks.state.rpcCalls = [];
+    mocks.state.shareLink = null;
   });
 
   afterEach(() => {
@@ -334,6 +338,79 @@ describe("WatchListPage", () => {
     expect(
       screen.getAllByRole("heading", { level: 3 }).map((heading) => heading.textContent)
     ).toEqual(["March Second", "March First", "January Pick"]);
+  });
+
+  it("marks the share button while a link is live and opens the link in the sheet", async () => {
+    mocks.state.shareLink = { token: "live-token", include_comments: false };
+
+    render(
+      <MemoryRouter>
+        <WatchListPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Share watch history (link on)" }));
+    expect(screen.getByRole("textbox", { name: "Share link" })).toHaveValue(
+      `${window.location.origin}/w/live-token`
+    );
+    expect(screen.getByRole("switch", { name: "Show my comments" })).toHaveAttribute("aria-checked", "false");
+  });
+
+  it("keeps the share sheet shut until the saved link has been read", async () => {
+    let answer;
+    mocks.supabase.rpc.mockImplementationOnce(
+      (name) => new Promise((resolve) => { answer = () => resolve({ data: name && { token: "live-token", include_comments: true }, error: null }); })
+    );
+
+    render(
+      <MemoryRouter>
+        <WatchListPage />
+      </MemoryRouter>
+    );
+
+    const button = screen.getByRole("button", { name: "Share watch history" });
+    expect(button).toBeDisabled();
+    answer();
+    const ready = await screen.findByRole("button", { name: "Share watch history (link on)" });
+    expect(ready).toBeEnabled();
+    fireEvent.click(ready);
+    expect(screen.getByRole("switch", { name: "Show my comments" })).toHaveAttribute("aria-checked", "true");
+  });
+
+  it("never mistakes a failed link lookup for having no link", async () => {
+    mocks.supabase.rpc.mockImplementationOnce(async () => ({ data: null, error: { message: "offline" } }));
+    mocks.state.shareLink = { token: "live-token", include_comments: true };
+
+    render(
+      <MemoryRouter>
+        <WatchListPage />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Owned Favorite");
+    fireEvent.click(await screen.findByRole("button", { name: "Share watch history" }));
+    expect(await screen.findByText("Could not check your link.")).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Make a link" })).toBeNull();
+
+    fireEvent.click(screen.getByRole("button", { name: "Try again" }));
+    expect(await screen.findByRole("textbox", { name: "Share link" })).toHaveValue(
+      `${window.location.origin}/w/live-token`
+    );
+    expect(screen.getByRole("switch", { name: "Show my comments" })).toHaveAttribute("aria-checked", "true");
+    expect(screen.getByRole("button", { name: "Share watch history (link on)" })).toBeInTheDocument();
+  });
+
+  it("offers to make a link when there is none", async () => {
+    render(
+      <MemoryRouter>
+        <WatchListPage />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Owned Favorite");
+    fireEvent.click(screen.getByRole("button", { name: "Share watch history" }));
+    expect(screen.getByRole("button", { name: "Make a link" })).toBeInTheDocument();
+    expect(screen.queryByRole("textbox", { name: "Share link" })).toBeNull();
   });
 
   it("shows an empty state when no watched movies are available", async () => {

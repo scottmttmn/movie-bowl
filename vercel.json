@@ -20,6 +20,10 @@
       "headers": [{ "key": "X-Robots-Tag", "value": "noindex" }]
     },
     {
+      "source": "/w/(.*)",
+      "headers": [{ "key": "X-Robots-Tag", "value": "noindex, nofollow" }]
+    },
+    {
       "source": "/((?!api/).*)",
       "has": [
         { "type": "header", "key": "accept", "value": ".*text/html.*" }
