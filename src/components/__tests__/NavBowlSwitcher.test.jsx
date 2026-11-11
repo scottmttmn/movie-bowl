@@ -97,6 +97,29 @@ describe("NavBowlSwitcher", () => {
     expect(row.querySelectorAll("svg[aria-hidden='true']")).toHaveLength(2);
   });
 
+  // A restaurant bowl is drawn as the teal bowl with a fork-and-knife badge,
+  // and counted in forks and knives, so it cannot pass for a movie bowl.
+  it("draws restaurant bowls apart from movie bowls, in the trigger and the picker", () => {
+    state.bowls[0] = { ...state.bowls[0], kind: "restaurants" };
+    state.bowls[1] = { ...state.bowls[1], kind: "movies" };
+    renderSwitcher();
+    const trigger = screen.getByRole("button", { name: /Switch bowl/ });
+    expect(trigger.querySelector("[data-bowl-kind='restaurants']")).not.toBeNull();
+
+    fireEvent.click(trigger);
+    const restaurant = screen.getByRole("button", { name: /^Movie night, home bowl/ });
+    const movie = screen.getByRole("button", { name: /^Date night/ });
+    expect(restaurant.querySelector("[data-bowl-kind='restaurants']")).not.toBeNull();
+    expect(movie.querySelector("[data-bowl-kind='restaurants']")).toBeNull();
+    expect(restaurant.querySelector("img").getAttribute("src")).not.toBe(movie.querySelector("img").getAttribute("src"));
+  });
+
+  it("keeps the movie bowl in the trigger when the home bowl holds movies", () => {
+    state.bowls[1] = { ...state.bowls[1], kind: "restaurants" };
+    renderSwitcher();
+    expect(screen.getByRole("button", { name: /Switch bowl/ }).querySelector("[data-bowl-kind='restaurants']")).toBeNull();
+  });
+
   // The switcher sits at the left of the header, so the shelf lines up under it
   // rather than centring itself half a screen away.
   it("hangs the picker beneath the trigger, aligned to its left edge", () => {
