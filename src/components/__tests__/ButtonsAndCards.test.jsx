@@ -39,6 +39,19 @@ describe("button and card components", () => {
     expect(screen.queryByText("Owner")).not.toBeInTheDocument();
   });
 
+  it("draws a restaurant bowl's card with the teal bowl and counts it in forks and knives", () => {
+    const { container, rerender } = render(
+      <BowlCard bowl={{ id: "b1", name: "Friday Bowl", kind: "movies", remainingCount: 4, memberCount: 2 }} onSelect={vi.fn()} />
+    );
+    expect(container.querySelector("[data-bowl-kind='restaurants']")).toBeNull();
+    const movieMarks = container.innerHTML;
+
+    rerender(<BowlCard bowl={{ id: "b1", name: "Date Night Eats", kind: "restaurants", remainingCount: 4, memberCount: 2 }} onSelect={vi.fn()} />);
+    expect(container.querySelector("[data-bowl-kind='restaurants']")).not.toBeNull();
+    expect(screen.getByRole("button", { name: "Date Night Eats, 4 restaurants to draw, 2 members" })).toBeInTheDocument();
+    expect(container.innerHTML).not.toBe(movieMarks);
+  });
+
   it("marks the home bowl without offering a control to move it", () => {
     const onSelect = vi.fn();
     const { rerender } = render(<BowlCard bowl={{ id: "b1", name: "Friday Night" }} onSelect={onSelect} />);

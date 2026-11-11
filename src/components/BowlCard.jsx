@@ -1,5 +1,5 @@
-import bowlImage from "../assets/movie-bowl.webp";
-import FilmStripGlyph from "./FilmStripGlyph";
+import BowlArt from "./BowlArt";
+import BowlCountGlyph from "./BowlCountGlyph";
 import HomeGlyph from "./HomeGlyph";
 import PeopleGlyph from "./PeopleGlyph";
 import { inBowlWords } from "../utils/restaurants";
@@ -26,7 +26,7 @@ export default function BowlCard({ bowl, onSelect, isHome = false }) {
       className="panel bowl-card group flex w-full items-center gap-3 p-3 text-left transition hover:border-slate-600 active:scale-[0.99] focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60"
       onClick={() => onSelect(bowl.id)}
     >
-      <img src={bowlImage} alt="" aria-hidden="true" className="h-12 w-12 shrink-0 object-contain" />
+      <BowlArt kind={bowl.kind} className="h-12 w-12 shrink-0" />
       <span className="min-w-0 flex-1" aria-hidden="true">
         <span className="flex items-center gap-1.5">
           {isHome && <HomeGlyph className="h-4 w-4 shrink-0 text-slate-400" />}
@@ -34,7 +34,7 @@ export default function BowlCard({ bowl, onSelect, isHome = false }) {
         </span>
         <span className="mt-1 flex items-center gap-4 text-sm tabular-nums text-slate-400">
           <span className="inline-flex items-center gap-1.5">
-            <FilmStripGlyph />
+            <BowlCountGlyph kind={bowl.kind} className="h-4 w-4" />
             {remaining}
           </span>
           <span className="inline-flex items-center gap-1.5">

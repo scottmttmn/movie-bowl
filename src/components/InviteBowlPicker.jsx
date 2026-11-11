@@ -1,12 +1,12 @@
 import { useEffect, useRef, useState } from "react";
-import bowlImage from "../assets/movie-bowl.webp";
+import BowlArt from "./BowlArt";
 
-function BowlMark({ size = "md" }) {
+function BowlMark({ kind, size = "md" }) {
   const box = size === "sm" ? "h-9 w-9 rounded-lg" : "h-11 w-11 rounded-xl";
   const image = size === "sm" ? "h-7 w-7" : "h-8 w-8";
   return (
     <span aria-hidden="true" className={`flex shrink-0 items-center justify-center bg-slate-950/70 ${box}`}>
-      <img src={bowlImage} alt="" className={`${image} object-contain`} />
+      <BowlArt kind={kind} className={image} />
     </span>
   );
 }
@@ -74,7 +74,7 @@ export default function InviteBowlPicker({ bowls, selectedId, onSelect, disabled
   if (bowls.length === 1) {
     return (
       <div className="bowl-choice cursor-default" aria-label={`Invite to ${bowls[0].name}`} role="group">
-        <BowlMark />
+        <BowlMark kind={bowls[0].kind} />
         {name}
       </div>
     );
@@ -93,7 +93,7 @@ export default function InviteBowlPicker({ bowls, selectedId, onSelect, disabled
         disabled={disabled}
         onClick={() => setIsOpen((open) => !open)}
       >
-        <BowlMark />
+        <BowlMark kind={selected?.kind} />
         {name}
         <svg
           aria-hidden="true"
@@ -133,7 +133,7 @@ export default function InviteBowlPicker({ bowls, selectedId, onSelect, disabled
                   close();
                 }}
               >
-                <BowlMark size="sm" />
+                <BowlMark kind={bowl.kind} size="sm" />
                 <span className="min-w-0 flex-1 truncate font-semibold text-slate-100">{bowl.name}</span>
                 {isSelected && (
                   <svg aria-hidden="true" viewBox="0 0 24 24" className="mr-1 h-5 w-5 shrink-0 text-rose-300" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">

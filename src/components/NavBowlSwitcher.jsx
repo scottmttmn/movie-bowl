@@ -6,7 +6,7 @@ import CreateBowlModal from "./CreateBowlModal";
 import useUserBowls from "../hooks/useUserBowls";
 import useCreateBowl from "../hooks/useCreateBowl";
 import { MAX_BOWLS_PER_USER } from "../utils/appLimits";
-import bowlImage from "../assets/movie-bowl.webp";
+import BowlArt from "./BowlArt";
 
 // Settings, Watch History and Invitations belong to the account rather than to
 // any one bowl, so they have no picker in the page and the wordmark was the only
@@ -56,14 +56,10 @@ export default function NavBowlSwitcher({ homeBowlName }) {
     if (result?.ok && result.bowl?.id) navigate(`/bowl/${result.bowl.id}`);
   };
 
+  const markBowl = bowls.length === 1 ? bowls[0] : bowls.find((bowl) => bowl.id === defaultBowlId);
   const bowlMark = (
     <span className="flex h-9 w-9 shrink-0 items-center justify-center">
-      <img
-        src={bowlImage}
-        alt=""
-        aria-hidden="true"
-        className="h-8 w-8 object-contain"
-      />
+      <BowlArt kind={markBowl?.kind} className="h-8 w-8" />
     </span>
   );
 
