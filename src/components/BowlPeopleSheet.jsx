@@ -1,6 +1,6 @@
 import { useCallback, useRef } from "react";
 import useModalFocus from "../hooks/useModalFocus";
-import FilmStripGlyph from "./FilmStripGlyph";
+import BowlCountGlyph from "./BowlCountGlyph";
 import PeopleGlyph from "./PeopleGlyph";
 import DrawMethodMark from "./DrawMethodMark";
 import { sortRowsByTurn } from "../utils/rotationTurns";
@@ -152,7 +152,7 @@ export default function BowlPeopleSheet({
                       aria-hidden="true"
                       className={`inline-flex items-center gap-1 text-sm font-semibold ${isLeftOut ? "text-amber-300" : "text-slate-400"}`}
                     >
-                      <FilmStripGlyph className="h-4 w-4" />
+                      <BowlCountGlyph kind={kind} className="h-4 w-4" />
                       {row.count}
                     </span>
                   )}

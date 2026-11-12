@@ -1,6 +1,7 @@
 import { cleanup, fireEvent, render, screen, within } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import BowlPeopleSheet from "../BowlPeopleSheet";
+import { BowlKindProvider } from "../../context/BowlKindContext";
 
 const ROWS = [
   { key: "user:u1", name: "Alex", initial: "A", count: 2, isOwner: true, isYou: true, isLeftOut: false },
@@ -25,6 +26,19 @@ describe("BowlPeopleSheet", () => {
     expect(screen.getByText("jo@example.com")).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Invite people" }));
     expect(onInvite).toHaveBeenCalled();
+  });
+
+  it("counts each person's slips in forks and knives in a restaurant bowl", () => {
+    const countMark = () => [...screen.getByRole("listitem", { name: /^Alex/ }).querySelectorAll("svg")].at(-1).innerHTML;
+    renderSheet({ isOwner: false });
+    const movieMark = countMark();
+    cleanup();
+    render(
+      <BowlKindProvider value="restaurants">
+        <BowlPeopleSheet rows={ROWS} invites={[]} memberCount={2} onClose={vi.fn()} onInvite={vi.fn()} />
+      </BowlKindProvider>
+    );
+    expect(countMark()).not.toBe(movieMark);
   });
 
   it("shows a member the people but not the invitations, which only the owner can send", () => {

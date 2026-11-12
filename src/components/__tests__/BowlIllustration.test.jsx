@@ -1,6 +1,7 @@
 import { cleanup, render } from "@testing-library/react";
 import { afterEach, describe, expect, it } from "vitest";
 import BowlIllustration from "../BowlIllustration";
+import { BowlKindProvider } from "../../context/BowlKindContext";
 
 describe("BowlIllustration", () => {
   afterEach(() => {
@@ -23,5 +24,14 @@ describe("BowlIllustration", () => {
     const stage = stageFor({ holdState: "tap" });
     expect(stage).toHaveClass("is-nudged");
     expect(stage).not.toHaveClass("is-holding");
+  });
+
+  it("is the teal bowl on a restaurant bowl's page and the red bowl everywhere else", () => {
+    expect(stageFor().querySelector("img").getAttribute("src")).toMatch(/movie-bowl/);
+    cleanup();
+    const { container } = render(
+      <BowlKindProvider value="restaurants"><BowlIllustration /></BowlKindProvider>
+    );
+    expect(container.querySelector("img").getAttribute("src")).toMatch(/restaurant-bowl/);
   });
 });

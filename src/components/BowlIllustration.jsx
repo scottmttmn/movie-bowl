@@ -1,8 +1,13 @@
-import bowlImage from "../assets/movie-bowl.webp";
+import movieBowlImage from "../assets/movie-bowl.webp";
+import restaurantBowlImage from "../assets/restaurant-bowl.webp";
+import { useBowlKind } from "../context/BowlKindContext";
+import { isRestaurantKind } from "../utils/restaurants";
 
 // holdState comes from HoldToDrawButton: "holding" rattles the bowl harder as
 // the fill grows, "tap" gives it one wobble.
 export default function BowlIllustration({ className = "", drawTitle = "", isDrawing = false, holdState = "idle" }) {
+  // A restaurant bowl is the teal bowl here too, as it is in every list.
+  const bowlImage = isRestaurantKind(useBowlKind()) ? restaurantBowlImage : movieBowlImage;
   const holdClass = holdState === "holding" ? "is-holding" : holdState === "tap" ? "is-nudged" : "";
   return (
     <div

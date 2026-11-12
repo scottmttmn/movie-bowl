@@ -1,6 +1,9 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
-import bowlImage from "../assets/movie-bowl.webp";
+import movieBowlImage from "../assets/movie-bowl.webp";
+import restaurantBowlImage from "../assets/restaurant-bowl.webp";
+import { useBowlKind } from "../context/BowlKindContext";
+import { isRestaurantKind } from "../utils/restaurants";
 import {
   getDrawRevealPhaseAt,
   getDrawRevealProgress,
@@ -174,6 +177,7 @@ export default function DrawRevealStage({
   onPhaseChange,
 }) {
   const viewport = useViewport();
+  const bowlKind = useBowlKind();
   const timeline = useMemo(
     () => getDrawRevealTimeline({ preview, previewAt, reveal, resultAt, reducedMotion }),
     [preview, previewAt, reveal, resultAt, reducedMotion]
@@ -547,7 +551,7 @@ export default function DrawRevealStage({
         className={`draw-reveal-bowl ${bowlClass}`}
         style={{ left: bowl.x, top: bowl.y, width: bowl.w, height: bowl.w }}
       >
-        <img src={bowlImage} alt="" />
+        <img src={isRestaurantKind(bowlKind) ? restaurantBowlImage : movieBowlImage} alt="" />
       </div>
 
       {stage === "people" && piles.map((pile, pileIndex) => {
