@@ -1,6 +1,7 @@
 import { act, cleanup, render } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import DrawRevealStage from "../DrawRevealStage";
+import { BowlKindProvider } from "../../context/BowlKindContext";
 import { getDrawMethod } from "../../utils/drawMethods";
 
 const people = [
@@ -74,6 +75,20 @@ describe("DrawRevealStage", () => {
     expect(document.querySelector(".draw-reveal-steps")).toBeNull();
     await advance(500);
     expect(stage()).toHaveAttribute("data-phase", "rise");
+  });
+
+  // The bowl that lifts out of the page is the one the page showed.
+  it("lifts the teal bowl out of a restaurant bowl and the red one out of a movie bowl", () => {
+    const { unmount } = renderStage({ methodId: "person_first" });
+    const movieBowl = document.querySelector(".draw-reveal-bowl img").getAttribute("src");
+    unmount();
+    render(
+      <BowlKindProvider value="restaurants">
+        <DrawRevealStage method={getDrawMethod("person_first")} startedAt={Date.now()} />
+      </BowlKindProvider>
+    );
+    expect(document.querySelector(".draw-reveal-bowl img").getAttribute("src")).toMatch(/restaurant-bowl/);
+    expect(movieBowl).toMatch(/movie-bowl/);
   });
 
   it("sweeps real names while in flight but never lands until the result is in", async () => {
