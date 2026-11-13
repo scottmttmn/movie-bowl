@@ -662,13 +662,15 @@ then a generic 500. They run in Node and are excluded from coverage; they are
   quota rather than counting here.
 - `api/places/details` (through `movie-cache`) fills the drawn restaurant's
   sheet: open now, Reserve (only where Google says it takes reservations),
-  Website, Call and one photo with its author. Only the drawn pick asks, never
+  Website and Call. Only the drawn pick asks, never
   a slip opened from a list. Google bills these per month and its console
   caps per day, so `begin_place_details_fetch` checks the caller can see that
   place in that restaurant bowl and reserves one request against a monthly
   budget before each call (`PLACE_DETAILS_MONTHLY_BUDGET`, default and ceiling
-  900 in Production, 100 elsewhere; details and photo counted apart). Nothing
-  Google returns is stored, the photo's short-lived address included.
+  900 in Production, 100 elsewhere). Nothing Google returns is stored. There
+  are no Google photos anywhere, by decision: they cannot be kept, so showing
+  them on every slip would pay on every view, and the `photo` budget line the
+  function still accepts is unused.
 - `api/add-links/*` and `api/invites/send.js` use the service-role client from
   `api/_lib/supabaseAdmin.js`. This key bypasses RLS — every route using it must
   do its own authorization, and none of it may ever reach a `VITE_` variable.

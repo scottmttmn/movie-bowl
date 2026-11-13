@@ -50,8 +50,10 @@ function LinkIcon({ kind }) {
 // A restaurant slip opened: the drawn pick, or one from My Restaurants or Been
 // there. It answers the one question left once a place is chosen, which is how
 // to get there. The drawn pick alone asks Google for more -- whether it is
-// open, Reserve, Website, Call and a photo -- because each lookup spends a
-// monthly allowance and the draw is the moment that needs them.
+// open, Reserve, Website and Call -- because each lookup spends a monthly
+// allowance and the draw is the moment that needs them. No photo: Google's
+// cannot be kept, so showing one on every slip would pay on every view, and a
+// photo only on the drawn sheet read as an odd one out (Scott, November 13).
 export default function RestaurantSheet({
   slip,
   tonight = false,
@@ -73,10 +75,9 @@ export default function RestaurantSheet({
   const lookupKey = tonight && bowlId && slip?.place_id ? `${bowlId}:${slip.place_id}` : null;
   // The answer is kept beside the lookup it answered, so a different slip
   // never shows the last one's hours while its own are on the way.
-  const [place, setPlace] = useState({ key: null, details: null, photo: null });
+  const [place, setPlace] = useState({ key: null, details: null });
   const placeAnswered = lookupKey !== null && place.key === lookupKey;
   const details = placeAnswered ? place.details : null;
-  const photo = placeAnswered ? place.photo : null;
   const status = describeOpenStatus(details);
   const links = [
     directionsUrl && { key: "directions", label: "Directions", href: directionsUrl },
@@ -87,9 +88,9 @@ export default function RestaurantSheet({
   useEffect(() => {
     if (!lookupKey) return undefined;
     const controller = new AbortController();
-    getPlaceDetails({ placeId: slip.place_id, bowlId, photo: true, signal: controller.signal }).then((answer) => {
+    getPlaceDetails({ placeId: slip.place_id, bowlId, signal: controller.signal }).then((answer) => {
       if (controller.signal.aborted) return;
-      setPlace({ key: lookupKey, details: answer?.details || null, photo: answer?.photo || null });
+      setPlace({ key: lookupKey, details: answer?.details || null });
     });
     return () => controller.abort();
   }, [lookupKey, bowlId, slip?.place_id, getPlaceDetails]);
@@ -127,29 +128,6 @@ export default function RestaurantSheet({
           <button ref={closeButton} type="button" className="icon-btn shrink-0" aria-label="Close" onClick={onClose}>✕</button>
         </div>
         <div className="min-h-0 space-y-5 overflow-y-auto overscroll-contain px-5 pb-7 sm:px-7">
-          {lookupKey && !placeAnswered && (
-            <div aria-hidden="true" className="aspect-[16/9] w-full animate-pulse rounded-2xl bg-slate-800/70" />
-          )}
-          {photo && (
-            <figure>
-              <img
-                src={photo.uri}
-                alt={`${slip.title}, from Google Maps`}
-                className="aspect-[16/9] w-full rounded-2xl object-cover"
-                referrerPolicy="no-referrer"
-              />
-              {photo.author && (
-                <figcaption className="mt-1 text-right text-xs text-slate-500">
-                  Photo:{" "}
-                  {photo.author.uri ? (
-                    <a className="underline-offset-2 hover:underline" href={photo.author.uri} target="_blank" rel="noreferrer">
-                      {photo.author.name}
-                    </a>
-                  ) : photo.author.name}
-                </figcaption>
-              )}
-            </figure>
-          )}
           <div className="grid grid-cols-[minmax(96px,1fr)_minmax(0,2fr)] items-start gap-4 sm:grid-cols-[176px_minmax(0,1fr)] sm:gap-6">
             <RestaurantSlip slip={slip} size="big" />
             <div className="min-w-0 py-1">

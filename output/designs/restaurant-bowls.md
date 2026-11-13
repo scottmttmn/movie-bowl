@@ -66,7 +66,7 @@ rotation, the reveal and returning a draw, with one account and one deploy.
    console, not counted here. **Built.**
 4. The restaurant filter sheet: Cuisine, and Open with a monthly budget in
    Supabase for the hours lookups (1,000 free a month), plus Reserve,
-   Website, Call and Google's photo on the drawn sheet only. **Cuisine is
+   Website and Call. **Cuisine is
    built:** one chip per cuisine the bowl holds (a cuisine off the add
    sheet's list counts as Other), each in or out, with "Only" to keep just
    one. The filter stores what is left out, per account per bowl on the
@@ -76,10 +76,13 @@ rotation, the reveal and returning a draw, with one account and one deploy.
    Copy written for movies (draw method steps, the draw button, the people
    sheet, add messages, Bowl Settings) reads through `inBowlWords`.
    **The drawn sheet is built:** the drawn pick (only) asks
-   `/api/places/details` for open now, Reserve, Website, Call and Google's
-   first photo with its author, each against a monthly budget in Supabase
-   (`begin_place_details_fetch`, details and photo counted apart). A slip
-   opened from My Restaurants or Been there keeps Directions alone.
+   `/api/places/details` for open now, Reserve, Website and Call, against a
+   monthly budget in Supabase (`begin_place_details_fetch`). A slip opened
+   from My Restaurants or Been there keeps Directions alone.
+   **No photos (Scott, November 13).** Google's photo shipped on the drawn
+   sheet alone and read as the odd one out. Showing one everywhere would pay
+   on every view, because Google's terms forbid keeping it, so restaurants
+   stay paper slips everywhere. The function's `photo` budget line is unused.
    The Open filter is next; it needs hours for every slip, so it spends the
    same budget and must decide how many lookups a draw may make.
 5. Returning a draw until the end of the day it was drawn for.

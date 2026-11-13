@@ -26,8 +26,6 @@ test.describe("restaurant bowls", () => {
       { placeId: "ChIJlarana", name: "La Rana Bistro", address: "Water St, Decorah", cuisine: "Mediterranean" },
       { placeId: "ChIJmabes", name: "Mabe's Pizza", address: "W Water St, Decorah", cuisine: "Pizza" },
     ];
-    // A local image: the gate has no network for Google's.
-    const photo = "data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='16' height='9'/%3E";
     backend.state.placeDetails = {
       ChIJlarana: {
         details: {
@@ -39,7 +37,6 @@ test.describe("restaurant bowls", () => {
           website: "https://laranabistro.example/",
           reserveUrl: "https://maps.google.com/?cid=1",
         },
-        photo: { uri: photo, author: { name: "Sam", uri: null } },
       },
     };
     await page.goto("/settings");
@@ -90,9 +87,9 @@ test.describe("restaurant bowls", () => {
     await expect(sheet.getByRole("link", { name: "Reserve a table" })).toHaveAttribute("href", "https://maps.google.com/?cid=1");
     await expect(sheet.getByRole("link", { name: "Call" })).toHaveAttribute("href", "tel:+15635550101");
     await expect(sheet.getByText(/^Open until/)).toBeVisible();
-    await expect(sheet.getByRole("img", { name: "La Rana, from Google Maps" })).toBeVisible();
+    await expect(sheet.getByRole("img")).toHaveCount(0);
     expect(backend.state.placeDetailsRequests).toEqual([
-      { placeId: "ChIJlarana", bowlId: bowl.id, photo: true },
+      { placeId: "ChIJlarana", bowlId: bowl.id },
     ]);
     expect(backend.state.user_watch_events).toHaveLength(0);
   });

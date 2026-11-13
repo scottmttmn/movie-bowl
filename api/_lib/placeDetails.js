@@ -1,7 +1,7 @@
 import { getSupabaseAdmin } from "./supabaseAdmin.js";
 
 // What the drawn restaurant's sheet shows beyond Directions: whether it is
-// open, Reserve, Website, Call and one photo, through Google Place Details
+// open, Reserve, Website and Call, through Google Place Details
 // (New). See output/designs/restaurant-bowls.md. Nothing here is stored: the
 // answer goes straight to the sheet, and only a count is kept, by
 // begin_place_details_fetch, which also checks the caller can see the place.
@@ -10,8 +10,6 @@ const DETAILS_URL = "https://places.googleapis.com/v1/places/";
 const REQUEST_TIMEOUT_MS = 4_000;
 const PLACE_ID_PATTERN = /^[A-Za-z0-9_-]{1,512}$/;
 const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const PHOTO_NAME_PATTERN = /^places\/[A-Za-z0-9_-]+\/photos\/[A-Za-z0-9_-]+$/;
-const PHOTO_WIDTH_PX = 900;
 const TIME_ZONE_PATTERN = /^[A-Za-z][A-Za-z0-9_+-]*(?:\/[A-Za-z0-9_+-]+){0,2}$/;
 const DETAILS_FIELDS = [
   "currentOpeningHours.openNow",
@@ -25,12 +23,11 @@ const DETAILS_FIELDS = [
   "websiteUri",
   "googleMapsUri",
   "reservable",
-  "photos",
 ].join(",");
 
-const UNAVAILABLE = Object.freeze({ available: false, details: null, photo: null });
+const UNAVAILABLE = Object.freeze({ available: false, details: null });
 
-// Google's free monthly allowance is 1,000 of each. A staging project counts
+// Google's free monthly allowance is 1,000. A staging project counts
 // separately, so it gets a tenth, whatever its variable says.
 export function monthlyBudget(env = process.env) {
   const ceiling = env.VERCEL_ENV === "production" ? 900 : 100;
@@ -72,16 +69,6 @@ export function toPlaceDetails(body) {
   };
 }
 
-export function firstPhoto(body) {
-  const photo = Array.isArray(body?.photos) ? body.photos[0] : null;
-  if (!photo || !PHOTO_NAME_PATTERN.test(String(photo.name || ""))) return null;
-  const author = Array.isArray(photo.authorAttributions) ? photo.authorAttributions[0] : null;
-  return {
-    name: photo.name,
-    author: author?.displayName ? { name: String(author.displayName), uri: httpsUrl(author.uri) } : null,
-  };
-}
-
 function readBody(req) {
   if (typeof req.body === "string") {
     try {
@@ -109,7 +96,6 @@ export default async function handler(req, res, { fetchImpl = fetch, admin: inje
   const body = readBody(req);
   const placeId = typeof body.placeId === "string" ? body.placeId : "";
   const bowlId = typeof body.bowlId === "string" ? body.bowlId : "";
-  const wantsPhoto = body.photo === true;
   if (!PLACE_ID_PATTERN.test(placeId) || !UUID_PATTERN.test(bowlId)) {
     res.status(400).json({ error: "Invalid place" });
     return;
@@ -168,7 +154,6 @@ export default async function handler(req, res, { fetchImpl = fetch, admin: inje
   }
 
   let details;
-  let photoRef = null;
   try {
     const response = await fetchImpl(`${DETAILS_URL}${encodeURIComponent(placeId)}?languageCode=en`, {
       headers: { "X-Goog-Api-Key": apiKey, "X-Goog-FieldMask": DETAILS_FIELDS },
@@ -182,31 +167,11 @@ export default async function handler(req, res, { fetchImpl = fetch, admin: inje
     }
     const answer = await response.json();
     details = toPlaceDetails(answer);
-    photoRef = wantsPhoto ? firstPhoto(answer) : null;
   } catch (error) {
     console.error("[api/places/details] Details failed", error?.name || "");
     res.status(200).json(UNAVAILABLE);
     return;
   }
 
-  // The photo is a second request with its own allowance. Its address is
-  // short-lived and is handed straight to the sheet, never kept.
-  let photo = null;
-  if (photoRef) {
-    try {
-      if ((await reserve("photo")) === "ok") {
-        const response = await fetchImpl(
-          `https://places.googleapis.com/v1/${photoRef.name}/media?maxWidthPx=${PHOTO_WIDTH_PX}&skipHttpRedirect=true`,
-          { headers: { "X-Goog-Api-Key": apiKey }, signal: AbortSignal.timeout(REQUEST_TIMEOUT_MS) }
-        );
-        const uri = response.ok ? httpsUrl((await response.json())?.photoUri) : null;
-        if (!response.ok) console.error("[api/places/details] Photo failed", response.status);
-        if (uri) photo = { uri, author: photoRef.author };
-      }
-    } catch (error) {
-      console.error("[api/places/details] Photo failed", error?.name || error?.code || "");
-    }
-  }
-
-  res.status(200).json({ available: true, details, photo });
+  res.status(200).json({ available: true, details });
 }
