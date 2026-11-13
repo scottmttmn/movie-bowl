@@ -1360,8 +1360,8 @@ export class FakeBackend {
       this.state.placeDetailsRequests.push(body);
       const known = this.state.placeDetails[body?.placeId];
       await fulfillJson(route, known
-        ? { available: true, details: known.details, photo: body?.photo === true ? known.photo || null : null }
-        : { available: false, details: null, photo: null });
+        ? { available: true, details: known.details }
+        : { available: false, details: null });
       return;
     }
 

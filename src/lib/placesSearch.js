@@ -38,11 +38,11 @@ export async function searchPlaces({ query, sessionToken, signal } = {}) {
   }
 }
 
-// The drawn restaurant's hours, links and photo. Resolves, never rejects:
-// { available, details, photo }. Unavailable leaves the sheet with Directions,
+// The drawn restaurant's hours and links. Resolves, never rejects:
+// { available, details }. Unavailable leaves the sheet with Directions,
 // which needs nothing from Google.
-export async function getPlaceDetails({ placeId, bowlId, photo = false, signal } = {}) {
-  const unavailable = { available: false, details: null, photo: null };
+export async function getPlaceDetails({ placeId, bowlId, signal } = {}) {
+  const unavailable = { available: false, details: null };
   if (!placeId || !bowlId) return unavailable;
   try {
     const { data } = await supabase.auth.getSession();
@@ -52,13 +52,13 @@ export async function getPlaceDetails({ placeId, bowlId, photo = false, signal }
     const response = await fetch("/api/places/details", {
       method: "POST",
       headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ placeId, bowlId, photo }),
+      body: JSON.stringify({ placeId, bowlId }),
       signal,
     });
     if (!response.ok) return unavailable;
     const body = await response.json();
     if (body?.available !== true || !body.details) return unavailable;
-    return { available: true, details: body.details, photo: body.photo?.uri ? body.photo : null };
+    return { available: true, details: body.details };
   } catch (error) {
     if (error?.name !== "AbortError") console.error("[placesSearch] Details failed", error);
     return unavailable;

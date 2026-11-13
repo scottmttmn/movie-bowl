@@ -1,5 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
-import handler, { firstPhoto, monthlyBudget, toPlaceDetails } from "../_lib/placeDetails.js";
+import handler, { monthlyBudget, toPlaceDetails } from "../_lib/placeDetails.js";
 
 const BOWL_ID = "10000000-0000-0000-0000-000000000911";
 
@@ -11,7 +11,7 @@ function response() {
   };
 }
 
-function request({ body = { placeId: "ChIJlarana", bowlId: BOWL_ID, photo: true }, headers = {}, method = "POST" } = {}) {
+function request({ body = { placeId: "ChIJlarana", bowlId: BOWL_ID }, headers = {}, method = "POST" } = {}) {
   return { method, body, headers: { authorization: "Bearer good-token", ...headers } };
 }
 
@@ -36,13 +36,10 @@ const googleDetails = {
   websiteUri: "https://laranabistro.com/",
   googleMapsUri: "https://maps.google.com/?cid=1",
   reservable: true,
-  photos: [{ name: "places/ChIJlarana/photos/AbC123", authorAttributions: [{ displayName: "Sam", uri: "https://maps.google.com/contrib/1" }] }],
 };
 
-function google({ details = googleDetails, detailsOk = true, photoOk = true } = {}) {
-  return vi.fn(async (url) => (String(url).includes("/media")
-    ? { ok: photoOk, status: photoOk ? 200 : 403, json: async () => ({ photoUri: "https://lh3.googleusercontent.com/p/abc" }) }
-    : { ok: detailsOk, status: detailsOk ? 200 : 403, json: async () => details }));
+function google({ details = googleDetails, detailsOk = true } = {}) {
+  return vi.fn(async () => ({ ok: detailsOk, status: detailsOk ? 200 : 403, json: async () => details }));
 }
 
 const env = { GOOGLE_PLACES_API_KEY: "places-key", VERCEL_ENV: "production" };
@@ -79,7 +76,7 @@ describe("api/places/details", () => {
     const fetchImpl = vi.fn();
     const res = response();
     await handler(request(), res, { admin, fetchImpl, env: {} });
-    expect(res.body).toEqual({ available: false, details: null, photo: null });
+    expect(res.body).toEqual({ available: false, details: null });
     expect(admin.rpc).not.toHaveBeenCalled();
     expect(fetchImpl).not.toHaveBeenCalled();
   });
@@ -96,28 +93,24 @@ describe("api/places/details", () => {
     const fetchImpl = vi.fn();
     const res = response();
     await handler(request(), res, { admin: adminWith({ details: "over_budget" }), fetchImpl, env });
-    expect(res.body).toEqual({ available: false, details: null, photo: null });
+    expect(res.body).toEqual({ available: false, details: null });
     expect(fetchImpl).not.toHaveBeenCalled();
   });
 
-  it("returns hours, links and a photo, reserving each against the month", async () => {
+  it("returns hours and links, reserving one request against the month, and asks for no photo", async () => {
     const admin = adminWith();
     const fetchImpl = google();
     const res = response();
     await handler(request(), res, { admin, fetchImpl, env });
 
     expect(admin.rpc.mock.calls.map(([name, args]) => [name, args.p_sku, args.p_monthly_budget, args.p_user_id, args.p_bowl_id]))
-      .toEqual([
-        ["begin_place_details_fetch", "details", 900, "user-1", BOWL_ID],
-        ["begin_place_details_fetch", "photo", 900, "user-1", BOWL_ID],
-      ]);
+      .toEqual([["begin_place_details_fetch", "details", 900, "user-1", BOWL_ID]]);
+    expect(fetchImpl).toHaveBeenCalledTimes(1);
     const [detailsUrl, detailsInit] = fetchImpl.mock.calls[0];
     expect(detailsUrl).toBe("https://places.googleapis.com/v1/places/ChIJlarana?languageCode=en");
     expect(detailsInit.headers["X-Goog-Api-Key"]).toBe("places-key");
     expect(detailsInit.headers["X-Goog-FieldMask"]).toContain("reservable");
-    expect(fetchImpl.mock.calls[1][0]).toBe(
-      "https://places.googleapis.com/v1/places/ChIJlarana/photos/AbC123/media?maxWidthPx=900&skipHttpRedirect=true"
-    );
+    expect(detailsInit.headers["X-Goog-FieldMask"]).not.toContain("photos");
     expect(res.body).toEqual({
       available: true,
       details: {
@@ -131,27 +124,8 @@ describe("api/places/details", () => {
         phoneLabel: "(563) 555-0101",
         website: "https://laranabistro.com/",
         reserveUrl: "https://maps.google.com/?cid=1",
-      },
-      photo: { uri: "https://lh3.googleusercontent.com/p/abc", author: { name: "Sam", uri: "https://maps.google.com/contrib/1" } },
+      }
     });
-  });
-
-  it("asks for no photo unless the sheet wants one, and keeps the details when the photo fails", async () => {
-    let admin = adminWith();
-    let fetchImpl = google();
-    let res = response();
-    await handler(request({ body: { placeId: "ChIJlarana", bowlId: BOWL_ID } }), res, { admin, fetchImpl, env });
-    expect(fetchImpl).toHaveBeenCalledTimes(1);
-    expect(admin.rpc).toHaveBeenCalledTimes(1);
-    expect(res.body.photo).toBeNull();
-
-    for (const options of [{ admin: adminWith({ photo: "over_budget" }), fetchImpl: google() }, { admin: adminWith(), fetchImpl: google({ photoOk: false }) }]) {
-      res = response();
-      await handler(request(), res, { ...options, env });
-      expect(res.body.available).toBe(true);
-      expect(res.body.details.website).toBe("https://laranabistro.com/");
-      expect(res.body.photo).toBeNull();
-    }
   });
 
   it("answers unavailable when Google fails, without logging its body", async () => {
@@ -161,7 +135,7 @@ describe("api/places/details", () => {
     ]) {
       const res = response();
       await handler(request(), res, { admin: adminWith(), fetchImpl, env });
-      expect(res.body).toEqual({ available: false, details: null, photo: null });
+      expect(res.body).toEqual({ available: false, details: null });
     }
     expect(JSON.stringify(console.error.mock.calls)).not.toContain("key leaked");
   });
@@ -174,12 +148,6 @@ describe("place details helpers", () => {
     expect(toPlaceDetails({ businessStatus: "CLOSED_PERMANENTLY" }).closedForGood).toBe(true);
     expect(toPlaceDetails({ timeZone: { id: "<script>" } }).timeZone).toBeNull();
     expect(toPlaceDetails(null)).toMatchObject({ openNow: null, phone: null, website: null, reserveUrl: null });
-  });
-
-  it("takes only a photo name of Google's own shape", () => {
-    expect(firstPhoto({ photos: [{ name: "../../evil" }] })).toBeNull();
-    expect(firstPhoto({ photos: [{ name: "places/a/photos/b" }] })).toEqual({ name: "places/a/photos/b", author: null });
-    expect(firstPhoto({})).toBeNull();
   });
 
   it("caps a staging project at a tenth of the allowance", () => {
