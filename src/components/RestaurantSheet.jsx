@@ -128,29 +128,6 @@ export default function RestaurantSheet({
           <button ref={closeButton} type="button" className="icon-btn shrink-0" aria-label="Close" onClick={onClose}>✕</button>
         </div>
         <div className="min-h-0 space-y-5 overflow-y-auto overscroll-contain px-5 pb-7 sm:px-7">
-          {lookupKey && !placeAnswered && (
-            <div aria-hidden="true" className="aspect-[16/9] w-full animate-pulse rounded-2xl bg-slate-800/70" />
-          )}
-          {photo && (
-            <figure>
-              <img
-                src={photo.uri}
-                alt={`${slip.title}, from Google Maps`}
-                className="aspect-[16/9] w-full rounded-2xl object-cover"
-                referrerPolicy="no-referrer"
-              />
-              {photo.author && (
-                <figcaption className="mt-1 text-right text-xs text-slate-500">
-                  Photo:{" "}
-                  {photo.author.uri ? (
-                    <a className="underline-offset-2 hover:underline" href={photo.author.uri} target="_blank" rel="noreferrer">
-                      {photo.author.name}
-                    </a>
-                  ) : photo.author.name}
-                </figcaption>
-              )}
-            </figure>
-          )}
           <div className="grid grid-cols-[minmax(96px,1fr)_minmax(0,2fr)] items-start gap-4 sm:grid-cols-[176px_minmax(0,1fr)] sm:gap-6">
             <RestaurantSlip slip={slip} size="big" />
             <div className="min-w-0 py-1">
