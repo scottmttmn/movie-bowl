@@ -8,6 +8,8 @@ import { getBowlKindWords, isRestaurantKind } from "../utils/restaurants";
 export default function WatchedMoviesStrip({
   movies = [],
   onSelectMovie,
+  // Thumbs by draw, from useBowlWatchedRatings; null shows none.
+  ratings = null,
   isExpanded = true,
   isLoading = false,
   // What the count read last time, shown while loading instead of a zero that
@@ -76,6 +78,7 @@ export default function WatchedMoviesStrip({
               key={movie.id}
               movie={movie}
               onClick={onSelectMovie}
+              myRating={ratings?.get(movie.drawEventId ?? movie.id)?.mine ?? null}
             />
           ))}
         </div>

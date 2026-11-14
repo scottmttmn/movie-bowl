@@ -2,6 +2,7 @@ import { useCallback, useEffect, useMemo, useState } from "react";
 import AddMovieModal from "../components/AddMovieModal";
 import RemoveFromBowlsModal from "../components/RemoveFromBowlsModal";
 import WatchHistoryEntryModal from "../components/WatchHistoryEntryModal";
+import WatchHistoryCard from "../components/WatchHistoryCard";
 import WatchHistoryTimeline from "../components/WatchHistoryTimeline";
 import WatchHistoryShareSheet, { LinkGlyph } from "../components/WatchHistoryShareSheet";
 import { getPosterUrl } from "../utils/getPosterUrl";
@@ -18,6 +19,8 @@ import { readAllRows } from "../lib/readAllRows";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { getMovieNoteValidationError, normalizeMovieNote } from "../utils/movieNote";
 import { updateOwnWatchComment } from "../lib/watchComments";
+import { fetchMyMovieRatings, saveMyMovieRating } from "../lib/thumbRatings";
+import { getEntryRating, indexRatings, withEntryRating } from "../utils/thumbRatings";
 import {
   getWatchedDate,
   getWatchedYears,
@@ -55,6 +58,10 @@ export default function WatchListPage() {
   // "loading", "known" or "failed". Only "known" means the link is what
   // shareLink says: a failed read must never look like having no link.
   const [shareLinkStatus, setShareLinkStatus] = useState("loading");
+  // Null until read, and after a failed read: the thumbs stay out rather than
+  // show a rated movie as unrated.
+  const [ratings, setRatings] = useState(null);
+  const [ratingNotice, setRatingNotice] = useState("");
 
   const loadWatchList = useCallback(async () => {
     setIsLoading(true);
@@ -69,6 +76,7 @@ export default function WatchListPage() {
         return;
       }
 
+      const ratingsRequest = fetchMyMovieRatings();
       const { data: watchedRows, error: watchedError } = await readAllRows(() =>
         supabase
           .from("user_watch_events")
@@ -89,6 +97,9 @@ export default function WatchListPage() {
       }
 
       setMovies(watchedRows || []);
+      // Read beside the entries: deleting an entry can take its rating with it.
+      const ratingRows = await ratingsRequest;
+      setRatings(ratingRows ? indexRatings(ratingRows) : null);
     } catch (error) {
       console.error("[WatchListPage] Unexpected error", error);
       setMovies([]);
@@ -238,6 +249,7 @@ export default function WatchListPage() {
 
     try {
       let error;
+      let data = null;
       let createdTmdbId = null;
 
       if (editingEntry?.id) {
@@ -252,7 +264,7 @@ export default function WatchListPage() {
       } else {
         const tmdbId = Number(entry?.tmdb_id ?? entry?.id);
         createdTmdbId = Number.isInteger(tmdbId) && tmdbId > 0 ? tmdbId : null;
-        ({ error } = await supabase.rpc("create_manual_watch_event", {
+        ({ data, error } = await supabase.rpc("create_manual_watch_event", {
           p_title: title,
           p_watched_on: entry.watched_on,
           p_tmdb_id: createdTmdbId,
@@ -271,9 +283,22 @@ export default function WatchListPage() {
         return;
       }
 
+      // The entry is saved either way; a rating that fails to save is said on
+      // the page, where the thumbs it left unset can be tapped again.
+      const savedEntry = editingEntry?.id
+        ? { ...editingEntry, title }
+        : { ...(Array.isArray(data) ? data[0] : data), tmdb_id: createdTmdbId };
+      const previousRating = editingEntry?.id ? getEntryRating(ratings, editingEntry) : null;
+      let ratingFailed = false;
+      if (ratings && savedEntry?.id && "rating" in entry && entry.rating !== previousRating) {
+        const ratingResult = await saveMyMovieRating(savedEntry.id, entry.rating);
+        ratingFailed = !ratingResult.ok;
+      }
+
       setIsEntryEditorOpen(false);
       setEditingEntry(null);
       await loadWatchList();
+      setRatingNotice(ratingFailed ? "Saved, but your rating did not. Tap the thumbs to try again." : "");
 
       if (createdTmdbId) {
         const matches = await findOwnUndrawnBowlCopies({ tmdbId: createdTmdbId });
@@ -288,6 +313,22 @@ export default function WatchListPage() {
       setEntryEditorError("Could not save this history entry. Please try again.");
     } finally {
       setIsSavingEntry(false);
+    }
+  };
+
+  // Optimistic, because a tap that waits reads as a tap that missed. A failed
+  // save puts the thumbs back the way they were and says so.
+  const handleRate = async (entry, rating) => {
+    if (!ratings || !entry?.id) return;
+
+    const before = ratings;
+    setRatings((current) => withEntryRating(current, entry, rating));
+    setRatingNotice("");
+
+    const result = await saveMyMovieRating(entry.id, rating);
+    if (!result.ok) {
+      setRatings(before);
+      setRatingNotice(result.message);
     }
   };
 
@@ -512,6 +553,15 @@ export default function WatchListPage() {
           </div>
         )}
 
+        {ratingNotice && (
+          <div className="status-warning mb-4 flex flex-wrap items-center justify-between gap-3" role="status">
+            <p>{ratingNotice}</p>
+            <button type="button" className="btn btn-ghost" onClick={() => setRatingNotice("")}>
+              Dismiss
+            </button>
+          </div>
+        )}
+
         {restoreNotice && (
           <div className="status-warning mb-4 flex flex-wrap items-center justify-between gap-3" role="status">
             <p>{restoreNotice}</p>
@@ -537,43 +587,16 @@ export default function WatchListPage() {
             <WatchHistoryTimeline
               monthGroups={monthGroups}
               renderMovie={(movie) => (
-                <button
+                <WatchHistoryCard
                   key={movie.id}
-                  type="button"
-                  onClick={async () => {
+                  movie={movie}
+                  canRate={Boolean(ratings)}
+                  rating={getEntryRating(ratings, movie)}
+                  onRate={handleRate}
+                  onOpen={async () => {
                     setSelectedDetailMovie(await buildDetailMovie(movie));
                   }}
-                  className="group flex w-full items-center gap-4 rounded-2xl border border-slate-700/80 bg-slate-950/45 p-3 text-left transition duration-200 hover:-translate-y-0.5 hover:border-slate-600 hover:bg-slate-900/80 hover:shadow-lg hover:shadow-black/20 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60"
-                >
-                  <img
-                    src={movie.posterUrl}
-                    alt={movie.title}
-                    className="h-24 w-16 flex-shrink-0 rounded-xl object-cover shadow-md shadow-black/30"
-                  />
-                  <div className="min-w-0 flex-1">
-                    <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
-                      <h3 className="text-lg font-semibold text-slate-100">
-                        {movie.title}
-                      </h3>
-                      <span className="text-sm text-slate-400">
-                        ({movie.releaseYear})
-                      </span>
-                    </div>
-                    <p className="mt-2 flex flex-wrap items-center gap-2 text-sm text-slate-300">
-                      {movie.bowlName ? `From ${movie.bowlName}` : "Added manually"}
-                      {movie.source_kind === "solo_draw" && (
-                        <span className="rounded-full border border-slate-700 px-2 py-0.5 text-xs text-slate-400">
-                          Solo
-                        </span>
-                      )}
-                    </p>
-                    {movie.watchedDateLabel && (
-                      <p className="mt-1 text-sm text-slate-400">
-                        Watched on {movie.watchedDateLabel}
-                      </p>
-                    )}
-                  </div>
-                </button>
+                />
               )}
             />
           </div>
@@ -586,6 +609,10 @@ export default function WatchListPage() {
           showWhereToWatch={false}
           noteHeading="Why it was in the bowl"
           noteCollapsed
+          rating={ratings ? {
+            value: getEntryRating(ratings, selectedDetailMovie),
+            onChange: (next) => handleRate(selectedDetailMovie, next),
+          } : null}
           personalComment={{
             entryId: selectedDetailMovie.id,
             note: selectedDetailMovie.personal_note,
@@ -617,6 +644,7 @@ export default function WatchListPage() {
       {isEntryEditorOpen && (
         <WatchHistoryEntryModal
           entry={editingEntry}
+          rating={ratings ? getEntryRating(ratings, editingEntry) : undefined}
           onClose={() => {
             if (isSavingEntry) return;
             setEntryEditorError("");

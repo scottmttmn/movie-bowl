@@ -139,7 +139,7 @@ select is(
 
 select is(
   (select array_agg(distinct key order by key) from shared, jsonb_array_elements(body->'entries') entry, jsonb_object_keys(entry) key),
-  array['personal_note', 'poster_path', 'release_date', 'title', 'tmdb_id', 'watched_on'],
+  array['personal_note', 'poster_path', 'rating', 'release_date', 'title', 'tmdb_id', 'watched_on'],
   'a viewer never gets a bowl name, a slip reason, or an entry id'
 );
 

@@ -1,6 +1,8 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
 import WatchHistoryTimeline from "../components/WatchHistoryTimeline";
+import { RatingMark } from "../components/MovieThumbs";
+import { normalizeRating } from "../utils/thumbRatings";
 import { fetchSharedWatchHistory } from "../lib/watchHistoryShare";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import {
@@ -11,7 +13,8 @@ import {
 
 // What a Watch History link opens: the owner's calendar, read-only. It shows
 // the title, year and day; never which bowl a movie came from or anyone else's
-// reason for adding it, and the owner's own comments only when they chose to.
+// reason for adding it, and the owner's own comments and thumbs only when
+// they chose to.
 // There is nothing to tap, follow or answer -- see the share sheet for why.
 export default function SharedWatchHistoryPage() {
   const { token } = useParams();
@@ -90,11 +93,22 @@ export default function SharedWatchHistoryPage() {
                   key={movie.key}
                   className="flex w-full items-center gap-4 rounded-2xl border border-slate-700/80 bg-slate-950/45 p-3"
                 >
-                  <img
-                    src={movie.posterUrl}
-                    alt=""
-                    className="h-24 w-16 flex-shrink-0 rounded-xl object-cover shadow-md shadow-black/30"
-                  />
+                  {/* The owner's thumb rides on the poster, and only under the
+                      same switch as their comments. */}
+                  <div className="relative flex-shrink-0">
+                    <img
+                      src={movie.posterUrl}
+                      alt=""
+                      className="h-24 w-16 rounded-xl object-cover shadow-md shadow-black/30"
+                    />
+                    {history.includeComments && (
+                      <RatingMark
+                        value={normalizeRating(movie.rating)}
+                        whose={history.displayName || "They"}
+                        className="absolute bottom-1 left-1"
+                      />
+                    )}
+                  </div>
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-baseline gap-x-2 gap-y-1">
                       <h3 className="text-lg font-semibold text-slate-100">{movie.title}</h3>
