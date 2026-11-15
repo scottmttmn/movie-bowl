@@ -259,3 +259,64 @@ describe("WatchHistoryEntryModal dates", () => {
     expect(screen.getByLabelText("Release date")).toHaveValue("");
   });
 });
+
+describe("WatchHistoryEntryModal thumbs", () => {
+  afterEach(() => cleanup());
+
+  it("saves a rating picked while logging", async () => {
+    const onSave = vi.fn(async () => {});
+    render(<WatchHistoryEntryModal onClose={vi.fn()} onSave={onSave} ratingFor={() => null} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /choose arrival/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Love" }));
+    fireEvent.click(screen.getByRole("button", { name: /add to history/i }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ title: "Arrival", rating: 2 }));
+    });
+  });
+
+  it("opens a rewatch on the rating its movie already has, and can clear it", async () => {
+    const onSave = vi.fn(async () => {});
+    const ratingFor = vi.fn((movie) => (Number(movie?.tmdb_id ?? movie?.id) === 101 ? 1 : null));
+    render(<WatchHistoryEntryModal onClose={vi.fn()} onSave={onSave} ratingFor={ratingFor} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /choose arrival/i }));
+    const like = screen.getByRole("button", { name: "Like" });
+    expect(like).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(like);
+    fireEvent.click(screen.getByRole("button", { name: /add to history/i }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ title: "Arrival", rating: null }));
+    });
+  });
+
+  it("opens an entry with its rating, and can clear it", async () => {
+    const onSave = vi.fn(async () => {});
+    render(
+      <WatchHistoryEntryModal
+        entry={{ id: "history-1", source_kind: "manual", title: "Arrival", watched_on: "2026-08-20" }}
+        ratingFor={() => -1}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />
+    );
+
+    const dislike = screen.getByRole("button", { name: "Dislike" });
+    expect(dislike).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(dislike);
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ rating: null }));
+    });
+  });
+
+  it("leaves the thumbs out when the page could not read your ratings", () => {
+    render(<WatchHistoryEntryModal onClose={vi.fn()} onSave={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /choose arrival/i }));
+    expect(screen.queryByRole("group", { name: /your rating/i })).not.toBeInTheDocument();
+  });
+});

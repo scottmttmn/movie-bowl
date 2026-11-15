@@ -1,5 +1,6 @@
 import { useMemo, useState } from "react";
 import MovieSearch from "./MovieSearch";
+import MovieThumbs from "./MovieThumbs";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { formatLocalCalendarDate } from "../utils/letterboxdExport";
 import { MAX_MOVIE_NOTE_LENGTH, normalizeMovieNote } from "../utils/movieNote";
@@ -21,6 +22,10 @@ export default function WatchHistoryEntryModal({
   onDelete,
   onRemoveFromBowls = null,
   restorableCopies = [],
+  // The rating a movie already has, asked again whenever the movie changes, so
+  // a rewatch opens on the thumbs it was given. Undefined leaves the thumbs
+  // out: the page could not read your ratings.
+  ratingFor,
   isSaving = false,
   errorMessage = "",
 }) {
@@ -31,6 +36,8 @@ export default function WatchHistoryEntryModal({
   const [note, setNote] = useState(entry?.personal_note || "");
   const [confirmingDelete, setConfirmingDelete] = useState(false);
   const [editingRelease, setEditingRelease] = useState(false);
+  const canRate = typeof ratingFor === "function";
+  const [ratingDraft, setRatingDraft] = useState(() => (canRate && entry ? ratingFor(entry) ?? null : null));
 
   const isEditing = Boolean(entry?.id);
   const canUndoSolo = isWithinSoloUndoWindow(entry);
@@ -44,6 +51,7 @@ export default function WatchHistoryEntryModal({
 
   const chooseMovie = async (movie) => {
     setSelectedMovie(movie);
+    if (canRate) setRatingDraft(ratingFor(movie) ?? null);
     setTitle(movie?.title || "");
     setReleaseDate(normalizeDateInput(movie?.release_date));
     setEditingRelease(false);
@@ -60,6 +68,7 @@ export default function WatchHistoryEntryModal({
       watched_on: watchedOn,
       release_date: releaseDate || null,
       personal_note: normalizeMovieNote(note),
+      ...(canRate ? { rating: ratingDraft } : {}),
     });
   };
 
@@ -163,6 +172,16 @@ export default function WatchHistoryEntryModal({
                 required
                 disabled={isSaving}
               />
+              {canRate && (
+                <div className="mt-3">
+                  <MovieThumbs
+                    title={title || "this movie"}
+                    value={ratingDraft}
+                    onChange={setRatingDraft}
+                    disabled={isSaving}
+                  />
+                </div>
+              )}
             </div>
 
             <label className="block text-sm font-medium text-slate-300">

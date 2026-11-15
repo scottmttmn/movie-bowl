@@ -11,6 +11,7 @@ import MoviePosterPin from "./MoviePosterPin";
 import ServiceLogo from "./ServiceLogo";
 import TrailerEmbed from "./TrailerEmbed";
 import PersonalCommentSection from "./PersonalCommentSection";
+import MovieThumbs, { BowlThumbs } from "./MovieThumbs";
 import { getMovieAttributionLabel, isStarterPackMovie } from "../utils/drawBuckets";
 import { getMovieReleaseStatus } from "../utils/movieReleaseStatus";
 import {
@@ -173,6 +174,9 @@ export default function AddMovieModal({
   noteHeading = null,
   noteCollapsed = false,
   personalComment = null,
+  // { value, onChange, others?, me?, disabled?, error? }. With `others` it is
+  // a bowl's watched movie: rate to reveal what the bowl thought.
+  rating = null,
   onTogglePin = null,
   pinDisabledReason = "",
   isObscured = false,
@@ -610,6 +614,29 @@ export default function AddMovieModal({
               </div>
             )}
           </div>
+
+          {rating && (
+            <section aria-label="Rating" className="space-y-2">
+              {rating.others ? (
+                <BowlThumbs
+                  title={movie.title}
+                  value={rating.value}
+                  onChange={rating.onChange}
+                  others={rating.others}
+                  me={rating.me}
+                  disabled={rating.disabled}
+                />
+              ) : (
+                <MovieThumbs
+                  title={movie.title}
+                  value={rating.value}
+                  onChange={rating.onChange}
+                  disabled={rating.disabled}
+                />
+              )}
+              {rating.error && <p className="text-sm text-rose-300" role="alert">{rating.error}</p>}
+            </section>
+          )}
 
           {tonight && (
             <div className="space-y-3">

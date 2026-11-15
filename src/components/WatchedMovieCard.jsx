@@ -1,9 +1,10 @@
 import RestaurantSlip from "./RestaurantSlip";
+import { RatingMark } from "./MovieThumbs";
 import { useBowlKind } from "../context/BowlKindContext";
 import { isRestaurantKind } from "../utils/restaurants";
 import { getMovieAttributionAccent, getMovieAttributionLabel, getMovieAttributionLine } from "../utils/drawBuckets";
 
-export default function WatchedMovieCard({ movie, onClick }) {
+export default function WatchedMovieCard({ movie, onClick, myRating = null }) {
   const drawnDate = movie.drawn_at || movie.drawnAt;
   const dateOnly = String(drawnDate || "").match(/^\d{4}-\d{2}-\d{2}$/);
   const displayDate = dateOnly ? new Date(`${dateOnly[0]}T12:00:00`) : new Date(drawnDate);
@@ -59,6 +60,7 @@ export default function WatchedMovieCard({ movie, onClick }) {
             </div>
           );
           })()}
+          {!isRestaurant && <RatingMark value={myRating} className="absolute bottom-1.5 left-1.5" />}
           {contributorInitial && (
             <span
               role="img"

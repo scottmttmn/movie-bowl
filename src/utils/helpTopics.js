@@ -183,8 +183,15 @@ export const HELP_TOPICS = [
   },
   {
     id: "personal_comment",
-    ask: "Write what I thought of a movie I watched; rate or review it; private notes on watched movies; delete from my history.",
+    ask: "Write what I thought of a movie I watched; review it in words; private notes on watched movies; delete from my history.",
     answer: "Open any movie in Watch History to add your own private comment, or remove it.",
+    to: "/watch-list",
+    label: "Watch History",
+  },
+  {
+    id: "rate_movie",
+    ask: "Rate a movie I watched; thumbs up or thumbs down; change or clear my rating; see what everyone in my bowl thought of a movie, or how the others rated it.",
+    answer: "Tap a thumb on any movie in Watch History. In a bowl, rate a watched movie to see how everyone else rated it.",
     to: "/watch-list",
     label: "Watch History",
   },

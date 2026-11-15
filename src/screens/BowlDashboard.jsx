@@ -63,6 +63,7 @@ import { matchUserServices } from "../utils/streamingServices";
 import { getAutoStartMode, getAutoStartSurface, resolvePreferredLaunchTarget, resolveRentTarget } from "../utils/webLaunch";
 import useBowlAdd from "../hooks/useBowlAdd";
 import { fetchOwnDrawWatchEntry, updateOwnWatchComment } from "../lib/watchComments";
+import useBowlWatchedRatings from "../hooks/useBowlWatchedRatings";
 import { notifyBowlChange } from "../lib/bowlChanges";
 import useBowlLiveDraw from "../hooks/useBowlLiveDraw";
 import TelevisionGlyph from "../components/TelevisionGlyph";
@@ -350,6 +351,16 @@ export default function BowlDashboard() {
     // its slip into yours without adding one. The add refuses anything else.
     const isAddBlocked = isAddBlockedByUndrawnLimit && !(bowl.remaining || []).some(isStarterPackMovie);
     const isCurrentUserOwner = Boolean(currentUserId && bowlOwnerId && currentUserId === bowlOwnerId);
+    // Restaurant draws write no personal history, so there is nothing to rate.
+    const watchedRatingsKey = useMemo(
+      () => (bowl.watched || []).map((movie) => movie.drawEventId ?? movie.id).join(","),
+      [bowl.watched]
+    );
+    const { groups: watchedRatings, rate: rateWatchedMovie } = useBowlWatchedRatings(
+      isRestaurantBowl ? null : bowlId,
+      watchedRatingsKey
+    );
+    const [watchedRatingError, setWatchedRatingError] = useState("");
     const isCurrentUserMember = Boolean(currentUserId && memberIds.includes(currentUserId));
     const canCurrentUserDraw = useMemo(() => {
       if (!currentUserId) return false;
@@ -1943,12 +1954,14 @@ return (
             <section id="watched" className="panel-muted watched-panel mt-4 w-full max-w-full min-w-0 overflow-x-auto">
                 <WatchedMoviesStrip
                   movies={bowl.watched}
+                  ratings={watchedRatings}
                   isExpanded={showWatched}
                   isLoading={isFirstLoad}
                   heldCount={isFirstLoad ? heldBowlView?.watchedCount ?? null : null}
                   onToggleExpanded={() => toggleSection("watched")}
                   onSelectMovie={async (movie) => {
                     setSelectedDetailContext("watched");
+                    setWatchedRatingError("");
                     // Read beside the details so the dialog opens with the
                     // answer rather than growing a row a moment later.
                     const [detail, ownWatchEntry] = await Promise.all([
@@ -2160,6 +2173,25 @@ return (
                     : selectedDetailContext === "pack"
                       ? claimPackMovie
                       : null
+                }
+                rating={
+                  selectedDetailContext === "watched" && selectedDetailMovie.ownWatchEntry && watchedRatings
+                    ? (() => {
+                        const drawEventId = selectedDetailMovie.drawEventId ?? selectedDetailMovie.id;
+                        const group = watchedRatings.get(drawEventId) || { mine: null, others: [] };
+                        return {
+                          value: group.mine,
+                          others: group.others,
+                          me: { userId: currentUserId, name: displayName },
+                          error: watchedRatingError,
+                          onChange: async (next) => {
+                            setWatchedRatingError("");
+                            const result = await rateWatchedMovie(drawEventId, selectedDetailMovie.ownWatchEntry.id, next);
+                            if (!result.ok) setWatchedRatingError(result.message);
+                          },
+                        };
+                      })()
+                    : null
                 }
                 personalComment={
                   selectedDetailContext === "watched" && selectedDetailMovie.ownWatchEntry

@@ -306,7 +306,8 @@ Tables the app touches: `profiles`, `bowls`, `bowl_members`, `bowl_movies`,
 `bowl_invites`, `bowl_draw_permissions`, `bowl_add_links`, `bowl_draw_events`,
 `user_watch_events`, `user_bowl_defaults`, `solo_draw_removed_copies`,
 `title_departures`, `title_departure_usage` (the last two are server-only),
-`watch_history_share_links` (sealed; its functions only). `bowl_movie_queue` is legacy and is not written to.
+`watch_history_share_links` (sealed; its functions only), `user_movie_ratings`
+(read your own; written through `set_my_movie_rating`). `bowl_movie_queue` is legacy and is not written to.
 
 The interface says **home bowl**; the database says **default**, and likewise
 a **favorite** is a pin underneath. That drift is
@@ -358,6 +359,19 @@ response otherwise. The link has no followers, likes, replies or viewer
 counts, and none should be added: sharing is not meant to make the app
 social. See `output/designs/watch-history-share-link.md`.
 
+A watched movie also carries one **rating** per person, on four thumbs (two
+down, one down, one up, two up; stored -2, -1, 1, 2, and unrated is no row,
+never a zero). It rates the movie, not the pick: a TMDB movie is rated once
+across every viewing, a custom title on the entry it was rated on, and the
+rating goes when the person's last entry of that movie does. Watch History
+and a bowl's watched movies edit the same rating. In a bowl the other
+members' thumbs are **rate to reveal**: `get_bowl_watched_ratings` says who
+has rated a draw but returns what they picked only once the caller has rated
+it too, so the reveal is enforced by the database, not the page. The shared
+link carries the owner's thumbs under the same "Show my comments" switch. Who
+added a drawn slip is already on the draw event, which is what later "whose
+picks land" stats will read. See `output/designs/movie-ratings.md`.
+
 RPCs used by the client — prefer these over multi-statement client writes,
 because they are the atomic/permission-checked path:
 
@@ -378,7 +392,7 @@ because they are the atomic/permission-checked path:
 `update_user_watch_event`, `update_own_watch_event_note`,
 `delete_user_watch_event`, `get_my_watch_history_share_link`,
 `save_my_watch_history_share_link`, `delete_my_watch_history_share_link`,
-`get_shared_watch_history`.
+`get_shared_watch_history`, `set_my_movie_rating`, `get_bowl_watched_ratings`.
 
 Invitations live at `/invites`, the one surface that sends, accepts, declines,
 and revokes them. Bowl Settings keeps the member roster and links into the hub

@@ -59,6 +59,15 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
 
 ## Future Product Concepts
 
+- Movie ratings: **built November 14, 2026** -- four thumbs on Watch History
+  and a bowl's watched movies, rate to reveal in a bowl
+  (`output/designs/movie-ratings.md`). Left for once there are weeks of
+  ratings: "whose picks land" per bowl (submitter's own thumb excluded,
+  sample size shown, appreciation not a leaderboard), taste match between
+  members, a bowl verdict once everyone has rated, and a dismissible "How was
+  it?" card after a draw. Not planned: a "first time?" question, a popularity
+  prior, streaks, badges or push.
+
 - Restaurant bowls: **in progress November 8, 2026.** A second kind of bowl,
   hidden behind a Settings switch, drawing where to eat. Five steps in
   `output/designs/restaurant-bowls.md`; steps 1 (schema), 2 (bowls
