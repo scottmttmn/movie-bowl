@@ -6,6 +6,7 @@ import warmFilterMetadata from "./_lib/warmFilterMetadata.js";
 import lookupTitleDepartures from "./_lib/lookupTitleDepartures.js";
 import searchPlaces from "./_lib/placesSearch.js";
 import placeDetails from "./_lib/placeDetails.js";
+import placeHours from "./_lib/placeHours.js";
 
 // Public URLs are rewritten here to stay within Vercel Hobby's
 // twelve-function limit. Each handler keeps its own authorization checks.
@@ -36,6 +37,9 @@ export default async function handler(req, res) {
   }
   if (req.query?.action === "place-details") {
     return placeDetails(req, res);
+  }
+  if (req.query?.action === "place-hours") {
+    return placeHours(req, res);
   }
   res.status(404).json({ error: "Not found" });
 }

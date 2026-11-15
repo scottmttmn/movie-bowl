@@ -64,6 +64,7 @@ const mocks = vi.hoisted(() => {
     fetchStreamingProviders: vi.fn(async () => ({ providers: [], region: "US", fetchedAt: null })),
     fetchProviderLinks: vi.fn(),
     saveStreamingServices: vi.fn(async () => ({ error: null })),
+    getPlaceHours: vi.fn(async () => ({ hours: {} })),
   };
 });
 
@@ -104,6 +105,10 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
 }));
 
 vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
+vi.mock("../../lib/placesSearch", async () => ({
+  ...(await vi.importActual("../../lib/placesSearch")),
+  getPlaceHours: mocks.getPlaceHours,
+}));
 vi.mock("../../lib/providerLinks", () => ({ fetchProviderLinks: mocks.fetchProviderLinks }));
 
 vi.mock("../../lib/streamingProviders", () => ({
@@ -124,6 +129,7 @@ vi.mock("react-router-dom", async () => {
 });
 
 import BowlDashboard from "../BowlDashboard";
+import { clearPlaceHoursCache } from "../../hooks/usePlaceHours";
 
 function renderDashboard() {
   return render(<BowlDashboard />);
@@ -144,6 +150,8 @@ describe("BowlDashboard in a restaurant bowl", () => {
     mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];
     mocks.state.bowlData = { remaining: slips(), watched: [] };
     mocks.state.handleDraw.mockReset();
+    mocks.getPlaceHours.mockReset().mockResolvedValue({ hours: {} });
+    clearPlaceHoursCache();
     mocks.fetchProviderLinks.mockReset().mockResolvedValue({ links: [] });
     mocks.getTmdbMovieDetails.mockReset().mockResolvedValue({});
     mocks.fetchStreamingProviders.mockReset().mockResolvedValue({ providers: [], region: "US", fetchedAt: null });
@@ -237,7 +245,7 @@ describe("BowlDashboard in a restaurant bowl", () => {
     fireEvent.click(screen.getByRole("button", { name: "Reveal" }));
     await waitFor(() => expect(mocks.state.handleDraw).toHaveBeenCalledTimes(1));
     expect(mocks.state.handleDraw.mock.calls[0][0]).toMatchObject({
-      cuisineFilter: { excluded: ["Mediterranean"] },
+      restaurantFilter: { excluded: ["Mediterranean"] },
       genreFilter: null,
     });
 
@@ -248,5 +256,61 @@ describe("BowlDashboard in a restaurant bowl", () => {
     expect(screen.getByRole("button", { name: "Mediterranean", pressed: false })).toBeInTheDocument();
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     expect(screen.getByRole("button", { name: "Mediterranean", pressed: true })).toBeInTheDocument();
+  });
+
+  it("leaves out a place closed at the time asked about, and asks only when asked", async () => {
+    mocks.state.handleDraw.mockResolvedValue({ ...slips()[1], drawn_at: "2026-11-08T19:00:00Z" });
+    // Closed all week; the other slip was added by name and has no hours.
+    mocks.getPlaceHours.mockResolvedValue({
+      hours: { ChIJlarana: { closedForGood: false, periods: [], timeZone: null, utcOffsetMinutes: null } },
+    });
+
+    const view = renderDashboard();
+    await waitFor(() => expect(screen.getByText("Date Night Eats")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    const sheet = screen.getByRole("dialog", { name: "Narrow the draw" });
+    expect(within(sheet).getByRole("radio", { name: "Any time", checked: true })).toBeInTheDocument();
+    expect(mocks.getPlaceHours).not.toHaveBeenCalled();
+
+    fireEvent.click(within(sheet).getByRole("radio", { name: "Now" }));
+    expect(await within(sheet).findByText("0 open · 1 closed · 1 without hours")).toBeInTheDocument();
+    expect(await within(sheet).findByText("1 of 2 restaurants in the draw now")).toBeInTheDocument();
+    expect(mocks.getPlaceHours).toHaveBeenCalledTimes(1);
+    expect(mocks.getPlaceHours.mock.calls[0][0]).toMatchObject({ bowlId: "bowl-1", placeIds: ["ChIJlarana"] });
+
+    // Another time costs no second lookup.
+    fireEvent.click(within(sheet).getByRole("radio", { name: "Pick" }));
+    expect(within(sheet).getByLabelText("Day")).toHaveValue(within(sheet).getByRole("option", { name: "Tomorrow" }).value);
+    expect(await within(sheet).findByText("1 of 2 restaurants in the draw tomorrow at 7 PM")).toBeInTheDocument();
+    expect(mocks.getPlaceHours).toHaveBeenCalledTimes(1);
+    fireEvent.click(within(sheet).getByRole("button", { name: "Done" }));
+
+    fireEvent.click(screen.getByRole("button", { name: /draw restaurant/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Reveal" }));
+    await waitFor(() => expect(mocks.state.handleDraw).toHaveBeenCalledTimes(1));
+    expect(mocks.state.handleDraw.mock.calls[0][0]).toMatchObject({
+      restaurantFilter: { excluded: [], closedPlaceIds: ["ChIJlarana"] },
+    });
+
+    // The time is not remembered: the next visit asks for nothing.
+    view.unmount();
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Date Night Eats")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    expect(screen.getByRole("radio", { name: "Any time", checked: true })).toBeInTheDocument();
+    expect(await screen.findByText("All 2 restaurants in the draw")).toBeInTheDocument();
+    expect(mocks.getPlaceHours).toHaveBeenCalledTimes(1);
+  });
+
+  it("leaves nothing out when the hours cannot be had", async () => {
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Date Night Eats")).toBeInTheDocument());
+    fireEvent.click(screen.getByRole("button", { name: "Filters" }));
+    const sheet = screen.getByRole("dialog", { name: "Narrow the draw" });
+    fireEvent.click(within(sheet).getByRole("radio", { name: "Tonight" }));
+    expect(await within(sheet).findByText("No hours to go on, so nothing is left out")).toBeInTheDocument();
+    expect(await within(sheet).findByText("All 2 restaurants in the draw tonight")).toBeInTheDocument();
+    fireEvent.click(within(sheet).getByRole("button", { name: "Reset" }));
+    expect(within(sheet).getByRole("radio", { name: "Any time", checked: true })).toBeInTheDocument();
   });
 });

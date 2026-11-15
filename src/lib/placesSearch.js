@@ -64,3 +64,32 @@ export async function getPlaceDetails({ placeId, bowlId, signal } = {}) {
     return unavailable;
   }
 }
+
+// Opening hours for the restaurant bowl's Open filter, asked for in one batch.
+// Resolves, never rejects: { hours }, keyed by place id, holding only the
+// places Google was actually asked about (null where it had no hours). A
+// place left out was not asked -- no key, the month's budget spent, or the
+// request failed -- and stays in the draw.
+export async function getPlaceHours({ placeIds, bowlId, signal } = {}) {
+  const unavailable = { hours: {} };
+  if (!bowlId || !Array.isArray(placeIds) || placeIds.length === 0) return unavailable;
+  try {
+    const { data } = await supabase.auth.getSession();
+    const accessToken = data?.session?.access_token;
+    if (!accessToken) return unavailable;
+
+    const response = await fetch("/api/places/hours", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${accessToken}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ placeIds, bowlId }),
+      signal,
+    });
+    if (!response.ok) return unavailable;
+    const body = await response.json();
+    const hours = body?.hours && typeof body.hours === "object" ? body.hours : {};
+    return { hours };
+  } catch (error) {
+    if (error?.name !== "AbortError") console.error("[placesSearch] Hours failed", error);
+    return unavailable;
+  }
+}

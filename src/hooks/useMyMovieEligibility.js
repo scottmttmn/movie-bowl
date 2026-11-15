@@ -78,15 +78,15 @@ export default function useMyMovieEligibility(
   const ratingFilter = filters?.ratingFilter ?? null;
   const genreFilter = filters?.genreFilter ?? null;
   const runtimeFilter = filters?.runtimeFilter ?? null;
-  const cuisineFilter = filters?.cuisineFilter ?? null;
+  const restaurantFilter = filters?.restaurantFilter ?? null;
   const prioritizeByServices = Boolean(filters?.prioritizeByServices);
   const prioritizeByServiceRank = filters?.prioritizeByServiceRank !== false;
   const userStreamingServices = filters?.userStreamingServices || [];
   const needsRatingLookups = !isRatingFilterExhaustive(ratingFilter);
   const needsStreamingLookups = prioritizeByServices && userStreamingServices.length > 0;
   const locallyEligibleMyMovies = useMemo(
-    () => getLocallyFilteredCandidates(persistedMyMovies, { genreFilter, runtimeFilter, cuisineFilter }),
-    [persistedMyMovies, genreFilter, runtimeFilter, cuisineFilter]
+    () => getLocallyFilteredCandidates(persistedMyMovies, { genreFilter, runtimeFilter, restaurantFilter }),
+    [persistedMyMovies, genreFilter, runtimeFilter, restaurantFilter]
   );
   const ownLookupTitleCount = locallyEligibleMyMovies.reduce(
     (count, movie) => count + (getPositiveTmdbId(movie) ? 1 : 0),
@@ -111,7 +111,7 @@ export default function useMyMovieEligibility(
     ratingFilter,
     genreFilter,
     runtimeFilter,
-    cuisineFilter,
+    restaurantFilter,
     prioritizeByServices,
     prioritizeByServiceRank,
     userStreamingServices,
@@ -146,7 +146,7 @@ export default function useMyMovieEligibility(
       ratingFilter,
       genreFilter,
       runtimeFilter,
-      cuisineFilter,
+      restaurantFilter,
       fetchMovieDetails: fetchMovieDetailsRef.current,
       fetchProviders: fetchProvidersRef.current,
       fetchFilterMetadata: fetchFilterMetadataRef.current,

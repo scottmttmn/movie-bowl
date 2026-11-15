@@ -31,6 +31,7 @@ describe("movie cache public routing", () => {
     ["/api/feedback", "Authentication required."],
     ["/api/places/search", "Unauthorized"],
     ["/api/places/details", "Unauthorized"],
+    ["/api/places/hours", "Unauthorized"],
   ]) {
     it(`keeps ${path} authenticated after rewriting`, async () => {
       const res = response();

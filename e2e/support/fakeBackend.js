@@ -104,6 +104,10 @@ function createInitialState() {
     placesAvailable: true,
     placeDetails: {},
     placeDetailsRequests: [],
+    // Opening hours by place id for the Open filter; a place not listed here
+    // is one Google was not asked about.
+    placeHours: {},
+    placeHoursRequests: [],
   };
 }
 
@@ -1452,6 +1456,16 @@ export class FakeBackend {
       await fulfillJson(route, known
         ? { available: true, details: known.details }
         : { available: false, details: null });
+      return;
+    }
+
+    if (url.pathname === "/api/places/hours" && method === "POST") {
+      this.state.placeHoursRequests.push(body);
+      const hours = {};
+      (body?.placeIds || []).forEach((placeId) => {
+        if (placeId in this.state.placeHours) hours[placeId] = this.state.placeHours[placeId];
+      });
+      await fulfillJson(route, { hours });
       return;
     }
 

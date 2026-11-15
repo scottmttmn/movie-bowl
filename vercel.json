@@ -71,6 +71,10 @@
       "destination": "/api/movie-cache?action=place-details"
     },
     {
+      "source": "/api/places/hours",
+      "destination": "/api/movie-cache?action=place-hours"
+    },
+    {
       "source": "/voice-probe/privacy",
       "destination": "/index.html"
     },

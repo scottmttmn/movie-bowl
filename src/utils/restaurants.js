@@ -40,11 +40,25 @@ export function getCuisineChoices(slips) {
 
 // The filter is what is left out, so a cuisine added to the bowl later is in
 // the draw until someone says otherwise.
-export function filterSlipsByCuisine(slips, cuisineFilter) {
+export function filterSlipsByCuisine(slips, restaurantFilter) {
   const list = Array.isArray(slips) ? slips : [];
-  const excluded = new Set(cuisineFilter?.excluded || []);
+  const excluded = new Set(restaurantFilter?.excluded || []);
   if (excluded.size === 0) return list;
   return list.filter((slip) => !excluded.has(getCuisineKey(slip)));
+}
+
+// The Open filter names the places known to be closed at the chosen time. A
+// slip added by name, or one whose hours Google did not answer for, is not on
+// that list and stays in the draw: the filter removes only what it knows.
+export function filterSlipsByOpen(slips, restaurantFilter) {
+  const list = Array.isArray(slips) ? slips : [];
+  const closed = new Set(restaurantFilter?.closedPlaceIds || []);
+  if (closed.size === 0) return list;
+  return list.filter((slip) => !slip?.place_id || !closed.has(slip.place_id));
+}
+
+export function filterRestaurantSlips(slips, restaurantFilter) {
+  return filterSlipsByOpen(filterSlipsByCuisine(slips, restaurantFilter), restaurantFilter);
 }
 
 export function normalizeCuisine(value) {
@@ -99,13 +113,13 @@ export function countSlips(kind, count) {
   return `${count} ${count === 1 ? words.one : words.many}`;
 }
 
-const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+export const WEEKDAYS = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
 
 // Google's times are instants; the sheet reads them on the restaurant's own
 // clock, which is the one its door keeps, wherever the phone is. The returned
 // date's UTC fields are that wall clock. The place's time zone answers across
 // a daylight-saving change; its current offset, the fallback, does not.
-function onPlaceClock(ms, details) {
+export function onPlaceClock(ms, details) {
   if (details.timeZone) {
     try {
       const parts = Object.fromEntries(
@@ -128,7 +142,7 @@ function onPlaceClock(ms, details) {
   return new Date(ms + offset * 60_000);
 }
 
-function clockTime(date) {
+export function clockTime(date) {
   const hours = date.getUTCHours();
   const minutes = date.getUTCMinutes();
   const hour = hours % 12 || 12;

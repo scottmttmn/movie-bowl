@@ -337,7 +337,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       ratingFilter: options.ratingFilter,
       genreFilter: options.genreFilter,
       runtimeFilter: options.runtimeFilter,
-      cuisineFilter: options.cuisineFilter,
+      restaurantFilter: options.restaurantFilter,
       fetchProviders,
       fetchMovieDetails: filterMetadataFetchers.fetchMovieDetails,
       fetchFilterMetadata: filterMetadataFetchers.fetchFilterMetadata,

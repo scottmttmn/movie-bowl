@@ -93,4 +93,51 @@ test.describe("restaurant bowls", () => {
     ]);
     expect(backend.state.user_watch_events).toHaveLength(0);
   });
+
+  test("the Open filter leaves out a place that is closed, asking Google once", async ({ page, backend }) => {
+    const state = backend.state;
+    state.bowls.push({
+      id: "bowl-eats", name: "Date Night Eats", kind: "restaurants", owner_id: "user-smoke",
+      draw_access_mode: "all_members", draw_method: "person_first", created_at: "2026-06-01T12:00:00.000Z",
+    });
+    state.bowl_members.push({ id: "member-eats", bowl_id: "bowl-eats", user_id: "user-smoke", role: "Owner" });
+    [
+      ["Mabe's Pizza", "Pizza", "ChIJmabes"],
+      ["Sabin Family Table", "American", "ChIJsabin"],
+      ["Taco truck", "Mexican", null],
+    ].forEach(([title, cuisine, placeId], index) => state.bowl_movies.push({
+      id: `slip-${index}`, bowl_id: "bowl-eats", title, tmdb_id: -(9000 + index), poster_path: null,
+      release_date: null, runtime: null, genres: [], cuisine, place_id: placeId, note: null,
+      added_by: "user-smoke", added_at: "2026-06-02T12:00:00.000Z", drawn_at: null, is_pinned: false,
+    }));
+    const hours = (periods) => ({ closedForGood: false, periods, timeZone: null, utcOffsetMinutes: null });
+    state.placeHours = {
+      // Never closes; closed all week.
+      ChIJmabes: hours([{ open: { day: 0, hour: 0, minute: 0 }, close: null }]),
+      ChIJsabin: hours([]),
+    };
+
+    await page.goto("/bowl/bowl-eats");
+    await page.getByRole("button", { name: "Filters", exact: true }).click();
+    const sheet = page.getByRole("dialog", { name: "Narrow the draw" });
+    await expect(sheet.getByRole("radio", { name: "Any time" })).toBeChecked();
+    expect(state.placeHoursRequests).toHaveLength(0);
+
+    await sheet.getByRole("radio", { name: "Now" }).click();
+    await expect(sheet.getByText("1 open · 1 closed · 1 without hours")).toBeVisible();
+    await expect(sheet.getByText("2 of 3 restaurants in the draw now")).toBeVisible();
+
+    await sheet.getByRole("radio", { name: "Pick" }).click();
+    await expect(sheet.getByLabel("Day")).toBeVisible();
+    await sheet.getByLabel("Time").selectOption({ label: "12:30 PM" });
+    await expect(sheet.getByText("2 of 3 restaurants in the draw tomorrow at 12:30 PM")).toBeVisible();
+    // The whole sheet is on screen, Done included, on a phone too.
+    await expect(sheet.getByRole("button", { name: "Done" })).toBeInViewport();
+    expect(state.placeHoursRequests).toEqual([
+      { placeIds: ["ChIJmabes", "ChIJsabin"], bowlId: "bowl-eats" },
+    ]);
+
+    await sheet.getByRole("button", { name: "Done" }).click();
+    await expect(page.getByRole("button", { name: "Drawing from 2 restaurants. Open draw filters." })).toBeAttached();
+  });
 });

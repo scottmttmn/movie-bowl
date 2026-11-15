@@ -76,6 +76,16 @@ import { BowlKindProvider } from "../context/BowlKindContext";
 import { countSlips, getBowlKindWords, getCuisineChoices, inBowlWords, isRestaurantKind, normalizeBowlKind } from "../utils/restaurants";
 import { readExcludedCuisines, writeExcludedCuisines } from "../utils/restaurantFilters";
 import RestaurantFilterSheet from "../components/RestaurantFilterSheet";
+import usePlaceHours from "../hooks/usePlaceHours";
+import {
+  ANY_TIME,
+  OPEN_MODES,
+  describeOpenChoice,
+  getClosedPlaceIds,
+  normalizeOpenChoice,
+  resolveOpenMoment,
+  sortSlipsByOpen,
+} from "../utils/restaurantHours";
 import StreamingPreferenceRows from "../components/StreamingPreferenceRows";
 import { describeGenres, describeRatings, describeRuntime } from "../utils/filterSummaries";
 import {
@@ -149,6 +159,10 @@ export default function BowlDashboard() {
     // Read for the account and bowl on screen; a change is kept beside the
     // key it was made under, so another bowl never borrows it.
     const [cuisineChange, setCuisineChange] = useState(null);
+    // When the group means to eat. Kept for this visit to this bowl only: it
+    // is off until asked for, because every answer spends hours lookups.
+    const [openChange, setOpenChange] = useState(null);
+    const [openClock, setOpenClock] = useState(() => Date.now());
     const filterDialogRef = useRef(null);
     const [showRatingFilters, setShowRatingFilters] = useState(false);
     const [showGenreFilters, setShowGenreFilters] = useState(false);
@@ -440,6 +454,42 @@ export default function BowlDashboard() {
       () => (isRestaurantBowl ? getCuisineChoices(bowl.remaining) : []),
       [isRestaurantBowl, bowl.remaining]
     );
+    const openChoice = useMemo(
+      () => (isRestaurantBowl && openChange?.key === cuisineStorageKey
+        ? normalizeOpenChoice(openChange.choice, openClock)
+        : ANY_TIME),
+      [isRestaurantBowl, openChange, cuisineStorageKey, openClock]
+    );
+    const isOpenFilterOn = openChoice.mode !== OPEN_MODES.any;
+    const setOpenChoice = (choice) => {
+      setOpenClock(Date.now());
+      setOpenChange({ key: cuisineStorageKey, choice });
+    };
+    // Only a slip found through Google has hours to ask for.
+    const hasPlaceSlips = useMemo(
+      () => isRestaurantBowl && bowl.remaining.some((slip) => slip.place_id),
+      [isRestaurantBowl, bowl.remaining]
+    );
+    const placeHours = usePlaceHours({ bowlId, slips: bowl.remaining, enabled: isOpenFilterOn });
+    // "Now" moves, so the answer is read again each minute while it is asked.
+    useEffect(() => {
+      if (!isOpenFilterOn) return undefined;
+      const timer = window.setInterval(() => setOpenClock(Date.now()), 60_000);
+      return () => window.clearInterval(timer);
+    }, [isOpenFilterOn]);
+    const openSorted = useMemo(
+      () => (isOpenFilterOn && placeHours.status !== "loading"
+        ? sortSlipsByOpen(
+          getDrawablePoolMovies(bowl.remaining),
+          placeHours.hoursByPlaceId,
+          resolveOpenMoment(openChoice, openClock)
+        )
+        : null),
+      [isOpenFilterOn, placeHours.status, placeHours.hoursByPlaceId, bowl.remaining, openChoice, openClock]
+    );
+    const closedPlaceIdsKey = openSorted
+      ? [...new Set(openSorted.closed.map((slip) => slip.place_id))].sort().join("\n")
+      : "";
     const ratingSummary = describeRatings(selectedRatings, includeUnknownRatings);
     const genreSummary = describeGenres(selectedGenres, availableDrawGenres, includeUnknownGenres);
     const runtimeSummary = describeRuntime(runtimeMinMinutes, runtimeMaxMinutes, includeUnknownRuntime);
@@ -448,7 +498,9 @@ export default function BowlDashboard() {
     const drawFilters = useMemo(
       () => isRestaurantBowl ? ({
         ...RESTAURANT_DRAW_FILTERS,
-        cuisineFilter: excludedCuisines.length > 0 ? { excluded: excludedCuisines } : null,
+        restaurantFilter: excludedCuisines.length > 0 || closedPlaceIdsKey
+          ? { excluded: excludedCuisines, closedPlaceIds: closedPlaceIdsKey ? closedPlaceIdsKey.split("\n") : [] }
+          : null,
       }) : ({
         prioritizeByServices: isDrawFilteredByServices,
         prioritizeByServiceRank: useStreamingRank,
@@ -470,6 +522,7 @@ export default function BowlDashboard() {
       [
         isRestaurantBowl,
         excludedCuisines,
+        closedPlaceIdsKey,
         isDrawFilteredByServices,
         useStreamingRank,
         userStreamingServices,
@@ -540,7 +593,7 @@ export default function BowlDashboard() {
     // or not it currently removes anything — the dot marks set state, not
     // effect, so it cannot flicker as the bowl's contents change.
     const isFilterEngaged = useMemo(
-      () => isRestaurantBowl ? excludedCuisines.length > 0 : (
+      () => isRestaurantBowl ? excludedCuisines.length > 0 || isOpenFilterOn : (
         isDrawFilteredByServices ||
         selectedRatings.length < MPAA_RATING_OPTIONS.length ||
         !includeUnknownRatings ||
@@ -552,6 +605,7 @@ export default function BowlDashboard() {
       [
         isRestaurantBowl,
         excludedCuisines,
+        isOpenFilterOn,
         isDrawFilteredByServices,
         selectedRatings,
         includeUnknownRatings,
@@ -644,6 +698,7 @@ export default function BowlDashboard() {
       !isLoading &&
       isAccessKnown &&
       (didApplyDefaultDrawSettings || Boolean(preferencesLoadError)) &&
+      placeHours.status !== "loading" &&
       drawPoolStatus !== DRAW_POOL_STATUS.counting;
     const settledBowlView = isBowlViewSettled
       ? {
@@ -1158,11 +1213,26 @@ export default function BowlDashboard() {
 
       try {
         const minAnimationDelay = new Promise((resolve) => setTimeout(resolve, DRAW_REVEAL_FALLBACK_OPEN_MS));
+        // A draw made while the hours are still on their way waits for
+        // them, and reads the clock again: "now" is when the draw happens.
+        let drawRestaurantFilter = drawFilters.restaurantFilter;
+        if (isOpenFilterOn) {
+          const hoursByPlaceId = await placeHours.settle();
+          const closedPlaceIds = getClosedPlaceIds(
+            getDrawablePoolMovies(bowl.remaining),
+            hoursByPlaceId,
+            resolveOpenMoment(openChoice, Date.now())
+          );
+          drawRestaurantFilter = excludedCuisines.length > 0 || closedPlaceIds.length > 0
+            ? { excluded: excludedCuisines, closedPlaceIds }
+            : null;
+        }
         const drawPromise = handleDraw({
           prioritizeByServices: prioritizeStreaming,
           prioritizeByServiceRank: useStreamingRank,
           userStreamingServices,
           ...drawFilters,
+          ...(isRestaurantBowl ? { restaurantFilter: drawRestaurantFilter } : {}),
           // The pool is known before the draw is sent, so the reveal can rise
           // and sort it while the request is in flight.
           onPoolResolved: (pool) => updateRun({
@@ -1369,7 +1439,7 @@ return (
                   {isCurrentBowlHome && <p className="sr-only">Home bowl</p>}
                 </div>
                 <div className="flex shrink-0 items-center gap-2">
-                  {(!isRestaurantBowl || cuisineChoices.length > 1 || isFilterEngaged) && <button
+                  {(!isRestaurantBowl || cuisineChoices.length > 1 || hasPlaceSlips || isFilterEngaged) && <button
                     id="bowl-filters"
                     type="button"
                     onClick={() => setShowDrawFilters((prev) => !prev)}
@@ -1543,9 +1613,22 @@ return (
                 choices={cuisineChoices}
                 excluded={excludedCuisines}
                 onChange={setExcludedCuisines}
-                summary={drawPoolCount === drawPoolTotalCount
-                  ? `All ${countSlips(bowlKind, drawPoolTotalCount)} in the draw`
-                  : `${drawPoolCount} of ${countSlips(bowlKind, drawPoolTotalCount)} in the draw`}
+                open={hasPlaceSlips || isOpenFilterOn ? {
+                  choice: openChoice,
+                  onChange: setOpenChoice,
+                  status: placeHours.status,
+                  counts: openSorted && {
+                    open: openSorted.open.length,
+                    closed: openSorted.closed.length,
+                    unknown: openSorted.unknown.length,
+                  },
+                } : null}
+                summary={placeHours.status === "loading"
+                  ? "\u00a0"
+                  : `${drawPoolCount === drawPoolTotalCount
+                    ? `All ${countSlips(bowlKind, drawPoolTotalCount)}`
+                    : `${drawPoolCount} of ${countSlips(bowlKind, drawPoolTotalCount)}`} in the draw${
+                    isOpenFilterOn ? ` ${describeOpenChoice(openChoice, openClock)}` : ""}`}
                 onClose={() => setShowDrawFilters(false)}
               />
             )}

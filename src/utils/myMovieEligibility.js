@@ -100,7 +100,7 @@ export async function resolveMyMovieEligibility({
   ratingFilter = null,
   genreFilter = null,
   runtimeFilter = null,
-  cuisineFilter = null,
+  restaurantFilter = null,
   fetchMovieDetails,
   fetchProviders,
   fetchFilterMetadata,
@@ -112,7 +112,7 @@ export async function resolveMyMovieEligibility({
   );
   const myMovies = persistedMovies.filter((movie) => myIdSet.has(String(movie.id)));
   const otherMovies = persistedMovies.filter((movie) => !myIdSet.has(String(movie.id)));
-  const localFilters = { genreFilter, runtimeFilter, cuisineFilter };
+  const localFilters = { genreFilter, runtimeFilter, restaurantFilter };
   const locallyEligibleMyMovies = getLocallyFilteredCandidates(myMovies, localFilters);
   const locallyEligibleOtherMovies = getLocallyFilteredCandidates(otherMovies, localFilters);
   const ratingFilterForEligibility = isRatingFilterExhaustive(ratingFilter)
