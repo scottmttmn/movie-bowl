@@ -97,8 +97,10 @@ rotation, the reveal and returning a draw, with one account and one deploy.
    for 1,000 a month. The filter removes only places known to be closed: a
    slip added by name, one Google has no hours for, or any slip once the
    budget is spent stays in the draw, and the sheet counts those as "without
-   hours". Tonight means 7 PM until 7 PM has passed, then now. A time is read
-   on the restaurant's own clock. A draw started while hours are loading
+   hours". Tonight means 7 PM until 7 PM has passed, then now, decided on
+   the restaurant's own clock like every other time; the phone's clock stands
+   in only when Google names no zone. A place marked temporarily closed is
+   out for any time. A draw started while hours are loading
    waits for them. It runs beside Cuisine in the same stage of
    `getDrawCandidates` (`restaurantFilter`), so the count, My Restaurants and
    the draw agree.

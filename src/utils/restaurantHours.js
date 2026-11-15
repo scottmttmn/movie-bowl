@@ -62,18 +62,15 @@ export function normalizeOpenChoice(choice, now = Date.now()) {
 }
 
 // The moment a choice asks about. Now is an instant, read on each
-// restaurant's own clock. Tonight and a picked time are wall-clock times:
-// "Saturday at 7" means 7 on the restaurant's door wherever the phone is.
+// restaurant's own clock, and so is Tonight: whether dinner time has passed
+// is the restaurant's question, not the phone's. A picked time is a
+// wall-clock time: "Saturday at 7" means 7 on the restaurant's door wherever
+// the phone is.
 export function resolveOpenMoment(choice, now = Date.now()) {
   const normalized = normalizeOpenChoice(choice, now);
   if (normalized.mode === OPEN_MODES.any) return null;
   if (normalized.mode === OPEN_MODES.now) return { instant: now };
-  if (normalized.mode === OPEN_MODES.tonight) {
-    const here = new Date(now);
-    // Once dinner time has passed, tonight is now.
-    if (here.getHours() * 60 + here.getMinutes() >= TONIGHT_MINUTES) return { instant: now };
-    return { wall: { weekday: here.getDay(), minutes: TONIGHT_MINUTES } };
-  }
+  if (normalized.mode === OPEN_MODES.tonight) return { tonight: now };
   const [year, month, day] = normalized.day.split("-").map(Number);
   return { wall: { weekday: new Date(year, month - 1, day).getDay(), minutes: normalized.minutes } };
 }
@@ -99,21 +96,37 @@ function weekMinute(point) {
   return day * MINUTES_PER_DAY + hour * 60 + minute;
 }
 
+// The week-minute on the restaurant's clock at an instant. Without a zone or
+// an offset from Google the phone's own clock stands in, which is right for
+// everyone eating near where they are.
+function placeWeekClock(instant, hours) {
+  if (hours.timeZone || Number.isInteger(hours.utcOffsetMinutes)) {
+    const here = onPlaceClock(instant, hours);
+    return { weekday: here.getUTCDay(), minutes: here.getUTCHours() * 60 + here.getUTCMinutes() };
+  }
+  const here = new Date(instant);
+  return { weekday: here.getDay(), minutes: here.getHours() * 60 + here.getMinutes() };
+}
+
 // true, false, or null when the hours cannot say. Periods are a week of
 // opening and closing points on the restaurant's clock; one that closes after
 // midnight, or on Sunday morning after a Saturday opening, wraps the week.
 export function isOpenAt(hours, moment) {
   if (!hours || !moment) return null;
-  if (hours.closedForGood) return false;
+  // A place Google marks temporarily closed gives no date it reopens, so it
+  // is out for any time asked about.
+  if (hours.closedForGood || hours.closedForNow) return false;
   if (!Array.isArray(hours.periods)) return null;
 
-  let at;
-  if (moment.wall) {
-    at = moment.wall.weekday * MINUTES_PER_DAY + moment.wall.minutes;
-  } else {
-    const here = onPlaceClock(moment.instant, hours);
-    at = here.getUTCDay() * MINUTES_PER_DAY + here.getUTCHours() * 60 + here.getUTCMinutes();
+  let wall = moment.wall;
+  if (!wall) {
+    wall = placeWeekClock(moment.tonight ?? moment.instant, hours);
+    // Tonight is dinner, until dinner time has passed there; then it is now.
+    if (moment.tonight !== undefined && wall.minutes < TONIGHT_MINUTES) {
+      wall = { weekday: wall.weekday, minutes: TONIGHT_MINUTES };
+    }
   }
+  const at = wall.weekday * MINUTES_PER_DAY + wall.minutes;
 
   return hours.periods.some((period) => {
     const opens = weekMinute(period?.open);

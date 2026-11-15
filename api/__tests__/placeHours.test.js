@@ -125,6 +125,7 @@ describe("api/places/hours", () => {
       hours: {
         ChIJa: {
           closedForGood: false,
+          closedForNow: false,
           periods: [{ open: { day: 6, hour: 17, minute: 0 }, close: { day: 6, hour: 21, minute: 30 } }],
           utcOffsetMinutes: -360,
           timeZone: "America/Chicago",
@@ -169,6 +170,7 @@ describe("toPlaceHours", () => {
     ]);
     expect(toPlaceHours({}).periods).toBeNull();
     expect(toPlaceHours({ businessStatus: "CLOSED_PERMANENTLY" }).closedForGood).toBe(true);
+    expect(toPlaceHours({ businessStatus: "CLOSED_TEMPORARILY" })).toMatchObject({ closedForNow: true, periods: null });
   });
 
   it("keeps an always-open place and drops a period it cannot read", () => {

@@ -47,6 +47,7 @@ describe("isOpenAt", () => {
     expect(isOpenAt({ periods: null }, at(6, 19))).toBeNull();
     expect(isOpenAt(hours(), at(6, 19))).toBe(false);
     expect(isOpenAt({ closedForGood: true, periods: [period(6, 17, 6, 21)] }, at(6, 19))).toBe(false);
+    expect(isOpenAt({ closedForNow: true, periods: null }, at(6, 19))).toBe(false);
   });
 
   it("reads an instant on the restaurant's own clock", () => {
@@ -55,6 +56,23 @@ describe("isOpenAt", () => {
     expect(isOpenAt(lunch, { instant: Date.UTC(2026, 10, 11, 18) })).toBe(true);
     expect(isOpenAt(lunch, { instant: Date.UTC(2026, 10, 11, 21) })).toBe(false);
     expect(isOpenAt({ ...lunch, timeZone: null, utcOffsetMinutes: -360 }, { instant: Date.UTC(2026, 10, 11, 18) })).toBe(true);
+  });
+
+  it("reads the phone's clock when Google gave the place no zone", () => {
+    const dinner = hours(period(3, 17, 3, 21));
+    expect(isOpenAt(dinner, { instant: new Date(2026, 10, 11, 18).getTime() })).toBe(true);
+    expect(isOpenAt(dinner, { instant: new Date(2026, 10, 11, 22).getTime() })).toBe(false);
+  });
+
+  it("decides tonight on the restaurant's clock, not the phone's", () => {
+    const chicago = { ...hours(period(3, 17, 3, 20)), timeZone: "America/Chicago" };
+    // 6:30 PM in Chicago: dinner is still ahead, and the kitchen is open at 7.
+    expect(isOpenAt(chicago, { tonight: Date.UTC(2026, 10, 12, 0, 30) })).toBe(true);
+    // 8:30 PM in Chicago, whatever the phone says: tonight is now, and it shut at 8.
+    expect(isOpenAt(chicago, { tonight: Date.UTC(2026, 10, 12, 2, 30) })).toBe(false);
+    // Lunch only: open now at noon, closed by dinner.
+    const lunch = { ...hours(period(3, 11, 3, 14)), timeZone: "America/Chicago" };
+    expect(isOpenAt(lunch, { tonight: Date.UTC(2026, 10, 11, 18) })).toBe(false);
   });
 });
 
@@ -74,9 +92,7 @@ describe("the open choice", () => {
   it("resolves each choice to the moment it asks about", () => {
     expect(resolveOpenMoment(ANY_TIME, NOW)).toBeNull();
     expect(resolveOpenMoment({ mode: "now" }, NOW)).toEqual({ instant: NOW });
-    expect(resolveOpenMoment({ mode: "tonight" }, NOW)).toEqual({ wall: { weekday: 3, minutes: 1140 } });
-    const late = new Date(2026, 10, 11, 20, 15).getTime();
-    expect(resolveOpenMoment({ mode: "tonight" }, late)).toEqual({ instant: late });
+    expect(resolveOpenMoment({ mode: "tonight" }, NOW)).toEqual({ tonight: NOW });
     expect(resolveOpenMoment({ mode: "pick", day: "2026-11-14", minutes: 750 }, NOW)).toEqual({ wall: { weekday: 6, minutes: 750 } });
   });
 

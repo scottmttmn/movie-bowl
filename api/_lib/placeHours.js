@@ -47,6 +47,9 @@ function toPeriods(periods) {
 export function toPlaceHours(body) {
   return {
     closedForGood: body?.businessStatus === "CLOSED_PERMANENTLY",
+    // Often sent with no periods at all, which would otherwise read as
+    // "no hours" and leave a shut restaurant in the draw.
+    closedForNow: body?.businessStatus === "CLOSED_TEMPORARILY",
     // The week ahead, holidays included, when Google has it; else the usual week.
     periods: toPeriods(body?.currentOpeningHours?.periods) ?? toPeriods(body?.regularOpeningHours?.periods),
     utcOffsetMinutes: Number.isInteger(body?.utcOffsetMinutes) ? body.utcOffsetMinutes : null,
