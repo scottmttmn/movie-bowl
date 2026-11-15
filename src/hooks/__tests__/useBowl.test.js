@@ -381,6 +381,40 @@ describe("useBowl handleDraw integration", () => {
     );
   });
 
+  it("keeps a draw made for a later day returnable until that day ends, and only then", async () => {
+    const movie = { id: "r1", tmdb_id: -5, title: "Noodle Bar" };
+    mocks.remainingQueue.push([movie], [], [movie], []);
+    mocks.watchedQueue.push([], [{ ...movie, drawn_at: "2026-11-11T23:30:00.000Z" }], [], []);
+    mocks.fetchStreamingProviders.mockResolvedValue({ providers: [], region: "US", fetchedAt: "x" });
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+
+    const saturdayEnd = new Date(2026, 10, 15).getTime();
+    await act(async () => {
+      await result.current.handleDraw({ returnUntil: saturdayEnd });
+    });
+
+    expectDrawRpc("r1");
+    expect(mocks.rpcCalls).toContainEqual({
+      name: "set_bowl_draw_return_window",
+      params: { p_bowl_movie_id: "r1", p_until: new Date(saturdayEnd).toISOString() },
+    });
+    expect(mocks.selectCalls).toContainEqual(
+      expect.objectContaining({ table: "bowl_draw_events", columns: expect.stringContaining("return_until") })
+    );
+
+    mocks.rpcCalls = [];
+    await act(async () => {
+      await result.current.reload();
+    });
+    await waitFor(() => expect(result.current.bowl.remaining).toHaveLength(1));
+    await act(async () => {
+      await result.current.handleDraw();
+    });
+    expect(mocks.rpcCalls.map(({ name }) => name)).not.toContain("set_bowl_draw_return_window");
+  });
+
   it("hands back the watched list a reload read, before the screen re-renders", async () => {
     mocks.remainingQueue.push([], []);
     mocks.watchedQueue.push([], [{ id: "event-9", source_bowl_movie_id: "m9", title: "Movie Z" }]);

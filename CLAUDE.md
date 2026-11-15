@@ -326,8 +326,12 @@ history that survives leaving or deleting the bowl). Returning a movie to the
 bowl sets `returned_at` on the draw event; it never deletes the fact of the draw.
 
 Returning is a two-hour undo, refused by `return_bowl_draw_to_bowl` after that,
-and it means the group did not watch the pick — so every permitted return also
-deletes the personal history rows the draw generated. Every surface reads active
+except that a restaurant drawn ahead for a day (the Open filter on Tonight or
+a picked day) stays returnable until that day ends: the drawer's phone sets
+`bowl_draw_events.return_until` through `set_bowl_draw_return_window` right
+after the draw, which only ever lengthens the window. Returning means the
+group did not watch the pick — so every permitted return also deletes the
+personal history rows the draw generated. Every surface reads active
 draws only; a returned draw leaves the bowl's watched list everywhere. Do not
 reintroduce a returned-inclusive collection: a returned draw inserts a fresh
 `bowl_movies` row with no link back to the event, so nothing can tell whether
@@ -381,6 +385,7 @@ because they are the atomic/permission-checked path:
 `get_my_invite_sender_directory`, `accept_bowl_invite`,
 `create_bowl_invites`, `revoke_bowl_invite`, `draw_bowl_movie`,
 `draw_bowl_movie_by_rotation`, `get_bowl_rotation_queue`, `return_bowl_draw_to_bowl`,
+`set_bowl_draw_return_window`,
 `remove_bowl_draw_from_history`,
 `save_bowl_draw_access`, `save_bowl_draw_method`, `create_owned_bowl`,
 `transfer_owned_bowl`, `delete_owned_bowl`, `set_own_bowl_movie_pin`,

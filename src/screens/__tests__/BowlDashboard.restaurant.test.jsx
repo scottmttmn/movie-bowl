@@ -135,6 +135,12 @@ function renderDashboard() {
   return render(<BowlDashboard />);
 }
 
+// The list's open state is remembered per device, so open it only if shut.
+function openBeenThere() {
+  const toggle = screen.getByRole("button", { name: /Been there/ });
+  if (toggle.getAttribute("aria-expanded") !== "true") fireEvent.click(toggle);
+}
+
 const slips = () => [
   { id: "r1", added_by: "u1", tmdb_id: null, title: "La Rana Bistro", cuisine: "Mediterranean", place_id: "ChIJlarana", note: "Anniversary spot", profiles: { display_name: "Owner" } },
   { id: "r2", added_by: "u2", tmdb_id: null, title: "Great Dragon", cuisine: "Chinese", profiles: { display_name: "Friend" } },
@@ -192,6 +198,7 @@ describe("BowlDashboard in a restaurant bowl", () => {
     await waitFor(() => expect(mocks.state.handleDraw).toHaveBeenCalledTimes(1));
     expect(mocks.state.handleDraw.mock.calls[0][0]).toMatchObject({
       prioritizeByServices: false,
+      returnUntil: null,
       ratingFilter: null,
       genreFilter: null,
       runtimeFilter: null,
@@ -288,8 +295,11 @@ describe("BowlDashboard in a restaurant bowl", () => {
     fireEvent.click(screen.getByRole("button", { name: /draw restaurant/i }));
     fireEvent.click(screen.getByRole("button", { name: "Reveal" }));
     await waitFor(() => expect(mocks.state.handleDraw).toHaveBeenCalledTimes(1));
+    // Drawn for tomorrow, so it can go back in the bowl until tomorrow ends.
+    const now = new Date();
     expect(mocks.state.handleDraw.mock.calls[0][0]).toMatchObject({
       restaurantFilter: { excluded: [], closedPlaceIds: ["ChIJlarana"] },
+      returnUntil: new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2).getTime(),
     });
 
     // The time is not remembered: the next visit asks for nothing.
@@ -312,5 +322,46 @@ describe("BowlDashboard in a restaurant bowl", () => {
     expect(await within(sheet).findByText("All 2 restaurants in the draw tonight")).toBeInTheDocument();
     fireEvent.click(within(sheet).getByRole("button", { name: "Reset" }));
     expect(within(sheet).getByRole("radio", { name: "Any time", checked: true })).toBeInTheDocument();
+  });
+
+  it("says how long a pick drawn for a day can go back, and moves it back", async () => {
+    const now = new Date();
+    const drawnAt = new Date(now.getTime() - 5 * 60 * 60 * 1000).toISOString();
+    const dayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2).toISOString();
+    mocks.state.bowlData = {
+      remaining: [slips()[1]],
+      watched: [{ ...slips()[0], drawn_at: drawnAt, drawn_by: "u1", return_until: dayEnd }],
+    };
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Date Night Eats")).toBeInTheDocument());
+    openBeenThere();
+    fireEvent.click(await screen.findByRole("button", { name: /La Rana Bistro/ }));
+
+    expect(await screen.findByText("It can go back in the bowl until the end of tomorrow.")).toBeInTheDocument();
+    fireEvent.click(screen.getByRole("button", { name: "Move to Bowl" }));
+    const confirm = screen.getByRole("dialog", { name: "Put it back in the bowl?" });
+    fireEvent.click(within(confirm).getAllByRole("button").at(-1));
+    await waitFor(() => expect(mocks.state.handleReaddMovie).toHaveBeenCalled());
+  });
+
+  it("explains the day has passed once a planned pick can no longer go back", async () => {
+    const now = new Date();
+    const drawnAt = new Date(now.getTime() - 3 * 24 * 60 * 60 * 1000).toISOString();
+    const dayEnd = new Date(now.getTime() - 24 * 60 * 60 * 1000).toISOString();
+    mocks.state.bowlData = {
+      remaining: [slips()[1]],
+      watched: [{ ...slips()[0], drawn_at: drawnAt, drawn_by: "u1", return_until: dayEnd }],
+    };
+
+    renderDashboard();
+    await waitFor(() => expect(screen.getByText("Date Night Eats")).toBeInTheDocument());
+    openBeenThere();
+    fireEvent.click(await screen.findByRole("button", { name: /La Rana Bistro/ }));
+
+    expect(
+      await screen.findByText("Moving a pick back was available until the end of the day it was drawn for. Add the restaurant again to go another night.")
+    ).toBeInTheDocument();
+    expect(screen.queryByRole("button", { name: "Move to Bowl" })).not.toBeInTheDocument();
   });
 });

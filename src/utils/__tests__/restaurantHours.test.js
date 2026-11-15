@@ -5,6 +5,7 @@ import {
   getClosedPlaceIds,
   getDefaultPick,
   getPickDays,
+  getPlannedDayEnd,
   isOpenAt,
   normalizeOpenChoice,
   resolveOpenMoment,
@@ -102,6 +103,15 @@ describe("the open choice", () => {
     expect(describeOpenChoice({ mode: "tonight" }, NOW)).toBe("tonight");
     expect(describeOpenChoice({ mode: "pick", day: "2026-11-14", minutes: 1140 }, NOW)).toBe("Sat at 7 PM");
     expect(describeOpenChoice({ mode: "pick", day: "2026-11-12", minutes: 750 }, NOW)).toBe("tomorrow at 12:30 PM");
+  });
+
+  it("ends a planned draw at the midnight that closes its day", () => {
+    expect(getPlannedDayEnd(ANY_TIME, NOW)).toBeNull();
+    expect(getPlannedDayEnd({ mode: "now" }, NOW)).toBeNull();
+    expect(getPlannedDayEnd({ mode: "tonight" }, NOW)).toBe(new Date(2026, 10, 12).getTime());
+    expect(getPlannedDayEnd({ mode: "pick", day: "2026-11-14", minutes: 1140 }, NOW)).toBe(new Date(2026, 10, 15).getTime());
+    // A day that has passed is no plan at all.
+    expect(getPlannedDayEnd({ mode: "pick", day: "2026-11-10", minutes: 1140 }, NOW)).toBeNull();
   });
 });
 

@@ -68,13 +68,14 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   it?" card after a draw. Not planned: a "first time?" question, a popularity
   prior, streaks, badges or push.
 
-- Restaurant bowls: **in progress November 8, 2026.** A second kind of bowl,
-  hidden behind a Settings switch, drawing where to eat. Five steps in
-  `output/designs/restaurant-bowls.md`; steps 1 (schema), 2 (bowls
-  drawn with Directions) and 3 (adding through Google search) are built, and
-  step 4's Cuisine and Open filters and the drawn sheet's hours, Reserve,
-  Website and Call. Left: step 5, returning a draw until the end of the day
-  it was drawn for. Google photos were tried and removed (November 13): never again.
+- Restaurant bowls: **built November 16, 2026**, still behind a Settings
+  switch, drawing where to eat. All five steps in
+  `output/designs/restaurant-bowls.md`: schema, bowls drawn with Directions,
+  adding through Google search, the Cuisine and Open filters with the drawn
+  sheet's hours, Reserve, Website and Call, and a draw made for a later day
+  that can go back in the bowl until that day ends. Left: deciding when to
+  turn it on for everyone; a distance filter later. Google photos were tried
+  and removed (November 13): never again.
 
 - Departure notices: **built October 19, 2026** for search, movie details, and
   My Movies cards. Active bowl movies with a supported saved-service match
