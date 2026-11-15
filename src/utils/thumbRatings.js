@@ -48,6 +48,14 @@ export function getEntryRating(index, entry) {
   return index.byEntryId.get(entry.id) ?? null;
 }
 
+/**
+ * What one rating is keyed on: every viewing of a TMDB movie shares a key, a
+ * custom title has its entry's.
+ */
+export function ratingKeyFor(entry) {
+  return hasTmdbId(entry) ? `tmdb:${Number(entry.tmdb_id)}` : `entry:${entry?.id}`;
+}
+
 /** Returns a new index with one entry's movie rated (or cleared, with null). */
 export function withEntryRating(index, entry, rating) {
   const next = {

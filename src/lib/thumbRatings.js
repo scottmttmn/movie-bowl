@@ -1,3 +1,4 @@
+import { readAllRows } from "./readAllRows";
 import { supabase } from "./supabase";
 import { normalizeRating } from "../utils/thumbRatings";
 
@@ -10,9 +11,12 @@ const SAVE_ERROR = "Could not save your rating. Please try again.";
  */
 export async function fetchMyMovieRatings() {
   try {
-    const { data, error } = await supabase
+    // Paged like the history it sits beside: a single read stops at the API's
+    // cap without saying so, and a rating past it would look unset.
+    const { data, error } = await readAllRows(() => supabase
       .from("user_movie_ratings")
-      .select("tmdb_id, watch_event_id, rating");
+      .select("id, tmdb_id, watch_event_id, rating")
+      .order("id", { ascending: true }));
 
     if (error) {
       console.error("[thumbRatings] Failed to load your ratings", error);

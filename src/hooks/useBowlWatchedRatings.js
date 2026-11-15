@@ -15,6 +15,7 @@ export default function useBowlWatchedRatings(bowlId, watchedKey) {
   // while this one's are on their way.
   const [loaded, setLoaded] = useState({ bowlId: null, groups: null });
   const sequence = useRef(0);
+  const rateTaps = useRef(new Map());
 
   const reload = useCallback(async () => {
     if (!bowlId) return;
@@ -38,20 +39,26 @@ export default function useBowlWatchedRatings(bowlId, watchedKey) {
   // Your own thumb moves at once; the read after it is what turns the others
   // over, because the database only tells you what they picked once you have
   // picked too.
+  //
+  // A failed save puts back that one draw's thumb, not everything as it stood
+  // before the tap, which would also undo another draw rated in the meantime;
+  // and only while no later tap on the same draw has replaced it.
   const rate = useCallback(async (drawEventId, entryId, rating) => {
-    const before = loaded;
-    setLoaded((current) => {
+    const tap = (rateTaps.current.get(drawEventId) || 0) + 1;
+    rateTaps.current.set(drawEventId, tap);
+    const before = loaded.groups?.get(drawEventId)?.mine ?? null;
+    const setMine = (value) => setLoaded((current) => {
       if (!current.groups) return current;
       const next = new Map(current.groups);
       const group = next.get(drawEventId) || { mine: null, others: [] };
-      next.set(drawEventId, { ...group, mine: rating });
+      next.set(drawEventId, { ...group, mine: value });
       return { ...current, groups: next };
     });
 
+    setMine(rating);
     const result = await saveMyMovieRating(entryId, rating);
     if (!result.ok) {
-      sequence.current += 1;
-      setLoaded(before);
+      if (rateTaps.current.get(drawEventId) === tap) setMine(before);
       return result;
     }
 

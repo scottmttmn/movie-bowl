@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import AddMovieModal from "../components/AddMovieModal";
 import RemoveFromBowlsModal from "../components/RemoveFromBowlsModal";
 import WatchHistoryEntryModal from "../components/WatchHistoryEntryModal";
@@ -20,7 +20,7 @@ import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { getMovieNoteValidationError, normalizeMovieNote } from "../utils/movieNote";
 import { updateOwnWatchComment } from "../lib/watchComments";
 import { fetchMyMovieRatings, saveMyMovieRating } from "../lib/thumbRatings";
-import { getEntryRating, indexRatings, withEntryRating } from "../utils/thumbRatings";
+import { getEntryRating, indexRatings, ratingKeyFor, withEntryRating } from "../utils/thumbRatings";
 import {
   getWatchedDate,
   getWatchedYears,
@@ -62,6 +62,7 @@ export default function WatchListPage() {
   // show a rated movie as unrated.
   const [ratings, setRatings] = useState(null);
   const [ratingNotice, setRatingNotice] = useState("");
+  const rateTaps = useRef(new Map());
 
   const loadWatchList = useCallback(async () => {
     setIsLoading(true);
@@ -232,6 +233,15 @@ export default function WatchListPage() {
           .filter(Boolean)
       : [];
 
+  // The rating of the movie the entry sheet is on. An edit asks after the entry
+  // itself; a new entry after its movie, so logging a rewatch shows -- and can
+  // change or clear -- the thumbs that movie already has.
+  const ratingForMovie = (movie) => {
+    if (!ratings || !movie) return null;
+    if (editingEntry?.id) return getEntryRating(ratings, editingEntry);
+    return getEntryRating(ratings, { tmdb_id: Number(movie.tmdb_id ?? movie.id) });
+  };
+
   const handleSaveEntry = async (entry) => {
     const title = String(entry?.title || "").trim();
     if (!title || !entry?.watched_on) {
@@ -288,7 +298,7 @@ export default function WatchListPage() {
       const savedEntry = editingEntry?.id
         ? { ...editingEntry, title }
         : { ...(Array.isArray(data) ? data[0] : data), tmdb_id: createdTmdbId };
-      const previousRating = editingEntry?.id ? getEntryRating(ratings, editingEntry) : null;
+      const previousRating = ratingForMovie(entry);
       let ratingFailed = false;
       if (ratings && savedEntry?.id && "rating" in entry && entry.rating !== previousRating) {
         const ratingResult = await saveMyMovieRating(savedEntry.id, entry.rating);
@@ -317,17 +327,22 @@ export default function WatchListPage() {
   };
 
   // Optimistic, because a tap that waits reads as a tap that missed. A failed
-  // save puts the thumbs back the way they were and says so.
+  // save puts back that one movie's thumbs and says so -- not the whole index,
+  // which would also undo another card rated while this one was saving -- and
+  // only when no later tap on the same movie has replaced it.
   const handleRate = async (entry, rating) => {
     if (!ratings || !entry?.id) return;
 
-    const before = ratings;
+    const key = ratingKeyFor(entry);
+    const tap = (rateTaps.current.get(key) || 0) + 1;
+    rateTaps.current.set(key, tap);
+    const before = getEntryRating(ratings, entry);
     setRatings((current) => withEntryRating(current, entry, rating));
     setRatingNotice("");
 
     const result = await saveMyMovieRating(entry.id, rating);
-    if (!result.ok) {
-      setRatings(before);
+    if (!result.ok && rateTaps.current.get(key) === tap) {
+      setRatings((current) => withEntryRating(current, entry, before));
       setRatingNotice(result.message);
     }
   };
@@ -644,7 +659,7 @@ export default function WatchListPage() {
       {isEntryEditorOpen && (
         <WatchHistoryEntryModal
           entry={editingEntry}
-          rating={ratings ? getEntryRating(ratings, editingEntry) : undefined}
+          ratingFor={ratings ? ratingForMovie : undefined}
           onClose={() => {
             if (isSavingEntry) return;
             setEntryEditorError("");

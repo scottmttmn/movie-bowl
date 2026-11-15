@@ -11,6 +11,7 @@ const mocks = vi.hoisted(() => {
     ratingRows: [],
     ratingsError: null,
     rateError: null,
+    rateFailsFor: null,
     rpcCalls: [],
   };
 
@@ -46,6 +47,10 @@ const mocks = vi.hoisted(() => {
         state.rpcCalls.push({ name, params });
         if (name === "set_my_movie_rating") {
           if (state.rateError) return { data: null, error: state.rateError };
+          if (state.rateFailsFor === params.p_watch_event_id) {
+            await new Promise((resolve) => setTimeout(resolve, 20));
+            return { data: null, error: { message: "network" } };
+          }
           return { data: { rating: params.p_rating }, error: null };
         }
         return { data: null, error: null };
@@ -77,6 +82,7 @@ describe("WatchListPage thumbs", () => {
     mocks.state.ratingRows = [{ tmdb_id: 655, watch_event_id: null, rating: 1 }];
     mocks.state.ratingsError = null;
     mocks.state.rateError = null;
+    mocks.state.rateFailsFor = null;
     mocks.state.rpcCalls = [];
   });
 
@@ -133,6 +139,21 @@ describe("WatchListPage thumbs", () => {
 
     expect(await screen.findByText("Could not save your rating. Please try again.")).toBeInTheDocument();
     expect(within(first).getByRole("button", { name: "Like" })).toHaveAttribute("aria-pressed", "true");
+  });
+
+  it("puts back only the movie whose save failed", async () => {
+    mocks.state.rateFailsFor = "entry-1";
+    vi.spyOn(console, "error").mockImplementation(() => {});
+    renderPage();
+
+    const [first] = await screen.findAllByRole("group", { name: "Your rating for Paris, Texas" });
+    const custom = screen.getByRole("group", { name: "Your rating for Something with Adam Sandler" });
+    fireEvent.click(within(first).getByRole("button", { name: "Love" }));
+    fireEvent.click(within(custom).getByRole("button", { name: "Like", exact: true }));
+
+    expect(await screen.findByText("Could not save your rating. Please try again.")).toBeInTheDocument();
+    expect(within(first).getByRole("button", { name: "Like", exact: true })).toHaveAttribute("aria-pressed", "true");
+    expect(within(custom).getByRole("button", { name: "Like", exact: true })).toHaveAttribute("aria-pressed", "true");
   });
 
   it("leaves the thumbs out when your ratings cannot be read", async () => {
