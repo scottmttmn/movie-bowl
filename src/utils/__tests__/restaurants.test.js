@@ -2,7 +2,7 @@ import { describe, expect, it } from "vitest";
 import {
   countSlips,
   describeOpenStatus,
-  filterSlipsByCuisine,
+  filterRestaurantSlips,
   getCuisineChoices,
   getRestaurantDirectionsUrl,
   inBowlWords,
@@ -50,8 +50,8 @@ describe("restaurant helpers", () => {
       { id: 3, cuisine: "Ramen" },
       { id: 4, cuisine: "Mexican" },
     ];
-    expect(filterSlipsByCuisine(slips, null)).toBe(slips);
-    expect(filterSlipsByCuisine(slips, { excluded: ["Thai", "Other"] }).map((slip) => slip.id)).toEqual([1, 4]);
+    expect(filterRestaurantSlips(slips, null)).toBe(slips);
+    expect(filterRestaurantSlips(slips, { excluded: ["Thai", "Other"] }).map((slip) => slip.id)).toEqual([1, 4]);
   });
 
   it("reads movie copy in a restaurant bowl's word and leaves a movie bowl's alone", () => {

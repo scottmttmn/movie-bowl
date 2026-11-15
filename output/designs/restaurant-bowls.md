@@ -3,8 +3,8 @@
 Status: being built in five steps. Steps 1 to 3 are built: the schema,
 restaurant bowls behind the Settings switch, drawn with a Directions link, and
 added through Google search or by name. Step 4's Cuisine filter and the drawn sheet's
-place details are built. The Open filter and the longer return window are not
-built yet.
+place details are built, and so is the Open filter. The longer return window
+is not built yet.
 
 ## Why
 
@@ -83,8 +83,27 @@ rotation, the reveal and returning a draw, with one account and one deploy.
    sheet alone and read as the odd one out. Showing one everywhere would pay
    on every view, because Google's terms forbid keeping it, so restaurants
    stay paper slips everywhere. The function's `photo` budget line is unused.
-   The Open filter is next; it needs hours for every slip, so it spends the
-   same budget and must decide how many lookups a draw may make.
+   **The Open filter is built (November 15):** Any time, Now, Tonight or a
+   picked day and time, today through six days ahead, which is as far as
+   Google's hours for the week ahead reach. It needs hours for every slip, so
+   three rules keep it inside the free allowance. It asks only when asked:
+   the choice starts on Any time every visit and is never remembered, so an
+   idle bowl spends nothing. One batch through `/api/places/hours` asks once
+   per place, and the page holds each answer in memory for thirty minutes, so
+   moving between Now, Tonight and a picked time is free. And hours have a
+   monthly budget of their own (`begin_place_hours_fetch`, sku `hours`),
+   because an hours-only request bills on Google's Place Details Enterprise
+   line while the drawn sheet's bills on Enterprise + Atmosphere, each free
+   for 1,000 a month. The filter removes only places known to be closed: a
+   slip added by name, one Google has no hours for, or any slip once the
+   budget is spent stays in the draw, and the sheet counts those as "without
+   hours". Tonight means 7 PM until 7 PM has passed, then now, decided on
+   the restaurant's own clock like every other time; the phone's clock stands
+   in only when Google names no zone. A place marked temporarily closed is
+   out for any time. A draw started while hours are loading
+   waits for them. It runs beside Cuisine in the same stage of
+   `getDrawCandidates` (`restaurantFilter`), so the count, My Restaurants and
+   the draw agree.
 5. Returning a draw until the end of the day it was drawn for.
 
 Later: a distance filter. Not possible for free: how busy a place is.

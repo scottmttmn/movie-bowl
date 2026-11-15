@@ -44,7 +44,7 @@ describe("getDrawSelection", () => {
 
     const kept = await getResolvedDrawPool({
       remainingMovies,
-      cuisineFilter: { excluded: ["Thai", "Other"] },
+      restaurantFilter: { excluded: ["Thai", "Other"] },
       fetchProviders,
       fetchMovieDetails: vi.fn(),
     });
@@ -53,7 +53,7 @@ describe("getDrawSelection", () => {
 
     const none = await getDrawSelection({
       remainingMovies,
-      cuisineFilter: { excluded: ["Pizza", "Thai", "Other"] },
+      restaurantFilter: { excluded: ["Pizza", "Thai", "Other"] },
       fetchProviders,
       fetchMovieDetails: vi.fn(),
       randomFn: () => 0,

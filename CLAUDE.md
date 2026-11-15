@@ -133,8 +133,8 @@ output/designs/      design specs and roadmaps for shipped + planned features
 Vercel Hobby allows 12 functions per deployment, and this app uses all 12.
 `vercel.json` rewrites account deletion, provider-link lookups,
 filter-metadata warmups, starter-pack candidates, starter-pack photos, departure lookups,
-feedback, restaurant search and restaurant details to `api/movie-cache.js`, which dispatches to their authorized handlers
-in `_lib/`. Preserve all nine public URLs when changing that shared entry point.
+feedback, restaurant search, restaurant details and restaurant hours to `api/movie-cache.js`, which dispatches to their authorized handlers
+in `_lib/`. Preserve all ten public URLs when changing that shared entry point.
 
 ### Layer rules
 
@@ -685,6 +685,19 @@ then a generic 500. They run in Node and are excluded from coverage; they are
   are no Google photos anywhere, by decision: they cannot be kept, so showing
   them on every slip would pay on every view, and the `photo` budget line the
   function still accepts is unused.
+- `api/places/hours` (through `movie-cache`) answers the restaurant filter
+  sheet's Open filter: the opening hours of up to forty of a bowl's undrawn
+  slips in one batch, asked only once someone picks Now, Tonight or a day and
+  time. `begin_place_hours_fetch` checks the caller can see the bowl, keeps the
+  batch to places the bowl holds, and reserves one request each against the
+  hours' own monthly budget (`PLACE_HOURS_MONTHLY_BUDGET`, default and ceiling
+  900 in Production, 100 elsewhere). The field mask is hours alone on
+  purpose: Google bills that on a different free line from the drawn sheet's
+  request, and one field from that sheet's list would move it. The page holds
+  an answer in memory for thirty minutes (`usePlaceHours`) and never stores
+  it. The choice is not remembered between visits, so an idle bowl spends
+  nothing. A place without an answer -- added by name, no hours at Google, the
+  budget spent -- stays in the draw.
 - `api/add-links/*` and `api/invites/send.js` use the service-role client from
   `api/_lib/supabaseAdmin.js`. This key bypasses RLS — every route using it must
   do its own authorization, and none of it may ever reach a `VITE_` variable.

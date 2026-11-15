@@ -98,7 +98,7 @@ export default function useDrawPoolCount(
   const ratingFilter = filters?.ratingFilter ?? null;
   const genreFilter = filters?.genreFilter ?? null;
   const runtimeFilter = filters?.runtimeFilter ?? null;
-  const cuisineFilter = filters?.cuisineFilter ?? null;
+  const restaurantFilter = filters?.restaurantFilter ?? null;
   const prioritizeByServices = Boolean(filters?.prioritizeByServices);
   const prioritizeByServiceRank = filters?.prioritizeByServiceRank !== false;
   const userStreamingServices = filters?.userStreamingServices || [];
@@ -107,7 +107,7 @@ export default function useDrawPoolCount(
     ratingFilter,
     genreFilter,
     runtimeFilter,
-    cuisineFilter,
+    restaurantFilter,
     prioritizeByServices,
     prioritizeByServiceRank,
     userStreamingServices,
@@ -119,8 +119,8 @@ export default function useDrawPoolCount(
   // for every title in the bowl.
   const ratingFilterForCount = isRatingFilterExhaustive(ratingFilter) ? null : ratingFilter;
   const locallyFilteredPoolMovies = useMemo(
-    () => getLocallyFilteredCandidates(poolMovies, { genreFilter, runtimeFilter, cuisineFilter }),
-    [poolMovies, genreFilter, runtimeFilter, cuisineFilter]
+    () => getLocallyFilteredCandidates(poolMovies, { genreFilter, runtimeFilter, restaurantFilter }),
+    [poolMovies, genreFilter, runtimeFilter, restaurantFilter]
   );
   const lookupEligibleTitleCount = countLookupEligibleTitles(locallyFilteredPoolMovies);
   // What the count costs is the titles the persistent snapshot cannot answer
@@ -210,7 +210,7 @@ export default function useDrawPoolCount(
         ratingFilter: ratingFilterForCount,
         genreFilter,
         runtimeFilter,
-        cuisineFilter,
+        restaurantFilter,
         fetchMovieDetails: movieDetailsFetcher,
         ratingLast: true,
       });

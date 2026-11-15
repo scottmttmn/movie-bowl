@@ -8,9 +8,9 @@ import { getSupabaseAdmin } from "./supabaseAdmin.js";
 
 const DETAILS_URL = "https://places.googleapis.com/v1/places/";
 const REQUEST_TIMEOUT_MS = 4_000;
-const PLACE_ID_PATTERN = /^[A-Za-z0-9_-]{1,512}$/;
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
-const TIME_ZONE_PATTERN = /^[A-Za-z][A-Za-z0-9_+-]*(?:\/[A-Za-z0-9_+-]+){0,2}$/;
+export const PLACE_ID_PATTERN = /^[A-Za-z0-9_-]{1,512}$/;
+export const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i;
+export const TIME_ZONE_PATTERN = /^[A-Za-z][A-Za-z0-9_+-]*(?:\/[A-Za-z0-9_+-]+){0,2}$/;
 const DETAILS_FIELDS = [
   "currentOpeningHours.openNow",
   "currentOpeningHours.nextOpenTime",
@@ -29,9 +29,9 @@ const UNAVAILABLE = Object.freeze({ available: false, details: null });
 
 // Google's free monthly allowance is 1,000. A staging project counts
 // separately, so it gets a tenth, whatever its variable says.
-export function monthlyBudget(env = process.env) {
+export function monthlyBudget(env = process.env, variable = "PLACE_DETAILS_MONTHLY_BUDGET") {
   const ceiling = env.VERCEL_ENV === "production" ? 900 : 100;
-  const value = env.PLACE_DETAILS_MONTHLY_BUDGET;
+  const value = env[variable];
   if (value === undefined || value === "") return ceiling;
   const parsed = Number(value);
   return Number.isSafeInteger(parsed) && parsed >= 0 ? Math.min(parsed, ceiling) : 0;
@@ -69,7 +69,7 @@ export function toPlaceDetails(body) {
   };
 }
 
-function readBody(req) {
+export function readBody(req) {
   if (typeof req.body === "string") {
     try {
       return JSON.parse(req.body);
