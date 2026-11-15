@@ -5,7 +5,7 @@ import MovieThumbs from "./MovieThumbs";
 // their own rather than buttons inside a button.
 export default function WatchHistoryCard({ movie, rating = null, canRate = false, onOpen, onRate }) {
   return (
-    <div className="group relative flex w-full items-center gap-4 rounded-2xl border border-slate-700/80 bg-slate-950/45 p-3 text-left transition duration-200 hover:-translate-y-0.5 hover:border-slate-600 hover:bg-slate-900/80 hover:shadow-lg hover:shadow-black/20">
+    <article aria-label={movie.title} className="group relative flex w-full items-center gap-4 rounded-2xl border border-slate-700/80 bg-slate-950/45 p-3 text-left transition duration-200 hover:-translate-y-0.5 hover:border-slate-600 hover:bg-slate-900/80 hover:shadow-lg hover:shadow-black/20">
       <img
         src={movie.posterUrl}
         alt=""
@@ -52,6 +52,6 @@ export default function WatchHistoryCard({ movie, rating = null, canRate = false
           </div>
         )}
       </div>
-    </div>
+    </article>
   );
 }

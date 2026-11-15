@@ -29,6 +29,8 @@
   { "q": "I only have Netflix and Hulu", "topic": "streaming_services" },
   { "q": "it picked something not on any of my services", "topic": "rent" },
   { "q": "turn off the trailers before the movie", "topic": "previews" },
+  { "q": "how do I give a movie two thumbs up", "topic": "rate_movie" },
+  { "q": "can I see what Robin thought of the movie we watched", "topic": "rate_movie" },
   { "q": "add a movie I watched at the theater to my history", "topic": "log_watched" },
   { "q": "write what I thought of a movie I watched", "topic": "personal_comment" },
   { "q": "can I send my sister a list of what I've watched", "topic": "share_watch_history" },

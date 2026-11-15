@@ -63,6 +63,9 @@ function createInitialState() {
     // queue. The browser fake does not reimplement Postgres's ranking logic.
     rotationDraw: null,
     user_watch_events: [],
+    // Rows as the database keys them: a TMDB movie by tmdb_id, a custom title
+    // by the watch_event_id it was rated on.
+    user_movie_ratings: [],
     solo_draw_removed_copies: [],
     bowl_invites: [],
     bowl_add_links: [],
@@ -383,7 +386,11 @@ export class FakeBackend {
     const method = request.method();
 
     if (method === "GET") {
-      const rows = filterRows(this.state[table], url.searchParams);
+      // RLS: a person reads only their own ratings.
+      const visible = table === "user_movie_ratings"
+        ? this.state[table].filter((row) => row.user_id === this.state.currentUser?.id)
+        : this.state[table];
+      const rows = filterRows(visible, url.searchParams);
       await fulfillJson(route, responseShape(request, rows), 200, {
         "content-range": rows.length > 0 ? `0-${rows.length - 1}/${rows.length}` : "*/0",
       });
@@ -530,6 +537,7 @@ export class FakeBackend {
           release_date: event.release_date,
           watched_on: event.watched_on,
           personal_note: link.include_comments ? event.personal_note ?? null : null,
+          rating: link.include_comments ? this.ratingFor(ownerId, event) : null,
         }));
       const profile = this.state.profiles.find((row) => row.id === ownerId);
       await fulfillJson(route, {
@@ -542,8 +550,90 @@ export class FakeBackend {
     return false;
   }
 
+  // The rating a person gave the movie of one of their entries, keyed the way
+  // the database keys it.
+  ratingFor(userId, event) {
+    const row = this.state.user_movie_ratings.find((rating) =>
+      rating.user_id === userId && (Number(event?.tmdb_id) > 0
+        ? Number(rating.tmdb_id) === Number(event.tmdb_id)
+        : rating.watch_event_id === event?.id)
+    );
+    return row?.rating ?? null;
+  }
+
+  async handleRatingRpc(route, rpcName, args) {
+    const userId = this.state.currentUser?.id;
+
+    if (rpcName === "set_my_movie_rating") {
+      const event = this.state.user_watch_events.find(
+        (row) => row.id === args.p_watch_event_id && row.user_id === userId
+      );
+      if (!event) {
+        await fulfillJson(route, { code: "P0002", message: "That movie is not in your watch history" }, 404);
+        return true;
+      }
+      const byTmdb = Number(event.tmdb_id) > 0;
+      const matches = (row) => row.user_id === userId && (byTmdb
+        ? Number(row.tmdb_id) === Number(event.tmdb_id)
+        : row.watch_event_id === event.id);
+      this.state.user_movie_ratings = this.state.user_movie_ratings.filter((row) => !matches(row));
+      if (args.p_rating != null) {
+        this.state.user_movie_ratings.push({
+          user_id: userId,
+          tmdb_id: byTmdb ? Number(event.tmdb_id) : null,
+          watch_event_id: byTmdb ? null : event.id,
+          rating: Number(args.p_rating),
+        });
+      }
+      await fulfillJson(route, { rating: args.p_rating ?? null });
+      return true;
+    }
+
+    if (rpcName === "get_bowl_watched_ratings") {
+      const bowl = this.state.bowls.find((row) => row.id === args.p_bowl_id);
+      const memberIds = new Set([
+        bowl?.owner_id,
+        ...this.state.bowl_members.filter((m) => m.bowl_id === args.p_bowl_id).map((m) => m.user_id),
+      ].filter(Boolean));
+      if (!memberIds.has(userId)) {
+        await fulfillJson(route, []);
+        return true;
+      }
+      const rows = [];
+      this.state.bowl_draw_events
+        .filter((draw) => draw.bowl_id === args.p_bowl_id && !draw.returned_at && !draw.removed_at)
+        .forEach((draw) => {
+          const rated = [...memberIds].flatMap((memberId) => {
+            const entries = this.state.user_watch_events.filter((event) => event.user_id === memberId && (
+              Number(draw.tmdb_id) > 0
+                ? Number(event.tmdb_id) === Number(draw.tmdb_id)
+                : event.source_draw_event_id === draw.id
+            ));
+            const rating = entries.map((event) => this.ratingFor(memberId, event)).find((value) => value != null);
+            return rating == null ? [] : [{ memberId, rating }];
+          });
+          const callerRated = rated.some((row) => row.memberId === userId);
+          rated.forEach(({ memberId, rating }) => {
+            const profile = this.state.profiles.find((row) => row.id === memberId);
+            rows.push({
+              draw_event_id: draw.id,
+              user_id: memberId,
+              display_name: profile?.display_name ?? null,
+              rating: memberId === userId || callerRated ? rating : null,
+              is_self: memberId === userId,
+            });
+          });
+        });
+      await fulfillJson(route, rows);
+      return true;
+    }
+
+    return false;
+  }
+
   async handleRpc(route, rpcName, args) {
     if (await this.handleWatchShareRpc(route, rpcName, args)) return;
+    if (await this.handleRatingRpc(route, rpcName, args)) return;
 
     if (rpcName === "get_my_bowl_context" || rpcName === "set_my_default_bowl") {
       if (rpcName === "set_my_default_bowl") {

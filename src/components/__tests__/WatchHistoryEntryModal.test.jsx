@@ -259,3 +259,48 @@ describe("WatchHistoryEntryModal dates", () => {
     expect(screen.getByLabelText("Release date")).toHaveValue("");
   });
 });
+
+describe("WatchHistoryEntryModal thumbs", () => {
+  afterEach(() => cleanup());
+
+  it("saves a rating picked while logging", async () => {
+    const onSave = vi.fn(async () => {});
+    render(<WatchHistoryEntryModal onClose={vi.fn()} onSave={onSave} rating={null} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /choose arrival/i }));
+    fireEvent.click(screen.getByRole("button", { name: "Love" }));
+    fireEvent.click(screen.getByRole("button", { name: /add to history/i }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ title: "Arrival", rating: 2 }));
+    });
+  });
+
+  it("opens an entry with its rating, and can clear it", async () => {
+    const onSave = vi.fn(async () => {});
+    render(
+      <WatchHistoryEntryModal
+        entry={{ id: "history-1", source_kind: "manual", title: "Arrival", watched_on: "2026-08-20" }}
+        rating={-1}
+        onClose={vi.fn()}
+        onSave={onSave}
+      />
+    );
+
+    const dislike = screen.getByRole("button", { name: "Dislike" });
+    expect(dislike).toHaveAttribute("aria-pressed", "true");
+    fireEvent.click(dislike);
+    fireEvent.click(screen.getByRole("button", { name: /save changes/i }));
+
+    await waitFor(() => {
+      expect(onSave).toHaveBeenCalledWith(expect.objectContaining({ rating: null }));
+    });
+  });
+
+  it("leaves the thumbs out when the page could not read your ratings", () => {
+    render(<WatchHistoryEntryModal onClose={vi.fn()} onSave={vi.fn()} />);
+
+    fireEvent.click(screen.getByRole("button", { name: /choose arrival/i }));
+    expect(screen.queryByRole("group", { name: /your rating/i })).not.toBeInTheDocument();
+  });
+});

@@ -59,7 +59,7 @@ test("a solo draw commits to history and leaves the bowl untouched", async ({ pa
   expect(backend.state.bowl_draw_events).toHaveLength(0);
 
   await page.goto("/watch-list");
-  const entry = page.getByRole("button").filter({ hasText: "Solo One Pick" });
+  const entry = page.getByRole("article", { name: "Solo One Pick" });
   await expect(entry).toBeVisible();
   await expect(entry.getByText("Solo", { exact: true })).toBeVisible();
 });
