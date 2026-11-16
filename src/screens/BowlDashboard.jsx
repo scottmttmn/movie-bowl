@@ -55,7 +55,7 @@ import { startRead } from "../utils/startRead";
 import { getTmdbMovieDetails } from "../lib/tmdbApi";
 import { fetchStreamingProviders } from "../lib/streamingProviders";
 import { MAX_BOWLS_PER_USER, MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
-import { canReturnDrawToBowl } from "../utils/watchHistory";
+import { canReturnDrawToBowl, describePlannedReturnDay } from "../utils/watchHistory";
 import { describeStatLine } from "../utils/drawReadout";
 import { getRememberedValueFor, readRememberedReadout, rememberReadout } from "../utils/rememberedReadouts";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
@@ -82,6 +82,7 @@ import {
   OPEN_MODES,
   describeOpenChoice,
   getClosedPlaceIds,
+  getPlannedDayEnd,
   normalizeOpenChoice,
   resolveOpenMoment,
   sortSlipsByOpen,
@@ -1232,7 +1233,11 @@ export default function BowlDashboard() {
           prioritizeByServiceRank: useStreamingRank,
           userStreamingServices,
           ...drawFilters,
-          ...(isRestaurantBowl ? { restaurantFilter: drawRestaurantFilter } : {}),
+          ...(isRestaurantBowl ? {
+            restaurantFilter: drawRestaurantFilter,
+            // Drawn for tonight or a picked day: returnable until it ends.
+            returnUntil: getPlannedDayEnd(openChoice, Date.now()),
+          } : {}),
           // The pool is known before the draw is sent, so the reveal can rise
           // and sort it while the request is in flight.
           onPoolResolved: (pool) => updateRun({
@@ -2154,6 +2159,17 @@ return (
                     ? "Move to Bowl"
                     : null
                 }
+                primaryActionNote={
+                  selectedDetailContext !== "watched"
+                    ? null
+                    : canReturnDrawToBowl(selectedDetailMovie)
+                      // Only a draw made for a day says so; the two hours never did.
+                      ? describePlannedReturnDay(selectedDetailMovie) &&
+                        `It can go back in the bowl until the end of ${describePlannedReturnDay(selectedDetailMovie)}.`
+                      : describePlannedReturnDay(selectedDetailMovie)
+                        ? "Moving a pick back was available until the end of the day it was drawn for. Add the restaurant again to go another night."
+                        : "Moving a pick back is available for two hours after the draw. Add the restaurant again to go another night."
+                }
                 onPrimaryAction={
                   selectedDetailContext === "watched" && canReturnDrawToBowl(selectedDetailMovie)
                     ? async (slip) => {
@@ -2240,9 +2256,7 @@ return (
                 }
                 detailPrimaryActionNote={
                   selectedDetailContext === "watched" && !canReturnDrawToBowl(selectedDetailMovie)
-                    ? isRestaurantBowl
-                      ? "Moving a pick back is available for two hours after the draw. Add the restaurant again to go another night."
-                      : "Moving a pick back is available for two hours after the draw. Add the movie again to watch it another night."
+                    ? "Moving a pick back is available for two hours after the draw. Add the movie again to watch it another night."
                     : null
                 }
                 onDetailPrimaryAction={

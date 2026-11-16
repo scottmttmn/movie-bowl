@@ -140,4 +140,51 @@ test.describe("restaurant bowls", () => {
     await sheet.getByRole("button", { name: "Done" }).click();
     await expect(page.getByRole("button", { name: "Drawing from 2 restaurants. Open draw filters." })).toBeAttached();
   });
+
+  test("a place drawn for a later day can go back in the bowl until that day ends", async ({ page, backend }) => {
+    const state = backend.state;
+    state.bowls.push({
+      id: "bowl-eats", name: "Date Night Eats", kind: "restaurants", owner_id: "user-smoke",
+      draw_access_mode: "all_members", draw_method: "person_first", created_at: "2026-06-01T12:00:00.000Z",
+    });
+    state.bowl_members.push({ id: "member-eats", bowl_id: "bowl-eats", user_id: "user-smoke", role: "Owner" });
+    state.bowl_movies.push({
+      id: "slip-mabes", bowl_id: "bowl-eats", title: "Mabe's Pizza", tmdb_id: -9100, poster_path: null,
+      release_date: null, runtime: null, genres: [], cuisine: "Pizza", place_id: "ChIJmabes", note: null,
+      added_by: "user-smoke", added_at: "2026-06-02T12:00:00.000Z", drawn_at: null, is_pinned: false,
+    });
+    state.placeHours = {
+      ChIJmabes: { closedForGood: false, periods: [{ open: { day: 0, hour: 0, minute: 0 }, close: null }], timeZone: null, utcOffsetMinutes: null },
+    };
+
+    await page.goto("/bowl/bowl-eats");
+    await page.getByRole("button", { name: "Filters", exact: true }).click();
+    const filters = page.getByRole("dialog", { name: "Narrow the draw" });
+    await filters.getByRole("radio", { name: "Pick" }).click();
+    await expect(filters.getByText("All 1 restaurant in the draw tomorrow at 7 PM")).toBeVisible();
+    await filters.getByRole("button", { name: "Done" }).click();
+
+    await page.getByRole("button", { name: /Draw restaurant from bowl\. Press and hold to draw\./i }).press("Enter");
+    await page.getByRole("button", { name: "Reveal", exact: true }).click();
+    const drawn = page.getByRole("dialog", { name: "Mabe's Pizza" });
+    await expect(drawn).toBeVisible({ timeout: 10_000 });
+
+    // Kept until the midnight that ends tomorrow, on this device's clock.
+    const until = await page.evaluate(() => {
+      const now = new Date();
+      return new Date(now.getFullYear(), now.getMonth(), now.getDate() + 2).toISOString();
+    });
+    await expect.poll(() => state.bowl_draw_events[0]?.return_until).toBe(until);
+    await drawn.getByRole("button", { name: "Close", exact: true }).click();
+
+    const beenThere = page.getByRole("button", { name: /^Been there/ });
+    if ((await beenThere.getAttribute("aria-expanded")) !== "true") await beenThere.click();
+    await page.getByRole("button", { name: /^Mabe's Pizza/ }).click();
+    const sheet = page.getByRole("dialog", { name: "Mabe's Pizza" });
+    await expect(sheet.getByText("It can go back in the bowl until the end of tomorrow.")).toBeVisible();
+    await sheet.getByRole("button", { name: "Move to Bowl" }).click();
+    await page.getByRole("dialog", { name: "Put it back in the bowl?" }).getByRole("button", { name: "Put it back" }).click();
+    await expect(page.getByRole("img", { name: "Nowhere drawn yet" })).toBeVisible();
+    expect(state.bowl_draw_events[0].returned_at).toBeTruthy();
+  });
 });

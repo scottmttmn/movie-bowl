@@ -170,7 +170,7 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
         supabase
           .from("bowl_draw_events")
           .select(
-            "id, bowl_id, source_bowl_movie_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, added_by, added_by_name, starter_pack, drawn_at, drawn_by, snapshot_at, returned_at, returned_by, cuisine, place_id"
+            "id, bowl_id, source_bowl_movie_id, tmdb_id, title, poster_path, release_date, runtime, genres, overview, note, added_by, added_by_name, starter_pack, drawn_at, drawn_by, snapshot_at, returned_at, returned_by, cuisine, place_id, return_until"
           )
           .eq("bowl_id", bowlId)
           .is("returned_at", null)
@@ -448,6 +448,21 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
 
     if (!selected) return null;
     const drawn = selected.movie;
+
+    // A restaurant drawn ahead for a day can be put back until that day
+    // ends. The draw is already saved; if this fails it simply keeps the
+    // ordinary two hours, so the failure is logged and not shown.
+    if (options.returnUntil) {
+      try {
+        const { error } = await supabase.rpc("set_bowl_draw_return_window", {
+          p_bowl_movie_id: drawn.id,
+          p_until: new Date(options.returnUntil).toISOString(),
+        });
+        if (error) console.error("[useBowl] Failed to keep the draw returnable", error);
+      } catch (error) {
+        console.error("[useBowl] Failed to keep the draw returnable", error);
+      }
+    }
 
     // Reload after updating.
     notifyBowlChange({ type: "context", bowlId });

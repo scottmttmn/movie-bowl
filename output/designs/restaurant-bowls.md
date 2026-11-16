@@ -1,10 +1,10 @@
 # Restaurant Bowls
 
-Status: being built in five steps. Steps 1 to 3 are built: the schema,
-restaurant bowls behind the Settings switch, drawn with a Directions link, and
-added through Google search or by name. Step 4's Cuisine filter and the drawn sheet's
-place details are built, and so is the Open filter. The longer return window
-is not built yet.
+Status: built, all five steps, behind the Settings switch: the schema,
+restaurant bowls drawn with a Directions link, added through Google search or
+by name, the Cuisine and Open filters with the drawn sheet's place details,
+and a draw made for a later day that can go back in the bowl until that day
+ends.
 
 ## Why
 
@@ -104,6 +104,16 @@ rotation, the reveal and returning a draw, with one account and one deploy.
    waits for them. It runs beside Cuisine in the same stage of
    `getDrawCandidates` (`restaurantFilter`), so the count, My Restaurants and
    the draw agree.
-5. Returning a draw until the end of the day it was drawn for.
+5. Returning a draw until the end of the day it was drawn for. **Built
+   (November 16).** A draw made with the Open filter on Tonight or a picked
+   day sets `bowl_draw_events.return_until` to the midnight that ends that
+   day on the drawer's phone, through `set_bowl_draw_return_window` after the
+   draw is saved. The draw RPCs are untouched: if that call fails, the pick
+   simply keeps the ordinary two hours. The function only lengthens, only for
+   the person who drew, only in a restaurant bowl, only once and only inside
+   the two hours, and never past a week after the draw.
+   `return_bowl_draw_to_bowl` allows a return until the later of the two
+   hours and that deadline. Been there says so on the slip ("until the end of
+   Saturday"); a draw for now or Any time says nothing, as before.
 
 Later: a distance filter. Not possible for free: how busy a place is.

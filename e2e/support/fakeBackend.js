@@ -1218,6 +1218,15 @@ export class FakeBackend {
       return;
     }
 
+    if (rpcName === "set_bowl_draw_return_window") {
+      const drawEvent = this.state.bowl_draw_events.find(
+        (row) => row.source_bowl_movie_id === args.p_bowl_movie_id && !row.returned_at
+      );
+      if (drawEvent && !drawEvent.return_until) drawEvent.return_until = args.p_until;
+      await fulfillJson(route, drawEvent?.return_until || null);
+      return;
+    }
+
     if (rpcName === "return_bowl_draw_to_bowl") {
       const drawEvent = this.state.bowl_draw_events.find(
         (row) => row.id === args.p_draw_event_id
@@ -1230,7 +1239,10 @@ export class FakeBackend {
       const drawnAt = new Date(drawEvent.drawn_at);
       if (
         !Number.isNaN(drawnAt.getTime()) &&
-        returnedAt.getTime() > drawnAt.getTime() + 2 * 60 * 60 * 1000
+        returnedAt.getTime() > Math.max(
+          drawnAt.getTime() + 2 * 60 * 60 * 1000,
+          new Date(drawEvent.return_until || 0).getTime()
+        )
       ) {
         await fulfillJson(
           route,

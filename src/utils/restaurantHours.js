@@ -86,6 +86,17 @@ export function describeOpenChoice(choice, now = Date.now()) {
   return `${day.label === "Today" || day.label === "Tomorrow" ? day.label.toLowerCase() : day.label} at ${time}`;
 }
 
+// The end of the day a draw was made for, on this device's clock, or null
+// when the draw is for right now. A draw for a day can be put back until
+// then; a draw for now keeps the ordinary two hours.
+export function getPlannedDayEnd(choice, now = Date.now()) {
+  const normalized = normalizeOpenChoice(choice, now);
+  if (normalized.mode === OPEN_MODES.tonight) return localDay(now, 1).getTime();
+  if (normalized.mode !== OPEN_MODES.pick) return null;
+  const [year, month, day] = normalized.day.split("-").map(Number);
+  return new Date(year, month - 1, day + 1).getTime();
+}
+
 function weekMinute(point) {
   const day = Number(point?.day);
   const hour = Number(point?.hour);

@@ -9,17 +9,41 @@ function toTimestamp(value) {
 // only holds close to the draw. Past the window the action is refused -- by the
 // database, not just here -- and putting the title back for another viewing is
 // Add Movie, which leaves the earlier draw and everyone's history intact.
+//
+// A restaurant drawn ahead for a day is the exception: nobody has eaten yet,
+// so its draw carries a later deadline, the end of that day, in return_until.
+export function getReturnDeadline(drawEvent) {
+  const drawnAt = toTimestamp(drawEvent?.drawn_at || drawEvent?.drawnAt);
+  if (!Number.isFinite(drawnAt)) return null;
+  const until = toTimestamp(drawEvent?.return_until || drawEvent?.returnUntil);
+  const windowEnd = drawnAt + RETURN_UNDO_WINDOW_MS;
+  return Number.isFinite(until) ? Math.max(windowEnd, until) : windowEnd;
+}
+
+const WEEKDAY_NAMES = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"];
+
+// "today", "tomorrow" or "Saturday": the day a draw was made for, when its
+// deadline is that day's end rather than the two hours'. Null otherwise.
+export function describePlannedReturnDay(drawEvent, now = Date.now()) {
+  const drawnAt = toTimestamp(drawEvent?.drawn_at || drawEvent?.drawnAt);
+  const deadline = getReturnDeadline(drawEvent);
+  if (deadline === null || deadline <= drawnAt + RETURN_UNDO_WINDOW_MS) return null;
+  // The deadline is the midnight that ends the day, so the day is just before it.
+  const day = new Date(deadline - 1);
+  const startOf = (value) => new Date(value.getFullYear(), value.getMonth(), value.getDate()).getTime();
+  const daysAway = Math.round((startOf(day) - startOf(new Date(toTimestamp(now)))) / 86_400_000);
+  if (daysAway === 0) return "today";
+  if (daysAway === 1) return "tomorrow";
+  return WEEKDAY_NAMES[day.getDay()];
+}
+
 export function canReturnDrawToBowl(drawEvent, now = Date.now()) {
   if (drawEvent?.returned_at || drawEvent?.returnedAt) return false;
 
-  const drawnAt = toTimestamp(drawEvent?.drawn_at || drawEvent?.drawnAt);
+  const deadline = getReturnDeadline(drawEvent);
   const nowTimestamp = toTimestamp(now);
 
-  return (
-    Number.isFinite(drawnAt) &&
-    Number.isFinite(nowTimestamp) &&
-    nowTimestamp <= drawnAt + RETURN_UNDO_WINDOW_MS
-  );
+  return deadline !== null && Number.isFinite(nowTimestamp) && nowTimestamp <= deadline;
 }
 
 export const SOLO_UNDO_WINDOW_MS = 2 * 60 * 60 * 1000;
