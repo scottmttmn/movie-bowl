@@ -40,6 +40,23 @@ function Initial({ children, dashed = false, tone = "idle", badge = null }) {
   );
 }
 
+// Here or not: a filled rose check for someone on the couch, an empty ring
+// for someone who isn't. Nothing to read.
+function HereCheck({ here }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`ml-1 grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition ${
+        here ? "border-rose-500 bg-rose-600 text-white" : "border-slate-600 bg-transparent text-transparent"
+      }`}
+    >
+      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 12.5l4.5 4.5L19 7.5" />
+      </svg>
+    </span>
+  );
+}
+
 function describeRow(row, showLeftOut, showCounts, isNext, kind) {
   const role = row.isOwner ? ", owner" : "";
   const you = row.isYou ? " (you)" : "";
@@ -76,6 +93,8 @@ export default function BowlPeopleSheet({
   onClose,
   turns = null,
   isOrderPending = false,
+  awayKeys = [],
+  onToggleHere = null,
 }) {
   const kind = useBowlKind();
   const leftOutCount = reach ? reach.totalCount - reach.reachedCount : 0;
@@ -100,8 +119,12 @@ export default function BowlPeopleSheet({
         onClick={(event) => event.stopPropagation()}
       >
         <h3 id="bowl-people-title" className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-          <PeopleGlyph className={`h-5 w-5 ${showReach ? "text-amber-300" : "text-slate-400"}`} />
-          {showReach ? (
+          <PeopleGlyph className={`h-5 w-5 ${showReach ? "text-amber-300" : awayKeys.length ? "text-rose-300" : "text-slate-400"}`} />
+          {awayKeys.length > 0 && !showReach ? (
+            <span className="text-rose-200">
+              {shownCount - awayKeys.length}/{shownCount}
+            </span>
+          ) : showReach ? (
             <span className="text-amber-200">
               {reach.reachedCount}/{reach.totalCount}
               <span className="sr-only">{inBowlWords(kind, " people have a movie in tonight's draw")}</span>
@@ -125,37 +148,46 @@ export default function BowlPeopleSheet({
               </li>
             ))}
             {shownRows.map((row) => {
-              const isLeftOut = showLeftOut && row.isLeftOut;
-              const isNext = turns?.get(row.key) === 0;
+              const isAway = awayKeys.includes(row.key);
+              const isLeftOut = !isAway && showLeftOut && row.isLeftOut;
+              const isNext = !isAway && turns?.get(row.key) === 0;
+              const canToggle = Boolean(onToggleHere) && row.key.startsWith("user:");
+              const Row = canToggle ? "button" : "div";
               return (
                 <li
                   key={row.key}
-                  className="flex items-center gap-3 py-2.5"
                   aria-label={describeRow(row, showLeftOut, showCounts, isNext, kind)}
                   data-left-out={isLeftOut || undefined}
                   data-up-next={isNext || undefined}
+                  data-away={isAway || undefined}
                 >
-                  <span className={isLeftOut ? "opacity-50" : undefined}>
-                    <Initial badge={row.isOwner ? <OwnerBadge /> : null}>{row.initial}</Initial>
-                  </span>
-                  <span className={`min-w-0 flex-1 truncate font-medium ${isLeftOut ? "text-slate-500" : "text-slate-100"}`} aria-hidden="true">
-                    {row.name}
-                    {row.isYou && <span className="font-normal text-slate-500"> (you)</span>}
-                  </span>
-                  {isNext && (
-                    <span aria-hidden="true" className="shrink-0">
-                      <DrawMethodMark drawMethod="rotation" className="block h-7 w-7" />
+                  <Row
+                    {...(canToggle ? { type: "button", onClick: () => onToggleHere(row.key), "aria-pressed": !isAway } : {})}
+                    className={`flex w-full items-center gap-3 py-2.5 text-left ${canToggle ? "rounded-xl transition hover:bg-slate-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60" : ""}`}
+                  >
+                    <span className={isLeftOut || isAway ? "opacity-40" : undefined}>
+                      <Initial dashed={isAway} badge={row.isOwner ? <OwnerBadge /> : null}>{row.initial}</Initial>
                     </span>
-                  )}
-                  {showCounts && (
-                    <span
-                      aria-hidden="true"
-                      className={`inline-flex items-center gap-1 text-sm font-semibold ${isLeftOut ? "text-amber-300" : "text-slate-400"}`}
-                    >
-                      <BowlCountGlyph kind={kind} className="h-4 w-4" />
-                      {row.count}
+                    <span className={`min-w-0 flex-1 truncate font-medium ${isAway ? "text-slate-500" : isLeftOut ? "text-slate-500" : "text-slate-100"}`} aria-hidden="true">
+                      {row.name}
+                      {row.isYou && <span className="font-normal text-slate-500"> (you)</span>}
                     </span>
-                  )}
+                    {isNext && (
+                      <span aria-hidden="true" className="shrink-0">
+                        <DrawMethodMark drawMethod="rotation" className="block h-7 w-7" />
+                      </span>
+                    )}
+                    {showCounts && !isAway && (
+                      <span
+                        aria-hidden="true"
+                        className={`inline-flex items-center gap-1 text-sm font-semibold ${isLeftOut ? "text-amber-300" : "text-slate-400"}`}
+                      >
+                        <BowlCountGlyph kind={kind} className="h-4 w-4" />
+                        {row.count}
+                      </span>
+                    )}
+                    {canToggle && <HereCheck here={!isAway} />}
+                  </Row>
                 </li>
               );
             })}

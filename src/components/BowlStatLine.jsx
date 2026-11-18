@@ -99,8 +99,23 @@ function PoolSegment({ count, service, tone, onOpenFilters }) {
 // with, opening the list of who they are. When filters leave someone with
 // nothing in the draw it turns amber and becomes a ratio: the one fact here
 // that should stop someone.
-function PeopleSegment({ memberCount, reach, onOpenPeople }) {
+function PeopleSegment({ memberCount, reach, here, onOpenPeople }) {
   const kind = useBowlKind();
+  if (here && !reach) {
+    return (
+      <Segment
+        as="button"
+        tone="active"
+        onClick={onOpenPeople}
+        ariaLabel={`Drawing for ${here.hereCount} of ${here.totalCount} people. Change who's here.`}
+      >
+        <span className="inline-flex items-center gap-1 leading-none">
+          <PeopleGlyph className="block h-4 w-4" />
+          <span><Count tone="active">{here.hereCount}</Count>/{here.totalCount}</span>
+        </span>
+      </Segment>
+    );
+  }
   if (reach) {
     return (
       <Segment
@@ -139,6 +154,7 @@ export default function BowlStatLine({
   onOpenMethodInfo,
   onOpenPeople,
   memberCount = null,
+  here = null,
   drawMethod,
   ...readoutInputs
 }) {
@@ -173,7 +189,7 @@ export default function BowlStatLine({
 
   if (description && (hasExcludedContributors || memberCount)) {
     segments.push(
-      <PeopleSegment key="people" memberCount={memberCount} reach={reach} onOpenPeople={onOpenPeople} />
+      <PeopleSegment key="people" memberCount={memberCount} reach={reach} here={here} onOpenPeople={onOpenPeople} />
     );
   }
 

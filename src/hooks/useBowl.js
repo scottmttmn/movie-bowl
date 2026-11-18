@@ -1,3 +1,4 @@
+import { getContributorBucketKey } from "../utils/drawBuckets";
 import { useCallback, useEffect, useRef, useState } from "react";
 import { supabase } from "../lib/supabase";
 import { readAllRows } from "../lib/readAllRows";
@@ -311,8 +312,10 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
     // Right after a bowl switch the rows are still the last bowl's. Drawing
     // them would send that bowl's titles under this bowl's id.
     if (loadedBowlId !== bowlId) return null;
+    const awayKeys = new Set(options.awayKeys || []);
     const drawableRemaining = (bowl.remaining || []).filter(
       (movie) => movie?.local_status !== "syncing"
+        && !awayKeys.has(getContributorBucketKey(movie))
     );
     if (drawableRemaining.length === 0) return null;
 

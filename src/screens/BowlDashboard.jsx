@@ -16,6 +16,8 @@ import BowlIllustration from "../components/BowlIllustration";
 import DrawMethodInfoModal from "../components/DrawMethodInfoModal";
 import BowlPeopleSheet from "../components/BowlPeopleSheet";
 import { buildBowlPeopleRows } from "../utils/bowlPeople";
+import { getContributorBucketKey as whoKey } from "../utils/drawBuckets";
+import WhoIsHereRow from "../components/WhoIsHereRow";
 import BowlPicker from "../components/BowlPicker";
 import CreateBowlModal from "../components/CreateBowlModal";
 import useCreateBowl from "../hooks/useCreateBowl";
@@ -179,6 +181,10 @@ export default function BowlDashboard() {
     const [showDrawConfirm, setShowDrawConfirm] = useState(false);
     const [showMethodInfo, setShowMethodInfo] = useState(false);
     const [showPeople, setShowPeople] = useState(false);
+    const [awayKeys, setAwayKeys] = useState([]);
+    // Mockup only: which of the two placements to show.
+    const whoVariant = (() => { try { return window.localStorage.getItem("who-variant") || "sheet"; } catch { return "sheet"; } })();
+    const toggleAway = (key) => setAwayKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
     const [bowlName, setBowlName] = useState("");
     const [bowlOwnerId, setBowlOwnerId] = useState(null);
     const [drawAccessMode, setDrawAccessMode] = useState(DRAW_ACCESS_MODE_ALL);
@@ -536,6 +542,10 @@ export default function BowlDashboard() {
         includeUnknownRuntime,
       ]
     );
+    const presentRemaining = useMemo(
+      () => (awayKeys.length ? (bowl.remaining || []).filter((movie) => !awayKeys.includes(whoKey(movie))) : bowl.remaining),
+      [awayKeys, bowl.remaining]
+    );
     const {
       status: drawPoolStatus,
       poolCount: drawPoolCount,
@@ -545,7 +555,7 @@ export default function BowlDashboard() {
       eligibleMovieIds: drawPoolEligibleMovieIds,
       lookupProgress: drawPoolLookupProgress,
       runLookups: runDrawPoolLookups,
-    } = useDrawPoolCount(bowl.remaining, drawFilters, filterMetadataFetchers);
+    } = useDrawPoolCount(presentRemaining, drawFilters, filterMetadataFetchers);
     const drawPoolLookupCompleted = drawPoolLookupProgress?.completed || 0;
     const drawPoolLookupTotal = drawPoolLookupProgress?.total || 0;
     const drawPoolLookupPercent = drawPoolLookupTotal > 0
@@ -639,7 +649,7 @@ export default function BowlDashboard() {
 
     // Read only while the sheet is open; the counts reuse the pool the stat
     // line already resolved, so the sheet costs no lookups of its own.
-    const bowlPeople = useBowlPeople(bowlId, { enabled: showPeople, includeInvites: isCurrentUserOwner });
+    const bowlPeople = useBowlPeople(bowlId, { enabled: true, includeInvites: isCurrentUserOwner });
     // On rotation the people sheet lists people in turn order, asked of the
     // pool tonight's draw would use: the filtered pool once it is counted, the
     // whole bowl when nothing narrows it, and no order while a large bowl's
@@ -647,8 +657,8 @@ export default function BowlDashboard() {
     const rotationCandidateIds = useMemo(() => {
       if (drawPoolEligibleMovieIds) return drawPoolEligibleMovieIds;
       if (drawPoolStatus !== DRAW_POOL_STATUS.unfiltered) return null;
-      return getDrawablePoolMovies(bowl.remaining).map((movie) => movie.id);
-    }, [drawPoolEligibleMovieIds, drawPoolStatus, bowl.remaining]);
+      return getDrawablePoolMovies(presentRemaining).map((movie) => movie.id);
+    }, [drawPoolEligibleMovieIds, drawPoolStatus, presentRemaining]);
     const rotationQueue = useRotationQueue(bowlId, rotationCandidateIds, {
       enabled: showPeople && drawMethod === "rotation",
       refreshKey: bowl.watched.length,
@@ -1229,6 +1239,7 @@ export default function BowlDashboard() {
             : null;
         }
         const drawPromise = handleDraw({
+          awayKeys,
           prioritizeByServices: prioritizeStreaming,
           prioritizeByServiceRank: useStreamingRank,
           userStreamingServices,
@@ -1523,8 +1534,12 @@ return (
                   onOpenMethodInfo={() => setShowMethodInfo(true)}
                   onOpenPeople={() => setShowPeople(true)}
                   memberCount={currentBowlMemberCount}
+                  here={awayKeys.length && currentBowlMemberCount ? { hereCount: currentBowlMemberCount - awayKeys.length, totalCount: currentBowlMemberCount } : null}
                   drawMethod={drawMethod}
                 />
+                {whoVariant === "row" && bowlPeopleRows.length > 1 && (
+                  <WhoIsHereRow rows={bowlPeopleRows} awayKeys={awayKeys} onToggle={toggleAway} />
+                )}
 
                 <div className="mx-auto mt-4 flex w-full max-w-sm flex-col items-stretch gap-2.5">
                   <HoldToDrawButton
@@ -2079,6 +2094,8 @@ return (
                 onClose={() => setShowPeople(false)}
                 turns={rotationTurns}
                 isOrderPending={isRotationOrderPending}
+                awayKeys={awayKeys}
+                onToggleHere={toggleAway}
               />
             )}
             {showMethodInfo && (
