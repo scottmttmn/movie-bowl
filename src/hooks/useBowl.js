@@ -467,6 +467,26 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
       }
     }
 
+    // Members marked away were not there to watch it: the draw gave them a
+    // history row like everyone else, and this takes theirs back out. The draw
+    // is already saved; if this fails they keep the entry, which they can
+    // delete themselves, so the failure is logged and not shown. (A
+    // restaurant draw writes no history, so there it finds nothing to take.)
+    const awayUserIds = (options.awayKeys || [])
+      .filter((key) => typeof key === "string" && key.startsWith("user:"))
+      .map((key) => key.slice("user:".length));
+    if (awayUserIds.length > 0) {
+      try {
+        const { error } = await supabase.rpc("leave_away_members_out_of_draw", {
+          p_bowl_movie_id: drawn.id,
+          p_away_user_ids: awayUserIds,
+        });
+        if (error) console.error("[useBowl] Failed to leave away members out of the draw", error);
+      } catch (error) {
+        console.error("[useBowl] Failed to leave away members out of the draw", error);
+      }
+    }
+
     // Reload after updating.
     notifyBowlChange({ type: "context", bowlId });
     await loadBowlMovies();

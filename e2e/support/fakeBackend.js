@@ -1227,6 +1227,21 @@ export class FakeBackend {
       return;
     }
 
+    if (rpcName === "leave_away_members_out_of_draw") {
+      const drawEvent = this.state.bowl_draw_events.find(
+        (row) => row.source_bowl_movie_id === args.p_bowl_movie_id && !row.returned_at
+      );
+      const away = new Set(args.p_away_user_ids || []);
+      const before = this.state.user_watch_events.length;
+      if (drawEvent) {
+        this.state.user_watch_events = this.state.user_watch_events.filter(
+          (event) => !(event.source_draw_event_id === drawEvent.id && away.has(event.user_id))
+        );
+      }
+      await fulfillJson(route, before - this.state.user_watch_events.length);
+      return;
+    }
+
     if (rpcName === "return_bowl_draw_to_bowl") {
       const drawEvent = this.state.bowl_draw_events.find(
         (row) => row.id === args.p_draw_event_id
