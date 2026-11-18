@@ -106,11 +106,11 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
 }));
 
 vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
-const roster = vi.hoisted(() => ({ members: [] }));
+const roster = vi.hoisted(() => ({ members: [], status: "ready" }));
 vi.mock("../../hooks/useBowlPeople", () => ({
   default: () => ({
-    status: "ready",
-    members: roster.members,
+    status: roster.status,
+    members: roster.status === "ready" ? roster.members : [],
     invites: [],
     names: { u1: "Scott", u2: "Jordan", u3: "Casey" },
   }),
@@ -139,6 +139,7 @@ vi.mock("react-router-dom", async () => {
 });
 
 import BowlDashboard from "../BowlDashboard";
+import { writeAwayKeys, writeSkipAsk } from "../../utils/whoIsHere";
 
 const slips = () => [
   { id: "m1", added_by: "u1", tmdb_id: -1, title: "Gran Torino", profiles: { display_name: "Scott" } },
@@ -164,6 +165,7 @@ describe("BowlDashboard asking who's here", () => {
     mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }, { user_id: "u3" }];
     mocks.state.bowlData = { remaining: slips(), watched: [] };
     mocks.state.handleDraw.mockReset().mockResolvedValue(null);
+    roster.status = "ready";
     roster.members = [
       { userId: "u1", role: "Owner", displayName: "Scott" },
       { userId: "u2", role: "Member", displayName: "Jordan" },
@@ -271,6 +273,20 @@ describe("BowlDashboard asking who's here", () => {
     fireEvent.click(hold, { detail: 0 });
     fireEvent.click(screen.getByRole("button", { name: /^Reveal/ }));
     expect(mocks.state.navigate).toHaveBeenCalledWith("/solo-draw?bowl=bowl-1");
+    expect(mocks.state.handleDraw).not.toHaveBeenCalled();
+  });
+
+  it("waits for the roster before a draw that someone's absence could make solo", async () => {
+    // Saved earlier on this device: everyone else away, and the question skipped.
+    writeAwayKeys("u1", "bowl-1", ["user:u2", "user:u3"]);
+    writeSkipAsk("u1", "bowl-1", true);
+    roster.status = "loading";
+    render(<BowlDashboard />);
+
+    const hold = await screen.findByRole("button", { name: "Draw movie from bowl. Press and hold to draw." });
+    expect(hold).toBeDisabled();
+    fireEvent.click(hold, { detail: 0 });
+    expect(screen.queryByRole("button", { name: /^Reveal/ })).not.toBeInTheDocument();
     expect(mocks.state.handleDraw).not.toHaveBeenCalled();
   });
 });

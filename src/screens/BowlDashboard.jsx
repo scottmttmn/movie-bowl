@@ -734,6 +734,10 @@ export default function BowlDashboard() {
     // only and spends nobody's turn. Restaurant bowls have no solo draw.
     const drawsForMyself = isOnlyMe && !isRestaurantBowl && myRemainingAdds.length > 0;
     const hasPresentSlips = getDrawablePoolMovies(presentRemaining).length > 0;
+    // With someone marked away, whether this is a solo draw depends on the
+    // roster, so the draw waits for it rather than spend the bowl's turn on a
+    // guess. A failed read retries with the next opening of the sheet.
+    const isRoomSettled = awayKeys.length === 0 || bowlPeople.status === "ready";
     const statLineInputs = {
       poolStatus: drawPoolStatus,
       poolCount: drawPoolCount,
@@ -1244,6 +1248,7 @@ export default function BowlDashboard() {
     // confirm dialog — both arrive here with intent already established.
     const runDraw = async () => {
       if (isDrawing || isFirstLoad || !canCurrentUserDraw || bowl.remaining.length === 0) return;
+      if (!isRoomSettled) return;
       setShowDrawConfirm(false);
       // Every way in -- the sheet, the hold, the keyboard's confirm -- lands
       // here, so watching alone becomes a solo draw however it was started.
@@ -1612,7 +1617,7 @@ return (
                       setShowDrawConfirm(true);
                     }}
                     isLoading={isDrawing}
-                    disabled={isFirstLoad || !canCurrentUserDraw || bowl.remaining.length === 0}
+                    disabled={isFirstLoad || !canCurrentUserDraw || bowl.remaining.length === 0 || (!asksWhoIsHere && !isRoomSettled)}
                     mark={televisionPresent ? <TelevisionGlyph className="h-5 w-5 drop-shadow-[0_0_6px_rgba(255,255,255,0.55)]" /> : null}
                     ariaLabel={drawButtonLabel}
                   />
@@ -2160,7 +2165,7 @@ return (
                 skipAsk={skipAsk}
                 onSkipAskChange={hasRoomToAsk ? setSkipAsk : null}
                 drawsForMyself={drawsForMyself}
-                canDraw={hasPresentSlips && !isDrawing}
+                canDraw={hasPresentSlips && !isDrawing && isRoomSettled}
                 onDraw={() => {
                   setShowPeople(false);
                   setPeopleMode("list");
