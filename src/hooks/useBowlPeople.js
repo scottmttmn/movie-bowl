@@ -60,7 +60,14 @@ export default function useBowlPeople(bowlId, { enabled = false, includeInvites 
       });
     };
 
-    load();
+    // The dashboard now reads the roster before any sheet opens (the draw asks
+    // who's here), so a read that throws rather than returning an error must
+    // land in the same error state instead of escaping as an unhandled rejection.
+    load().catch((error) => {
+      if (cancelled) return;
+      console.error("[useBowlPeople] Failed to load people", error);
+      setState({ key, status: "error", members: [], invites: [], names: {} });
+    });
     return () => {
       cancelled = true;
     };
