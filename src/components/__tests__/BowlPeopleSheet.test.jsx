@@ -125,4 +125,50 @@ describe("BowlPeopleSheet", () => {
     fireEvent.click(screen.getByRole("button", { name: "Close" }));
     expect(onClose).toHaveBeenCalled();
   });
+
+  describe("choosing who's here", () => {
+    const MEMBERS = [
+      { key: "user:u1", name: "Alex", initial: "A", count: 2, isOwner: true, isYou: true, isMember: true },
+      { key: "user:u2", name: "Sam", initial: "S", count: 3, isOwner: false, isYou: false, isMember: true },
+      { key: "guest:jo", name: "Jo", initial: "J", count: 1, isOwner: false, isYou: false, isMember: false },
+    ];
+
+    it("checks members in and out, and leaves link guests in the draw", () => {
+      const onToggleHere = vi.fn();
+      renderSheet({ rows: MEMBERS, memberCount: 2, onToggleHere, awayKeys: ["user:u2"] });
+
+      expect(screen.getByRole("button", { name: "Alex (you) is here" })).toHaveAttribute("aria-pressed", "true");
+      const sam = screen.getByRole("button", { name: "Sam is here" });
+      expect(sam).toHaveAttribute("aria-pressed", "false");
+      expect(screen.getByRole("listitem", { name: "Sam: not here tonight" })).toBeInTheDocument();
+      expect(screen.queryByRole("button", { name: /Jo is here/ })).toBeNull();
+      expect(screen.getByRole("dialog")).toHaveTextContent("1/2");
+
+      fireEvent.click(sam);
+      expect(onToggleHere).toHaveBeenCalledWith("user:u2");
+    });
+
+    it("ends in Draw when opened from the draw button, and offers not to ask again", () => {
+      const onDraw = vi.fn();
+      const onSkipAskChange = vi.fn();
+      renderSheet({ rows: MEMBERS, memberCount: 2, isOwner: true, mode: "draw", onToggleHere: vi.fn(), onDraw, onSkipAskChange });
+
+      // Not the place to invite anyone: the draw is waiting.
+      expect(screen.queryByRole("button", { name: "Invite people" })).toBeNull();
+      expect(screen.queryByRole("button", { name: "Close" })).toBeNull();
+      fireEvent.click(screen.getByRole("checkbox", { name: "Don't ask again" }));
+      expect(onSkipAskChange).toHaveBeenCalledWith(true);
+      fireEvent.click(screen.getByRole("button", { name: "Draw" }));
+      expect(onDraw).toHaveBeenCalled();
+    });
+
+    it("turns into a draw for yourself, or none at all", () => {
+      const { rerender } = render(
+        <BowlPeopleSheet rows={MEMBERS} memberCount={2} mode="draw" onToggleHere={vi.fn()} onDraw={vi.fn()} onClose={vi.fn()} drawsForMyself />
+      );
+      expect(screen.getByRole("button", { name: "Draw for myself" })).toBeEnabled();
+      rerender(<BowlPeopleSheet rows={MEMBERS} memberCount={2} mode="draw" onToggleHere={vi.fn()} onDraw={vi.fn()} onClose={vi.fn()} canDraw={false} />);
+      expect(screen.getByRole("button", { name: "Draw" })).toBeDisabled();
+    });
+  });
 });

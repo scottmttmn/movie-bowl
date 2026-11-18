@@ -57,7 +57,8 @@ function HereCheck({ here }) {
   );
 }
 
-function describeRow(row, showLeftOut, showCounts, isNext, kind) {
+function describeRow(row, showLeftOut, showCounts, isNext, kind, isAway = false) {
+  if (isAway) return `${row.name}${row.isYou ? " (you)" : ""}: not here tonight`;
   const role = row.isOwner ? ", owner" : "";
   const you = row.isYou ? " (you)" : "";
   const next = isNext ? ", up next" : "";
@@ -79,6 +80,13 @@ function describeRow(row, showLeftOut, showCounts, isNext, kind) {
  * tied for the next turn wears it, because chance decides between them. The
  * list waits for that order rather than reshuffling under the reader when it
  * arrives (`isOrderPending`); without one it keeps its usual order.
+ *
+ * It is also where tonight's room is chosen. With `onToggleHere` each member
+ * carries a check: unchecked, their slips sit the draw out. Opened from the
+ * draw button (`mode="draw"`) it ends in Draw instead of Close -- that step is
+ * the draw's confirmation, which is why the button is a tap, not a hold.
+ * "Don't ask again" skips it on this device, and the same box here, reached
+ * from the people count, is how it comes back.
  */
 export default function BowlPeopleSheet({
   rows = [],
@@ -99,8 +107,11 @@ export default function BowlPeopleSheet({
   skipAsk = false,
   onSkipAskChange = null,
   onDraw = null,
+  canDraw = true,
+  drawsForMyself = false,
 }) {
   const kind = useBowlKind();
+  const awayCount = rows.filter((row) => row.isMember && awayKeys.includes(row.key)).length;
   const leftOutCount = reach ? reach.totalCount - reach.reachedCount : 0;
   const showReach = showLeftOut && leftOutCount > 0;
   const shownCount = memberCount ?? rows.filter((row) => row.key.startsWith("user:")).length;
@@ -123,10 +134,11 @@ export default function BowlPeopleSheet({
         onClick={(event) => event.stopPropagation()}
       >
         <h3 id="bowl-people-title" className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-          <PeopleGlyph className={`h-5 w-5 ${showReach ? "text-amber-300" : awayKeys.length ? "text-rose-300" : "text-slate-400"}`} />
-          {awayKeys.length > 0 && !showReach ? (
+          <PeopleGlyph className={`h-5 w-5 ${showReach ? "text-amber-300" : awayCount ? "text-rose-300" : "text-slate-400"}`} />
+          {awayCount > 0 && !showReach ? (
             <span className="text-rose-200">
-              {shownCount - awayKeys.length}/{shownCount}
+              {shownCount - awayCount}/{shownCount}
+              <span className="sr-only"> people here</span>
             </span>
           ) : showReach ? (
             <span className="text-amber-200">
@@ -155,18 +167,25 @@ export default function BowlPeopleSheet({
               const isAway = awayKeys.includes(row.key);
               const isLeftOut = !isAway && showLeftOut && row.isLeftOut;
               const isNext = !isAway && turns?.get(row.key) === 0;
-              const canToggle = Boolean(onToggleHere) && row.key.startsWith("user:");
+              // Only members can be away: a link guest or someone who left has
+              // no seat to be missing from, so their slips always stay in.
+              const canToggle = Boolean(onToggleHere) && row.isMember;
               const Row = canToggle ? "button" : "div";
               return (
                 <li
                   key={row.key}
-                  aria-label={describeRow(row, showLeftOut, showCounts, isNext, kind)}
+                  aria-label={describeRow(row, showLeftOut, showCounts, isNext, kind, isAway)}
                   data-left-out={isLeftOut || undefined}
                   data-up-next={isNext || undefined}
                   data-away={isAway || undefined}
                 >
                   <Row
-                    {...(canToggle ? { type: "button", onClick: () => onToggleHere(row.key), "aria-pressed": !isAway } : {})}
+                    {...(canToggle ? {
+                      type: "button",
+                      onClick: () => onToggleHere(row.key),
+                      "aria-pressed": !isAway,
+                      "aria-label": `${row.name}${row.isYou ? " (you)" : ""} is here`,
+                    } : {})}
                     className={`flex w-full items-center gap-3 py-2.5 text-left ${canToggle ? "rounded-xl transition hover:bg-slate-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60" : ""}`}
                   >
                     <span className={isLeftOut ? "opacity-50" : isAway ? "opacity-70" : undefined}>
@@ -234,10 +253,15 @@ export default function BowlPeopleSheet({
             <button
               type="button"
               onClick={onDraw}
-              disabled={awayKeys.length >= shownCount}
-              className="btn btn-primary min-w-28 disabled:opacity-50"
+              disabled={!canDraw}
+              className="btn btn-primary min-w-28 gap-2 disabled:opacity-50"
             >
-              Draw
+              {/* Just you: the same person mark as My Movies' "Draw for
+                  myself", because that is the draw this becomes. */}
+              {drawsForMyself && (
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+              )}
+              {drawsForMyself ? "Draw for myself" : "Draw"}
             </button>
           ) : (
             <button type="button" onClick={onClose} className="btn btn-secondary">

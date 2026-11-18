@@ -52,6 +52,7 @@ export function buildBowlPeopleRows({
       isLeftOut: Boolean(eligible) && total > 0 && count === 0,
       isOwner: false,
       isYou: false,
+      isMember: false,
       ...extra,
     };
   };
@@ -65,6 +66,7 @@ export function buildBowlPeopleRows({
       describe(`user:${member.userId}`, getProfileDisplayName({ display_name: member.displayName }, member.userId), {
         isOwner: member.userId === ownerId || member.role === "Owner",
         isYou: member.userId === currentUserId,
+        isMember: true,
       })
     )
     .sort((a, b) => Number(b.isOwner) - Number(a.isOwner) || a.name.localeCompare(b.name));

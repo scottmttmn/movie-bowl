@@ -69,7 +69,7 @@ const mocks = vi.hoisted(() => {
 });
 
 const userBowlsMock = vi.hoisted(() => ({
-  bowls: [{ id: "bowl-1", name: "Date Night Eats", ownerId: "u1", role: "Owner", memberCount: 2, remainingCount: 2, kind: "restaurants" }],
+  bowls: [{ id: "bowl-1", name: "Date Night Eats", ownerId: "u1", role: "Owner", memberCount: 1, remainingCount: 2, kind: "restaurants" }],
   defaultBowlId: null,
   loading: false,
   error: null,
@@ -150,7 +150,7 @@ describe("BowlDashboard in a restaurant bowl", () => {
   beforeEach(() => {
     mocks.state.navigate.mockReset();
     mocks.state.bowlRow = { name: "Date Night Eats", owner_id: "u1", kind: "restaurants" };
-    userBowlsMock.bowls = [{ id: "bowl-1", name: "Date Night Eats", ownerId: "u1", role: "Owner", memberCount: 2, remainingCount: 2, kind: "restaurants" }];
+    userBowlsMock.bowls = [{ id: "bowl-1", name: "Date Night Eats", ownerId: "u1", role: "Owner", memberCount: 1, remainingCount: 2, kind: "restaurants" }];
     userBowlsMock.loading = false;
     userBowlsMock.error = null;
     mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];

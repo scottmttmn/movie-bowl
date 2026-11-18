@@ -252,4 +252,20 @@ describe("HoldToDrawButton", () => {
     expect(screen.queryByTestId("tv-mark")).toBeNull();
     expect(screen.getByRole("button", { name: "Drawing movie from bowl" })).toHaveTextContent("Drawing...");
   });
+
+  it("is a plain tap when the draw asks who's here first", () => {
+    const onTap = vi.fn();
+    const { onHoldComplete, button } = renderButton({ onTap, label: "Draw" });
+    expect(button).toHaveTextContent("Draw");
+
+    fireEvent.pointerDown(button, { button: 0 });
+    act(() => vi.advanceTimersByTime(HOLD_TO_DRAW_MS + 50));
+    expect(onHoldComplete).not.toHaveBeenCalled();
+    fireEvent.click(button, { detail: 1 });
+    expect(onTap).toHaveBeenCalledTimes(1);
+
+    // The keyboard reaches the same step, not the hold's confirm dialog.
+    fireEvent.click(button, { detail: 0 });
+    expect(onTap).toHaveBeenCalledTimes(2);
+  });
 });

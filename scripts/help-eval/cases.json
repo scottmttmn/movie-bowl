@@ -23,6 +23,8 @@
   { "q": "my roommate always gets picked, it's not fair", "topic": "draw_method" },
   { "q": "can we take turns picking", "topic": "draw_method" },
   { "q": "stop my kid from drawing", "topic": "draw_access" },
+  { "q": "my partner is out tonight, can we draw without their movies", "topic": "whos_here" },
+  { "q": "how do i turn off the who's here question", "topic": "whos_here" },
   { "q": "our bowl is empty, give us ideas", "topic": "starter_pack" },
   { "q": "make a second bowl for horror night", "topic": "create_bowl" },
   { "q": "change which bowl opens first", "topic": "switch_bowl" },
