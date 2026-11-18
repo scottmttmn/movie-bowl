@@ -165,10 +165,10 @@ export default function BowlPeopleSheet({
                     {...(canToggle ? { type: "button", onClick: () => onToggleHere(row.key), "aria-pressed": !isAway } : {})}
                     className={`flex w-full items-center gap-3 py-2.5 text-left ${canToggle ? "rounded-xl transition hover:bg-slate-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60" : ""}`}
                   >
-                    <span className={isLeftOut || isAway ? "opacity-40" : undefined}>
-                      <Initial dashed={isAway} badge={row.isOwner ? <OwnerBadge /> : null}>{row.initial}</Initial>
+                    <span className={isLeftOut ? "opacity-50" : isAway ? "opacity-70" : undefined}>
+                      <Initial badge={row.isOwner ? <OwnerBadge /> : null}>{row.initial}</Initial>
                     </span>
-                    <span className={`min-w-0 flex-1 truncate font-medium ${isAway ? "text-slate-500" : isLeftOut ? "text-slate-500" : "text-slate-100"}`} aria-hidden="true">
+                    <span className={`min-w-0 flex-1 truncate font-medium ${isAway ? "text-slate-400" : isLeftOut ? "text-slate-500" : "text-slate-100"}`} aria-hidden="true">
                       {row.name}
                       {row.isYou && <span className="font-normal text-slate-500"> (you)</span>}
                     </span>

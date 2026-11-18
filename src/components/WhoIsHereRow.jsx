@@ -20,13 +20,13 @@ export default function WhoIsHereRow({ rows = [], awayKeys = [], onToggle }) {
             <span
               className={`relative inline-flex h-10 w-10 items-center justify-center rounded-full border-2 text-sm font-semibold uppercase transition ${
                 isAway
-                  ? "border-dashed border-slate-700 bg-transparent text-slate-600"
+                  ? "border-slate-600 bg-slate-800/60 text-slate-400"
                   : "border-rose-500 bg-rose-950/60 text-rose-100"
               }`}
             >
               {row.initial}
             </span>
-            <span className={`max-w-[4.5rem] truncate text-xs ${isAway ? "text-slate-600 line-through" : "text-slate-300"}`}>
+            <span className={`max-w-[4.5rem] truncate text-xs ${isAway ? "text-slate-500" : "text-slate-300"}`}>
               {row.isYou ? "You" : row.name}
             </span>
           </button>
