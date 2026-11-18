@@ -185,6 +185,15 @@ export default function BowlDashboard() {
     const [showPeople, setShowPeople] = useState(false);
     // "draw" when the sheet opened from the draw button: it then ends in Draw.
     const [peopleMode, setPeopleMode] = useState("list");
+    // Counts openings of the people sheet: the roster is read ahead for the
+    // draw, so each opening asks for a fresh read rather than trusting one
+    // taken before someone joined.
+    const [peopleOpenings, setPeopleOpenings] = useState(0);
+    const openPeople = (mode) => {
+      setPeopleMode(mode);
+      setPeopleOpenings((count) => count + 1);
+      setShowPeople(true);
+    };
     const [bowlName, setBowlName] = useState("");
     const [bowlOwnerId, setBowlOwnerId] = useState(null);
     const [drawAccessMode, setDrawAccessMode] = useState(DRAW_ACCESS_MODE_ALL);
@@ -555,6 +564,7 @@ export default function BowlDashboard() {
     const bowlPeople = useBowlPeople(bowlId, {
       enabled: showPeople || asksWhoIsHere || (hasRoomToAsk && storedAwayKeys.length > 0),
       includeInvites: isCurrentUserOwner,
+      refreshKey: `${peopleOpenings}|${currentBowlMemberCount}`,
     });
     // Someone who has left since being marked away has no seat to be missing
     // from, and the sheet offers no check to bring them back: their slips
@@ -1582,7 +1592,7 @@ return (
                   onRunPoolLookups={runDrawPoolLookups}
                   onOpenFilters={() => setShowDrawFilters(true)}
                   onOpenMethodInfo={() => setShowMethodInfo(true)}
-                  onOpenPeople={() => setShowPeople(true)}
+                  onOpenPeople={() => openPeople("list")}
                   memberCount={currentBowlMemberCount}
                   here={awayMemberCount && currentBowlMemberCount
                     ? { hereCount: currentBowlMemberCount - awayMemberCount, totalCount: currentBowlMemberCount }
@@ -1593,10 +1603,7 @@ return (
                 <div className="mx-auto mt-4 flex w-full max-w-sm flex-col items-stretch gap-2.5">
                   <HoldToDrawButton
                     id="bowl-draw"
-                    onTap={asksWhoIsHere ? () => {
-                      setPeopleMode("draw");
-                      setShowPeople(true);
-                    } : null}
+                    onTap={asksWhoIsHere ? () => openPeople("draw") : null}
                     label={asksWhoIsHere ? "Draw" : undefined}
                     onHoldComplete={runDraw}
                     onHoldStateChange={setHoldState}

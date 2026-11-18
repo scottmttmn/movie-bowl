@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabase";
 // roles, the names the profile directory will share, and for the owner the
 // invitations still waiting. A failed name or invite read degrades to fewer
 // details rather than an empty sheet; only the roster itself is required.
-export default function useBowlPeople(bowlId, { enabled = false, includeInvites = false } = {}) {
+export default function useBowlPeople(bowlId, { enabled = false, includeInvites = false, refreshKey = null } = {}) {
   const key = `${bowlId}|${includeInvites}`;
   const [state, setState] = useState({ key: null, status: "idle", members: [], invites: [], names: {} });
 
@@ -71,7 +71,9 @@ export default function useBowlPeople(bowlId, { enabled = false, includeInvites 
     return () => {
       cancelled = true;
     };
-  }, [bowlId, enabled, includeInvites, key]);
+    // refreshKey asks for a fresh read while enabled stays on (a reopened
+    // sheet, a changed member count); the last answer shows meanwhile.
+  }, [bowlId, enabled, includeInvites, key, refreshKey]);
 
   // Reopening shows what the last read found while the next one runs; another
   // bowl's people are never shown for this one.
