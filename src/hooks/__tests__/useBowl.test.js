@@ -415,6 +415,41 @@ describe("useBowl handleDraw integration", () => {
     expect(mocks.rpcCalls.map(({ name }) => name)).not.toContain("set_bowl_draw_return_window");
   });
 
+  it("takes the draw back out of the history of members who were away", async () => {
+    const movie = { id: "m1", tmdb_id: 11, title: "Heat", added_by: "u1" };
+    mocks.remainingQueue.push([movie], []);
+    mocks.watchedQueue.push([], [{ ...movie, drawn_at: "2026-11-18T23:30:00.000Z" }]);
+    mocks.fetchStreamingProviders.mockResolvedValue({ providers: [], region: "US", fetchedAt: "x" });
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => {
+      await result.current.handleDraw({ awayKeys: ["user:u3", "guest:Sam"] });
+    });
+
+    expectDrawRpc("m1");
+    expect(mocks.rpcCalls).toContainEqual({
+      name: "leave_away_members_out_of_draw",
+      params: { p_bowl_movie_id: "m1", p_away_user_ids: ["u3"] },
+    });
+  });
+
+  it("leaves everyone's history alone when nobody is away", async () => {
+    const movie = { id: "m1", tmdb_id: 11, title: "Heat", added_by: "u1" };
+    mocks.remainingQueue.push([movie], []);
+    mocks.watchedQueue.push([], [{ ...movie, drawn_at: "2026-11-18T23:30:00.000Z" }]);
+    mocks.fetchStreamingProviders.mockResolvedValue({ providers: [], region: "US", fetchedAt: "x" });
+
+    const { result } = renderHook(() => useBowl("bowl-1"));
+    await waitFor(() => expect(result.current.isLoading).toBe(false));
+    await act(async () => {
+      await result.current.handleDraw({ awayKeys: [] });
+    });
+
+    expectDrawRpc("m1");
+    expect(mocks.rpcCalls.map(({ name }) => name)).not.toContain("leave_away_members_out_of_draw");
+  });
+
   it("hands back the watched list a reload read, before the screen re-renders", async () => {
     mocks.remainingQueue.push([], []);
     mocks.watchedQueue.push([], [{ id: "event-9", source_bowl_movie_id: "m9", title: "Movie Z" }]);

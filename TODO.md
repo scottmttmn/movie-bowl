@@ -118,9 +118,8 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   "Say a movie" shortcut that opens with the mic listening was left out for
   simplicity and could be added later.
 - Who's here: **web built November 18, 2026** (`output/designs/whos-here.md`).
-  Left: personal history rows only for the people who were here (needs the
-  draw RPCs to take the present members -- a migration), and the television's
-  who's-here panel in place of its draw confirmation.
+  Watch History only for the people who were here is built too. Left: the
+  television's who's-here panel in place of its draw confirmation.
 - Bigger swings, unscheduled: attendance-aware movie nights, shareable ticket
   stubs and bowl recaps, a composable
   house-rules layer over the draw method registry, and curation for bowls that

@@ -1,7 +1,7 @@
 # Who's here
 
-Status: web built November 18, 2026. Watch history for present members only,
-and the television, are next.
+Status: web built November 18, 2026, with Watch History for present members
+only. The television is next.
 
 ## The idea
 
@@ -48,16 +48,24 @@ with every later stage rather than being one:
 
 ## Next
 
-1. Personal history only for the people here. Today every member gets a
-   `user_watch_events` row for a draw, including whoever was away. The draw
-   RPCs need the present members (a migration, released with a Wednesday
-   release).
-2. The television: pressing Draw opens a who's-here panel (faces in a row,
+1. The television: pressing Draw opens a who's-here panel (faces in a row,
    D-pad to move, OK to check, focus starting on Draw) in place of today's
    confirmation screen. The confirmation comes back only where the panel
    does not appear: "Don't ask again" on that TV, or a one-person bowl.
    "Don't ask again" is kept on the TV itself, since whoever holds the remote
    is not the account it is signed in as.
+
+## Watch History
+
+A draw made with someone away stays out of that person's Watch History. The
+draw functions still write a row for every member; right after the draw, the
+drawer's phone calls `leave_away_members_out_of_draw` with the away members,
+which deletes their rows for that one draw. Only the person who drew may, only
+within ten minutes of the draw, never on a returned or removed draw, and never
+their own row. The draw functions were left alone because they are the most
+sensitive code in the repo; the cost is that a failed call leaves the away
+members with an entry they can delete themselves, logged rather than shown.
+The bowl's own watched list is unchanged: the draw happened in the bowl.
 
 ## Mockups
 

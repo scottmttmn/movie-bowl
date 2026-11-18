@@ -385,7 +385,7 @@ because they are the atomic/permission-checked path:
 `get_my_invite_sender_directory`, `accept_bowl_invite`,
 `create_bowl_invites`, `revoke_bowl_invite`, `draw_bowl_movie`,
 `draw_bowl_movie_by_rotation`, `get_bowl_rotation_queue`, `return_bowl_draw_to_bowl`,
-`set_bowl_draw_return_window`,
+`set_bowl_draw_return_window`, `leave_away_members_out_of_draw`,
 `remove_bowl_draw_from_history`,
 `save_bowl_draw_access`, `save_bowl_draw_method`, `create_owned_bowl`,
 `transfer_owned_bowl`, `delete_owned_bowl`, `set_own_bowl_movie_pin`,
@@ -614,8 +614,12 @@ draw's confirmation, which is why the button is a tap; "Don't ask again" brings
 back the hold and its keyboard confirm, and the people count under the bowl
 opens the same sheet to undo it. With only the drawer checked on a movie bowl
 the sheet hands off to solo draw (`/solo-draw?bowl=`) instead of spending the
-bowl's draw. Not yet: every member still gets the personal history row, and the
-television does not ask. See `output/designs/whos-here.md`.
+bowl's draw. Members who were away do not get the draw in their Watch History:
+right after the draw the drawer's phone calls `leave_away_members_out_of_draw`,
+which deletes those members' rows for that draw only (the drawer only, within
+ten minutes, never the drawer's own). The draw functions themselves are
+untouched, so a failed call leaves an ordinary draw with everyone's history.
+Not yet: the television does not ask. See `output/designs/whos-here.md`.
 
 ## Serverless routes (`api/`)
 
