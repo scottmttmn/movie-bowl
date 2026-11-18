@@ -601,6 +601,9 @@ export default function TvTonightScreen({ userId }) {
   // so their slips stay in like any former member's.
   const awayKeys = useMemo(() => {
     if (!hasRoomToAsk || storedAwayKeys.length === 0) return NO_AWAY_KEYS;
+    // A roster that failed cannot say who is a member, and an absence nobody
+    // can see on screen must not quietly shrink the draw: everyone is in.
+    if (bowlPeople.status === "error") return NO_AWAY_KEYS;
     if (bowlPeople.status !== "ready") return storedAwayKeys;
     const roster = new Set(memberRows.map((row) => row.key));
     const kept = storedAwayKeys.filter((key) => roster.has(key));
@@ -614,7 +617,7 @@ export default function TvTonightScreen({ userId }) {
   // A draw that leaves anyone out waits for a roster that has answered for
   // now: a reopened panel shows the last answer while it reads again, and
   // someone who left since then must not take their slips with them.
-  const isRoomSettled = storedAwayKeys.length === 0
+  const isRoomSettled = awayKeys.length === 0
     || (bowlPeople.status === "ready" && !bowlPeople.isRefreshing);
   const hereCount = awayKeys.length && bowlMeta.memberCount
     ? Math.max(0, Number(bowlMeta.memberCount) - awayKeys.length)
@@ -1508,7 +1511,8 @@ export default function TvTonightScreen({ userId }) {
           skipAsk={skipAsk}
           onSkipAskChange={setSkipAsk}
           canDraw={hasPresentSlips && !isDrawing && isRoomSettled}
-          isLoading={bowlPeople.status !== "ready"}
+          isLoading={bowlPeople.status !== "ready" && bowlPeople.status !== "error"}
+          loadFailed={bowlPeople.status === "error"}
           onDraw={performDraw}
         />
       )}

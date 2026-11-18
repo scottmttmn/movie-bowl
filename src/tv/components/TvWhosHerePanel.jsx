@@ -44,6 +44,7 @@ export default function TvWhosHerePanel({
   canDraw,
   onDraw,
   isLoading = false,
+  loadFailed = false,
 }) {
   const away = new Set(awayKeys || []);
   return (
@@ -56,11 +57,17 @@ export default function TvWhosHerePanel({
       >
         <BowlIllustration className="tv-dialog-bowl" />
         <h2 id="tv-whos-here-title">Who&apos;s here?</h2>
-        <div className="tv-whos-here-faces" aria-busy={isLoading ? "true" : undefined}>
-          {rows.map((row) => (
-            <TvHereFace key={row.key} row={row} here={!away.has(row.key)} onToggle={onToggle} />
-          ))}
-        </div>
+        {/* Without a roster there are no faces to check out, so Draw draws
+            for everyone; Back and Draw again asks for the roster again. */}
+        {loadFailed ? (
+          <p className="tv-whos-here-failed">Couldn&apos;t load who&apos;s in this bowl.</p>
+        ) : (
+          <div className="tv-whos-here-faces" aria-busy={isLoading ? "true" : undefined}>
+            {rows.map((row) => (
+              <TvHereFace key={row.key} row={row} here={!away.has(row.key)} onToggle={onToggle} />
+            ))}
+          </div>
+        )}
         <div className="tv-dialog-actions">
           <button
             type="button"

@@ -1045,6 +1045,21 @@ describe("Movie Bowl TV experience", () => {
       await waitFor(() => expect(mocks.handleDraw).toHaveBeenCalledTimes(1));
     });
 
+    it("still draws, for everyone, when the roster cannot be read", async () => {
+      seatThree();
+      writeAwayKeys("user-1", "tv:family", ["user:casey"]);
+      mocks.people = { status: "error", members: [], names: {} };
+      mocks.handleDraw.mockReturnValue(new Promise(() => {}));
+      renderTonight();
+
+      fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+      const panel = screen.getByRole("dialog", { name: "Who's here?" });
+      expect(within(panel).getByText("Couldn't load who's in this bowl.")).toBeInTheDocument();
+      fireEvent.click(within(panel).getByRole("button", { name: "Draw", exact: true }));
+      await waitFor(() => expect(mocks.handleDraw).toHaveBeenCalledTimes(1));
+      expect(mocks.handleDraw.mock.calls[0][0].awayKeys).toEqual([]);
+    });
+
     it("keeps the old question for a bowl of one", async () => {
       mocks.memberCount = 1;
       renderTonight();
