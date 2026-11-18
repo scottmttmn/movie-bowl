@@ -51,7 +51,8 @@ html.tv-root {
     0 18px 48px -20px rgba(244, 63, 94, 0.72);
 }
 
-.tv-app [data-tv-focusable]:disabled {
+.tv-app [data-tv-focusable]:disabled,
+.tv-app [data-tv-focusable][aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.42;
 }

@@ -140,6 +140,7 @@ vi.mock("../../lib/tmdbApi", () => ({
 import { AUTO_LOOKUP_TITLE_LIMIT } from "../../hooks/useDrawPoolCount";
 import { getDrawReveal } from "../../utils/drawReveal";
 import { getContributorBucketKey } from "../../utils/drawBuckets";
+import { writeAwayKeys } from "../../utils/whoIsHere";
 import TvBowlPicker from "../screens/TvBowlPicker";
 import TvTonightScreen from "../screens/TvTonightScreen";
 
@@ -996,6 +997,52 @@ describe("Movie Bowl TV experience", () => {
       const confirm = screen.getByRole("dialog", { name: /draw a movie\?/i });
       fireEvent.click(within(confirm).getByRole("button", { name: "Who's here" }));
       expect(screen.getByRole("dialog", { name: "Who's here?" })).toBeInTheDocument();
+    });
+
+    it("opens on Draw even while the roster is still being read, and draws once it has", async () => {
+      seatThree();
+      // Casey was checked out earlier tonight, so this draw waits on the roster.
+      writeAwayKeys("user-1", "tv:family", ["user:casey"]);
+      const roster = mocks.people;
+      mocks.people = { status: "loading", members: [], names: {} };
+      mocks.handleDraw.mockReturnValue(new Promise(() => {}));
+      const view = renderTonight();
+
+      fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+      const draw = within(screen.getByRole("dialog", { name: "Who's here?" }))
+        .getByRole("button", { name: "Draw", exact: true });
+      expect(draw).toHaveAttribute("aria-disabled", "true");
+      // Still focusable, so the second OK lands here rather than on "Don't ask again".
+      await waitFor(() => expect(draw).toHaveFocus());
+      fireEvent.click(draw);
+      expect(mocks.handleDraw).not.toHaveBeenCalled();
+
+      mocks.people = roster;
+      view.rerender(renderTonightTree());
+      fireEvent.click(screen.getByRole("button", { name: "Draw", exact: true }));
+      await waitFor(() => expect(mocks.handleDraw).toHaveBeenCalledTimes(1));
+      expect(mocks.handleDraw.mock.calls[0][0].awayKeys).toEqual(["user:casey"]);
+    });
+
+    it("will not leave anyone out on a roster that is still being read again", async () => {
+      seatThree();
+      mocks.handleDraw.mockReturnValue(new Promise(() => {}));
+      const view = renderTonight();
+
+      fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+      fireEvent.click(screen.getByRole("button", { name: "Casey is here" }));
+      mocks.people = { ...mocks.people, isRefreshing: true };
+      view.rerender(renderTonightTree());
+
+      const draw = screen.getByRole("button", { name: "Draw", exact: true });
+      expect(draw).toHaveAttribute("aria-disabled", "true");
+      fireEvent.click(draw);
+      expect(mocks.handleDraw).not.toHaveBeenCalled();
+
+      mocks.people = { ...mocks.people, isRefreshing: false };
+      view.rerender(renderTonightTree());
+      fireEvent.click(screen.getByRole("button", { name: "Draw", exact: true }));
+      await waitFor(() => expect(mocks.handleDraw).toHaveBeenCalledTimes(1));
     });
 
     it("keeps the old question for a bowl of one", async () => {

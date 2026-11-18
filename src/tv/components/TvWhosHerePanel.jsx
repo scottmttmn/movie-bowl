@@ -83,8 +83,13 @@ export default function TvWhosHerePanel({
             data-tv-focusable
             data-tv-nav-group="whos-here-actions"
             data-tv-autofocus="true"
-            disabled={!canDraw}
-            onClick={onDraw}
+            // Dimmed rather than disabled while the roster settles: a disabled
+            // button cannot take focus, so the panel would open on "Don't ask
+            // again" and the second OK would change the setting, not draw.
+            aria-disabled={canDraw ? undefined : "true"}
+            onClick={() => {
+              if (canDraw) onDraw();
+            }}
           >
             Draw
           </button>

@@ -611,6 +611,11 @@ export default function TvTonightScreen({ userId }) {
     [bowl.remaining, awayKeys]
   );
   const hasPresentSlips = getDrawablePoolMovies(presentRemaining).length > 0;
+  // A draw that leaves anyone out waits for a roster that has answered for
+  // now: a reopened panel shows the last answer while it reads again, and
+  // someone who left since then must not take their slips with them.
+  const isRoomSettled = storedAwayKeys.length === 0
+    || (bowlPeople.status === "ready" && !bowlPeople.isRefreshing);
   const hereCount = awayKeys.length && bowlMeta.memberCount
     ? Math.max(0, Number(bowlMeta.memberCount) - awayKeys.length)
     : null;
@@ -980,7 +985,8 @@ export default function TvTonightScreen({ userId }) {
       isDrawing ||
       !bowlMeta.canDraw ||
       bowl.remaining.length === 0 ||
-      isPreferencesLoading
+      isPreferencesLoading ||
+      !isRoomSettled
     ) {
       return;
     }
@@ -1501,7 +1507,7 @@ export default function TvTonightScreen({ userId }) {
           onToggle={toggleAway}
           skipAsk={skipAsk}
           onSkipAskChange={setSkipAsk}
-          canDraw={hasPresentSlips && !isDrawing && bowlPeople.status === "ready"}
+          canDraw={hasPresentSlips && !isDrawing && isRoomSettled}
           isLoading={bowlPeople.status !== "ready"}
           onDraw={performDraw}
         />
