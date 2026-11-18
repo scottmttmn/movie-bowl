@@ -53,6 +53,12 @@ import { useTvBowlAccess } from "../hooks/useTvBowls";
 import useDeviceDrawSettings from "../../hooks/useDeviceDrawSettings";
 import useProviderLaunchError from "../hooks/useProviderLaunchError";
 import useTvSpatialNavigation from "../hooks/useTvSpatialNavigation";
+import TvWhosHerePanel from "../components/TvWhosHerePanel";
+import useWhoIsHere from "../../hooks/useWhoIsHere";
+import useBowlPeople from "../../hooks/useBowlPeople";
+import { buildBowlPeopleRows } from "../../utils/bowlPeople";
+import { filterPresentMovies } from "../../utils/whoIsHere";
+import { getDrawablePoolMovies } from "../../utils/drawPool";
 import {
   buildTrailerQueue,
   readRecentTrailers,
@@ -215,7 +221,10 @@ function TvErrorScreen({ message, onBack }) {
 // The phone's stat line, in the one place a television can put it: under the
 // button it describes. Static text, because a D-pad landing on a control that
 // opens nothing is worse than a mouse doing it.
-function TvDrawReadout({ readout, isApproximate, contributorReach, excludedContributorCount, memberCount, drawMethod }) {
+// One empty list, so a room with nobody away never looks like a change.
+const NO_AWAY_KEYS = Object.freeze([]);
+
+function TvDrawReadout({ readout, isApproximate, contributorReach, excludedContributorCount, memberCount, hereCount = null, drawMethod }) {
   if (readout.count === 0) {
     return (
       <p className="tv-draw-readout" data-tone={STREAMING_MATCH_TONE.warning}>
@@ -248,6 +257,17 @@ function TvDrawReadout({ readout, isApproximate, contributorReach, excludedContr
           <span className="sr-only">
             {`Only ${contributorReach.reachedCount} of ${contributorReach.totalCount} people have a movie in the draw.`}
           </span>
+        </span>
+      ) : memberCount && hereCount !== null && hereCount < memberCount ? (
+        // Someone is away tonight: the people turn rose and read here/total,
+        // the way the phone's stat line does.
+        <span className="tv-draw-readout-stat tv-draw-readout-members" data-here="true">
+          <span className="sr-only">. </span>
+          <PeopleGlyph className="tv-draw-readout-glyph" />
+          <span aria-hidden="true">
+            <strong>{hereCount}</strong>/{memberCount}
+          </span>
+          <span className="sr-only">{`Drawing for ${hereCount} of ${memberCount} people.`}</span>
         </span>
       ) : memberCount ? (
         <span className="tv-draw-readout-stat tv-draw-readout-members">
@@ -473,6 +493,8 @@ export default function TvTonightScreen({ userId }) {
   const streamingMode = getStreamingMode(defaultDrawSettings);
 
   const [showDrawConfirm, setShowDrawConfirm] = useState(false);
+  const [showWhosHere, setShowWhosHere] = useState(false);
+  const [whosHereOpenings, setWhosHereOpenings] = useState(0);
   const [isDrawing, setIsDrawing] = useState(false);
   // Where the curtains around the bowl stood when the draw began, so the
   // screen-wide pair can grow out of them.
@@ -547,13 +569,63 @@ export default function TvTonightScreen({ userId }) {
     () => ({ ...filterMetadataFetchers, autoRunLookups: true }),
     [filterMetadataFetchers]
   );
+  // Who's in the room. The television keeps its own room, apart from any
+  // phone's and from the web in the same browser, because whoever holds the
+  // remote is not the account it is signed in as.
+  const {
+    awayKeys: storedAwayKeys,
+    getLiveAwayKeys,
+    toggleAway,
+    skipAsk,
+    setSkipAsk,
+  } = useWhoIsHere({ bowlId: bowlId ? `tv:${bowlId}` : null, userId });
+  const hasRoomToAsk = Boolean(bowlMeta.canDraw) && Number(bowlMeta.memberCount) > 1;
+  const asksWhoIsHere = hasRoomToAsk && !skipAsk;
+  const bowlPeople = useBowlPeople(bowlId, {
+    enabled: showWhosHere || asksWhoIsHere || (hasRoomToAsk && storedAwayKeys.length > 0),
+    refreshKey: `${whosHereOpenings}|${bowlMeta.memberCount}`,
+  });
+  const memberRows = useMemo(
+    () => (bowlPeople.status === "ready"
+      ? buildBowlPeopleRows({
+        members: bowlPeople.members,
+        ownerId: bowlMeta.ownerId,
+        ownerName: bowlPeople.names[bowlMeta.ownerId] || null,
+        names: bowlPeople.names,
+        currentUserId: userId,
+      }).filter((row) => row.isMember)
+      : []),
+    [bowlPeople, bowlMeta.ownerId, userId]
+  );
+  // Someone marked away who has since left has no seat to be missing from,
+  // so their slips stay in like any former member's.
+  const awayKeys = useMemo(() => {
+    if (!hasRoomToAsk || storedAwayKeys.length === 0) return NO_AWAY_KEYS;
+    if (bowlPeople.status !== "ready") return storedAwayKeys;
+    const roster = new Set(memberRows.map((row) => row.key));
+    const kept = storedAwayKeys.filter((key) => roster.has(key));
+    return kept.length ? kept : NO_AWAY_KEYS;
+  }, [hasRoomToAsk, storedAwayKeys, bowlPeople.status, memberRows]);
+  const presentRemaining = useMemo(
+    () => filterPresentMovies(bowl.remaining, awayKeys),
+    [bowl.remaining, awayKeys]
+  );
+  const hasPresentSlips = getDrawablePoolMovies(presentRemaining).length > 0;
+  const hereCount = awayKeys.length && bowlMeta.memberCount
+    ? Math.max(0, Number(bowlMeta.memberCount) - awayKeys.length)
+    : null;
+  const openWhosHere = () => {
+    setWhosHereOpenings((count) => count + 1);
+    setShowDrawConfirm(false);
+    setShowWhosHere(true);
+  };
   const {
     status: drawPoolStatus,
     poolCount: drawPoolCount,
     totalCount: drawPoolTotalCount,
     contributorReach: drawPoolContributorReach,
     streamingMatch: drawPoolStreamingMatch,
-  } = useDrawPoolCount(bowl.remaining, drawOptions, drawPoolOptions);
+  } = useDrawPoolCount(presentRemaining, drawOptions, drawPoolOptions);
   const isStreamingPrioritized =
     Boolean(drawOptions.prioritizeByServices) && streamingServices.length > 0;
   const hasResolvedPrioritizedPool =
@@ -849,6 +921,7 @@ export default function TvTonightScreen({ userId }) {
       isAccessLoading,
       isBowlLoading,
       showDrawConfirm,
+      showWhosHere,
       isDrawing,
       drawnMovie?.id || "",
       selectedHistoryMovie?.drawEventId || selectedHistoryMovie?.id || "",
@@ -875,6 +948,10 @@ export default function TvTonightScreen({ userId }) {
       }
       if (showDrawConfirm) {
         setShowDrawConfirm(false);
+        return;
+      }
+      if (showWhosHere) {
+        setShowWhosHere(false);
         return;
       }
       if (showTrailer) {
@@ -911,6 +988,7 @@ export default function TvTonightScreen({ userId }) {
     drawInFlightRef.current = true;
     clearExternalReturn();
     setShowDrawConfirm(false);
+    setShowWhosHere(false);
     setTonightMessage(null);
     setCurtainOrigin(
       drawBowlRef.current?.closest(".tv-draw-cta")?.querySelector(".theater-curtains")?.getBoundingClientRect() || null
@@ -940,8 +1018,12 @@ export default function TvTonightScreen({ userId }) {
       const delay = new Promise((resolve) =>
         window.setTimeout(resolve, MIN_DRAW_ANIMATION_MS)
       );
+      // Read again at the moment of the draw: a television left on all week
+      // must not carry an absence past its evening.
+      const liveAwayKeys = getLiveAwayKeys();
       const drawPromise = handleDraw({
         ...drawOptions,
+        awayKeys: awayKeys.filter((key) => liveAwayKeys.includes(key)),
         onPoolResolved: (pool) => updateRun({
           preview: getDrawRevealPreview({ drawMethod: run.methodId, pool }),
           previewAt: Date.now() - startedAt,
@@ -998,6 +1080,7 @@ export default function TvTonightScreen({ userId }) {
     !isDrawing &&
     !drawnMovie &&
     !showDrawConfirm &&
+    !showWhosHere &&
     !pendingReturn &&
     !selectedHistoryMovie &&
     !showTrailer &&
@@ -1224,7 +1307,7 @@ export default function TvTonightScreen({ userId }) {
 
   // Same reason as the reveal: aria-hidden keeps this out of our navigation,
   // but only inert keeps it out of the WebView's own D-pad traversal.
-  const isBehindDialog = Boolean(showDrawConfirm || pendingReturn);
+  const isBehindDialog = Boolean(showDrawConfirm || showWhosHere || pendingReturn);
 
   return (
     <main className="tv-page tv-tonight-page">
@@ -1264,7 +1347,10 @@ export default function TvTonightScreen({ userId }) {
                 disabled={drawDisabled}
                 onClick={() => {
                   setTonightMessage(null);
-                  setShowDrawConfirm(true);
+                  // The who's-here panel is the draw's confirmation; the old
+                  // question comes back only where the panel does not.
+                  if (asksWhoIsHere) openWhosHere();
+                  else setShowDrawConfirm(true);
                 }}
               >
                 <BowlIllustration className="tv-draw-bowl" />
@@ -1276,6 +1362,7 @@ export default function TvTonightScreen({ userId }) {
                   isApproximate={shownDrawReadout.isApproximate}
                   contributorReach={shownDrawReadout.reach}
                   memberCount={bowlMeta.memberCount}
+                  hereCount={hereCount}
                   drawMethod={bowlMeta.drawMethod}
                   excludedContributorCount={
                     shownDrawReadout.reach
@@ -1369,7 +1456,7 @@ export default function TvTonightScreen({ userId }) {
           >
             <BowlIllustration className="tv-dialog-bowl" />
             <h2 id="tv-confirm-title">Draw a movie?</h2>
-            <div className="tv-dialog-actions">
+            <div className={`tv-dialog-actions${hasRoomToAsk ? " tv-dialog-actions-three" : ""}`}>
               <button
                 type="button"
                 className="tv-button tv-button-quiet"
@@ -1379,6 +1466,19 @@ export default function TvTonightScreen({ userId }) {
               >
                 Not yet
               </button>
+              {/* Asking was turned off on this television: this is the way
+                  back to the faces, and to turning it on again. */}
+              {hasRoomToAsk && (
+                <button
+                  type="button"
+                  className="tv-button tv-button-quiet"
+                  data-tv-focusable
+                  data-tv-nav-group="draw-dialog"
+                  onClick={openWhosHere}
+                >
+                  Who&apos;s here
+                </button>
+              )}
               <button
                 type="button"
                 className="tv-button tv-button-primary"
@@ -1392,6 +1492,19 @@ export default function TvTonightScreen({ userId }) {
             </div>
           </section>
         </div>
+      )}
+
+      {showWhosHere && (
+        <TvWhosHerePanel
+          rows={memberRows}
+          awayKeys={awayKeys}
+          onToggle={toggleAway}
+          skipAsk={skipAsk}
+          onSkipAskChange={setSkipAsk}
+          canDraw={hasPresentSlips && !isDrawing && bowlPeople.status === "ready"}
+          isLoading={bowlPeople.status !== "ready"}
+          onDraw={performDraw}
+        />
       )}
 
       <TvReturnDialog
