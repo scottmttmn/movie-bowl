@@ -17,7 +17,7 @@ import DrawMethodInfoModal from "../components/DrawMethodInfoModal";
 import BowlPeopleSheet from "../components/BowlPeopleSheet";
 import { buildBowlPeopleRows } from "../utils/bowlPeople";
 import useWhoIsHere from "../hooks/useWhoIsHere";
-import { filterPresentMovies, isOnlyMeHere } from "../utils/whoIsHere";
+import { filterPresentMovies, isOnlyMeHere, readAwayKeys } from "../utils/whoIsHere";
 import BowlPicker from "../components/BowlPicker";
 import CreateBowlModal from "../components/CreateBowlModal";
 import useCreateBowl from "../hooks/useCreateBowl";
@@ -548,8 +548,25 @@ export default function BowlDashboard() {
     // A one-person bowl has no room to ask about, and someone who cannot draw
     // has no draw to narrow.
     const hasRoomToAsk = canCurrentUserDraw && currentBowlMemberCount > 1;
-    const awayKeys = hasRoomToAsk ? storedAwayKeys : NO_AWAY_KEYS;
     const asksWhoIsHere = hasRoomToAsk && !skipAsk;
+    // Read ahead while the draw asks who's here, so the sheet opens on names
+    // rather than placeholders the moment Draw is tapped -- and whenever
+    // someone is marked away, to check they are still a member.
+    const bowlPeople = useBowlPeople(bowlId, {
+      enabled: showPeople || asksWhoIsHere || (hasRoomToAsk && storedAwayKeys.length > 0),
+      includeInvites: isCurrentUserOwner,
+    });
+    // Someone who has left since being marked away has no seat to be missing
+    // from, and the sheet offers no check to bring them back: their slips
+    // stay in like any former member's.
+    const awayKeys = useMemo(() => {
+      if (!hasRoomToAsk || storedAwayKeys.length === 0) return NO_AWAY_KEYS;
+      if (bowlPeople.status !== "ready") return storedAwayKeys;
+      const roster = new Set(bowlPeople.members.map((member) => `user:${member.userId}`));
+      if (bowlOwnerId) roster.add(`user:${bowlOwnerId}`);
+      const kept = storedAwayKeys.filter((key) => roster.has(key));
+      return kept.length ? kept : NO_AWAY_KEYS;
+    }, [hasRoomToAsk, storedAwayKeys, bowlPeople, bowlOwnerId]);
     const presentRemaining = useMemo(
       () => filterPresentMovies(bowl.remaining, awayKeys),
       [awayKeys, bowl.remaining]
@@ -657,9 +674,6 @@ export default function BowlDashboard() {
 
     // Read only while the sheet is open; the counts reuse the pool the stat
     // line already resolved, so the sheet costs no lookups of its own.
-    // Read ahead while the draw asks who's here, so the sheet opens on names
-    // rather than placeholders the moment Draw is tapped.
-    const bowlPeople = useBowlPeople(bowlId, { enabled: showPeople || asksWhoIsHere, includeInvites: isCurrentUserOwner });
     // On rotation the people sheet lists people in turn order, asked of the
     // pool tonight's draw would use: the filtered pool once it is counted, the
     // whole bowl when nothing narrows it, and no order while a large bowl's
@@ -1221,6 +1235,12 @@ export default function BowlDashboard() {
     const runDraw = async () => {
       if (isDrawing || isFirstLoad || !canCurrentUserDraw || bowl.remaining.length === 0) return;
       setShowDrawConfirm(false);
+      // Every way in -- the sheet, the hold, the keyboard's confirm -- lands
+      // here, so watching alone becomes a solo draw however it was started.
+      if (drawsForMyself) {
+        navigate(`/solo-draw?bowl=${bowlId}`);
+        return;
+      }
       const startedAt = Date.now();
       const reducedMotion = Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
       const run = {
@@ -1260,8 +1280,11 @@ export default function BowlDashboard() {
             ? { excluded: excludedCuisines, closedPlaceIds }
             : null;
         }
+        // Read again at the moment of the draw: a page left open all week
+        // must not carry an absence past its evening.
+        const liveAwayKeys = readAwayKeys(currentUserId, bowlId);
         const drawPromise = handleDraw({
-          awayKeys,
+          awayKeys: awayKeys.filter((key) => liveAwayKeys.includes(key)),
           prioritizeByServices: prioritizeStreaming,
           prioritizeByServiceRank: useStreamingRank,
           userStreamingServices,
@@ -2134,10 +2157,6 @@ return (
                 onDraw={() => {
                   setShowPeople(false);
                   setPeopleMode("list");
-                  if (drawsForMyself) {
-                    navigate(`/solo-draw?bowl=${bowlId}`);
-                    return;
-                  }
                   runDraw();
                 }}
               />

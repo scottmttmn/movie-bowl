@@ -106,14 +106,11 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
 }));
 
 vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
+const roster = vi.hoisted(() => ({ members: [] }));
 vi.mock("../../hooks/useBowlPeople", () => ({
   default: () => ({
     status: "ready",
-    members: [
-      { userId: "u1", role: "Owner", displayName: "Scott" },
-      { userId: "u2", role: "Member", displayName: "Jordan" },
-      { userId: "u3", role: "Member", displayName: "Casey" },
-    ],
+    members: roster.members,
     invites: [],
     names: { u1: "Scott", u2: "Jordan", u3: "Casey" },
   }),
@@ -167,6 +164,11 @@ describe("BowlDashboard asking who's here", () => {
     mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }, { user_id: "u3" }];
     mocks.state.bowlData = { remaining: slips(), watched: [] };
     mocks.state.handleDraw.mockReset().mockResolvedValue(null);
+    roster.members = [
+      { userId: "u1", role: "Owner", displayName: "Scott" },
+      { userId: "u2", role: "Member", displayName: "Jordan" },
+      { userId: "u3", role: "Member", displayName: "Casey" },
+    ];
   });
 
   afterEach(() => {
@@ -241,5 +243,34 @@ describe("BowlDashboard asking who's here", () => {
     fireEvent.click(box);
     fireEvent.click(within(sheet()).getByRole("button", { name: "Close" }));
     expect(screen.getByRole("button", { name: "Draw movie from bowl. Choose who's here first." })).toBeInTheDocument();
+  });
+
+  it("lets the slips of someone who has since left back into the draw", async () => {
+    await renderBowl();
+    tapDraw();
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Casey is here" }));
+    cleanup();
+
+    roster.members = roster.members.filter((member) => member.userId !== "u3");
+    await renderBowl();
+    tapDraw();
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Draw" }));
+    await waitFor(() => expect(mocks.state.handleDraw).toHaveBeenCalledTimes(1));
+    expect(mocks.state.handleDraw.mock.calls[0][0].awayKeys).toEqual([]);
+  });
+
+  it("draws for yourself from the hold as well, once the question is skipped", async () => {
+    await renderBowl();
+    tapDraw();
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Jordan is here" }));
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Casey is here" }));
+    fireEvent.click(within(sheet()).getByRole("checkbox", { name: "Don't ask again" }));
+    fireEvent.click(document.querySelector(".modal-overlay"));
+
+    const hold = await screen.findByRole("button", { name: "Draw movie from bowl. Press and hold to draw." });
+    fireEvent.click(hold, { detail: 0 });
+    fireEvent.click(screen.getByRole("button", { name: /^Reveal/ }));
+    expect(mocks.state.navigate).toHaveBeenCalledWith("/solo-draw?bowl=bowl-1");
+    expect(mocks.state.handleDraw).not.toHaveBeenCalled();
   });
 });
