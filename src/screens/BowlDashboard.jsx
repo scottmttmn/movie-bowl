@@ -742,7 +742,8 @@ export default function BowlDashboard() {
     // With someone marked away, whether this is a solo draw depends on the
     // roster, so the draw waits for it rather than spend the bowl's turn on a
     // guess. A failed read retries with the next opening of the sheet.
-    const isRoomSettled = awayKeys.length === 0 || bowlPeople.status === "ready";
+    const isRoomSettled = awayKeys.length === 0
+      || (bowlPeople.status === "ready" && !bowlPeople.isRefreshing);
     const statLineInputs = {
       poolStatus: drawPoolStatus,
       poolCount: drawPoolCount,

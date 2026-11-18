@@ -30,7 +30,7 @@ export default function useBowlPeople(bowlId, { enabled = false, includeInvites 
 
       if (membersResult.error) {
         console.error("[useBowlPeople] Failed to load members", membersResult.error);
-        setState({ key, status: "error", members: [], invites: [], names: {} });
+        setState({ key, refreshKey, status: "error", members: [], invites: [], names: {} });
         return;
       }
       if (profilesResult.error) {
@@ -45,6 +45,7 @@ export default function useBowlPeople(bowlId, { enabled = false, includeInvites 
       );
       setState({
         key,
+        refreshKey,
         status: "ready",
         members: (membersResult.data || [])
           .filter((row) => row?.user_id)
@@ -66,7 +67,7 @@ export default function useBowlPeople(bowlId, { enabled = false, includeInvites 
     load().catch((error) => {
       if (cancelled) return;
       console.error("[useBowlPeople] Failed to load people", error);
-      setState({ key, status: "error", members: [], invites: [], names: {} });
+      setState({ key, refreshKey, status: "error", members: [], invites: [], names: {} });
     });
     return () => {
       cancelled = true;
@@ -77,6 +78,8 @@ export default function useBowlPeople(bowlId, { enabled = false, includeInvites 
 
   // Reopening shows what the last read found while the next one runs; another
   // bowl's people are never shown for this one.
-  if (state.key !== key) return { status: enabled ? "loading" : "idle", members: [], invites: [], names: {} };
-  return state;
+  if (state.key !== key) return { status: enabled ? "loading" : "idle", members: [], invites: [], names: {}, isRefreshing: false };
+  // isRefreshing: the rows are an earlier answer and a newer read is out, so
+  // anything deciding on who is in the bowl should wait for it.
+  return { ...state, isRefreshing: enabled && state.refreshKey !== refreshKey };
 }

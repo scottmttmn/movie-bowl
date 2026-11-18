@@ -37,9 +37,12 @@ describe("useBowlPeople", () => {
     );
     await waitFor(() => expect(result.current.members[0]?.displayName).toBe("Scott"));
     names = [{ user_id: "u1", display_name: "Scotty" }];
+    expect(result.current.isRefreshing).toBe(false);
     rerender({ refreshKey: 2 });
     expect(result.current.members[0].displayName).toBe("Scott");
+    expect(result.current.isRefreshing).toBe(true);
     await waitFor(() => expect(result.current.members[0].displayName).toBe("Scotty"));
+    expect(result.current.isRefreshing).toBe(false);
     expect(state.rpc).toHaveBeenCalledTimes(2);
   });
 

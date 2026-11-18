@@ -106,11 +106,12 @@ vi.mock("../../hooks/useUserStreamingServices", () => ({
 }));
 
 vi.mock("../../lib/supabase", () => ({ supabase: mocks.supabase }));
-const roster = vi.hoisted(() => ({ members: [], status: "ready" }));
+const roster = vi.hoisted(() => ({ members: [], status: "ready", isRefreshing: false }));
 vi.mock("../../hooks/useBowlPeople", () => ({
   default: () => ({
     status: roster.status,
     members: roster.status === "ready" ? roster.members : [],
+    isRefreshing: roster.isRefreshing,
     invites: [],
     names: { u1: "Scott", u2: "Jordan", u3: "Casey" },
   }),
@@ -166,6 +167,7 @@ describe("BowlDashboard asking who's here", () => {
     mocks.state.bowlData = { remaining: slips(), watched: [] };
     mocks.state.handleDraw.mockReset().mockResolvedValue(null);
     roster.status = "ready";
+    roster.isRefreshing = false;
     userBowlsMock.bowls[0].memberCount = 3;
     roster.members = [
       { userId: "u1", role: "Owner", displayName: "Scott" },
@@ -299,5 +301,13 @@ describe("BowlDashboard asking who's here", () => {
     fireEvent.click(within(sheet()).getByRole("button", { name: "Draw" }));
     await waitFor(() => expect(mocks.state.handleDraw).toHaveBeenCalled());
     expect(mocks.state.handleDraw.mock.calls[0][0].awayKeys).toEqual(["user:u3"]);
+  });
+
+  it("does not decide on a solo draw from a roster that is being read again", async () => {
+    writeAwayKeys("u1", "bowl-1", ["user:u2", "user:u3"]);
+    roster.isRefreshing = true;
+    await renderBowl();
+    tapDraw();
+    expect(within(sheet()).getByRole("button", { name: /Draw for myself/ })).toBeDisabled();
   });
 });
