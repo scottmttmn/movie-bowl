@@ -1,3 +1,4 @@
+import { StrictMode } from "react";
 import { act, renderHook } from "@testing-library/react";
 import { afterEach, describe, expect, it, vi } from "vitest";
 import useWhoIsHere from "../useWhoIsHere";
@@ -32,5 +33,25 @@ describe("useWhoIsHere", () => {
     rerender({ bowlId: "b1" });
     expect(result.current.awayKeys).toEqual(["user:casey"]);
     expect(result.current.skipAsk).toBe(true);
+  });
+
+  it("toggles once per tap under StrictMode", () => {
+    const { result } = renderHook(() => useWhoIsHere({ bowlId: "b1", userId: "me" }), { wrapper: StrictMode });
+    act(() => result.current.toggleAway("user:casey"));
+    act(() => result.current.toggleAway("user:robin"));
+    expect(result.current.awayKeys).toEqual(["user:casey", "user:robin"]);
+    expect(result.current.getLiveAwayKeys()).toEqual(["user:casey", "user:robin"]);
+  });
+
+  it("keeps the room for this visit when storage refuses to save it", () => {
+    const setItem = vi.spyOn(Storage.prototype, "setItem").mockImplementation(() => {
+      throw new Error("QuotaExceededError");
+    });
+    const { result } = renderHook(() => useWhoIsHere({ bowlId: "b1", userId: "me" }));
+    act(() => result.current.toggleAway("user:casey"));
+    act(() => document.dispatchEvent(new Event("visibilitychange")));
+    expect(result.current.awayKeys).toEqual(["user:casey"]);
+    expect(result.current.getLiveAwayKeys()).toEqual(["user:casey"]);
+    setItem.mockRestore();
   });
 });

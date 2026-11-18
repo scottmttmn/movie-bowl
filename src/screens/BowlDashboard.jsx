@@ -17,7 +17,7 @@ import DrawMethodInfoModal from "../components/DrawMethodInfoModal";
 import BowlPeopleSheet from "../components/BowlPeopleSheet";
 import { buildBowlPeopleRows } from "../utils/bowlPeople";
 import useWhoIsHere from "../hooks/useWhoIsHere";
-import { filterPresentMovies, isOnlyMeHere, readAwayKeys } from "../utils/whoIsHere";
+import { filterPresentMovies, isOnlyMeHere } from "../utils/whoIsHere";
 import BowlPicker from "../components/BowlPicker";
 import CreateBowlModal from "../components/CreateBowlModal";
 import useCreateBowl from "../hooks/useCreateBowl";
@@ -544,7 +544,7 @@ export default function BowlDashboard() {
     );
     // Who's in the room tonight. Everything the draw and its readouts count
     // starts from their slips only; the absent keep theirs in the bowl.
-    const { awayKeys: storedAwayKeys, toggleAway, skipAsk, setSkipAsk } = useWhoIsHere({ bowlId, userId: currentUserId });
+    const { awayKeys: storedAwayKeys, getLiveAwayKeys, toggleAway, skipAsk, setSkipAsk } = useWhoIsHere({ bowlId, userId: currentUserId });
     // A one-person bowl has no room to ask about, and someone who cannot draw
     // has no draw to narrow.
     const hasRoomToAsk = canCurrentUserDraw && currentBowlMemberCount > 1;
@@ -1282,7 +1282,7 @@ export default function BowlDashboard() {
         }
         // Read again at the moment of the draw: a page left open all week
         // must not carry an absence past its evening.
-        const liveAwayKeys = readAwayKeys(currentUserId, bowlId);
+        const liveAwayKeys = getLiveAwayKeys();
         const drawPromise = handleDraw({
           awayKeys: awayKeys.filter((key) => liveAwayKeys.includes(key)),
           prioritizeByServices: prioritizeStreaming,

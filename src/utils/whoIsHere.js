@@ -34,10 +34,27 @@ function write(userId, bowlId, patch) {
   }
 }
 
+// What this device saved for the bowl, unexpired or not; `saved` is false when
+// nothing could be read, so a caller holding its own copy can keep it.
+export function readRoomRecord(userId, bowlId) {
+  const saved = read(userId, bowlId);
+  const away = Array.isArray(saved.away) ? saved.away.filter((key) => typeof key === "string") : [];
+  return {
+    saved: Object.keys(saved).length > 0,
+    away,
+    awayAt: Number.isFinite(saved.awayAt) ? saved.awayAt : 0,
+    skipAsk: saved.skipAsk === true,
+  };
+}
+
+// The absences still in force: none once their evening is over.
+export function liveAwayKeys(record, now = Date.now()) {
+  if (!record?.away?.length || !Number.isFinite(record.awayAt) || now - record.awayAt > AWAY_TTL_MS) return [];
+  return record.away;
+}
+
 export function readAwayKeys(userId, bowlId, now = Date.now()) {
-  const { away, awayAt } = read(userId, bowlId);
-  if (!Array.isArray(away) || !Number.isFinite(awayAt) || now - awayAt > AWAY_TTL_MS) return [];
-  return away.filter((key) => typeof key === "string");
+  return liveAwayKeys(readRoomRecord(userId, bowlId), now);
 }
 
 export function writeAwayKeys(userId, bowlId, away, now = Date.now()) {
