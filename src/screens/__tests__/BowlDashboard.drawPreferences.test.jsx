@@ -135,6 +135,13 @@ vi.mock("react-router-dom", async () => {
 });
 
 import BowlDashboard from "../BowlDashboard";
+import { writeSkipAsk } from "../../utils/whoIsHere";
+
+// These cover the hold path, so the draw is set not to ask who's here: the
+// asking is BowlDashboard.whoIsHere.test.jsx's.
+function skipWhoIsHere() {
+  for (const userId of ["u1", "u2"]) writeSkipAsk(userId, "bowl-1", true);
+}
 
 function renderDashboard() {
   return render(<BowlDashboard />);
@@ -148,6 +155,7 @@ function confirmDraw() {
 
 describe("BowlDashboard draw preferences", () => {
   beforeEach(() => {
+    skipWhoIsHere();
     mocks.state.navigate.mockReset();
     mocks.state.preferencesLoading = false;
     mocks.state.preferencesLoadError = null;
@@ -538,6 +546,7 @@ describe("BowlDashboard draw preferences", () => {
   describe("theater mode toggle", () => {
     beforeEach(() => {
       window.localStorage.clear();
+      skipWhoIsHere();
     });
 
     afterEach(() => {
@@ -813,6 +822,7 @@ describe("BowlDashboard draw preferences", () => {
 
     beforeEach(() => {
       window.localStorage.clear();
+      skipWhoIsHere();
       window.localStorage.setItem(
         "movie-bowl:tv:draw-settings:u1",
         JSON.stringify({ theaterModeEnabled: true })

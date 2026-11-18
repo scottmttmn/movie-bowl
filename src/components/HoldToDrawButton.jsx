@@ -32,12 +32,17 @@ function buzz(ms) {
  * which the caller routes to a confirm dialog — the same intent gate the hold
  * provides physically.
  *
+ * With `onTap` it is a plain button: a bowl that asks who is here before each
+ * draw already has a deliberate second step, so the hold would be a third.
+ *
  * `mark` -- the bowl page's lit television -- sits halfway between the end of
  * the label and the button's edge, so the label stays centred and the mark
  * never crowds either. It is decoration only: whatever it means belongs in
  * `ariaLabel` too.
  */
 export default function HoldToDrawButton({
+  id = undefined,
+  onTap = null,
   onHoldComplete,
   onKeyboardActivate,
   onHoldStateChange,
@@ -56,6 +61,9 @@ export default function HoldToDrawButton({
   // overwrite the fill of a hold that has already started.
   const pressRef = useRef(0);
   const isInteractive = !disabled && !isLoading;
+  // A tap opens the step that confirms the draw instead -- who is here --
+  // so there is nothing to hold.
+  const isTap = Boolean(onTap);
 
   const clearTimers = () => {
     timersRef.current.forEach((id) => clearTimeout(id));
@@ -115,21 +123,27 @@ export default function HoldToDrawButton({
   const handleClick = (event) => {
     // detail === 0 is a keyboard/AT activation; pointer releases arrive with
     // detail >= 1 and are already handled (or cancelled) by the hold itself.
-    if (!isInteractive || event.detail !== 0) return;
+    if (!isInteractive) return;
+    if (isTap) {
+      onTap();
+      return;
+    }
+    if (event.detail !== 0) return;
     onKeyboardActivate?.();
   };
 
   return (
     <button
+      id={id}
       type="button"
       disabled={disabled || isLoading}
-      onPointerDown={startHold}
-      onPointerUp={endHold}
-      onPointerLeave={endHold}
-      onPointerCancel={endHold}
+      onPointerDown={isTap ? undefined : startHold}
+      onPointerUp={isTap ? undefined : endHold}
+      onPointerLeave={isTap ? undefined : endHold}
+      onPointerCancel={isTap ? undefined : endHold}
       onClick={handleClick}
       onContextMenu={(event) => event.preventDefault()}
-      className="btn btn-primary relative w-full max-w-sm select-none touch-none overflow-hidden disabled:opacity-50 disabled:cursor-not-allowed"
+      className={`btn btn-primary relative w-full max-w-sm select-none overflow-hidden ${isTap ? "" : "touch-none"} disabled:opacity-50 disabled:cursor-not-allowed`}
       style={{ WebkitTouchCallout: "none" }}
       aria-label={inBowlWords(kind, isLoading ? "Drawing movie from bowl" : ariaLabel)}
     >

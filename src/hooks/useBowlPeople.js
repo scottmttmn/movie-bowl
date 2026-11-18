@@ -5,7 +5,7 @@ import { supabase } from "../lib/supabase";
 // roles, the names the profile directory will share, and for the owner the
 // invitations still waiting. A failed name or invite read degrades to fewer
 // details rather than an empty sheet; only the roster itself is required.
-export default function useBowlPeople(bowlId, { enabled = false, includeInvites = false } = {}) {
+export default function useBowlPeople(bowlId, { enabled = false, includeInvites = false, refreshKey = null } = {}) {
   const key = `${bowlId}|${includeInvites}`;
   const [state, setState] = useState({ key: null, status: "idle", members: [], invites: [], names: {} });
 
@@ -30,7 +30,7 @@ export default function useBowlPeople(bowlId, { enabled = false, includeInvites 
 
       if (membersResult.error) {
         console.error("[useBowlPeople] Failed to load members", membersResult.error);
-        setState({ key, status: "error", members: [], invites: [], names: {} });
+        setState({ key, refreshKey, status: "error", members: [], invites: [], names: {} });
         return;
       }
       if (profilesResult.error) {
@@ -45,6 +45,7 @@ export default function useBowlPeople(bowlId, { enabled = false, includeInvites 
       );
       setState({
         key,
+        refreshKey,
         status: "ready",
         members: (membersResult.data || [])
           .filter((row) => row?.user_id)
@@ -60,14 +61,25 @@ export default function useBowlPeople(bowlId, { enabled = false, includeInvites 
       });
     };
 
-    load();
+    // The dashboard now reads the roster before any sheet opens (the draw asks
+    // who's here), so a read that throws rather than returning an error must
+    // land in the same error state instead of escaping as an unhandled rejection.
+    load().catch((error) => {
+      if (cancelled) return;
+      console.error("[useBowlPeople] Failed to load people", error);
+      setState({ key, refreshKey, status: "error", members: [], invites: [], names: {} });
+    });
     return () => {
       cancelled = true;
     };
-  }, [bowlId, enabled, includeInvites, key]);
+    // refreshKey asks for a fresh read while enabled stays on (a reopened
+    // sheet, a changed member count); the last answer shows meanwhile.
+  }, [bowlId, enabled, includeInvites, key, refreshKey]);
 
   // Reopening shows what the last read found while the next one runs; another
   // bowl's people are never shown for this one.
-  if (state.key !== key) return { status: enabled ? "loading" : "idle", members: [], invites: [], names: {} };
-  return state;
+  if (state.key !== key) return { status: enabled ? "loading" : "idle", members: [], invites: [], names: {}, isRefreshing: false };
+  // isRefreshing: the rows are an earlier answer and a newer read is out, so
+  // anything deciding on who is in the bowl should wait for it.
+  return { ...state, isRefreshing: enabled && state.refreshKey !== refreshKey };
 }

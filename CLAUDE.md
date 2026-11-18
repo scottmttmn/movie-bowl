@@ -600,6 +600,23 @@ Draw access is per bowl: `bowls.draw_access_mode` is `"all_members"` or
 `"selected_members"`, with the allow-list in `bowl_draw_permissions`, saved
 through `save_bowl_draw_access`.
 
+**Who's here.** On a bowl with more than one member, for someone who may draw,
+Draw is a tap that opens the people sheet with every member checked. A member
+unchecked there sits the draw out: `filterPresentMovies` (`utils/whoIsHere.js`)
+drops their slips before filters, streaming priority and the method run, so it
+narrows the incoming pool exactly like a filter -- person-first piles, the
+reveal and rotation's turn order see only the people here, and someone away
+keeps their place in rotation rather than losing a turn. Only members can be
+away: link guests, people who left and starter-pack slips always stay in. The
+choice is kept per device, account and bowl for twelve hours (`useWhoIsHere`),
+so last week's empty chair never shrinks this week's draw. That sheet is the
+draw's confirmation, which is why the button is a tap; "Don't ask again" brings
+back the hold and its keyboard confirm, and the people count under the bowl
+opens the same sheet to undo it. With only the drawer checked on a movie bowl
+the sheet hands off to solo draw (`/solo-draw?bowl=`) instead of spending the
+bowl's draw. Not yet: every member still gets the personal history row, and the
+television does not ask. See `output/designs/whos-here.md`.
+
 ## Serverless routes (`api/`)
 
 Plain Vercel handlers: `export default async function handler(req, res)`,

@@ -40,7 +40,25 @@ function Initial({ children, dashed = false, tone = "idle", badge = null }) {
   );
 }
 
-function describeRow(row, showLeftOut, showCounts, isNext, kind) {
+// Here or not: a filled rose check for someone on the couch, an empty ring
+// for someone who isn't. Nothing to read.
+function HereCheck({ here }) {
+  return (
+    <span
+      aria-hidden="true"
+      className={`ml-1 grid h-6 w-6 shrink-0 place-items-center rounded-full border-2 transition ${
+        here ? "border-rose-500 bg-rose-600 text-white" : "border-slate-600 bg-transparent text-transparent"
+      }`}
+    >
+      <svg viewBox="0 0 24 24" className="h-3.5 w-3.5" fill="none" stroke="currentColor" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
+        <path d="M5 12.5l4.5 4.5L19 7.5" />
+      </svg>
+    </span>
+  );
+}
+
+function describeRow(row, showLeftOut, showCounts, isNext, kind, isAway = false) {
+  if (isAway) return `${row.name}${row.isYou ? " (you)" : ""}: not here tonight`;
   const role = row.isOwner ? ", owner" : "";
   const you = row.isYou ? " (you)" : "";
   const next = isNext ? ", up next" : "";
@@ -62,6 +80,13 @@ function describeRow(row, showLeftOut, showCounts, isNext, kind) {
  * tied for the next turn wears it, because chance decides between them. The
  * list waits for that order rather than reshuffling under the reader when it
  * arrives (`isOrderPending`); without one it keeps its usual order.
+ *
+ * It is also where tonight's room is chosen. With `onToggleHere` each member
+ * carries a check: unchecked, their slips sit the draw out. Opened from the
+ * draw button (`mode="draw"`) it ends in Draw instead of Close -- that step is
+ * the draw's confirmation, which is why the button is a tap, not a hold.
+ * "Don't ask again" skips it on this device, and the same box here, reached
+ * from the people count, is how it comes back.
  */
 export default function BowlPeopleSheet({
   rows = [],
@@ -76,8 +101,17 @@ export default function BowlPeopleSheet({
   onClose,
   turns = null,
   isOrderPending = false,
+  awayKeys = [],
+  onToggleHere = null,
+  mode = "list",
+  skipAsk = false,
+  onSkipAskChange = null,
+  onDraw = null,
+  canDraw = true,
+  drawsForMyself = false,
 }) {
   const kind = useBowlKind();
+  const awayCount = rows.filter((row) => row.isMember && awayKeys.includes(row.key)).length;
   const leftOutCount = reach ? reach.totalCount - reach.reachedCount : 0;
   const showReach = showLeftOut && leftOutCount > 0;
   const shownCount = memberCount ?? rows.filter((row) => row.key.startsWith("user:")).length;
@@ -100,8 +134,13 @@ export default function BowlPeopleSheet({
         onClick={(event) => event.stopPropagation()}
       >
         <h3 id="bowl-people-title" className="flex items-center gap-2 text-lg font-semibold text-slate-100">
-          <PeopleGlyph className={`h-5 w-5 ${showReach ? "text-amber-300" : "text-slate-400"}`} />
-          {showReach ? (
+          <PeopleGlyph className={`h-5 w-5 ${showReach ? "text-amber-300" : awayCount ? "text-rose-300" : "text-slate-400"}`} />
+          {awayCount > 0 && !showReach ? (
+            <span className="text-rose-200">
+              {shownCount - awayCount}/{shownCount}
+              <span className="sr-only"> people here</span>
+            </span>
+          ) : showReach ? (
             <span className="text-amber-200">
               {reach.reachedCount}/{reach.totalCount}
               <span className="sr-only">{inBowlWords(kind, " people have a movie in tonight's draw")}</span>
@@ -125,41 +164,57 @@ export default function BowlPeopleSheet({
               </li>
             ))}
             {shownRows.map((row) => {
-              const isLeftOut = showLeftOut && row.isLeftOut;
-              const isNext = turns?.get(row.key) === 0;
+              const isAway = awayKeys.includes(row.key);
+              const isLeftOut = !isAway && showLeftOut && row.isLeftOut;
+              const isNext = !isAway && turns?.get(row.key) === 0;
+              // Only members can be away: a link guest or someone who left has
+              // no seat to be missing from, so their slips always stay in.
+              const canToggle = Boolean(onToggleHere) && row.isMember;
+              const Row = canToggle ? "button" : "div";
               return (
                 <li
                   key={row.key}
-                  className="flex items-center gap-3 py-2.5"
-                  aria-label={describeRow(row, showLeftOut, showCounts, isNext, kind)}
+                  aria-label={describeRow(row, showLeftOut, showCounts, isNext, kind, isAway)}
                   data-left-out={isLeftOut || undefined}
                   data-up-next={isNext || undefined}
+                  data-away={isAway || undefined}
                 >
-                  <span className={isLeftOut ? "opacity-50" : undefined}>
-                    <Initial badge={row.isOwner ? <OwnerBadge /> : null}>{row.initial}</Initial>
-                  </span>
-                  <span className={`min-w-0 flex-1 truncate font-medium ${isLeftOut ? "text-slate-500" : "text-slate-100"}`} aria-hidden="true">
-                    {row.name}
-                    {row.isYou && <span className="font-normal text-slate-500"> (you)</span>}
-                  </span>
-                  {isNext && (
-                    <span aria-hidden="true" className="shrink-0">
-                      <DrawMethodMark drawMethod="rotation" className="block h-7 w-7" />
+                  <Row
+                    {...(canToggle ? {
+                      type: "button",
+                      onClick: () => onToggleHere(row.key),
+                      "aria-pressed": !isAway,
+                      "aria-label": `${row.name}${row.isYou ? " (you)" : ""} is here`,
+                    } : {})}
+                    className={`flex w-full items-center gap-3 py-2.5 text-left ${canToggle ? "rounded-xl transition hover:bg-slate-800/40 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/60" : ""}`}
+                  >
+                    <span className={isLeftOut ? "opacity-50" : isAway ? "opacity-70" : undefined}>
+                      <Initial badge={row.isOwner ? <OwnerBadge /> : null}>{row.initial}</Initial>
                     </span>
-                  )}
-                  {showCounts && (
-                    <span
-                      aria-hidden="true"
-                      className={`inline-flex items-center gap-1 text-sm font-semibold ${isLeftOut ? "text-amber-300" : "text-slate-400"}`}
-                    >
-                      <BowlCountGlyph kind={kind} className="h-4 w-4" />
-                      {row.count}
+                    <span className={`min-w-0 flex-1 truncate font-medium ${isAway ? "text-slate-400" : isLeftOut ? "text-slate-500" : "text-slate-100"}`} aria-hidden="true">
+                      {row.name}
+                      {row.isYou && <span className="font-normal text-slate-500"> (you)</span>}
                     </span>
-                  )}
+                    {isNext && (
+                      <span aria-hidden="true" className="shrink-0">
+                        <DrawMethodMark drawMethod="rotation" className="block h-7 w-7" />
+                      </span>
+                    )}
+                    {showCounts && !isAway && (
+                      <span
+                        aria-hidden="true"
+                        className={`inline-flex items-center gap-1 text-sm font-semibold ${isLeftOut ? "text-amber-300" : "text-slate-400"}`}
+                      >
+                        <BowlCountGlyph kind={kind} className="h-4 w-4" />
+                        {row.count}
+                      </span>
+                    )}
+                    {canToggle && <HereCheck here={!isAway} />}
+                  </Row>
                 </li>
               );
             })}
-            {isOwner && invites.map((invite) => (
+            {isOwner && mode !== "draw" && invites.map((invite) => (
               <li key={invite.id} className="flex items-center gap-3 py-2.5">
                 <Initial dashed>?</Initial>
                 <span className="min-w-0 flex-1 truncate text-slate-400">{invite.invited_email}</span>
@@ -169,7 +224,7 @@ export default function BowlPeopleSheet({
           </ul>
         )}
 
-        {isOwner && (
+        {isOwner && mode !== "draw" && (
           <button
             type="button"
             onClick={onInvite}
@@ -182,10 +237,37 @@ export default function BowlPeopleSheet({
           </button>
         )}
 
-        <div className="mt-4 flex justify-end">
-          <button type="button" onClick={onClose} className="btn btn-secondary">
-            Close
-          </button>
+        <div className="mt-4 flex items-center justify-between gap-3">
+          {onSkipAskChange ? (
+            <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-slate-400">
+              <input
+                type="checkbox"
+                checked={skipAsk}
+                onChange={(event) => onSkipAskChange(event.target.checked)}
+                className="h-4 w-4 accent-rose-600"
+              />
+              Don&apos;t ask again
+            </label>
+          ) : <span />}
+          {mode === "draw" ? (
+            <button
+              type="button"
+              onClick={onDraw}
+              disabled={!canDraw}
+              className="btn btn-primary min-w-28 gap-2 disabled:opacity-50"
+            >
+              {/* Just you: the same person mark as My Movies' "Draw for
+                  myself", because that is the draw this becomes. */}
+              {drawsForMyself && (
+                <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
+              )}
+              {drawsForMyself ? "Draw for myself" : "Draw"}
+            </button>
+          ) : (
+            <button type="button" onClick={onClose} className="btn btn-secondary">
+              Close
+            </button>
+          )}
         </div>
       </div>
     </div>

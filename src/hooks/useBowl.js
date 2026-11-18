@@ -6,6 +6,7 @@ import { bowlMovieService, addResult, getPositiveTmdbId, isDuplicateMovieError, 
 import { subscribeBowlChanges, notifyBowlChange } from "../lib/bowlChanges";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../utils/appLimits";
 import { getDrawSelection, getResolvedDrawPool } from "../utils/drawSelection";
+import { filterPresentMovies } from "../utils/whoIsHere";
 import { getDrawReveal } from "../utils/drawReveal";
 import { DEFAULT_DRAW_METHOD, getDrawMethod } from "../utils/drawMethods";
 import { isStarterPackMovie } from "../utils/drawBuckets";
@@ -311,7 +312,9 @@ export default function useBowl(bowlId, { drawMethod = DEFAULT_DRAW_METHOD } = {
     // Right after a bowl switch the rows are still the last bowl's. Drawing
     // them would send that bowl's titles under this bowl's id.
     if (loadedBowlId !== bowlId) return null;
-    const drawableRemaining = (bowl.remaining || []).filter(
+    // `awayKeys` are the members not in the room tonight: their slips sit
+    // this draw out, before any filter runs.
+    const drawableRemaining = filterPresentMovies(bowl.remaining, options.awayKeys).filter(
       (movie) => movie?.local_status !== "syncing"
     );
     if (drawableRemaining.length === 0) return null;

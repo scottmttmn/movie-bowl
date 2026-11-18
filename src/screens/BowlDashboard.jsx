@@ -16,6 +16,8 @@ import BowlIllustration from "../components/BowlIllustration";
 import DrawMethodInfoModal from "../components/DrawMethodInfoModal";
 import BowlPeopleSheet from "../components/BowlPeopleSheet";
 import { buildBowlPeopleRows } from "../utils/bowlPeople";
+import useWhoIsHere from "../hooks/useWhoIsHere";
+import { filterPresentMovies, isOnlyMeHere } from "../utils/whoIsHere";
 import BowlPicker from "../components/BowlPicker";
 import CreateBowlModal from "../components/CreateBowlModal";
 import useCreateBowl from "../hooks/useCreateBowl";
@@ -97,6 +99,8 @@ import {
 import { DEFAULT_DRAW_METHOD, getDrawMethod, normalizeDrawMethod } from "../utils/drawMethods";
 
 
+// Stable, so an empty room does not change the pool count's inputs each render.
+const NO_AWAY_KEYS = Object.freeze([]);
 const countTitles = (count) => (count === 1 ? "1 title" : `${count} titles`);
 // Every movie filter reads TMDB metadata a restaurant does not have, so a
 // restaurant bowl turns them all off and narrows by its own instead.
@@ -179,6 +183,17 @@ export default function BowlDashboard() {
     const [showDrawConfirm, setShowDrawConfirm] = useState(false);
     const [showMethodInfo, setShowMethodInfo] = useState(false);
     const [showPeople, setShowPeople] = useState(false);
+    // "draw" when the sheet opened from the draw button: it then ends in Draw.
+    const [peopleMode, setPeopleMode] = useState("list");
+    // Counts openings of the people sheet: the roster is read ahead for the
+    // draw, so each opening asks for a fresh read rather than trusting one
+    // taken before someone joined.
+    const [peopleOpenings, setPeopleOpenings] = useState(0);
+    const openPeople = (mode) => {
+      setPeopleMode(mode);
+      setPeopleOpenings((count) => count + 1);
+      setShowPeople(true);
+    };
     const [bowlName, setBowlName] = useState("");
     const [bowlOwnerId, setBowlOwnerId] = useState(null);
     const [drawAccessMode, setDrawAccessMode] = useState(DRAW_ACCESS_MODE_ALL);
@@ -536,6 +551,41 @@ export default function BowlDashboard() {
         includeUnknownRuntime,
       ]
     );
+    // Who's in the room tonight. Everything the draw and its readouts count
+    // starts from their slips only; the absent keep theirs in the bowl.
+    const { awayKeys: storedAwayKeys, getLiveAwayKeys, toggleAway, skipAsk, setSkipAsk } = useWhoIsHere({ bowlId, userId: currentUserId });
+    // A one-person bowl has no room to ask about, and someone who cannot draw
+    // has no draw to narrow.
+    // The account context carries the count, but the bowl's own roster read
+    // answers too: a slow or failed context must not make a full room look
+    // like a one-person bowl and quietly drop tonight's absences.
+    const roomMemberCount = currentBowlMemberCount
+      ?? (memberIds.length ? new Set([...memberIds, bowlOwnerId].filter(Boolean)).size : null);
+    const hasRoomToAsk = canCurrentUserDraw && roomMemberCount > 1;
+    const asksWhoIsHere = hasRoomToAsk && !skipAsk;
+    // Read ahead while the draw asks who's here, so the sheet opens on names
+    // rather than placeholders the moment Draw is tapped -- and whenever
+    // someone is marked away, to check they are still a member.
+    const bowlPeople = useBowlPeople(bowlId, {
+      enabled: showPeople || asksWhoIsHere || (hasRoomToAsk && storedAwayKeys.length > 0),
+      includeInvites: isCurrentUserOwner,
+      refreshKey: `${peopleOpenings}|${roomMemberCount}`,
+    });
+    // Someone who has left since being marked away has no seat to be missing
+    // from, and the sheet offers no check to bring them back: their slips
+    // stay in like any former member's.
+    const awayKeys = useMemo(() => {
+      if (!hasRoomToAsk || storedAwayKeys.length === 0) return NO_AWAY_KEYS;
+      if (bowlPeople.status !== "ready") return storedAwayKeys;
+      const roster = new Set(bowlPeople.members.map((member) => `user:${member.userId}`));
+      if (bowlOwnerId) roster.add(`user:${bowlOwnerId}`);
+      const kept = storedAwayKeys.filter((key) => roster.has(key));
+      return kept.length ? kept : NO_AWAY_KEYS;
+    }, [hasRoomToAsk, storedAwayKeys, bowlPeople, bowlOwnerId]);
+    const presentRemaining = useMemo(
+      () => filterPresentMovies(bowl.remaining, awayKeys),
+      [awayKeys, bowl.remaining]
+    );
     const {
       status: drawPoolStatus,
       poolCount: drawPoolCount,
@@ -545,7 +595,7 @@ export default function BowlDashboard() {
       eligibleMovieIds: drawPoolEligibleMovieIds,
       lookupProgress: drawPoolLookupProgress,
       runLookups: runDrawPoolLookups,
-    } = useDrawPoolCount(bowl.remaining, drawFilters, filterMetadataFetchers);
+    } = useDrawPoolCount(presentRemaining, drawFilters, filterMetadataFetchers);
     const drawPoolLookupCompleted = drawPoolLookupProgress?.completed || 0;
     const drawPoolLookupTotal = drawPoolLookupProgress?.total || 0;
     const drawPoolLookupPercent = drawPoolLookupTotal > 0
@@ -639,7 +689,6 @@ export default function BowlDashboard() {
 
     // Read only while the sheet is open; the counts reuse the pool the stat
     // line already resolved, so the sheet costs no lookups of its own.
-    const bowlPeople = useBowlPeople(bowlId, { enabled: showPeople, includeInvites: isCurrentUserOwner });
     // On rotation the people sheet lists people in turn order, asked of the
     // pool tonight's draw would use: the filtered pool once it is counted, the
     // whole bowl when nothing narrows it, and no order while a large bowl's
@@ -647,8 +696,8 @@ export default function BowlDashboard() {
     const rotationCandidateIds = useMemo(() => {
       if (drawPoolEligibleMovieIds) return drawPoolEligibleMovieIds;
       if (drawPoolStatus !== DRAW_POOL_STATUS.unfiltered) return null;
-      return getDrawablePoolMovies(bowl.remaining).map((movie) => movie.id);
-    }, [drawPoolEligibleMovieIds, drawPoolStatus, bowl.remaining]);
+      return getDrawablePoolMovies(presentRemaining).map((movie) => movie.id);
+    }, [drawPoolEligibleMovieIds, drawPoolStatus, presentRemaining]);
     const rotationQueue = useRotationQueue(bowlId, rotationCandidateIds, {
       enabled: showPeople && drawMethod === "rotation",
       refreshKey: bowl.watched.length,
@@ -678,6 +727,23 @@ export default function BowlDashboard() {
       [bowlPeople, bowl.remaining, drawPoolStatus, drawPoolEligibleMovieIds, bowlOwnerId, currentUserId]
     );
 
+    const memberRowKeys = useMemo(
+      () => bowlPeopleRows.filter((row) => row.isMember).map((row) => row.key),
+      [bowlPeopleRows]
+    );
+    const awayMemberCount = memberRowKeys.length
+      ? awayKeys.filter((key) => memberRowKeys.includes(key)).length
+      : awayKeys.length;
+    const isOnlyMe = isOnlyMeHere(memberRowKeys, awayKeys, currentUserId ? `user:${currentUserId}` : null);
+    // Watching alone is a solo draw, not the bowl's: it goes on your history
+    // only and spends nobody's turn. Restaurant bowls have no solo draw.
+    const drawsForMyself = isOnlyMe && !isRestaurantBowl && myRemainingAdds.length > 0;
+    const hasPresentSlips = getDrawablePoolMovies(presentRemaining).length > 0;
+    // With someone marked away, whether this is a solo draw depends on the
+    // roster, so the draw waits for it rather than spend the bowl's turn on a
+    // guess. A failed read retries with the next opening of the sheet.
+    const isRoomSettled = awayKeys.length === 0
+      || (bowlPeople.status === "ready" && !bowlPeople.isRefreshing);
     const statLineInputs = {
       poolStatus: drawPoolStatus,
       poolCount: drawPoolCount,
@@ -1188,7 +1254,14 @@ export default function BowlDashboard() {
     // confirm dialog — both arrive here with intent already established.
     const runDraw = async () => {
       if (isDrawing || isFirstLoad || !canCurrentUserDraw || bowl.remaining.length === 0) return;
+      if (!isRoomSettled) return;
       setShowDrawConfirm(false);
+      // Every way in -- the sheet, the hold, the keyboard's confirm -- lands
+      // here, so watching alone becomes a solo draw however it was started.
+      if (drawsForMyself) {
+        navigate(`/solo-draw?bowl=${bowlId}`);
+        return;
+      }
       const startedAt = Date.now();
       const reducedMotion = Boolean(window.matchMedia?.("(prefers-reduced-motion: reduce)")?.matches);
       const run = {
@@ -1228,7 +1301,11 @@ export default function BowlDashboard() {
             ? { excluded: excludedCuisines, closedPlaceIds }
             : null;
         }
+        // Read again at the moment of the draw: a page left open all week
+        // must not carry an absence past its evening.
+        const liveAwayKeys = getLiveAwayKeys();
         const drawPromise = handleDraw({
+          awayKeys: awayKeys.filter((key) => liveAwayKeys.includes(key)),
           prioritizeByServices: prioritizeStreaming,
           prioritizeByServiceRank: useStreamingRank,
           userStreamingServices,
@@ -1400,6 +1477,11 @@ export default function BowlDashboard() {
       surface: "web",
       onDraw: playAnnouncedDraw,
     });
+    const drawButtonLabel = asksWhoIsHere
+      ? `Draw movie from bowl. Choose who's here first.${televisionPresent ? " It will play on the TV too." : ""}`
+      : televisionPresent
+        ? "Draw movie from bowl. Press and hold to draw. It will play on the TV too."
+        : undefined;
 
     if (accessError) return <div className="page-container py-8"><div className="status-error" role="alert">
       {accessError}
@@ -1521,13 +1603,19 @@ return (
                   onRunPoolLookups={runDrawPoolLookups}
                   onOpenFilters={() => setShowDrawFilters(true)}
                   onOpenMethodInfo={() => setShowMethodInfo(true)}
-                  onOpenPeople={() => setShowPeople(true)}
+                  onOpenPeople={() => openPeople("list")}
                   memberCount={currentBowlMemberCount}
+                  here={awayMemberCount && currentBowlMemberCount
+                    ? { hereCount: currentBowlMemberCount - awayMemberCount, totalCount: currentBowlMemberCount }
+                    : null}
                   drawMethod={drawMethod}
                 />
 
                 <div className="mx-auto mt-4 flex w-full max-w-sm flex-col items-stretch gap-2.5">
                   <HoldToDrawButton
+                    id="bowl-draw"
+                    onTap={asksWhoIsHere ? () => openPeople("draw") : null}
+                    label={asksWhoIsHere ? "Draw" : undefined}
                     onHoldComplete={runDraw}
                     onHoldStateChange={setHoldState}
                     onKeyboardActivate={() => {
@@ -1535,11 +1623,9 @@ return (
                       setShowDrawConfirm(true);
                     }}
                     isLoading={isDrawing}
-                    disabled={isFirstLoad || !canCurrentUserDraw || bowl.remaining.length === 0}
+                    disabled={isFirstLoad || !canCurrentUserDraw || bowl.remaining.length === 0 || (!asksWhoIsHere && !isRoomSettled)}
                     mark={televisionPresent ? <TelevisionGlyph className="h-5 w-5 drop-shadow-[0_0_6px_rgba(255,255,255,0.55)]" /> : null}
-                    ariaLabel={televisionPresent
-                      ? "Draw movie from bowl. Press and hold to draw. It will play on the TV too."
-                      : undefined}
+                    ariaLabel={drawButtonLabel}
                   />
                   <AddMovieButton
                     variant="secondary"
@@ -2076,9 +2162,21 @@ return (
                 showCounts={drawPoolStatus === DRAW_POOL_STATUS.ready || drawPoolStatus === DRAW_POOL_STATUS.unfiltered}
                 isOwner={isCurrentUserOwner}
                 onInvite={() => navigate(`/invites?bowl=${bowlId}#invite-people`)}
-                onClose={() => setShowPeople(false)}
+                onClose={() => { setShowPeople(false); setPeopleMode("list"); }}
                 turns={rotationTurns}
                 isOrderPending={isRotationOrderPending}
+                awayKeys={awayKeys}
+                onToggleHere={hasRoomToAsk ? toggleAway : null}
+                mode={peopleMode}
+                skipAsk={skipAsk}
+                onSkipAskChange={hasRoomToAsk ? setSkipAsk : null}
+                drawsForMyself={drawsForMyself}
+                canDraw={hasPresentSlips && !isDrawing && isRoomSettled}
+                onDraw={() => {
+                  setShowPeople(false);
+                  setPeopleMode("list");
+                  runDraw();
+                }}
               />
             )}
             {showMethodInfo && (

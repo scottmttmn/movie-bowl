@@ -129,6 +129,14 @@ export const HELP_TOPICS = [
     label: "Drawing settings",
   },
   {
+    id: "whos_here",
+    ask: "Someone isn't home tonight; leave out a person who's away; only draw from the people watching; stop asking who's here before the draw; get hold to draw back.",
+    answer: "Tap Draw and uncheck anyone who isn't there. Their movies sit out tonight's draws.",
+    to: "/bowl/:bowlId",
+    target: "bowl-draw",
+    label: "Draw",
+  },
+  {
     id: "starter_pack",
     ask: "The bowl is empty; get movie ideas; add a bunch of movies at once; starter pack.",
     answer: "A starter pack fills the bowl with a set of movies. The owner adds one in Bowl settings.",

@@ -69,7 +69,7 @@ const mocks = vi.hoisted(() => {
 });
 
 const userBowlsMock = vi.hoisted(() => ({
-  bowls: [{ id: "bowl-1", name: "Date Night Eats", ownerId: "u1", role: "Owner", memberCount: 2, remainingCount: 2, kind: "restaurants" }],
+  bowls: [{ id: "bowl-1", name: "Date Night Eats", ownerId: "u1", role: "Owner", memberCount: 1, remainingCount: 2, kind: "restaurants" }],
   defaultBowlId: null,
   loading: false,
   error: null,
@@ -129,6 +129,7 @@ vi.mock("react-router-dom", async () => {
 });
 
 import BowlDashboard from "../BowlDashboard";
+import { writeSkipAsk } from "../../utils/whoIsHere";
 import { clearPlaceHoursCache } from "../../hooks/usePlaceHours";
 
 function renderDashboard() {
@@ -148,9 +149,14 @@ const slips = () => [
 
 describe("BowlDashboard in a restaurant bowl", () => {
   beforeEach(() => {
+    // These cover the hold path, so the draw is set not to ask who's here:
+    // the asking is BowlDashboard.whoIsHere.test.jsx's.
+    for (const userId of ["u1", "u2"]) {
+      for (const id of ["bowl-1", "bowl-2"]) writeSkipAsk(userId, id, true);
+    }
     mocks.state.navigate.mockReset();
     mocks.state.bowlRow = { name: "Date Night Eats", owner_id: "u1", kind: "restaurants" };
-    userBowlsMock.bowls = [{ id: "bowl-1", name: "Date Night Eats", ownerId: "u1", role: "Owner", memberCount: 2, remainingCount: 2, kind: "restaurants" }];
+    userBowlsMock.bowls = [{ id: "bowl-1", name: "Date Night Eats", ownerId: "u1", role: "Owner", memberCount: 1, remainingCount: 2, kind: "restaurants" }];
     userBowlsMock.loading = false;
     userBowlsMock.error = null;
     mocks.state.memberRows = [{ user_id: "u1" }, { user_id: "u2" }];

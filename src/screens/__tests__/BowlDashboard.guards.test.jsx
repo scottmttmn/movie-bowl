@@ -179,6 +179,7 @@ vi.mock("../../components/StarterPackOffer", () => ({
 }));
 
 import BowlDashboard from "../BowlDashboard";
+import { writeSkipAsk } from "../../utils/whoIsHere";
 import { MAX_UNDRAWN_MOVIES_PER_BOWL } from "../../utils/appLimits";
 import { readRememberedReadout, rememberReadout } from "../../utils/rememberedReadouts";
 
@@ -188,6 +189,11 @@ function renderDashboard() {
 
 describe("BowlDashboard guards", () => {
   beforeEach(() => {
+    // These cover the hold path, so the draw is set not to ask who's here:
+    // the asking is BowlDashboard.whoIsHere.test.jsx's.
+    for (const userId of ["u1", "u2"]) {
+      for (const id of ["bowl-1", "bowl-2"]) writeSkipAsk(userId, id, true);
+    }
     mocks.state.navigate.mockReset();
     mocks.state.bowlRowsBowlId = null;
     mocks.state.bowlId = "bowl-1";
