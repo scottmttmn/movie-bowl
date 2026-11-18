@@ -556,7 +556,12 @@ export default function BowlDashboard() {
     const { awayKeys: storedAwayKeys, getLiveAwayKeys, toggleAway, skipAsk, setSkipAsk } = useWhoIsHere({ bowlId, userId: currentUserId });
     // A one-person bowl has no room to ask about, and someone who cannot draw
     // has no draw to narrow.
-    const hasRoomToAsk = canCurrentUserDraw && currentBowlMemberCount > 1;
+    // The account context carries the count, but the bowl's own roster read
+    // answers too: a slow or failed context must not make a full room look
+    // like a one-person bowl and quietly drop tonight's absences.
+    const roomMemberCount = currentBowlMemberCount
+      ?? (memberIds.length ? new Set([...memberIds, bowlOwnerId].filter(Boolean)).size : null);
+    const hasRoomToAsk = canCurrentUserDraw && roomMemberCount > 1;
     const asksWhoIsHere = hasRoomToAsk && !skipAsk;
     // Read ahead while the draw asks who's here, so the sheet opens on names
     // rather than placeholders the moment Draw is tapped -- and whenever
@@ -564,7 +569,7 @@ export default function BowlDashboard() {
     const bowlPeople = useBowlPeople(bowlId, {
       enabled: showPeople || asksWhoIsHere || (hasRoomToAsk && storedAwayKeys.length > 0),
       includeInvites: isCurrentUserOwner,
-      refreshKey: `${peopleOpenings}|${currentBowlMemberCount}`,
+      refreshKey: `${peopleOpenings}|${roomMemberCount}`,
     });
     // Someone who has left since being marked away has no seat to be missing
     // from, and the sheet offers no check to bring them back: their slips

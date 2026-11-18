@@ -108,6 +108,7 @@ vi.mock("react-router-dom", async () => {
 });
 
 import BowlDashboard from "../BowlDashboard";
+import { writeSkipAsk } from "../../utils/whoIsHere";
 
 function renderDashboard() {
   return render(<BowlDashboard />);
@@ -121,6 +122,11 @@ function confirmDraw() {
 
 describe("BowlDashboard runtime filters", () => {
   beforeEach(() => {
+    // These cover the hold path, so the draw is set not to ask who's here:
+    // the asking is BowlDashboard.whoIsHere.test.jsx's.
+    for (const userId of ["u1", "u2"]) {
+      for (const id of ["bowl-1", "bowl-2"]) writeSkipAsk(userId, id, true);
+    }
     mocks.state.handleDraw.mockClear();
     vi.useRealTimers();
   });

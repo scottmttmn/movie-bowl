@@ -166,6 +166,7 @@ describe("BowlDashboard asking who's here", () => {
     mocks.state.bowlData = { remaining: slips(), watched: [] };
     mocks.state.handleDraw.mockReset().mockResolvedValue(null);
     roster.status = "ready";
+    userBowlsMock.bowls[0].memberCount = 3;
     roster.members = [
       { userId: "u1", role: "Owner", displayName: "Scott" },
       { userId: "u2", role: "Member", displayName: "Jordan" },
@@ -288,5 +289,15 @@ describe("BowlDashboard asking who's here", () => {
     fireEvent.click(hold, { detail: 0 });
     expect(screen.queryByRole("button", { name: /^Reveal/ })).not.toBeInTheDocument();
     expect(mocks.state.handleDraw).not.toHaveBeenCalled();
+  });
+
+  it("still asks who's here while the account's bowl list has not answered", async () => {
+    userBowlsMock.bowls[0].memberCount = null;
+    await renderBowl();
+    tapDraw();
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Casey is here" }));
+    fireEvent.click(within(sheet()).getByRole("button", { name: "Draw" }));
+    await waitFor(() => expect(mocks.state.handleDraw).toHaveBeenCalled());
+    expect(mocks.state.handleDraw.mock.calls[0][0].awayKeys).toEqual(["user:u3"]);
   });
 });
