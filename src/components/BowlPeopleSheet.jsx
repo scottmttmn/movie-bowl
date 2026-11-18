@@ -95,6 +95,10 @@ export default function BowlPeopleSheet({
   isOrderPending = false,
   awayKeys = [],
   onToggleHere = null,
+  mode = "list",
+  skipAsk = false,
+  onSkipAskChange = null,
+  onDraw = null,
 }) {
   const kind = useBowlKind();
   const leftOutCount = reach ? reach.totalCount - reach.reachedCount : 0;
@@ -191,7 +195,7 @@ export default function BowlPeopleSheet({
                 </li>
               );
             })}
-            {isOwner && invites.map((invite) => (
+            {isOwner && mode !== "draw" && invites.map((invite) => (
               <li key={invite.id} className="flex items-center gap-3 py-2.5">
                 <Initial dashed>?</Initial>
                 <span className="min-w-0 flex-1 truncate text-slate-400">{invite.invited_email}</span>
@@ -201,7 +205,7 @@ export default function BowlPeopleSheet({
           </ul>
         )}
 
-        {isOwner && (
+        {isOwner && mode !== "draw" && (
           <button
             type="button"
             onClick={onInvite}
@@ -214,10 +218,32 @@ export default function BowlPeopleSheet({
           </button>
         )}
 
-        <div className="mt-4 flex justify-end">
-          <button type="button" onClick={onClose} className="btn btn-secondary">
-            Close
-          </button>
+        <div className="mt-4 flex items-center justify-between gap-3">
+          {onSkipAskChange ? (
+            <label className="flex min-h-11 cursor-pointer items-center gap-2.5 text-sm text-slate-400">
+              <input
+                type="checkbox"
+                checked={skipAsk}
+                onChange={(event) => onSkipAskChange(event.target.checked)}
+                className="h-4 w-4 accent-rose-600"
+              />
+              Don&apos;t ask again
+            </label>
+          ) : <span />}
+          {mode === "draw" ? (
+            <button
+              type="button"
+              onClick={onDraw}
+              disabled={awayKeys.length >= shownCount}
+              className="btn btn-primary min-w-28 disabled:opacity-50"
+            >
+              Draw
+            </button>
+          ) : (
+            <button type="button" onClick={onClose} className="btn btn-secondary">
+              Close
+            </button>
+          )}
         </div>
       </div>
     </div>

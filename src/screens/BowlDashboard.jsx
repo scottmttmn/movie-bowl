@@ -17,7 +17,6 @@ import DrawMethodInfoModal from "../components/DrawMethodInfoModal";
 import BowlPeopleSheet from "../components/BowlPeopleSheet";
 import { buildBowlPeopleRows } from "../utils/bowlPeople";
 import { getContributorBucketKey as whoKey } from "../utils/drawBuckets";
-import WhoIsHereRow from "../components/WhoIsHereRow";
 import BowlPicker from "../components/BowlPicker";
 import CreateBowlModal from "../components/CreateBowlModal";
 import useCreateBowl from "../hooks/useCreateBowl";
@@ -182,8 +181,9 @@ export default function BowlDashboard() {
     const [showMethodInfo, setShowMethodInfo] = useState(false);
     const [showPeople, setShowPeople] = useState(false);
     const [awayKeys, setAwayKeys] = useState([]);
-    // Mockup only: which of the two placements to show.
-    const whoVariant = (() => { try { return window.localStorage.getItem("who-variant") || "sheet"; } catch { return "sheet"; } })();
+    const [peopleMode, setPeopleMode] = useState("list");
+    // Mockup only: whether the draw asks who's here first.
+    const [skipAsk, setSkipAsk] = useState(() => { try { return window.localStorage.getItem("who-skip") === "1"; } catch { return false; } });
     const toggleAway = (key) => setAwayKeys((prev) => (prev.includes(key) ? prev.filter((k) => k !== key) : [...prev, key]));
     const [bowlName, setBowlName] = useState("");
     const [bowlOwnerId, setBowlOwnerId] = useState(null);
@@ -688,6 +688,7 @@ export default function BowlDashboard() {
       [bowlPeople, bowl.remaining, drawPoolStatus, drawPoolEligibleMovieIds, bowlOwnerId, currentUserId]
     );
 
+    const asksWhoIsHere = !skipAsk && currentBowlMemberCount > 1;
     const statLineInputs = {
       poolStatus: drawPoolStatus,
       poolCount: drawPoolCount,
@@ -1537,12 +1538,19 @@ return (
                   here={awayKeys.length && currentBowlMemberCount ? { hereCount: currentBowlMemberCount - awayKeys.length, totalCount: currentBowlMemberCount } : null}
                   drawMethod={drawMethod}
                 />
-                {whoVariant === "row" && bowlPeopleRows.length > 1 && (
-                  <WhoIsHereRow rows={bowlPeopleRows} awayKeys={awayKeys} onToggle={toggleAway} />
-                )}
+
 
                 <div className="mx-auto mt-4 flex w-full max-w-sm flex-col items-stretch gap-2.5">
-                  <HoldToDrawButton
+                  {asksWhoIsHere ? (
+                    <button
+                      type="button"
+                      className="btn btn-primary w-full max-w-sm disabled:opacity-50"
+                      disabled={isDrawing || isFirstLoad || !canCurrentUserDraw || bowl.remaining.length === 0}
+                      onClick={() => { setPeopleMode("draw"); setShowPeople(true); }}
+                    >
+                      {isDrawing ? "Drawing..." : "Draw"}
+                    </button>
+                  ) : <HoldToDrawButton
                     onHoldComplete={runDraw}
                     onHoldStateChange={setHoldState}
                     onKeyboardActivate={() => {
@@ -1555,7 +1563,7 @@ return (
                     ariaLabel={televisionPresent
                       ? "Draw movie from bowl. Press and hold to draw. It will play on the TV too."
                       : undefined}
-                  />
+                  />}
                   <AddMovieButton
                     variant="secondary"
                     label={kindWords.add}
@@ -2091,11 +2099,15 @@ return (
                 showCounts={drawPoolStatus === DRAW_POOL_STATUS.ready || drawPoolStatus === DRAW_POOL_STATUS.unfiltered}
                 isOwner={isCurrentUserOwner}
                 onInvite={() => navigate(`/invites?bowl=${bowlId}#invite-people`)}
-                onClose={() => setShowPeople(false)}
+                onClose={() => { setShowPeople(false); setPeopleMode("list"); }}
                 turns={rotationTurns}
                 isOrderPending={isRotationOrderPending}
                 awayKeys={awayKeys}
                 onToggleHere={toggleAway}
+                mode={peopleMode}
+                skipAsk={skipAsk}
+                onSkipAskChange={currentBowlMemberCount > 1 ? setSkipAsk : null}
+                onDraw={() => { setShowPeople(false); setPeopleMode("list"); runDraw(); }}
               />
             )}
             {showMethodInfo && (
