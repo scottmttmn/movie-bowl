@@ -619,7 +619,10 @@ right after the draw the drawer's phone calls `leave_away_members_out_of_draw`,
 which deletes those members' rows for that draw only (the drawer only, within
 ten minutes, never the drawer's own). The draw functions themselves are
 untouched, so a failed call leaves an ordinary draw with everyone's history.
-Not yet: the television does not ask. See `output/designs/whos-here.md`.
+The television asks too: its Draw opens `TvWhosHerePanel` in place of the
+"Draw a movie?" screen, which returns only with "Don't ask again" on (kept on
+that TV, scoped `tv:<bowl>`, never the phone's room) or on a one-person bowl.
+See `output/designs/whos-here.md`.
 
 ## Serverless routes (`api/`)
 

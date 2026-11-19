@@ -1,7 +1,7 @@
 # Who's here
 
-Status: web built November 18, 2026, with Watch History for present members
-only. The television is next.
+Status: built November 18, 2026 on web and TV, with Watch History for present
+members only.
 
 ## The idea
 
@@ -46,14 +46,22 @@ with every later stage rather than being one:
 - Live draw: the drawing screen broadcasts the reveal it played, so a TV open
   on the bowl replays only the present piles.
 
-## Next
+## The television
 
-1. The television: pressing Draw opens a who's-here panel (faces in a row,
-   D-pad to move, OK to check, focus starting on Draw) in place of today's
-   confirmation screen. The confirmation comes back only where the panel
-   does not appear: "Don't ask again" on that TV, or a one-person bowl.
-   "Don't ask again" is kept on the TV itself, since whoever holds the remote
-   is not the account it is signed in as.
+Pressing Draw opens a who's-here panel in place of the old "Draw a movie?"
+screen: faces in a row, the D-pad to move, OK to check someone in or out, and
+focus starting on Draw, so OK twice draws for everyone. The old screen comes
+back only where the panel does not appear: "Don't ask again" on that TV, or a
+one-person bowl. It then carries a "Who's here" button, the way back to the
+faces and to asking again.
+
+The television keeps its own room (`useWhoIsHere` scoped `tv:<bowl>`), not the
+phone's, and "Don't ask again" stays on the TV, since whoever holds the remote
+is not the account it is signed in as. Its readout turns rose and reads 2/3
+the way the phone's stat line does. There is no "Draw for myself" on the TV:
+solo draw there is its own route from the bowl picker. The draw goes through
+the same `useBowl.handleDraw`, so Watch History leaves the away members out
+the same way.
 
 ## Watch History
 

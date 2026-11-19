@@ -117,9 +117,9 @@ Lightweight backlog for product ideas, UI follow-ups, and technical maintenance.
   share sheet; both open the add sheet on the home bowl (`/quick-add`). A
   "Say a movie" shortcut that opens with the mic listening was left out for
   simplicity and could be added later.
-- Who's here: **web built November 18, 2026** (`output/designs/whos-here.md`).
-  Watch History only for the people who were here is built too. Left: the
-  television's who's-here panel in place of its draw confirmation.
+- Who's here: **built November 18, 2026 on web and TV**
+  (`output/designs/whos-here.md`), with Watch History only for the people who
+  were here.
 - Bigger swings, unscheduled: attendance-aware movie nights, shareable ticket
   stubs and bowl recaps, a composable
   house-rules layer over the draw method registry, and curation for bowls that

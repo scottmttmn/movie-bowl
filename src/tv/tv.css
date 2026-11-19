@@ -51,7 +51,8 @@ html.tv-root {
     0 18px 48px -20px rgba(244, 63, 94, 0.72);
 }
 
-.tv-app [data-tv-focusable]:disabled {
+.tv-app [data-tv-focusable]:disabled,
+.tv-app [data-tv-focusable][aria-disabled="true"] {
   cursor: not-allowed;
   opacity: 0.42;
 }
@@ -855,6 +856,12 @@ html.tv-root {
   color: #f1f5f9;
 }
 
+/* Someone is away tonight: the people turn rose, as on the phone. */
+.tv-draw-readout .tv-draw-readout-members[data-here="true"],
+.tv-draw-readout .tv-draw-readout-members[data-here="true"] strong {
+  color: #fda4af;
+}
+
 .tv-draw-readout .tv-draw-readout-reach strong {
   color: #fef3c7;
 }
@@ -1265,6 +1272,134 @@ html.tv-root {
   grid-template-columns: 0.75fr 1.25fr;
   gap: 1rem;
   margin-top: 2rem;
+}
+
+/* Three answers when asking is off on this television: Not yet, the way back
+   to the faces, and Draw. */
+.tv-dialog-actions.tv-dialog-actions-three {
+  grid-template-columns: 0.8fr 0.9fr 1.1fr;
+}
+
+/* Who's here: the faces in a row, OK to check one in or out. */
+.tv-dialog.tv-whos-here {
+  width: min(100%, 1020px);
+}
+
+.tv-whos-here-faces {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: clamp(14px, 1.6vw, 28px);
+  margin-top: 1.6rem;
+}
+
+.tv-whos-here-failed {
+  margin-top: 1.6rem;
+  color: #94a3b8;
+  font-size: 1.25rem;
+}
+
+.tv-whos-here-face {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.6rem;
+  width: clamp(120px, 9vw, 168px);
+  padding: 0.9rem 0.4rem 0.8rem;
+  border: 2px solid transparent;
+  border-radius: 22px;
+  background: transparent;
+  color: var(--tv-text);
+  cursor: pointer;
+  transition: transform 160ms ease, border-color 160ms ease, background 160ms ease, opacity 160ms ease;
+}
+
+.tv-whos-here-face:focus {
+  border-color: rgba(251, 113, 133, 0.75);
+  background: rgba(225, 29, 72, 0.12);
+  transform: translateY(-3px);
+}
+
+.tv-whos-here-initial {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: clamp(76px, 5.4vw, 104px);
+  height: clamp(76px, 5.4vw, 104px);
+  border: 3px solid #f43f5e;
+  border-radius: 999px;
+  background: rgba(225, 29, 72, 0.18);
+  font-size: clamp(1.8rem, 2.4vw, 2.6rem);
+  font-weight: 800;
+  text-transform: uppercase;
+}
+
+.tv-whos-here-check {
+  position: absolute;
+  right: -6px;
+  bottom: -6px;
+  display: grid;
+  place-items: center;
+  width: 36%;
+  height: 36%;
+  border: 3px solid #0b1120;
+  border-radius: 999px;
+  background: #e11d48;
+  color: white;
+}
+
+.tv-whos-here-check svg {
+  width: 62%;
+  height: 62%;
+}
+
+.tv-whos-here-name {
+  max-width: 100%;
+  overflow: hidden;
+  font-size: clamp(0.85rem, 1vw, 1.1rem);
+  font-weight: 700;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Away: a gray face with no check, never crossed out. */
+.tv-whos-here-face[data-here="false"] {
+  opacity: 0.55;
+}
+
+.tv-whos-here-face[data-here="false"] .tv-whos-here-initial {
+  border-color: #475569;
+  background: rgba(15, 23, 42, 0.6);
+  color: #94a3b8;
+}
+
+.tv-whos-here-face[data-here="false"] .tv-whos-here-check {
+  display: none;
+}
+
+.tv-whos-here-face[data-here="false"]:focus {
+  opacity: 0.9;
+}
+
+.tv-whos-here-box {
+  display: grid;
+  place-items: center;
+  width: 1.5rem;
+  height: 1.5rem;
+  border: 2px solid #64748b;
+  border-radius: 6px;
+  color: transparent;
+}
+
+.tv-whos-here-box[data-checked="true"] {
+  border-color: #f43f5e;
+  background: #e11d48;
+  color: white;
+}
+
+.tv-whos-here-box svg {
+  width: 1rem;
+  height: 1rem;
 }
 
 .tv-drawing-screen {
@@ -2508,4 +2643,9 @@ html.tv-root {
 
 .tv-dialog-actions.tv-feedback-actions {
   grid-template-columns: 1fr;
+}
+
+/* "Don't ask again" on one line, like every other TV button's label. */
+.tv-whos-here-skip {
+  white-space: nowrap;
 }

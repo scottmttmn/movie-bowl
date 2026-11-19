@@ -62,6 +62,7 @@ const mocks = vi.hoisted(() => ({
   drawMethod: "person_first",
   memberCount: null,
   homeBowlId: "family",
+  people: null,
 }));
 
 vi.mock("../hooks/useTvBowls", () => ({
@@ -94,6 +95,15 @@ vi.mock("../../hooks/useBowl", () => ({
     handleReaddMovie: mocks.handleReaddMovie,
     handleRemoveFromWatched: mocks.handleRemoveFromWatched,
   }),
+}));
+
+// The roster behind the who's-here panel. Null is a bowl nobody asked about.
+vi.mock("../../hooks/useBowlPeople", () => ({
+  default: (_bowlId, { enabled = false } = {}) => (
+    enabled && mocks.people
+      ? { status: "ready", isRefreshing: false, invites: [], ...mocks.people }
+      : { status: enabled ? "loading" : "idle", isRefreshing: false, members: [], invites: [], names: {} }
+  ),
 }));
 
 vi.mock("../../lib/streamingProviders", () => ({
@@ -130,6 +140,7 @@ vi.mock("../../lib/tmdbApi", () => ({
 import { AUTO_LOOKUP_TITLE_LIMIT } from "../../hooks/useDrawPoolCount";
 import { getDrawReveal } from "../../utils/drawReveal";
 import { getContributorBucketKey } from "../../utils/drawBuckets";
+import { writeAwayKeys } from "../../utils/whoIsHere";
 import TvBowlPicker from "../screens/TvBowlPicker";
 import TvTonightScreen from "../screens/TvTonightScreen";
 
@@ -202,6 +213,7 @@ function setElementRect(element, { left, top, width, height }) {
 describe("Movie Bowl TV experience", () => {
   beforeEach(() => {
     mocks.memberCount = null;
+    mocks.people = null;
     mocks.fetchProviderLinks.mockReset().mockResolvedValue({ links: [] });
     window.localStorage.clear();
     window.sessionStorage.clear();
@@ -910,6 +922,153 @@ describe("Movie Bowl TV experience", () => {
     // the person badge for person-first.
     const slip = within(getDrawReadout()).getByRole("img", { name: "Person-first random draw" });
     expect(slip.querySelector("[data-person-badge]")).not.toBeNull();
+  });
+
+  describe("who's here", () => {
+    const seatThree = () => {
+      mocks.memberCount = 3;
+      mocks.prioritizeStreaming = false;
+      mocks.people = {
+        members: [
+          { userId: "user-1", role: "Owner", displayName: "Viewer" },
+          { userId: "jordan", role: "Member", displayName: "Jordan" },
+          { userId: "casey", role: "Member", displayName: "Casey" },
+        ],
+        names: { "user-1": "Viewer", jordan: "Jordan", casey: "Casey" },
+      };
+      mocks.bowlData = {
+        ...mocks.bowlData,
+        remaining: [
+          { id: "movie-1", tmdb_id: 101, title: "Arrival", added_by: "user-1" },
+          { id: "movie-2", tmdb_id: 102, title: "Moonstruck", added_by: "jordan" },
+          { id: "movie-3", tmdb_id: 103, title: "Alien", added_by: "casey" },
+        ],
+      };
+    };
+
+    it("asks who's here in place of the old question, and draws without whoever is not", async () => {
+      seatThree();
+      mocks.handleDraw.mockReturnValue(new Promise(() => {}));
+      renderTonight();
+
+      fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+      const panel = screen.getByRole("dialog", { name: "Who's here?" });
+      expect(screen.queryByRole("dialog", { name: /draw a movie\?/i })).toBeNull();
+      const faces = within(panel).getAllByRole("button", { name: / is here$/ });
+      expect(faces).toHaveLength(3);
+      faces.forEach((face) => expect(face).toHaveAttribute("aria-pressed", "true"));
+
+      const casey = within(panel).getByRole("button", { name: "Casey is here" });
+      fireEvent.click(casey);
+      expect(casey).toHaveAttribute("aria-pressed", "false");
+
+      fireEvent.click(within(panel).getByRole("button", { name: "Draw", exact: true }));
+      await waitFor(() => expect(mocks.handleDraw).toHaveBeenCalledTimes(1));
+      expect(mocks.handleDraw.mock.calls[0][0].awayKeys).toEqual(["user:casey"]);
+      expect(screen.queryByRole("dialog", { name: "Who's here?" })).toBeNull();
+    });
+
+    it("says who the draw is for once someone sits it out, and Back keeps the choice", async () => {
+      seatThree();
+      renderTonight();
+
+      fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+      fireEvent.click(screen.getByRole("button", { name: "Casey is here" }));
+      fireEvent.keyDown(window, { key: "Escape" });
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Who's here?" })).toBeNull());
+
+      await waitFor(() => expect(getDrawReadout()).toHaveTextContent("2/3"));
+      expect(getDrawReadout()).toHaveTextContent(/Drawing for 2 of 3 people/);
+      expect(mocks.handleDraw).not.toHaveBeenCalled();
+    });
+
+    it("brings back the old question once this television stops asking, with the faces one press away", async () => {
+      seatThree();
+      renderTonight();
+
+      fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+      const skip = screen.getByRole("button", { name: /Don't ask again/ });
+      fireEvent.click(skip);
+      expect(skip).toHaveAttribute("aria-pressed", "true");
+      fireEvent.keyDown(window, { key: "Escape" });
+      await waitFor(() => expect(screen.queryByRole("dialog", { name: "Who's here?" })).toBeNull());
+
+      fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+      const confirm = screen.getByRole("dialog", { name: /draw a movie\?/i });
+      fireEvent.click(within(confirm).getByRole("button", { name: "Who's here" }));
+      expect(screen.getByRole("dialog", { name: "Who's here?" })).toBeInTheDocument();
+    });
+
+    it("opens on Draw even while the roster is still being read, and draws once it has", async () => {
+      seatThree();
+      // Casey was checked out earlier tonight, so this draw waits on the roster.
+      writeAwayKeys("user-1", "tv:family", ["user:casey"]);
+      const roster = mocks.people;
+      mocks.people = { status: "loading", members: [], names: {} };
+      mocks.handleDraw.mockReturnValue(new Promise(() => {}));
+      const view = renderTonight();
+
+      fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+      const draw = within(screen.getByRole("dialog", { name: "Who's here?" }))
+        .getByRole("button", { name: "Draw", exact: true });
+      expect(draw).toHaveAttribute("aria-disabled", "true");
+      // Still focusable, so the second OK lands here rather than on "Don't ask again".
+      await waitFor(() => expect(draw).toHaveFocus());
+      fireEvent.click(draw);
+      expect(mocks.handleDraw).not.toHaveBeenCalled();
+
+      mocks.people = roster;
+      view.rerender(renderTonightTree());
+      fireEvent.click(screen.getByRole("button", { name: "Draw", exact: true }));
+      await waitFor(() => expect(mocks.handleDraw).toHaveBeenCalledTimes(1));
+      expect(mocks.handleDraw.mock.calls[0][0].awayKeys).toEqual(["user:casey"]);
+    });
+
+    it("will not leave anyone out on a roster that is still being read again", async () => {
+      seatThree();
+      mocks.handleDraw.mockReturnValue(new Promise(() => {}));
+      const view = renderTonight();
+
+      fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+      fireEvent.click(screen.getByRole("button", { name: "Casey is here" }));
+      mocks.people = { ...mocks.people, isRefreshing: true };
+      view.rerender(renderTonightTree());
+
+      const draw = screen.getByRole("button", { name: "Draw", exact: true });
+      expect(draw).toHaveAttribute("aria-disabled", "true");
+      fireEvent.click(draw);
+      expect(mocks.handleDraw).not.toHaveBeenCalled();
+
+      mocks.people = { ...mocks.people, isRefreshing: false };
+      view.rerender(renderTonightTree());
+      fireEvent.click(screen.getByRole("button", { name: "Draw", exact: true }));
+      await waitFor(() => expect(mocks.handleDraw).toHaveBeenCalledTimes(1));
+    });
+
+    it("still draws, for everyone, when the roster cannot be read", async () => {
+      seatThree();
+      writeAwayKeys("user-1", "tv:family", ["user:casey"]);
+      mocks.people = { status: "error", members: [], names: {} };
+      mocks.handleDraw.mockReturnValue(new Promise(() => {}));
+      renderTonight();
+
+      fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+      const panel = screen.getByRole("dialog", { name: "Who's here?" });
+      expect(within(panel).getByText("Couldn't load who's in this bowl.")).toBeInTheDocument();
+      fireEvent.click(within(panel).getByRole("button", { name: "Draw", exact: true }));
+      await waitFor(() => expect(mocks.handleDraw).toHaveBeenCalledTimes(1));
+      expect(mocks.handleDraw.mock.calls[0][0].awayKeys).toEqual([]);
+    });
+
+    it("keeps the old question for a bowl of one", async () => {
+      mocks.memberCount = 1;
+      renderTonight();
+
+      fireEvent.click(screen.getByRole("button", { name: /draw a movie/i }));
+      const confirm = screen.getByRole("dialog", { name: /draw a movie\?/i });
+      expect(within(confirm).queryByRole("button", { name: "Who's here" })).toBeNull();
+      expect(screen.queryByRole("dialog", { name: "Who's here?" })).toBeNull();
+    });
   });
 
   it("does not calculate unused service matches when prioritizing is off", async () => {
