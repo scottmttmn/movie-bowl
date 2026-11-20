@@ -9,6 +9,13 @@ describe("list search", () => {
     expect(matchesListQuery({ title: "Heat" }, "alien")).toBe(false);
   });
 
+  it("keeps letters from any script, so a non-Latin query still narrows", () => {
+    const movies = [{ title: "千と千尋の神隠し" }, { title: "Москва слезам не верит" }, { title: "Heat" }];
+    expect(filterByListQuery(movies, "千尋")).toEqual([{ title: "千と千尋の神隠し" }]);
+    expect(filterByListQuery(movies, "москва")).toEqual([{ title: "Москва слезам не верит" }]);
+    expect(matchesListQuery({ title: "ジブリ" }, "シフリ")).toBe(false);
+  });
+
   it("treats an empty or blank query as everything", () => {
     const movies = [{ title: "Heat" }, { title: "Jaws" }];
     expect(filterByListQuery(movies, "")).toBe(movies);

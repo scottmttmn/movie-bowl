@@ -8,9 +8,11 @@ export const LIST_SEARCH_THRESHOLD = 8;
 function fold(value) {
   return String(value ?? "")
     .normalize("NFD")
-    .replace(/[̀-ͯ]/g, "")
+    .replace(/[\u0300-\u036f]/g, "")
     .toLowerCase()
-    .replace(/[^a-z0-9]+/g, " ")
+    // Letters, digits and marks of any script count (kana keep their voicing
+    // marks); only punctuation and spacing fold away.
+    .replace(/[^\p{L}\p{N}\p{M}]+/gu, " ")
     .trim();
 }
 
