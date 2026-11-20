@@ -2199,3 +2199,20 @@
     stroke: rgba(148, 163, 184, 0.45);
   }
 }
+
+/* Watch History's year, picked in place. The words carry it; the select is
+   invisible over them so the platform's own picker still opens. */
+@layer components {
+  .year-pick {
+    @apply relative inline-flex items-center gap-0.5 rounded-md font-semibold text-slate-100 transition hover:text-white;
+  }
+  .year-pick:focus-within {
+    @apply ring-2 ring-rose-800/70 ring-offset-2 ring-offset-slate-950;
+  }
+  .year-pick-chevron {
+    @apply h-3.5 w-3.5 text-rose-300;
+  }
+  .year-pick-select {
+    @apply absolute inset-0 h-full w-full cursor-pointer appearance-none opacity-0;
+  }
+}

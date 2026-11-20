@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import { Link, useParams } from "react-router-dom";
+import WatchedYearLine from "../components/WatchedYearLine";
 import WatchHistoryTimeline from "../components/WatchHistoryTimeline";
 import { RatingMark } from "../components/MovieThumbs";
 import { normalizeRating } from "../utils/thumbRatings";
@@ -69,19 +70,13 @@ export default function SharedWatchHistoryPage() {
           <>
             <h1 className="mt-2 text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">{heading}</h1>
             {years.length > 0 ? (
-              <p className="mt-3 mb-7 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-slate-400">
-                <span>{yearRows.length} watched in</span>
-                <select
-                  className="input-field min-h-0 w-auto py-1 pl-2.5 pr-8 text-sm font-semibold"
-                  aria-label="Year watched"
-                  value={activeYear}
-                  onChange={(event) => setSelectedYear(Number(event.target.value))}
-                >
-                  {years.map((year) => (
-                    <option key={year} value={year}>{year}</option>
-                  ))}
-                </select>
-              </p>
+              <WatchedYearLine
+                className="mt-3 mb-7"
+                count={yearRows.length}
+                years={years}
+                activeYear={activeYear}
+                onYearChange={setSelectedYear}
+              />
             ) : (
               <p className="mt-4 text-sm text-slate-400">Nothing watched yet.</p>
             )}
