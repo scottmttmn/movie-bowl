@@ -32,7 +32,7 @@ export function getWatchedYears(rows) {
  * Groups rows that carry a `watchedDate` into months, then days, keeping the
  * order the rows arrive in. Rows without a date are left out.
  */
-export function groupWatchHistoryByMonth(rows) {
+export function groupWatchHistoryByMonth(rows, { withYear = false } = {}) {
   const groups = [];
   const monthMap = new Map();
 
@@ -45,7 +45,7 @@ export function groupWatchHistoryByMonth(rows) {
     if (!monthGroup) {
       monthGroup = {
         key: monthKey,
-        label: movie.watchedDate.toLocaleDateString(undefined, { month: "long" }),
+        label: movie.watchedDate.toLocaleDateString(undefined, withYear ? { month: "long", year: "numeric" } : { month: "long" }),
         dayGroups: [],
         dayMap: new Map(),
         movieCount: 0,

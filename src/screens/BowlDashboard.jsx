@@ -7,6 +7,8 @@ import { getProfileDisplayName } from "../utils/profileIdentity";
 import { STARTER_PACK_SHELF_HASH } from "../utils/starterPacks";
 import { fetchStarterPackPeople } from "../lib/starterPacks";
 import MyMoviesStrip from "../components/MyMoviesStrip";
+import { HeaderSearchButton } from "../components/ListSearch";
+import { LIST_SEARCH_THRESHOLD } from "../utils/listSearch";
 import SectionChevron from "../components/SectionChevron";
 import { readSectionOpen, writeSectionOpen } from "../utils/sectionVisibility";
 import MovieStripSkeleton from "../components/MovieStripSkeleton";
@@ -214,9 +216,20 @@ export default function BowlDashboard() {
       setSections(next);
     }
     const showMyMovies = sections.myMovies;
+    // A search belongs to the bowl it was typed in and to the open section:
+    // closing My Movies or moving to another bowl puts the whole list back.
+    const [myMoviesSearch, setMyMoviesSearch] = useState(null);
+    // The route keeps this screen mounted across bowls, so leaving the bowl
+    // has to end the search rather than hide it until you come back.
+    if (myMoviesSearch && myMoviesSearch.bowlId !== bowlId) {
+      setMyMoviesSearch(null);
+    }
+    const isSearchingMyMovies = showMyMovies && myMoviesSearch?.bowlId === bowlId;
+    const myMoviesQuery = isSearchingMyMovies ? myMoviesSearch.query : "";
     const showWatched = sections.watched;
     const toggleSection = (section) => {
       const next = !sections[section];
+      if (section === "myMovies" && !next) setMyMoviesSearch(null);
       writeSectionOpen(section, next, currentUserId);
       setSections((prev) => ({ ...prev, [section]: next, touched: { ...prev.touched, [section]: true } }));
     };
@@ -2041,7 +2054,7 @@ return (
             <section id="my-movies" className="panel my-movies-panel mt-5 w-full max-w-full min-w-0">
               {/* Wraps only where the heading and "Draw for myself" cannot share
                   a line, the narrowest phones, rather than overlapping. */}
-              <div className="flex flex-wrap items-center justify-between gap-x-3 gap-y-2">
+              <div className="flex flex-wrap items-center gap-x-1 gap-y-2">
                 <h3 className="min-w-0">
                   <button
                     type="button"
@@ -2063,6 +2076,9 @@ return (
                     <SectionChevron open={showMyMovies} />
                   </button>
                 </h3>
+                {showMyMovies && !isSearchingMyMovies && myMovies.length > LIST_SEARCH_THRESHOLD && (
+                  <HeaderSearchButton label="Search my movies" onClick={() => setMyMoviesSearch({ bowlId, query: "" })} />
+                )}
                 {/* Watching alone belongs to this section rather than beside the
                     draw button: it draws from exactly these titles, and a third
                     control under the two people came to press reads as a third
@@ -2071,7 +2087,7 @@ return (
                 {showsDrawForMyself && !isRestaurantBowl && (
                   <button
                     type="button"
-                    className="btn btn-secondary shrink-0 gap-2 px-3 text-sm sm:px-4"
+                    className="btn btn-secondary ml-auto shrink-0 gap-1.5 px-2 text-sm sm:gap-2 sm:px-4"
                     onClick={() => navigate(`/solo-draw?bowl=${bowlId}`)}
                   >
                     <svg aria-hidden="true" viewBox="0 0 24 24" className="h-4 w-4" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round"><circle cx="12" cy="8" r="4" /><path d="M4 21a8 8 0 0 1 16 0" /></svg>
@@ -2107,6 +2123,10 @@ return (
                       onRunEligibilityLookups={runMyMovieEligibilityLookups}
                       drawMethod={drawMethod}
                       packPeople={packPeople}
+                      isSearching={isSearchingMyMovies}
+                      query={myMoviesQuery}
+                      onQueryChange={(query) => setMyMoviesSearch({ bowlId, query })}
+                      onCloseSearch={() => setMyMoviesSearch(null)}
                       onTogglePin={async (movie, pinned) => {
                         setMyMoviesErrorMessage(null);
                         const result = await handleSetMoviePin(movie.id, pinned);
@@ -2127,6 +2147,7 @@ return (
 
             <section id="watched" className="panel-muted watched-panel mt-4 w-full max-w-full min-w-0 overflow-x-auto">
                 <WatchedMoviesStrip
+                  key={bowlId}
                   movies={bowl.watched}
                   ratings={watchedRatings}
                   isExpanded={showWatched}
