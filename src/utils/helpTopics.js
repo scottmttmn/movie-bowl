@@ -49,6 +49,14 @@ export const HELP_TOPICS = [
     label: "My Movies",
   },
   {
+    id: "find_my_movie",
+    ask: "Search or find a movie in my list, my movies, the watched movies or my watch history; is a movie already in there; filter my list by title.",
+    answer: "Once a list is long, a magnifier sits beside My Movies, Watched and the Watch History count. Tap it and type.",
+    to: "/bowl/:bowlId",
+    target: "my-movies",
+    label: "My Movies",
+  },
+  {
     id: "return_draw",
     ask: "Undo a draw; put the drawn movie back in the bowl; we didn't end up watching it; redraw.",
     answer: "For two hours after a draw, open it under Watched and move it back to the bowl.",

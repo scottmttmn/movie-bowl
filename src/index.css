@@ -2168,3 +2168,34 @@
     color: #9f1239;
   }
 }
+
+/* Quick search over a list already on screen. The strips get a slim column at
+   their head; the field replaces it while searching. */
+@layer components {
+  .section-search-btn {
+    @apply -ml-1 inline-flex h-8 w-5 flex-shrink-0 items-center justify-center rounded-lg text-slate-500 transition hover:text-slate-200 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-rose-800/70;
+  }
+  .list-search {
+    @apply flex h-9 min-w-0 items-center gap-2 rounded-lg border border-slate-700/80 bg-slate-950/50 pl-3 pr-1 text-slate-200;
+  }
+  .list-search-glyph {
+    @apply h-4 w-4 flex-shrink-0 text-slate-400;
+  }
+  .list-search-input {
+    @apply min-w-0 flex-1 border-0 bg-transparent p-0 text-base text-slate-100 outline-none sm:text-sm;
+  }
+  .list-search-input::-webkit-search-cancel-button {
+    display: none;
+  }
+  .list-search-close {
+    @apply inline-flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg text-slate-400 hover:text-slate-100;
+  }
+  .strip-no-match {
+    @apply flex h-40 w-28 flex-shrink-0 items-center justify-center rounded-xl;
+    border: 2px dashed rgba(148, 163, 184, 0.28);
+  }
+  .strip-no-match svg {
+    @apply h-8 w-8;
+    stroke: rgba(148, 163, 184, 0.45);
+  }
+}

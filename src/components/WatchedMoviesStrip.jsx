@@ -1,4 +1,6 @@
-import { useId } from "react";
+import { useId, useState } from "react";
+import { HeaderSearchButton, ListSearchField, StripNoMatch } from "./ListSearch";
+import { LIST_SEARCH_THRESHOLD, filterByListQuery } from "../utils/listSearch";
 import WatchedMovieCard from "./WatchedMovieCard";
 import MovieStripSkeleton from "./MovieStripSkeleton";
 import SectionChevron from "./SectionChevron";
@@ -18,6 +20,10 @@ export default function WatchedMoviesStrip({
   onToggleExpanded,
 }) {
   const kind = useBowlKind();
+  const [isSearching, setIsSearching] = useState(false);
+  const [query, setQuery] = useState("");
+  const canSearch = movies.length > LIST_SEARCH_THRESHOLD;
+  const shownMovies = isSearching ? filterByListQuery(movies, query) : movies;
   const heading = getBowlKindWords(kind).drawn;
   const isEmpty = !isLoading && movies.length === 0;
   // Empty is shown by the empty card, so it carries no "0 watched" either.
@@ -32,7 +38,7 @@ export default function WatchedMoviesStrip({
 
   return (
     <section className="watched-movies-strip mt-1 w-full min-w-0">
-      <div className={`${isExpanded || isEmpty ? "mb-3" : ""} flex items-center justify-between gap-3`}>
+      <div className={`${isExpanded || isEmpty ? "mb-3" : ""} flex items-center gap-1`}>
         {isCollapsible && !isEmpty ? (
           <h3 className="min-w-0">
             <button
@@ -40,7 +46,12 @@ export default function WatchedMoviesStrip({
               className="section-toggle"
               aria-expanded={isExpanded}
               aria-controls={listId}
-              onClick={onToggleExpanded}
+              onClick={() => {
+                // Folding the strip away ends the search with it.
+                setIsSearching(false);
+                setQuery("");
+                onToggleExpanded();
+              }}
             >
               <TicketGlyph />
               <span className="section-title text-base">{heading}</span>
@@ -54,6 +65,9 @@ export default function WatchedMoviesStrip({
             <h3 className="section-title text-base">{heading}</h3>
             <span className="text-xs font-semibold text-slate-400">{watchedCountLabel}</span>
           </div>
+        )}
+        {isExpanded && canSearch && !isSearching && (
+          <HeaderSearchButton label="Search watched movies" onClick={() => setIsSearching(true)} />
         )}
       </div>
       {/* An empty list while the bowl is still loading is indistinguishable
@@ -72,8 +86,22 @@ export default function WatchedMoviesStrip({
         </div>
       )}
       {isExpanded && !isLoading && !isEmpty && (
+        <>
+        {isSearching && (
+          <ListSearchField
+            className="mb-2 max-w-sm"
+            label="Search watched movies"
+            value={query}
+            onChange={setQuery}
+            onClose={() => {
+              setIsSearching(false);
+              setQuery("");
+            }}
+          />
+        )}
         <div id={listId} className="flex flex-nowrap gap-3 overflow-x-auto pb-3 pt-1">
-          {movies.map((movie) => (
+          {isSearching && shownMovies.length === 0 && <StripNoMatch />}
+          {shownMovies.map((movie) => (
             <WatchedMovieCard
               key={movie.id}
               movie={movie}
@@ -82,6 +110,7 @@ export default function WatchedMoviesStrip({
             />
           ))}
         </div>
+        </>
       )}
     </section>
   );

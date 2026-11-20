@@ -4,6 +4,8 @@ import RemoveFromBowlsModal from "../components/RemoveFromBowlsModal";
 import WatchHistoryEntryModal from "../components/WatchHistoryEntryModal";
 import WatchHistoryCard from "../components/WatchHistoryCard";
 import WatchHistoryTimeline from "../components/WatchHistoryTimeline";
+import { ListSearchField, SearchGlyph, StripNoMatch as StripNoMatchGlyph } from "../components/ListSearch";
+import { LIST_SEARCH_THRESHOLD, filterByListQuery } from "../utils/listSearch";
 import WatchHistoryShareSheet, { LinkGlyph } from "../components/WatchHistoryShareSheet";
 import { getPosterUrl } from "../utils/getPosterUrl";
 import { notifyBowlChange } from "../lib/bowlChanges";
@@ -43,6 +45,8 @@ export default function WatchListPage() {
   const [errorMessage, setErrorMessage] = useState(null);
   const [selectedDetailMovie, setSelectedDetailMovie] = useState(null);
   const [selectedYear, setSelectedYear] = useState(null);
+  const [isSearching, setIsSearching] = useState(false);
+  const [query, setQuery] = useState("");
   const [isEntryEditorOpen, setIsEntryEditorOpen] = useState(false);
   const [editingEntry, setEditingEntry] = useState(null);
   const [entryEditorError, setEntryEditorError] = useState("");
@@ -187,11 +191,17 @@ export default function WatchListPage() {
     selectedYear !== null && availableYears.includes(selectedYear)
       ? selectedYear
       : availableYears[0] ?? null;
+  // A search spans every year: you are looking for a film, not a year.
+  const hasQuery = isSearching && query.trim() !== "";
   const filteredRows = useMemo(
-    () => rows.filter((movie) => movie.watchedYear === activeYear),
-    [activeYear, rows]
+    () => (hasQuery ? filterByListQuery(rows, query) : rows.filter((movie) => movie.watchedYear === activeYear)),
+    [activeYear, hasQuery, query, rows]
   );
-  const monthGroups = useMemo(() => groupWatchHistoryByMonth(filteredRows), [filteredRows]);
+  const monthGroups = useMemo(
+    () => groupWatchHistoryByMonth(filteredRows, { withYear: hasQuery }),
+    [filteredRows, hasQuery]
+  );
+  const canSearch = rows.length > LIST_SEARCH_THRESHOLD;
   const letterboxdExport = useMemo(() => buildLetterboxdWatchedCsv(rows), [rows]);
   const canExportLetterboxd =
     !isLoading && !errorMessage && letterboxdExport.exportedCount > 0;
@@ -485,7 +495,19 @@ export default function WatchListPage() {
             <h1 className="text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">
               Watch History
             </h1>
-            {!isLoading && !errorMessage && rows.length > 0 && (
+            {isSearching && (
+              <ListSearchField
+                className="mt-3 w-full max-w-sm"
+                label="Search watch history"
+                value={query}
+                onChange={setQuery}
+                onClose={() => {
+                  setIsSearching(false);
+                  setQuery("");
+                }}
+              />
+            )}
+            {!isSearching && !isLoading && !errorMessage && rows.length > 0 && (
               <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-slate-400">
                 {activeYear === null ? (
                   emptyCountLabel
@@ -506,6 +528,17 @@ export default function WatchListPage() {
                     </select>
                     <span>· {allTimeCountLabel}</span>
                   </>
+                )}
+                {canSearch && (
+                  <button
+                    type="button"
+                    className="-my-1 ml-1 inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-100"
+                    aria-label="Search watch history"
+                    title="Search watch history"
+                    onClick={() => setIsSearching(true)}
+                  >
+                    <SearchGlyph className="h-[18px] w-[18px]" />
+                  </button>
                 )}
               </p>
             )}
@@ -596,6 +629,10 @@ export default function WatchListPage() {
             <p className="mt-2 text-sm text-slate-400">
               Add a movie yourself, or draw one from a bowl to record it automatically.
             </p>
+          </div>
+        ) : hasQuery && filteredRows.length === 0 ? (
+          <div className="flex justify-center py-10">
+            <StripNoMatchGlyph />
           </div>
         ) : (
           <div className="space-y-8">

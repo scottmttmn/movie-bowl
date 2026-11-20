@@ -726,4 +726,59 @@ describe("WatchListPage", () => {
     expect(await screen.findByText("your comment: Loved the score.")).toBeInTheDocument();
     expect(mocks.state.rpcCalls.some(({ name }) => name === "update_user_watch_event")).toBe(false);
   });
+
+  // A search is for a film, not a year: it looks across every year the
+  // picker would otherwise hide, and the months say which year they are.
+  it("searches the whole history once it is long, across years", async () => {
+    const titles = ["Alien", "Fargo", "Jaws", "Heat", "Brazil", "Zodiac", "Rushmore", "Aliens", "Alien"];
+    const dates = ["2026-11-14", "2026-11-08", "2026-10-25", "2026-10-18", "2026-09-27", "2026-09-20", "2026-08-16", "2025-12-26", "2025-10-31"];
+    mocks.state.watchedRows = titles.map((title, index) => ({
+      id: `long-${index}`,
+      source_kind: "manual",
+      bowl_name: null,
+      tmdb_id: null,
+      title,
+      poster_path: null,
+      release_date: "1990-01-01",
+      genres: [],
+      watched_on: dates[index],
+    }));
+
+    render(
+      <MemoryRouter>
+        <WatchListPage />
+      </MemoryRouter>
+    );
+
+    fireEvent.click(await screen.findByRole("button", { name: "Search watch history" }));
+    const field = screen.getByRole("searchbox", { name: "Search watch history" });
+    expect(field).toHaveFocus();
+    expect(screen.queryByRole("combobox", { name: "Year watched" })).not.toBeInTheDocument();
+
+    fireEvent.change(field, { target: { value: "alien" } });
+    expect(screen.getByText("November 2026")).toBeInTheDocument();
+    expect(screen.getByText("December 2025")).toBeInTheDocument();
+    expect(screen.getByText("October 2025")).toBeInTheDocument();
+    expect(screen.queryByText("Fargo")).not.toBeInTheDocument();
+    expect(screen.getAllByText(/^Aliens?$/)).toHaveLength(3);
+
+    fireEvent.change(field, { target: { value: "no such film" } });
+    expect(screen.getByRole("img", { name: "No matches" })).toBeInTheDocument();
+
+    fireEvent.click(screen.getByRole("button", { name: "Close search" }));
+    expect(screen.getByRole("combobox", { name: "Year watched" })).toHaveValue("2026");
+    expect(screen.getByText("Fargo")).toBeInTheDocument();
+    expect(screen.queryByText("December 2025")).not.toBeInTheDocument();
+  });
+
+  it("keeps the magnifier off a short history", async () => {
+    render(
+      <MemoryRouter>
+        <WatchListPage />
+      </MemoryRouter>
+    );
+
+    await screen.findByText("Owned Favorite");
+    expect(screen.queryByRole("button", { name: "Search watch history" })).not.toBeInTheDocument();
+  });
 });

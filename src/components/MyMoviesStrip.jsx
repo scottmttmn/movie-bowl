@@ -1,4 +1,6 @@
 import MovieActionCard from "./MovieActionCard";
+import { ListSearchField, StripNoMatch } from "./ListSearch";
+import { filterByListQuery } from "../utils/listSearch";
 import StarterPackMark from "./StarterPackMark";
 import { MY_MOVIE_ELIGIBILITY_STATUS } from "../hooks/useMyMovieEligibility";
 import { DEFAULT_DRAW_METHOD, getDrawMethod } from "../utils/drawMethods";
@@ -17,6 +19,11 @@ export default function MyMoviesStrip({
   packPeople = {},
   userStreamingServices = [],
   fetchProviders,
+  // Opened from the magnifier in the section header, which the dashboard owns.
+  isSearching = false,
+  query = "",
+  onQueryChange,
+  onCloseSearch,
 }) {
   const kind = useBowlKind();
   const hasResolvedEligibility = eligibilityStatus === MY_MOVIE_ELIGIBILITY_STATUS.ready;
@@ -44,6 +51,8 @@ export default function MyMoviesStrip({
         ...packMovies,
       ];
 
+  const shownMovies = isSearching ? filterByListQuery(orderedMovies, query) : orderedMovies;
+
   return (
     <section className="my-movies-strip mt-1 w-full min-w-0">
       {method.pinNote && (
@@ -66,8 +75,18 @@ export default function MyMoviesStrip({
           Previewing filter matches…
         </p>
       )}
+      {isSearching && (
+        <ListSearchField
+          className="mb-2 max-w-sm"
+          label="Search my movies"
+          value={query}
+          onChange={onQueryChange}
+          onClose={onCloseSearch}
+        />
+      )}
       <div className="flex flex-nowrap gap-3 overflow-x-auto pb-3 pt-1">
-        {orderedMovies.map((movie) => {
+        {isSearching && shownMovies.length === 0 && <StripNoMatch />}
+        {shownMovies.map((movie) => {
           const isPack = movie.source === "pack";
           const isFilterExcluded =
             hasResolvedEligibility && movie.local_status !== "syncing" && !isEligible(movie);
