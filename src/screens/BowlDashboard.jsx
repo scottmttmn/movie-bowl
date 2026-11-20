@@ -219,6 +219,11 @@ export default function BowlDashboard() {
     // A search belongs to the bowl it was typed in and to the open section:
     // closing My Movies or moving to another bowl puts the whole list back.
     const [myMoviesSearch, setMyMoviesSearch] = useState(null);
+    // The route keeps this screen mounted across bowls, so leaving the bowl
+    // has to end the search rather than hide it until you come back.
+    if (myMoviesSearch && myMoviesSearch.bowlId !== bowlId) {
+      setMyMoviesSearch(null);
+    }
     const isSearchingMyMovies = showMyMovies && myMoviesSearch?.bowlId === bowlId;
     const myMoviesQuery = isSearchingMyMovies ? myMoviesSearch.query : "";
     const showWatched = sections.watched;
