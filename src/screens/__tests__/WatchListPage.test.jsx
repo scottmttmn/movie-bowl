@@ -250,9 +250,9 @@ describe("WatchListPage", () => {
     expect(screen.getByText("From Shared Bowl")).toBeInTheDocument();
     expect(screen.getByText("From Owned Bowl")).toBeInTheDocument();
     expect(screen.getByText("Added manually")).toBeInTheDocument();
-    expect(screen.getByText("3 watched in")).toBeInTheDocument();
-    expect(screen.getByLabelText(/year watched/i)).toHaveValue("2026");
-    expect(screen.getByText("· 3 all time")).toBeInTheDocument();
+    // One year has nothing to pick, and "all time" would only repeat the count.
+    expect(screen.getByTestId("watched-year-line")).toHaveTextContent(/^3 watched in2026$/);
+    expect(screen.queryByLabelText(/year watched/i)).not.toBeInTheDocument();
     expect(screen.getAllByText(/Watched on /i)).toHaveLength(3);
     expect(screen.getByRole("button", { name: /export all history csv/i })).toBeEnabled();
     expect(screen.getByRole("button", { name: /export all history csv/i })).toHaveAttribute(
@@ -284,6 +284,7 @@ describe("WatchListPage", () => {
 
     const yearSelect = await screen.findByLabelText(/year watched/i);
     expect(yearSelect).toHaveValue("2026");
+    expect(screen.getByTestId("watched-year-line")).toHaveTextContent(/^3 watched in2026.*·4 all time$/);
     expect(screen.getByRole("option", { name: "2026" })).toBeInTheDocument();
     expect(screen.getByRole("option", { name: "2024" })).toBeInTheDocument();
     expect(screen.queryByRole("option", { name: "2025" })).not.toBeInTheDocument();
@@ -292,8 +293,7 @@ describe("WatchListPage", () => {
     fireEvent.change(yearSelect, { target: { value: "2024" } });
 
     expect(yearSelect).toHaveValue("2024");
-    expect(screen.getByText("1 watched in")).toBeInTheDocument();
-    expect(screen.getByText("· 4 all time")).toBeInTheDocument();
+    expect(screen.getByTestId("watched-year-line")).toHaveTextContent(/^1 watched in2024.*·4 all time$/);
     expect(screen.getByText("Older Favorite")).toBeInTheDocument();
     expect(screen.queryByText("Owned Favorite")).not.toBeInTheDocument();
   });

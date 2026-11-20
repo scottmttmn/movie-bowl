@@ -4,6 +4,7 @@ import RemoveFromBowlsModal from "../components/RemoveFromBowlsModal";
 import WatchHistoryEntryModal from "../components/WatchHistoryEntryModal";
 import WatchHistoryCard from "../components/WatchHistoryCard";
 import WatchHistoryTimeline from "../components/WatchHistoryTimeline";
+import WatchedYearLine from "../components/WatchedYearLine";
 import { ListSearchField, SearchGlyph, StripNoMatch as StripNoMatchGlyph } from "../components/ListSearch";
 import { LIST_SEARCH_THRESHOLD, filterByListQuery } from "../utils/listSearch";
 import WatchHistoryShareSheet, { LinkGlyph } from "../components/WatchHistoryShareSheet";
@@ -205,9 +206,6 @@ export default function WatchListPage() {
   const letterboxdExport = useMemo(() => buildLetterboxdWatchedCsv(rows), [rows]);
   const canExportLetterboxd =
     !isLoading && !errorMessage && letterboxdExport.exportedCount > 0;
-  const allTimeCountLabel = rows.length === 1 ? "1 all time" : `${rows.length} all time`;
-  const selectedYearCountLabel =
-    filteredRows.length === 1 ? "1 watched" : `${filteredRows.length} watched`;
   const emptyCountLabel = rows.length === 1 ? "1 watched movie" : `${rows.length} watched movies`;
 
   const handleExportLetterboxd = () => {
@@ -490,14 +488,16 @@ export default function WatchListPage() {
   return (
     <div className="page-container py-6 sm:py-8">
       <section className="page-hero mx-auto max-w-5xl">
-        <div className="mb-7 flex items-start justify-between gap-4 border-b border-slate-800 pb-6">
-          <div className="min-w-0">
-            <h1 className="text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">
+        {/* The count runs the full width under the title and its buttons, so a
+            phone does not break the sentence into a column beside them. */}
+        <div className="mb-7 grid grid-cols-[minmax(0,1fr)_auto] items-start gap-x-4 border-b border-slate-800 pb-6">
+          <div className="contents">
+            <h1 className="col-start-1 row-start-1 text-3xl font-semibold tracking-tight text-slate-50 sm:text-4xl">
               Watch History
             </h1>
             {isSearching && (
               <ListSearchField
-                className="mt-3 w-full max-w-sm"
+                className="col-span-2 row-start-2 mt-3 w-full max-w-sm"
                 label="Search watch history"
                 value={query}
                 onChange={setQuery}
@@ -508,42 +508,33 @@ export default function WatchListPage() {
               />
             )}
             {!isSearching && !isLoading && !errorMessage && rows.length > 0 && (
-              <p className="mt-3 flex flex-wrap items-center gap-x-2 gap-y-1 text-sm font-semibold text-slate-400">
-                {activeYear === null ? (
-                  emptyCountLabel
-                ) : (
-                  <>
-                    <span>{selectedYearCountLabel} in</span>
-                    <select
-                      className="input-field min-h-0 w-auto py-1 pl-2.5 pr-8 text-sm font-semibold"
-                      aria-label="Year watched"
-                      value={activeYear}
-                      onChange={(event) => setSelectedYear(Number(event.target.value))}
+              activeYear === null ? (
+                <p className="col-span-2 row-start-2 mt-3 text-sm font-medium text-slate-400">{emptyCountLabel}</p>
+              ) : (
+                <WatchedYearLine
+                  className="col-span-2 row-start-2 mt-3"
+                  count={filteredRows.length}
+                  years={availableYears}
+                  activeYear={activeYear}
+                  onYearChange={setSelectedYear}
+                  allTimeCount={rows.length}
+                >
+                  {canSearch && (
+                    <button
+                      type="button"
+                      className="-my-1 ml-1 inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-100"
+                      aria-label="Search watch history"
+                      title="Search watch history"
+                      onClick={() => setIsSearching(true)}
                     >
-                      {availableYears.map((year) => (
-                        <option key={year} value={year}>
-                          {year}
-                        </option>
-                      ))}
-                    </select>
-                    <span>· {allTimeCountLabel}</span>
-                  </>
-                )}
-                {canSearch && (
-                  <button
-                    type="button"
-                    className="-my-1 ml-1 inline-flex h-8 w-8 items-center justify-center rounded-lg text-slate-400 hover:text-slate-100"
-                    aria-label="Search watch history"
-                    title="Search watch history"
-                    onClick={() => setIsSearching(true)}
-                  >
-                    <SearchGlyph className="h-[18px] w-[18px]" />
-                  </button>
-                )}
-              </p>
+                      <SearchGlyph className="h-[18px] w-[18px]" />
+                    </button>
+                  )}
+                </WatchedYearLine>
+              )
             )}
           </div>
-          <div className="flex shrink-0 items-center gap-2">
+          <div className="col-start-2 row-start-1 flex shrink-0 items-center gap-2">
             {/* Rose while a link is live, so a shared history never goes unnoticed. */}
             <button
               id="share-watch-history"
