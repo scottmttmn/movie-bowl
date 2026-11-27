@@ -141,8 +141,8 @@ describe("BowlDashboard runtime filters", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
     fireEvent.click(screen.getByRole("button", { name: /^Length\b/ }));
-    fireEvent.change(screen.getByRole("spinbutton", { name: /draw-runtime-min/i }), { target: { value: "95" } });
-    fireEvent.change(screen.getByRole("spinbutton", { name: /draw-runtime-max/i }), { target: { value: "170" } });
+    fireEvent.change(screen.getByRole("slider", { name: "Shortest length" }), { target: { value: "90" } });
+    fireEvent.change(screen.getByRole("slider", { name: "Longest length" }), { target: { value: "165" } });
 
     vi.useFakeTimers();
     confirmDraw();
@@ -155,8 +155,8 @@ describe("BowlDashboard runtime filters", () => {
         expect(mocks.state.handleDraw).toHaveBeenCalledWith(
         expect.objectContaining({
           runtimeFilter: {
-            minMinutes: 95,
-            maxMinutes: 170,
+            minMinutes: 90,
+            maxMinutes: 165,
             includeUnknown: true,
           },
         })

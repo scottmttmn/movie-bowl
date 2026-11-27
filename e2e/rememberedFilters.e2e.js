@@ -23,7 +23,7 @@ test("filters survive reload and settings edits, and reset leaves playback intac
   expect(backend.requests.filter((request) => request.method === "PATCH")).toHaveLength(0);
   await expect(filters.getByRole("button", { name: "Done" })).toBeInViewport();
   await filters.getByRole("button", { name: /^Length\b/ }).click();
-  await filters.getByLabel("draw-runtime-max", { exact: true }).fill("120");
+  await filters.getByRole("slider", { name: "Longest length" }).fill("120");
   await expect(filters.getByText("2 of 3 titles eligible", { exact: true })).toBeVisible();
   await filters.getByRole("button", { name: /^Genre\b/ }).click();
   await filters.getByRole("button", { name: "Only Comedy", exact: true }).click();
@@ -44,7 +44,7 @@ test("filters survive reload and settings edits, and reset leaves playback intac
   await page.reload();
   await page.getByRole("button", { name: "Filters", exact: true }).click();
   await filters.getByRole("button", { name: /^Length\b/ }).click();
-  await expect(filters.getByLabel("draw-runtime-max", { exact: true })).toHaveValue("120");
+  await expect(filters.getByRole("slider", { name: "Longest length" })).toHaveValue("120");
   await expect(filters.getByRole("checkbox", { name: "Top service first", exact: true })).not.toBeChecked();
   await filters.getByRole("button", { name: "Change your streaming services" }).click();
   await expect(page.getByRole("heading", { name: "Settings", exact: true })).toBeVisible();
@@ -76,5 +76,5 @@ test("filters survive reload and settings edits, and reset leaves playback intac
   await page.getByRole("button", { name: "Filters", exact: true }).click();
   await expect(filters.getByRole("checkbox", { name: "Favor my services", exact: true })).not.toBeChecked();
   await filters.getByRole("button", { name: /^Length\b/ }).click();
-  await expect(filters.getByLabel("draw-runtime-max", { exact: true })).toHaveValue("500");
+  await expect(filters.getByRole("slider", { name: "Longest length" })).toHaveValue("180");
 });

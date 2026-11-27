@@ -120,6 +120,7 @@ export default function SoloDrawPage() {
     [rows, activeBowlIds]
   );
   const availableGenres = useMemo(() => getAvailableGenres(rows), [rows]);
+  const availableRuntimes = useMemo(() => scopedRows.map((movie) => movie?.runtime), [scopedRows]);
   const filters = useMemo(
     () =>
       buildDrawFiltersFromSettings(settings, {
@@ -537,7 +538,7 @@ export default function SoloDrawPage() {
         </section>}
       </div>
       {showFilters && <SoloDrawFilters settings={settings} setOverride={setOverride} setOverrides={setOverrides}
-        streamingServices={streamingServices} availableGenres={availableGenres} isPersisted={isPersisted}
+        streamingServices={streamingServices} availableGenres={availableGenres} runtimes={availableRuntimes} isPersisted={isPersisted}
         saveStatus={filterSaveStatus} onRetry={retryFilters} disabled={Boolean(preferencesLoading || preferencesError)} readout={readout} onClose={() => setShowFilters(false)} />}
       {showInfo && <SoloDrawDialog title="How solo draw picks" onClose={() => setShowInfo(false)}>
         <p className="mt-3 text-sm leading-relaxed text-slate-300">Only your undrawn titles in the selected bowls take part. Your favorites go first when they match your filters. Each eligible favorite has an equal chance; without favorites, each eligible title has an equal chance.</p>
