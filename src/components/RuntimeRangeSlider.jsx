@@ -22,14 +22,26 @@ function percent(value) {
 }
 
 // Stacks the bowl's titles into fifteen-minute columns so the track shows
-// where the bowl's lengths sit, and which ones a range leaves out.
+// where the bowl's lengths sit, and which ones a range leaves out. Each title
+// keeps its own length, so a 125-minute film in the two-hour column still
+// goes grey under a two-hour limit.
 function buildColumns(runtimes) {
   const columns = new Map();
   runtimes.forEach((runtime) => {
     const bucket = Math.min(RUNTIME_SCALE_MAX, Math.round(runtime / STEP) * STEP);
-    columns.set(bucket, (columns.get(bucket) || 0) + 1);
+    if (!columns.has(bucket)) columns.set(bucket, []);
+    columns.get(bucket).push(runtime);
   });
-  return [...columns.entries()].map(([bucket, count]) => ({ bucket, count }));
+  return [...columns.entries()].map(([bucket, items]) => ({ bucket, runtimes: items.sort((a, b) => a - b) }));
+}
+
+// The same test the draw applies (filterCandidatesByRuntime), so a lit slip
+// is one the draw keeps.
+function isInRange(runtime, minMinutes, maxMinutes) {
+  const min = Number(minMinutes);
+  const max = Number(maxMinutes);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || min < 0 || max <= 0) return true;
+  return runtime >= Math.min(min, max) && runtime <= Math.max(min, max);
 }
 
 export default function RuntimeRangeSlider({
@@ -43,7 +55,10 @@ export default function RuntimeRangeSlider({
 }) {
   const low = toScale(minMinutes, 0);
   const high = maxMinutes >= RUNTIME_FILTER_MAX_MINUTES ? RUNTIME_SCALE_MAX : toScale(maxMinutes, RUNTIME_SCALE_MAX);
-  const highIsOpen = high >= RUNTIME_SCALE_MAX;
+  // A limit saved by the old number boxes can sit past the end of the scale
+  // (say 200 minutes). Its thumb rests at the end, but it is still a limit,
+  // and it reads as one rather than as "No limit".
+  const highIsOpen = maxMinutes >= RUNTIME_FILTER_MAX_MINUTES;
 
   const setLow = (value) => {
     const next = Math.min(Number(value), high);
@@ -57,11 +72,22 @@ export default function RuntimeRangeSlider({
   const known = Array.isArray(runtimes) ? runtimes.filter((value) => Number(value) > 0).map(Number) : null;
   const unknownCount = Array.isArray(runtimes) ? runtimes.length - known.length : 0;
   const columns = known ? buildColumns(known) : [];
-  const tallest = Math.max(1, ...columns.map((column) => column.count), unknownCount);
+  const tallest = Math.max(1, ...columns.map((column) => column.runtimes.length), unknownCount);
   // A big bowl scales its stacks down rather than cutting the tall ones off,
   // so the shape stays true; any title still shows as at least one square.
   const squares = (count) => (count === 0 ? 0 : Math.max(1, Math.round((count * Math.min(tallest, MAX_STACK)) / tallest)));
-  const inRange = (bucket) => bucket >= low && (highIsOpen || bucket <= high);
+  // When a big bowl shrinks a column, its squares split lit and grey in the
+  // same proportion as its titles.
+  const columnSquares = (items) => {
+    const total = squares(items.length);
+    const lit = items.filter((runtime) => isInRange(runtime, minMinutes, maxMinutes)).length;
+    const litSquares = lit === 0 ? 0 : lit === items.length ? total : Math.min(total - 1, Math.max(1, Math.round((lit * total) / items.length)));
+    // Short titles sit at the bottom of a column, so a minimum greys from
+    // the bottom up and a maximum from the top down.
+    const firstLit = items.findIndex((runtime) => isInRange(runtime, minMinutes, maxMinutes));
+    const startsGrey = firstLit > 0 ? total - litSquares : 0;
+    return Array.from({ length: total }, (_, index) => index >= startsGrey && index < startsGrey + litSquares);
+  };
 
   return (
     <div className="runtime-range">
@@ -69,10 +95,10 @@ export default function RuntimeRangeSlider({
         <div className="min-w-0 flex-1">
           {known && (
             <div className="runtime-range-dots" aria-hidden="true" style={{ height: `${Math.min(tallest, MAX_STACK) * 0.625 + 0.25}rem` }}>
-              {columns.map(({ bucket, count }) => (
+              {columns.map(({ bucket, runtimes: items }) => (
                 <span key={bucket} className="runtime-range-column" style={{ left: `${percent(bucket)}%` }}>
-                  {Array.from({ length: squares(count) }, (_, index) => (
-                    <span key={index} className={`runtime-range-dot ${inRange(bucket) ? "is-in" : ""}`} />
+                  {columnSquares(items).map((lit, index) => (
+                    <span key={index} className={`runtime-range-dot ${lit ? "is-in" : ""}`} />
                   ))}
                 </span>
               ))}
@@ -91,21 +117,23 @@ export default function RuntimeRangeSlider({
               value={low}
               onChange={(event) => setLow(event.target.value)}
               className="runtime-range-input"
-              // The lower thumb sits on top only when both meet at the right
-              // end, or it could never be dragged back out from under the other.
-              style={{ zIndex: low >= RUNTIME_SCALE_MAX - STEP ? 3 : 2 }}
+              // Where the thumbs meet, the one that can still move goes on top:
+              // the lower thumb on the right half, the upper one on the left,
+              // or a pair stacked at either end could not be pulled apart.
+              style={{ zIndex: low > RUNTIME_SCALE_MAX / 2 ? 3 : 1 }}
             />
             <input
               id={`${idPrefix}-runtime-max`}
               type="range"
               aria-label="Longest length"
-              aria-valuetext={highIsOpen ? "No limit" : formatMinutes(high)}
+              aria-valuetext={highIsOpen ? "No limit" : formatMinutes(maxMinutes)}
               min={0}
               max={RUNTIME_SCALE_MAX}
               step={STEP}
               value={high}
               onChange={(event) => setHigh(event.target.value)}
               className="runtime-range-input"
+              style={{ zIndex: 2 }}
             />
           </div>
           <div className="runtime-range-ticks" aria-hidden="true">

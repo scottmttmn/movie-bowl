@@ -69,6 +69,40 @@ describe("RuntimeRangeSlider", () => {
     expect(unknown.every((dot) => dot.classList.contains("is-in"))).toBe(true);
   });
 
+  it("judges each slip by its own length, the way the draw does", () => {
+    const { container } = renderSlider({ minMinutes: 0, maxMinutes: 120, runtimes: [115, 120, 125] });
+    // All three round into the two-hour column; only the 125-minute one is cut.
+    const column = container.querySelector(".runtime-range-dots .runtime-range-column");
+    const dots = [...column.children];
+    expect(dots).toHaveLength(3);
+    expect(dots.map((dot) => dot.classList.contains("is-in"))).toEqual([true, true, false]);
+  });
+
+  it("greys a column from the bottom when a minimum cuts it", () => {
+    const { container } = renderSlider({ minMinutes: 120, runtimes: [115, 120, 125] });
+    const dots = [...container.querySelector(".runtime-range-dots .runtime-range-column").children];
+    expect(dots.map((dot) => dot.classList.contains("is-in"))).toEqual([false, true, true]);
+  });
+
+  it("keeps an old limit past the end of the scale a limit", () => {
+    const { container } = renderSlider({ maxMinutes: 200, runtimes: [190, 228] });
+    const longest = screen.getByRole("slider", { name: "Longest length" });
+    expect(longest).toHaveValue("180");
+    expect(longest).toHaveAttribute("aria-valuetext", "3 hr 20 min");
+    const dots = [...container.querySelectorAll(".runtime-range-dot")];
+    expect(dots.filter((dot) => dot.classList.contains("is-in"))).toHaveLength(1);
+  });
+
+  it("puts the thumb that can still move on top where the two meet", () => {
+    const { rerender } = renderSlider({ minMinutes: 0, maxMinutes: 0 });
+    const zIndex = (name) => Number(screen.getByRole("slider", { name }).style.zIndex);
+    expect(zIndex("Longest length")).toBeGreaterThan(zIndex("Shortest length"));
+    rerender(
+      <RuntimeRangeSlider idPrefix="test" minMinutes={180} maxMinutes={500} includeUnknown onChange={vi.fn()} onToggleUnknown={vi.fn()} />
+    );
+    expect(zIndex("Shortest length")).toBeGreaterThan(zIndex("Longest length"));
+  });
+
   it("scales a big bowl's stacks down instead of cutting them off", () => {
     const runtimes = [...Array(30).fill(120), ...Array(3).fill(90)];
     const { container } = renderSlider({ runtimes });
