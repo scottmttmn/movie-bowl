@@ -635,7 +635,7 @@ describe("BowlDashboard guards", () => {
 
     fireEvent.click(screen.getByRole("button", { name: /^filters$/i }));
     fireEvent.click(screen.getByRole("button", { name: /^Length\b/ }));
-    fireEvent.change(screen.getByLabelText("draw-runtime-max"), { target: { value: "120" } });
+    fireEvent.change(screen.getByRole("slider", { name: "Longest length" }), { target: { value: "120" } });
 
     await waitFor(() => {
       const cards = [...myMoviesSection.querySelectorAll("article")];

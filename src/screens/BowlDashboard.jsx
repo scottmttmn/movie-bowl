@@ -74,6 +74,7 @@ import TelevisionGlyph from "../components/TelevisionGlyph";
 import { buildLiveDraw, findAnnouncedDraw, verifyAnnouncedReveal } from "../utils/liveDraw";
 import GearGlyph from "../components/GearGlyph";
 import HomeGlyph from "../components/HomeGlyph";
+import RuntimeRangeSlider from "../components/RuntimeRangeSlider";
 import FilterRow from "../components/FilterRow";
 import RestaurantSheet from "../components/RestaurantSheet";
 import { BowlKindProvider } from "../context/BowlKindContext";
@@ -437,6 +438,13 @@ export default function BowlDashboard() {
       ],
       [myRemainingAdds, bowl.remaining]
     );
+    // Lengths for the Length filter's slips. Rows still syncing are not in
+    // the draw yet, so they are not on the track either.
+    const drawRuntimes = useMemo(
+      () => (bowl.remaining || []).filter((movie) => movie?.local_status !== "syncing").map((movie) => movie?.runtime),
+      [bowl.remaining]
+    );
+
     const availableDrawGenres = useMemo(() => {
       const genreSet = new Set();
       (bowl.remaining || []).forEach((movie) => {
@@ -1916,102 +1924,19 @@ return (
                           controls="draw-runtime-filter-panel"
                         />
                         {showRuntimeFilters && (
-                          <div id="draw-runtime-filter-panel" className="mt-2 rounded-lg border border-slate-700 bg-slate-900 p-3">
-                            <div className="grid gap-3 sm:grid-cols-2">
-                              <label htmlFor="draw-runtime-min" className="text-sm text-slate-300">
-                                Minimum minutes
-                                <input
-                                  id="draw-runtime-min"
-                                  name="draw_runtime_min"
-                                  aria-label="draw-runtime-min"
-                                  type="number"
-                                  min={RUNTIME_FILTER_MIN_MINUTES}
-                                  max={runtimeMaxMinutes}
-                                  value={runtimeMinMinutes}
-                                  onChange={(event) => {
-                                    const value = Number.parseInt(event.target.value || "0", 10);
-                                    if (!Number.isFinite(value)) return;
-                                    setRuntimeMinMinutes(Math.max(RUNTIME_FILTER_MIN_MINUTES, Math.min(runtimeMaxMinutes, value)));
-                                  }}
-                                  className="input-field mt-1 w-full text-sm"
-                                />
-                              </label>
-                              <label htmlFor="draw-runtime-max" className="text-sm text-slate-300">
-                                Maximum minutes
-                                <input
-                                  id="draw-runtime-max"
-                                  name="draw_runtime_max"
-                                  aria-label="draw-runtime-max"
-                                  type="number"
-                                  min={runtimeMinMinutes}
-                                  max={RUNTIME_FILTER_MAX_MINUTES}
-                                  value={runtimeMaxMinutes}
-                                  onChange={(event) => {
-                                    const value = Number.parseInt(event.target.value || "0", 10);
-                                    if (!Number.isFinite(value)) return;
-                                    setRuntimeMaxMinutes(Math.max(runtimeMinMinutes, Math.min(RUNTIME_FILTER_MAX_MINUTES, value)));
-                                  }}
-                                  className="input-field mt-1 w-full text-sm"
-                                />
-                              </label>
-                            </div>
-                            <div className="mt-3 space-y-3">
-                              <label htmlFor="draw-runtime-min-slider" className="block text-xs text-slate-400">
-                                Minimum runtime
-                                <input
-                                  id="draw-runtime-min-slider"
-                                  name="draw_runtime_min_slider"
-                                  aria-label="draw-runtime-min-slider"
-                                  type="range"
-                                  min={RUNTIME_FILTER_MIN_MINUTES}
-                                  max={runtimeMaxMinutes}
-                                  value={runtimeMinMinutes}
-                                  onChange={(event) =>
-                                    setRuntimeMinMinutes(
-                                      Math.max(
-                                        RUNTIME_FILTER_MIN_MINUTES,
-                                        Math.min(runtimeMaxMinutes, Number.parseInt(event.target.value || "0", 10) || RUNTIME_FILTER_MIN_MINUTES)
-                                      )
-                                    )
-                                  }
-                                  className="mt-1 w-full"
-                                />
-                              </label>
-                              <label htmlFor="draw-runtime-max-slider" className="block text-xs text-slate-400">
-                                Maximum runtime
-                                <input
-                                  id="draw-runtime-max-slider"
-                                  name="draw_runtime_max_slider"
-                                  aria-label="draw-runtime-max-slider"
-                                  type="range"
-                                  min={runtimeMinMinutes}
-                                  max={RUNTIME_FILTER_MAX_MINUTES}
-                                  value={runtimeMaxMinutes}
-                                  onChange={(event) =>
-                                    setRuntimeMaxMinutes(
-                                      Math.max(
-                                        runtimeMinMinutes,
-                                        Math.min(RUNTIME_FILTER_MAX_MINUTES, Number.parseInt(event.target.value || "0", 10) || RUNTIME_FILTER_MAX_MINUTES)
-                                      )
-                                    )
-                                  }
-                                  className="mt-1 w-full"
-                                />
-                              </label>
-                            </div>
-                            <label
-                              htmlFor="draw-runtime-unknown"
-                              className="mt-3 inline-flex items-center gap-1.5 text-sm text-slate-300"
-                            >
-                              <input
-                                id="draw-runtime-unknown"
-                                name="draw_runtime_unknown"
-                                type="checkbox"
-                                checked={includeUnknownRuntime}
-                                onChange={(event) => setIncludeUnknownRuntime(event.target.checked)}
-                              />
-                              Include unknown runtime
-                            </label>
+                          <div id="draw-runtime-filter-panel" className="mt-3">
+                            <RuntimeRangeSlider
+                              idPrefix="draw"
+                              minMinutes={runtimeMinMinutes}
+                              maxMinutes={runtimeMaxMinutes}
+                              includeUnknown={includeUnknownRuntime}
+                              onChange={({ minMinutes, maxMinutes }) => {
+                                setRuntimeMinMinutes(minMinutes);
+                                setRuntimeMaxMinutes(maxMinutes);
+                              }}
+                              onToggleUnknown={setIncludeUnknownRuntime}
+                              runtimes={drawRuntimes}
+                            />
                           </div>
                         )}
                       </div>

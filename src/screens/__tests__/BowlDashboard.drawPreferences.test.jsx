@@ -379,8 +379,8 @@ describe("BowlDashboard draw preferences", () => {
     expect(screen.getByRole("checkbox", { name: /favor my services/i })).toBeChecked();
     expect(screen.getByRole("checkbox", { name: /top service first/i })).not.toBeChecked();
     fireEvent.click(screen.getByRole("button", { name: /^Length\b/ }));
-    expect(screen.getByRole("spinbutton", { name: /draw-runtime-max/i })).toHaveValue(180);
-    expect(screen.getByRole("spinbutton", { name: /draw-runtime-min/i })).toHaveValue(0);
+    expect(screen.getByRole("slider", { name: "Longest length" })).toHaveValue("180");
+    expect(screen.getByRole("slider", { name: "Shortest length" })).toHaveValue("0");
     const ratingControls = screen.getByRole("region", { name: /draw rating controls/i });
     expect(within(ratingControls).getByRole("button", { name: /only PG-13/i })).toBeInTheDocument();
     expect(within(ratingControls).queryByRole("button", { name: /only G/i })).not.toBeInTheDocument();
@@ -446,7 +446,7 @@ describe("BowlDashboard draw preferences", () => {
     await settleAutosave();
     expect(mocks.state.saveDefaultDrawSettings).not.toHaveBeenCalled();
     fireEvent.click(screen.getByRole("button", { name: /^Length\b/ }));
-    expect(screen.getByLabelText("draw-runtime-max")).toHaveValue(0);
+    expect(screen.getByRole("slider", { name: "Longest length" })).toHaveValue("0");
     fireEvent.click(screen.getByRole("button", { name: /^Genre\b/ }));
     expect(screen.getByRole("button", { name: "Only Comedy", exact: true })).toBeInTheDocument();
   });
@@ -458,7 +458,7 @@ describe("BowlDashboard draw preferences", () => {
     vi.useFakeTimers();
     fireEvent.click(screen.getByRole("button", { name: "Filters", exact: true }));
     fireEvent.click(screen.getByRole("button", { name: /^Length\b/ }));
-    fireEvent.change(screen.getByLabelText("draw-runtime-max"), { target: { value: "120" } });
+    fireEvent.change(screen.getByRole("slider", { name: "Longest length" }), { target: { value: "120" } });
     await settleAutosave();
     expect(mocks.state.saveDefaultDrawSettings).toHaveBeenCalledTimes(1);
     const savedFilters = mocks.state.saveDefaultDrawSettings.mock.calls[0][0];
@@ -470,7 +470,7 @@ describe("BowlDashboard draw preferences", () => {
     renderDashboard();
     fireEvent.click(screen.getByRole("button", { name: "Filters", exact: true }));
     fireEvent.click(screen.getByRole("button", { name: /^Length\b/ }));
-    expect(screen.getByLabelText("draw-runtime-max")).toHaveValue(120);
+    expect(screen.getByRole("slider", { name: "Longest length" })).toHaveValue("120");
     fireEvent.click(screen.getByRole("button", { name: "Reset" }));
     await settleAutosave();
     expect(mocks.state.saveDefaultDrawSettings.mock.calls.at(-1)[0]).toEqual({ ...savedFilters, runtimeMaxMinutes: 500 });
@@ -484,7 +484,7 @@ describe("BowlDashboard draw preferences", () => {
     vi.useFakeTimers();
     fireEvent.click(screen.getByRole("button", { name: "Filters", exact: true }));
     fireEvent.click(screen.getByRole("button", { name: /^Length\b/ }));
-    fireEvent.change(screen.getByLabelText("draw-runtime-max"), { target: { value: "120" } });
+    fireEvent.change(screen.getByRole("slider", { name: "Longest length" }), { target: { value: "120" } });
     await settleAutosave();
     expect(screen.getByRole("alert")).toHaveTextContent("These filters still work for this draw");
     fireEvent.click(screen.getByRole("button", { name: "Done" }));
@@ -494,7 +494,7 @@ describe("BowlDashboard draw preferences", () => {
     expect(screen.queryByRole("alert")).not.toBeInTheDocument();
     expect(mocks.state.saveDefaultDrawSettings).toHaveBeenCalledTimes(2);
     fireEvent.click(screen.getByRole("button", { name: "Filters", exact: true }));
-    expect(screen.getByLabelText("draw-runtime-max")).toHaveValue(120);
+    expect(screen.getByRole("slider", { name: "Longest length" })).toHaveValue("120");
   });
 
   it("flushes the final edit when navigating away before autosave runs", async () => {
@@ -503,11 +503,11 @@ describe("BowlDashboard draw preferences", () => {
     vi.useFakeTimers();
     fireEvent.click(screen.getByRole("button", { name: "Filters", exact: true }));
     fireEvent.click(screen.getByRole("button", { name: /^Length\b/ }));
-    fireEvent.change(screen.getByLabelText("draw-runtime-max"), { target: { value: "140" } });
+    fireEvent.change(screen.getByRole("slider", { name: "Longest length" }), { target: { value: "135" } });
     unmount();
     await act(async () => {});
     expect(mocks.state.saveDefaultDrawSettings).toHaveBeenCalledTimes(1);
-    expect(mocks.state.saveDefaultDrawSettings.mock.calls[0][0]).toMatchObject({ runtimeMaxMinutes: 140 });
+    expect(mocks.state.saveDefaultDrawSettings.mock.calls[0][0]).toMatchObject({ runtimeMaxMinutes: 135 });
     expect(document.body.style.overflow).toBe("");
   });
 

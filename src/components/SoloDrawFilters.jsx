@@ -2,13 +2,14 @@ import { useState } from "react";
 import { useNavigate } from "react-router-dom";
 import FilterChipSelect from "./FilterChipSelect";
 import FilterRow from "./FilterRow";
+import RuntimeRangeSlider from "./RuntimeRangeSlider";
 import StreamingPreferenceRows from "./StreamingPreferenceRows";
 import { describeGenres, describeRatings, describeRuntime } from "../utils/filterSummaries";
 import SoloDrawDialog from "./SoloDrawDialog";
 import { MPAA_RATING_OPTIONS } from "../utils/movieRatings";
 import { DEFAULT_DRAW_SETTINGS } from "../utils/drawSettings";
 
-export default function SoloDrawFilters({ settings, setOverride, setOverrides, streamingServices, availableGenres, isPersisted, disabled, saveStatus, onRetry, readout, onClose }) {
+export default function SoloDrawFilters({ settings, setOverride, setOverrides, streamingServices, availableGenres, runtimes, isPersisted, disabled, saveStatus, onRetry, readout, onClose }) {
   const navigate = useNavigate();
   const chips = (key, options, unknownKey, label) => {
     const selected = settings[key] ?? options;
@@ -27,13 +28,11 @@ export default function SoloDrawFilters({ settings, setOverride, setOverrides, s
       <FilterSection title="Rating" value={describeRatings(settings.selectedRatings ?? MPAA_RATING_OPTIONS, settings.includeUnknownRatings)}><div className="mt-3">{chips("selectedRatings", MPAA_RATING_OPTIONS, "includeUnknownRatings", "Draw rating")}</div></FilterSection>
       <FilterSection title="Genre" value={describeGenres(settings.selectedGenres, availableGenres, settings.includeUnknownGenres)}><div className="mt-3">{chips("selectedGenres", availableGenres, "includeUnknownGenres", "Draw genre")}</div></FilterSection>
       <FilterSection title="Length" value={describeRuntime(settings.runtimeMinMinutes, settings.runtimeMaxMinutes, settings.includeUnknownRuntime)}>
-        <div className="mt-3 grid grid-cols-2 gap-3">
-          <label className="text-sm">Minimum minutes<input type="number" min="0" max={settings.runtimeMaxMinutes} value={settings.runtimeMinMinutes} className="input-field mt-1 w-full text-sm"
-            onChange={(event) => setOverride("runtimeMinMinutes", Math.min(settings.runtimeMaxMinutes, Math.max(0, Number(event.target.value))))} /></label>
-          <label className="text-sm">Maximum minutes<input type="number" min={settings.runtimeMinMinutes} max="500" value={settings.runtimeMaxMinutes} className="input-field mt-1 w-full text-sm"
-            onChange={(event) => setOverride("runtimeMaxMinutes", Math.max(settings.runtimeMinMinutes, Math.min(500, Number(event.target.value))))} /></label>
+        <div className="mt-3">
+          <RuntimeRangeSlider idPrefix="solo" minMinutes={settings.runtimeMinMinutes} maxMinutes={settings.runtimeMaxMinutes} includeUnknown={settings.includeUnknownRuntime}
+            onChange={({ minMinutes, maxMinutes }) => setOverrides({ runtimeMinMinutes: minMinutes, runtimeMaxMinutes: maxMinutes })}
+            onToggleUnknown={(value) => setOverride("includeUnknownRuntime", value)} runtimes={runtimes} />
         </div>
-        <label className="mt-3 flex items-center gap-2 text-sm"><input type="checkbox" checked={settings.includeUnknownRuntime} onChange={(event) => setOverride("includeUnknownRuntime", event.target.checked)} />Include unknown runtime</label>
       </FilterSection>
       <StreamingPreferenceRows idSuffix="solo" services={streamingServices} prioritize={settings.prioritizeStreaming} useRank={settings.useStreamingRank}
         onPrioritizeChange={(checked) => setOverrides({ prioritizeStreaming: checked, useStreamingRank: true })}
